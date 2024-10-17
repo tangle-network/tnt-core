@@ -16,8 +16,8 @@ contract BlueprintServiceManager is RootChainEnabled {
     /**
      * @dev Hook for service operator registration. Called when a service operator
      * attempts to register with the blueprint.
-     * @param operator The operator's details.
-     * @param registrationInputs Inputs required for registration.
+     * @param operator The operator's details in bytes format.
+     * @param registrationInputs Inputs required for registration in bytes format.
      */
     function onRegister(bytes calldata operator, bytes calldata registrationInputs) public payable virtual onlyFromRootChain { }
 
@@ -25,8 +25,8 @@ contract BlueprintServiceManager is RootChainEnabled {
      * @dev Hook for service instance requests. Called when a user requests a service
      * instance from the blueprint.
      * @param serviceId The ID of the requested service.
-     * @param operators The operators involved in the service.
-     * @param requestInputs Inputs required for the service request.
+     * @param operators The operators involved in the service in bytes array format.
+     * @param requestInputs Inputs required for the service request in bytes format.
      */
     function onRequest(
         uint64 serviceId,
@@ -45,7 +45,7 @@ contract BlueprintServiceManager is RootChainEnabled {
      * @param serviceId The ID of the service where the job is called.
      * @param job The job identifier.
      * @param jobCallId A unique ID for the job call.
-     * @param inputs Inputs required for the job execution.
+     * @param inputs Inputs required for the job execution in bytes format.
      */
     function onJobCall(
         uint64 serviceId,
@@ -65,9 +65,9 @@ contract BlueprintServiceManager is RootChainEnabled {
      * @param serviceId The ID of the service related to the job.
      * @param job The job identifier.
      * @param jobCallId The unique ID for the job call.
-     * @param participant The participant (operator) sending the result.
-     * @param inputs Inputs used for the job execution.
-     * @param outputs Outputs resulting from the job execution.
+     * @param participant The participant (operator) sending the result in bytes format.
+     * @param inputs Inputs used for the job execution in bytes format.
+     * @param outputs Outputs resulting from the job execution in bytes format.
      */
     function onJobCallResult(
         uint64 serviceId,
@@ -88,9 +88,9 @@ contract BlueprintServiceManager is RootChainEnabled {
      * @param serviceId The ID of the service related to the job.
      * @param job The job identifier.
      * @param jobCallId The unique ID for the job call.
-     * @param participant The participant (operator) whose result is being verified.
-     * @param inputs Inputs used for the job execution.
-     * @param outputs Outputs resulting from the job execution.
+     * @param participant The participant (operator) whose result is being verified in bytes format.
+     * @param inputs Inputs used for the job execution in bytes format.
+     * @param outputs Outputs resulting from the job execution in bytes format.
      * @return bool Returns true if the job call result is verified successfully,
      * otherwise false.
      */
@@ -107,5 +107,41 @@ contract BlueprintServiceManager is RootChainEnabled {
         virtual
         onlyFromRootChain
         returns (bool)
+    { }
+
+    /**
+     * @dev Hook for handling unapplied slashes. Called when a slash is queued and still not yet applied to an offender.
+     * @param serviceId The ID of the service related to the slash.
+     * @param offender The offender's details in bytes format.
+     * @param slashPercent The percentage of the slash.
+     * @param totalPayout The total payout amount in wei.
+     */
+    function onUnappliedSlash(
+        uint64 serviceId,
+        bytes calldata offender,
+        uint8 slashPercent,
+        uint256 totalPayout
+    )
+        public
+        virtual
+        onlyFromRootChain
+    { }
+
+    /**
+     * @dev Hook for handling applied slashes. Called when a slash is applied to an offender.
+     * @param serviceId The ID of the service related to the slash.
+     * @param offender The offender's details in bytes format.
+     * @param slashPercent The percentage of the slash.
+     * @param totalPayout The total payout amount in wei.
+     */
+    function onSlash(
+        uint64 serviceId,
+        bytes calldata offender,
+        uint8 slashPercent,
+        uint256 totalPayout
+    )
+        public
+        virtual
+        onlyFromRootChain
     { }
 }
