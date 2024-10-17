@@ -52,7 +52,8 @@ interface IBlueprintServiceManager {
         bytes calldata inputs,
         bytes calldata outputs
     )
-        external;
+        external
+        payable;
 
     /**
      * @dev Hook for handling unapplied slashes. Called when a slash is queued and still not yet applied to an offender.

@@ -93,7 +93,7 @@ contract IncredibleSquaringBlueprint is BlueprintServiceManagerBase {
         bytes calldata operator,
         bytes calldata inputs,
         bytes calldata outputs
-    ) public virtual override onlyFromRootChain {
+    ) public payable virtual override onlyFromRootChain {
         // Do something with the job result
     }
 

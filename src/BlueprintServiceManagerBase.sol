@@ -90,6 +90,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         bytes calldata outputs
     )
         public
+        payable
         virtual
         override
         onlyFromRootChain
