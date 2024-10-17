@@ -144,4 +144,19 @@ contract BlueprintServiceManager is RootChainEnabled {
         virtual
         onlyFromRootChain
     { }
+
+    /**
+     * @dev Query the slashing origins for a service. This mainly used by the runtime to determine the allowed list of accounts
+     * that can slash a service. by default, the service manager is the only account that can slash a service. override this
+     * function
+     * to allow other accounts to slash a service.
+     * @param serviceId The ID of the service.
+     * @return slashingOrigins The list of accounts that can slash the service.
+     */
+    function querySlashingOrigins(uint64 serviceId) public view virtual returns (address[] memory slashingOrigins) {
+        slashingOrigins = new address[](1);
+        slashingOrigins[0] = address(this);
+
+        return slashingOrigins;
+    }
 }
