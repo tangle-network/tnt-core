@@ -2,9 +2,10 @@
 pragma solidity ^0.8.19;
 
 import "core/Permissions.sol";
+import "core/IBlueprintServiceManager.sol";
 
 /**
- * @title BlueprintServiceManager
+ * @title BlueprintServiceManagerBase
  * @dev This contract acts as a manager for the lifecycle of a Blueprint Instance,
  * facilitating various stages such as registration, service requests, job execution,
  * and job result handling. It is designed to be used by the service blueprint designer
@@ -12,14 +13,23 @@ import "core/Permissions.sol";
  * Each function serves as a hook for different lifecycle events, and reverting any
  * of these functions interrupts the process flow.
  */
-contract BlueprintServiceManager is RootChainEnabled {
+contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabled {
     /**
      * @dev Hook for service operator registration. Called when a service operator
      * attempts to register with the blueprint.
      * @param operator The operator's details in bytes format.
      * @param registrationInputs Inputs required for registration in bytes format.
      */
-    function onRegister(bytes calldata operator, bytes calldata registrationInputs) public payable virtual onlyFromRootChain { }
+    function onRegister(
+        bytes calldata operator,
+        bytes calldata registrationInputs
+    )
+        public
+        payable
+        virtual
+        override
+        onlyFromRootChain
+    { }
 
     /**
      * @dev Hook for service instance requests. Called when a user requests a service
@@ -36,11 +46,12 @@ contract BlueprintServiceManager is RootChainEnabled {
         public
         payable
         virtual
+        override
         onlyFromRootChain
     { }
 
     /**
-     * @dev Hook for job calls on the service. Called when a job is executed within
+     * @dev Hook for job calls on the service. Called when a job is called within
      * the service context.
      * @param serviceId The ID of the service where the job is called.
      * @param job The job identifier.
@@ -56,11 +67,12 @@ contract BlueprintServiceManager is RootChainEnabled {
         public
         payable
         virtual
+        override
         onlyFromRootChain
     { }
 
     /**
-     * @dev Hook for handling job call results. Called when operators send the result
+     * @dev Hook for handling job result. Called when operators send the result
      * of a job execution.
      * @param serviceId The ID of the service related to the job.
      * @param job The job identifier.
@@ -69,7 +81,7 @@ contract BlueprintServiceManager is RootChainEnabled {
      * @param inputs Inputs used for the job execution in bytes format.
      * @param outputs Outputs resulting from the job execution in bytes format.
      */
-    function onJobCallResult(
+    function onJobResult(
         uint64 serviceId,
         uint8 job,
         uint64 jobCallId,
@@ -79,34 +91,8 @@ contract BlueprintServiceManager is RootChainEnabled {
     )
         public
         virtual
+        override
         onlyFromRootChain
-    { }
-
-    /**
-     * @dev Verifies the result of a job call. This function is used to validate the
-     * outputs of a job execution against the expected results.
-     * @param serviceId The ID of the service related to the job.
-     * @param job The job identifier.
-     * @param jobCallId The unique ID for the job call.
-     * @param participant The participant (operator) whose result is being verified in bytes format.
-     * @param inputs Inputs used for the job execution in bytes format.
-     * @param outputs Outputs resulting from the job execution in bytes format.
-     * @return bool Returns true if the job call result is verified successfully,
-     * otherwise false.
-     */
-    function verifyJobCallResult(
-        uint64 serviceId,
-        uint8 job,
-        uint64 jobCallId,
-        bytes calldata participant,
-        bytes calldata inputs,
-        bytes calldata outputs
-    )
-        public
-        view
-        virtual
-        onlyFromRootChain
-        returns (bool)
     { }
 
     /**
@@ -124,6 +110,7 @@ contract BlueprintServiceManager is RootChainEnabled {
     )
         public
         virtual
+        override
         onlyFromRootChain
     { }
 
@@ -142,21 +129,18 @@ contract BlueprintServiceManager is RootChainEnabled {
     )
         public
         virtual
+        override
         onlyFromRootChain
     { }
 
     /**
-     * @dev Query the slashing origins for a service. This mainly used by the runtime to determine the allowed list of accounts
+     * @dev Query the slashing origin for a service. This mainly used by the runtime to determine the allowed account
      * that can slash a service. by default, the service manager is the only account that can slash a service. override this
-     * function
-     * to allow other accounts to slash a service.
+     * function to allow other accounts to slash a service.
      * @param serviceId The ID of the service.
-     * @return slashingOrigins The list of accounts that can slash the service.
+     * @return slashingOrigin The list of accounts that can slash the service.
      */
-    function querySlashingOrigins(uint64 serviceId) public view virtual returns (address[] memory slashingOrigins) {
-        slashingOrigins = new address[](1);
-        slashingOrigins[0] = address(this);
-
-        return slashingOrigins;
+    function querySlashingOrigin(uint64 serviceId) public view virtual override returns (address slashingOrigin) {
+        return address(this);
     }
 }
