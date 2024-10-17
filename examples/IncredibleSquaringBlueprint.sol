@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import "core/BlueprintServiceManager.sol";
+import "core/BlueprintServiceManagerBase.sol";
 
 /**
  * @title IncredibleSquaringBlueprint
@@ -9,13 +9,13 @@ import "core/BlueprintServiceManager.sol";
  * service to square a number. It demonstrates the lifecycle hooks that can be
  * implemented in a service blueprint.
  */
-
-contract IncredibleSquaringBlueprint is BlueprintServiceManager {
+contract IncredibleSquaringBlueprint is BlueprintServiceManagerBase {
     /**
      * @dev A mapping of all service operators registered with the blueprint.
      * The key is the operator's address and the value is the operator's details.
      */
     mapping(address => bytes) public operators;
+
     /**
      * @dev A mapping of all service instances requested from the blueprint.
      * The key is the service ID and the value is the service operator's address.
@@ -52,47 +52,49 @@ contract IncredibleSquaringBlueprint is BlueprintServiceManager {
     ) public payable override onlyFromRootChain {
         // store the service instance request
         for (uint i = 0; i < operators.length; i++) {
-            address operatorAddress = operatorAddressFromPublicKey(operators[i]);
+            address operatorAddress = operatorAddressFromPublicKey(
+                operators[i]
+            );
             serviceInstances[serviceId].push(operatorAddress);
         }
     }
 
     /**
-     * @dev Hook for handling job call results. Called when operators send the result
+     * @dev Hook for job calls on the service. Called when a job is called within
+     * the service context.
+     * @param serviceId The ID of the service where the job is called.
+     * @param job The job identifier.
+     * @param jobCallId A unique ID for the job call.
+     * @param inputs Inputs required for the job execution in bytes format.
+     */
+    function onJobCall(
+        uint64 serviceId,
+        uint8 job,
+        uint64 jobCallId,
+        bytes calldata inputs
+    ) public payable override onlyFromRootChain {
+        // Implement job call logic here
+    }
+
+    /**
+     * @dev Hook for handling job result. Called when operators send the result
      * of a job execution.
      * @param serviceId The ID of the service related to the job.
      * @param job The job identifier.
-     * @param _jobCallId The unique ID for the job call.
-     * @param participant The participant (operator) sending the result.
-     * @param _inputs Inputs used for the job execution.
-     * @param _outputs Outputs resulting from the job execution.
+     * @param jobCallId The unique ID for the job call.
+     * @param operator The operator (operator) sending the result in bytes format.
+     * @param inputs Inputs used for the job execution in bytes format.
+     * @param outputs Outputs resulting from the job execution in bytes format.
      */
-    function onJobCallResult(
+    function onJobResult(
         uint64 serviceId,
         uint8 job,
-        uint64 _jobCallId,
-        bytes calldata participant,
-        bytes calldata _inputs,
-        bytes calldata _outputs
-    ) public virtual override onlyFromRootChain {
-        // check that we have this service instance
-        require(
-            serviceInstances[serviceId].length > 0,
-            "Service instance not found"
-        );
-        // check if job is zero.
-        require(job == 0, "Job not found");
-        // Check if the participant is a registered operator
-        address operatorAddress = address(bytes20(keccak256(participant)));
-        require(
-            operators[operatorAddress].length > 0,
-            "Operator not registered"
-        );
-        // Check if operator is part of the service instance
-        require(
-            isOperatorInServiceInstance(serviceId, operatorAddress),
-            "Operator not part of service instance"
-        );
+        uint64 jobCallId,
+        bytes calldata operator,
+        bytes calldata inputs,
+        bytes calldata outputs
+    ) public payable virtual override onlyFromRootChain {
+        // Do something with the job result
     }
 
     /**
@@ -101,28 +103,28 @@ contract IncredibleSquaringBlueprint is BlueprintServiceManager {
      * @param serviceId The ID of the service related to the job.
      * @param job The job identifier.
      * @param jobCallId The unique ID for the job call.
-     * @param participant The participant (operator) whose result is being verified.
+     * @param operator The operator (operator) whose result is being verified.
      * @param inputs Inputs used for the job execution.
      * @param outputs Outputs resulting from the job execution.
      * @return bool Returns true if the job call result is verified successfully,
      * otherwise false.
      */
-    function verifyJobCallResult(
+    function verifyResult(
         uint64 serviceId,
         uint8 job,
         uint64 jobCallId,
-        bytes calldata participant,
+        bytes calldata operator,
         bytes calldata inputs,
         bytes calldata outputs
-    ) public view virtual override onlyFromRootChain returns (bool) {
+    ) public view returns (bool) {
         // Someone requested to verify the result of a job call.
         // We need to check if the output is the square of the input.
 
         // check if job is zero.
         require(job == 0, "Job not found");
-        // Check if the participant is a registered operator, so we can slash
+        // Check if the operator is a registered operator, so we can slash
         // their stake if they are cheating.
-        address operatorAddress = operatorAddressFromPublicKey(participant);
+        address operatorAddress = operatorAddressFromPublicKey(operator);
         require(
             operators[operatorAddress].length > 0,
             "Operator not registered"
@@ -139,7 +141,9 @@ contract IncredibleSquaringBlueprint is BlueprintServiceManager {
         bool isValid = output == input * input;
         if (!isValid) {
             // Slash the operator's stake if the result is invalid
-            // slashStake(operatorAddress);
+            // Using ServicesPrecompile to slash the operator's stake
+            // slashPercent = 10; // 10% slash
+            // ServicesPrecompile.slash(serviceId, operator, slashPercent);
         }
 
         return isValid;
@@ -157,12 +161,9 @@ contract IncredibleSquaringBlueprint is BlueprintServiceManager {
         return false;
     }
 
-
-    function operatorAddressFromPublicKey(bytes calldata publicKey)
-        public
-        pure
-        returns (address)
-    {
+    function operatorAddressFromPublicKey(
+        bytes calldata publicKey
+    ) public pure returns (address) {
         return address(uint160(uint256(keccak256(publicKey))));
     }
 }
