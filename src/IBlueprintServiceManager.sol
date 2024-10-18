@@ -78,7 +78,17 @@ interface IBlueprintServiceManager {
      * that can slash a service. by default, the service manager is the only account that can slash a service. override this
      * function to allow other accounts to slash a service.
      * @param serviceId The ID of the service.
-     * @return slashingOrigin The list of accounts that can slash the service.
+     * @return slashingOrigin The account that can slash the offender.
      */
     function querySlashingOrigin(uint64 serviceId) external view returns (address slashingOrigin);
+
+    /**
+     * @dev Query the dispute origin for a service. This mainly used by the runtime to determine the allowed account
+     * that can dispute an unapplied slash and remove it. by default, the service manager is the only account that can dispute a
+     * service. override this
+     * function to allow other accounts to dispute a service.
+     * @param serviceId The ID of the service.
+     * @return disputeOrigin The account that can dispute the unapplied slash for that service
+     */
+    function queryDisputeOrigin(uint64 serviceId) external view returns (address disputeOrigin);
 }

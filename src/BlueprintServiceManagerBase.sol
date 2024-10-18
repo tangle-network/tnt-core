@@ -144,4 +144,16 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     function querySlashingOrigin(uint64 serviceId) public view virtual override returns (address slashingOrigin) {
         return address(this);
     }
+
+    /**
+     * @dev Query the dispute origin for a service. This mainly used by the runtime to determine the allowed account
+     * that can dispute an unapplied slash and remove it. by default, the service manager is the only account that can dispute a
+     * service. override this
+     * function to allow other accounts to dispute a service.
+     * @param serviceId The ID of the service.
+     * @return disputeOrigin The account that can dispute the unapplied slash for that service
+     */
+    function queryDisputeOrigin(uint64 serviceId) public view virtual override returns (address disputeOrigin) {
+        return address(this);
+    }
 }
