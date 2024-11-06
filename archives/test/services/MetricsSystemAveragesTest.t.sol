@@ -2,8 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import "core/services/MetricsSystem.sol";
-import "core/services/metrics/Averages.sol";
+import "../../contracts/services/MetricsSystem.sol";
+import "../../contracts/services/metrics/Averages.sol";
 
 contract MetricsSystemAveragesTest is Test {
     MetricsSystem public metricsSystem;
