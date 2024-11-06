@@ -5,7 +5,6 @@ import "src/Permissions.sol";
 import "src/IBlueprintServiceManager.sol";
 
 /**
- * fo
  * @title BlueprintServiceManagerBase
  * @dev This contract acts as a manager for the lifecycle of a Blueprint Instance,
  * facilitating various stages such as registration, service requests, job execution,
