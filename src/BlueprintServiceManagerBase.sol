@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import "core/Permissions.sol";
-import "core/IBlueprintServiceManager.sol";
+import "src/Permissions.sol";
+import "src/IBlueprintServiceManager.sol";
 
 /**
  * @title BlueprintServiceManagerBase

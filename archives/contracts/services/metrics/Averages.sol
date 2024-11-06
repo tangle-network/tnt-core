@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import { IMetricComputation } from "core/services/metrics/IMetricComputation.sol";
-import { exp, div, mul } from "math/ud60x18/Math.sol";
-import { add } from "math/ud60x18/Helpers.sol";
-import { LOG2_E } from "math/ud60x18/Constants.sol";
-import { UD60x18 } from "math/ud60x18/ValueType.sol";
+import { IMetricComputation } from "./IMetricComputation.sol";
+import { exp, div, mul } from "prb-math/ud60x18/Math.sol";
+import { add } from "prb-math/ud60x18/Helpers.sol";
+import { LOG2_E } from "prb-math/ud60x18/Constants.sol";
+import { UD60x18 } from "prb-math/ud60x18/ValueType.sol";
 
 contract SimpleMovingAverage is IMetricComputation {
     uint256 public immutable period;
