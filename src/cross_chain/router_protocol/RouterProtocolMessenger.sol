@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import { ICrossChainMessenger } from "../ICrossChainMessenger.sol";
+import { ICrossChainMessenger } from "../../interfaces/ICrossChainMessenger.sol";
 import { IGateway } from "../../vendored/router_protocol/IGateway.sol";
 
 contract RouterProtocolMessenger is ICrossChainMessenger {

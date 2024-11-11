@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import { ICrossChainReceiver } from "../ICrossChainReceiver.sol";
+import { ICrossChainReceiver } from "../../interfaces/ICrossChainReceiver.sol";
 
 abstract contract BaseBlueprintReceiver is ICrossChainReceiver {
     // Event types

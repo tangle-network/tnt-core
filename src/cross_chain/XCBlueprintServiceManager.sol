@@ -2,126 +2,38 @@
 pragma solidity ^0.8.19;
 
 import { BlueprintServiceManagerBase } from "../BlueprintServiceManagerBase.sol";
-import { ICrossChainMessenger } from "./ICrossChainMessenger.sol";
+import { ICrossChainBridgeManager } from "../interfaces/ICrossChainBridgeManager.sol";
 
 /**
  * @title XCBlueprintServiceManager
- * @dev Cross-chain enabled BlueprintServiceManager that can dispatch messages across multiple bridges
+ * @dev Cross-chain enabled BlueprintServiceManager that dispatches messages through a bridge manager
  */
 contract XCBlueprintServiceManager is BlueprintServiceManagerBase {
-    struct BridgeConfig {
-        ICrossChainMessenger messenger;
-        bool isActive;
-    }
+    ICrossChainBridgeManager public immutable bridgeManager;
 
-    struct ChainConfig {
-        uint32 chainId;
-        bytes32 recipient;
-        bool isActive;
-    }
+    // Events for tracking message dispatches
+    event CrossChainMessageDispatched(bytes message);
+    event CrossChainDispatchFailed(string reason);
 
-    // Mapping of bridge ID to bridge configuration
-    mapping(uint256 => BridgeConfig) public bridges;
-
-    // Mapping of bridge ID to chain configurations
-    mapping(uint256 => ChainConfig[]) public bridgeChains;
-
-    // Events
-    event BridgeAdded(uint256 indexed bridgeId, address messenger);
-    event BridgeRemoved(uint256 indexed bridgeId);
-    event ChainAdded(uint256 indexed bridgeId, uint32 chainId, bytes32 recipient);
-    event ChainRemoved(uint256 indexed bridgeId, uint32 chainId);
-    event MessageDispatched(uint256 indexed bridgeId, uint32 indexed chainId, bytes32 recipient, bytes32 messageId);
-    event DispatchError(uint256 indexed bridgeId, uint32 indexed chainId, string reason);
-
-    /**
-     * @dev Add a new bridge configuration
-     */
-    function addBridge(uint256 bridgeId, address messenger) external onlyFromRootChain {
-        require(messenger != address(0), "Invalid messenger address");
-        require(!bridges[bridgeId].isActive, "Bridge already exists");
-
-        bridges[bridgeId] = BridgeConfig({ messenger: ICrossChainMessenger(messenger), isActive: true });
-
-        emit BridgeAdded(bridgeId, messenger);
+    constructor(address _bridgeManager) {
+        require(_bridgeManager != address(0), "Invalid bridge manager");
+        bridgeManager = ICrossChainBridgeManager(_bridgeManager);
     }
 
     /**
-     * @dev Remove a bridge configuration
-     */
-    function removeBridge(uint256 bridgeId) external onlyFromRootChain {
-        require(bridges[bridgeId].isActive, "Bridge not found");
-
-        delete bridges[bridgeId];
-        delete bridgeChains[bridgeId];
-
-        emit BridgeRemoved(bridgeId);
-    }
-
-    /**
-     * @dev Add a new chain configuration for a bridge
-     */
-    function addChain(uint256 bridgeId, uint32 chainId, bytes32 recipient) external onlyFromRootChain {
-        require(bridges[bridgeId].isActive, "Bridge not found");
-        require(recipient != bytes32(0), "Invalid recipient");
-
-        // Check if chain already exists
-        ChainConfig[] storage chains = bridgeChains[bridgeId];
-        for (uint256 i = 0; i < chains.length; i++) {
-            require(chains[i].chainId != chainId, "Chain already exists");
-        }
-
-        chains.push(ChainConfig({ chainId: chainId, recipient: recipient, isActive: true }));
-
-        emit ChainAdded(bridgeId, chainId, recipient);
-    }
-
-    /**
-     * @dev Remove a chain configuration from a bridge
-     */
-    function removeChain(uint256 bridgeId, uint32 chainId) external onlyFromRootChain {
-        ChainConfig[] storage chains = bridgeChains[bridgeId];
-
-        for (uint256 i = 0; i < chains.length; i++) {
-            if (chains[i].chainId == chainId) {
-                chains[i] = chains[chains.length - 1];
-                chains.pop();
-                emit ChainRemoved(bridgeId, chainId);
-                return;
-            }
-        }
-
-        revert("Chain not found");
-    }
-
-    /**
-     * @dev Internal function to dispatch a message to all configured bridges and chains
+     * @dev Internal function to safely dispatch a cross-chain message
+     * @param message The message to dispatch
      */
     function _dispatchCrossChainMessage(bytes memory message) internal {
-        // Iterate through all bridges
-        for (uint256 bridgeId = 0; bridgeId < type(uint256).max; bridgeId++) {
-            BridgeConfig storage bridge = bridges[bridgeId];
-            if (!bridge.isActive) continue;
+        // Get the total fee required for all destinations
+        uint256 totalFee = msg.value;
 
-            // Get chains for this bridge
-            ChainConfig[] storage chains = bridgeChains[bridgeId];
-
-            // Dispatch to all chains for this bridge
-            for (uint256 i = 0; i < chains.length; i++) {
-                if (!chains[i].isActive) continue;
-
-                try bridge.messenger.quoteMessageFee(chains[i].chainId, chains[i].recipient, message) returns (uint256 fee) {
-                    try bridge.messenger.sendMessage{ value: fee }(chains[i].chainId, chains[i].recipient, message) returns (
-                        bytes32 messageId
-                    ) {
-                        emit MessageDispatched(bridgeId, chains[i].chainId, chains[i].recipient, messageId);
-                    } catch Error(string memory reason) {
-                        emit DispatchError(bridgeId, chains[i].chainId, reason);
-                    }
-                } catch Error(string memory reason) {
-                    emit DispatchError(bridgeId, chains[i].chainId, reason);
-                }
-            }
+        try bridgeManager.dispatchMessage{ value: totalFee }(message) {
+            emit CrossChainMessageDispatched(message);
+        } catch Error(string memory reason) {
+            emit CrossChainDispatchFailed(reason);
+        } catch (bytes memory) {
+            emit CrossChainDispatchFailed("Unknown error");
         }
     }
 
@@ -129,7 +41,7 @@ contract XCBlueprintServiceManager is BlueprintServiceManagerBase {
      * @dev Override of onSlash to dispatch slash events cross-chain
      */
     function onSlash(uint64 serviceId, bytes calldata offender, uint8 slashPercent, uint256 totalPayout) public virtual override {
-        // Call parent implementation if needed
+        // Call parent implementation
         super.onSlash(serviceId, offender, slashPercent, totalPayout);
 
         // Encode the slash event
@@ -138,7 +50,7 @@ contract XCBlueprintServiceManager is BlueprintServiceManagerBase {
             abi.encode(serviceId, offender, slashPercent, totalPayout)
         );
 
-        // Dispatch to all configured bridges and chains
+        // Dispatch via bridge manager
         _dispatchCrossChainMessage(message);
     }
 
@@ -155,9 +67,10 @@ contract XCBlueprintServiceManager is BlueprintServiceManagerBase {
     )
         public
         payable
+        virtual
         override
     {
-        // Call parent implementation if needed
+        // Call parent implementation
         super.onJobResult(serviceId, job, jobCallId, participant, inputs, outputs);
 
         // Encode the job result event
@@ -166,7 +79,7 @@ contract XCBlueprintServiceManager is BlueprintServiceManagerBase {
             abi.encode(serviceId, job, jobCallId, participant, inputs, outputs)
         );
 
-        // Dispatch to all configured bridges and chains
+        // Dispatch via bridge manager
         _dispatchCrossChainMessage(message);
     }
 
@@ -174,4 +87,15 @@ contract XCBlueprintServiceManager is BlueprintServiceManagerBase {
      * @dev Function to receive ETH for bridge fees
      */
     receive() external payable { }
+
+    /**
+     * @dev Function to allow owner to withdraw any excess ETH
+     */
+    function withdrawTNT() external onlyOwnerOrRootChain {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No ETH to withdraw");
+
+        (bool success,) = msg.sender.call{ value: balance }("");
+        require(success, "ETH transfer failed");
+    }
 }

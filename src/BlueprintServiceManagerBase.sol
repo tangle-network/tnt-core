@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import "src/Permissions.sol";
-import "src/IBlueprintServiceManager.sol";
+import "./Permissions.sol";
+import "./interfaces/IBlueprintServiceManager.sol";
 
 /**
  * @title BlueprintServiceManagerBase
@@ -13,7 +13,7 @@ import "src/IBlueprintServiceManager.sol";
  * Each function serves as a hook for different lifecycle events, and reverting any
  * of these functions interrupts the process flow.
  */
-contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabled {
+contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabledOwnable {
     /**
      * @dev Hook for service operator registration. Called when a service operator
      * attempts to register with the blueprint.
