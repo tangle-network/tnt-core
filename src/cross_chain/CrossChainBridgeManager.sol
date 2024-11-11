@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import { Ownable, RootChainEnabled } from "../Permissions.sol";
+import { RootChainEnabledOwnable } from "../Permissions.sol";
 import { ICrossChainMessenger } from "../interfaces/ICrossChainMessenger.sol";
 import { ICrossChainBridgeManager } from "../interfaces/ICrossChainBridgeManager.sol";
 
 /// @dev Central manager for cross-chain bridge configurations and message dispatch
-contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChainEnabled {
+contract CrossChainBridgeManager is ICrossChainBridgeManager, RootChainEnabledOwnable {
     // Mapping of bridge ID to bridge configuration
     mapping(uint256 => BridgeConfig) public bridges;
 
@@ -18,11 +18,6 @@ contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChain
 
     modifier onlyAuthorizedBlueprint() {
         require(authorizedBlueprints[msg.sender], "Unauthorized blueprint");
-        _;
-    }
-
-    modifier onlyOwnerOrRootChain() {
-        require(msg.sender == owner() || msg.sender == rootChainOrigin(), "Unauthorized");
         _;
     }
 

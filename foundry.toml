@@ -8,7 +8,12 @@ libs = ["lib"]
 # optimizer = true (default)
 optimizer_runs = 200
 fs_permissions = [{ access = "read-write", path = "./" }]
-solc = "0.8.19"
+solc = "0.8.20"
+
+remappings = [
+    "@openzeppelin/=node_modules/@openzeppelin/"
+]
+
 
 [profile.ci]
 verbosity = 4
@@ -34,3 +39,4 @@ depth = 100
 arbitrum_goerli = "${ARBITRUM_GOERLI_RPC}"
 arbitrum = "${ARBITRUM_RPC}"
 mainnet = "${MAINNET_RPC}"
+

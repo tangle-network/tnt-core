@@ -3,6 +3,9 @@ pragma solidity ^0.8.19;
 
 import { ICrossChainReceiver } from "../../interfaces/ICrossChainReceiver.sol";
 
+/// @title BaseBlueprintReceiver
+/// @notice Base contract for receiving cross-chain messages from Tangle Blueprints
+/// This contract lives on the remote chain and accepts messages from Tangle Blueprints.
 abstract contract BaseBlueprintReceiver is ICrossChainReceiver {
     // Event types
     uint8 constant SLASH_EVENT = 1;
