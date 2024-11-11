@@ -10,7 +10,7 @@ contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChain
     // Mapping of bridge ID to bridge configuration
     mapping(uint256 => BridgeConfig) public bridges;
 
-    // Mapping of bridge ID to chain configurations 
+    // Mapping of bridge ID to chain configurations
     mapping(uint256 => ChainConfig[]) public bridgeChains;
 
     // Mapping of authorized blueprint contracts
