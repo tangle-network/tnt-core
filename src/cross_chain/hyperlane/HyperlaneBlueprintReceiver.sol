@@ -39,7 +39,7 @@ contract HyperlaneBlueprintReceiver is BaseBlueprintReceiver, IMessageRecipient 
         onlyMailbox
         returns (bytes memory)
     {
-        return handleCrossChainMessage(_origin, _sender, _message);
+        return this.handleCrossChainMessage(_origin, _sender, _message);
     }
 
     function _processSlashEvent(

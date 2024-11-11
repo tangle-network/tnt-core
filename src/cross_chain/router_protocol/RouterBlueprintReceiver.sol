@@ -19,7 +19,7 @@ contract RouterBlueprintReceiver is BaseBlueprintReceiver, IDapp {
         override
         returns (bytes memory)
     {
-        return handleCrossChainMessage(_stringToUint32(srcChainId), _stringToBytes32(requestSender), packet);
+        return this.handleCrossChainMessage(_stringToUint32(srcChainId), _stringToBytes32(requestSender), packet);
     }
 
     function iAck(uint256 requestIdentifier, bool execFlag, bytes memory execData) external override {
