@@ -6,6 +6,11 @@ import { IMessageRecipient } from "../../vendored/hyperlane/IMessageRecipient.so
 import { TypeCasts } from "../../vendored/hyperlane/TypeCasts.sol";
 import { BaseBlueprintReceiver } from "../receivers/BaseBlueprintReceiver.sol";
 
+/// @title HyperlaneBlueprintReceiver
+/// @notice Blueprint receiver contract for Hyperlane
+/// This contract is used to receive and process messages from Hyperlane on the
+/// remote chain that accepts restaking assets for Tangle Blueprints. Every blueprint
+/// sends messages to this contract to process job results and slash events.
 contract HyperlaneBlueprintReceiver is BaseBlueprintReceiver, IMessageRecipient {
     using TypeCasts for bytes32;
     using TypeCasts for address;

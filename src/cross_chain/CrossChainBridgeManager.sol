@@ -5,15 +5,12 @@ import { Ownable, RootChainEnabled } from "../Permissions.sol";
 import { ICrossChainMessenger } from "../interfaces/ICrossChainMessenger.sol";
 import { ICrossChainBridgeManager } from "../interfaces/ICrossChainBridgeManager.sol";
 
-/**
- * @title CrossChainBridgeManager
- * @dev Central manager for cross-chain bridge configurations and message dispatch
- */
+/// @dev Central manager for cross-chain bridge configurations and message dispatch
 contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChainEnabled {
     // Mapping of bridge ID to bridge configuration
     mapping(uint256 => BridgeConfig) public bridges;
 
-    // Mapping of bridge ID to chain configurations
+    // Mapping of bridge ID to chain configurations 
     mapping(uint256 => ChainConfig[]) public bridgeChains;
 
     // Mapping of authorized blueprint contracts
@@ -29,26 +26,20 @@ contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChain
         _;
     }
 
-    /**
-     * @dev Authorize a blueprint contract to use the bridge manager
-     */
+    /// @inheritdoc ICrossChainBridgeManager
     function authorizeBlueprint(address blueprint) external onlyOwnerOrRootChain {
         require(blueprint != address(0), "Invalid blueprint address");
         authorizedBlueprints[blueprint] = true;
         emit BlueprintAuthorized(blueprint);
     }
 
-    /**
-     * @dev Deauthorize a blueprint contract
-     */
+    /// @inheritdoc ICrossChainBridgeManager
     function deauthorizeBlueprint(address blueprint) external onlyOwnerOrRootChain {
         authorizedBlueprints[blueprint] = false;
         emit BlueprintDeauthorized(blueprint);
     }
 
-    /**
-     * @dev Add a new bridge configuration
-     */
+    /// @inheritdoc ICrossChainBridgeManager
     function addBridge(uint256 bridgeId, address messenger, string calldata bridgeName) external onlyOwnerOrRootChain {
         require(messenger != address(0), "Invalid messenger address");
         require(!bridges[bridgeId].isActive, "Bridge already exists");
@@ -59,9 +50,7 @@ contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChain
         emit BridgeAdded(bridgeId, messenger, bridgeName);
     }
 
-    /**
-     * @dev Remove a bridge configuration
-     */
+    /// @inheritdoc ICrossChainBridgeManager
     function removeBridge(uint256 bridgeId) external onlyOwnerOrRootChain {
         require(bridges[bridgeId].isActive, "Bridge not found");
 
@@ -71,9 +60,7 @@ contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChain
         emit BridgeRemoved(bridgeId);
     }
 
-    /**
-     * @dev Add a new chain configuration for a bridge
-     */
+    /// @inheritdoc ICrossChainBridgeManager
     function addChain(
         uint256 bridgeId,
         uint32 chainId,
@@ -97,9 +84,7 @@ contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChain
         emit ChainAdded(bridgeId, chainId, recipient, chainName);
     }
 
-    /**
-     * @dev Remove a chain configuration from a bridge
-     */
+    /// @inheritdoc ICrossChainBridgeManager
     function removeChain(uint256 bridgeId, uint32 chainId) external onlyOwnerOrRootChain {
         ChainConfig[] storage chains = bridgeChains[bridgeId];
 
@@ -115,9 +100,7 @@ contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChain
         revert("Chain not found");
     }
 
-    /**
-     * @dev Get all active bridges
-     */
+    /// @inheritdoc ICrossChainBridgeManager
     function getActiveBridges() external view returns (uint256[] memory bridgeIds, string[] memory bridgeNames) {
         uint256 count = 0;
         for (uint256 i = 0; i < type(uint256).max; i++) {
@@ -137,9 +120,7 @@ contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChain
         }
     }
 
-    /**
-     * @dev Get all active chains for a bridge
-     */
+    /// @inheritdoc ICrossChainBridgeManager
     function getActiveChainsForBridge(uint256 bridgeId)
         external
         view
@@ -168,9 +149,7 @@ contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChain
         }
     }
 
-    /**
-     * @dev Dispatch a message to all configured bridges and chains
-     */
+    /// @inheritdoc ICrossChainBridgeManager
     function dispatchMessage(bytes memory message) external payable onlyAuthorizedBlueprint {
         // Iterate through all bridges
         for (uint256 bridgeId = 0; bridgeId < type(uint256).max; bridgeId++) {
@@ -199,12 +178,11 @@ contract CrossChainBridgeManager is ICrossChainBridgeManager, Ownable, RootChain
         }
     }
 
+    /// @inheritdoc ICrossChainBridgeManager
     function get_bridges(uint256 bridgeId) external view override returns (BridgeConfig memory) {
         return bridges[bridgeId];
     }
 
-    /**
-     * @dev Function to receive ETH for bridge fees
-     */
+    /// @dev Function to receive ETH for bridge fees
     receive() external payable { }
 }

@@ -4,6 +4,11 @@ pragma solidity ^0.8.19;
 import { ICrossChainMessenger } from "../../interfaces/ICrossChainMessenger.sol";
 import { IGateway } from "../../vendored/router_protocol/IGateway.sol";
 
+/// @title RouterProtocolMessenger
+/// @notice Blueprint messenger contract for Router Protocol
+/// This contract is used to send messages from Tangle Blueprints to Router Protocol
+/// for cross-chain communication. Every blueprint uses this contract to send job results
+/// and slash events to the remote chain.
 contract RouterProtocolMessenger is ICrossChainMessenger {
     IGateway public immutable gateway;
 
@@ -50,6 +55,7 @@ contract RouterProtocolMessenger is ICrossChainMessenger {
         return abi.encode(destAddress, payload);
     }
 
+    /// @inheritdoc ICrossChainMessenger
     function quoteMessageFee(
         uint32 destinationChainId,
         bytes32 recipient,
@@ -64,6 +70,7 @@ contract RouterProtocolMessenger is ICrossChainMessenger {
         return 0;
     }
 
+    /// @inheritdoc ICrossChainMessenger
     function sendMessage(
         uint32 destinationChainId,
         bytes32 recipient,
@@ -124,24 +131,5 @@ contract RouterProtocolMessenger is ICrossChainMessenger {
             str[3 + i * 2] = alphabet[uint8(_input[i + 12] & 0x0f)];
         }
         return string(str);
-    }
-}
-
-/// @title RouterProtocolMessengerSetup
-/// @dev Helper contract to setup the RouterProtocolMessenger with default configurations
-contract RouterProtocolMessengerSetup {
-    function setupArbitrumConfig(RouterProtocolMessenger messenger) external {
-        RouterProtocolMessenger.RouterConfig memory config = RouterProtocolMessenger.RouterConfig({
-            destGasLimit: 500_000, // Example gas limit
-            destGasPrice: 0, // Let Router estimate
-            ackGasLimit: 300_000, // Example ack gas limit
-            ackGasPrice: 0, // Let Router estimate
-            relayerFees: 25_000_000_000_000_000, // 0.025 ROUTE (minimum)
-            ackType: 1, // Expect success acks
-            isReadCall: false, // This is a write operation
-            asmAddress: "" // No ASM module
-         });
-
-        messenger.setChainConfig(421_614, config); // Arbitrum Sepolia testnet
     }
 }

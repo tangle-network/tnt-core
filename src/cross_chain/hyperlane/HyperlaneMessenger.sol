@@ -4,6 +4,12 @@ pragma solidity ^0.8.19;
 import { ICrossChainMessenger } from "../../interfaces/ICrossChainMessenger.sol";
 import { IMailbox } from "../../vendored/hyperlane/IMailbox.sol";
 
+/// @title HyperlaneMessenger
+/// @notice Blueprint messenger contract for Hyperlane
+/// This contract is used to send messages from Tangle Blueprints to Hyperlane
+/// for cross-chain communication. Every blueprint uses this contract to send job results
+/// and slash events to the remote chain.
+
 contract HyperlaneMessenger is ICrossChainMessenger {
     IMailbox public immutable mailbox;
 

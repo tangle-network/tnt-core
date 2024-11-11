@@ -4,6 +4,11 @@ pragma solidity ^0.8.19;
 import { IDapp } from "../../vendored/router_protocol/IDapp.sol";
 import { BaseBlueprintReceiver } from "../receivers/BaseBlueprintReceiver.sol";
 
+/// @title RouterBlueprintReceiver
+/// @notice Blueprint receiver contract for Router Protocol
+/// This contract is used to receive and process messages from Router Protocol on the
+/// remote chain that accepts restaking assets for Tangle Blueprints. Every blueprint
+/// sends messages to this contract to process job results and slash events.
 contract RouterBlueprintReceiver is BaseBlueprintReceiver, IDapp {
     // Mapping to track pending requests
     mapping(uint256 => bool) public pendingRequests;
