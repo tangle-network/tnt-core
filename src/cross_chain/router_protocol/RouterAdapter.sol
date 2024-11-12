@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import { IDapp } from "../../vendored/router_protocol/IDapp.sol";
 import { ICrossChainReceiver } from "../../interfaces/ICrossChainReceiver.sol";
 import { ICrossChainDepositMessage } from "../../interfaces/ICrossChainDepositMessage.sol";
-import { CrossChainDepositMessage } from "../libs/CrossChainDepositMessage.sol";
+import { CrossChainDepositMessage } from "../../libs/CrossChainDepositMessage.sol";
 
 /// @title RouterAdapter
 /// @notice Adapts Router Protocol messages to standard cross-chain message format

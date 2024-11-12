@@ -5,7 +5,7 @@ import { IERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.
 import { ICrossChainAssetVault } from "../interfaces/ICrossChainAssetVault.sol";
 import { ICrossChainReceiver } from "../interfaces/ICrossChainReceiver.sol";
 import { ICrossChainDepositMessage } from "../interfaces/ICrossChainDepositMessage.sol";
-import { CrossChainDepositMessage } from "../cross_chain/libs/CrossChainDepositMessage.sol";
+import { CrossChainDepositMessage } from "../libs/CrossChainDepositMessage.sol";
 import { AssetDelegationBase } from "../delegation/AssetDelegationBase.sol";
 import { SyntheticRestakeAsset } from "./SyntheticRestakeAsset.sol";
 

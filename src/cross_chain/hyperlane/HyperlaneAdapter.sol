@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import { IMessageRecipient } from "../../vendored/hyperlane/IMessageRecipient.sol";
 import { ICrossChainReceiver } from "../../interfaces/ICrossChainReceiver.sol";
 import { ICrossChainDepositMessage } from "../../interfaces/ICrossChainDepositMessage.sol";
-import { CrossChainDepositMessage } from "../libs/CrossChainDepositMessage.sol";
+import { CrossChainDepositMessage } from "../../libs/CrossChainDepositMessage.sol";
 
 /// @title HyperlaneAdapter
 /// @notice Adapts Hyperlane messages to standard cross-chain message format

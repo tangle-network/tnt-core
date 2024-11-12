@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import { ICrossChainDepositMessage } from "../../interfaces/ICrossChainDepositMessage.sol";
+import { ICrossChainDepositMessage } from "../interfaces/ICrossChainDepositMessage.sol";
 
 /// @title CrossChainDepositMessage
 /// @notice Library for handling cross-chain message encoding/decoding
