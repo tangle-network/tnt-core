@@ -68,8 +68,6 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver, Ass
     function _handleDepositMessage(uint32 originChainId, bytes32 sender, bytes calldata payload) internal returns (bytes memory) {
         ICrossChainDelegatorMessage.DepositMessage memory message = CrossChainDelegatorMessage.decodeDepositMessage(payload);
 
-        if (message.sender != sender) revert Unauthorized(sender);
-
         address syntheticAsset = getOrCreateSyntheticAsset(originChainId, message.originAsset, message.bridgeId);
 
         SyntheticRestakeAsset(syntheticAsset).mint(address(this), message.amount);
@@ -87,8 +85,6 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver, Ass
         returns (bytes memory)
     {
         ICrossChainDelegatorMessage.DelegationMessage memory message = CrossChainDelegatorMessage.decodeDelegationMessage(payload);
-
-        if (message.sender != sender) revert Unauthorized(sender);
 
         address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
@@ -109,8 +105,6 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver, Ass
         ICrossChainDelegatorMessage.ScheduleUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeScheduleUnstakeMessage(payload);
 
-        if (message.sender != sender) revert Unauthorized(sender);
-
         address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
@@ -130,8 +124,6 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver, Ass
         ICrossChainDelegatorMessage.CancelUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeCancelUnstakeMessage(payload);
 
-        if (message.sender != sender) revert Unauthorized(sender);
-
         address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
@@ -150,8 +142,6 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver, Ass
     {
         ICrossChainDelegatorMessage.ExecuteUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeExecuteUnstakeMessage(payload);
-
-        if (message.sender != sender) revert Unauthorized(sender);
 
         address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
@@ -173,8 +163,6 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver, Ass
         ICrossChainDelegatorMessage.ScheduleWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeScheduleWithdrawalMessage(payload);
 
-        if (message.sender != sender) revert Unauthorized(sender);
-
         address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
@@ -194,8 +182,6 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver, Ass
         ICrossChainDelegatorMessage.CancelWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeCancelWithdrawalMessage(payload);
 
-        if (message.sender != sender) revert Unauthorized(sender);
-
         address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
@@ -214,8 +200,6 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver, Ass
     {
         ICrossChainDelegatorMessage.ExecuteWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeExecuteWithdrawalMessage(payload);
-
-        if (message.sender != sender) revert Unauthorized(sender);
 
         address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
