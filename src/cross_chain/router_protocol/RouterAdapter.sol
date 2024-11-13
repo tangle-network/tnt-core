@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { IDapp } from "../../vendored/router_protocol/IDapp.sol";
+import { IGateway } from "../../vendored/router_protocol/IGateway.sol";
 import { ICrossChainReceiver } from "../../interfaces/ICrossChainReceiver.sol";
 import { ICrossChainDelegatorMessage } from "../../interfaces/ICrossChainDelegatorMessage.sol";
 import { CrossChainDelegatorMessage } from "../../libs/CrossChainDelegatorMessage.sol";
@@ -12,15 +13,30 @@ contract RouterAdapter is IDapp {
     using CrossChainDelegatorMessage for ICrossChainDelegatorMessage.DepositMessage;
 
     ICrossChainReceiver public immutable receiver;
+    IGateway public immutable gateway;
 
     uint256 public constant BRIDGE_ID = 2;
 
-    constructor(address _receiver) {
-        require(_receiver != address(0), "Invalid receiver");
-        receiver = ICrossChainReceiver(_receiver);
+    modifier onlyGateway() {
+        require(msg.sender == address(gateway), "Only gateway can call");
+        _;
     }
 
-    function iReceive(string memory requestSender, bytes memory packet, string memory srcChainId) external returns (bytes memory) {
+    constructor(address _receiver, address _gateway) {
+        require(_receiver != address(0), "Invalid receiver");
+        receiver = ICrossChainReceiver(_receiver);
+        gateway = IGateway(_gateway);
+    }
+
+    function iReceive(
+        string memory requestSender,
+        bytes memory packet,
+        string memory srcChainId
+    )
+        external
+        onlyGateway
+        returns (bytes memory)
+    {
         return receiver.handleCrossChainMessage(_parseChainId(srcChainId), _convertSender(requestSender), packet);
     }
 
