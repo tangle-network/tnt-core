@@ -16,7 +16,6 @@ interface ICrossChainAssetVault {
     event AdapterAuthorized(address indexed adapter);
     event AdapterUnauthorized(address indexed adapter);
 
-    function isCrossChainAsset(address asset) external view returns (bool);
     function authorizeAdapter(address adapter) external;
     function unauthorizeAdapter(address adapter) external;
 }

@@ -3,13 +3,13 @@ pragma solidity ^0.8.19;
 
 import { IDapp } from "../../vendored/router_protocol/IDapp.sol";
 import { ICrossChainReceiver } from "../../interfaces/ICrossChainReceiver.sol";
-import { ICrossChainDepositMessage } from "../../interfaces/ICrossChainDepositMessage.sol";
-import { CrossChainDepositMessage } from "../../libs/CrossChainDepositMessage.sol";
+import { ICrossChainDelegatorMessage } from "../../interfaces/ICrossChainDelegatorMessage.sol";
+import { CrossChainDelegatorMessage } from "../../libs/CrossChainDelegatorMessage.sol";
 
 /// @title RouterAdapter
 /// @notice Adapts Router Protocol messages to standard cross-chain message format
 contract RouterAdapter is IDapp {
-    using CrossChainDepositMessage for ICrossChainDepositMessage.AssetMessage;
+    using CrossChainDelegatorMessage for ICrossChainDelegatorMessage.DepositMessage;
 
     ICrossChainReceiver public immutable receiver;
 
@@ -21,19 +21,7 @@ contract RouterAdapter is IDapp {
     }
 
     function iReceive(string memory requestSender, bytes memory packet, string memory srcChainId) external returns (bytes memory) {
-        // Decode Router Protocol packet
-        (uint256 originAsset, uint256 amount, bytes memory delegateData) = abi.decode(packet, (uint256, uint256, bytes));
-
-        // Create structured message
-        ICrossChainDepositMessage.AssetMessage memory assetMessage = ICrossChainDepositMessage.AssetMessage({
-            bridgeId: BRIDGE_ID,
-            originAsset: originAsset,
-            amount: amount,
-            sender: _convertSender(requestSender),
-            delegateData: delegateData
-        });
-
-        return receiver.handleCrossChainMessage(_parseChainId(srcChainId), _convertSender(requestSender), assetMessage.encode());
+        return receiver.handleCrossChainMessage(_parseChainId(srcChainId), _convertSender(requestSender), packet);
     }
 
     function iAck(uint256 requestIdentifier, bool execFlag, bytes memory execData) external { }

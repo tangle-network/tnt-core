@@ -4,16 +4,13 @@ pragma solidity ^0.8.19;
 import { IERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IRemoteChainBridgeManager } from "../interfaces/IRemoteChainBridgeManager.sol";
-import { ICrossChainDepositMessage } from "../interfaces/ICrossChainDepositMessage.sol";
-import { CrossChainDepositMessage } from "../libs/CrossChainDepositMessage.sol";
+import { ICrossChainDelegatorMessage } from "../interfaces/ICrossChainDelegatorMessage.sol";
+import { CrossChainDelegatorMessage } from "../libs/CrossChainDelegatorMessage.sol";
 
-/// @title RemoteRestakeVault
-/// @notice Custodies any ERC20 assets and dispatches cross-chain messages for restaking on Tangle
 contract RemoteRestakeVault {
     using SafeERC20 for IERC20;
-    using CrossChainDepositMessage for ICrossChainDepositMessage.AssetMessage;
+    using CrossChainDelegatorMessage for *;
 
-    /// @notice Bridge manager for sending messages to Tangle
     IRemoteChainBridgeManager public immutable bridgeManager;
 
     error InvalidBridgeManager();
@@ -21,92 +18,177 @@ contract RemoteRestakeVault {
     error InvalidToken();
     error BridgeDispatchFailed();
 
-    event AssetLocked(address indexed token, address indexed sender, uint256 amount, bytes delegateData);
+    event AssetDeposited(address indexed token, address indexed sender, uint256 amount);
 
-    event AssetUnlocked(address indexed token, address indexed recipient, uint256 amount);
+    event DelegationUpdated(address indexed token, address indexed sender, uint256 amount, bytes32 operator);
+
+    event UnstakeScheduled(address indexed token, address indexed sender, uint256 amount);
+
+    event UnstakeCancelled(address indexed token, address indexed sender, uint256 amount);
+
+    event UnstakeExecuted(address indexed token, address indexed sender, uint256 amount, address recipient);
+
+    event WithdrawalScheduled(address indexed token, address indexed sender, uint256 amount);
+
+    event WithdrawalCancelled(address indexed token, address indexed sender, uint256 amount);
+
+    event WithdrawalExecuted(address indexed token, address indexed sender, address indexed recipient, uint256 amount);
 
     constructor(address _bridgeManager) {
         if (_bridgeManager == address(0)) revert InvalidBridgeManager();
         bridgeManager = IRemoteChainBridgeManager(_bridgeManager);
     }
 
-    /// @notice Lock tokens and dispatch restaking message to Tangle
-    /// @param token The ERC20 token to lock
-    /// @param amount Amount of tokens to lock
-    /// @param delegateData Optional delegation instructions for Tangle
-    /// @param bridgeId Specific bridge to use (optional, 0 for any bridge)
-    function lockAndDelegate(address token, uint256 amount, bytes calldata delegateData, uint256 bridgeId) external payable {
+    function deposit(address token, uint256 amount, uint256 bridgeId) external payable {
         if (token == address(0)) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
 
-        // Transfer tokens to vault using SafeERC20
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
-        // Create cross-chain deposit message
-        ICrossChainDepositMessage.AssetMessage memory message = ICrossChainDepositMessage.AssetMessage({
+        ICrossChainDelegatorMessage.DepositMessage memory message = ICrossChainDelegatorMessage.DepositMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender)))
+        });
+
+        _dispatchMessage(bridgeId, message.encode());
+        emit AssetDeposited(token, msg.sender, amount);
+    }
+
+    function delegate(address token, uint256 amount, uint256 bridgeId, bytes32 operator) external payable {
+        if (token == address(0)) revert InvalidToken();
+        if (amount == 0) revert InvalidAmount();
+
+        ICrossChainDelegatorMessage.DelegationMessage memory message = ICrossChainDelegatorMessage.DelegationMessage({
+            bridgeId: bridgeId,
             originAsset: uint256(uint160(token)),
             amount: amount,
             sender: bytes32(uint256(uint160(msg.sender))),
-            bridgeId: bridgeId,
-            delegateData: delegateData
+            operator: operator
         });
 
-        // Get required fee if specific bridge is requested
-        uint256 requiredFee = bridgeId != 0 ? bridgeManager.getMessageFee(bridgeId, message.encode()) : msg.value;
+        _dispatchMessage(bridgeId, message.encode());
+        emit DelegationUpdated(token, msg.sender, amount, operator);
+    }
 
-        // Dispatch through bridge manager
-        try bridgeManager.dispatchMessage{ value: requiredFee }(message.encode()) {
-            emit AssetLocked(token, msg.sender, amount, delegateData);
+    function scheduleUnstake(address token, uint256 amount, uint256 bridgeId, bytes32 operator) external payable {
+        if (token == address(0)) revert InvalidToken();
+        if (amount == 0) revert InvalidAmount();
+
+        ICrossChainDelegatorMessage.ScheduleUnstakeMessage memory message = ICrossChainDelegatorMessage.ScheduleUnstakeMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender))),
+            operator: operator
+        });
+
+        _dispatchMessage(bridgeId, message.encode());
+        emit UnstakeScheduled(token, msg.sender, amount);
+    }
+
+    function cancelUnstake(address token, uint256 amount, uint256 bridgeId, bytes32 operator) external payable {
+        if (token == address(0)) revert InvalidToken();
+        if (amount == 0) revert InvalidAmount();
+
+        ICrossChainDelegatorMessage.CancelUnstakeMessage memory message = ICrossChainDelegatorMessage.CancelUnstakeMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender))),
+            operator: operator
+        });
+
+        _dispatchMessage(bridgeId, message.encode());
+        emit UnstakeCancelled(token, msg.sender, amount);
+    }
+
+    function executeUnstake(
+        address token,
+        uint256 amount,
+        address recipient,
+        uint256 bridgeId,
+        bytes32 operator
+    )
+        external
+        payable
+    {
+        if (token == address(0)) revert InvalidToken();
+        if (amount == 0) revert InvalidAmount();
+
+        ICrossChainDelegatorMessage.ExecuteUnstakeMessage memory message = ICrossChainDelegatorMessage.ExecuteUnstakeMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender))),
+            operator: operator
+        });
+
+        _dispatchMessage(bridgeId, message.encode());
+        emit UnstakeExecuted(token, msg.sender, amount, recipient);
+    }
+
+    function scheduleWithdrawal(address token, uint256 amount, uint256 bridgeId) external payable {
+        if (token == address(0)) revert InvalidToken();
+        if (amount == 0) revert InvalidAmount();
+
+        ICrossChainDelegatorMessage.ScheduleWithdrawalMessage memory message = ICrossChainDelegatorMessage.ScheduleWithdrawalMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender)))
+        });
+
+        _dispatchMessage(bridgeId, message.encode());
+        emit WithdrawalScheduled(token, msg.sender, amount);
+    }
+
+    function cancelWithdrawal(address token, uint256 amount, address recipient, uint256 bridgeId) external payable {
+        if (token == address(0)) revert InvalidToken();
+        if (amount == 0) revert InvalidAmount();
+
+        ICrossChainDelegatorMessage.CancelWithdrawalMessage memory message = ICrossChainDelegatorMessage.CancelWithdrawalMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender)))
+        });
+
+        _dispatchMessage(bridgeId, message.encode());
+        emit WithdrawalCancelled(token, msg.sender, amount);
+    }
+
+    function executeWithdrawal(address token, uint256 amount, address recipient, uint256 bridgeId) external payable {
+        if (token == address(0)) revert InvalidToken();
+        if (amount == 0) revert InvalidAmount();
+
+        ICrossChainDelegatorMessage.ExecuteWithdrawalMessage memory message = ICrossChainDelegatorMessage.ExecuteWithdrawalMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender))),
+            recipient: bytes32(uint256(uint160(recipient)))
+        });
+
+        _dispatchMessage(bridgeId, message.encode());
+        emit WithdrawalExecuted(token, msg.sender, recipient, amount);
+    }
+
+    function getRequiredFee(uint256 bridgeId, bytes calldata message) external view returns (uint256) {
+        return bridgeManager.getMessageFee(bridgeId, message);
+    }
+
+    function _dispatchMessage(uint256 bridgeId, bytes memory message) internal {
+        uint256 requiredFee = bridgeId != 0 ? bridgeManager.getMessageFee(bridgeId, message) : msg.value;
+
+        try bridgeManager.dispatchMessage{ value: requiredFee }(message) {
+            // Success case handled by events
         } catch {
-            // If bridge dispatch fails, revert the token transfer
-            IERC20(token).safeTransfer(msg.sender, amount);
             revert BridgeDispatchFailed();
         }
     }
 
-    /// @notice Process unlock request from Tangle
-    /// @dev Only callable by authorized bridge adapters
-    /// @param token The token to unlock
-    /// @param recipient The recipient of the unlocked tokens
-    /// @param amount Amount to unlock
-    function processUnlock(address token, address recipient, uint256 amount) external {
-        // TODO: Add bridge adapter authorization
-        if (amount == 0) revert InvalidAmount();
-        IERC20(token).safeTransfer(recipient, amount);
-
-        emit AssetUnlocked(token, recipient, amount);
-    }
-
-    /// @notice Get the required fee for using a specific bridge
-    /// @param token The token to lock
-    /// @param amount Amount of tokens
-    /// @param delegateData Delegation instructions
-    /// @param bridgeId The bridge to use
-    /// @return fee The required fee in native currency
-    function getRequiredFee(
-        address token,
-        uint256 amount,
-        bytes calldata delegateData,
-        uint256 bridgeId
-    )
-        external
-        view
-        returns (uint256)
-    {
-        ICrossChainDepositMessage.AssetMessage memory message = ICrossChainDepositMessage.AssetMessage({
-            originAsset: uint256(uint160(token)),
-            amount: amount,
-            sender: bytes32(uint256(uint160(msg.sender))),
-            bridgeId: bridgeId,
-            delegateData: delegateData
-        });
-
-        return bridgeManager.getMessageFee(bridgeId, message.encode());
-    }
-
-    /// @notice Emergency function to recover stuck tokens
-    /// @param token The token to recover
-    /// @param amount Amount to recover
     function recoverTokens(address token, uint256 amount) external {
         // TODO: Add owner/governance check
         IERC20(token).safeTransfer(msg.sender, amount);

@@ -7,36 +7,30 @@ import { ICrossChainReceiver } from "../../interfaces/ICrossChainReceiver.sol";
 /// @notice Base contract for receiving cross-chain messages from Tangle Blueprints
 /// This contract lives on the remote chain and accepts messages from Tangle Blueprints.
 abstract contract BaseBlueprintReceiver is ICrossChainReceiver {
-    // Event types
+    /// Event types
     uint8 constant SLASH_EVENT = 1;
     uint8 constant JOB_RESULT_EVENT = 2;
 
-    // Events for specific message types
+    /// Events for specific message types
     event SlashEventReceived(uint64 serviceId, bytes offender, uint8 slashPercent, uint256 totalPayout);
-
     event JobResultReceived(uint64 serviceId, uint8 job, uint64 jobCallId, bytes participant, bytes inputs, bytes outputs);
 
-    // Trusted senders mapping
+    /// Trusted senders mapping
     mapping(uint32 => mapping(bytes32 => bool)) public trustedSenders;
 
-    /**
-     * @dev Modifier to check if sender is trusted
-     */
+    /// @dev Modifier to check if sender is trusted
     modifier onlyTrustedSender(uint32 originChainId, bytes32 sender) {
         require(trustedSenders[originChainId][sender], "Untrusted sender");
         _;
     }
 
-    /**
-     * @dev Add a trusted sender
-     */
+    /// @dev Add a trusted sender
+    /// TODO: Add access control
     function addTrustedSender(uint32 chainId, bytes32 sender) external virtual {
         trustedSenders[chainId][sender] = true;
     }
 
-    /**
-     * @dev Implementation of ICrossChainReceiver.handleCrossChainMessage
-     */
+    /// @dev Implementation of ICrossChainReceiver.handleCrossChainMessage
     function handleCrossChainMessage(
         uint32 originChainId,
         bytes32 sender,
@@ -50,7 +44,7 @@ abstract contract BaseBlueprintReceiver is ICrossChainReceiver {
     {
         emit MessageReceived(originChainId, sender, message);
 
-        // First byte indicates message type
+        /// First byte indicates message type
         require(message.length > 0, "Empty message");
         uint8 messageType = uint8(message[0]);
         bytes memory messageData = message[1:];

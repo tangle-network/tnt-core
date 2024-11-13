@@ -10,7 +10,7 @@ interface IRemoteChainBridgeManager {
     struct BridgeConfig {
         ICrossChainMessenger messenger;
         uint32 tangleChainId;
-        bytes32 tangleRecipient;
+        bytes32 adapter;
         bool isActive;
     }
 
@@ -21,14 +21,14 @@ interface IRemoteChainBridgeManager {
     event DispatchError(uint256 indexed bridgeId, string reason);
 
     /// @dev Emitted when a bridge is configured
-    event BridgeConfigured(uint256 indexed bridgeId, address messenger, uint32 tangleChainId, bytes32 tangleRecipient);
+    event BridgeConfigured(uint256 indexed bridgeId, address messenger, uint32 tangleChainId, bytes32 adapter);
 
     /// @notice Configure a bridge for sending messages to Tangle
     /// @param bridgeId The bridge identifier
     /// @param messenger The messenger contract address
     /// @param tangleChainId Tangle's chain ID
-    /// @param tangleRecipient Recipient address on Tangle
-    function configureBridge(uint256 bridgeId, address messenger, uint32 tangleChainId, bytes32 tangleRecipient) external;
+    /// @param adapter Recipient address on Tangle
+    function configureBridge(uint256 bridgeId, address messenger, uint32 tangleChainId, bytes32 adapter) external;
 
     /// @notice Dispatch a message to Tangle through all configured bridges
     /// @param message The message to dispatch

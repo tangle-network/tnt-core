@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
+import "../Permissions.sol";
 import { ICrossChainMessenger } from "../interfaces/ICrossChainMessenger.sol";
 import { IRemoteChainBridgeManager } from "../interfaces/IRemoteChainBridgeManager.sol";
 
 /// @title RemoteChainBridgeManager
 /// @notice Manages message dispatch to Tangle through multiple bridges
-contract RemoteChainBridgeManager is IRemoteChainBridgeManager {
+contract RemoteChainBridgeManager is IRemoteChainBridgeManager, RootChainEnabledOwnable {
     /// @dev Maps bridge IDs to their configurations
     mapping(uint256 => BridgeConfig) public bridges;
 
@@ -16,18 +17,26 @@ contract RemoteChainBridgeManager is IRemoteChainBridgeManager {
     error InactiveBridge();
     error InsufficientFee();
 
-    function configureBridge(uint256 bridgeId, address messenger, uint32 tangleChainId, bytes32 tangleRecipient) external {
+    function configureBridge(
+        uint256 bridgeId,
+        address messenger,
+        uint32 tangleChainId,
+        bytes32 adapter
+    )
+        external
+        onlyOwnerOrRootChain
+    {
         if (messenger == address(0)) revert InvalidMessenger();
-        if (tangleRecipient == bytes32(0)) revert InvalidRecipient();
+        if (adapter == bytes32(0)) revert InvalidRecipient();
 
         bridges[bridgeId] = BridgeConfig({
             messenger: ICrossChainMessenger(messenger),
             tangleChainId: tangleChainId,
-            tangleRecipient: tangleRecipient,
+            adapter: adapter,
             isActive: true
         });
 
-        emit BridgeConfigured(bridgeId, messenger, tangleChainId, tangleRecipient);
+        emit BridgeConfigured(bridgeId, messenger, tangleChainId, adapter);
     }
 
     function dispatchMessage(bytes calldata message) external payable {
@@ -38,10 +47,10 @@ contract RemoteChainBridgeManager is IRemoteChainBridgeManager {
             BridgeConfig storage config = bridges[bridgeId];
             if (!config.isActive) continue;
 
-            try config.messenger.quoteMessageFee(config.tangleChainId, config.tangleRecipient, message) returns (uint256 fee) {
+            try config.messenger.quoteMessageFee(config.tangleChainId, config.adapter, message) returns (uint256 fee) {
                 if (fee > remainingValue) continue;
 
-                try config.messenger.sendMessage{ value: fee }(config.tangleChainId, config.tangleRecipient, message) returns (
+                try config.messenger.sendMessage{ value: fee }(config.tangleChainId, config.adapter, message) returns (
                     bytes32 messageId
                 ) {
                     remainingValue -= fee;
@@ -65,7 +74,7 @@ contract RemoteChainBridgeManager is IRemoteChainBridgeManager {
         BridgeConfig storage config = bridges[bridgeId];
         if (!config.isActive) revert InactiveBridge();
 
-        return config.messenger.quoteMessageFee(config.tangleChainId, config.tangleRecipient, message);
+        return config.messenger.quoteMessageFee(config.tangleChainId, config.adapter, message);
     }
 
     receive() external payable { }
