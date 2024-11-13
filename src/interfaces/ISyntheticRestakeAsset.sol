@@ -7,7 +7,7 @@ interface ISyntheticRestakeAsset {
     /// @notice Origin chain information
     function originChainId() external view returns (uint32);
 
-    /// @notice Original asset address on origin chain 
+    /// @notice Original asset address on origin chain
     function originAsset() external view returns (uint256);
 
     /// @notice Bridge used for cross-chain transfer

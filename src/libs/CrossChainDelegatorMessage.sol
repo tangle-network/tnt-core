@@ -196,7 +196,7 @@ library CrossChainDelegatorMessage {
     }
 
     /// @notice Encode a withdrawal executed message
-    /// @param message The withdrawal executed message to encode 
+    /// @param message The withdrawal executed message to encode
     /// @return The encoded message with type prefix
     function encode(ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory message) internal pure returns (bytes memory) {
         bytes memory encoded = abi.encode(message);

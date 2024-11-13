@@ -102,9 +102,11 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         uint32 originChainId,
         bytes32 sender,
         bytes calldata payload
-    ) internal returns (bytes memory) {
-        ICrossChainDelegatorMessage.DelegationMessage memory message = 
-            CrossChainDelegatorMessage.decodeDelegationMessage(payload);
+    )
+        internal
+        returns (bytes memory)
+    {
+        ICrossChainDelegatorMessage.DelegationMessage memory message = CrossChainDelegatorMessage.decodeDelegationMessage(payload);
 
         address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
@@ -119,7 +121,10 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         uint32 originChainId,
         bytes32 sender,
         bytes calldata payload
-    ) internal returns (bytes memory) {
+    )
+        internal
+        returns (bytes memory)
+    {
         ICrossChainDelegatorMessage.ScheduleUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeScheduleUnstakeMessage(payload);
 
@@ -136,7 +141,10 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         uint32 originChainId,
         bytes32 sender,
         bytes calldata payload
-    ) internal returns (bytes memory) {
+    )
+        internal
+        returns (bytes memory)
+    {
         ICrossChainDelegatorMessage.CancelUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeCancelUnstakeMessage(payload);
 
@@ -153,7 +161,10 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         uint32 originChainId,
         bytes32 sender,
         bytes calldata payload
-    ) internal returns (bytes memory) {
+    )
+        internal
+        returns (bytes memory)
+    {
         ICrossChainDelegatorMessage.ExecuteUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeExecuteUnstakeMessage(payload);
 
@@ -171,7 +182,10 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         uint32 originChainId,
         bytes32 sender,
         bytes calldata payload
-    ) internal returns (bytes memory) {
+    )
+        internal
+        returns (bytes memory)
+    {
         ICrossChainDelegatorMessage.ScheduleWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeScheduleWithdrawalMessage(payload);
 
@@ -188,7 +202,10 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         uint32 originChainId,
         bytes32 sender,
         bytes calldata payload
-    ) internal returns (bytes memory) {
+    )
+        internal
+        returns (bytes memory)
+    {
         ICrossChainDelegatorMessage.CancelWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeCancelWithdrawalMessage(payload);
 
@@ -205,7 +222,10 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         uint32 originChainId,
         bytes32 sender,
         bytes calldata payload
-    ) internal returns (bytes memory) {
+    )
+        internal
+        returns (bytes memory)
+    {
         ICrossChainDelegatorMessage.ExecuteWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeExecuteWithdrawalMessage(payload);
 
@@ -213,19 +233,19 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
-        
+
         // First execute withdrawal in user vault
         UserVault(userVault).executeWithdraw(syntheticAsset, message.amount);
-        
+
         // Then dispatch message back to origin chain
-        ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory withdrawalMessage = 
-            ICrossChainDelegatorMessage.WithdrawalExecutedMessage({
-                bridgeId: message.bridgeId,
-                originAsset: message.originAsset,
-                amount: message.amount,
-                sender: message.sender,
-                recipient: message.recipient
-            });
+        ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory withdrawalMessage = ICrossChainDelegatorMessage
+            .WithdrawalExecutedMessage({
+            bridgeId: message.bridgeId,
+            originAsset: message.originAsset,
+            amount: message.amount,
+            sender: message.sender,
+            recipient: message.recipient
+        });
 
         // Only burn after successful message dispatch
         try bridgeManager.dispatchMessage(withdrawalMessage.encode()) {

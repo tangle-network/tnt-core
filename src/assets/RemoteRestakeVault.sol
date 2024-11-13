@@ -12,7 +12,7 @@ contract RemoteRestakeVault {
     using CrossChainDelegatorMessage for *;
 
     IRemoteChainBridgeManager public immutable bridgeManager;
-    
+
     // Track deposits per user per token
     mapping(address => mapping(address => uint256)) public userDeposits;
     // Track delegated amounts per user per token
@@ -127,7 +127,10 @@ contract RemoteRestakeVault {
         address recipient,
         uint256 bridgeId,
         bytes32 operator
-    ) external payable {
+    )
+        external
+        payable
+    {
         if (token == address(0)) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
         if (recipient == address(0)) revert InvalidRecipient();

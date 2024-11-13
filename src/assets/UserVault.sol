@@ -28,56 +28,31 @@ contract UserVault is AssetVault {
         return op(bytes32(0), syntheticAsset, amount, Operation.Deposit);
     }
 
-    function delegate(
-        address syntheticAsset, 
-        uint256 amount, 
-        bytes32 operator
-    ) external onlyMasterVault returns (bool) {
+    function delegate(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
         return op(operator, syntheticAsset, amount, Operation.Delegate);
     }
 
-    function scheduleUnstake(
-        address syntheticAsset,
-        uint256 amount,
-        bytes32 operator
-    ) external onlyMasterVault returns (bool) {
+    function scheduleUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
         return op(operator, syntheticAsset, amount, Operation.ScheduleUnstake);
     }
 
-    function cancelUnstake(
-        address syntheticAsset,
-        uint256 amount,
-        bytes32 operator
-    ) external onlyMasterVault returns (bool) {
+    function cancelUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
         return op(operator, syntheticAsset, amount, Operation.CancelUnstake);
     }
 
-    function executeUnstake(
-        address syntheticAsset,
-        uint256 amount,
-        bytes32 operator
-    ) external onlyMasterVault returns (bool) {
+    function executeUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
         return op(operator, syntheticAsset, amount, Operation.ExecuteUnstake);
     }
 
-    function scheduleWithdraw(
-        address syntheticAsset,
-        uint256 amount
-    ) external onlyMasterVault returns (bool) {
+    function scheduleWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
         return op(bytes32(0), syntheticAsset, amount, Operation.ScheduleWithdraw);
     }
 
-    function cancelWithdraw(
-        address syntheticAsset,
-        uint256 amount
-    ) external onlyMasterVault returns (bool) {
+    function cancelWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
         return op(bytes32(0), syntheticAsset, amount, Operation.CancelWithdraw);
     }
 
-    function executeWithdraw(
-        address syntheticAsset,
-        uint256 amount
-    ) external onlyMasterVault returns (bool) {
+    function executeWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
         return op(bytes32(0), syntheticAsset, amount, Operation.ExecuteWithdraw);
     }
 
