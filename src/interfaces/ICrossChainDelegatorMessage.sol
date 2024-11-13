@@ -72,4 +72,16 @@ interface ICrossChainDelegatorMessage {
         bytes32 sender;
         bytes32 recipient;
     }
+
+    /// @notice Structure for cross-chain withdrawal executed messages
+    /// This message is sent by the origin chain to the remote chain to
+    /// inform about the successful withdrawal execution and before burning
+    /// the synthetic asset.
+    struct WithdrawalExecutedMessage {
+        uint256 bridgeId;
+        uint256 originAsset;
+        uint256 amount;
+        bytes32 sender;
+        bytes32 recipient;
+    }
 }

@@ -15,7 +15,6 @@ abstract contract AssetVault is AssetDelegator {
     error TransferFailed();
 
     event AssetDeposited(address indexed asset, address indexed from, uint256 amount);
-
     event AssetWithdrawn(address indexed asset, address indexed to, uint256 amount);
 
     /// @notice Check if an asset is a cross-chain asset
@@ -25,7 +24,7 @@ abstract contract AssetVault is AssetDelegator {
     /// @return bool True if the asset is a cross-chain asset
     function isCrossChainAsset(address asset) internal view virtual returns (bool);
 
-    function deposit(address asset, uint256 amount) external returns (bool) {
+    function depositERC20(address asset, uint256 amount) external returns (bool) {
         if (amount == 0) revert InvalidAmount();
         if (isCrossChainAsset(asset)) revert InvalidAsset(asset);
         if (!IERC20(asset).transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
@@ -33,7 +32,7 @@ abstract contract AssetVault is AssetDelegator {
         return true;
     }
 
-    function withdraw(address asset, address to, uint256 amount) external returns (bool) {
+    function withdrawERC20(address asset, address to, uint256 amount) external returns (bool) {
         if (amount == 0) revert InvalidAmount();
         if (isCrossChainAsset(asset)) revert InvalidAsset(asset);
         if (!IERC20(asset).transfer(to, amount)) revert TransferFailed();

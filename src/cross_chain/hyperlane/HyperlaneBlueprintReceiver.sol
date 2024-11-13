@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import { IMailbox } from "../../vendored/hyperlane/IMailbox.sol";
 import { IMessageRecipient } from "../../vendored/hyperlane/IMessageRecipient.sol";
 import { TypeCasts } from "../../vendored/hyperlane/TypeCasts.sol";
-import { BaseBlueprintReceiver } from "../receivers/BaseBlueprintReceiver.sol";
+import { BaseBlueprintReceiver } from "../BaseBlueprintReceiver.sol";
 
 /// @title HyperlaneBlueprintReceiver
 /// @notice Blueprint receiver contract for Hyperlane

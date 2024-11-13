@@ -2,10 +2,11 @@
 pragma solidity ^0.8.19;
 
 import { ERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ISyntheticRestakeAsset } from "../interfaces/ISyntheticRestakeAsset.sol";
 
 /// @title SyntheticRestakeAsset
 /// @notice ERC20 token representing a cross-chain restaking position
-contract SyntheticRestakeAsset is ERC20 {
+contract SyntheticRestakeAsset is ERC20, ISyntheticRestakeAsset {
     /// @notice Origin chain information
     uint32 public immutable originChainId;
     /// @notice Original asset address on origin chain

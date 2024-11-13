@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import { IERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IRemoteChainBridgeManager } from "../interfaces/IRemoteChainBridgeManager.sol";
 import { ICrossChainDelegatorMessage } from "../interfaces/ICrossChainDelegatorMessage.sol";
 import { CrossChainDelegatorMessage } from "../libs/CrossChainDelegatorMessage.sol";
@@ -12,26 +12,30 @@ contract RemoteRestakeVault {
     using CrossChainDelegatorMessage for *;
 
     IRemoteChainBridgeManager public immutable bridgeManager;
+    
+    // Track deposits per user per token
+    mapping(address => mapping(address => uint256)) public userDeposits;
+    // Track delegated amounts per user per token
+    mapping(address => mapping(address => uint256)) public userDelegations;
+    // Track unstaking amounts per user per token
+    mapping(address => mapping(address => uint256)) public userUnstaking;
 
     error InvalidBridgeManager();
     error InvalidAmount();
     error InvalidToken();
+    error InsufficientBalance();
+    error InsufficientDelegation();
+    error InsufficientUnstaking();
     error BridgeDispatchFailed();
+    error InvalidRecipient();
 
     event AssetDeposited(address indexed token, address indexed sender, uint256 amount);
-
     event DelegationUpdated(address indexed token, address indexed sender, uint256 amount, bytes32 operator);
-
     event UnstakeScheduled(address indexed token, address indexed sender, uint256 amount);
-
     event UnstakeCancelled(address indexed token, address indexed sender, uint256 amount);
-
     event UnstakeExecuted(address indexed token, address indexed sender, uint256 amount, address recipient);
-
     event WithdrawalScheduled(address indexed token, address indexed sender, uint256 amount);
-
     event WithdrawalCancelled(address indexed token, address indexed sender, uint256 amount);
-
     event WithdrawalExecuted(address indexed token, address indexed sender, address indexed recipient, uint256 amount);
 
     constructor(address _bridgeManager) {
@@ -44,6 +48,7 @@ contract RemoteRestakeVault {
         if (amount == 0) revert InvalidAmount();
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        userDeposits[msg.sender][token] += amount;
 
         ICrossChainDelegatorMessage.DepositMessage memory message = ICrossChainDelegatorMessage.DepositMessage({
             bridgeId: bridgeId,
@@ -59,6 +64,10 @@ contract RemoteRestakeVault {
     function delegate(address token, uint256 amount, uint256 bridgeId, bytes32 operator) external payable {
         if (token == address(0)) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
+        if (userDeposits[msg.sender][token] < amount) revert InsufficientBalance();
+
+        userDeposits[msg.sender][token] -= amount;
+        userDelegations[msg.sender][token] += amount;
 
         ICrossChainDelegatorMessage.DelegationMessage memory message = ICrossChainDelegatorMessage.DelegationMessage({
             bridgeId: bridgeId,
@@ -75,6 +84,10 @@ contract RemoteRestakeVault {
     function scheduleUnstake(address token, uint256 amount, uint256 bridgeId, bytes32 operator) external payable {
         if (token == address(0)) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
+        if (userDelegations[msg.sender][token] < amount) revert InsufficientDelegation();
+
+        userDelegations[msg.sender][token] -= amount;
+        userUnstaking[msg.sender][token] += amount;
 
         ICrossChainDelegatorMessage.ScheduleUnstakeMessage memory message = ICrossChainDelegatorMessage.ScheduleUnstakeMessage({
             bridgeId: bridgeId,
@@ -91,6 +104,10 @@ contract RemoteRestakeVault {
     function cancelUnstake(address token, uint256 amount, uint256 bridgeId, bytes32 operator) external payable {
         if (token == address(0)) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
+        if (userUnstaking[msg.sender][token] < amount) revert InsufficientUnstaking();
+
+        userUnstaking[msg.sender][token] -= amount;
+        userDelegations[msg.sender][token] += amount;
 
         ICrossChainDelegatorMessage.CancelUnstakeMessage memory message = ICrossChainDelegatorMessage.CancelUnstakeMessage({
             bridgeId: bridgeId,
@@ -110,12 +127,14 @@ contract RemoteRestakeVault {
         address recipient,
         uint256 bridgeId,
         bytes32 operator
-    )
-        external
-        payable
-    {
+    ) external payable {
         if (token == address(0)) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
+        if (recipient == address(0)) revert InvalidRecipient();
+        if (userUnstaking[msg.sender][token] < amount) revert InsufficientUnstaking();
+
+        userUnstaking[msg.sender][token] -= amount;
+        userDeposits[msg.sender][token] += amount;
 
         ICrossChainDelegatorMessage.ExecuteUnstakeMessage memory message = ICrossChainDelegatorMessage.ExecuteUnstakeMessage({
             bridgeId: bridgeId,
@@ -132,6 +151,9 @@ contract RemoteRestakeVault {
     function scheduleWithdrawal(address token, uint256 amount, uint256 bridgeId) external payable {
         if (token == address(0)) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
+        if (userDeposits[msg.sender][token] < amount) revert InsufficientBalance();
+
+        userDeposits[msg.sender][token] -= amount;
 
         ICrossChainDelegatorMessage.ScheduleWithdrawalMessage memory message = ICrossChainDelegatorMessage.ScheduleWithdrawalMessage({
             bridgeId: bridgeId,
@@ -144,9 +166,11 @@ contract RemoteRestakeVault {
         emit WithdrawalScheduled(token, msg.sender, amount);
     }
 
-    function cancelWithdrawal(address token, uint256 amount, address recipient, uint256 bridgeId) external payable {
+    function cancelWithdrawal(address token, uint256 amount, uint256 bridgeId) external payable {
         if (token == address(0)) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
+
+        userDeposits[msg.sender][token] += amount;
 
         ICrossChainDelegatorMessage.CancelWithdrawalMessage memory message = ICrossChainDelegatorMessage.CancelWithdrawalMessage({
             bridgeId: bridgeId,
@@ -162,6 +186,9 @@ contract RemoteRestakeVault {
     function executeWithdrawal(address token, uint256 amount, address recipient, uint256 bridgeId) external payable {
         if (token == address(0)) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
+        if (recipient == address(0)) revert InvalidRecipient();
+
+        IERC20(token).safeTransfer(recipient, amount);
 
         ICrossChainDelegatorMessage.ExecuteWithdrawalMessage memory message = ICrossChainDelegatorMessage.ExecuteWithdrawalMessage({
             bridgeId: bridgeId,
@@ -187,10 +214,5 @@ contract RemoteRestakeVault {
         } catch {
             revert BridgeDispatchFailed();
         }
-    }
-
-    function recoverTokens(address token, uint256 amount) external {
-        // TODO: Add owner/governance check
-        IERC20(token).safeTransfer(msg.sender, amount);
     }
 }

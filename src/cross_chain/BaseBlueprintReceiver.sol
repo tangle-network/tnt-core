@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import { ICrossChainReceiver } from "../../interfaces/ICrossChainReceiver.sol";
+import { ICrossChainReceiver } from "../interfaces/ICrossChainReceiver.sol";
 
 /// @title BaseBlueprintReceiver
 /// @notice Base contract for receiving cross-chain messages from Tangle Blueprints

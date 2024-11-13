@@ -9,8 +9,9 @@ interface ICrossChainAssetVault {
         bool isRegistered;
     }
 
-    event CrossChainAssetRegistered(address indexed syntheticAsset, uint32 chainId, uint256 originAsset, uint256 bridgeId);
+    error InvalidAsset(address asset);
 
+    event CrossChainAssetRegistered(address indexed syntheticAsset, uint32 chainId, uint256 originAsset, uint256 bridgeId);
     event CrossChainAssetDeposited(uint256 indexed asset, bytes32 indexed depositor, uint256 amount);
 
     event AdapterAuthorized(address indexed adapter);

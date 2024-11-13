@@ -195,6 +195,27 @@ library CrossChainDelegatorMessage {
         return abi.decode(data[1:], (ICrossChainDelegatorMessage.ExecuteWithdrawalMessage));
     }
 
+    /// @notice Encode a withdrawal executed message
+    /// @param message The withdrawal executed message to encode 
+    /// @return The encoded message with type prefix
+    function encode(ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory message) internal pure returns (bytes memory) {
+        bytes memory encoded = abi.encode(message);
+        return abi.encodePacked(EXECUTE_WITHDRAWAL_MESSAGE, encoded);
+    }
+
+    /// @notice Decode a withdrawal executed message
+    /// @param data The encoded message
+    /// @return The decoded withdrawal executed message
+    function decodeWithdrawalExecutedMessage(bytes calldata data)
+        internal
+        pure
+        returns (ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory)
+    {
+        if (data.length == 0) revert EmptyMessage();
+        if (uint8(data[0]) != EXECUTE_WITHDRAWAL_MESSAGE) revert InvalidMessageType();
+        return abi.decode(data[1:], (ICrossChainDelegatorMessage.WithdrawalExecutedMessage));
+    }
+
     /// @notice Convert a bytes32 to an address
     /// @param _buf The bytes32 to convert
     /// @return The resulting address

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { IDapp } from "../../vendored/router_protocol/IDapp.sol";
-import { BaseBlueprintReceiver } from "../receivers/BaseBlueprintReceiver.sol";
+import { BaseBlueprintReceiver } from "../BaseBlueprintReceiver.sol";
 
 /// @title RouterBlueprintReceiver
 /// @notice Blueprint receiver contract for Router Protocol
