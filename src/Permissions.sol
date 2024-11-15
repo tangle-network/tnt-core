@@ -8,6 +8,8 @@ contract RootChainEnabled {
     /// @notice The address of the root chain
     address public constant ROOT_CHAIN = 0x1111111111111111111111111111111111111111;
 
+    error OnlyRootChainAllowed(address caller, address rootChain);
+
     /// @dev Get the root chain address
     /// @return rootChainAddress The address of the root chain
     function rootChain() external pure returns (address rootChainAddress) {
@@ -17,7 +19,9 @@ contract RootChainEnabled {
     /// @dev Only root chain can call this function
     /// @notice This function can only be called by the root chain
     modifier onlyFromRootChain() {
-        require(msg.sender == ROOT_CHAIN, "RootChain: Only root chain can call this function");
+        if (msg.sender != ROOT_CHAIN) {
+            revert OnlyRootChainAllowed(msg.sender, ROOT_CHAIN);
+        }
         _;
     }
 }
