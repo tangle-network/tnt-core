@@ -130,7 +130,7 @@ interface IBlueprintServiceManager {
      * @param serviceId The ID of the service related to the job.
      * @param job The job identifier.
      * @param jobCallId The unique ID for the job call.
-     * @param participant The participant (operator) sending the result in bytes format.
+     * @param operator The operator sending the result in bytes format.
      * @param inputs Inputs used for the job execution in bytes format.
      * @param outputs Outputs resulting from the job execution in bytes format.
      */
@@ -138,7 +138,7 @@ interface IBlueprintServiceManager {
         uint64 serviceId,
         uint8 job,
         uint64 jobCallId,
-        bytes calldata participant,
+        OperatorPreferences calldata operator,
         bytes calldata inputs,
         bytes calldata outputs
     )

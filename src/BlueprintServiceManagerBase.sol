@@ -93,7 +93,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         uint64 serviceId,
         uint8 job,
         uint64 jobCallId,
-        bytes calldata participant,
+        OperatorPreferences calldata operator,
         bytes calldata inputs,
         bytes calldata outputs
     )
