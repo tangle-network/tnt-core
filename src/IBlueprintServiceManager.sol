@@ -8,21 +8,111 @@ pragma solidity ^0.8.19;
  */
 interface IBlueprintServiceManager {
     /**
+     * @struct OperatorPreferences
+     * @dev Represents the preferences of an operator, including their ECDSA public key and price targets.
+     */
+    struct OperatorPreferences {
+        /// @notice The ECDSA public key of the operator.
+        bytes ecdsaPublicKey;
+        /// @notice The price targets associated with the operator.
+        PriceTargets priceTargets;
+    }
+
+    /**
+     * @struct PriceTargets
+     * @dev Defines the pricing targets for various resources such as CPU, memory, and different types of storage.
+     */
+    struct PriceTargets {
+        /// @notice The CPU price target.
+        uint64 cpu;
+        /// @notice The memory price target.
+        uint64 mem;
+        /// @notice The HDD storage price target.
+        uint64 storage_hdd;
+        /// @notice The SSD storage price target.
+        uint64 storage_ssd;
+        /// @notice The NVMe storage price target.
+        uint64 storage_nvme;
+    }
+
+    /**
      * @dev Hook for service operator registration. Called when a service operator
      * attempts to register with the blueprint.
-     * @param operator The operator's details in bytes format.
+     * @param operator The operator's details.
      * @param registrationInputs Inputs required for registration in bytes format.
      */
-    function onRegister(bytes calldata operator, bytes calldata registrationInputs) external payable;
+    function onRegister(OperatorPreferences calldata operator, bytes calldata registrationInputs) external payable;
+
+    /**
+     * @dev Hook for service operator unregistration. Called when a service operator
+     * attempts to unregister from the blueprint.
+     * @param operator The operator's details.
+     */
+    function onUnregister(OperatorPreferences calldata operator) external;
+
+    /**
+     * @dev Hook for updating operator's Price Targets. Called when an operator updates
+     * their price targets.
+     * @param operator The operator's details with the to be updated price targets.
+     */
+    function onUpdatePriceTargets(OperatorPreferences calldata operator) external payable;
 
     /**
      * @dev Hook for service instance requests. Called when a user requests a service
-     * instance from the blueprint.
-     * @param serviceId The ID of the requested service.
-     * @param operators The operators involved in the service in bytes array format.
-     * @param requestInputs Inputs required for the service request in bytes format.
+     * instance from the blueprint but this does not mean the service is initiated yet.
+     * To get notified when the service is initiated, implement the `onServiceInitialized` hook.
+     *
+     * @param requestId The ID of the request.
+     * @param requester The address of the service requester.
+     * @param operators The list of operators to be considered for the service.
+     * @param requestInputs The inputs required for the service request in bytes format.
+     * @param permittedCallers The list of permitted callers for the service.
+     * @param ttl The time-to-live for the service.
      */
-    function onRequest(uint64 serviceId, bytes[] calldata operators, bytes calldata requestInputs) external payable;
+    function onRequest(
+        uint64 requestId,
+        address requester,
+        OperatorPreferences[] calldata operators,
+        bytes calldata requestInputs,
+        address[] calldata permittedCallers,
+        uint64 ttl
+    )
+        external
+        payable;
+
+    /**
+     * @dev Hook for service request approval. Called when a service request is approved by an operator.
+     * @param operator The operator's details.
+     * @param requestId The ID of the request.
+     * @param restakingPercent The percentage of the restaking amount (0-100).
+     */
+    function onApprove(OperatorPreferences calldata operator, uint64 requestId, uint8 restakingPercent) external payable;
+
+    /**
+     * @dev Hook for service request rejection. Called when a service request is rejected by an operator.
+     * @param operator The operator's details.
+     * @param requestId The ID of the request.
+     */
+    function onReject(OperatorPreferences calldata operator, uint64 requestId) external;
+
+    /**
+     * @dev Hook for service initialization. Called when a service is initialized.
+     * This hook is called after the service is approved from all of the operators.
+     *
+     * @param requestId The ID of the request.
+     * @param serviceId The ID of the service.
+     * @param owner The owner of the service.
+     * @param permittedCallers  The list of permitted callers for the service.
+     * @param ttl The time-to-live for the service.
+     */
+    function onServiceInitialized(
+        uint64 requestId,
+        uint64 serviceId,
+        address owner,
+        address[] calldata permittedCallers,
+        uint64 ttl
+    )
+        external;
 
     /**
      * @dev Hook for job calls on the service. Called when a job is called within
@@ -54,6 +144,13 @@ interface IBlueprintServiceManager {
     )
         external
         payable;
+
+    /**
+     * @dev Hook for service termination. Called when a service is terminated.
+     * @param serviceId The ID of the service to be terminated.
+     * @param owner The owner of the service.
+     */
+    function onServiceTermination(uint64 serviceId, address owner) external;
 
     /**
      * @dev Hook for handling unapplied slashes. Called when a slash is queued and still not yet applied to an offender.
