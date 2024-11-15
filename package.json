@@ -1,0 +1,12 @@
+{
+  "name": "tnt-core",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/tangle-network/tnt-core.git",
+  "author": "Tangle <drew@tangle.tools>",
+  "license": "MIT",
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0",
+    "@openzeppelin/contracts-upgradeable": "^5.1.0"
+  }
+}
