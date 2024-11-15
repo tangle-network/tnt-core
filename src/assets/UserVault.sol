@@ -28,15 +28,39 @@ contract UserVault is AssetDelegator {
         return op(operator, syntheticAsset, amount, Operation.Delegate);
     }
 
-    function restakingScheduleUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+    function restakingScheduleUnstake(
+        address syntheticAsset,
+        uint256 amount,
+        bytes32 operator
+    )
+        external
+        onlyMasterVault
+        returns (bool)
+    {
         return op(operator, syntheticAsset, amount, Operation.ScheduleUnstake);
     }
 
-    function restakingCancelUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+    function restakingCancelUnstake(
+        address syntheticAsset,
+        uint256 amount,
+        bytes32 operator
+    )
+        external
+        onlyMasterVault
+        returns (bool)
+    {
         return op(operator, syntheticAsset, amount, Operation.CancelUnstake);
     }
 
-    function restakingExecuteUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+    function restakingExecuteUnstake(
+        address syntheticAsset,
+        uint256 amount,
+        bytes32 operator
+    )
+        external
+        onlyMasterVault
+        returns (bool)
+    {
         return op(operator, syntheticAsset, amount, Operation.ExecuteUnstake);
     }
 

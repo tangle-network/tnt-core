@@ -127,12 +127,7 @@ contract RemoteRestakeVault {
         emit UnstakeCancelled(token, msg.sender, amount, operator);
     }
 
-    function executeUnstake(
-        address token,
-        uint256 amount,
-        uint256 bridgeId,
-        bytes32 operator
-    ) external payable {
+    function executeUnstake(address token, uint256 amount, uint256 bridgeId, bytes32 operator) external payable {
         if (token == address(0)) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
         if (operator == bytes32(0)) revert InvalidOperator();
