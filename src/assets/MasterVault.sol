@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import { IERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ICrossChainAssetVault } from "../interfaces/ICrossChainAssetVault.sol";
+import { IMasterVault } from "../interfaces/IMasterVault.sol";
 import { ICrossChainBridgeManager } from "../interfaces/ICrossChainBridgeManager.sol";
 import { ICrossChainReceiver } from "../interfaces/ICrossChainReceiver.sol";
 import { ICrossChainDelegatorMessage } from "../interfaces/ICrossChainDelegatorMessage.sol";
@@ -10,7 +10,7 @@ import { CrossChainDelegatorMessage } from "../libs/CrossChainDelegatorMessage.s
 import { SyntheticRestakeAsset } from "./SyntheticRestakeAsset.sol";
 import { UserVault } from "./UserVault.sol";
 
-contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
+contract MasterVault is IMasterVault, ICrossChainReceiver {
     using CrossChainDelegatorMessage for *;
 
     ICrossChainBridgeManager public immutable bridgeManager;
@@ -93,7 +93,7 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
 
         // Mint directly to user vault
         SyntheticRestakeAsset(syntheticAsset).mint(userVault, message.amount);
-        UserVault(userVault).deposit(syntheticAsset, message.amount);
+        UserVault(userVault).restakingDeposit(syntheticAsset, message.amount);
 
         return abi.encode(true);
     }
@@ -112,7 +112,7 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
-        UserVault(userVault).delegate(syntheticAsset, message.amount, message.operator);
+        UserVault(userVault).restakingDelegate(syntheticAsset, message.amount, message.operator);
 
         return abi.encode(true);
     }
@@ -132,7 +132,7 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
-        UserVault(userVault).scheduleUnstake(syntheticAsset, message.amount, message.operator);
+        UserVault(userVault).restakingScheduleUnstake(syntheticAsset, message.amount, message.operator);
 
         return abi.encode(true);
     }
@@ -152,7 +152,7 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
-        UserVault(userVault).cancelUnstake(syntheticAsset, message.amount, message.operator);
+        UserVault(userVault).restakingCancelUnstake(syntheticAsset, message.amount, message.operator);
 
         return abi.encode(true);
     }
@@ -173,7 +173,7 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
 
         address userVault = _getOrCreateUserVault(message.sender);
         // Just execute unstake, keep assets in vault
-        UserVault(userVault).executeUnstake(syntheticAsset, message.amount, message.operator);
+        UserVault(userVault).restakingExecuteUnstake(syntheticAsset, message.amount, message.operator);
 
         return abi.encode(true);
     }
@@ -193,7 +193,7 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
-        UserVault(userVault).scheduleWithdraw(syntheticAsset, message.amount);
+        UserVault(userVault).restakingScheduleWithdraw(syntheticAsset, message.amount);
 
         return abi.encode(true);
     }
@@ -213,7 +213,7 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
-        UserVault(userVault).cancelWithdraw(syntheticAsset, message.amount);
+        UserVault(userVault).restakingCancelWithdraw(syntheticAsset, message.amount);
 
         return abi.encode(true);
     }
@@ -235,7 +235,7 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         address userVault = _getOrCreateUserVault(message.sender);
 
         // First execute withdrawal in user vault
-        UserVault(userVault).executeWithdraw(syntheticAsset, message.amount);
+        UserVault(userVault).restakingExecuteWithdraw(syntheticAsset, message.amount);
 
         // Then dispatch message back to origin chain
         ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory withdrawalMessage = ICrossChainDelegatorMessage
@@ -272,17 +272,6 @@ contract CrossChainAssetVault is ICrossChainAssetVault, ICrossChainReceiver {
         }
 
         return synthetic;
-    }
-
-    /// @notice Check if an asset is a synthetic cross-chain asset managed by this vault
-    /// @param asset The address to check
-    /// @return bool True if the asset is a synthetic cross-chain asset
-    function isCrossChainAsset(address asset) external view returns (bool) {
-        try SyntheticRestakeAsset(asset).vault() returns (address vaultAddress) {
-            return vaultAddress == address(this);
-        } catch {
-            return false;
-        }
     }
 
     function authorizeAdapter(address adapter) external {

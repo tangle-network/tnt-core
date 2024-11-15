@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-interface ICrossChainAssetVault {
+interface IMasterVault {
     struct CrossChainAsset {
         uint32 originChainId;
         address originAsset;
@@ -10,9 +10,6 @@ interface ICrossChainAssetVault {
     }
 
     error InvalidAsset(address asset);
-
-    event CrossChainAssetRegistered(address indexed syntheticAsset, uint32 chainId, uint256 originAsset, uint256 bridgeId);
-    event CrossChainAssetDeposited(uint256 indexed asset, bytes32 indexed depositor, uint256 amount);
 
     event AdapterAuthorized(address indexed adapter);
     event AdapterUnauthorized(address indexed adapter);

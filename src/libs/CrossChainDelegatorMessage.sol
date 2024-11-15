@@ -20,6 +20,9 @@ library CrossChainDelegatorMessage {
     uint8 constant CANCEL_WITHDRAWAL_MESSAGE = 7;
     uint8 constant EXECUTE_WITHDRAWAL_MESSAGE = 8;
 
+    // Message type constants for withdrawal executed flow
+    uint8 constant WITHDRAWAL_EXECUTED_MESSAGE = 9;
+
     error InvalidMessageType();
     error EmptyMessage();
 
@@ -200,7 +203,7 @@ library CrossChainDelegatorMessage {
     /// @return The encoded message with type prefix
     function encode(ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory message) internal pure returns (bytes memory) {
         bytes memory encoded = abi.encode(message);
-        return abi.encodePacked(EXECUTE_WITHDRAWAL_MESSAGE, encoded);
+        return abi.encodePacked(WITHDRAWAL_EXECUTED_MESSAGE, encoded);
     }
 
     /// @notice Decode a withdrawal executed message
@@ -212,7 +215,7 @@ library CrossChainDelegatorMessage {
         returns (ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory)
     {
         if (data.length == 0) revert EmptyMessage();
-        if (uint8(data[0]) != EXECUTE_WITHDRAWAL_MESSAGE) revert InvalidMessageType();
+        if (uint8(data[0]) != WITHDRAWAL_EXECUTED_MESSAGE) revert InvalidMessageType();
         return abi.decode(data[1:], (ICrossChainDelegatorMessage.WithdrawalExecutedMessage));
     }
 

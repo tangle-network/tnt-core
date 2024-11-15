@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import { IERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { AssetVault } from "./AssetVault.sol";
-import { ICrossChainAssetVault } from "../interfaces/ICrossChainAssetVault.sol";
-import { ISyntheticRestakeAsset } from "../interfaces/ISyntheticRestakeAsset.sol";
+import { AssetDelegator } from "./AssetDelegator.sol";
 
-contract UserVault is AssetVault {
+contract UserVault is AssetDelegator {
     bytes32 public immutable owner;
     address public immutable masterVault;
 
@@ -24,40 +20,35 @@ contract UserVault is AssetVault {
         masterVault = _masterVault;
     }
 
-    function deposit(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
+    function restakingDeposit(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
         return op(bytes32(0), syntheticAsset, amount, Operation.Deposit);
     }
 
-    function delegate(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+    function restakingDelegate(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
         return op(operator, syntheticAsset, amount, Operation.Delegate);
     }
 
-    function scheduleUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+    function restakingScheduleUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
         return op(operator, syntheticAsset, amount, Operation.ScheduleUnstake);
     }
 
-    function cancelUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+    function restakingCancelUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
         return op(operator, syntheticAsset, amount, Operation.CancelUnstake);
     }
 
-    function executeUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+    function restakingExecuteUnstake(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
         return op(operator, syntheticAsset, amount, Operation.ExecuteUnstake);
     }
 
-    function scheduleWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
+    function restakingScheduleWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
         return op(bytes32(0), syntheticAsset, amount, Operation.ScheduleWithdraw);
     }
 
-    function cancelWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
+    function restakingCancelWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
         return op(bytes32(0), syntheticAsset, amount, Operation.CancelWithdraw);
     }
 
-    function executeWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
+    function restakingExecuteWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
         return op(bytes32(0), syntheticAsset, amount, Operation.ExecuteWithdraw);
-    }
-
-    function isCrossChainAsset(address asset) internal view override returns (bool) {
-        // Delegate to master vault's check
-        return ISyntheticRestakeAsset(asset).originChainId() != 0;
     }
 }
