@@ -15,7 +15,7 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
 
     ICrossChainBridgeManager public immutable bridgeManager;
 
-    mapping(uint32 => mapping(uint256 => address)) public syntheticAssets;
+    mapping(uint32 => mapping(uint256 => uint128)) public syntheticAssets;
     mapping(address => bool) public authorizedAdapters;
     mapping(bytes32 => address) public userVaults;
 
@@ -29,7 +29,7 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
     error BridgeDispatchFailed();
 
     event SyntheticAssetCreated(
-        address indexed syntheticAsset, uint32 indexed originChainId, uint256 indexed originAsset, uint256 bridgeId
+        uint128 indexed syntheticAsset, uint32 indexed originChainId, uint256 indexed originAsset, uint256 bridgeId
     );
 
     modifier onlyAuthorizedAdapter() {
@@ -88,11 +88,12 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
     function _handleDepositMessage(uint32 originChainId, bytes32 sender, bytes calldata payload) internal returns (bytes memory) {
         ICrossChainDelegatorMessage.DepositMessage memory message = CrossChainDelegatorMessage.decodeDepositMessage(payload);
 
-        address syntheticAsset = getOrCreateSyntheticAsset(originChainId, message.originAsset, message.bridgeId);
+        uint128 syntheticAsset = getOrCreateSyntheticAsset(originChainId, message.originAsset, message.bridgeId);
         address userVault = _getOrCreateUserVault(message.sender);
 
         // Mint directly to user vault
-        SyntheticRestakeAsset(syntheticAsset).mint(userVault, message.amount);
+        // TODO: Use the assets precompile to mint the userVault directly
+        // SyntheticRestakeAsset(syntheticAsset).mint(userVault, message.amount);
         UserVault(userVault).restakingDeposit(syntheticAsset, message.amount);
 
         return abi.encode(true);
@@ -108,8 +109,8 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
     {
         ICrossChainDelegatorMessage.DelegationMessage memory message = CrossChainDelegatorMessage.decodeDelegationMessage(payload);
 
-        address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
-        if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
+        uint128 syntheticAsset = syntheticAssets[originChainId][message.originAsset];
+        if (syntheticAsset == uint128(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
         UserVault(userVault).restakingDelegate(syntheticAsset, message.amount, message.operator);
@@ -128,8 +129,8 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         ICrossChainDelegatorMessage.ScheduleUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeScheduleUnstakeMessage(payload);
 
-        address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
-        if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
+        uint128 syntheticAsset = syntheticAssets[originChainId][message.originAsset];
+        if (syntheticAsset == uint128(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
         UserVault(userVault).restakingScheduleUnstake(syntheticAsset, message.amount, message.operator);
@@ -148,8 +149,8 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         ICrossChainDelegatorMessage.CancelUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeCancelUnstakeMessage(payload);
 
-        address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
-        if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
+        uint128 syntheticAsset = syntheticAssets[originChainId][message.originAsset];
+        if (syntheticAsset == uint128(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
         UserVault(userVault).restakingCancelUnstake(syntheticAsset, message.amount, message.operator);
@@ -168,8 +169,8 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         ICrossChainDelegatorMessage.ExecuteUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeExecuteUnstakeMessage(payload);
 
-        address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
-        if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
+        uint128 syntheticAsset = syntheticAssets[originChainId][message.originAsset];
+        if (syntheticAsset == uint128(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
         // Just execute unstake, keep assets in vault
@@ -189,8 +190,8 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         ICrossChainDelegatorMessage.ScheduleWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeScheduleWithdrawalMessage(payload);
 
-        address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
-        if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
+        uint128 syntheticAsset = syntheticAssets[originChainId][message.originAsset];
+        if (syntheticAsset == uint128(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
         UserVault(userVault).restakingScheduleWithdraw(syntheticAsset, message.amount);
@@ -209,8 +210,8 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         ICrossChainDelegatorMessage.CancelWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeCancelWithdrawalMessage(payload);
 
-        address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
-        if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
+        uint128 syntheticAsset = syntheticAssets[originChainId][message.originAsset];
+        if (syntheticAsset == uint128(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
         UserVault(userVault).restakingCancelWithdraw(syntheticAsset, message.amount);
@@ -229,8 +230,8 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         ICrossChainDelegatorMessage.ExecuteWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeExecuteWithdrawalMessage(payload);
 
-        address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
-        if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
+        uint128 syntheticAsset = syntheticAssets[originChainId][message.originAsset];
+        if (syntheticAsset == uint128(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
 
@@ -250,7 +251,8 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         // Only burn after successful message dispatch
         try bridgeManager.dispatchMessage(withdrawalMessage.encode()) {
             // If message dispatch succeeds, burn the synthetic asset
-            SyntheticRestakeAsset(syntheticAsset).burn(userVault, message.amount);
+            // TODO: Use the assets precompile to burn the userVault directly
+            // SyntheticRestakeAsset(syntheticAsset).burn(userVault, message.amount);
         } catch {
             revert BridgeDispatchFailed();
         }
@@ -258,20 +260,21 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         return abi.encode(true);
     }
 
-    function getOrCreateSyntheticAsset(uint32 originChainId, uint256 originAsset, uint256 bridgeId) internal returns (address) {
-        address synthetic = syntheticAssets[originChainId][originAsset];
+    function getOrCreateSyntheticAsset(uint32 originChainId, uint256 originAsset, uint256 bridgeId) internal returns (uint128) {
+        uint128 synthetic = syntheticAssets[originChainId][originAsset];
 
-        if (synthetic == address(0)) {
+        if (synthetic == uint128(0)) {
             string memory name = string(abi.encodePacked("Synthetic Restake ", originAsset));
             string memory symbol = string(abi.encodePacked("sr", originAsset));
 
-            synthetic = address(new SyntheticRestakeAsset(name, symbol, originChainId, originAsset, bridgeId));
+            address syntheticAddr = address(new SyntheticRestakeAsset(name, symbol, originChainId, originAsset, bridgeId));
+            synthetic = uint128(uint160(syntheticAddr));
             syntheticAssets[originChainId][originAsset] = synthetic;
 
             emit SyntheticAssetCreated(synthetic, originChainId, originAsset, bridgeId);
         }
 
-        return synthetic;
+        return uint128(uint160(synthetic));
     }
 
     function authorizeAdapter(address adapter) external {

@@ -20,59 +20,35 @@ contract UserVault is AssetDelegator {
         masterVault = _masterVault;
     }
 
-    function restakingDeposit(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        return op(bytes32(0), syntheticAsset, amount, Operation.Deposit);
+    function restakingDeposit(uint128 assetId, uint256 amount) external onlyMasterVault returns (bool) {
+        return op(bytes32(0), assetId, amount, Operation.Deposit);
     }
 
-    function restakingDelegate(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
-        return op(operator, syntheticAsset, amount, Operation.Delegate);
+    function restakingDelegate(uint128 assetId, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+        return op(operator, assetId, amount, Operation.Delegate);
     }
 
-    function restakingScheduleUnstake(
-        address syntheticAsset,
-        uint256 amount,
-        bytes32 operator
-    )
-        external
-        onlyMasterVault
-        returns (bool)
-    {
-        return op(operator, syntheticAsset, amount, Operation.ScheduleUnstake);
+    function restakingScheduleUnstake(uint128 assetId, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+        return op(operator, assetId, amount, Operation.ScheduleUnstake);
     }
 
-    function restakingCancelUnstake(
-        address syntheticAsset,
-        uint256 amount,
-        bytes32 operator
-    )
-        external
-        onlyMasterVault
-        returns (bool)
-    {
-        return op(operator, syntheticAsset, amount, Operation.CancelUnstake);
+    function restakingCancelUnstake(uint128 assetId, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+        return op(operator, assetId, amount, Operation.CancelUnstake);
     }
 
-    function restakingExecuteUnstake(
-        address syntheticAsset,
-        uint256 amount,
-        bytes32 operator
-    )
-        external
-        onlyMasterVault
-        returns (bool)
-    {
-        return op(operator, syntheticAsset, amount, Operation.ExecuteUnstake);
+    function restakingExecuteUnstake(uint128 assetId, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
+        return op(operator, assetId, amount, Operation.ExecuteUnstake);
     }
 
-    function restakingScheduleWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        return op(bytes32(0), syntheticAsset, amount, Operation.ScheduleWithdraw);
+    function restakingScheduleWithdraw(uint128 assetId, uint256 amount) external onlyMasterVault returns (bool) {
+        return op(bytes32(0), assetId, amount, Operation.ScheduleWithdraw);
     }
 
-    function restakingCancelWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        return op(bytes32(0), syntheticAsset, amount, Operation.CancelWithdraw);
+    function restakingCancelWithdraw(uint128 assetId, uint256 amount) external onlyMasterVault returns (bool) {
+        return op(bytes32(0), assetId, amount, Operation.CancelWithdraw);
     }
 
-    function restakingExecuteWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        return op(bytes32(0), syntheticAsset, amount, Operation.ExecuteWithdraw);
+    function restakingExecuteWithdraw(uint128 assetId, uint256 amount) external onlyMasterVault returns (bool) {
+        return op(bytes32(0), assetId, amount, Operation.ExecuteWithdraw);
     }
 }
