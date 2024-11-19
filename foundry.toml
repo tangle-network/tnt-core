@@ -37,3 +37,4 @@ mainnet = "${MAINNET_RPC}"
 
 [dependencies]
 forge-std = "1.9.4"
+"@openzeppelin-contracts" = "5.1.0"
