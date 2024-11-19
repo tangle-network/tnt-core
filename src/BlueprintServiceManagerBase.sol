@@ -6,6 +6,7 @@ import "src/IBlueprintServiceManager.sol";
 
 /**
  * @title BlueprintServiceManagerBase
+ * @author Tangle Network Team
  * @dev This contract acts as a manager for the lifecycle of a Blueprint Instance,
  * facilitating various stages such as registration, service requests, job execution,
  * and job result handling. It is designed to be used by the service blueprint designer
@@ -14,146 +15,128 @@ import "src/IBlueprintServiceManager.sol";
  * of these functions interrupts the process flow.
  */
 contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabled {
-    /**
-     * @dev Hook for service operator registration. Called when a service operator
-     * attempts to register with the blueprint.
-     * @param operator The operator's details in bytes format.
-     * @param registrationInputs Inputs required for registration in bytes format.
-     */
+    /// @inheritdoc IBlueprintServiceManager
     function onRegister(
-        bytes calldata operator,
+        OperatorPreferences calldata operator,
         bytes calldata registrationInputs
     )
-        public
+        external
         payable
-        virtual
         override
         onlyFromRootChain
     { }
 
-    /**
-     * @dev Hook for service instance requests. Called when a user requests a service
-     * instance from the blueprint.
-     * @param serviceId The ID of the requested service.
-     * @param operators The operators involved in the service in bytes array format.
-     * @param requestInputs Inputs required for the service request in bytes format.
-     */
+    /// @inheritdoc IBlueprintServiceManager
+    function onUnregister(OperatorPreferences calldata operator) external override onlyFromRootChain { }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onUpdatePriceTargets(OperatorPreferences calldata operator) external payable override onlyFromRootChain { }
+
+    /// @inheritdoc IBlueprintServiceManager
     function onRequest(
-        uint64 serviceId,
-        bytes[] calldata operators,
-        bytes calldata requestInputs
+        uint64 requestId,
+        address requester,
+        OperatorPreferences[] calldata operators,
+        bytes calldata requestInputs,
+        address[] calldata permittedCallers,
+        uint64 ttl
     )
-        public
+        external
         payable
-        virtual
         override
         onlyFromRootChain
     { }
 
-    /**
-     * @dev Hook for job calls on the service. Called when a job is called within
-     * the service context.
-     * @param serviceId The ID of the service where the job is called.
-     * @param job The job identifier.
-     * @param jobCallId A unique ID for the job call.
-     * @param inputs Inputs required for the job execution in bytes format.
-     */
+    /// @inheritdoc IBlueprintServiceManager
+    function onApprove(
+        OperatorPreferences calldata operator,
+        uint64 requestId,
+        uint8 restakingPercent
+    )
+        external
+        payable
+        override
+        onlyFromRootChain
+    { }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onReject(OperatorPreferences calldata operator, uint64 requestId) external override onlyFromRootChain { }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onServiceInitialized(
+        uint64 requestId,
+        uint64 serviceId,
+        address owner,
+        address[] calldata permittedCallers,
+        uint64 ttl
+    )
+        external
+        override
+        onlyFromRootChain
+    { }
+
+    /// @inheritdoc IBlueprintServiceManager
     function onJobCall(
         uint64 serviceId,
         uint8 job,
         uint64 jobCallId,
         bytes calldata inputs
     )
-        public
+        external
         payable
-        virtual
         override
         onlyFromRootChain
     { }
 
-    /**
-     * @dev Hook for handling job result. Called when operators send the result
-     * of a job execution.
-     * @param serviceId The ID of the service related to the job.
-     * @param job The job identifier.
-     * @param jobCallId The unique ID for the job call.
-     * @param participant The participant (operator) sending the result in bytes format.
-     * @param inputs Inputs used for the job execution in bytes format.
-     * @param outputs Outputs resulting from the job execution in bytes format.
-     */
+    /// @inheritdoc IBlueprintServiceManager
     function onJobResult(
         uint64 serviceId,
         uint8 job,
         uint64 jobCallId,
-        bytes calldata participant,
+        OperatorPreferences calldata operator,
         bytes calldata inputs,
         bytes calldata outputs
     )
-        public
+        external
         payable
-        virtual
         override
         onlyFromRootChain
     { }
 
-    /**
-     * @dev Hook for handling unapplied slashes. Called when a slash is queued and still not yet applied to an offender.
-     * @param serviceId The ID of the service related to the slash.
-     * @param offender The offender's details in bytes format.
-     * @param slashPercent The percentage of the slash.
-     * @param totalPayout The total payout amount in wei.
-     */
+    /// @inheritdoc IBlueprintServiceManager
+    function onServiceTermination(uint64 serviceId, address owner) external override onlyFromRootChain { }
+
+    /// @inheritdoc IBlueprintServiceManager
     function onUnappliedSlash(
         uint64 serviceId,
         bytes calldata offender,
         uint8 slashPercent,
         uint256 totalPayout
     )
-        public
-        virtual
+        external
         override
         onlyFromRootChain
     { }
 
-    /**
-     * @dev Hook for handling applied slashes. Called when a slash is applied to an offender.
-     * @param serviceId The ID of the service related to the slash.
-     * @param offender The offender's details in bytes format.
-     * @param slashPercent The percentage of the slash.
-     * @param totalPayout The total payout amount in wei.
-     */
+    /// @inheritdoc IBlueprintServiceManager
     function onSlash(
         uint64 serviceId,
         bytes calldata offender,
         uint8 slashPercent,
         uint256 totalPayout
     )
-        public
-        virtual
+        external
         override
         onlyFromRootChain
     { }
 
-    /**
-     * @dev Query the slashing origin for a service. This mainly used by the runtime to determine the allowed account
-     * that can slash a service. by default, the service manager is the only account that can slash a service. override this
-     * function to allow other accounts to slash a service.
-     * @param serviceId The ID of the service.
-     * @return slashingOrigin The list of accounts that can slash the service.
-     */
-    function querySlashingOrigin(uint64 serviceId) public view virtual override returns (address slashingOrigin) {
+    /// @inheritdoc IBlueprintServiceManager
+    function querySlashingOrigin(uint64) external view override returns (address slashingOrigin) {
         return address(this);
     }
 
-    /**
-     * @dev Query the dispute origin for a service. This mainly used by the runtime to determine the allowed account
-     * that can dispute an unapplied slash and remove it. by default, the service manager is the only account that can dispute a
-     * service. override this
-     * function to allow other accounts to dispute a service.
-     * @param serviceId The ID of the service.
-     * @return disputeOrigin The account that can dispute the unapplied slash for that service
-     */
-    function queryDisputeOrigin(uint64 serviceId) public view virtual override returns (address disputeOrigin) {
+    /// @inheritdoc IBlueprintServiceManager
+    function queryDisputeOrigin(uint64) external view override returns (address disputeOrigin) {
         return address(this);
     }
 }
