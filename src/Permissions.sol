@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 /// @title Root Chain Enabled
 /// @dev This contract defines the root chain address and provides a modifier to restrict access to the root chain

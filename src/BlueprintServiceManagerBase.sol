@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "src/Permissions.sol";
 import "src/IBlueprintServiceManager.sol";
 
@@ -17,50 +18,62 @@ import "src/IBlueprintServiceManager.sol";
 contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabled {
     /// @inheritdoc IBlueprintServiceManager
     function onRegister(
-        OperatorPreferences calldata operator,
+        ServiceOperators.OperatorPreferences calldata operator,
         bytes calldata registrationInputs
     )
         external
         payable
-        override
+        virtual
         onlyFromRootChain
     { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onUnregister(OperatorPreferences calldata operator) external override onlyFromRootChain { }
+    function onUnregister(ServiceOperators.OperatorPreferences calldata operator) external virtual onlyFromRootChain { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onUpdatePriceTargets(OperatorPreferences calldata operator) external payable override onlyFromRootChain { }
+    function onUpdatePriceTargets(ServiceOperators.OperatorPreferences calldata operator)
+        external
+        payable
+        virtual
+        onlyFromRootChain
+    { }
 
     /// @inheritdoc IBlueprintServiceManager
     function onRequest(
         uint64 requestId,
         address requester,
-        OperatorPreferences[] calldata operators,
+        ServiceOperators.OperatorPreferences[] calldata operators,
         bytes calldata requestInputs,
         address[] calldata permittedCallers,
         uint64 ttl
     )
         external
         payable
-        override
+        virtual
         onlyFromRootChain
     { }
 
     /// @inheritdoc IBlueprintServiceManager
     function onApprove(
-        OperatorPreferences calldata operator,
+        ServiceOperators.OperatorPreferences calldata operator,
         uint64 requestId,
         uint8 restakingPercent
     )
         external
         payable
-        override
+        virtual
         onlyFromRootChain
     { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onReject(OperatorPreferences calldata operator, uint64 requestId) external override onlyFromRootChain { }
+    function onReject(
+        ServiceOperators.OperatorPreferences calldata operator,
+        uint64 requestId
+    )
+        external
+        virtual
+        onlyFromRootChain
+    { }
 
     /// @inheritdoc IBlueprintServiceManager
     function onServiceInitialized(
@@ -71,7 +84,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         uint64 ttl
     )
         external
-        override
+        virtual
         onlyFromRootChain
     { }
 
@@ -84,7 +97,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     )
         external
         payable
-        override
+        virtual
         onlyFromRootChain
     { }
 
@@ -93,18 +106,18 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         uint64 serviceId,
         uint8 job,
         uint64 jobCallId,
-        OperatorPreferences calldata operator,
+        ServiceOperators.OperatorPreferences calldata operator,
         bytes calldata inputs,
         bytes calldata outputs
     )
         external
         payable
-        override
+        virtual
         onlyFromRootChain
     { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onServiceTermination(uint64 serviceId, address owner) external override onlyFromRootChain { }
+    function onServiceTermination(uint64 serviceId, address owner) external virtual onlyFromRootChain { }
 
     /// @inheritdoc IBlueprintServiceManager
     function onUnappliedSlash(
@@ -114,7 +127,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         uint256 totalPayout
     )
         external
-        override
+        virtual
         onlyFromRootChain
     { }
 
@@ -126,17 +139,17 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         uint256 totalPayout
     )
         external
-        override
+        virtual
         onlyFromRootChain
     { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function querySlashingOrigin(uint64) external view override returns (address slashingOrigin) {
+    function querySlashingOrigin(uint64) external view virtual returns (address slashingOrigin) {
         return address(this);
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function queryDisputeOrigin(uint64) external view override returns (address disputeOrigin) {
+    function queryDisputeOrigin(uint64) external view virtual returns (address disputeOrigin) {
         return address(this);
     }
 }

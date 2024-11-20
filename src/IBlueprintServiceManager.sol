@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
-/**
- * @title IBlueprintServiceManager
- * @dev Interface for the BlueprintServiceManager contract, which acts as a manager for the lifecycle of a Blueprint Instance,
- * facilitating various stages such as registration, service requests, job execution, and job result handling.
- */
-interface IBlueprintServiceManager {
+/// @title Service Operators Library
+/// @author Tangle Network Team
+/// @dev Contains structs and enums related to service operators.
+/// @notice Holds different structs and enums related to service operators.
+library ServiceOperators {
     /**
      * @struct OperatorPreferences
      * @dev Represents the preferences of an operator, including their ECDSA public key and price targets.
@@ -34,28 +33,41 @@ interface IBlueprintServiceManager {
         /// @notice The NVMe storage price target.
         uint64 storage_nvme;
     }
+}
 
+/**
+ * @title IBlueprintServiceManager
+ * @author Tangle Network Team
+ * @dev Interface for the BlueprintServiceManager contract, which acts as a manager for the lifecycle of a Blueprint Instance,
+ * facilitating various stages such as registration, service requests, job execution, and job result handling.
+ */
+interface IBlueprintServiceManager {
     /**
      * @dev Hook for service operator registration. Called when a service operator
      * attempts to register with the blueprint.
      * @param operator The operator's details.
      * @param registrationInputs Inputs required for registration in bytes format.
      */
-    function onRegister(OperatorPreferences calldata operator, bytes calldata registrationInputs) external payable;
+    function onRegister(
+        ServiceOperators.OperatorPreferences calldata operator,
+        bytes calldata registrationInputs
+    )
+        external
+        payable;
 
     /**
      * @dev Hook for service operator unregistration. Called when a service operator
      * attempts to unregister from the blueprint.
      * @param operator The operator's details.
      */
-    function onUnregister(OperatorPreferences calldata operator) external;
+    function onUnregister(ServiceOperators.OperatorPreferences calldata operator) external;
 
     /**
      * @dev Hook for updating operator's Price Targets. Called when an operator updates
      * their price targets.
      * @param operator The operator's details with the to be updated price targets.
      */
-    function onUpdatePriceTargets(OperatorPreferences calldata operator) external payable;
+    function onUpdatePriceTargets(ServiceOperators.OperatorPreferences calldata operator) external payable;
 
     /**
      * @dev Hook for service instance requests. Called when a user requests a service
@@ -72,7 +84,7 @@ interface IBlueprintServiceManager {
     function onRequest(
         uint64 requestId,
         address requester,
-        OperatorPreferences[] calldata operators,
+        ServiceOperators.OperatorPreferences[] calldata operators,
         bytes calldata requestInputs,
         address[] calldata permittedCallers,
         uint64 ttl
@@ -86,14 +98,20 @@ interface IBlueprintServiceManager {
      * @param requestId The ID of the request.
      * @param restakingPercent The percentage of the restaking amount (0-100).
      */
-    function onApprove(OperatorPreferences calldata operator, uint64 requestId, uint8 restakingPercent) external payable;
+    function onApprove(
+        ServiceOperators.OperatorPreferences calldata operator,
+        uint64 requestId,
+        uint8 restakingPercent
+    )
+        external
+        payable;
 
     /**
      * @dev Hook for service request rejection. Called when a service request is rejected by an operator.
      * @param operator The operator's details.
      * @param requestId The ID of the request.
      */
-    function onReject(OperatorPreferences calldata operator, uint64 requestId) external;
+    function onReject(ServiceOperators.OperatorPreferences calldata operator, uint64 requestId) external;
 
     /**
      * @dev Hook for service initialization. Called when a service is initialized.
@@ -138,7 +156,7 @@ interface IBlueprintServiceManager {
         uint64 serviceId,
         uint8 job,
         uint64 jobCallId,
-        OperatorPreferences calldata operator,
+        ServiceOperators.OperatorPreferences calldata operator,
         bytes calldata inputs,
         bytes calldata outputs
     )
