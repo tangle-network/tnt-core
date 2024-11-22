@@ -43,6 +43,16 @@ library ServiceOperators {
  */
 interface IBlueprintServiceManager {
     /**
+     * @dev Hook to handle blueprint creation. Gets called by the root chain when a new blueprint is created.
+     * Could be a good place to store the master blueprint service manager address
+     * or any other blueprint related data.
+     * @param blueprintId The unique identifier for the blueprint.
+     * @param owner The address of the blueprint owner.
+     * @param mbsm The address of the master blueprint service manager.
+     */
+    function onBlueprintCreated(uint64 blueprintId, address owner, address mbsm) external;
+
+    /**
      * @dev Hook for service operator registration. Called when a service operator
      * attempts to register with the blueprint.
      * @param operator The operator's details.
