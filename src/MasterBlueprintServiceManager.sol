@@ -22,8 +22,12 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
      * @notice Use this struct to define the blueprint of a service.
      */
     struct Blueprint {
+        /// @dev The metadata information about the service.
         ServiceMetadata metadata;
+        /// @dev The address of the blueprint service manager.
         address manager;
+        /// @dev The Master Blueprint Service Manager revision.
+        uint32 mbsmRevision;
     }
 
     /**
