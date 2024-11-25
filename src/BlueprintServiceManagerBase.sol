@@ -5,16 +5,14 @@ import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "src/Permissions.sol";
 import "src/IBlueprintServiceManager.sol";
 
-/**
- * @title BlueprintServiceManagerBase
- * @author Tangle Network Team
- * @dev This contract acts as a manager for the lifecycle of a Blueprint Instance,
- * facilitating various stages such as registration, service requests, job execution,
- * and job result handling. It is designed to be used by the service blueprint designer
- * (gadget developer) and integrates with the RootChain for permissioned operations.
- * Each function serves as a hook for different lifecycle events, and reverting any
- * of these functions interrupts the process flow.
- */
+/// @title BlueprintServiceManagerBase
+/// @author Tangle Network Team
+/// @dev This contract acts as a manager for the lifecycle of a Blueprint Instance,
+/// facilitating various stages such as registration, service requests, job execution,
+/// and job result handling. It is designed to be used by the service blueprint designer
+/// (gadget developer) and integrates with the RootChain for permissioned operations.
+/// Each function serves as a hook for different lifecycle events, and reverting any
+/// of these functions interrupts the process flow.
 contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabled {
     /// @dev The Current Blueprint Id
     uint256 public currentBlueprintId;

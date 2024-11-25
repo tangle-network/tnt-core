@@ -8,19 +8,15 @@ import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "src/Permissions.sol";
 import "src/IBlueprintServiceManager.sol";
 
-/**
- * @title Master Blueprint Service Manager
- * @author Tangle
- * @dev This contract acts as an interceptor between the root chain and blueprint service manager contracts.
- */
+/// @title Master Blueprint Service Manager
+/// @author Tangle
+/// @dev This contract acts as an interceptor between the root chain and blueprint service manager contracts.
 contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausable {
     using EnumerableMap for EnumerableMap.UintToAddressMap;
 
-    /**
-     * @title Blueprint Structs
-     * @dev Defines the Blueprint and related data structures for the service.
-     * @notice Use this struct to define the blueprint of a service.
-     */
+    /// @title Blueprint Structs
+    /// @dev Defines the Blueprint and related data structures for the service.
+    /// @notice Use this struct to define the blueprint of a service.
     struct Blueprint {
         /// @dev The metadata information about the service.
         ServiceMetadata metadata;
@@ -30,10 +26,8 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint32 mbsmRevision;
     }
 
-    /**
-     * @dev Contains metadata information about the service.
-     * @notice Provides descriptive details about the service.
-     */
+    /// @dev Contains metadata information about the service.
+    /// @notice Provides descriptive details about the service.
     struct ServiceMetadata {
         string name;
         string description; // Empty string represents None
@@ -160,18 +154,12 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// blueprintId => owner
     EnumerableMap.UintToAddressMap private blueprintOwners;
 
-    // ========= Errors =========
-
-    // ========== Modifiers ==========
-
     // ======== Functions =========
 
-    /**
-     * @dev Hook to handle blueprint creation. Gets called by the root chain when a new blueprint is created.
-     * @param blueprintId The unique identifier for the blueprint.
-     * @param owner The address of the blueprint owner.
-     * @param blueprint The blueprint data.
-     */
+    /// @dev Hook to handle blueprint creation. Gets called by the root chain when a new blueprint is created.
+    /// @param blueprintId The unique identifier for the blueprint.
+    /// @param owner The address of the blueprint owner.
+    /// @param blueprint The blueprint data.
     function onBlueprintCreated(
         uint64 blueprintId,
         address owner,
@@ -187,12 +175,10 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit BlueprintCreated(owner, blueprintId, blueprint);
     }
 
-    /**
-     * @dev Called by the runtime when a service operator attempts to register with the blueprint.
-     * @param blueprintId The blueprint unique identifier.
-     * @param operator The Service Operator.
-     * @param registrationInputs The registration inputs in bytes format.
-     */
+    /// @dev Called by the runtime when a service operator attempts to register with the blueprint.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param operator The Service Operator.
+    /// @param registrationInputs The registration inputs in bytes format.
     function onRegister(
         uint64 blueprintId,
         ServiceOperators.OperatorPreferences calldata operator,
@@ -204,16 +190,13 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         whenNotPaused
     {
         address manager = blueprints.get(blueprintId);
-        // TODO: Implement additional registration logic if needed.
         IBlueprintServiceManager(manager).onRegister(operator, registrationInputs);
         emit OperatorRegistered(blueprintId, operator);
     }
 
-    /**
-     * @dev Called when a service operator attempts to unregister from the blueprint.
-     * @param blueprintId The blueprint unique identifier.
-     * @param operator The operator's details.
-     */
+    /// @dev Called when a service operator attempts to unregister from the blueprint.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param operator The operator's details.
     function onUnregister(
         uint64 blueprintId,
         ServiceOperators.OperatorPreferences calldata operator
@@ -227,11 +210,9 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit OperatorUnregistered(blueprintId, operator);
     }
 
-    /**
-     * @dev Called when an operator updates their price targets.
-     * @param blueprintId The blueprint unique identifier.
-     * @param operator The operator's details with the updated price targets.
-     */
+    /// @dev Called when an operator updates their price targets.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param operator The operator's details with the updated price targets.
     function onUpdatePriceTargets(
         uint64 blueprintId,
         ServiceOperators.OperatorPreferences calldata operator
@@ -246,16 +227,14 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit PriceTargetsUpdated(blueprintId, operator);
     }
 
-    /**
-     * @dev Called when a user requests a service instance from the blueprint.
-     * @param blueprintId The blueprint unique identifier.
-     * @param requestId The ID of the request.
-     * @param requester The address of the service requester.
-     * @param operators The list of operators to be considered for the service.
-     * @param requestInputs The inputs required for the service request.
-     * @param permittedCallers The list of permitted callers for the service.
-     * @param ttl The time-to-live for the service.
-     */
+    /// @dev Called when a user requests a service instance from the blueprint.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param requestId The ID of the request.
+    /// @param requester The address of the service requester.
+    /// @param operators The list of operators to be considered for the service.
+    /// @param requestInputs The inputs required for the service request.
+    /// @param permittedCallers The list of permitted callers for the service.
+    /// @param ttl The time-to-live for the service.
     function onRequest(
         uint64 blueprintId,
         uint64 requestId,
@@ -275,13 +254,11 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit ServiceRequested(blueprintId, requestId, requester, ttl);
     }
 
-    /**
-     * @dev Called when a service request is approved by an operator.
-     * @param blueprintId The blueprint unique identifier.
-     * @param operator The operator's details.
-     * @param requestId The ID of the request.
-     * @param restakingPercent The percentage of the restaking amount.
-     */
+    /// @dev Called when a service request is approved by an operator.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param operator The operator's details.
+    /// @param requestId The ID of the request.
+    /// @param restakingPercent The percentage of the restaking amount.
     function onApprove(
         uint64 blueprintId,
         ServiceOperators.OperatorPreferences calldata operator,
@@ -298,12 +275,10 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit RequestApproved(blueprintId, requestId, operator, restakingPercent);
     }
 
-    /**
-     * @dev Called when a service request is rejected by an operator.
-     * @param blueprintId The blueprint unique identifier.
-     * @param operator The operator's details.
-     * @param requestId The ID of the request.
-     */
+    /// @dev Called when a service request is rejected by an operator.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param operator The operator's details.
+    /// @param requestId The ID of the request.
     function onReject(
         uint64 blueprintId,
         ServiceOperators.OperatorPreferences calldata operator,
@@ -318,15 +293,13 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit RequestRejected(blueprintId, requestId, operator);
     }
 
-    /**
-     * @dev Called when a service is initialized.
-     * @param blueprintId The blueprint unique identifier.
-     * @param requestId The ID of the request.
-     * @param serviceId The ID of the service.
-     * @param owner The owner of the service.
-     * @param permittedCallers The list of permitted callers.
-     * @param ttl The time-to-live for the service.
-     */
+    /// @dev Called when a service is initialized.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param requestId The ID of the request.
+    /// @param serviceId The ID of the service.
+    /// @param owner The owner of the service.
+    /// @param permittedCallers The list of permitted callers.
+    /// @param ttl The time-to-live for the service.
     function onServiceInitialized(
         uint64 blueprintId,
         uint64 requestId,
@@ -344,14 +317,12 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit ServiceInitialized(blueprintId, requestId, serviceId, owner, ttl);
     }
 
-    /**
-     * @dev Called when a job is called within the service context.
-     * @param blueprintId The blueprint unique identifier.
-     * @param serviceId The ID of the service.
-     * @param job The job identifier.
-     * @param jobCallId The unique ID for the job call.
-     * @param inputs The inputs required for the job execution.
-     */
+    /// @dev Called when a job is called within the service context.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param serviceId The ID of the service.
+    /// @param job The job identifier.
+    /// @param jobCallId The unique ID for the job call.
+    /// @param inputs The inputs required for the job execution.
     function onJobCall(
         uint64 blueprintId,
         uint64 serviceId,
@@ -369,16 +340,14 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit JobCalled(blueprintId, serviceId, job, jobCallId);
     }
 
-    /**
-     * @dev Called when operators send the result of a job execution.
-     * @param blueprintId The blueprint unique identifier.
-     * @param serviceId The ID of the service.
-     * @param job The job identifier.
-     * @param jobCallId The unique ID for the job call.
-     * @param operator The operator sending the result.
-     * @param inputs The inputs used for the job execution.
-     * @param outputs The outputs from the job execution.
-     */
+    /// @dev Called when operators send the result of a job execution.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param serviceId The ID of the service.
+    /// @param job The job identifier.
+    /// @param jobCallId The unique ID for the job call.
+    /// @param operator The operator sending the result.
+    /// @param inputs The inputs used for the job execution.
+    /// @param outputs The outputs from the job execution.
     function onJobResult(
         uint64 blueprintId,
         uint64 serviceId,
@@ -398,26 +367,22 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit JobResultReceived(blueprintId, serviceId, job, jobCallId, operator);
     }
 
-    /**
-     * @dev Called when a service is terminated.
-     * @param blueprintId The blueprint unique identifier.
-     * @param serviceId The ID of the service.
-     * @param owner The owner of the service.
-     */
+    /// @dev Called when a service is terminated.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param serviceId The ID of the service.
+    /// @param owner The owner of the service.
     function onServiceTermination(uint64 blueprintId, uint64 serviceId, address owner) public onlyFromRootChain whenNotPaused {
         address manager = blueprints.get(blueprintId);
         IBlueprintServiceManager(manager).onServiceTermination(serviceId, owner);
         emit ServiceTerminated(blueprintId, serviceId, owner);
     }
 
-    /**
-     * @dev Called when a slash is queued but not yet applied.
-     * @param blueprintId The blueprint unique identifier.
-     * @param serviceId The ID of the service.
-     * @param offender The offender's details.
-     * @param slashPercent The percentage of the slash.
-     * @param totalPayout The total payout amount.
-     */
+    /// @dev Called when a slash is queued but not yet applied.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param serviceId The ID of the service.
+    /// @param offender The offender's details.
+    /// @param slashPercent The percentage of the slash.
+    /// @param totalPayout The total payout amount.
     function onUnappliedSlash(
         uint64 blueprintId,
         uint64 serviceId,
@@ -434,14 +399,12 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit UnappliedSlash(blueprintId, serviceId, offender, slashPercent, totalPayout);
     }
 
-    /**
-     * @dev Called when a slash is applied to an offender.
-     * @param blueprintId The blueprint unique identifier.
-     * @param serviceId The ID of the service.
-     * @param offender The offender's details.
-     * @param slashPercent The percentage of the slash.
-     * @param totalPayout The total payout amount.
-     */
+    /// @dev Called when a slash is applied to an offender.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param serviceId The ID of the service.
+    /// @param offender The offender's details.
+    /// @param slashPercent The percentage of the slash.
+    /// @param totalPayout The total payout amount.
     function onSlash(
         uint64 blueprintId,
         uint64 serviceId,
@@ -458,23 +421,19 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit Slashed(blueprintId, serviceId, offender, slashPercent, totalPayout);
     }
 
-    /**
-     * @dev Query the slashing origin for a service.
-     * @param blueprintId The blueprint unique identifier.
-     * @param serviceId The ID of the service.
-     * @return slashingOrigin The account that can slash the offender.
-     */
+    /// @dev Query the slashing origin for a service.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param serviceId The ID of the service.
+    /// @return slashingOrigin The account that can slash the offender.
     function querySlashingOrigin(uint64 blueprintId, uint64 serviceId) public view returns (address slashingOrigin) {
         address manager = blueprints.get(blueprintId);
         return IBlueprintServiceManager(manager).querySlashingOrigin(serviceId);
     }
 
-    /**
-     * @dev Query the dispute origin for a service.
-     * @param blueprintId The blueprint unique identifier.
-     * @param serviceId The ID of the service.
-     * @return disputeOrigin The account that can dispute the unapplied slash.
-     */
+    /// @dev Query the dispute origin for a service.
+    /// @param blueprintId The blueprint unique identifier.
+    /// @param serviceId The ID of the service.
+    /// @return disputeOrigin The account that can dispute the unapplied slash.
     function queryDisputeOrigin(uint64 blueprintId, uint64 serviceId) public view returns (address disputeOrigin) {
         address manager = blueprints.get(blueprintId);
         return IBlueprintServiceManager(manager).queryDisputeOrigin(serviceId);
