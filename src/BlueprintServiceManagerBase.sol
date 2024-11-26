@@ -1,66 +1,78 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "src/Permissions.sol";
 import "src/IBlueprintServiceManager.sol";
 
-/**
- * @title BlueprintServiceManagerBase
- * @author Tangle Network Team
- * @dev This contract acts as a manager for the lifecycle of a Blueprint Instance,
- * facilitating various stages such as registration, service requests, job execution,
- * and job result handling. It is designed to be used by the service blueprint designer
- * (gadget developer) and integrates with the RootChain for permissioned operations.
- * Each function serves as a hook for different lifecycle events, and reverting any
- * of these functions interrupts the process flow.
- */
+/// @title BlueprintServiceManagerBase
+/// @author Tangle Network Team
+/// @dev This contract acts as a manager for the lifecycle of a Blueprint Instance,
+/// facilitating various stages such as registration, service requests, job execution,
+/// and job result handling. It is designed to be used by the service blueprint designer
+/// (gadget developer) and integrates with the RootChain for permissioned operations.
+/// Each function serves as a hook for different lifecycle events, and reverting any
+/// of these functions interrupts the process flow.
 contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabled {
+    /// @dev The Current Blueprint Id
+    uint256 public currentBlueprintId;
+
+    /// @dev The address of the owner of the blueprint
+    address public blueprintOwner;
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onBlueprintCreated(uint64 blueprintId, address owner, address mbsm) external virtual onlyFromRootChain {
+        currentBlueprintId = blueprintId;
+        blueprintOwner = owner;
+        masterBlueprintServiceManager = mbsm;
+    }
+
     /// @inheritdoc IBlueprintServiceManager
     function onRegister(
-        OperatorPreferences calldata operator,
+        ServiceOperators.OperatorPreferences calldata operator,
         bytes calldata registrationInputs
     )
         external
         payable
-        override
-        onlyFromRootChain
+        virtual
+        onlyFromMaster
     { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onUnregister(OperatorPreferences calldata operator) external override onlyFromRootChain { }
+    function onUnregister(ServiceOperators.OperatorPreferences calldata operator) external virtual onlyFromMaster { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onUpdatePriceTargets(OperatorPreferences calldata operator) external payable override onlyFromRootChain { }
+    function onUpdatePriceTargets(ServiceOperators.OperatorPreferences calldata operator) external payable virtual onlyFromMaster { }
 
     /// @inheritdoc IBlueprintServiceManager
     function onRequest(
         uint64 requestId,
         address requester,
-        OperatorPreferences[] calldata operators,
+        ServiceOperators.OperatorPreferences[] calldata operators,
         bytes calldata requestInputs,
         address[] calldata permittedCallers,
         uint64 ttl
     )
         external
         payable
-        override
-        onlyFromRootChain
+        virtual
+        onlyFromMaster
     { }
 
     /// @inheritdoc IBlueprintServiceManager
     function onApprove(
-        OperatorPreferences calldata operator,
+        ServiceOperators.OperatorPreferences calldata operator,
         uint64 requestId,
         uint8 restakingPercent
     )
         external
         payable
-        override
-        onlyFromRootChain
+        virtual
+        onlyFromMaster
     { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onReject(OperatorPreferences calldata operator, uint64 requestId) external override onlyFromRootChain { }
+    function onReject(ServiceOperators.OperatorPreferences calldata operator, uint64 requestId) external virtual onlyFromMaster { }
 
     /// @inheritdoc IBlueprintServiceManager
     function onServiceInitialized(
@@ -71,8 +83,8 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         uint64 ttl
     )
         external
-        override
-        onlyFromRootChain
+        virtual
+        onlyFromMaster
     { }
 
     /// @inheritdoc IBlueprintServiceManager
@@ -84,8 +96,8 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     )
         external
         payable
-        override
-        onlyFromRootChain
+        virtual
+        onlyFromMaster
     { }
 
     /// @inheritdoc IBlueprintServiceManager
@@ -93,18 +105,18 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         uint64 serviceId,
         uint8 job,
         uint64 jobCallId,
-        OperatorPreferences calldata operator,
+        ServiceOperators.OperatorPreferences calldata operator,
         bytes calldata inputs,
         bytes calldata outputs
     )
         external
         payable
-        override
-        onlyFromRootChain
+        virtual
+        onlyFromMaster
     { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onServiceTermination(uint64 serviceId, address owner) external override onlyFromRootChain { }
+    function onServiceTermination(uint64 serviceId, address owner) external virtual onlyFromMaster { }
 
     /// @inheritdoc IBlueprintServiceManager
     function onUnappliedSlash(
@@ -114,8 +126,8 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         uint256 totalPayout
     )
         external
-        override
-        onlyFromRootChain
+        virtual
+        onlyFromMaster
     { }
 
     /// @inheritdoc IBlueprintServiceManager
@@ -126,17 +138,17 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         uint256 totalPayout
     )
         external
-        override
-        onlyFromRootChain
+        virtual
+        onlyFromMaster
     { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function querySlashingOrigin(uint64) external view override returns (address slashingOrigin) {
+    function querySlashingOrigin(uint64) external view virtual returns (address slashingOrigin) {
         return address(this);
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function queryDisputeOrigin(uint64) external view override returns (address disputeOrigin) {
+    function queryDisputeOrigin(uint64) external view virtual returns (address disputeOrigin) {
         return address(this);
     }
 }
