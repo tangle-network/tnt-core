@@ -177,4 +177,12 @@ interface IBlueprintServiceManager {
     /// @param serviceId The ID of the service.
     /// @return disputeOrigin The account that can dispute the unapplied slash for that service
     function queryDisputeOrigin(uint64 serviceId) external view returns (address disputeOrigin);
+
+    /// @dev Query the developer payment address for a service. This mainly used by the runtime or the Master Blueprint Service
+    /// Manager
+    /// to determine the developer payment address for a service.
+    /// @notice This function should be implemented by the Blueprint Service Manager contract.
+    /// @param serviceId The ID of the service.
+    /// @return developerPaymentAddress The address of the developer payment address for that service
+    function queryDeveloperPaymentAddress(uint64 serviceId) external view returns (address developerPaymentAddress);
 }

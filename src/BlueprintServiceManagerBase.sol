@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "src/Permissions.sol";
 import "src/IBlueprintServiceManager.sol";
 
@@ -150,5 +149,10 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     /// @inheritdoc IBlueprintServiceManager
     function queryDisputeOrigin(uint64) external view virtual returns (address disputeOrigin) {
         return address(this);
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function queryDeveloperPaymentAddress(uint64) external view virtual returns (address developerPaymentAddress) {
+        return payable(blueprintOwner);
     }
 }
