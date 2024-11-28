@@ -151,4 +151,9 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     function queryDisputeOrigin(uint64) external view virtual returns (address disputeOrigin) {
         return address(this);
     }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function queryDeveloperPaymentAddress(uint64) external view virtual returns (address developerPaymentAddress) {
+        return payable(blueprintOwner);
+    }
 }
