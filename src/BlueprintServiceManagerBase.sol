@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "src/Permissions.sol";
 import "src/IBlueprintServiceManager.sol";
 
