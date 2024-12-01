@@ -2,10 +2,12 @@
 pragma solidity ^0.8.19;
 
 import { AssetDelegator } from "./AssetDelegator.sol";
+import { AssetManager } from "./AssetManager.sol";
 
 contract UserVault is AssetDelegator {
     bytes32 public immutable owner;
     address public immutable masterVault;
+    address public immutable assetManager;
 
     error Unauthorized();
     error InsufficientBalance();
