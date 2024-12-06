@@ -68,7 +68,16 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @param requestId The ID of the request.
     /// @param requester The address of the service requester.
     /// @param ttl The time-to-live for the service.
-    event ServiceRequested(uint64 indexed blueprintId, uint64 indexed requestId, address indexed requester, uint64 ttl);
+    /// @param asset The asset used for payment for the service.
+    /// @param amount The amount of the payment asset.
+    event ServiceRequested(
+        uint64 indexed blueprintId,
+        uint64 indexed requestId,
+        address indexed requester,
+        uint64 ttl,
+        ServiceOperators.Asset asset,
+        uint256 amount
+    );
 
     /// @dev Emitted when a service request is approved by an operator.
     /// @param blueprintId The unique identifier of the blueprint.
@@ -76,14 +85,19 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @param operator The operator's preferences.
     /// @param restakingPercent The percentage of the restaking amount.
     event RequestApproved(
-        uint64 indexed blueprintId, uint64 indexed requestId, ServiceOperators.OperatorPreferences operator, uint8 restakingPercent
+        uint64 indexed blueprintId,
+        uint64 indexed requestId,
+        ServiceOperators.OperatorPreferences operator,
+        uint8 restakingPercent
     );
 
     /// @dev Emitted when a service request is rejected by an operator.
     /// @param blueprintId The unique identifier of the blueprint.
     /// @param requestId The ID of the request.
     /// @param operator The operator's preferences.
-    event RequestRejected(uint64 indexed blueprintId, uint64 indexed requestId, ServiceOperators.OperatorPreferences operator);
+    event RequestRejected(
+        uint64 indexed blueprintId, uint64 indexed requestId, ServiceOperators.OperatorPreferences operator
+    );
 
     /// @dev Emitted when a service is initialized.
     /// @param blueprintId The unique identifier of the blueprint.
@@ -138,7 +152,9 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @param offender The offender's details.
     /// @param slashPercent The percentage of the slash.
     /// @param totalPayout The total payout amount.
-    event Slashed(uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent, uint256 totalPayout);
+    event Slashed(
+        uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent, uint256 totalPayout
+    );
 
     // ============ Storage ============
 
@@ -229,20 +245,10 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
 
     /// @dev Called when a user requests a service instance from the blueprint.
     /// @param blueprintId The blueprint unique identifier.
-    /// @param requestId The ID of the request.
-    /// @param requester The address of the service requester.
-    /// @param operators The list of operators to be considered for the service.
-    /// @param requestInputs The inputs required for the service request.
-    /// @param permittedCallers The list of permitted callers for the service.
-    /// @param ttl The time-to-live for the service.
+    /// @param params The request parameters.
     function onRequest(
         uint64 blueprintId,
-        uint64 requestId,
-        address requester,
-        ServiceOperators.OperatorPreferences[] calldata operators,
-        bytes calldata requestInputs,
-        address[] calldata permittedCallers,
-        uint64 ttl
+        ServiceOperators.RequestParams calldata params
     )
         public
         payable
@@ -250,8 +256,10 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         whenNotPaused
     {
         address manager = blueprints.get(blueprintId);
-        IBlueprintServiceManager(manager).onRequest(requestId, requester, operators, requestInputs, permittedCallers, ttl);
-        emit ServiceRequested(blueprintId, requestId, requester, ttl);
+        IBlueprintServiceManager(manager).onRequest(params);
+        emit ServiceRequested(
+            blueprintId, params.requestId, params.requester, params.ttl, params.paymentAsset, params.amount
+        );
     }
 
     /// @dev Called when a service request is approved by an operator.
@@ -371,7 +379,15 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @param blueprintId The blueprint unique identifier.
     /// @param serviceId The ID of the service.
     /// @param owner The owner of the service.
-    function onServiceTermination(uint64 blueprintId, uint64 serviceId, address owner) public onlyFromRootChain whenNotPaused {
+    function onServiceTermination(
+        uint64 blueprintId,
+        uint64 serviceId,
+        address owner
+    )
+        public
+        onlyFromRootChain
+        whenNotPaused
+    {
         address manager = blueprints.get(blueprintId);
         IBlueprintServiceManager(manager).onServiceTermination(serviceId, owner);
         emit ServiceTerminated(blueprintId, serviceId, owner);

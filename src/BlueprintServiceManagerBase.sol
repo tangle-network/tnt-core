@@ -41,22 +41,15 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     function onUnregister(ServiceOperators.OperatorPreferences calldata operator) external virtual onlyFromMaster { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onUpdatePriceTargets(ServiceOperators.OperatorPreferences calldata operator) external payable virtual onlyFromMaster { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function onRequest(
-        uint64 requestId,
-        address requester,
-        ServiceOperators.OperatorPreferences[] calldata operators,
-        bytes calldata requestInputs,
-        address[] calldata permittedCallers,
-        uint64 ttl
-    )
+    function onUpdatePriceTargets(ServiceOperators.OperatorPreferences calldata operator)
         external
         payable
         virtual
         onlyFromMaster
     { }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onRequest(ServiceOperators.RequestParams calldata params) external payable virtual onlyFromMaster { }
 
     /// @inheritdoc IBlueprintServiceManager
     function onApprove(
@@ -71,7 +64,14 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onReject(ServiceOperators.OperatorPreferences calldata operator, uint64 requestId) external virtual onlyFromMaster { }
+    function onReject(
+        ServiceOperators.OperatorPreferences calldata operator,
+        uint64 requestId
+    )
+        external
+        virtual
+        onlyFromMaster
+    { }
 
     /// @inheritdoc IBlueprintServiceManager
     function onServiceInitialized(
