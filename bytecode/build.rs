@@ -1,3 +1,4 @@
+use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -21,8 +22,12 @@ fn to_screaming_snake_case(name: &str) -> String {
 }
 
 fn main() {
-    // Tell cargo to rerun this script if the contracts change
-    println!("cargo:rerun-if-changed=../src");
+    // Only run the build script if the build-script feature is enabled
+    if env::var("CARGO_FEATURE_BUILD_SCRIPT").is_ok() {
+        // Your existing build script logic here
+        println!("cargo:rerun-if-changed=build.rs");
+        println!("cargo:rerun-if-changed=../src");
+    }
 
     // Run forge build
     let status = Command::new("forge")
