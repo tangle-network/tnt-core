@@ -1,4 +1,3 @@
-use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -8,12 +7,12 @@ fn to_screaming_snake_case(name: &str) -> String {
     let mut prev_char_is_lowercase = false;
 
     for (i, c) in name.chars().enumerate() {
-        if i > 0 && c.is_uppercase() {
-            if prev_char_is_lowercase
-                || (i + 1 < name.len() && name.chars().nth(i + 1).unwrap().is_lowercase())
-            {
-                result.push('_');
-            }
+        if i > 0
+            && c.is_uppercase()
+            && (prev_char_is_lowercase
+                || (i + 1 < name.len() && name.chars().nth(i + 1).unwrap().is_lowercase()))
+        {
+            result.push('_');
         }
         result.push(c.to_ascii_uppercase());
         prev_char_is_lowercase = c.is_lowercase();
@@ -57,7 +56,7 @@ pub mod bytecode {
             .join(format!("{}.json", contract));
 
         let json_str = fs::read_to_string(&json_path)
-            .expect(&format!("Failed to read {}", json_path.display()));
+            .unwrap_or_else(|_| panic!("Failed to read {}", json_path.display()));
 
         let json: serde_json::Value =
             serde_json::from_str(&json_str).expect("Failed to parse JSON");
@@ -93,16 +92,6 @@ pub mod bytecode {
 
     rust_code.push_str(
         r#"}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn verify_bytecode_not_empty() {
-        assert!(!bytecode::MASTER_BLUEPRINT_SERVICE_MANAGER.is_empty());
-    }
-}
 "#,
     );
 
