@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 description = "Bytecode exports for TNT Core Solidity contracts"
 license = "MIT"
+
+[build-dependencies]
+serde_json = "1.0"
