@@ -102,16 +102,7 @@ contract RemoteRestakeVault {
         bridgeManager = IRemoteChainBridgeManager(_bridgeManager);
     }
 
-    function deposit(
-        address token,
-        uint256 amount,
-        uint256 bridgeId
-    )
-        external
-        payable
-        validToken(token)
-        validAmount(amount)
-    {
+    function deposit(address token, uint256 amount, uint256 bridgeId) external payable validToken(token) validAmount(amount) {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         userDeposits[msg.sender][token] += amount;
 
@@ -129,6 +120,7 @@ contract RemoteRestakeVault {
         _dispatchMessage(bridgeId, message.encode());
         emit AssetDeposited(token, msg.sender, amount);
     }
+
     function delegate(
         address token,
         uint256 amount,
@@ -235,8 +227,7 @@ contract RemoteRestakeVault {
         userDeposits[msg.sender][token] += amount;
 
         // Clean up operator tracking if no more delegations
-        if (userDelegations[msg.sender][token][operator] == 0 && 
-            userUnstaking[msg.sender][token][operator] == 0) {
+        if (userDelegations[msg.sender][token][operator] == 0 && userUnstaking[msg.sender][token][operator] == 0) {
             operatorDelegators[operator][token][msg.sender] = false;
             _cleanupOperatorIfEmpty(operator, token);
         }
@@ -253,32 +244,21 @@ contract RemoteRestakeVault {
         emit UnstakeExecuted(token, msg.sender, amount, operator);
     }
 
-    function handleSlashMessage(
-        bytes32 operator,
-        uint8 slashPercent
-    ) 
-        internal 
-        validOperator(operator)
-        returns (bool)
-    {
+    function handleSlashMessage(bytes32 operator, uint8 slashPercent) internal validOperator(operator) returns (bool) {
         uint256 length = knownTokens.length();
         for (uint256 i = 0; i < length;) {
             address token = knownTokens.at(i);
             if (operatorTokens[operator][token]) {
                 _handleSlashForToken(operator, token, slashPercent);
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
         return true;
     }
 
-    function _handleSlashForToken(
-        bytes32 operator,
-        address token,
-        uint8 slashPercent
-    ) 
-        internal 
-    {
+    function _handleSlashForToken(bytes32 operator, address token, uint8 slashPercent) internal {
         uint256 length = knownDelegators.length();
         for (uint256 i = 0; i < length;) {
             address delegator = knownDelegators.at(i);
@@ -293,22 +273,26 @@ contract RemoteRestakeVault {
                     }
                 }
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
     function _cleanupOperatorIfEmpty(bytes32 operator, address token) internal {
         uint256 length = knownDelegators.length();
         bool hasActiveDelegators = false;
-        
+
         for (uint256 i = 0; i < length && !hasActiveDelegators;) {
             address delegator = knownDelegators.at(i);
             if (operatorDelegators[operator][token][delegator]) {
                 hasActiveDelegators = true;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
-        
+
         if (!hasActiveDelegators) {
             operatorTokens[operator][token] = false;
             _cleanupOperatorIfNoTokens(operator);
@@ -318,15 +302,17 @@ contract RemoteRestakeVault {
     function _cleanupOperatorIfNoTokens(bytes32 operator) internal {
         uint256 length = knownTokens.length();
         bool hasActiveTokens = false;
-        
+
         for (uint256 i = 0; i < length && !hasActiveTokens;) {
             address token = knownTokens.at(i);
             if (operatorTokens[operator][token]) {
                 hasActiveTokens = true;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
-        
+
         if (!hasActiveTokens) {
             knownOperators.remove(operator);
         }
@@ -347,20 +333,24 @@ contract RemoteRestakeVault {
         uint256 length = knownTokens.length();
         uint256 count;
         address[] memory tokens = new address[](length);
-        
+
         for (uint256 i = 0; i < length;) {
             address token = knownTokens.at(i);
             if (operatorTokens[operator][token]) {
                 tokens[count] = token;
-                unchecked { ++count; }
+                unchecked {
+                    ++count;
+                }
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
-        
+
         assembly {
             mstore(tokens, count)
         }
-        
+
         return tokens;
     }
 
@@ -368,20 +358,24 @@ contract RemoteRestakeVault {
         uint256 length = knownDelegators.length();
         uint256 count;
         address[] memory delegators = new address[](length);
-        
+
         for (uint256 i = 0; i < length;) {
             address delegator = knownDelegators.at(i);
             if (operatorDelegators[operator][token][delegator]) {
                 delegators[count] = delegator;
-                unchecked { ++count; }
+                unchecked {
+                    ++count;
+                }
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
-        
+
         assembly {
             mstore(delegators, count)
         }
-        
+
         return delegators;
     }
 

@@ -20,13 +20,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /// - Only the contract owner can manually set asset IDs
 /// - Includes emergency recovery function for stuck ERC20 tokens
 /// - Asset IDs are obtained from the precompile to ensure system-wide consistency
-contract AssetManager is Ownable {
+contract AssetManager {
     // Interface to the Assets precompile that handles native asset operations
     IAssets public immutable assetsPrecompile;
-    
+
     // Maps ERC20 token addresses to their corresponding native asset IDs
     mapping(address => uint256) public erc20ToAssetId;
-    
+
     // Events for tracking asset creation and deposits
     event AssetCreated(address indexed erc20Token, uint256 indexed assetId);
     event Deposited(address indexed erc20Token, uint256 indexed assetId, address indexed user, uint256 amount);
@@ -54,22 +54,16 @@ contract AssetManager is Ownable {
     function deposit(address erc20Token, uint256 amount) external returns (uint256) {
         require(amount > 0, "Amount must be greater than 0");
         require(erc20Token != address(0), "Invalid token address");
-        
+
         // Transfer ERC20 tokens from user to this contract
-        require(
-            IERC20(erc20Token).transferFrom(msg.sender, address(this), amount),
-            "Token transfer failed"
-        );
-        
+        require(IERC20(erc20Token).transferFrom(msg.sender, address(this), amount), "Token transfer failed");
+
         // Get or create asset ID
         uint256 assetId = getOrCreateAssetId(erc20Token);
-        
+
         // Mint native assets to the user
-        require(
-            assetsPrecompile.mint(assetId, address(this), amount),
-            "Asset minting failed"
-        );
-        
+        require(assetsPrecompile.mint(assetId, address(this), amount), "Asset minting failed");
+
         emit Deposited(erc20Token, assetId, msg.sender, amount);
         return assetId;
     }
@@ -87,24 +81,21 @@ contract AssetManager is Ownable {
     /// Note: The minimum balance for new assets is set to 1 to prevent dust attacks
     function getOrCreateAssetId(address erc20Token) internal returns (uint256) {
         uint256 assetId = erc20ToAssetId[erc20Token];
-        
+
         // If asset doesn't exist, create it
         if (assetId == 0) {
             // Get the next available asset ID from the precompile
             assetId = assetsPrecompile.next_asset_id();
-            
+
             // Create the asset with this contract as admin
-            require(
-                assetsPrecompile.create(assetId, address(this), 1),
-                "Asset creation failed"
-            );
-            
+            require(assetsPrecompile.create(assetId, address(this), 1), "Asset creation failed");
+
             // Store the mapping
             erc20ToAssetId[erc20Token] = assetId;
-            
+
             emit AssetCreated(erc20Token, assetId);
         }
-        
+
         return assetId;
     }
 
@@ -147,9 +138,6 @@ contract AssetManager is Ownable {
     function recoverERC20(address token) external onlyOwner {
         uint256 balance = IERC20(token).balanceOf(address(this));
         require(balance > 0, "No tokens to recover");
-        require(
-            IERC20(token).transfer(owner(), balance),
-            "Token recovery failed"
-        );
+        require(IERC20(token).transfer(owner(), balance), "Token recovery failed");
     }
 }
