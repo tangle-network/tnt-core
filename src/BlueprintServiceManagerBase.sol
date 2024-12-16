@@ -192,13 +192,24 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
      * @param serviceId The ID of the service for which the asset is being permitted.
      * @param asset The asset to be permitted, defined by its kind and data.
      */
-    function _permitAsset(uint64 serviceId, ServiceOperators.Asset calldata asset) internal virtual {
+    function _permitAsset(
+        uint64 serviceId,
+        ServiceOperators.Asset calldata asset
+    )
+        internal
+        virtual
+        returns (bool added)
+    {
         if (asset.kind == ServiceOperators.AssetKind.Erc20) {
             address assetAddress = address(uint160(uint256(asset.data)));
-            _permittedPaymentAssets[serviceId].add(assetAddress);
+            bool _added = _permittedPaymentAssets[serviceId].add(assetAddress);
+            return _added;
         } else if (asset.kind == ServiceOperators.AssetKind.Custom) {
             address assetAddress = _assetIdToAddress(asset.data);
-            _permittedPaymentAssets[serviceId].add(assetAddress);
+            bool _added = _permittedPaymentAssets[serviceId].add(assetAddress);
+            return _added;
+        } else {
+            return false;
         }
     }
 
@@ -208,13 +219,24 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
      * @param serviceId The ID of the service for which the asset is being revoked.
      * @param asset The asset to be revoked, defined by its kind and data.
      */
-    function _revokeAsset(uint64 serviceId, ServiceOperators.Asset calldata asset) internal virtual {
+    function _revokeAsset(
+        uint64 serviceId,
+        ServiceOperators.Asset calldata asset
+    )
+        internal
+        virtual
+        returns (bool removed)
+    {
         if (asset.kind == ServiceOperators.AssetKind.Erc20) {
             address assetAddress = address(uint160(uint256(asset.data)));
-            _permittedPaymentAssets[serviceId].remove(assetAddress);
+            bool _removed = _permittedPaymentAssets[serviceId].remove(assetAddress);
+            return _removed;
         } else if (asset.kind == ServiceOperators.AssetKind.Custom) {
             address assetAddress = _assetIdToAddress(asset.data);
-            _permittedPaymentAssets[serviceId].remove(assetAddress);
+            bool _removed = _permittedPaymentAssets[serviceId].remove(assetAddress);
+            return _removed;
+        } else {
+            return false;
         }
     }
 
@@ -223,11 +245,17 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
      * @dev Iterates through the set of permitted assets and removes each one.
      * @param serviceId The ID of the service for which permitted assets are being cleared.
      */
-    function _clearPermittedAssets(uint64 serviceId) internal virtual {
+    function _clearPermittedAssets(uint64 serviceId) internal virtual returns (bool cleared) {
         EnumerableSet.AddressSet storage permittedAssets = _permittedPaymentAssets[serviceId];
-        for (uint256 i = 0; i < permittedAssets.length(); i++) {
-            permittedAssets.remove(permittedAssets.at(i));
+        uint256 length = permittedAssets.length();
+        while (length > 0) {
+            address assetAddress = permittedAssets.at(0);
+            permittedAssets.remove(assetAddress);
+            length = permittedAssets.length();
         }
+
+        // The set should be empty after clearing all permitted assets.
+        return permittedAssets.length() == 0;
     }
 
     /**
