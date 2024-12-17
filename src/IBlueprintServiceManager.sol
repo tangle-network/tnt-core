@@ -220,5 +220,20 @@ interface IBlueprintServiceManager {
     /// @notice This function should be implemented by the Blueprint Service Manager contract.
     /// @param serviceId The ID of the service.
     /// @return developerPaymentAddress The address of the developer payment address for that service
-    function queryDeveloperPaymentAddress(uint64 serviceId) external view returns (address developerPaymentAddress);
+    function queryDeveloperPaymentAddress(uint64 serviceId)
+        external
+        view
+        returns (address payable developerPaymentAddress);
+
+    /// @dev Determines if a specified payment asset is permitted for a given service.
+    /// @param serviceId The ID of the service to check against.
+    /// @param asset The asset to verify for allowance.
+    /// @return isAllowed Returns true if the asset is allowed, false otherwise.
+    function queryIsPaymentAssetAllowed(
+        uint64 serviceId,
+        ServiceOperators.Asset calldata asset
+    )
+        external
+        view
+        returns (bool isAllowed);
 }
