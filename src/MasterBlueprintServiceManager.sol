@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "src/Permissions.sol";
 import "src/IBlueprintServiceManager.sol";
@@ -13,6 +15,10 @@ import "src/IBlueprintServiceManager.sol";
 /// @dev This contract acts as an interceptor between the root chain and blueprint service manager contracts.
 contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausable {
     using EnumerableMap for EnumerableMap.UintToAddressMap;
+    using Assets for Assets.Asset;
+    using Assets for address;
+    using Assets for bytes32;
+    using SafeERC20 for IERC20;
 
     /// @title Blueprint Structs
     /// @dev Defines the Blueprint and related data structures for the service.
@@ -75,7 +81,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint64 indexed requestId,
         address indexed requester,
         uint64 ttl,
-        ServiceOperators.Asset asset,
+        Assets.Asset asset,
         uint256 amount
     );
 
@@ -170,6 +176,12 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// blueprintId => owner
     EnumerableMap.UintToAddressMap private blueprintOwners;
 
+    /// @dev Mapping that stores the Service requests for a blueprint.
+    /// @notice Contains the service requests for a blueprint.
+    ///
+    /// requestId => request
+    mapping(uint64 => ServiceOperators.RequestParams) private serviceRequests;
+
     // ======== Functions =========
 
     /// @dev Hook to handle blueprint creation. Gets called by the root chain when a new blueprint is created.
@@ -257,6 +269,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     {
         address manager = blueprints.get(blueprintId);
         IBlueprintServiceManager(manager).onRequest(params);
+        serviceRequests[params.requestId] = params;
         emit ServiceRequested(
             blueprintId, params.requestId, params.requester, params.ttl, params.paymentAsset, params.amount
         );
@@ -298,6 +311,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     {
         address manager = blueprints.get(blueprintId);
         IBlueprintServiceManager(manager).onReject(operator, requestId);
+        delete serviceRequests[requestId];
         emit RequestRejected(blueprintId, requestId, operator);
     }
 
@@ -320,8 +334,10 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         onlyFromRootChain
         whenNotPaused
     {
-        address manager = blueprints.get(blueprintId);
-        IBlueprintServiceManager(manager).onServiceInitialized(requestId, serviceId, owner, permittedCallers, ttl);
+        IBlueprintServiceManager manager = IBlueprintServiceManager(blueprints.get(blueprintId));
+        ServiceOperators.RequestParams memory request = serviceRequests[requestId];
+        _splitFunds(manager, serviceId, request);
+        manager.onServiceInitialized(requestId, serviceId, owner, permittedCallers, ttl);
         emit ServiceInitialized(blueprintId, requestId, serviceId, owner, ttl);
     }
 
@@ -453,5 +469,45 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     function queryDisputeOrigin(uint64 blueprintId, uint64 serviceId) public view returns (address disputeOrigin) {
         address manager = blueprints.get(blueprintId);
         return IBlueprintServiceManager(manager).queryDisputeOrigin(serviceId);
+    }
+
+    function _splitFunds(
+        IBlueprintServiceManager manager,
+        uint64 serviceId,
+        ServiceOperators.RequestParams memory request
+    )
+        internal
+    {
+        // TODO: make the following logic dynamic and configurable.
+        // Here is an example:
+        // - Developers: 50%
+        // - Protocol: 20%
+        // - Operators/Restakers: 30% (Operators 10%, Restakers 20%)
+        uint256 totalAmount = request.amount;
+        uint256 developerAmount = (totalAmount * 50) / 100;
+        uint256 protocolAmount = (totalAmount * 20) / 100;
+        uint256 operatorAmount = (totalAmount * 10) / 100;
+        uint256 restakerAmount = (totalAmount * 20) / 100;
+        uint256 toRewardsPallet = operatorAmount + restakerAmount;
+
+        address payable developer = manager.queryDeveloperPaymentAddress(serviceId);
+        // TODO: add real addresses
+        address payable protocol = payable(address(0x0));
+        address payable rewardsPallet = payable(address(0x1));
+
+        if (request.paymentAsset.isNative()) {
+            // Native asset
+            developer.transfer(developerAmount);
+            protocol.transfer(protocolAmount);
+            // rewardsPallet.transfer(operatorAmount + restakerAmount);
+            // TODO: call the rewards pallet precompile here.
+        } else {
+            // ERC20
+            address token = request.paymentAsset.toAddress();
+            IERC20(token).safeTransfer(developer, developerAmount);
+            IERC20(token).safeTransfer(protocol, protocolAmount);
+            IERC20(token).safeTransfer(rewardsPallet, toRewardsPallet);
+            // TODO: call the rewards pallet precompile here.
+        }
     }
 }

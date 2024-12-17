@@ -1,72 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-/// @title Service Operators Library
-/// @author Tangle Network Team
-/// @dev Contains structs and enums related to service operators.
-/// @notice Holds different structs and enums related to service operators.
-library ServiceOperators {
-    /// @dev Represents the preferences of an operator, including their ECDSA public key and price targets.
-    struct OperatorPreferences {
-        /// @notice The ECDSA public key of the operator.
-        bytes ecdsaPublicKey;
-        /// @notice The price targets associated with the operator.
-        PriceTargets priceTargets;
-    }
-
-    /// @dev Defines the pricing targets for various resources such as CPU, memory, and different types of storage.
-    struct PriceTargets {
-        /// @notice The CPU price target.
-        uint64 cpu;
-        /// @notice The memory price target.
-        uint64 mem;
-        /// @notice The HDD storage price target.
-        uint64 storage_hdd;
-        /// @notice The SSD storage price target.
-        uint64 storage_ssd;
-        /// @notice The NVMe storage price target.
-        uint64 storage_nvme;
-    }
-
-    /// @dev Represents different types of assets that can be used in the system
-    enum AssetKind {
-        /// @notice Custom Asset Id
-        Custom,
-        /// @notice Standard ERC20 token asset type
-        Erc20
-    }
-
-    /// @dev Represents an asset with its type and associated data
-    struct Asset {
-        /// @notice The kind/type of the asset (Custom or ERC20)
-        AssetKind kind;
-        /// @notice The data associated with the asset, encoded as bytes32
-        /// @dev The data is encoded as follows:
-        /// - For Custom assets: The asset ID is stored as uint256
-        /// - For ERC20 assets: The token address is stored as address
-        bytes32 data;
-    }
-
-    /// @dev Represents parameters for a service request
-    struct RequestParams {
-        /// @notice Unique identifier for the request
-        uint64 requestId;
-        /// @notice Address of the requester
-        address requester;
-        /// @notice Array of operator preferences containing public keys and price targets
-        OperatorPreferences[] operators;
-        /// @notice Input parameters for the request encoded as bytes
-        bytes requestInputs;
-        /// @notice Array of addresses that are permitted to call the service
-        address[] permittedCallers;
-        /// @notice Time-to-live value indicating how long the service is valid
-        uint64 ttl;
-        /// @notice Asset to be used for payment
-        Asset paymentAsset;
-        /// @notice Amount of payment asset to be used
-        uint256 amount;
-    }
-}
+import "./ServiceOperatorsLib.sol";
 
 /// @title IBlueprintServiceManager
 /// @dev Interface for the BlueprintServiceManager contract, which acts as a manager for the lifecycle of a Blueprint
@@ -231,7 +166,7 @@ interface IBlueprintServiceManager {
     /// @return isAllowed Returns true if the asset is allowed, false otherwise.
     function queryIsPaymentAssetAllowed(
         uint64 serviceId,
-        ServiceOperators.Asset calldata asset
+        Assets.Asset calldata asset
     )
         external
         view

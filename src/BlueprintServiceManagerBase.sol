@@ -16,6 +16,9 @@ import "src/IBlueprintServiceManager.sol";
 /// of these functions interrupts the process flow.
 contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabled {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using Assets for Assets.Asset;
+    using Assets for address;
+    using Assets for bytes32;
 
     /// @dev The Current Blueprint Id
     uint256 public currentBlueprintId;
@@ -27,9 +30,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     /// @dev serviceId => EnumerableSet of permitted payment assets.
     /// @notice This mapping is used to store the permitted payment assets for each service.
     mapping(uint64 => EnumerableSet.AddressSet) private _permittedPaymentAssets;
-
-    /// @dev The supplied address is not a valid asset address, it does not start with 0xFFFFFFFF.
-    error InvalidAssetId(address assetAddress);
 
     /// @inheritdoc IBlueprintServiceManager
     function onBlueprintCreated(uint64 blueprintId, address owner, address mbsm) external virtual onlyFromRootChain {
@@ -176,7 +176,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     /// @inheritdoc IBlueprintServiceManager
     function queryIsPaymentAssetAllowed(
         uint64 serviceId,
-        ServiceOperators.Asset calldata asset
+        Assets.Asset calldata asset
     )
         external
         view
@@ -192,25 +192,10 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
      * @param serviceId The ID of the service for which the asset is being permitted.
      * @param asset The asset to be permitted, defined by its kind and data.
      */
-    function _permitAsset(
-        uint64 serviceId,
-        ServiceOperators.Asset calldata asset
-    )
-        internal
-        virtual
-        returns (bool added)
-    {
-        if (asset.kind == ServiceOperators.AssetKind.Erc20) {
-            address assetAddress = address(uint160(uint256(asset.data)));
-            bool _added = _permittedPaymentAssets[serviceId].add(assetAddress);
-            return _added;
-        } else if (asset.kind == ServiceOperators.AssetKind.Custom) {
-            address assetAddress = _assetIdToAddress(asset.data);
-            bool _added = _permittedPaymentAssets[serviceId].add(assetAddress);
-            return _added;
-        } else {
-            return false;
-        }
+    function _permitAsset(uint64 serviceId, Assets.Asset calldata asset) internal virtual returns (bool added) {
+        address assetAddress = asset.toAddress();
+        bool _added = _permittedPaymentAssets[serviceId].add(assetAddress);
+        return _added;
     }
 
     /**
@@ -219,25 +204,10 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
      * @param serviceId The ID of the service for which the asset is being revoked.
      * @param asset The asset to be revoked, defined by its kind and data.
      */
-    function _revokeAsset(
-        uint64 serviceId,
-        ServiceOperators.Asset calldata asset
-    )
-        internal
-        virtual
-        returns (bool removed)
-    {
-        if (asset.kind == ServiceOperators.AssetKind.Erc20) {
-            address assetAddress = address(uint160(uint256(asset.data)));
-            bool _removed = _permittedPaymentAssets[serviceId].remove(assetAddress);
-            return _removed;
-        } else if (asset.kind == ServiceOperators.AssetKind.Custom) {
-            address assetAddress = _assetIdToAddress(asset.data);
-            bool _removed = _permittedPaymentAssets[serviceId].remove(assetAddress);
-            return _removed;
-        } else {
-            return false;
-        }
+    function _revokeAsset(uint64 serviceId, Assets.Asset calldata asset) internal virtual returns (bool removed) {
+        address assetAddress = asset.toAddress();
+        bool _removed = _permittedPaymentAssets[serviceId].remove(assetAddress);
+        return _removed;
     }
 
     /**
@@ -279,24 +249,15 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
      * @param serviceId The ID of the service for which permitted assets are being retrieved.
      * @return assets An array of ServiceOperators.Asset structs representing the permitted assets.
      */
-    function _getPermittedAssets(uint64 serviceId) internal view virtual returns (ServiceOperators.Asset[] memory) {
+    function _getPermittedAssets(uint64 serviceId) internal view virtual returns (Assets.Asset[] memory) {
         EnumerableSet.AddressSet storage permittedAssets = _permittedPaymentAssets[serviceId];
-        ServiceOperators.Asset[] memory assets = new ServiceOperators.Asset[](permittedAssets.length());
+        Assets.Asset[] memory assets = new Assets.Asset[](permittedAssets.length());
         for (uint256 i = 0; i < permittedAssets.length(); i++) {
             address assetAddress = permittedAssets.at(i);
             if (assetAddress == address(0)) {
                 continue;
             }
-            ServiceOperators.AssetKind kind;
-            bytes32 data;
-            if (_checkAddressIsAssetIdCompatible(assetAddress)) {
-                kind = ServiceOperators.AssetKind.Custom;
-                data = _addressToAssetId(assetAddress);
-            } else {
-                kind = ServiceOperators.AssetKind.Erc20;
-                data = bytes32(uint256(uint160(assetAddress)));
-            }
-            assets[i] = ServiceOperators.Asset(kind, data);
+            assets[i] = assetAddress.toAsset();
         }
         return assets;
     }
@@ -308,99 +269,13 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
      * @param asset The asset to check, defined by its kind and data.
      * @return isAllowed Boolean indicating whether the asset is permitted.
      */
-    function _isAssetPermitted(
-        uint64 serviceId,
-        ServiceOperators.Asset calldata asset
-    )
-        internal
-        view
-        virtual
-        returns (bool)
-    {
+    function _isAssetPermitted(uint64 serviceId, Assets.Asset calldata asset) internal view virtual returns (bool) {
         // Native assets are always permitted.
-        if (_isNativeAsset(asset)) {
+        if (asset.isNative()) {
             return true;
-        } else if (asset.kind == ServiceOperators.AssetKind.Erc20) {
-            address assetAddress = address(uint160(uint256(asset.data)));
-            return _permittedPaymentAssets[serviceId].contains(assetAddress);
-        } else if (asset.kind == ServiceOperators.AssetKind.Custom) {
-            address assetAddress = _assetIdToAddress(asset.data);
-            return _permittedPaymentAssets[serviceId].contains(assetAddress);
         } else {
-            return false;
-        }
-    }
-
-    /**
-     * @notice Converts a given asset ID to its corresponding address representation.
-     * @dev The conversion follows the pattern: 0xFFFFFFFF followed by the 16-byte asset ID.
-     *
-     * @param assetId The bytes32 asset ID to be converted.
-     * @return The address representation of the asset ID.
-     */
-    function _assetIdToAddress(bytes32 assetId) internal pure returns (address) {
-        // Construct the address by combining the prefix 0xFFFFFFFF00000000000000000000000000000000
-        // with the lower 16 bytes of the assetId.
-        // This ensures the address follows the designated asset address format.
-        return address(uint160(uint256(0xFFFFFFFF << 128) | uint256(assetId)));
-    }
-
-    /**
-     * @notice Converts an asset address back to its original asset ID.
-     * @dev Validates that the address starts with the prefix 0xFFFFFFFF and extracts the 16-byte asset ID.
-     *
-     * @param assetAddress The address to be converted back to an asset ID.
-     * @return The bytes32 representation of the original asset ID.
-     */
-    function _addressToAssetId(address assetAddress) internal pure returns (bytes32) {
-        // Convert the address to a uint256 for bit manipulation.
-        uint256 addr = uint256(uint160(assetAddress));
-
-        // Ensure the upper 128 bits match the expected prefix 0xFFFFFFFF.
-        if (!_checkAddressIsAssetIdCompatible(assetAddress)) {
-            revert InvalidAssetId(assetAddress);
-        }
-
-        // Extract the lower 128 bits which represent the original asset ID.
-        uint128 assetIdUint = uint128(addr);
-
-        // Convert the uint128 asset ID back to bytes32 format.
-        return bytes32(uint256(assetIdUint));
-    }
-
-    /**
-     * @notice Checks if the given asset address is compatible by verifying it starts with the prefix 0xFFFFFFFF.
-     * @dev This function converts the asset address to a uint256 and ensures the upper 128 bits match 0xFFFFFFFF.
-     * @param assetAddress The address of the asset to check for compatibility.
-     * @return bool Returns true if the asset address is compatible, false otherwise.
-     */
-    function _checkAddressIsAssetIdCompatible(address assetAddress) internal pure returns (bool) {
-        // Convert the address to a uint256 for bit manipulation.
-        uint256 addr = uint256(uint160(assetAddress));
-
-        // Ensure the upper 128 bits match the expected prefix 0xFFFFFFFF.
-        if ((addr >> 128) != 0xFFFFFFFF) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @notice Determines if the provided asset is a native asset.
-     * @dev This function checks the asset kind and verifies if the asset address or ID corresponds to a native asset.
-     * @param asset The asset to be checked, defined by its kind and data.
-     * @return bool Returns true if the asset is native, false otherwise.
-     */
-    function _isNativeAsset(ServiceOperators.Asset calldata asset) internal pure returns (bool) {
-        if (asset.kind == ServiceOperators.AssetKind.Erc20) {
-            address assetAddress = address(uint160(uint256(asset.data)));
-            return (assetAddress == address(0));
-        } else if (asset.kind == ServiceOperators.AssetKind.Custom) {
-            uint256 assetId = uint256(asset.data);
-            return (assetId == 0);
-        } else {
-            return false;
+            address assetAddress = asset.toAddress();
+            return _permittedPaymentAssets[serviceId].contains(assetAddress);
         }
     }
 }
