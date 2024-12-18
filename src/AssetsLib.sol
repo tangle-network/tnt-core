@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-/**
- * @title Assets Library
- * @notice A library for handling asset types and conversions in a blockchain system
- * @dev Provides utilities for managing different asset types and converting between asset IDs and addresses
- */
+/// @title Assets Library
+/// @notice A library for handling asset types and conversions in a blockchain system
+/// @dev Provides utilities for managing different asset types and converting between asset IDs and addresses
 library Assets {
     /// @dev Represents different types of assets that can be used in the system
     enum Kind {
@@ -32,15 +30,13 @@ library Assets {
     /// @dev The supplied address is not a valid asset address, it does not start with 0xFFFFFFFF.
     error InvalidAssetId(address assetAddress);
 
-    /**
-     * @notice Converts a given asset to its corresponding address representation.
-     * @dev The conversion follows the pattern: 0xFFFFFFFF followed by the 16-byte asset ID or if the asset is an ERC20
-     * token,
-     * the address of the token contract.
-     *
-     * @param asset The asset be converted.
-     * @return The address representation of the asset.
-     */
+    /// @notice Converts a given asset to its corresponding address representation.
+    /// @dev The conversion follows the pattern: 0xFFFFFFFF followed by the 16-byte asset ID or if the asset is an ERC20
+    /// token,
+    /// the address of the token contract.
+    ///
+    /// @param asset The asset be converted.
+    /// @return The address representation of the asset.
     function toAddress(Asset memory asset) internal pure returns (address) {
         if (isErc20(asset)) {
             return address(uint160(uint256(asset.data)));
@@ -51,13 +47,11 @@ library Assets {
         }
     }
 
-    /**
-     * @notice Converts a given asset ID to its corresponding address representation.
-     * @dev The conversion follows the pattern: 0xFFFFFFFF followed by the 16-byte asset ID.
-     *
-     * @param assetId The bytes32 asset ID to be converted.
-     * @return The address representation of the asset ID.
-     */
+    /// @notice Converts a given asset ID to its corresponding address representation.
+    /// @dev The conversion follows the pattern: 0xFFFFFFFF followed by the 16-byte asset ID.
+    ///
+    /// @param assetId The bytes32 asset ID to be converted.
+    /// @return The address representation of the asset ID.
     function toAddress(bytes32 assetId) internal pure returns (address) {
         // Construct the address by combining the prefix 0xFFFFFFFF00000000000000000000000000000000
         // with the lower 16 bytes of the assetId.
@@ -65,13 +59,11 @@ library Assets {
         return address(uint160(uint256(0xFFFFFFFF << 128) | uint256(assetId)));
     }
 
-    /**
-     * @notice Converts an asset address back to its original asset ID.
-     * @dev Validates that the address starts with the prefix 0xFFFFFFFF and extracts the 16-byte asset ID.
-     *
-     * @param assetAddress The address to be converted back to an asset ID.
-     * @return The bytes32 representation of the original asset ID.
-     */
+    /// @notice Converts an asset address back to its original asset ID.
+    /// @dev Validates that the address starts with the prefix 0xFFFFFFFF and extracts the 16-byte asset ID.
+    ///
+    /// @param assetAddress The address to be converted back to an asset ID.
+    /// @return The bytes32 representation of the original asset ID.
     function toAssetId(address assetAddress) internal pure returns (bytes32) {
         // Convert the address to a uint256 for bit manipulation.
         uint256 addr = uint256(uint160(assetAddress));
@@ -116,12 +108,10 @@ library Assets {
         return asset.kind == Kind.Custom;
     }
 
-    /**
-     * @notice Checks if the given asset address is compatible by verifying it starts with the prefix 0xFFFFFFFF.
-     * @dev This function converts the asset address to a uint256 and ensures the upper 128 bits match 0xFFFFFFFF.
-     * @param assetAddress The address of the asset to check for compatibility.
-     * @return bool Returns true if the asset address is compatible, false otherwise.
-     */
+    /// @notice Checks if the given asset address is compatible by verifying it starts with the prefix 0xFFFFFFFF.
+    /// @dev This function converts the asset address to a uint256 and ensures the upper 128 bits match 0xFFFFFFFF.
+    /// @param assetAddress The address of the asset to check for compatibility.
+    /// @return bool Returns true if the asset address is compatible, false otherwise.
     function isAssetIdCompatible(address assetAddress) internal pure returns (bool) {
         // Convert the address to a uint256 for bit manipulation.
         uint256 addr = uint256(uint160(assetAddress));
@@ -134,12 +124,10 @@ library Assets {
         return true;
     }
 
-    /**
-     * @notice Determines if the provided asset is a native asset.
-     * @dev This function checks the asset kind and verifies if the asset address or ID corresponds to a native asset.
-     * @param asset The asset to be checked, defined by its kind and data.
-     * @return bool Returns true if the asset is native, false otherwise.
-     */
+    /// @notice Determines if the provided asset is a native asset.
+    /// @dev This function checks the asset kind and verifies if the asset address or ID corresponds to a native asset.
+    /// @param asset The asset to be checked, defined by its kind and data.
+    /// @return bool Returns true if the asset is native, false otherwise.
     function isNative(Asset memory asset) internal pure returns (bool) {
         if (isErc20(asset)) {
             address assetAddress = address(uint160(uint256(asset.data)));
