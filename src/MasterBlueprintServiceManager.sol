@@ -237,11 +237,11 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     // ============ Constructor ============
 
     constructor(address payable _protocolFeesReceiver) {
-        _grantRole(DEFAULT_ADMIN_ROLE, ROOT_CHAIN);
-
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _grantRole(PAUSER_ROLE, _msgSender());
         _grantRole(TRENCH_UPDATE_ROLE, _msgSender());
+
+        _grantRole(DEFAULT_ADMIN_ROLE, ROOT_CHAIN);
 
         _intializeDefaultTranchees();
         protocolFeesReceiver = _protocolFeesReceiver;
@@ -565,7 +565,6 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         _verifyTranchees(_tranches);
         // Clear the default tranchees and set the new ones.
         for (uint256 i = 0; i < _tranches.length; i++) {
-            delete tranches[i];
             tranches.push(_tranches[i]);
         }
     }
@@ -575,8 +574,9 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @notice the tranchees should always sum up to 10000 (100%).
     function _setTranches(Tranche[] calldata _tranches) internal {
         _verifyTranchees(_tranches);
-        for (uint256 i = 0; i < tranches.length; i++) {
-            tranches[i] = _tranches[i];
+        delete tranches;
+        for (uint256 i = 0; i < _tranches.length; i++) {
+            tranches.push(_tranches[i]);
         }
     }
 
