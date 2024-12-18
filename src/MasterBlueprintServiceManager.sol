@@ -55,8 +55,8 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         string license; // Empty string represents None
     }
 
-    /// @dev Defines the different tranchees for the blueprint.
-    /// @notice Use this enum to define the different tranchees for the blueprint.
+    /// @dev Defines the different tranches for the blueprint.
+    /// @notice Use this enum to define the different tranches for the blueprint.
     enum TrancheKind {
         /// @notice Blueprint Developer tranche
         /// @dev The developer tranche is for the developer of the blueprint.
@@ -243,7 +243,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
 
         _grantRole(DEFAULT_ADMIN_ROLE, ROOT_CHAIN);
 
-        _intializeDefaultTranchees();
+        _intializeDefaultTranches();
         protocolFeesReceiver = _protocolFeesReceiver;
     }
 
@@ -396,6 +396,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint64 ttl
     )
         public
+        payable
         onlyFromRootChain
         whenNotPaused
     {
@@ -548,32 +549,32 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         _unpause();
     }
 
-    /// @dev Update the tranchees and their percentages.
-    /// @param _tranchees The array of tranchees and their percentages.
-    /// @notice Only the tranche updater can update the tranchees.
-    function setTranchees(Tranche[] calldata _tranchees) public onlyRole(TRENCH_UPDATE_ROLE) {
-        _setTranches(_tranchees);
+    /// @dev Update the tranches and their percentages.
+    /// @param _tranches The array of tranches and their percentages.
+    /// @notice Only the tranche updater can update the tranches.
+    function setTranches(Tranche[] calldata _tranches) public onlyRole(TRENCH_UPDATE_ROLE) {
+        _setTranches(_tranches);
     }
 
-    /// @dev Initialize the default tranchees for the blueprint.
-    function _intializeDefaultTranchees() internal {
+    /// @dev Initialize the default tranches for the blueprint.
+    function _intializeDefaultTranches() internal {
         Tranche[] memory _tranches = new Tranche[](4);
         _tranches[0] = Tranche(TrancheKind.Developer, 5000); // 50%
         _tranches[1] = Tranche(TrancheKind.Protocol, 2000); // 20%
         _tranches[2] = Tranche(TrancheKind.Operators, 1000); // 10%
         _tranches[3] = Tranche(TrancheKind.Restakers, 2000); // 20%
-        _verifyTranchees(_tranches);
-        // Clear the default tranchees and set the new ones.
+        _verifyTranches(_tranches);
+        // Clear the default tranches and set the new ones.
         for (uint256 i = 0; i < _tranches.length; i++) {
             tranches.push(_tranches[i]);
         }
     }
 
     /// @dev Set the tranches and their percentages.
-    /// @param _tranches The array of tranchees and their percentages.
-    /// @notice the tranchees should always sum up to 10000 (100%).
+    /// @param _tranches The array of tranches and their percentages.
+    /// @notice the tranches should always sum up to 10000 (100%).
     function _setTranches(Tranche[] calldata _tranches) internal {
-        _verifyTranchees(_tranches);
+        _verifyTranches(_tranches);
         delete tranches;
         for (uint256 i = 0; i < _tranches.length; i++) {
             tranches.push(_tranches[i]);
@@ -581,7 +582,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     }
 
     /// @dev Verify the tranches and their percentages.
-    function _verifyTranchees(Tranche[] memory _tranches) internal pure {
+    function _verifyTranches(Tranche[] memory _tranches) internal pure {
         uint16 sum = 0;
         for (uint256 i = 0; i < _tranches.length; i++) {
             sum += _tranches[i].percent;
@@ -603,6 +604,9 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         internal
     {
         uint256 totalAmount = request.amount;
+        if (totalAmount == 0) {
+            return;
+        }
         uint256 developerAmount = 0;
         uint256 protocolAmount = 0;
         uint256 operatorAmount = 0;
@@ -630,6 +634,8 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
             developer.transfer(developerAmount);
             protocolFeesReceiver.transfer(protocolAmount);
             // TODO: call the rewards pallet precompile here with the funds.
+            // for now, we will transfer the funds to the rewards pallet.
+            payable(address(REWARDS_PALLET)).transfer(toRewardsPallet);
         } else {
             // ERC20
             address token = request.paymentAsset.toAddress();

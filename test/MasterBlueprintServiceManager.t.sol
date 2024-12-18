@@ -19,12 +19,15 @@ contract MasterBlueprintServiceManagerTest is Test {
     MockBlueprintServiceManager mockManager;
     MockERC20 erc20Token;
     address payable protocolFeesReceiver = payable(address(0xdead));
+    address payable blueprintOwner = payable(address(0xbeef));
 
     // Set up roles
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant TRENCH_UPDATE_ROLE = keccak256("TRENCH_UPDATE_ROLE");
 
     address public ROOT_CHAIN = address(0x1111111111111111111111111111111111111111);
+
+    uint16 public constant BASE_PERCENT = 10_000;
 
     event BlueprintCreated(
         address indexed owner, uint64 indexed blueprintId, MasterBlueprintServiceManager.Blueprint blueprint
@@ -77,6 +80,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         // Create mock blueprint service manager
         mockManager = new MockBlueprintServiceManager();
         mockManager.setMasterBlueprintServiceManager(address(masterManager));
+        mockManager.setBlueprintOwner(address(payable(blueprintOwner)));
 
         // Deploy a mock ERC20 token
         erc20Token = new MockERC20();
@@ -1037,8 +1041,8 @@ contract MasterBlueprintServiceManagerTest is Test {
         masterManager.pause();
     }
 
-    // Test setTranchees
-    function test_setTranchees() public {
+    // Test setTranches
+    function test_setTranches() public {
         MasterBlueprintServiceManager.Tranche[] memory newTranches = new MasterBlueprintServiceManager.Tranche[](2);
         newTranches[0] = MasterBlueprintServiceManager.Tranche({
             kind: MasterBlueprintServiceManager.TrancheKind.Developer,
@@ -1049,7 +1053,7 @@ contract MasterBlueprintServiceManagerTest is Test {
             percent: 3000 // 30%
          });
 
-        masterManager.setTranchees(newTranches);
+        masterManager.setTranches(newTranches);
 
         // Since tranches is public, we can check the new values
         (MasterBlueprintServiceManager.TrancheKind kind0, uint16 percent0) = masterManager.tranches(0);
@@ -1061,7 +1065,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         assertEq(percent1, 3000);
     }
 
-    function test_setTranchees_InvalidSum() public {
+    function test_setTranches_InvalidSum() public {
         MasterBlueprintServiceManager.Tranche[] memory newTranches = new MasterBlueprintServiceManager.Tranche[](2);
         newTranches[0] = MasterBlueprintServiceManager.Tranche({
             kind: MasterBlueprintServiceManager.TrancheKind.Developer,
@@ -1073,10 +1077,10 @@ contract MasterBlueprintServiceManagerTest is Test {
          });
 
         vm.expectRevert(MasterBlueprintServiceManager.InvalidTranches.selector);
-        masterManager.setTranchees(newTranches);
+        masterManager.setTranches(newTranches);
     }
 
-    function test_setTranchees_Unauthorized() public {
+    function test_setTranches_Unauthorized() public {
         MasterBlueprintServiceManager.Tranche[] memory newTranches = new MasterBlueprintServiceManager.Tranche[](2);
         newTranches[0] = MasterBlueprintServiceManager.Tranche({
             kind: MasterBlueprintServiceManager.TrancheKind.Developer,
@@ -1094,6 +1098,201 @@ contract MasterBlueprintServiceManagerTest is Test {
             )
         );
 
-        masterManager.setTranchees(newTranches);
+        masterManager.setTranches(newTranches);
+    }
+
+    // Test spliting the payment with ERC20
+    function test_paymentSplit_erc20() public asRootChain {
+        // Create a blueprint first
+        MasterBlueprintServiceManager.ServiceMetadata memory metadata = MasterBlueprintServiceManager.ServiceMetadata({
+            name: "Test Blueprint",
+            description: "Test Description",
+            author: "Test Author",
+            category: "Test Category",
+            codeRepository: "https://github.com/example",
+            logo: "https://example.com/logo.png",
+            website: "https://example.com",
+            license: "MIT"
+        });
+
+        MasterBlueprintServiceManager.Blueprint memory blueprint = MasterBlueprintServiceManager.Blueprint({
+            metadata: metadata,
+            manager: address(mockManager),
+            mbsmRevision: 1
+        });
+
+        masterManager.onBlueprintCreated(1, address(this), blueprint);
+
+        ServiceOperators.OperatorPreferences[] memory operators = new ServiceOperators.OperatorPreferences[](1);
+        operators[0] = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: hex"1234",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 150,
+                mem: 250,
+                storage_hdd: 350,
+                storage_ssd: 450,
+                storage_nvme: 550
+            })
+        });
+
+        address[] memory permittedCallers = new address[](1);
+        permittedCallers[0] = address(this);
+
+        Assets.Asset memory paymentAsset =
+            Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(erc20Token)))) });
+
+        uint256 amount = 100 ether;
+
+        ServiceOperators.RequestParams memory params = ServiceOperators.RequestParams({
+            requestId: 1,
+            requester: address(this),
+            operators: operators,
+            requestInputs: hex"",
+            permittedCallers: permittedCallers,
+            ttl: 1000,
+            paymentAsset: paymentAsset,
+            amount: amount
+        });
+
+        masterManager.onRequest(1, params);
+
+        // Approve the request
+        uint8 restakingPercent = 10;
+        masterManager.onApprove(1, operators[0], 1, restakingPercent);
+
+        vm.startPrank(address(this));
+        erc20Token.transfer(address(masterManager), amount);
+        vm.stopPrank();
+
+        vm.startPrank(ROOT_CHAIN);
+
+        masterManager.onServiceInitialized(1, 1, 1, address(this), permittedCallers, 1000);
+
+        // query the tranches to check the payment split
+        (MasterBlueprintServiceManager.TrancheKind kind, uint16 percent) = masterManager.tranches(0);
+        assert(kind == MasterBlueprintServiceManager.TrancheKind.Developer);
+        address dev = mockManager.queryDeveloperPaymentAddress(1);
+        uint256 expectedBalance = (amount * percent) / BASE_PERCENT;
+        uint256 actualBalance = IERC20(erc20Token).balanceOf(dev);
+        assertEq(actualBalance, expectedBalance);
+
+        (kind, percent) = masterManager.tranches(1);
+        assert(kind == MasterBlueprintServiceManager.TrancheKind.Protocol);
+
+        address protocol = masterManager.protocolFeesReceiver();
+        expectedBalance = (amount * percent) / BASE_PERCENT;
+        actualBalance = IERC20(erc20Token).balanceOf(protocol);
+        assertEq(actualBalance, expectedBalance);
+
+        (kind, percent) = masterManager.tranches(2);
+        assert(kind == MasterBlueprintServiceManager.TrancheKind.Operators);
+        uint16 operatorPercent = percent;
+        (kind, percent) = masterManager.tranches(3);
+        assert(kind == MasterBlueprintServiceManager.TrancheKind.Restakers);
+        uint16 restakerPercent = percent;
+        uint16 rewardsPalletPercent = operatorPercent + restakerPercent;
+        address rewardsPallet = masterManager.rewardsPallet();
+        expectedBalance = (amount * rewardsPalletPercent) / BASE_PERCENT;
+        actualBalance = IERC20(erc20Token).balanceOf(rewardsPallet);
+        assertEq(actualBalance, expectedBalance);
+
+        vm.stopPrank();
+    }
+
+    // Test spliting the payment with Native Token
+    function test_paymentSplit_native() public asRootChain {
+        // Create a blueprint first
+        MasterBlueprintServiceManager.ServiceMetadata memory metadata = MasterBlueprintServiceManager.ServiceMetadata({
+            name: "Test Blueprint",
+            description: "Test Description",
+            author: "Test Author",
+            category: "Test Category",
+            codeRepository: "https://github.com/example",
+            logo: "https://example.com/logo.png",
+            website: "https://example.com",
+            license: "MIT"
+        });
+
+        MasterBlueprintServiceManager.Blueprint memory blueprint = MasterBlueprintServiceManager.Blueprint({
+            metadata: metadata,
+            manager: address(mockManager),
+            mbsmRevision: 1
+        });
+
+        masterManager.onBlueprintCreated(1, address(this), blueprint);
+
+        ServiceOperators.OperatorPreferences[] memory operators = new ServiceOperators.OperatorPreferences[](1);
+        operators[0] = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: hex"1234",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 150,
+                mem: 250,
+                storage_hdd: 350,
+                storage_ssd: 450,
+                storage_nvme: 550
+            })
+        });
+
+        address[] memory permittedCallers = new address[](1);
+        permittedCallers[0] = address(this);
+
+        Assets.Asset memory paymentAsset = Assets.Asset({ kind: Assets.Kind.Custom, data: bytes32(0x0) });
+
+        uint256 amount = 100 ether;
+
+        ServiceOperators.RequestParams memory params = ServiceOperators.RequestParams({
+            requestId: 1,
+            requester: address(this),
+            operators: operators,
+            requestInputs: hex"",
+            permittedCallers: permittedCallers,
+            ttl: 1000,
+            paymentAsset: paymentAsset,
+            amount: amount
+        });
+
+        masterManager.onRequest(1, params);
+
+        // Approve the request
+        uint8 restakingPercent = 10;
+        masterManager.onApprove(1, operators[0], 1, restakingPercent);
+
+        vm.startPrank(address(this));
+        payable(address(ROOT_CHAIN)).transfer(amount);
+        vm.stopPrank();
+
+        vm.startPrank(ROOT_CHAIN);
+
+        masterManager.onServiceInitialized{ value: amount }(1, 1, 1, address(this), permittedCallers, 1000);
+
+        // query the tranches to check the payment split
+        (MasterBlueprintServiceManager.TrancheKind kind, uint16 percent) = masterManager.tranches(0);
+        assert(kind == MasterBlueprintServiceManager.TrancheKind.Developer);
+        address dev = mockManager.queryDeveloperPaymentAddress(1);
+        uint256 expectedBalance = (amount * percent) / BASE_PERCENT;
+        uint256 actualBalance = dev.balance;
+        assertEq(actualBalance, expectedBalance);
+
+        (kind, percent) = masterManager.tranches(1);
+        assert(kind == MasterBlueprintServiceManager.TrancheKind.Protocol);
+
+        address protocol = masterManager.protocolFeesReceiver();
+        expectedBalance = (amount * percent) / BASE_PERCENT;
+        actualBalance = protocol.balance;
+        assertEq(actualBalance, expectedBalance);
+
+        (kind, percent) = masterManager.tranches(2);
+        assert(kind == MasterBlueprintServiceManager.TrancheKind.Operators);
+        uint16 operatorPercent = percent;
+        (kind, percent) = masterManager.tranches(3);
+        assert(kind == MasterBlueprintServiceManager.TrancheKind.Restakers);
+        uint16 restakerPercent = percent;
+        uint16 rewardsPalletPercent = operatorPercent + restakerPercent;
+        address rewardsPallet = masterManager.rewardsPallet();
+        expectedBalance = (amount * rewardsPalletPercent) / BASE_PERCENT;
+        actualBalance = rewardsPallet.balance;
+        assertEq(actualBalance, expectedBalance);
+
+        vm.stopPrank();
     }
 }

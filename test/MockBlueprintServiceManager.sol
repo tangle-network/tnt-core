@@ -26,8 +26,15 @@ contract MockBlueprintServiceManager is BlueprintServiceManagerBase {
         return _getPermittedAssets(serviceId);
     }
 
-    // Override required as BlueprintServiceManagerBase inherits RootChainEnabled
     function setMasterBlueprintServiceManager(address mbsm) external {
         masterBlueprintServiceManager = mbsm;
+    }
+
+    function setBlueprintOwner(address owner) external {
+        blueprintOwner = owner;
+    }
+
+    function setCurrentBlueprintId(uint64 id) external {
+        currentBlueprintId = id;
     }
 }
