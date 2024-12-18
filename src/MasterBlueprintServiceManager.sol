@@ -20,6 +20,16 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     using Assets for bytes32;
     using SafeERC20 for IERC20;
 
+    // ===== Constants =====
+
+    /// @dev The role that allows the contract to pause and unpause the contract.
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    /// @dev The role that allows the change of trenches and their percentages.
+    bytes32 public constant TRENCH_UPDATE_ROLE = keccak256("TRENCH_UPDATE_ROLE");
+
+    /// @dev The base percentage value.
+    uint16 public constant BASE_PERCENT = 10_000;
+
     /// @title Blueprint Structs
     /// @dev Defines the Blueprint and related data structures for the service.
     /// @notice Use this struct to define the blueprint of a service.
@@ -43,6 +53,34 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         string logo; // Empty string represents None
         string website; // Empty string represents None
         string license; // Empty string represents None
+    }
+
+    /// @dev Defines the different trenches for the blueprint.
+    /// @notice Use this enum to define the different trenches for the blueprint.
+    enum TrenchKind {
+        /// @notice Blueprint Developer trench
+        /// @dev The developer trench is for the developer of the blueprint.
+        Developer,
+        /// @notice Blueprint Protocol trench
+        /// @dev The protocol trench is for the protocol.
+        Protocol,
+        /// @notice Blueprint Operators trench
+        /// @dev The operators trench is for the operators of the blueprint.
+        Operators,
+        /// @notice Blueprint Restakers trench
+        /// @dev The restakers trench is for the restakers of the blueprint.
+        Restakers
+    }
+
+    /// @dev Defines the trench with the percentage.
+    /// @notice Use this struct to define the trench with the percentage.
+    struct Trench {
+        /// @dev The kind of the trench.
+        TrenchKind kind;
+        /// @dev The percentage of the trench in the scale of `10000`.
+        /// where `10000` is equal to `100%` and `1` is equal to `0.01%`.
+        /// Any value between `1` and `10000` is valid for the percentage, inclusive.
+        uint16 percent;
     }
 
     // ============ Events ============
@@ -162,6 +200,12 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent, uint256 totalPayout
     );
 
+    // =========== Errors ============
+
+    /// @dev Error when the trenches are invalid and does not sum up to 100%.
+    /// @notice The trenches should always sum up to 10000 (100%).
+    error InvalidTrenches();
+
     // ============ Storage ============
 
     /// @dev Mapping that store the blueprint service manager contracts.
@@ -181,6 +225,27 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     ///
     /// requestId => request
     mapping(uint64 => ServiceOperators.RequestParams) private serviceRequests;
+
+    /// @dev An array of trenches and their percentages.
+    /// always sum up to 10000 (100%).
+    Trench[] public trenches;
+
+    /// @dev The address of the protocol fees receiver.
+    /// @notice The address that receives the protocol fees.
+    address payable public protocolFeesReceiver;
+
+    // ============ Constructor ============
+
+    constructor(address payable _protocolFeesReceiver) {
+        _grantRole(DEFAULT_ADMIN_ROLE, ROOT_CHAIN);
+
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(PAUSER_ROLE, _msgSender());
+        _grantRole(TRENCH_UPDATE_ROLE, _msgSender());
+
+        _intializeDefaultTrenches();
+        protocolFeesReceiver = _protocolFeesReceiver;
+    }
 
     // ======== Functions =========
 
@@ -471,6 +536,65 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         return IBlueprintServiceManager(manager).queryDisputeOrigin(serviceId);
     }
 
+    /// @dev Pause the contract.
+    /// @notice Only the pauser can pause the contract.
+    function pause() public onlyRole(PAUSER_ROLE) whenNotPaused {
+        _pause();
+    }
+
+    /// @dev Unpause the contract.
+    /// @notice Only the pauser can unpause the contract.
+    function unpause() public onlyRole(PAUSER_ROLE) whenPaused {
+        _unpause();
+    }
+
+    /// @dev Update the trenches and their percentages.
+    /// @param _trenches The array of trenches and their percentages.
+    /// @notice Only the trench updater can update the trenches.
+    function setTrenches(Trench[] calldata _trenches) public onlyRole(TRENCH_UPDATE_ROLE) {
+        _setTrenches(_trenches);
+    }
+
+    /// @dev Initialize the default trenches for the blueprint.
+    function _intializeDefaultTrenches() internal {
+        Trench[] memory _trenches = new Trench[](4);
+        _trenches[0] = Trench(TrenchKind.Developer, 5000); // 50%
+        _trenches[1] = Trench(TrenchKind.Protocol, 2000); // 20%
+        _trenches[2] = Trench(TrenchKind.Operators, 1000); // 10%
+        _trenches[3] = Trench(TrenchKind.Restakers, 2000); // 20%
+        _verifyTrenches(_trenches);
+        // Clear the default trenches and set the new ones.
+        for (uint256 i = 0; i < _trenches.length; i++) {
+            delete trenches[i];
+            trenches.push(_trenches[i]);
+        }
+    }
+
+    /// @dev Set the trenches and their percentages.
+    /// @param _trenches The array of trenches and their percentages.
+    /// @notice the trenches should always sum up to 10000 (100%).
+    function _setTrenches(Trench[] calldata _trenches) internal {
+        _verifyTrenches(_trenches);
+        for (uint256 i = 0; i < trenches.length; i++) {
+            trenches[i] = _trenches[i];
+        }
+    }
+
+    /// @dev Verify the trenches and their percentages.
+    function _verifyTrenches(Trench[] memory _trenches) internal pure {
+        uint16 sum = 0;
+        for (uint256 i = 0; i < _trenches.length; i++) {
+            sum += _trenches[i].percent;
+        }
+        if (sum != BASE_PERCENT) {
+            revert InvalidTrenches();
+        }
+    }
+
+    /// @dev an internal function to split the funds between the trenches.
+    /// @param manager The Blueprint Service Manager contract.
+    /// @param serviceId The ID of the service.
+    /// @param request The request parameters.
     function _splitFunds(
         IBlueprintServiceManager manager,
         uint64 serviceId,
@@ -478,35 +602,40 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     )
         internal
     {
-        // TODO: make the following logic dynamic and configurable.
-        // Here is an example:
-        // - Developers: 50%
-        // - Protocol: 20%
-        // - Operators/Restakers: 30% (Operators 10%, Restakers 20%)
         uint256 totalAmount = request.amount;
-        uint256 developerAmount = (totalAmount * 50) / 100;
-        uint256 protocolAmount = (totalAmount * 20) / 100;
-        uint256 operatorAmount = (totalAmount * 10) / 100;
-        uint256 restakerAmount = (totalAmount * 20) / 100;
+        uint256 developerAmount = 0;
+        uint256 protocolAmount = 0;
+        uint256 operatorAmount = 0;
+        uint256 restakerAmount = 0;
+
+        for (uint256 i = 0; i < trenches.length; i++) {
+            Trench memory trench = trenches[i];
+            uint256 trenchAmount = (totalAmount * trench.percent) / BASE_PERCENT;
+            if (trench.kind == TrenchKind.Developer) {
+                developerAmount = trenchAmount;
+            } else if (trench.kind == TrenchKind.Protocol) {
+                protocolAmount = trenchAmount;
+            } else if (trench.kind == TrenchKind.Operators) {
+                operatorAmount = trenchAmount;
+            } else if (trench.kind == TrenchKind.Restakers) {
+                restakerAmount = trenchAmount;
+            }
+        }
+
         uint256 toRewardsPallet = operatorAmount + restakerAmount;
 
         address payable developer = manager.queryDeveloperPaymentAddress(serviceId);
-        // TODO: add real addresses
-        address payable protocol = payable(address(0x0));
-        address payable rewardsPallet = payable(address(0x1));
-
         if (request.paymentAsset.isNative()) {
             // Native asset
             developer.transfer(developerAmount);
-            protocol.transfer(protocolAmount);
-            // rewardsPallet.transfer(operatorAmount + restakerAmount);
-            // TODO: call the rewards pallet precompile here.
+            protocolFeesReceiver.transfer(protocolAmount);
+            // TODO: call the rewards pallet precompile here with the funds.
         } else {
             // ERC20
             address token = request.paymentAsset.toAddress();
             IERC20(token).safeTransfer(developer, developerAmount);
-            IERC20(token).safeTransfer(protocol, protocolAmount);
-            IERC20(token).safeTransfer(rewardsPallet, toRewardsPallet);
+            IERC20(token).safeTransfer(protocolFeesReceiver, protocolAmount);
+            IERC20(token).safeTransfer(REWARDS_PALLET, toRewardsPallet);
             // TODO: call the rewards pallet precompile here.
         }
     }

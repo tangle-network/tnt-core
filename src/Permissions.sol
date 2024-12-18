@@ -7,6 +7,8 @@ pragma solidity ^0.8.20;
 contract RootChainEnabled {
     /// @notice The address of the root chain
     address public constant ROOT_CHAIN = 0x1111111111111111111111111111111111111111;
+    /// @notice The address of the rewards pallet
+    address public constant REWARDS_PALLET = address(0x7e87d5);
 
     address public masterBlueprintServiceManager;
 
@@ -20,6 +22,12 @@ contract RootChainEnabled {
     /// @return rootChainAddress The address of the root chain
     function rootChain() external pure returns (address rootChainAddress) {
         return ROOT_CHAIN;
+    }
+
+    /// @dev Get the rewards pallet address
+    /// @return rewardsPalletAddress The address of the rewards pallet
+    function rewardsPallet() external pure returns (address rewardsPalletAddress) {
+        return REWARDS_PALLET;
     }
 
     /// @dev Get the master blueprint service manager address
