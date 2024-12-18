@@ -24,7 +24,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
 
     /// @dev The role that allows the contract to pause and unpause the contract.
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    /// @dev The role that allows the change of trenches and their percentages.
+    /// @dev The role that allows the change of tranches and their percentages.
     bytes32 public constant TRENCH_UPDATE_ROLE = keccak256("TRENCH_UPDATE_ROLE");
 
     /// @dev The base percentage value.
@@ -55,29 +55,29 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         string license; // Empty string represents None
     }
 
-    /// @dev Defines the different trenches for the blueprint.
-    /// @notice Use this enum to define the different trenches for the blueprint.
-    enum TrenchKind {
-        /// @notice Blueprint Developer trench
-        /// @dev The developer trench is for the developer of the blueprint.
+    /// @dev Defines the different tranchees for the blueprint.
+    /// @notice Use this enum to define the different tranchees for the blueprint.
+    enum TrancheKind {
+        /// @notice Blueprint Developer tranche
+        /// @dev The developer tranche is for the developer of the blueprint.
         Developer,
-        /// @notice Blueprint Protocol trench
-        /// @dev The protocol trench is for the protocol.
+        /// @notice Blueprint Protocol tranche
+        /// @dev The protocol tranche is for the protocol.
         Protocol,
-        /// @notice Blueprint Operators trench
-        /// @dev The operators trench is for the operators of the blueprint.
+        /// @notice Blueprint Operators tranche
+        /// @dev The operators tranche is for the operators of the blueprint.
         Operators,
-        /// @notice Blueprint Restakers trench
-        /// @dev The restakers trench is for the restakers of the blueprint.
+        /// @notice Blueprint Restakers tranche
+        /// @dev The restakers tranche is for the restakers of the blueprint.
         Restakers
     }
 
-    /// @dev Defines the trench with the percentage.
-    /// @notice Use this struct to define the trench with the percentage.
-    struct Trench {
-        /// @dev The kind of the trench.
-        TrenchKind kind;
-        /// @dev The percentage of the trench in the scale of `10000`.
+    /// @dev Defines the tranche with the percentage.
+    /// @notice Use this struct to define the tranche with the percentage.
+    struct Tranche {
+        /// @dev The kind of the tranche.
+        TrancheKind kind;
+        /// @dev The percentage of the tranche in the scale of `10000`.
         /// where `10000` is equal to `100%` and `1` is equal to `0.01%`.
         /// Any value between `1` and `10000` is valid for the percentage, inclusive.
         uint16 percent;
@@ -202,9 +202,9 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
 
     // =========== Errors ============
 
-    /// @dev Error when the trenches are invalid and does not sum up to 100%.
-    /// @notice The trenches should always sum up to 10000 (100%).
-    error InvalidTrenches();
+    /// @dev Error when the tranches are invalid and does not sum up to 100%.
+    /// @notice The tranches should always sum up to 10000 (100%).
+    error InvalidTranches();
 
     // ============ Storage ============
 
@@ -226,9 +226,9 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// requestId => request
     mapping(uint64 => ServiceOperators.RequestParams) private serviceRequests;
 
-    /// @dev An array of trenches and their percentages.
+    /// @dev An array of tranches and their percentages.
     /// always sum up to 10000 (100%).
-    Trench[] public trenches;
+    Tranche[] public tranches;
 
     /// @dev The address of the protocol fees receiver.
     /// @notice The address that receives the protocol fees.
@@ -243,7 +243,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         _grantRole(PAUSER_ROLE, _msgSender());
         _grantRole(TRENCH_UPDATE_ROLE, _msgSender());
 
-        _intializeDefaultTrenches();
+        _intializeDefaultTranchees();
         protocolFeesReceiver = _protocolFeesReceiver;
     }
 
@@ -548,50 +548,50 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         _unpause();
     }
 
-    /// @dev Update the trenches and their percentages.
-    /// @param _trenches The array of trenches and their percentages.
-    /// @notice Only the trench updater can update the trenches.
-    function setTrenches(Trench[] calldata _trenches) public onlyRole(TRENCH_UPDATE_ROLE) {
-        _setTrenches(_trenches);
+    /// @dev Update the tranchees and their percentages.
+    /// @param _tranchees The array of tranchees and their percentages.
+    /// @notice Only the tranche updater can update the tranchees.
+    function setTranchees(Tranche[] calldata _tranchees) public onlyRole(TRENCH_UPDATE_ROLE) {
+        _setTranches(_tranchees);
     }
 
-    /// @dev Initialize the default trenches for the blueprint.
-    function _intializeDefaultTrenches() internal {
-        Trench[] memory _trenches = new Trench[](4);
-        _trenches[0] = Trench(TrenchKind.Developer, 5000); // 50%
-        _trenches[1] = Trench(TrenchKind.Protocol, 2000); // 20%
-        _trenches[2] = Trench(TrenchKind.Operators, 1000); // 10%
-        _trenches[3] = Trench(TrenchKind.Restakers, 2000); // 20%
-        _verifyTrenches(_trenches);
-        // Clear the default trenches and set the new ones.
-        for (uint256 i = 0; i < _trenches.length; i++) {
-            delete trenches[i];
-            trenches.push(_trenches[i]);
+    /// @dev Initialize the default tranchees for the blueprint.
+    function _intializeDefaultTranchees() internal {
+        Tranche[] memory _tranches = new Tranche[](4);
+        _tranches[0] = Tranche(TrancheKind.Developer, 5000); // 50%
+        _tranches[1] = Tranche(TrancheKind.Protocol, 2000); // 20%
+        _tranches[2] = Tranche(TrancheKind.Operators, 1000); // 10%
+        _tranches[3] = Tranche(TrancheKind.Restakers, 2000); // 20%
+        _verifyTranchees(_tranches);
+        // Clear the default tranchees and set the new ones.
+        for (uint256 i = 0; i < _tranches.length; i++) {
+            delete tranches[i];
+            tranches.push(_tranches[i]);
         }
     }
 
-    /// @dev Set the trenches and their percentages.
-    /// @param _trenches The array of trenches and their percentages.
-    /// @notice the trenches should always sum up to 10000 (100%).
-    function _setTrenches(Trench[] calldata _trenches) internal {
-        _verifyTrenches(_trenches);
-        for (uint256 i = 0; i < trenches.length; i++) {
-            trenches[i] = _trenches[i];
+    /// @dev Set the tranches and their percentages.
+    /// @param _tranches The array of tranchees and their percentages.
+    /// @notice the tranchees should always sum up to 10000 (100%).
+    function _setTranches(Tranche[] calldata _tranches) internal {
+        _verifyTranchees(_tranches);
+        for (uint256 i = 0; i < tranches.length; i++) {
+            tranches[i] = _tranches[i];
         }
     }
 
-    /// @dev Verify the trenches and their percentages.
-    function _verifyTrenches(Trench[] memory _trenches) internal pure {
+    /// @dev Verify the tranches and their percentages.
+    function _verifyTranchees(Tranche[] memory _tranches) internal pure {
         uint16 sum = 0;
-        for (uint256 i = 0; i < _trenches.length; i++) {
-            sum += _trenches[i].percent;
+        for (uint256 i = 0; i < _tranches.length; i++) {
+            sum += _tranches[i].percent;
         }
         if (sum != BASE_PERCENT) {
-            revert InvalidTrenches();
+            revert InvalidTranches();
         }
     }
 
-    /// @dev an internal function to split the funds between the trenches.
+    /// @dev an internal function to split the funds between the tranches.
     /// @param manager The Blueprint Service Manager contract.
     /// @param serviceId The ID of the service.
     /// @param request The request parameters.
@@ -608,17 +608,17 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint256 operatorAmount = 0;
         uint256 restakerAmount = 0;
 
-        for (uint256 i = 0; i < trenches.length; i++) {
-            Trench memory trench = trenches[i];
-            uint256 trenchAmount = (totalAmount * trench.percent) / BASE_PERCENT;
-            if (trench.kind == TrenchKind.Developer) {
-                developerAmount = trenchAmount;
-            } else if (trench.kind == TrenchKind.Protocol) {
-                protocolAmount = trenchAmount;
-            } else if (trench.kind == TrenchKind.Operators) {
-                operatorAmount = trenchAmount;
-            } else if (trench.kind == TrenchKind.Restakers) {
-                restakerAmount = trenchAmount;
+        for (uint256 i = 0; i < tranches.length; i++) {
+            Tranche memory tranche = tranches[i];
+            uint256 trancheAmount = (totalAmount * tranche.percent) / BASE_PERCENT;
+            if (tranche.kind == TrancheKind.Developer) {
+                developerAmount = trancheAmount;
+            } else if (tranche.kind == TrancheKind.Protocol) {
+                protocolAmount = trancheAmount;
+            } else if (tranche.kind == TrancheKind.Operators) {
+                operatorAmount = trancheAmount;
+            } else if (tranche.kind == TrancheKind.Restakers) {
+                restakerAmount = trancheAmount;
             }
         }
 
