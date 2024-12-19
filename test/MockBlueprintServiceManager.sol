@@ -6,11 +6,11 @@ import "src/IBlueprintServiceManager.sol";
 
 contract MockBlueprintServiceManager is BlueprintServiceManagerBase {
     // Expose internal functions for testing
-    function permitAsset(uint64 serviceId, ServiceOperators.Asset calldata asset) external returns (bool) {
+    function permitAsset(uint64 serviceId, Assets.Asset calldata asset) external returns (bool) {
         return _permitAsset(serviceId, asset);
     }
 
-    function revokeAsset(uint64 serviceId, ServiceOperators.Asset calldata asset) external returns (bool) {
+    function revokeAsset(uint64 serviceId, Assets.Asset calldata asset) external returns (bool) {
         return _revokeAsset(serviceId, asset);
     }
 
@@ -22,24 +22,19 @@ contract MockBlueprintServiceManager is BlueprintServiceManagerBase {
         return _getPermittedAssetsAsAddresses(serviceId);
     }
 
-    function getPermittedAssets(uint64 serviceId) external view returns (ServiceOperators.Asset[] memory) {
+    function getPermittedAssets(uint64 serviceId) external view returns (Assets.Asset[] memory) {
         return _getPermittedAssets(serviceId);
     }
 
-    function assetIdToAddress(bytes32 assetId) external pure returns (address) {
-        return _assetIdToAddress(assetId);
-    }
-
-    function addressToAssetId(address assetAddress) external pure returns (bytes32) {
-        return _addressToAssetId(assetAddress);
-    }
-
-    function isNativeAsset(ServiceOperators.Asset calldata asset) external pure returns (bool) {
-        return _isNativeAsset(asset);
-    }
-
-    // Override required as BlueprintServiceManagerBase inherits RootChainEnabled
     function setMasterBlueprintServiceManager(address mbsm) external {
         masterBlueprintServiceManager = mbsm;
+    }
+
+    function setBlueprintOwner(address owner) external {
+        blueprintOwner = owner;
+    }
+
+    function setCurrentBlueprintId(uint64 id) external {
+        currentBlueprintId = id;
     }
 }

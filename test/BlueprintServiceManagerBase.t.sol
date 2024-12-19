@@ -8,6 +8,10 @@ import "./MockERC20.sol";
 import "./MockBlueprintServiceManager.sol";
 
 contract BlueprintServiceManagerBaseTest is Test {
+    using Assets for Assets.Asset;
+    using Assets for address;
+    using Assets for bytes32;
+
     MockBlueprintServiceManager manager;
     address rootChain = 0x1111111111111111111111111111111111111111;
     address masterBlueprintServiceManager = address(0x2222222222222222222222222222222222222222);
@@ -179,10 +183,7 @@ contract BlueprintServiceManagerBaseTest is Test {
             requestInputs: "input data",
             permittedCallers: new address[](0),
             ttl: 1000,
-            paymentAsset: ServiceOperators.Asset({
-                kind: ServiceOperators.AssetKind.Erc20,
-                data: bytes32(uint256(uint160(address(mockToken))))
-            }),
+            paymentAsset: Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(mockToken)))) }),
             amount: 1000
         });
 
@@ -198,10 +199,7 @@ contract BlueprintServiceManagerBaseTest is Test {
             requestInputs: "input data",
             permittedCallers: new address[](0),
             ttl: 1000,
-            paymentAsset: ServiceOperators.Asset({
-                kind: ServiceOperators.AssetKind.Erc20,
-                data: bytes32(uint256(uint160(address(mockToken))))
-            }),
+            paymentAsset: Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(mockToken)))) }),
             amount: 1000
         });
 
@@ -526,10 +524,8 @@ contract BlueprintServiceManagerBaseTest is Test {
     // Test queryIsPaymentAssetAllowed
     function test_QueryIsPaymentAssetAllowed_Erc20AssetAllowed() public onlyMaster {
         uint64 serviceId = 109;
-        ServiceOperators.Asset memory asset = ServiceOperators.Asset({
-            kind: ServiceOperators.AssetKind.Erc20,
-            data: bytes32(uint256(uint160(address(mockToken))))
-        });
+        Assets.Asset memory asset =
+            Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(mockToken)))) });
 
         // Permit the asset
         manager.permitAsset(serviceId, asset);
@@ -540,10 +536,8 @@ contract BlueprintServiceManagerBaseTest is Test {
 
     function test_QueryIsPaymentAssetAllowed_Erc20AssetNotAllowed() public view {
         uint64 serviceId = 110;
-        ServiceOperators.Asset memory asset = ServiceOperators.Asset({
-            kind: ServiceOperators.AssetKind.Erc20,
-            data: bytes32(uint256(uint160(address(mockToken))))
-        });
+        Assets.Asset memory asset =
+            Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(mockToken)))) });
 
         bool isAllowed = manager.queryIsPaymentAssetAllowed(serviceId, asset);
         assertFalse(isAllowed, "ERC20 asset should not be allowed initially");
@@ -552,8 +546,7 @@ contract BlueprintServiceManagerBaseTest is Test {
     function test_QueryIsPaymentAssetAllowed_CustomAssetAllowed() public onlyMaster {
         uint64 serviceId = 111;
         bytes32 assetId = bytes32(uint256(123_456));
-        ServiceOperators.Asset memory asset =
-            ServiceOperators.Asset({ kind: ServiceOperators.AssetKind.Custom, data: assetId });
+        Assets.Asset memory asset = Assets.Asset({ kind: Assets.Kind.Custom, data: assetId });
 
         // Permit the asset
         manager.permitAsset(serviceId, asset);
@@ -565,8 +558,7 @@ contract BlueprintServiceManagerBaseTest is Test {
     function test_QueryIsPaymentAssetAllowed_CustomAssetNotAllowed() public view {
         uint64 serviceId = 112;
         bytes32 assetId = bytes32(uint256(654_321));
-        ServiceOperators.Asset memory asset =
-            ServiceOperators.Asset({ kind: ServiceOperators.AssetKind.Custom, data: assetId });
+        Assets.Asset memory asset = Assets.Asset({ kind: Assets.Kind.Custom, data: assetId });
 
         bool isAllowed = manager.queryIsPaymentAssetAllowed(serviceId, asset);
         assertFalse(isAllowed, "Custom asset should not be allowed initially");
@@ -575,13 +567,10 @@ contract BlueprintServiceManagerBaseTest is Test {
     // Test _permitAsset and _revokeAsset
     function test_PermitAndRevokeAsset() public onlyMaster {
         uint64 serviceId = 113;
-        ServiceOperators.Asset memory erc20Asset = ServiceOperators.Asset({
-            kind: ServiceOperators.AssetKind.Erc20,
-            data: bytes32(uint256(uint160(address(mockToken))))
-        });
+        Assets.Asset memory erc20Asset =
+            Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(mockToken)))) });
         bytes32 customAssetId = bytes32(uint256(789_012));
-        ServiceOperators.Asset memory customAsset =
-            ServiceOperators.Asset({ kind: ServiceOperators.AssetKind.Custom, data: customAssetId });
+        Assets.Asset memory customAsset = Assets.Asset({ kind: Assets.Kind.Custom, data: customAssetId });
 
         // Permit both assets
         manager.permitAsset(serviceId, erc20Asset);
@@ -604,13 +593,10 @@ contract BlueprintServiceManagerBaseTest is Test {
     // Test _clearPermittedAssets
     function test_ClearPermittedAssets() public onlyMaster {
         uint64 serviceId = 114;
-        ServiceOperators.Asset memory erc20Asset = ServiceOperators.Asset({
-            kind: ServiceOperators.AssetKind.Erc20,
-            data: bytes32(uint256(uint160(address(mockToken))))
-        });
+        Assets.Asset memory erc20Asset =
+            Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(mockToken)))) });
         bytes32 customAssetId = bytes32(uint256(890_123));
-        ServiceOperators.Asset memory customAsset =
-            ServiceOperators.Asset({ kind: ServiceOperators.AssetKind.Custom, data: customAssetId });
+        Assets.Asset memory customAsset = Assets.Asset({ kind: Assets.Kind.Custom, data: customAssetId });
 
         // Permit both assets
         manager.permitAsset(serviceId, erc20Asset);
@@ -631,10 +617,8 @@ contract BlueprintServiceManagerBaseTest is Test {
     // Test _getPermittedAssetsAsAddresses
     function test_GetPermittedAssetsAsAddresses() public onlyMaster {
         uint64 serviceId = 115;
-        ServiceOperators.Asset memory erc20Asset = ServiceOperators.Asset({
-            kind: ServiceOperators.AssetKind.Erc20,
-            data: bytes32(uint256(uint160(address(mockToken))))
-        });
+        Assets.Asset memory erc20Asset =
+            Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(mockToken)))) });
 
         manager.permitAsset(serviceId, erc20Asset);
 
@@ -646,81 +630,70 @@ contract BlueprintServiceManagerBaseTest is Test {
     // Test _getPermittedAssets
     function test_GetPermittedAssets() public onlyMaster {
         uint64 serviceId = 116;
-        ServiceOperators.Asset memory erc20Asset = ServiceOperators.Asset({
-            kind: ServiceOperators.AssetKind.Erc20,
-            data: bytes32(uint256(uint160(address(mockToken))))
-        });
+        Assets.Asset memory erc20Asset =
+            Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(mockToken)))) });
         bytes32 customAssetId = bytes32(uint256(345_678));
-        ServiceOperators.Asset memory customAsset =
-            ServiceOperators.Asset({ kind: ServiceOperators.AssetKind.Custom, data: customAssetId });
+        Assets.Asset memory customAsset = Assets.Asset({ kind: Assets.Kind.Custom, data: customAssetId });
 
         manager.permitAsset(serviceId, erc20Asset);
         manager.permitAsset(serviceId, customAsset);
 
-        ServiceOperators.Asset[] memory permitted = manager.getPermittedAssets(serviceId);
+        Assets.Asset[] memory permitted = manager.getPermittedAssets(serviceId);
         assertEq(permitted.length, 2, "Should have two permitted assets");
 
         // Verify ERC20 asset
-        assertTrue(permitted[0].kind == ServiceOperators.AssetKind.Erc20, "First asset should be ERC20");
+        assertTrue(permitted[0].kind == Assets.Kind.Erc20, "First asset should be ERC20");
         assertEq(address(uint160(uint256(permitted[0].data))), address(mockToken), "ERC20 asset data mismatch");
 
         // Verify Custom asset
-        assertTrue(permitted[1].kind == ServiceOperators.AssetKind.Custom, "Second asset should be Custom");
+        assertTrue(permitted[1].kind == Assets.Kind.Custom, "Second asset should be Custom");
         assertEq(permitted[1].data, customAssetId, "Custom asset data mismatch");
     }
 
     // Test asset ID to address and back
     function test_AssetIdConversion() public onlyMaster {
         bytes32 assetId = bytes32(uint256(567_890));
-        address assetAddress = manager.assetIdToAddress(assetId);
-        bytes32 convertedId = manager.addressToAssetId(assetAddress);
+        address assetAddress = assetId.toAddress();
+        bytes32 convertedId = assetAddress.toAssetId();
         assertEq(assetId, convertedId, "Asset ID should match after conversion");
     }
 
     // Test invalid asset address conversion
     function test_AddressToAssetId_InvalidAddress() public {
         address invalidAssetAddress = address(0xABCDEF);
-        vm.expectRevert(
-            abi.encodeWithSelector(BlueprintServiceManagerBase.InvalidAssetId.selector, invalidAssetAddress)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Assets.InvalidAssetId.selector, invalidAssetAddress));
 
-        manager.addressToAssetId(invalidAssetAddress);
+        invalidAssetAddress.toAssetId();
     }
 
     // Test native asset check
     function test_IsNativeAsset_Erc20NonNative() public view {
-        ServiceOperators.Asset memory erc20Asset = ServiceOperators.Asset({
-            kind: ServiceOperators.AssetKind.Erc20,
-            data: bytes32(uint256(uint160(address(mockToken))))
-        });
+        Assets.Asset memory erc20Asset =
+            Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(mockToken)))) });
 
-        bool isNative = manager.isNativeAsset(erc20Asset);
+        bool isNative = erc20Asset.isNative();
         assertFalse(isNative, "ERC20 asset should not be native");
     }
 
-    function test_IsNativeAsset_CustomNonNative() public view {
-        ServiceOperators.Asset memory customAsset =
-            ServiceOperators.Asset({ kind: ServiceOperators.AssetKind.Custom, data: bytes32(uint256(678_901)) });
+    function test_IsNativeAsset_CustomNonNative() public pure {
+        Assets.Asset memory customAsset = Assets.Asset({ kind: Assets.Kind.Custom, data: bytes32(uint256(678_901)) });
 
-        bool isNative = manager.isNativeAsset(customAsset);
+        bool isNative = customAsset.isNative();
         assertFalse(isNative, "Custom asset should not be native");
     }
 
-    function test_IsNativeAsset_NativeErc20() public view {
-        ServiceOperators.Asset memory nativeErc20 = ServiceOperators.Asset({
-            kind: ServiceOperators.AssetKind.Erc20,
-            data: bytes32(uint256(uint160(address(0))))
-        });
+    function test_IsNativeAsset_NativeErc20() public pure {
+        Assets.Asset memory nativeErc20 =
+            Assets.Asset({ kind: Assets.Kind.Erc20, data: bytes32(uint256(uint160(address(0)))) });
 
-        bool isNative = manager.isNativeAsset(nativeErc20);
+        bool isNative = nativeErc20.isNative();
         assertTrue(isNative, "Erc20 with address 0 should be native");
     }
 
-    function test_IsNativeAsset_NativeCustom() public view {
-        ServiceOperators.Asset memory nativeCustom =
-            ServiceOperators.Asset({ kind: ServiceOperators.AssetKind.Custom, data: bytes32(uint256(0)) });
+    function test_IsNativeAsset_NativeCustom() public pure {
+        Assets.Asset memory nativeCustom = Assets.Asset({ kind: Assets.Kind.Custom, data: bytes32(uint256(0)) });
 
-        bool isNative = manager.isNativeAsset(nativeCustom);
+        bool isNative = nativeCustom.isNative();
         assertTrue(isNative, "Custom asset with ID 0 should be native");
     }
 }

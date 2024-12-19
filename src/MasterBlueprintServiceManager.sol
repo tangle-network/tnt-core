@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "src/Permissions.sol";
 import "src/IBlueprintServiceManager.sol";
@@ -13,6 +15,20 @@ import "src/IBlueprintServiceManager.sol";
 /// @dev This contract acts as an interceptor between the root chain and blueprint service manager contracts.
 contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausable {
     using EnumerableMap for EnumerableMap.UintToAddressMap;
+    using Assets for Assets.Asset;
+    using Assets for address;
+    using Assets for bytes32;
+    using SafeERC20 for IERC20;
+
+    // ===== Constants =====
+
+    /// @dev The role that allows the contract to pause and unpause the contract.
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    /// @dev The role that allows the change of tranches and their percentages.
+    bytes32 public constant TRENCH_UPDATE_ROLE = keccak256("TRENCH_UPDATE_ROLE");
+
+    /// @dev The base percentage value.
+    uint16 public constant BASE_PERCENT = 10_000;
 
     /// @title Blueprint Structs
     /// @dev Defines the Blueprint and related data structures for the service.
@@ -37,6 +53,34 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         string logo; // Empty string represents None
         string website; // Empty string represents None
         string license; // Empty string represents None
+    }
+
+    /// @dev Defines the different tranches for the blueprint.
+    /// @notice Use this enum to define the different tranches for the blueprint.
+    enum TrancheKind {
+        /// @notice Blueprint Developer tranche
+        /// @dev The developer tranche is for the developer of the blueprint.
+        Developer,
+        /// @notice Blueprint Protocol tranche
+        /// @dev The protocol tranche is for the protocol.
+        Protocol,
+        /// @notice Blueprint Operators tranche
+        /// @dev The operators tranche is for the operators of the blueprint.
+        Operators,
+        /// @notice Blueprint Restakers tranche
+        /// @dev The restakers tranche is for the restakers of the blueprint.
+        Restakers
+    }
+
+    /// @dev Defines the tranche with the percentage.
+    /// @notice Use this struct to define the tranche with the percentage.
+    struct Tranche {
+        /// @dev The kind of the tranche.
+        TrancheKind kind;
+        /// @dev The percentage of the tranche in the scale of `10000`.
+        /// where `10000` is equal to `100%` and `1` is equal to `0.01%`.
+        /// Any value between `1` and `10000` is valid for the percentage, inclusive.
+        uint16 percent;
     }
 
     // ============ Events ============
@@ -75,7 +119,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint64 indexed requestId,
         address indexed requester,
         uint64 ttl,
-        ServiceOperators.Asset asset,
+        Assets.Asset asset,
         uint256 amount
     );
 
@@ -156,6 +200,12 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent, uint256 totalPayout
     );
 
+    // =========== Errors ============
+
+    /// @dev Error when the tranches are invalid and does not sum up to 100%.
+    /// @notice The tranches should always sum up to 10000 (100%).
+    error InvalidTranches();
+
     // ============ Storage ============
 
     /// @dev Mapping that store the blueprint service manager contracts.
@@ -169,6 +219,33 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     ///
     /// blueprintId => owner
     EnumerableMap.UintToAddressMap private blueprintOwners;
+
+    /// @dev Mapping that stores the Service requests for a blueprint.
+    /// @notice Contains the service requests for a blueprint.
+    ///
+    /// requestId => request
+    mapping(uint64 => ServiceOperators.RequestParams) private serviceRequests;
+
+    /// @dev An array of tranches and their percentages.
+    /// always sum up to 10000 (100%).
+    Tranche[] public tranches;
+
+    /// @dev The address of the protocol fees receiver.
+    /// @notice The address that receives the protocol fees.
+    address payable public protocolFeesReceiver;
+
+    // ============ Constructor ============
+
+    constructor(address payable _protocolFeesReceiver) {
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(PAUSER_ROLE, _msgSender());
+        _grantRole(TRENCH_UPDATE_ROLE, _msgSender());
+
+        _grantRole(DEFAULT_ADMIN_ROLE, ROOT_CHAIN);
+
+        _intializeDefaultTranches();
+        protocolFeesReceiver = _protocolFeesReceiver;
+    }
 
     // ======== Functions =========
 
@@ -257,6 +334,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     {
         address manager = blueprints.get(blueprintId);
         IBlueprintServiceManager(manager).onRequest(params);
+        serviceRequests[params.requestId] = params;
         emit ServiceRequested(
             blueprintId, params.requestId, params.requester, params.ttl, params.paymentAsset, params.amount
         );
@@ -298,6 +376,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     {
         address manager = blueprints.get(blueprintId);
         IBlueprintServiceManager(manager).onReject(operator, requestId);
+        delete serviceRequests[requestId];
         emit RequestRejected(blueprintId, requestId, operator);
     }
 
@@ -317,11 +396,14 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint64 ttl
     )
         public
+        payable
         onlyFromRootChain
         whenNotPaused
     {
-        address manager = blueprints.get(blueprintId);
-        IBlueprintServiceManager(manager).onServiceInitialized(requestId, serviceId, owner, permittedCallers, ttl);
+        IBlueprintServiceManager manager = IBlueprintServiceManager(blueprints.get(blueprintId));
+        ServiceOperators.RequestParams memory request = serviceRequests[requestId];
+        _splitFunds(manager, serviceId, request);
+        manager.onServiceInitialized(requestId, serviceId, owner, permittedCallers, ttl);
         emit ServiceInitialized(blueprintId, requestId, serviceId, owner, ttl);
     }
 
@@ -453,5 +535,114 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     function queryDisputeOrigin(uint64 blueprintId, uint64 serviceId) public view returns (address disputeOrigin) {
         address manager = blueprints.get(blueprintId);
         return IBlueprintServiceManager(manager).queryDisputeOrigin(serviceId);
+    }
+
+    /// @dev Pause the contract.
+    /// @notice Only the pauser can pause the contract.
+    function pause() public onlyRole(PAUSER_ROLE) whenNotPaused {
+        _pause();
+    }
+
+    /// @dev Unpause the contract.
+    /// @notice Only the pauser can unpause the contract.
+    function unpause() public onlyRole(PAUSER_ROLE) whenPaused {
+        _unpause();
+    }
+
+    /// @dev Update the tranches and their percentages.
+    /// @param _tranches The array of tranches and their percentages.
+    /// @notice Only the tranche updater can update the tranches.
+    function setTranches(Tranche[] calldata _tranches) public onlyRole(TRENCH_UPDATE_ROLE) {
+        _setTranches(_tranches);
+    }
+
+    /// @dev Initialize the default tranches for the blueprint.
+    function _intializeDefaultTranches() internal {
+        Tranche[] memory _tranches = new Tranche[](4);
+        _tranches[0] = Tranche(TrancheKind.Developer, 5000); // 50%
+        _tranches[1] = Tranche(TrancheKind.Protocol, 2000); // 20%
+        _tranches[2] = Tranche(TrancheKind.Operators, 1000); // 10%
+        _tranches[3] = Tranche(TrancheKind.Restakers, 2000); // 20%
+        _verifyTranches(_tranches);
+        // Clear the default tranches and set the new ones.
+        for (uint256 i = 0; i < _tranches.length; i++) {
+            tranches.push(_tranches[i]);
+        }
+    }
+
+    /// @dev Set the tranches and their percentages.
+    /// @param _tranches The array of tranches and their percentages.
+    /// @notice the tranches should always sum up to 10000 (100%).
+    function _setTranches(Tranche[] calldata _tranches) internal {
+        _verifyTranches(_tranches);
+        delete tranches;
+        for (uint256 i = 0; i < _tranches.length; i++) {
+            tranches.push(_tranches[i]);
+        }
+    }
+
+    /// @dev Verify the tranches and their percentages.
+    function _verifyTranches(Tranche[] memory _tranches) internal pure {
+        uint16 sum = 0;
+        for (uint256 i = 0; i < _tranches.length; i++) {
+            sum += _tranches[i].percent;
+        }
+        if (sum != BASE_PERCENT) {
+            revert InvalidTranches();
+        }
+    }
+
+    /// @dev an internal function to split the funds between the tranches.
+    /// @param manager The Blueprint Service Manager contract.
+    /// @param serviceId The ID of the service.
+    /// @param request The request parameters.
+    function _splitFunds(
+        IBlueprintServiceManager manager,
+        uint64 serviceId,
+        ServiceOperators.RequestParams memory request
+    )
+        internal
+    {
+        uint256 totalAmount = request.amount;
+        if (totalAmount == 0) {
+            return;
+        }
+        uint256 developerAmount = 0;
+        uint256 protocolAmount = 0;
+        uint256 operatorAmount = 0;
+        uint256 restakerAmount = 0;
+
+        for (uint256 i = 0; i < tranches.length; i++) {
+            Tranche memory tranche = tranches[i];
+            uint256 trancheAmount = (totalAmount * tranche.percent) / BASE_PERCENT;
+            if (tranche.kind == TrancheKind.Developer) {
+                developerAmount = trancheAmount;
+            } else if (tranche.kind == TrancheKind.Protocol) {
+                protocolAmount = trancheAmount;
+            } else if (tranche.kind == TrancheKind.Operators) {
+                operatorAmount = trancheAmount;
+            } else if (tranche.kind == TrancheKind.Restakers) {
+                restakerAmount = trancheAmount;
+            }
+        }
+
+        uint256 toRewardsPallet = operatorAmount + restakerAmount;
+
+        address payable developer = manager.queryDeveloperPaymentAddress(serviceId);
+        if (request.paymentAsset.isNative()) {
+            // Native asset
+            developer.transfer(developerAmount);
+            protocolFeesReceiver.transfer(protocolAmount);
+            // TODO: call the rewards pallet precompile here with the funds.
+            // for now, we will transfer the funds to the rewards pallet.
+            payable(address(REWARDS_PALLET)).transfer(toRewardsPallet);
+        } else {
+            // ERC20
+            address token = request.paymentAsset.toAddress();
+            IERC20(token).safeTransfer(developer, developerAmount);
+            IERC20(token).safeTransfer(protocolFeesReceiver, protocolAmount);
+            IERC20(token).safeTransfer(REWARDS_PALLET, toRewardsPallet);
+            // TODO: call the rewards pallet precompile here.
+        }
     }
 }
