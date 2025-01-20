@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 import "../Permissions.sol";
 import { ICrossChainMessenger } from "../interfaces/ICrossChainMessenger.sol";
 import { IRemoteChainBridgeManager } from "../interfaces/IRemoteChainBridgeManager.sol";
+import { GlacisClient } from "glacis-contracts/client/GlacisClient.sol";
 
 /// @title RemoteChainBridgeManager
 /// @notice Manages message dispatch to Tangle through multiple bridges
-contract RemoteChainBridgeManager is IRemoteChainBridgeManager, RootChainEnabledOwnable {
-    /// @dev Maps bridge IDs to their configurations
-    mapping(uint256 => BridgeConfig) public bridges;
+contract RemoteChainBridgeManager is IRemoteChainBridgeManager, RootChainEnabledOwnable, GlacisClient {
+
+    bytes32 immutable RECEIVER;
+    address immutable REFUND_ADDRESS;
+    uint256 immutable TANGLE_CHAIN_ID;
+    address[] gmps;
+    CrossChainGas[] fees;
 
     error InvalidMessenger();
     error InvalidRecipient();
@@ -17,65 +22,38 @@ contract RemoteChainBridgeManager is IRemoteChainBridgeManager, RootChainEnabled
     error InactiveBridge();
     error InsufficientFee();
 
-    function configureBridge(
-        uint256 bridgeId,
-        address messenger,
-        uint32 tangleChainId,
-        bytes32 adapter
-    )
-        external
-        onlyOwnerOrRootChain
-    {
-        if (messenger == address(0)) revert InvalidMessenger();
-        if (adapter == bytes32(0)) revert InvalidRecipient();
+    constructor(
+        address _glacisRouter,
+        uint256 _quorum,
+        bytes32 _receiver,
+        address _refundAddress,
+        uint256 _tangleChainId
+    ) GlacisClient(_glacisRouter, _quorum) {
+        RECEIVER = _receiver;
+        REFUND_ADDRESS = _refundAddress;
+        TANGLE_CHAIN_ID = _tangleChainId;
+    }
 
-        bridges[bridgeId] = BridgeConfig({
-            messenger: ICrossChainMessenger(messenger),
-            tangleChainId: tangleChainId,
-            adapter: adapter,
-            isActive: true
-        });
-
-        emit BridgeConfigured(bridgeId, messenger, tangleChainId, adapter);
+    function configureGMPs(address[] memory _gmps, CrossChainGas[] memory _fees) external onlyOwner {
+        gmps = _gmps;
+        delete fees;
+        for (uint256 i = 0; i < _fees.length;) {
+            fees.push(_fees[i]);
+            unchecked {
+                i++;
+            }
+        }
     }
 
     function dispatchMessage(bytes calldata message) external payable {
-        uint256 remainingValue = msg.value;
-
-        // Try each configured bridge
-        for (uint256 bridgeId = 0; bridgeId < type(uint256).max; bridgeId++) {
-            BridgeConfig storage config = bridges[bridgeId];
-            if (!config.isActive) continue;
-
-            try config.messenger.quoteMessageFee(config.tangleChainId, config.adapter, message) returns (uint256 fee) {
-                if (fee > remainingValue) continue;
-
-                try config.messenger.sendMessage{ value: fee }(config.tangleChainId, config.adapter, message) returns (
-                    bytes32 messageId
-                ) {
-                    remainingValue -= fee;
-                    emit MessageDispatched(bridgeId, messageId, message);
-                } catch Error(string memory reason) {
-                    emit DispatchError(bridgeId, reason);
-                }
-            } catch Error(string memory reason) {
-                emit DispatchError(bridgeId, reason);
-            }
-        }
-
-        // Return any unused fees
-        if (remainingValue > 0) {
-            (bool success,) = msg.sender.call{ value: remainingValue }("");
-            require(success, "Fee return failed");
-        }
+        _route(TANGLE_CHAIN_ID, RECEIVER, message, gmps, fees, REFUND_ADDRESS, false, msg.value);
     }
 
-    function getMessageFee(uint256 bridgeId, bytes calldata message) external view returns (uint256) {
-        BridgeConfig storage config = bridges[bridgeId];
-        if (!config.isActive) revert InactiveBridge();
-
-        return config.messenger.quoteMessageFee(config.tangleChainId, config.adapter, message);
+    function getMessageFee(bytes calldata message) external view returns (uint256 fee) {
+        _calculateFeeForMessage(message);
     }
+
+    function _calculateFeeForMessage(bytes calldata message) internal view virtual returns (uint256 fee) {}
 
     receive() external payable { }
 }

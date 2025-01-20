@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -117,7 +117,7 @@ contract RemoteRestakeVault {
             sender: bytes32(uint256(uint160(msg.sender)))
         });
 
-        _dispatchMessage(bridgeId, message.encode());
+        _dispatchMessage(message.encode());
         emit AssetDeposited(token, msg.sender, amount);
     }
 
@@ -125,7 +125,8 @@ contract RemoteRestakeVault {
         address token,
         uint256 amount,
         uint256 bridgeId,
-        bytes32 operator
+        bytes32 operator,
+        uint64[] memory blueprintSelection // TODO: add blueprint selection
     )
         external
         payable
@@ -150,7 +151,7 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(bridgeId, message.encode());
+        _dispatchMessage(message.encode());
         emit DelegationUpdated(token, msg.sender, amount, operator);
     }
 
@@ -178,7 +179,7 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(bridgeId, message.encode());
+        _dispatchMessage(message.encode());
         emit UnstakeScheduled(token, msg.sender, amount, operator);
     }
 
@@ -206,7 +207,7 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(bridgeId, message.encode());
+        _dispatchMessage(message.encode());
         emit UnstakeCancelled(token, msg.sender, amount, operator);
     }
 
@@ -240,7 +241,7 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(bridgeId, message.encode());
+        _dispatchMessage(message.encode());
         emit UnstakeExecuted(token, msg.sender, amount, operator);
     }
 
@@ -318,8 +319,8 @@ contract RemoteRestakeVault {
         }
     }
 
-    function _dispatchMessage(uint256 bridgeId, bytes memory message) internal {
-        uint256 requiredFee = bridgeId != 0 ? bridgeManager.getMessageFee(bridgeId, message) : msg.value;
+    function _dispatchMessage(bytes memory message) internal {
+        uint256 requiredFee = bridgeManager.getMessageFee(message);
 
         try bridgeManager.dispatchMessage{ value: requiredFee }(message) {
             // Success case handled by events

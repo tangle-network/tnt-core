@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.18;
 
 import "../precompiles/IAssets.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -20,7 +20,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /// - Only the contract owner can manually set asset IDs
 /// - Includes emergency recovery function for stuck ERC20 tokens
 /// - Asset IDs are obtained from the precompile to ensure system-wide consistency
-contract AssetManager {
+contract AssetManager is Ownable {
     // Interface to the Assets precompile that handles native asset operations
     IAssets public immutable assetsPrecompile;
 
@@ -33,7 +33,7 @@ contract AssetManager {
 
     /// @dev Initializes the contract with the Assets precompile address
     /// @param _assetsPrecompile The address of the Assets precompile contract
-    constructor(address _assetsPrecompile) {
+    constructor(address _assetsPrecompile) Ownable() {
         assetsPrecompile = IAssets(_assetsPrecompile);
     }
 

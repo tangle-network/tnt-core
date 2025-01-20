@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 interface IMasterVault {
     struct CrossChainAsset {
@@ -10,10 +10,4 @@ interface IMasterVault {
     }
 
     error InvalidAsset(address asset);
-
-    event AdapterAuthorized(address indexed adapter);
-    event AdapterUnauthorized(address indexed adapter);
-
-    function authorizeAdapter(address adapter) external;
-    function unauthorizeAdapter(address adapter) external;
 }

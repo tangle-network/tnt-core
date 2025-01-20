@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 import { AssetDelegator } from "./AssetDelegator.sol";
 import { AssetManager } from "./AssetManager.sol";
@@ -7,7 +7,7 @@ import { AssetManager } from "./AssetManager.sol";
 contract UserVault is AssetDelegator {
     bytes32 public immutable owner;
     address public immutable masterVault;
-    address public immutable assetManager;
+    // address public immutable assetManager;
 
     error Unauthorized();
     error InsufficientBalance();
@@ -22,12 +22,12 @@ contract UserVault is AssetDelegator {
         masterVault = _masterVault;
     }
 
-    function restakingDeposit(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        return op(bytes32(0), syntheticAsset, amount, Operation.Deposit);
+    function restakingDeposit(address asset, uint256 amount) external onlyMasterVault returns (bool) {
+        // return op(bytes32(0), syntheticAsset, amount, Operation.Deposit);
     }
 
     function restakingDelegate(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
-        return op(operator, syntheticAsset, amount, Operation.Delegate);
+        // return op(operator, syntheticAsset, amount, Operation.Delegate);
     }
 
     function restakingScheduleUnstake(
@@ -39,7 +39,7 @@ contract UserVault is AssetDelegator {
         onlyMasterVault
         returns (bool)
     {
-        return op(operator, syntheticAsset, amount, Operation.ScheduleUnstake);
+        // return op(operator, syntheticAsset, amount, Operation.ScheduleUnstake);
     }
 
     function restakingCancelUnstake(
@@ -51,7 +51,7 @@ contract UserVault is AssetDelegator {
         onlyMasterVault
         returns (bool)
     {
-        return op(operator, syntheticAsset, amount, Operation.CancelUnstake);
+        // return op(operator, syntheticAsset, amount, Operation.CancelUnstake);
     }
 
     function restakingExecuteUnstake(
@@ -63,18 +63,20 @@ contract UserVault is AssetDelegator {
         onlyMasterVault
         returns (bool)
     {
-        return op(operator, syntheticAsset, amount, Operation.ExecuteUnstake);
+        // return op(operator, syntheticAsset, amount, Operation.ExecuteUnstake);
     }
 
     function restakingScheduleWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        return op(bytes32(0), syntheticAsset, amount, Operation.ScheduleWithdraw);
+        // return op(bytes32(0), syntheticAsset, amount, Operation.ScheduleWithdraw);
     }
 
     function restakingCancelWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        return op(bytes32(0), syntheticAsset, amount, Operation.CancelWithdraw);
+        // return op(bytes32(0), syntheticAsset, amount, Operation.CancelWithdraw);
     }
 
     function restakingExecuteWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        return op(bytes32(0), syntheticAsset, amount, Operation.ExecuteWithdraw);
+        // return op(bytes32(0), syntheticAsset, amount, Operation.ExecuteWithdraw);
     }
+
+    // TODO: add restricted-access to claiming
 }

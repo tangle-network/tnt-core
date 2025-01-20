@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 import { MultiAssetDelegation } from "../precompiles/MultiAssetDelegation.sol";
 
@@ -41,34 +41,26 @@ abstract contract AssetDelegator {
     /// @param _amount The amount to operate with
     /// @param _operation The operation to perform
     /// @return success Whether the operation was successful
-    function op(bytes32 _operator, address _asset, uint256 _amount, Operation _operation) public virtual returns (bool) {
+    function op(bytes32 _operator, address _asset, uint256 _amount, uint8 _lockMultiplier, uint64[] memory _blueprintSelection, Operation _operation) public virtual returns (bool) {
         uint8 result;
         uint256 assetId = uint256(uint160(_asset));
 
         if (_operation == Operation.Deposit) {
-            result = DELEGATION.deposit(assetId, _amount);
-            if (result != 0) revert DelegationFailed();
+            DELEGATION.deposit(assetId, _asset, _amount, _lockMultiplier);
         } else if (_operation == Operation.Delegate) {
-            result = DELEGATION.delegate(_operator, assetId, _amount);
-            if (result != 0) revert DelegationFailed();
+            DELEGATION.delegate(_operator, assetId, _asset, _amount, _blueprintSelection);
         } else if (_operation == Operation.ScheduleUnstake) {
-            result = DELEGATION.scheduleDelegatorUnstake(_operator, assetId, _amount);
-            if (result != 0) revert UnstakeFailed();
+            DELEGATION.scheduleDelegatorUnstake(_operator, assetId, _asset, _amount);
         } else if (_operation == Operation.CancelUnstake) {
-            result = DELEGATION.cancelDelegatorUnstake(_operator, assetId, _amount);
-            if (result != 0) revert UnstakeFailed();
+            DELEGATION.cancelDelegatorUnstake(_operator, assetId, _asset, _amount);
         } else if (_operation == Operation.ExecuteUnstake) {
-            result = DELEGATION.executeDelegatorUnstake();
-            if (result != 0) revert UnstakeFailed();
+            DELEGATION.executeDelegatorUnstake();
         } else if (_operation == Operation.ScheduleWithdraw) {
-            result = DELEGATION.scheduleWithdraw(assetId, _amount);
-            if (result != 0) revert WithdrawalFailed();
+            DELEGATION.scheduleWithdraw(assetId, _asset, _amount);
         } else if (_operation == Operation.CancelWithdraw) {
-            result = DELEGATION.cancelWithdraw(assetId, _amount);
-            if (result != 0) revert WithdrawalFailed();
+            DELEGATION.cancelWithdraw(assetId, _asset, _amount);
         } else if (_operation == Operation.ExecuteWithdraw) {
-            result = DELEGATION.executeWithdraw();
-            if (result != 0) revert WithdrawalFailed();
+            DELEGATION.executeWithdraw();
         }
 
         emit OperationExecuted(_asset, _operator, _operation, _amount);
