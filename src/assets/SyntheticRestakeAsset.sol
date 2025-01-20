@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 import { ERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ISyntheticRestakeAsset } from "../interfaces/ISyntheticRestakeAsset.sol";

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 import { BlueprintServiceManagerBase } from "../BlueprintServiceManagerBase.sol";
 import { ICrossChainBridgeManager } from "../interfaces/ICrossChainBridgeManager.sol";

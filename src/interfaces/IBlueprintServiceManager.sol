@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 /// @title IBlueprintServiceManager
 /// @dev Interface for the BlueprintServiceManager contract, which acts as a manager for the lifecycle of a Blueprint Instance,
