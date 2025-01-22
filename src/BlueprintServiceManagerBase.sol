@@ -154,6 +154,52 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     { }
 
     /// @inheritdoc IBlueprintServiceManager
+    function canJoin(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        view
+        virtual
+        returns (bool allowed)
+    {
+        return true;
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onOperatorJoined(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        virtual
+        onlyFromMaster
+    { }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function canLeave(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        view
+        virtual
+        returns (bool allowed)
+    {
+        return true;
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onOperatorLeft(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        virtual
+        onlyFromMaster
+    { }
+
+    /// @inheritdoc IBlueprintServiceManager
     function querySlashingOrigin(uint64) external view virtual returns (address slashingOrigin) {
         return address(this);
     }
