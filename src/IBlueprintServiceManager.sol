@@ -138,15 +138,15 @@ interface IBlueprintServiceManager {
     function canJoin(
         uint64 serviceId,
         ServiceOperators.OperatorPreferences calldata operator
-    ) external view returns (bool allowed);
+    )
+        external
+        view
+        returns (bool allowed);
 
     /// @dev Hook called after an operator has joined a service instance
     /// @param serviceId The ID of the service instance
     /// @param operator The operator's preferences and details
-    function onOperatorJoined(
-        uint64 serviceId,
-        ServiceOperators.OperatorPreferences calldata operator
-    ) external;
+    function onOperatorJoined(uint64 serviceId, ServiceOperators.OperatorPreferences calldata operator) external;
 
     /// @dev Hook to check if an operator can leave a service instance
     /// @param serviceId The ID of the service instance
@@ -155,15 +155,15 @@ interface IBlueprintServiceManager {
     function canLeave(
         uint64 serviceId,
         ServiceOperators.OperatorPreferences calldata operator
-    ) external view returns (bool allowed);
+    )
+        external
+        view
+        returns (bool allowed);
 
     /// @dev Hook called after an operator has left a service instance
     /// @param serviceId The ID of the service instance
     /// @param operator The operator's preferences and details
-    function onOperatorLeft(
-        uint64 serviceId,
-        ServiceOperators.OperatorPreferences calldata operator
-    ) external;
+    function onOperatorLeft(uint64 serviceId, ServiceOperators.OperatorPreferences calldata operator) external;
 
     /// @dev Query the slashing origin for a service. This mainly used by the runtime to determine the allowed account
     /// that can slash a service. by default, the service manager is the only account that can slash a service. override

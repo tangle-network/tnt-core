@@ -546,7 +546,11 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint64 blueprintId,
         uint64 serviceId,
         ServiceOperators.OperatorPreferences calldata operator
-    ) public view returns (bool allowed) {
+    )
+        public
+        view
+        returns (bool allowed)
+    {
         address manager = blueprints.get(blueprintId);
         return IBlueprintServiceManager(manager).canJoin(serviceId, operator);
     }
@@ -559,7 +563,9 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint64 blueprintId,
         uint64 serviceId,
         ServiceOperators.OperatorPreferences calldata operator
-    ) public {
+    )
+        public
+    {
         address manager = blueprints.get(blueprintId);
         IBlueprintServiceManager(manager).onOperatorJoined(serviceId, operator);
     }
@@ -573,7 +579,11 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint64 blueprintId,
         uint64 serviceId,
         ServiceOperators.OperatorPreferences calldata operator
-    ) public view returns (bool allowed) {
+    )
+        public
+        view
+        returns (bool allowed)
+    {
         address manager = blueprints.get(blueprintId);
         return IBlueprintServiceManager(manager).canLeave(serviceId, operator);
     }
@@ -586,7 +596,9 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         uint64 blueprintId,
         uint64 serviceId,
         ServiceOperators.OperatorPreferences calldata operator
-    ) public {
+    )
+        public
+    {
         address manager = blueprints.get(blueprintId);
         IBlueprintServiceManager(manager).onOperatorLeft(serviceId, operator);
     }
