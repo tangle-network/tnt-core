@@ -537,6 +537,60 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         return IBlueprintServiceManager(manager).queryDisputeOrigin(serviceId);
     }
 
+    /// @dev Hook to check if an operator can join a service instance
+    /// @param blueprintId The blueprint unique identifier
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    /// @return allowed Returns true if the operator is allowed to join
+    function canJoin(
+        uint64 blueprintId,
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    ) public view returns (bool allowed) {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).canJoin(serviceId, operator);
+    }
+
+    /// @dev Hook called after an operator has joined a service instance
+    /// @param blueprintId The blueprint unique identifier
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    function onOperatorJoined(
+        uint64 blueprintId,
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    ) public {
+        address manager = blueprints.get(blueprintId);
+        IBlueprintServiceManager(manager).onOperatorJoined(serviceId, operator);
+    }
+
+    /// @dev Hook to check if an operator can leave a service instance
+    /// @param blueprintId The blueprint unique identifier
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    /// @return allowed Returns true if the operator is allowed to leave
+    function canLeave(
+        uint64 blueprintId,
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    ) public view returns (bool allowed) {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).canLeave(serviceId, operator);
+    }
+
+    /// @dev Hook called after an operator has left a service instance
+    /// @param blueprintId The blueprint unique identifier
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    function onOperatorLeft(
+        uint64 blueprintId,
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    ) public {
+        address manager = blueprints.get(blueprintId);
+        IBlueprintServiceManager(manager).onOperatorLeft(serviceId, operator);
+    }
+
     /// @dev Pause the contract.
     /// @notice Only the pauser can pause the contract.
     function pause() public onlyRole(PAUSER_ROLE) whenNotPaused {
