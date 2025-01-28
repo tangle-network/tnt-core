@@ -44,11 +44,12 @@ fn main() {
 
         let mut rust_code = String::from(
             r#"//! TNT Core contract bytecode exports
-//! 
+//!
 //! This crate exports the bytecode of TNT Core contracts as constant byte vectors
 //! that can be easily imported and used in other Rust projects.
 
 /// Module containing all contract bytecodes
+#[rustfmt::skip]
 pub mod bytecode {
 "#,
         );
