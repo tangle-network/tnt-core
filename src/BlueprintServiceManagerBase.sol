@@ -161,9 +161,10 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         external
         view
         virtual
+        onlyFromMaster
         returns (bool allowed)
     {
-        return true;
+        return false;
     }
 
     /// @inheritdoc IBlueprintServiceManager
@@ -184,9 +185,10 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         external
         view
         virtual
+        onlyFromMaster
         returns (bool allowed)
     {
-        return true;
+        return false;
     }
 
     /// @inheritdoc IBlueprintServiceManager
