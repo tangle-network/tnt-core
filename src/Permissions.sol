@@ -55,7 +55,7 @@ contract RootChainEnabled {
     }
 }
 
-contract RootChainEnabledOwnable is Ownable, RootChainEnabled {
+abstract contract RootChainEnabledOwnable is Ownable, RootChainEnabled {
     constructor() Ownable() RootChainEnabled() { }
 
     modifier onlyOwnerOrRootChain() {

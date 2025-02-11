@@ -3,18 +3,16 @@ pragma solidity ^0.8.18;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { IRemoteChainBridgeManager } from "../interfaces/IRemoteChainBridgeManager.sol";
 import { ICrossChainDelegatorMessage } from "../interfaces/ICrossChainDelegatorMessage.sol";
 import { CrossChainDelegatorMessage } from "../libs/CrossChainDelegatorMessage.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { XCBridge } from "../cross_chain/XCBridge.sol";
 
-contract RemoteRestakeVault {
+contract RemoteRestakeVault is XCBridge {
     using SafeERC20 for IERC20;
     using CrossChainDelegatorMessage for *;
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
-
-    IRemoteChainBridgeManager public immutable bridgeManager;
 
     // Core state tracking
     mapping(address => mapping(address => uint256)) public userDeposits;
@@ -30,9 +28,6 @@ contract RemoteRestakeVault {
     // Operator tracking for efficient slashing
     mapping(bytes32 => mapping(address => bool)) public operatorTokens;
     mapping(bytes32 => mapping(address => mapping(address => bool))) public operatorDelegators;
-
-    // Trusted receivers for cross-chain messages
-    mapping(address => bool) public trustedReceivers;
 
     error InvalidBridgeManager();
     error InvalidAmount();
@@ -55,7 +50,6 @@ contract RemoteRestakeVault {
     event WithdrawalCancelled(address indexed token, address indexed sender, uint256 amount);
     event WithdrawalExecuted(address indexed token, address indexed sender, address indexed recipient, uint256 amount);
     event TokensSlashed(address indexed token, bytes32 indexed operator, address indexed delegator, uint256 amount);
-    event TrustedReceiverUpdated(address indexed receiver, bool trusted);
 
     modifier validToken(address token) {
         if (token == address(0)) revert InvalidToken();
@@ -77,11 +71,6 @@ contract RemoteRestakeVault {
         _;
     }
 
-    modifier onlyTrustedReceiver() {
-        if (!trustedReceivers[msg.sender]) revert UnauthorizedReceiver();
-        _;
-    }
-
     modifier sufficientBalance(address token, uint256 amount) {
         if (userDeposits[msg.sender][token] < amount) revert InsufficientBalance();
         _;
@@ -95,11 +84,6 @@ contract RemoteRestakeVault {
     modifier sufficientUnstaking(address token, bytes32 operator, uint256 amount) {
         if (userUnstaking[msg.sender][token][operator] < amount) revert InsufficientUnstaking();
         _;
-    }
-
-    constructor(address _bridgeManager) {
-        if (_bridgeManager == address(0)) revert InvalidBridgeManager();
-        bridgeManager = IRemoteChainBridgeManager(_bridgeManager);
     }
 
     function deposit(address token, uint256 amount, uint256 bridgeId) external payable validToken(token) validAmount(amount) {
@@ -117,7 +101,7 @@ contract RemoteRestakeVault {
             sender: bytes32(uint256(uint160(msg.sender)))
         });
 
-        _dispatchMessage(message.encode());
+        _sendMessage(message.encode(), bridgeId);
         emit AssetDeposited(token, msg.sender, amount);
     }
 
@@ -151,7 +135,7 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(message.encode());
+        _sendMessage(message.encode(), bridgeId);
         emit DelegationUpdated(token, msg.sender, amount, operator);
     }
 
@@ -179,7 +163,7 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(message.encode());
+        _sendMessage(message.encode(), bridgeId);
         emit UnstakeScheduled(token, msg.sender, amount, operator);
     }
 
@@ -207,7 +191,7 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(message.encode());
+        _sendMessage(message.encode(), bridgeId);
         emit UnstakeCancelled(token, msg.sender, amount, operator);
     }
 
@@ -241,11 +225,15 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(message.encode());
+        _sendMessage(message.encode(), bridgeId);
         emit UnstakeExecuted(token, msg.sender, amount, operator);
     }
 
-    function handleSlashMessage(bytes32 operator, uint8 slashPercent) internal validOperator(operator) returns (bool) {
+    fallback() external {
+        _receiveMessage(msg.sender, msg.data, _handleSlashMessage);
+    }
+
+    function _handleSlashMessage(bytes32 operator, uint8 slashPercent) internal {
         uint256 length = knownTokens.length();
         for (uint256 i = 0; i < length;) {
             address token = knownTokens.at(i);
@@ -256,7 +244,6 @@ contract RemoteRestakeVault {
                 ++i;
             }
         }
-        return true;
     }
 
     function _handleSlashForToken(bytes32 operator, address token, uint8 slashPercent) internal {
@@ -319,16 +306,6 @@ contract RemoteRestakeVault {
         }
     }
 
-    function _dispatchMessage(bytes memory message) internal {
-        uint256 requiredFee = bridgeManager.getMessageFee(message);
-
-        try bridgeManager.dispatchMessage{ value: requiredFee }(message) {
-            // Success case handled by events
-        } catch {
-            revert BridgeDispatchFailed();
-        }
-    }
-
     // View functions
     function getOperatorTokens(bytes32 operator) external view returns (address[] memory) {
         uint256 length = knownTokens.length();
@@ -378,11 +355,5 @@ contract RemoteRestakeVault {
         }
 
         return delegators;
-    }
-
-    // Admin functions
-    function setTrustedReceiver(address receiver, bool trusted) external validRecipient(receiver) {
-        trustedReceivers[receiver] = trusted;
-        emit TrustedReceiverUpdated(receiver, trusted);
     }
 }

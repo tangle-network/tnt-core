@@ -6,7 +6,6 @@ import { ICrossChainMessenger } from "./ICrossChainMessenger.sol";
 /// @title IRemoteChainBridgeManager
 /// @notice Interface for managing cross-chain message dispatch to Tangle
 interface IRemoteChainBridgeManager {
-
     /// @dev Emitted when a message is dispatched to Tangle
     event MessageDispatched(uint256 indexed bridgeId, bytes32 indexed messageId, bytes message);
 
@@ -15,7 +14,6 @@ interface IRemoteChainBridgeManager {
 
     /// @dev Emitted when a bridge is configured
     event BridgeConfigured(uint256 indexed bridgeId, address messenger, uint32 tangleChainId, bytes32 adapter);
-
 
     /// @notice Dispatch a message to Tangle through all configured bridges
     /// @param message The message to dispatch

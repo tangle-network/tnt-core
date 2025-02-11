@@ -2,12 +2,10 @@
 pragma solidity ^0.8.18;
 
 import { AssetDelegator } from "./AssetDelegator.sol";
-import { AssetManager } from "./AssetManager.sol";
 
 contract UserVault is AssetDelegator {
     bytes32 public immutable owner;
     address public immutable masterVault;
-    // address public immutable assetManager;
 
     error Unauthorized();
     error InsufficientBalance();
@@ -22,61 +20,112 @@ contract UserVault is AssetDelegator {
         masterVault = _masterVault;
     }
 
-    function restakingDeposit(address asset, uint256 amount) external onlyMasterVault returns (bool) {
-        // return op(bytes32(0), syntheticAsset, amount, Operation.Deposit);
+    function restakingDeposit(
+        bytes32,
+        address _asset,
+        uint256 _amount,
+        uint8 _lockMultiplier,
+        uint64[] memory _blueprintSelection
+    )
+        external
+        onlyMasterVault
+    {
+        op(bytes32(0), _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.Deposit);
     }
 
-    function restakingDelegate(address syntheticAsset, uint256 amount, bytes32 operator) external onlyMasterVault returns (bool) {
-        // return op(operator, syntheticAsset, amount, Operation.Delegate);
+    function restakingDelegate(
+        bytes32 operator,
+        address _asset,
+        uint256 _amount,
+        uint8 _lockMultiplier,
+        uint64[] memory _blueprintSelection
+    )
+        external
+        onlyMasterVault
+    {
+        op(operator, _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.Delegate);
     }
 
     function restakingScheduleUnstake(
-        address syntheticAsset,
-        uint256 amount,
-        bytes32 operator
+        bytes32 operator,
+        address _asset,
+        uint256 _amount,
+        uint8 _lockMultiplier,
+        uint64[] memory _blueprintSelection
     )
         external
         onlyMasterVault
-        returns (bool)
     {
-        // return op(operator, syntheticAsset, amount, Operation.ScheduleUnstake);
+        op(operator, _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.ScheduleUnstake);
     }
 
     function restakingCancelUnstake(
-        address syntheticAsset,
-        uint256 amount,
-        bytes32 operator
+        bytes32 operator,
+        address _asset,
+        uint256 _amount,
+        uint8 _lockMultiplier,
+        uint64[] memory _blueprintSelection
     )
         external
         onlyMasterVault
-        returns (bool)
     {
-        // return op(operator, syntheticAsset, amount, Operation.CancelUnstake);
+        op(operator, _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.CancelUnstake);
     }
 
     function restakingExecuteUnstake(
-        address syntheticAsset,
-        uint256 amount,
-        bytes32 operator
+        bytes32 operator,
+        address _asset,
+        uint256 _amount,
+        uint8 _lockMultiplier,
+        uint64[] memory _blueprintSelection
     )
         external
         onlyMasterVault
-        returns (bool)
     {
-        // return op(operator, syntheticAsset, amount, Operation.ExecuteUnstake);
+        op(operator, _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.ExecuteUnstake);
     }
 
-    function restakingScheduleWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        // return op(bytes32(0), syntheticAsset, amount, Operation.ScheduleWithdraw);
+    function restakingScheduleWithdraw(
+        bytes32,
+        address _asset,
+        uint256 _amount,
+        uint8 _lockMultiplier,
+        uint64[] memory _blueprintSelection
+    )
+        external
+        onlyMasterVault
+    {
+        op(bytes32(0), _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.ExecuteUnstake);
     }
 
-    function restakingCancelWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        // return op(bytes32(0), syntheticAsset, amount, Operation.CancelWithdraw);
+    function restakingCancelWithdraw(
+        bytes32,
+        address _asset,
+        uint256 _amount,
+        uint8 _lockMultiplier,
+        uint64[] memory _blueprintSelection
+    )
+        external
+        onlyMasterVault
+    {
+        op(bytes32(0), _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.CancelWithdraw);
     }
 
-    function restakingExecuteWithdraw(address syntheticAsset, uint256 amount) external onlyMasterVault returns (bool) {
-        // return op(bytes32(0), syntheticAsset, amount, Operation.ExecuteWithdraw);
+    function restakingExecuteWithdraw(
+        bytes32,
+        address _asset,
+        uint256 _amount,
+        uint8 _lockMultiplier,
+        uint64[] memory _blueprintSelection
+    )
+        external
+        onlyMasterVault
+    {
+        op(bytes32(0), _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.ExecuteWithdraw);
     }
 
-    // TODO: add restricted-access to claiming
+    function claim(bytes32 _claimant) external {
+        if (_claimant != owner) revert Unauthorized();
+        
+    }
 }

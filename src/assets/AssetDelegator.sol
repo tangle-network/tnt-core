@@ -40,9 +40,17 @@ abstract contract AssetDelegator {
     /// @param _asset The asset to operate on
     /// @param _amount The amount to operate with
     /// @param _operation The operation to perform
-    /// @return success Whether the operation was successful
-    function op(bytes32 _operator, address _asset, uint256 _amount, uint8 _lockMultiplier, uint64[] memory _blueprintSelection, Operation _operation) public virtual returns (bool) {
-        uint8 result;
+    function op(
+        bytes32 _operator,
+        address _asset,
+        uint256 _amount,
+        uint8 _lockMultiplier,
+        uint64[] memory _blueprintSelection,
+        Operation _operation
+    )
+        public
+        virtual
+    {
         uint256 assetId = uint256(uint160(_asset));
 
         if (_operation == Operation.Deposit) {
@@ -64,6 +72,5 @@ abstract contract AssetDelegator {
         }
 
         emit OperationExecuted(_asset, _operator, _operation, _amount);
-        return true;
     }
 }

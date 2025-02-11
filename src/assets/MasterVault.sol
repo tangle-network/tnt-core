@@ -2,34 +2,26 @@
 pragma solidity ^0.8.18;
 
 import { IERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { GlacisClientCalldata } from "../cross_chain/GlacisClientCalldata.sol";
 import { IMasterVault } from "../interfaces/IMasterVault.sol";
-import { ICrossChainBridgeManager } from "../interfaces/ICrossChainBridgeManager.sol";
 import { ICrossChainDelegatorMessage } from "../interfaces/ICrossChainDelegatorMessage.sol";
 import { CrossChainDelegatorMessage } from "../libs/CrossChainDelegatorMessage.sol";
 import { SyntheticRestakeAsset } from "./SyntheticRestakeAsset.sol";
 import { UserVault } from "./UserVault.sol";
+import { XCBridge } from "../cross_chain/XCBridge.sol";
 
-contract MasterVault is IMasterVault, GlacisClientCalldata {
+contract MasterVault is XCBridge, IMasterVault {
     using CrossChainDelegatorMessage for *;
-
-    ICrossChainBridgeManager public immutable bridgeManager;
 
     mapping(uint32 => mapping(uint256 => address)) public syntheticAssets;
     mapping(address => bool) public authorizedAdapters;
     mapping(bytes32 => address) public userVaults;
+    uint8[] private _slashes;
 
     error InvalidMessage();
-    error BridgeDispatchFailed();
 
     event SyntheticAssetCreated(
         address indexed syntheticAsset, uint32 indexed originChainId, uint256 indexed originAsset, uint256 bridgeId
     );
-
-    constructor(address _bridgeManager, address _glacisRouter, uint256 _quorum) GlacisClientCalldata(_glacisRouter, _quorum) {
-        require(_bridgeManager != address(0), "Invalid bridge manager");
-        bridgeManager = ICrossChainBridgeManager(_bridgeManager);
-    }
 
     function _getOrCreateUserVault(bytes32 sender) internal returns (address vault) {
         vault = userVaults[sender];
@@ -40,12 +32,11 @@ contract MasterVault is IMasterVault, GlacisClientCalldata {
         return vault;
     }
 
-    function _receiveMessage(
-        address[] memory,
-        uint256 fromChainId,
-        bytes32 fromAddress,
-        bytes calldata message
-    ) internal override {
+    fallback() external {
+        _receiveMessage(msg.sender, msg.data, _processMessage);
+    }
+
+    function _processMessage(uint256 fromChainId, bytes32 fromAddress, bytes calldata message) internal {
         uint8 messageType = CrossChainDelegatorMessage.getMessageType(message);
         bytes calldata payload = message[1:];
 
@@ -229,18 +220,28 @@ contract MasterVault is IMasterVault, GlacisClientCalldata {
             originAsset: message.originAsset,
             amount: message.amount,
             sender: message.sender,
-            recipient: message.recipient
+            recipient: message.recipient,
+            slashes: slashes[message.recipient]
         });
 
         // Only burn after successful message dispatch
-        try bridgeManager.dispatchMessage(withdrawalMessage.encode()) {
-            // If message dispatch succeeds, burn the synthetic asset
-            SyntheticRestakeAsset(syntheticAsset).burn(userVault, message.amount);
-        } catch {
-            revert BridgeDispatchFailed();
-        }
+        _sendMessage(withdrawalMessage.encode(), message.bridgeId);
+        // If message dispatch succeeds, burn the synthetic asset
+        SyntheticRestakeAsset(syntheticAsset).burn(userVault, message.amount);
 
         return abi.encode(true);
+    }
+
+    function onSlash(
+        uint64 serviceId,
+        bytes calldata offender,
+        uint8 slashPercent,
+        uint256
+    )
+        external
+        onlyFromRootChain
+    {
+        _slashes.push(slashPercent);
     }
 
     function getOrCreateSyntheticAsset(uint32 originChainId, uint256 originAsset, uint256 bridgeId) internal returns (address) {
