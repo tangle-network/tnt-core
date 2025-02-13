@@ -115,12 +115,10 @@ interface IBlueprintServiceManager {
     /// @param serviceId The ID of the service related to the slash.
     /// @param offender The offender's details in bytes format.
     /// @param slashPercent The percentage of the slash.
-    /// @param totalPayout The total payout amount in wei.
     function onUnappliedSlash(
         uint64 serviceId,
         bytes calldata offender,
-        uint8 slashPercent,
-        uint256 totalPayout
+        uint8 slashPercent
     )
         external;
 
@@ -128,8 +126,7 @@ interface IBlueprintServiceManager {
     /// @param serviceId The ID of the service related to the slash.
     /// @param offender The offender's details in bytes format.
     /// @param slashPercent The percentage of the slash.
-    /// @param totalPayout The total payout amount in wei.
-    function onSlash(uint64 serviceId, bytes calldata offender, uint8 slashPercent, uint256 totalPayout) external;
+    function onSlash(uint64 serviceId, bytes calldata offender, uint8 slashPercent) external;
 
     /// @dev Hook to check if an operator can join a service instance
     /// @param serviceId The ID of the service instance

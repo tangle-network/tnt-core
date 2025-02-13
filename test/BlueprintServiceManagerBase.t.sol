@@ -13,7 +13,7 @@ contract BlueprintServiceManagerBaseTest is Test {
     using Assets for bytes32;
 
     MockBlueprintServiceManager manager;
-    address rootChain = 0x1111111111111111111111111111111111111111;
+    address rootChain = 0x09dF6A941ee03B1e632904E382e10862fA9cc0e3;
     address masterBlueprintServiceManager = address(0x2222222222222222222222222222222222222222);
     address blueprintOwner = address(0x3333333333333333333333333333333333333333);
     MockERC20 mockToken;
@@ -444,17 +444,15 @@ contract BlueprintServiceManagerBaseTest is Test {
         uint64 serviceId = 104;
         bytes memory offender = "offender data";
         uint8 slashPercent = 5;
-        uint256 totalPayout = 1000 ether;
 
         // Expect no revert
-        manager.onUnappliedSlash(serviceId, offender, slashPercent, totalPayout);
+        manager.onUnappliedSlash(serviceId, offender, slashPercent);
     }
 
     function test_OnUnappliedSlash_RevertsWhenNotMaster() public {
         uint64 serviceId = 104;
         bytes memory offender = "offender data";
         uint8 slashPercent = 5;
-        uint256 totalPayout = 1000 ether;
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -464,7 +462,7 @@ contract BlueprintServiceManagerBaseTest is Test {
             )
         );
         vm.prank(address(0x999));
-        manager.onUnappliedSlash(serviceId, offender, slashPercent, totalPayout);
+        manager.onUnappliedSlash(serviceId, offender, slashPercent);
     }
 
     // Test onSlash
@@ -475,7 +473,7 @@ contract BlueprintServiceManagerBaseTest is Test {
         uint256 totalPayout = 2000 ether;
 
         // Expect no revert
-        manager.onSlash(serviceId, offender, slashPercent, totalPayout);
+        manager.onSlash(serviceId, offender, slashPercent);
     }
 
     function test_OnSlash_RevertsWhenNotMaster() public {
@@ -492,7 +490,7 @@ contract BlueprintServiceManagerBaseTest is Test {
             )
         );
         vm.prank(address(0x999));
-        manager.onSlash(serviceId, offender, slashPercent, totalPayout);
+        manager.onSlash(serviceId, offender, slashPercent);
     }
 
     // Test querySlashingOrigin

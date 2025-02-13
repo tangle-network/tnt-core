@@ -6,7 +6,7 @@ pragma solidity ^0.8.20;
 /// @notice This contract is used to restrict access of certain functions to the root chain only.
 contract RootChainEnabled {
     /// @notice The address of the root chain
-    address public constant ROOT_CHAIN = 0x6D6F646C53657276696365730000000000000000;
+    address public constant ROOT_CHAIN = 0x09dF6A941ee03B1e632904E382e10862fA9cc0e3;
     /// @notice The address of the rewards pallet
     address public constant REWARDS_PALLET = address(0x7e87d5);
 

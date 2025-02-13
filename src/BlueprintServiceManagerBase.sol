@@ -133,8 +133,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     function onUnappliedSlash(
         uint64 serviceId,
         bytes calldata offender,
-        uint8 slashPercent,
-        uint256 totalPayout
+        uint8 slashPercent
     )
         external
         virtual
@@ -145,8 +144,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     function onSlash(
         uint64 serviceId,
         bytes calldata offender,
-        uint8 slashPercent,
-        uint256 totalPayout
+        uint8 slashPercent
     )
         external
         virtual

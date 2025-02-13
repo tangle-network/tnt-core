@@ -111,14 +111,13 @@ contract HookTestBlueprintServiceManager is BlueprintServiceManagerBase {
     function onUnappliedSlash(
         uint64,
         bytes calldata,
-        uint8,
-        uint256
+        uint8
     ) external override onlyFromMaster {
         emit OnUnappliedSlash();
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onSlash(uint64, bytes calldata, uint8, uint256) external override {
+    function onSlash(uint64, bytes calldata, uint8) external override {
         emit OnSlash();
     }
 }
