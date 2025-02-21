@@ -185,9 +185,8 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @param serviceId The ID of the service.
     /// @param offender The offender's details.
     /// @param slashPercent The percentage of the slash.
-    /// @param totalPayout The total payout amount.
     event UnappliedSlash(
-        uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent, uint256 totalPayout
+        uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent
     );
 
     /// @dev Emitted when a slash is applied to an offender.
@@ -195,9 +194,8 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @param serviceId The ID of the service.
     /// @param offender The offender's details.
     /// @param slashPercent The percentage of the slash.
-    /// @param totalPayout The total payout amount.
     event Slashed(
-        uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent, uint256 totalPayout
+        uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent
     );
 
     // =========== Errors ============
@@ -480,21 +478,19 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @param serviceId The ID of the service.
     /// @param offender The offender's details.
     /// @param slashPercent The percentage of the slash.
-    /// @param totalPayout The total payout amount.
     function onUnappliedSlash(
         uint64 blueprintId,
         uint64 serviceId,
         bytes calldata offender,
-        uint8 slashPercent,
-        uint256 totalPayout
+        uint8 slashPercent
     )
         public
         onlyFromRootChain
         whenNotPaused
     {
         address manager = blueprints.get(blueprintId);
-        IBlueprintServiceManager(manager).onUnappliedSlash(serviceId, offender, slashPercent, totalPayout);
-        emit UnappliedSlash(blueprintId, serviceId, offender, slashPercent, totalPayout);
+        IBlueprintServiceManager(manager).onUnappliedSlash(serviceId, offender, slashPercent);
+        emit UnappliedSlash(blueprintId, serviceId, offender, slashPercent);
     }
 
     /// @dev Called when a slash is applied to an offender.
@@ -502,21 +498,19 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @param serviceId The ID of the service.
     /// @param offender The offender's details.
     /// @param slashPercent The percentage of the slash.
-    /// @param totalPayout The total payout amount.
     function onSlash(
         uint64 blueprintId,
         uint64 serviceId,
         bytes calldata offender,
-        uint8 slashPercent,
-        uint256 totalPayout
+        uint8 slashPercent
     )
         public
         onlyFromRootChain
         whenNotPaused
     {
         address manager = blueprints.get(blueprintId);
-        IBlueprintServiceManager(manager).onSlash(serviceId, offender, slashPercent, totalPayout);
-        emit Slashed(blueprintId, serviceId, offender, slashPercent, totalPayout);
+        IBlueprintServiceManager(manager).onSlash(serviceId, offender, slashPercent);
+        emit Slashed(blueprintId, serviceId, offender, slashPercent);
     }
 
     /// @dev Query the slashing origin for a service.
@@ -535,6 +529,72 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     function queryDisputeOrigin(uint64 blueprintId, uint64 serviceId) public view returns (address disputeOrigin) {
         address manager = blueprints.get(blueprintId);
         return IBlueprintServiceManager(manager).queryDisputeOrigin(serviceId);
+    }
+
+    /// @dev Hook to check if an operator can join a service instance
+    /// @param blueprintId The blueprint unique identifier
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    /// @return allowed Returns true if the operator is allowed to join
+    function canJoin(
+        uint64 blueprintId,
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        public
+        view
+        returns (bool allowed)
+    {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).canJoin(serviceId, operator);
+    }
+
+    /// @dev Hook called after an operator has joined a service instance
+    /// @param blueprintId The blueprint unique identifier
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    function onOperatorJoined(
+        uint64 blueprintId,
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        public
+    {
+        address manager = blueprints.get(blueprintId);
+        IBlueprintServiceManager(manager).onOperatorJoined(serviceId, operator);
+    }
+
+    /// @dev Hook to check if an operator can leave a service instance
+    /// @param blueprintId The blueprint unique identifier
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    /// @return allowed Returns true if the operator is allowed to leave
+    function canLeave(
+        uint64 blueprintId,
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        public
+        view
+        returns (bool allowed)
+    {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).canLeave(serviceId, operator);
+    }
+
+    /// @dev Hook called after an operator has left a service instance
+    /// @param blueprintId The blueprint unique identifier
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    function onOperatorLeft(
+        uint64 blueprintId,
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        public
+    {
+        address manager = blueprints.get(blueprintId);
+        IBlueprintServiceManager(manager).onOperatorLeft(serviceId, operator);
     }
 
     /// @dev Pause the contract.

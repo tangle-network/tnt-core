@@ -115,12 +115,10 @@ interface IBlueprintServiceManager {
     /// @param serviceId The ID of the service related to the slash.
     /// @param offender The offender's details in bytes format.
     /// @param slashPercent The percentage of the slash.
-    /// @param totalPayout The total payout amount in wei.
     function onUnappliedSlash(
         uint64 serviceId,
         bytes calldata offender,
-        uint8 slashPercent,
-        uint256 totalPayout
+        uint8 slashPercent
     )
         external;
 
@@ -128,8 +126,41 @@ interface IBlueprintServiceManager {
     /// @param serviceId The ID of the service related to the slash.
     /// @param offender The offender's details in bytes format.
     /// @param slashPercent The percentage of the slash.
-    /// @param totalPayout The total payout amount in wei.
-    function onSlash(uint64 serviceId, bytes calldata offender, uint8 slashPercent, uint256 totalPayout) external;
+    function onSlash(uint64 serviceId, bytes calldata offender, uint8 slashPercent) external;
+
+    /// @dev Hook to check if an operator can join a service instance
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    /// @return allowed Returns true if the operator is allowed to join
+    function canJoin(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        view
+        returns (bool allowed);
+
+    /// @dev Hook called after an operator has joined a service instance
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    function onOperatorJoined(uint64 serviceId, ServiceOperators.OperatorPreferences calldata operator) external;
+
+    /// @dev Hook to check if an operator can leave a service instance
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    /// @return allowed Returns true if the operator is allowed to leave
+    function canLeave(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        view
+        returns (bool allowed);
+
+    /// @dev Hook called after an operator has left a service instance
+    /// @param serviceId The ID of the service instance
+    /// @param operator The operator's preferences and details
+    function onOperatorLeft(uint64 serviceId, ServiceOperators.OperatorPreferences calldata operator) external;
 
     /// @dev Query the slashing origin for a service. This mainly used by the runtime to determine the allowed account
     /// that can slash a service. by default, the service manager is the only account that can slash a service. override

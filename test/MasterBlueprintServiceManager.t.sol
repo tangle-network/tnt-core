@@ -25,7 +25,7 @@ contract MasterBlueprintServiceManagerTest is Test {
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant TRENCH_UPDATE_ROLE = keccak256("TRENCH_UPDATE_ROLE");
 
-    address public ROOT_CHAIN = address(0x1111111111111111111111111111111111111111);
+    address public ROOT_CHAIN = address(0x09dF6A941ee03B1e632904E382e10862fA9cc0e3);
 
     uint16 public constant BASE_PERCENT = 10_000;
 
@@ -65,10 +65,10 @@ contract MasterBlueprintServiceManagerTest is Test {
     );
     event ServiceTerminated(uint64 indexed blueprintId, uint64 indexed serviceId, address owner);
     event UnappliedSlash(
-        uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent, uint256 totalPayout
+        uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent
     );
     event Slashed(
-        uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent, uint256 totalPayout
+        uint64 indexed blueprintId, uint64 indexed serviceId, bytes offender, uint8 slashPercent
     );
 
     function setUp() public {
@@ -831,7 +831,6 @@ contract MasterBlueprintServiceManagerTest is Test {
         uint64 serviceId = 1;
         bytes memory offender = hex"abcd";
         uint8 slashPercent = 20;
-        uint256 totalPayout = 1000 ether;
 
         // Create a blueprint first
         address owner = address(this);
@@ -856,9 +855,9 @@ contract MasterBlueprintServiceManagerTest is Test {
 
         // Expect the UnappliedSlash event
         vm.expectEmit(true, true, false, true);
-        emit UnappliedSlash(blueprintId, serviceId, offender, slashPercent, totalPayout);
+        emit UnappliedSlash(blueprintId, serviceId, offender, slashPercent);
 
-        masterManager.onUnappliedSlash(blueprintId, serviceId, offender, slashPercent, totalPayout);
+        masterManager.onUnappliedSlash(blueprintId, serviceId, offender, slashPercent);
     }
 
     function test_onUnappliedSlash_NotFromRootChain() public {
@@ -866,13 +865,12 @@ contract MasterBlueprintServiceManagerTest is Test {
         uint64 serviceId = 1;
         bytes memory offender = hex"abcd";
         uint8 slashPercent = 20;
-        uint256 totalPayout = 1000 ether;
 
         vm.expectRevert(
             abi.encodeWithSelector(RootChainEnabled.OnlyRootChainAllowed.selector, address(this), ROOT_CHAIN)
         );
 
-        masterManager.onUnappliedSlash(blueprintId, serviceId, offender, slashPercent, totalPayout);
+        masterManager.onUnappliedSlash(blueprintId, serviceId, offender, slashPercent);
     }
 
     // Test onSlash
@@ -906,9 +904,9 @@ contract MasterBlueprintServiceManagerTest is Test {
 
         // Expect the Slashed event
         vm.expectEmit(true, true, false, true);
-        emit Slashed(blueprintId, serviceId, offender, slashPercent, totalPayout);
+        emit Slashed(blueprintId, serviceId, offender, slashPercent);
 
-        masterManager.onSlash(blueprintId, serviceId, offender, slashPercent, totalPayout);
+        masterManager.onSlash(blueprintId, serviceId, offender, slashPercent);
     }
 
     function test_onSlash_NotFromRootChain() public {
@@ -916,13 +914,12 @@ contract MasterBlueprintServiceManagerTest is Test {
         uint64 serviceId = 1;
         bytes memory offender = hex"abcd";
         uint8 slashPercent = 15;
-        uint256 totalPayout = 500 ether;
 
         vm.expectRevert(
             abi.encodeWithSelector(RootChainEnabled.OnlyRootChainAllowed.selector, address(this), ROOT_CHAIN)
         );
 
-        masterManager.onSlash(blueprintId, serviceId, offender, slashPercent, totalPayout);
+        masterManager.onSlash(blueprintId, serviceId, offender, slashPercent);
     }
 
     // Test querySlashingOrigin
@@ -1294,5 +1291,165 @@ contract MasterBlueprintServiceManagerTest is Test {
         assertEq(actualBalance, expectedBalance);
 
         vm.stopPrank();
+    }
+
+    function test_canJoin() public asRootChain {
+        uint64 blueprintId = 1;
+        address owner = address(this);
+
+        // Create a blueprint first
+        MasterBlueprintServiceManager.ServiceMetadata memory metadata = MasterBlueprintServiceManager.ServiceMetadata({
+            name: "Test Blueprint",
+            description: "",
+            author: "",
+            category: "",
+            codeRepository: "",
+            logo: "",
+            website: "",
+            license: ""
+        });
+
+        MasterBlueprintServiceManager.Blueprint memory blueprint = MasterBlueprintServiceManager.Blueprint({
+            metadata: metadata,
+            manager: address(mockManager),
+            mbsmRevision: 1
+        });
+
+        masterManager.onBlueprintCreated(blueprintId, owner, blueprint);
+
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: hex"1234",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        uint64 serviceId = 1;
+        bool canJoin = masterManager.canJoin(blueprintId, serviceId, operator);
+        assertTrue(canJoin, "Operator should be able to join");
+    }
+
+    function test_onOperatorJoined() public asRootChain {
+        uint64 blueprintId = 1;
+        address owner = address(this);
+
+        // Create a blueprint first
+        MasterBlueprintServiceManager.ServiceMetadata memory metadata = MasterBlueprintServiceManager.ServiceMetadata({
+            name: "Test Blueprint",
+            description: "",
+            author: "",
+            category: "",
+            codeRepository: "",
+            logo: "",
+            website: "",
+            license: ""
+        });
+
+        MasterBlueprintServiceManager.Blueprint memory blueprint = MasterBlueprintServiceManager.Blueprint({
+            metadata: metadata,
+            manager: address(mockManager),
+            mbsmRevision: 1
+        });
+
+        masterManager.onBlueprintCreated(blueprintId, owner, blueprint);
+
+        uint64 serviceId = 1;
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: hex"1234",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        // Should not revert
+        masterManager.onOperatorJoined(blueprintId, serviceId, operator);
+    }
+
+    function test_canLeave() public asRootChain {
+        uint64 blueprintId = 1;
+        address owner = address(this);
+
+        // Create a blueprint first
+        MasterBlueprintServiceManager.ServiceMetadata memory metadata = MasterBlueprintServiceManager.ServiceMetadata({
+            name: "Test Blueprint",
+            description: "",
+            author: "",
+            category: "",
+            codeRepository: "",
+            logo: "",
+            website: "",
+            license: ""
+        });
+
+        MasterBlueprintServiceManager.Blueprint memory blueprint = MasterBlueprintServiceManager.Blueprint({
+            metadata: metadata,
+            manager: address(mockManager),
+            mbsmRevision: 1
+        });
+
+        masterManager.onBlueprintCreated(blueprintId, owner, blueprint);
+
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: hex"1234",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        uint64 serviceId = 1;
+        bool canLeave = masterManager.canLeave(blueprintId, serviceId, operator);
+        assertTrue(canLeave, "Operator should be able to leave");
+    }
+
+    function test_onOperatorLeft() public asRootChain {
+        uint64 blueprintId = 1;
+        address owner = address(this);
+
+        // Create a blueprint first
+        MasterBlueprintServiceManager.ServiceMetadata memory metadata = MasterBlueprintServiceManager.ServiceMetadata({
+            name: "Test Blueprint",
+            description: "",
+            author: "",
+            category: "",
+            codeRepository: "",
+            logo: "",
+            website: "",
+            license: ""
+        });
+
+        MasterBlueprintServiceManager.Blueprint memory blueprint = MasterBlueprintServiceManager.Blueprint({
+            metadata: metadata,
+            manager: address(mockManager),
+            mbsmRevision: 1
+        });
+
+        masterManager.onBlueprintCreated(blueprintId, owner, blueprint);
+
+        uint64 serviceId = 1;
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: hex"1234",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        // Should not revert
+        masterManager.onOperatorLeft(blueprintId, serviceId, operator);
     }
 }

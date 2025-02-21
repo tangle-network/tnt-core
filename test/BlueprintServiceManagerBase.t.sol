@@ -13,7 +13,7 @@ contract BlueprintServiceManagerBaseTest is Test {
     using Assets for bytes32;
 
     MockBlueprintServiceManager manager;
-    address rootChain = 0x1111111111111111111111111111111111111111;
+    address rootChain = 0x09dF6A941ee03B1e632904E382e10862fA9cc0e3;
     address masterBlueprintServiceManager = address(0x2222222222222222222222222222222222222222);
     address blueprintOwner = address(0x3333333333333333333333333333333333333333);
     MockERC20 mockToken;
@@ -444,17 +444,15 @@ contract BlueprintServiceManagerBaseTest is Test {
         uint64 serviceId = 104;
         bytes memory offender = "offender data";
         uint8 slashPercent = 5;
-        uint256 totalPayout = 1000 ether;
 
         // Expect no revert
-        manager.onUnappliedSlash(serviceId, offender, slashPercent, totalPayout);
+        manager.onUnappliedSlash(serviceId, offender, slashPercent);
     }
 
     function test_OnUnappliedSlash_RevertsWhenNotMaster() public {
         uint64 serviceId = 104;
         bytes memory offender = "offender data";
         uint8 slashPercent = 5;
-        uint256 totalPayout = 1000 ether;
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -464,7 +462,7 @@ contract BlueprintServiceManagerBaseTest is Test {
             )
         );
         vm.prank(address(0x999));
-        manager.onUnappliedSlash(serviceId, offender, slashPercent, totalPayout);
+        manager.onUnappliedSlash(serviceId, offender, slashPercent);
     }
 
     // Test onSlash
@@ -475,7 +473,7 @@ contract BlueprintServiceManagerBaseTest is Test {
         uint256 totalPayout = 2000 ether;
 
         // Expect no revert
-        manager.onSlash(serviceId, offender, slashPercent, totalPayout);
+        manager.onSlash(serviceId, offender, slashPercent);
     }
 
     function test_OnSlash_RevertsWhenNotMaster() public {
@@ -492,7 +490,7 @@ contract BlueprintServiceManagerBaseTest is Test {
             )
         );
         vm.prank(address(0x999));
-        manager.onSlash(serviceId, offender, slashPercent, totalPayout);
+        manager.onSlash(serviceId, offender, slashPercent);
     }
 
     // Test querySlashingOrigin
@@ -695,5 +693,167 @@ contract BlueprintServiceManagerBaseTest is Test {
 
         bool isNative = nativeCustom.isNative();
         assertTrue(isNative, "Custom asset with ID 0 should be native");
+    }
+
+    function test_canJoin_CalledByMaster() public onlyMaster {
+        uint64 serviceId = 1;
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: "0xabcdef",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        bool canJoin = manager.canJoin(serviceId, operator);
+        assertTrue(canJoin, "Default implementation should allow joining");
+    }
+
+    function test_canJoin_RevertsWhenNotMaster() public {
+        uint64 serviceId = 1;
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: hex"1234",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RootChainEnabled.OnlyMasterBlueprintServiceManagerAllowed.selector,
+                address(this),
+                masterBlueprintServiceManager
+            )
+        );
+        manager.canJoin(serviceId, operator);
+    }
+
+    function test_onOperatorJoined_CalledByMaster() public onlyMaster {
+        uint64 serviceId = 1;
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: "0xabcdef",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        // Should not revert
+        manager.onOperatorJoined(serviceId, operator);
+    }
+
+    function test_onOperatorJoined_RevertsWhenNotMaster() public {
+        uint64 serviceId = 1;
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: "0xabcdef",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RootChainEnabled.OnlyMasterBlueprintServiceManagerAllowed.selector,
+                address(0x999),
+                masterBlueprintServiceManager
+            )
+        );
+        vm.prank(address(0x999));
+        manager.onOperatorJoined(serviceId, operator);
+    }
+
+    function test_canLeave_CalledByMaster() public onlyMaster {
+        uint64 serviceId = 1;
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: "0xabcdef",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        bool canLeave = manager.canLeave(serviceId, operator);
+        assertTrue(canLeave, "Default implementation should allow leaving");
+    }
+
+    function test_canLeave_RevertsWhenNotMaster() public {
+        uint64 serviceId = 1;
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: hex"1234",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RootChainEnabled.OnlyMasterBlueprintServiceManagerAllowed.selector,
+                address(this),
+                masterBlueprintServiceManager
+            )
+        );
+        manager.canLeave(serviceId, operator);
+    }
+
+    function test_onOperatorLeft_CalledByMaster() public onlyMaster {
+        uint64 serviceId = 1;
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: "0xabcdef",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        // Should not revert
+        manager.onOperatorLeft(serviceId, operator);
+    }
+
+    function test_onOperatorLeft_RevertsWhenNotMaster() public {
+        uint64 serviceId = 1;
+        ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
+            ecdsaPublicKey: "0xabcdef",
+            priceTargets: ServiceOperators.PriceTargets({
+                cpu: 100,
+                mem: 200,
+                storage_hdd: 300,
+                storage_ssd: 400,
+                storage_nvme: 500
+            })
+        });
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RootChainEnabled.OnlyMasterBlueprintServiceManagerAllowed.selector,
+                address(0x999),
+                masterBlueprintServiceManager
+            )
+        );
+        vm.prank(address(0x999));
+        manager.onOperatorLeft(serviceId, operator);
     }
 }

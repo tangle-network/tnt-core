@@ -133,8 +133,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     function onUnappliedSlash(
         uint64 serviceId,
         bytes calldata offender,
-        uint8 slashPercent,
-        uint256 totalPayout
+        uint8 slashPercent
     )
         external
         virtual
@@ -145,8 +144,55 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     function onSlash(
         uint64 serviceId,
         bytes calldata offender,
-        uint8 slashPercent,
-        uint256 totalPayout
+        uint8 slashPercent
+    )
+        external
+        virtual
+        onlyFromMaster
+    { }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function canJoin(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        view
+        virtual
+        onlyFromMaster
+        returns (bool allowed)
+    {
+        return false;
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onOperatorJoined(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        virtual
+        onlyFromMaster
+    { }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function canLeave(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        view
+        virtual
+        onlyFromMaster
+        returns (bool allowed)
+    {
+        return false;
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onOperatorLeft(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
     )
         external
         virtual

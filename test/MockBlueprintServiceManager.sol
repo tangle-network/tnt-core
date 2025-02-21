@@ -37,4 +37,32 @@ contract MockBlueprintServiceManager is BlueprintServiceManagerBase {
     function setCurrentBlueprintId(uint64 id) external {
         currentBlueprintId = id;
     }
+
+    function canJoin(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        view
+        virtual
+        override
+        onlyFromMaster
+        returns (bool allowed)
+    {
+        return true;
+    }
+
+    function canLeave(
+        uint64 serviceId,
+        ServiceOperators.OperatorPreferences calldata operator
+    )
+        external
+        view
+        virtual
+        override
+        onlyFromMaster
+        returns (bool allowed)
+    {
+        return true;
+    }
 }
