@@ -20,6 +20,9 @@ contract RemoteRestakeVault is XCBridge {
     mapping(address => mapping(address => mapping(bytes32 => uint256))) public userUnstaking;
     mapping(address => mapping(address => uint256)) public userWithdrawals;
 
+    // Blueprint selection tracking
+    mapping(address staker => mapping(bytes32 operator => mapping(uint64 blueprintId => uint256 amount))) public boundToBlueprint;
+
     // Enumerable sets for efficient iteration
     EnumerableSet.AddressSet private knownTokens;
     EnumerableSet.AddressSet private knownDelegators;
@@ -86,7 +89,17 @@ contract RemoteRestakeVault is XCBridge {
         _;
     }
 
-    function deposit(address token, uint256 amount, uint256 bridgeId) external payable validToken(token) validAmount(amount) {
+    function deposit(
+        address token,
+        uint256 amount,
+        uint256 bridgeId,
+        uint8 lockMultiplier
+    )
+        external
+        payable
+        validToken(token)
+        validAmount(amount)
+    {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         userDeposits[msg.sender][token] += amount;
 
@@ -98,7 +111,8 @@ contract RemoteRestakeVault is XCBridge {
             bridgeId: bridgeId,
             originAsset: uint256(uint160(token)),
             amount: amount,
-            sender: bytes32(uint256(uint160(msg.sender)))
+            sender: bytes32(uint256(uint160(msg.sender))),
+            lockMultiplier: lockMultiplier
         });
 
         _sendMessage(message.encode(), bridgeId);
@@ -110,7 +124,7 @@ contract RemoteRestakeVault is XCBridge {
         uint256 amount,
         uint256 bridgeId,
         bytes32 operator,
-        uint64[] memory blueprintSelection // TODO: add blueprint selection
+        uint64[] memory blueprintSelection
     )
         external
         payable
@@ -127,12 +141,22 @@ contract RemoteRestakeVault is XCBridge {
         operatorTokens[operator][token] = true;
         operatorDelegators[operator][token][msg.sender] = true;
 
+        // Update blueprint selection tracking
+        for (uint256 i = 0; i < blueprintSelection.length;) {
+            uint64 blueprintId = blueprintSelection[i];
+            boundToBlueprint[msg.sender][operator][blueprintId] += amount;
+            unchecked {
+                ++i;
+            }
+        }
+
         ICrossChainDelegatorMessage.DelegationMessage memory message = ICrossChainDelegatorMessage.DelegationMessage({
             bridgeId: bridgeId,
             originAsset: uint256(uint160(token)),
             amount: amount,
             sender: bytes32(uint256(uint160(msg.sender))),
-            operator: operator
+            operator: operator,
+            blueprintSelection: blueprintSelection
         });
 
         _sendMessage(message.encode(), bridgeId);
@@ -208,15 +232,6 @@ contract RemoteRestakeVault is XCBridge {
         validOperator(operator)
         sufficientUnstaking(token, operator, amount)
     {
-        userUnstaking[msg.sender][token][operator] -= amount;
-        userDeposits[msg.sender][token] += amount;
-
-        // Clean up operator tracking if no more delegations
-        if (userDelegations[msg.sender][token][operator] == 0 && userUnstaking[msg.sender][token][operator] == 0) {
-            operatorDelegators[operator][token][msg.sender] = false;
-            _cleanupOperatorIfEmpty(operator, token);
-        }
-
         ICrossChainDelegatorMessage.ExecuteUnstakeMessage memory message = ICrossChainDelegatorMessage.ExecuteUnstakeMessage({
             bridgeId: bridgeId,
             originAsset: uint256(uint160(token)),
@@ -226,19 +241,138 @@ contract RemoteRestakeVault is XCBridge {
         });
 
         _sendMessage(message.encode(), bridgeId);
-        emit UnstakeExecuted(token, msg.sender, amount, operator);
+    }
+
+    function scheduleWithdrawal(
+        address token,
+        uint256 amount,
+        uint256 bridgeId
+    )
+        external
+        payable
+        validToken(token)
+        validAmount(amount)
+    {
+        userWithdrawals[msg.sender][token] += amount;
+        userDeposits[msg.sender][token] -= amount;
+
+        ICrossChainDelegatorMessage.ScheduleWithdrawalMessage memory message = ICrossChainDelegatorMessage.ScheduleWithdrawalMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender)))
+        });
+
+        _sendMessage(message.encode(), bridgeId);
+        emit WithdrawalScheduled(token, msg.sender, amount);
+    }
+
+    function cancelWithdrawal(
+        address token,
+        uint256 amount,
+        uint256 bridgeId
+    )
+        external
+        payable
+        validToken(token)
+        validAmount(amount)
+    {
+        userWithdrawals[msg.sender][token] -= amount;
+        userDeposits[msg.sender][token] += amount;
+
+        ICrossChainDelegatorMessage.CancelWithdrawalMessage memory message = ICrossChainDelegatorMessage.CancelWithdrawalMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender)))
+        });
+
+        _sendMessage(message.encode(), bridgeId);
+        emit WithdrawalCancelled(token, msg.sender, amount);
+    }
+
+    function executeWithdrawal(
+        address token,
+        uint256 amount,
+        uint256 bridgeId,
+        address recipient
+    )
+        external
+        payable
+        validToken(token)
+        validAmount(amount)
+    {
+        ICrossChainDelegatorMessage.ExecuteWithdrawalMessage memory message = ICrossChainDelegatorMessage.ExecuteWithdrawalMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender))),
+            recipient: bytes32(uint256(uint160(recipient)))
+        });
+
+        _sendMessage(message.encode(), bridgeId);
     }
 
     fallback() external {
-        _receiveMessage(msg.sender, msg.data, _handleSlashMessage);
+        _receiveMessage(msg.sender, msg.data, _processMessage);
     }
 
-    function _handleSlashMessage(bytes32 operator, uint8 slashPercent) internal {
+    function _processMessage(uint256, bytes calldata _message) internal {
+        uint8 messageType = CrossChainDelegatorMessage.getMessageType(_message);
+        bytes calldata payload = _message[1:];
+
+        if (messageType == CrossChainDelegatorMessage.WITHDRAWAL_EXECUTED_MESSAGE) {
+            _handleExecutedWithdrawalMessage(payload);
+        } else if (messageType == CrossChainDelegatorMessage.UNSTAKE_EXECUTED_MESSAGE) {
+            _handleExecutedUnstakeMessage(payload);
+        }
+    }
+
+    function _handleExecutedWithdrawalMessage(bytes calldata _payload) internal {
+        ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory message =
+            CrossChainDelegatorMessage.decodeWithdrawalExecutedMessage(_payload);
+        address token = address(uint160(message.originAsset));
+        address sender = address(bytes20(message.sender));
+        address recipient = address(bytes20(message.recipient));
+
+        userWithdrawals[sender][token] -= message.amount;
+
+        IERC20(token).safeTransfer(recipient, message.amount);
+
+        emit WithdrawalExecuted(token, sender, recipient, message.amount);
+    }
+
+    function _handleExecutedUnstakeMessage(bytes calldata _payload) internal {
+        ICrossChainDelegatorMessage.UnstakeExecutedMessage memory message =
+            CrossChainDelegatorMessage.decodeUnstakeExecutedMessage(_payload);
+        address token = address(uint160(message.originAsset));
+        address sender = address(bytes20(message.sender));
+
+        userUnstaking[sender][token][message.operator] -= message.amount;
+        userDeposits[sender][token] += message.amount;
+
+        // Clean up operator tracking if no more delegations
+        if (userDelegations[sender][token][message.operator] == 0 && userUnstaking[sender][token][message.operator] == 0) {
+            operatorDelegators[message.operator][token][sender] = false;
+            _cleanupOperatorIfEmpty(message.operator, token);
+        }
+
+        for (uint256 i = 0; i < message.slashes.length;) {
+            _handleSlash(message.operator, message.slashes[i].slashAmount, message.slashes[i].blueprintId);
+            unchecked {
+                ++i;
+            }
+        }
+
+        emit UnstakeExecuted(token, sender, message.amount, message.operator);
+    }
+
+    function _handleSlash(bytes32 operator, uint256 slashAmount, uint64 blueprintId) internal {
         uint256 length = knownTokens.length();
         for (uint256 i = 0; i < length;) {
             address token = knownTokens.at(i);
             if (operatorTokens[operator][token]) {
-                _handleSlashForToken(operator, token, slashPercent);
+                _handleSlashForToken(operator, token, slashAmount, blueprintId);
             }
             unchecked {
                 ++i;
@@ -246,21 +380,26 @@ contract RemoteRestakeVault is XCBridge {
         }
     }
 
-    function _handleSlashForToken(bytes32 operator, address token, uint8 slashPercent) internal {
+    function _handleSlashForToken(bytes32 operator, address token, uint256 slashAmount, uint64 blueprintId) internal {
+        if (slashAmount == 0) return;
+
         uint256 length = knownDelegators.length();
         for (uint256 i = 0; i < length;) {
             address delegator = knownDelegators.at(i);
-            if (operatorDelegators[operator][token][delegator]) {
-                uint256 delegatedAmount = userDelegations[delegator][token][operator];
-                if (delegatedAmount > 0) {
-                    uint256 slashAmount = (delegatedAmount * slashPercent) / 100;
-                    if (slashAmount > 0) {
-                        userDelegations[delegator][token][operator] -= slashAmount;
-                        IERC20(token).safeTransfer(address(0), slashAmount);
-                        emit TokensSlashed(token, operator, delegator, slashAmount);
-                    }
-                }
-            }
+
+            if (!operatorDelegators[operator][token][delegator]) return;
+
+            uint256 delegatedAmount = userDelegations[delegator][token][operator];
+            if (delegatedAmount == 0) return;
+
+            uint256 blueprintAmount = boundToBlueprint[delegator][operator][blueprintId];
+            if (blueprintAmount == 0) return;
+
+            userDelegations[delegator][token][operator] -= slashAmount;
+            boundToBlueprint[delegator][operator][blueprintId] -= slashAmount;
+            IERC20(token).safeTransfer(address(0), slashAmount);
+            emit TokensSlashed(token, operator, delegator, slashAmount);
+
             unchecked {
                 ++i;
             }

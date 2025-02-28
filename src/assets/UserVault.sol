@@ -20,112 +20,53 @@ contract UserVault is AssetDelegator {
         masterVault = _masterVault;
     }
 
-    function restakingDeposit(
-        bytes32,
-        address _asset,
-        uint256 _amount,
-        uint8 _lockMultiplier,
-        uint64[] memory _blueprintSelection
-    )
-        external
-        onlyMasterVault
-    {
-        op(bytes32(0), _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.Deposit);
+    function restakingDeposit(address _asset, uint256 _amount, uint8 _lockMultiplier) external onlyMasterVault {
+        uint256 assetId = uint256(uint160(_asset));
+        DELEGATION.deposit(assetId, _asset, _amount, _lockMultiplier);
     }
 
     function restakingDelegate(
-        bytes32 operator,
+        bytes32 _operator,
         address _asset,
         uint256 _amount,
-        uint8 _lockMultiplier,
         uint64[] memory _blueprintSelection
     )
         external
         onlyMasterVault
     {
-        op(operator, _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.Delegate);
+        uint256 assetId = uint256(uint160(_asset));
+        DELEGATION.delegate(_operator, assetId, _asset, _amount, _blueprintSelection);
     }
 
-    function restakingScheduleUnstake(
-        bytes32 operator,
-        address _asset,
-        uint256 _amount,
-        uint8 _lockMultiplier,
-        uint64[] memory _blueprintSelection
-    )
-        external
-        onlyMasterVault
-    {
-        op(operator, _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.ScheduleUnstake);
+    function restakingScheduleUnstake(bytes32 _operator, address _asset, uint256 _amount) external onlyMasterVault {
+        uint256 assetId = uint256(uint160(_asset));
+        DELEGATION.scheduleDelegatorUnstake(_operator, assetId, _asset, _amount);
     }
 
-    function restakingCancelUnstake(
-        bytes32 operator,
-        address _asset,
-        uint256 _amount,
-        uint8 _lockMultiplier,
-        uint64[] memory _blueprintSelection
-    )
-        external
-        onlyMasterVault
-    {
-        op(operator, _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.CancelUnstake);
+    function restakingCancelUnstake(bytes32 _operator, address _asset, uint256 _amount) external onlyMasterVault {
+        uint256 assetId = uint256(uint160(_asset));
+        DELEGATION.cancelDelegatorUnstake(_operator, assetId, _asset, _amount);
     }
 
-    function restakingExecuteUnstake(
-        bytes32 operator,
-        address _asset,
-        uint256 _amount,
-        uint8 _lockMultiplier,
-        uint64[] memory _blueprintSelection
-    )
-        external
-        onlyMasterVault
-    {
-        op(operator, _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.ExecuteUnstake);
+    function restakingExecuteUnstake() external onlyMasterVault {
+        DELEGATION.executeDelegatorUnstake();
     }
 
-    function restakingScheduleWithdraw(
-        bytes32,
-        address _asset,
-        uint256 _amount,
-        uint8 _lockMultiplier,
-        uint64[] memory _blueprintSelection
-    )
-        external
-        onlyMasterVault
-    {
-        op(bytes32(0), _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.ExecuteUnstake);
+    function restakingScheduleWithdraw(address _asset, uint256 _amount) external onlyMasterVault {
+        uint256 assetId = uint256(uint160(_asset));
+        DELEGATION.scheduleWithdraw(assetId, _asset, _amount);
     }
 
-    function restakingCancelWithdraw(
-        bytes32,
-        address _asset,
-        uint256 _amount,
-        uint8 _lockMultiplier,
-        uint64[] memory _blueprintSelection
-    )
-        external
-        onlyMasterVault
-    {
-        op(bytes32(0), _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.CancelWithdraw);
+    function restakingCancelWithdraw(address _asset, uint256 _amount) external onlyMasterVault {
+        uint256 assetId = uint256(uint160(_asset));
+        DELEGATION.cancelWithdraw(assetId, _asset, _amount);
     }
 
-    function restakingExecuteWithdraw(
-        bytes32,
-        address _asset,
-        uint256 _amount,
-        uint8 _lockMultiplier,
-        uint64[] memory _blueprintSelection
-    )
-        external
-        onlyMasterVault
-    {
-        op(bytes32(0), _asset, _amount, _lockMultiplier, _blueprintSelection, Operation.ExecuteWithdraw);
+    function restakingExecuteWithdraw() external onlyMasterVault {
+        DELEGATION.executeWithdraw();
     }
 
-    function claim(bytes32 _claimant) external {
-        if (_claimant != owner) revert Unauthorized();
-        
+    function claim() external {
+        // TODO: Implement
     }
 }

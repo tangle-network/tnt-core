@@ -3,10 +3,12 @@ pragma solidity ^0.8.18;
 
 import { ERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ISyntheticRestakeAsset } from "../interfaces/ISyntheticRestakeAsset.sol";
+import { ISlashAlert } from "../interfaces/ISlashAlert.sol";
+import { ISlashAccumulator } from "../interfaces/ISlashAccumulator.sol";
 
 /// @title SyntheticRestakeAsset
 /// @notice ERC20 token representing a cross-chain restaking position
-contract SyntheticRestakeAsset is ERC20, ISyntheticRestakeAsset {
+contract SyntheticRestakeAsset is ERC20, ISyntheticRestakeAsset, ISlashAlert {
     /// @notice Origin chain information
     uint32 public immutable originChainId;
     /// @notice Original asset address on origin chain
@@ -51,5 +53,9 @@ contract SyntheticRestakeAsset is ERC20, ISyntheticRestakeAsset {
     function burn(address from, uint256 amount) external {
         require(msg.sender == vault, "Only vault can burn");
         _burn(from, amount);
+    }
+
+    function onSlash(uint64 _blueprintId, uint64 _serviceId, bytes32 _operator, uint256 _slashAmount) external {
+        ISlashAccumulator(vault).slash(_blueprintId, _serviceId, _operator, _slashAmount);
     }
 }

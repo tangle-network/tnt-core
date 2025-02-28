@@ -54,7 +54,8 @@
 //             address(config.glacisConfig.glacisRouter), 0, bytes32(uint256(uint160(TANGLE_SIDE))), address(this), block.chainid
 //         );
 //         config.xcConfig.masterVault =
-//             setupMasterVault(address(config.xcConfig.remoteChainBridgeManagerTangle), address(config.glacisConfig.glacisRouter), 1);
+//             setupMasterVault(address(config.xcConfig.remoteChainBridgeManagerTangle), address(config.glacisConfig.glacisRouter),
+// 1);
 //         config.xcConfig.xcBlueprintServiceManager = setupXCBlueprintServiceManager(address(this));
 
 //         config.xcConfig.remoteRestakeVault = setupRemoteRestakeVault(address(config.xcConfig.remoteChainBridgeManagerXC));

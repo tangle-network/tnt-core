@@ -23,6 +23,9 @@ library CrossChainDelegatorMessage {
     // Message type constants for withdrawal executed flow
     uint8 constant WITHDRAWAL_EXECUTED_MESSAGE = 9;
 
+    // Message type constants for unstake executed flow
+    uint8 constant UNSTAKE_EXECUTED_MESSAGE = 10;
+
     error InvalidMessageType();
     error EmptyMessage();
 
@@ -217,6 +220,27 @@ library CrossChainDelegatorMessage {
         if (data.length == 0) revert EmptyMessage();
         if (uint8(data[0]) != WITHDRAWAL_EXECUTED_MESSAGE) revert InvalidMessageType();
         return abi.decode(data[1:], (ICrossChainDelegatorMessage.WithdrawalExecutedMessage));
+    }
+
+    /// @notice Encode an unstake executed message
+    /// @param message The unstake executed message to encode
+    /// @return The encoded message with type prefix
+    function encode(ICrossChainDelegatorMessage.UnstakeExecutedMessage memory message) internal pure returns (bytes memory) {
+        bytes memory encoded = abi.encode(message);
+        return abi.encodePacked(UNSTAKE_EXECUTED_MESSAGE, encoded);
+    }
+
+    /// @notice Decode an unstake executed message
+    /// @param data The encoded message
+    /// @return The decoded unstake executed message
+    function decodeUnstakeExecutedMessage(bytes calldata data)
+        internal
+        pure
+        returns (ICrossChainDelegatorMessage.UnstakeExecutedMessage memory)
+    {
+        if (data.length == 0) revert EmptyMessage();
+        if (uint8(data[0]) != UNSTAKE_EXECUTED_MESSAGE) revert InvalidMessageType();
+        return abi.decode(data[1:], (ICrossChainDelegatorMessage.UnstakeExecutedMessage));
     }
 
     /// @notice Convert a bytes32 to an address

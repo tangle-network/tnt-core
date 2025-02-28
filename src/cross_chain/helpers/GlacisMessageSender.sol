@@ -2,7 +2,7 @@
 pragma solidity ^0.8.18;
 
 import { GlacisClient } from "glacis-contracts/client/GlacisClient.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable } from "../../Permissions.sol";
 
 /// @title GlacisMessageSender
 /// @notice Manages message dispatch to Tangle through multiple bridges

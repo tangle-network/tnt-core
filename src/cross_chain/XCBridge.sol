@@ -88,7 +88,7 @@ abstract contract XCBridge is RootChainEnabledOwnable {
     function _receiveMessage(
         address _sender,
         bytes calldata _message,
-        function(bytes32,uint8) internal callback
+        function(uint256, bytes calldata) internal callback
     )
         internal
     {
@@ -105,40 +105,8 @@ abstract contract XCBridge is RootChainEnabledOwnable {
             }
         }
 
-        (bytes32[] memory operators, uint8[] memory slashPercents) =
-            abi.decode(data, (bytes32[], uint8[]));
+        (uint256 fromChainId, uint256 start, uint256 end) = abi.decode(data, (uint256, uint256, uint256));
 
-        for (uint256 i = 0; i < operators.length;) {
-            callback(operators[i], slashPercents[i]);
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    function _receiveMessage(
-        address _sender,
-        bytes calldata _message,
-        function(uint256,bytes32,bytes calldata) internal callback
-    )
-        internal
-    {
-        if (!authorizedRouters[_sender]) {
-            revert RouterNotAuthorized();
-        }
-
-        (bool success, bytes memory data) =
-            routerHandlers[_sender].delegatecall(abi.encodeWithSelector(IMessageHelper.parseMessage.selector, _message));
-
-        if (!success) {
-            assembly {
-                revert(add(data, 32), mload(data))
-            }
-        }
-
-        (uint256 fromChainId, bytes32 fromAddress, uint256 start, uint256 end) =
-            abi.decode(data, (uint256, bytes32, uint256, uint256));
-
-        callback(fromChainId, fromAddress, _message[start:end]);
+        callback(fromChainId, _message[start:end]);
     }
 }
