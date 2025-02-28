@@ -1,46 +1,26 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 import { IERC20 } from "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IMasterVault } from "../interfaces/IMasterVault.sol";
-import { ICrossChainBridgeManager } from "../interfaces/ICrossChainBridgeManager.sol";
-import { ICrossChainReceiver } from "../interfaces/ICrossChainReceiver.sol";
+import { ISlashAccumulator } from "../interfaces/ISlashAccumulator.sol";
 import { ICrossChainDelegatorMessage } from "../interfaces/ICrossChainDelegatorMessage.sol";
 import { CrossChainDelegatorMessage } from "../libs/CrossChainDelegatorMessage.sol";
 import { SyntheticRestakeAsset } from "./SyntheticRestakeAsset.sol";
 import { UserVault } from "./UserVault.sol";
+import { XCBridge } from "../cross_chain/XCBridge.sol";
 
-contract MasterVault is IMasterVault, ICrossChainReceiver {
+contract MasterVault is XCBridge, IMasterVault, ISlashAccumulator {
     using CrossChainDelegatorMessage for *;
-
-    ICrossChainBridgeManager public immutable bridgeManager;
 
     mapping(uint32 => mapping(uint256 => address)) public syntheticAssets;
     mapping(address => bool) public authorizedAdapters;
     mapping(bytes32 => address) public userVaults;
-
-    error UnauthorizedAdapter(address adapter);
-    error ZeroAddress();
-    error InvalidMessage();
-    error Unauthorized(bytes32 sender);
-    error InvalidUnlockTime();
-    error InvalidRecipient();
-    error VaultCreationFailed();
-    error BridgeDispatchFailed();
+    mapping(bytes32 => ICrossChainDelegatorMessage.Slash[]) public slashes;
 
     event SyntheticAssetCreated(
         address indexed syntheticAsset, uint32 indexed originChainId, uint256 indexed originAsset, uint256 bridgeId
     );
-
-    modifier onlyAuthorizedAdapter() {
-        if (!authorizedAdapters[msg.sender]) revert UnauthorizedAdapter(msg.sender);
-        _;
-    }
-
-    constructor(address _bridgeManager) {
-        require(_bridgeManager != address(0), "Invalid bridge manager");
-        bridgeManager = ICrossChainBridgeManager(_bridgeManager);
-    }
 
     function _getOrCreateUserVault(bytes32 sender) internal returns (address vault) {
         vault = userVaults[sender];
@@ -51,41 +31,41 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         return vault;
     }
 
-    function handleCrossChainMessage(
-        uint32 originChainId,
-        bytes32 sender,
-        bytes calldata message
-    )
-        external
-        payable
-        onlyAuthorizedAdapter
-        returns (bytes memory)
-    {
+    fallback() external {
+        _receiveMessage(msg.sender, msg.data, _processMessage);
+    }
+
+    function _processMessage(uint256 fromChainId, bytes calldata message) internal {
         uint8 messageType = CrossChainDelegatorMessage.getMessageType(message);
         bytes calldata payload = message[1:];
 
         if (messageType == CrossChainDelegatorMessage.DEPOSIT_MESSAGE) {
-            return _handleDepositMessage(originChainId, sender, payload);
-        } else if (messageType == CrossChainDelegatorMessage.DELEGATION_MESSAGE) {
-            return _handleDelegationMessage(originChainId, sender, payload);
-        } else if (messageType == CrossChainDelegatorMessage.SCHEDULE_UNSTAKE_MESSAGE) {
-            return _handleScheduleUnstakeMessage(originChainId, sender, payload);
-        } else if (messageType == CrossChainDelegatorMessage.CANCEL_UNSTAKE_MESSAGE) {
-            return _handleCancelUnstakeMessage(originChainId, sender, payload);
-        } else if (messageType == CrossChainDelegatorMessage.EXECUTE_UNSTAKE_MESSAGE) {
-            return _handleExecuteUnstakeMessage(originChainId, sender, payload);
-        } else if (messageType == CrossChainDelegatorMessage.SCHEDULE_WITHDRAWAL_MESSAGE) {
-            return _handleScheduleWithdrawalMessage(originChainId, sender, payload);
-        } else if (messageType == CrossChainDelegatorMessage.CANCEL_WITHDRAWAL_MESSAGE) {
-            return _handleCancelWithdrawalMessage(originChainId, sender, payload);
-        } else if (messageType == CrossChainDelegatorMessage.EXECUTE_WITHDRAWAL_MESSAGE) {
-            return _handleExecuteWithdrawalMessage(originChainId, sender, payload);
+            _handleDepositMessage(uint32(fromChainId), payload);
         }
-
-        revert InvalidMessage();
+        if (messageType == CrossChainDelegatorMessage.DELEGATION_MESSAGE) {
+            _handleDelegationMessage(uint32(fromChainId), payload);
+        }
+        if (messageType == CrossChainDelegatorMessage.SCHEDULE_UNSTAKE_MESSAGE) {
+            _handleScheduleUnstakeMessage(uint32(fromChainId), payload);
+        }
+        if (messageType == CrossChainDelegatorMessage.CANCEL_UNSTAKE_MESSAGE) {
+            _handleCancelUnstakeMessage(uint32(fromChainId), payload);
+        }
+        if (messageType == CrossChainDelegatorMessage.EXECUTE_UNSTAKE_MESSAGE) {
+            _handleExecuteUnstakeMessage(uint32(fromChainId), payload);
+        }
+        if (messageType == CrossChainDelegatorMessage.SCHEDULE_WITHDRAWAL_MESSAGE) {
+            _handleScheduleWithdrawalMessage(uint32(fromChainId), payload);
+        }
+        if (messageType == CrossChainDelegatorMessage.CANCEL_WITHDRAWAL_MESSAGE) {
+            _handleCancelWithdrawalMessage(uint32(fromChainId), payload);
+        }
+        if (messageType == CrossChainDelegatorMessage.EXECUTE_WITHDRAWAL_MESSAGE) {
+            _handleExecuteWithdrawalMessage(uint32(fromChainId), payload);
+        }
     }
 
-    function _handleDepositMessage(uint32 originChainId, bytes32 sender, bytes calldata payload) internal returns (bytes memory) {
+    function _handleDepositMessage(uint32 originChainId, bytes calldata payload) internal returns (bytes memory) {
         ICrossChainDelegatorMessage.DepositMessage memory message = CrossChainDelegatorMessage.decodeDepositMessage(payload);
 
         address syntheticAsset = getOrCreateSyntheticAsset(originChainId, message.originAsset, message.bridgeId);
@@ -93,38 +73,24 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
 
         // Mint directly to user vault
         SyntheticRestakeAsset(syntheticAsset).mint(userVault, message.amount);
-        UserVault(userVault).restakingDeposit(syntheticAsset, message.amount);
+        UserVault(userVault).restakingDeposit(syntheticAsset, message.amount, message.lockMultiplier);
 
         return abi.encode(true);
     }
 
-    function _handleDelegationMessage(
-        uint32 originChainId,
-        bytes32 sender,
-        bytes calldata payload
-    )
-        internal
-        returns (bytes memory)
-    {
+    function _handleDelegationMessage(uint32 originChainId, bytes calldata payload) internal returns (bytes memory) {
         ICrossChainDelegatorMessage.DelegationMessage memory message = CrossChainDelegatorMessage.decodeDelegationMessage(payload);
 
         address syntheticAsset = syntheticAssets[originChainId][message.originAsset];
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
-        UserVault(userVault).restakingDelegate(syntheticAsset, message.amount, message.operator);
+        UserVault(userVault).restakingDelegate(message.operator, syntheticAsset, message.amount, message.blueprintSelection);
 
         return abi.encode(true);
     }
 
-    function _handleScheduleUnstakeMessage(
-        uint32 originChainId,
-        bytes32 sender,
-        bytes calldata payload
-    )
-        internal
-        returns (bytes memory)
-    {
+    function _handleScheduleUnstakeMessage(uint32 originChainId, bytes calldata payload) internal returns (bytes memory) {
         ICrossChainDelegatorMessage.ScheduleUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeScheduleUnstakeMessage(payload);
 
@@ -132,19 +98,12 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
-        UserVault(userVault).restakingScheduleUnstake(syntheticAsset, message.amount, message.operator);
+        UserVault(userVault).restakingScheduleUnstake(message.operator, syntheticAsset, message.amount);
 
         return abi.encode(true);
     }
 
-    function _handleCancelUnstakeMessage(
-        uint32 originChainId,
-        bytes32 sender,
-        bytes calldata payload
-    )
-        internal
-        returns (bytes memory)
-    {
+    function _handleCancelUnstakeMessage(uint32 originChainId, bytes calldata payload) internal returns (bytes memory) {
         ICrossChainDelegatorMessage.CancelUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeCancelUnstakeMessage(payload);
 
@@ -152,19 +111,12 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         if (syntheticAsset == address(0)) revert InvalidAsset(address(0));
 
         address userVault = _getOrCreateUserVault(message.sender);
-        UserVault(userVault).restakingCancelUnstake(syntheticAsset, message.amount, message.operator);
+        UserVault(userVault).restakingCancelUnstake(message.operator, syntheticAsset, message.amount);
 
         return abi.encode(true);
     }
 
-    function _handleExecuteUnstakeMessage(
-        uint32 originChainId,
-        bytes32 sender,
-        bytes calldata payload
-    )
-        internal
-        returns (bytes memory)
-    {
+    function _handleExecuteUnstakeMessage(uint32 originChainId, bytes calldata payload) internal returns (bytes memory) {
         ICrossChainDelegatorMessage.ExecuteUnstakeMessage memory message =
             CrossChainDelegatorMessage.decodeExecuteUnstakeMessage(payload);
 
@@ -173,19 +125,12 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
 
         address userVault = _getOrCreateUserVault(message.sender);
         // Just execute unstake, keep assets in vault
-        UserVault(userVault).restakingExecuteUnstake(syntheticAsset, message.amount, message.operator);
+        UserVault(userVault).restakingExecuteUnstake();
 
         return abi.encode(true);
     }
 
-    function _handleScheduleWithdrawalMessage(
-        uint32 originChainId,
-        bytes32 sender,
-        bytes calldata payload
-    )
-        internal
-        returns (bytes memory)
-    {
+    function _handleScheduleWithdrawalMessage(uint32 originChainId, bytes calldata payload) internal returns (bytes memory) {
         ICrossChainDelegatorMessage.ScheduleWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeScheduleWithdrawalMessage(payload);
 
@@ -198,14 +143,7 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         return abi.encode(true);
     }
 
-    function _handleCancelWithdrawalMessage(
-        uint32 originChainId,
-        bytes32 sender,
-        bytes calldata payload
-    )
-        internal
-        returns (bytes memory)
-    {
+    function _handleCancelWithdrawalMessage(uint32 originChainId, bytes calldata payload) internal returns (bytes memory) {
         ICrossChainDelegatorMessage.CancelWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeCancelWithdrawalMessage(payload);
 
@@ -218,14 +156,7 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         return abi.encode(true);
     }
 
-    function _handleExecuteWithdrawalMessage(
-        uint32 originChainId,
-        bytes32 sender,
-        bytes calldata payload
-    )
-        internal
-        returns (bytes memory)
-    {
+    function _handleExecuteWithdrawalMessage(uint32 originChainId, bytes calldata payload) internal returns (bytes memory) {
         ICrossChainDelegatorMessage.ExecuteWithdrawalMessage memory message =
             CrossChainDelegatorMessage.decodeExecuteWithdrawalMessage(payload);
 
@@ -235,7 +166,7 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         address userVault = _getOrCreateUserVault(message.sender);
 
         // First execute withdrawal in user vault
-        UserVault(userVault).restakingExecuteWithdraw(syntheticAsset, message.amount);
+        UserVault(userVault).restakingExecuteWithdraw();
 
         // Then dispatch message back to origin chain
         ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory withdrawalMessage = ICrossChainDelegatorMessage
@@ -248,12 +179,9 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         });
 
         // Only burn after successful message dispatch
-        try bridgeManager.dispatchMessage(withdrawalMessage.encode()) {
-            // If message dispatch succeeds, burn the synthetic asset
-            SyntheticRestakeAsset(syntheticAsset).burn(userVault, message.amount);
-        } catch {
-            revert BridgeDispatchFailed();
-        }
+        _sendMessage(withdrawalMessage.encode(), message.bridgeId);
+        // If message dispatch succeeds, burn the synthetic asset
+        SyntheticRestakeAsset(syntheticAsset).burn(userVault, message.amount);
 
         return abi.encode(true);
     }
@@ -274,14 +202,13 @@ contract MasterVault is IMasterVault, ICrossChainReceiver {
         return synthetic;
     }
 
-    function authorizeAdapter(address adapter) external {
-        if (adapter == address(0)) revert ZeroAddress();
-        authorizedAdapters[adapter] = true;
-        emit AdapterAuthorized(adapter);
+    function slash(uint64 _blueprintId, uint64 _serviceId, bytes32 _operator, uint256 _slashAmount) external {
+        slashes[_operator].push(
+            ICrossChainDelegatorMessage.Slash({ blueprintId: _blueprintId, serviceId: _serviceId, slashAmount: _slashAmount })
+        );
     }
 
-    function unauthorizeAdapter(address adapter) external {
-        authorizedAdapters[adapter] = false;
-        emit AdapterUnauthorized(adapter);
+    function getSlashes(bytes32 _operator) external view returns (ICrossChainDelegatorMessage.Slash[] memory) {
+        return slashes[_operator];
     }
 }

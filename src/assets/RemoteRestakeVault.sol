@@ -1,26 +1,27 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { IRemoteChainBridgeManager } from "../interfaces/IRemoteChainBridgeManager.sol";
 import { ICrossChainDelegatorMessage } from "../interfaces/ICrossChainDelegatorMessage.sol";
 import { CrossChainDelegatorMessage } from "../libs/CrossChainDelegatorMessage.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { XCBridge } from "../cross_chain/XCBridge.sol";
 
-contract RemoteRestakeVault {
+contract RemoteRestakeVault is XCBridge {
     using SafeERC20 for IERC20;
     using CrossChainDelegatorMessage for *;
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
-
-    IRemoteChainBridgeManager public immutable bridgeManager;
 
     // Core state tracking
     mapping(address => mapping(address => uint256)) public userDeposits;
     mapping(address => mapping(address => mapping(bytes32 => uint256))) public userDelegations;
     mapping(address => mapping(address => mapping(bytes32 => uint256))) public userUnstaking;
     mapping(address => mapping(address => uint256)) public userWithdrawals;
+
+    // Blueprint selection tracking
+    mapping(address staker => mapping(bytes32 operator => mapping(uint64 blueprintId => uint256 amount))) public boundToBlueprint;
 
     // Enumerable sets for efficient iteration
     EnumerableSet.AddressSet private knownTokens;
@@ -30,9 +31,6 @@ contract RemoteRestakeVault {
     // Operator tracking for efficient slashing
     mapping(bytes32 => mapping(address => bool)) public operatorTokens;
     mapping(bytes32 => mapping(address => mapping(address => bool))) public operatorDelegators;
-
-    // Trusted receivers for cross-chain messages
-    mapping(address => bool) public trustedReceivers;
 
     error InvalidBridgeManager();
     error InvalidAmount();
@@ -55,7 +53,6 @@ contract RemoteRestakeVault {
     event WithdrawalCancelled(address indexed token, address indexed sender, uint256 amount);
     event WithdrawalExecuted(address indexed token, address indexed sender, address indexed recipient, uint256 amount);
     event TokensSlashed(address indexed token, bytes32 indexed operator, address indexed delegator, uint256 amount);
-    event TrustedReceiverUpdated(address indexed receiver, bool trusted);
 
     modifier validToken(address token) {
         if (token == address(0)) revert InvalidToken();
@@ -77,11 +74,6 @@ contract RemoteRestakeVault {
         _;
     }
 
-    modifier onlyTrustedReceiver() {
-        if (!trustedReceivers[msg.sender]) revert UnauthorizedReceiver();
-        _;
-    }
-
     modifier sufficientBalance(address token, uint256 amount) {
         if (userDeposits[msg.sender][token] < amount) revert InsufficientBalance();
         _;
@@ -97,12 +89,17 @@ contract RemoteRestakeVault {
         _;
     }
 
-    constructor(address _bridgeManager) {
-        if (_bridgeManager == address(0)) revert InvalidBridgeManager();
-        bridgeManager = IRemoteChainBridgeManager(_bridgeManager);
-    }
-
-    function deposit(address token, uint256 amount, uint256 bridgeId) external payable validToken(token) validAmount(amount) {
+    function deposit(
+        address token,
+        uint256 amount,
+        uint256 bridgeId,
+        uint8 lockMultiplier
+    )
+        external
+        payable
+        validToken(token)
+        validAmount(amount)
+    {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         userDeposits[msg.sender][token] += amount;
 
@@ -114,10 +111,11 @@ contract RemoteRestakeVault {
             bridgeId: bridgeId,
             originAsset: uint256(uint160(token)),
             amount: amount,
-            sender: bytes32(uint256(uint160(msg.sender)))
+            sender: bytes32(uint256(uint160(msg.sender))),
+            lockMultiplier: lockMultiplier
         });
 
-        _dispatchMessage(bridgeId, message.encode());
+        _sendMessage(message.encode(), bridgeId);
         emit AssetDeposited(token, msg.sender, amount);
     }
 
@@ -125,7 +123,8 @@ contract RemoteRestakeVault {
         address token,
         uint256 amount,
         uint256 bridgeId,
-        bytes32 operator
+        bytes32 operator,
+        uint64[] memory blueprintSelection
     )
         external
         payable
@@ -142,15 +141,25 @@ contract RemoteRestakeVault {
         operatorTokens[operator][token] = true;
         operatorDelegators[operator][token][msg.sender] = true;
 
+        // Update blueprint selection tracking
+        for (uint256 i = 0; i < blueprintSelection.length;) {
+            uint64 blueprintId = blueprintSelection[i];
+            boundToBlueprint[msg.sender][operator][blueprintId] += amount;
+            unchecked {
+                ++i;
+            }
+        }
+
         ICrossChainDelegatorMessage.DelegationMessage memory message = ICrossChainDelegatorMessage.DelegationMessage({
             bridgeId: bridgeId,
             originAsset: uint256(uint160(token)),
             amount: amount,
             sender: bytes32(uint256(uint160(msg.sender))),
-            operator: operator
+            operator: operator,
+            blueprintSelection: blueprintSelection
         });
 
-        _dispatchMessage(bridgeId, message.encode());
+        _sendMessage(message.encode(), bridgeId);
         emit DelegationUpdated(token, msg.sender, amount, operator);
     }
 
@@ -178,7 +187,7 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(bridgeId, message.encode());
+        _sendMessage(message.encode(), bridgeId);
         emit UnstakeScheduled(token, msg.sender, amount, operator);
     }
 
@@ -206,7 +215,7 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(bridgeId, message.encode());
+        _sendMessage(message.encode(), bridgeId);
         emit UnstakeCancelled(token, msg.sender, amount, operator);
     }
 
@@ -223,15 +232,6 @@ contract RemoteRestakeVault {
         validOperator(operator)
         sufficientUnstaking(token, operator, amount)
     {
-        userUnstaking[msg.sender][token][operator] -= amount;
-        userDeposits[msg.sender][token] += amount;
-
-        // Clean up operator tracking if no more delegations
-        if (userDelegations[msg.sender][token][operator] == 0 && userUnstaking[msg.sender][token][operator] == 0) {
-            operatorDelegators[operator][token][msg.sender] = false;
-            _cleanupOperatorIfEmpty(operator, token);
-        }
-
         ICrossChainDelegatorMessage.ExecuteUnstakeMessage memory message = ICrossChainDelegatorMessage.ExecuteUnstakeMessage({
             bridgeId: bridgeId,
             originAsset: uint256(uint160(token)),
@@ -240,39 +240,166 @@ contract RemoteRestakeVault {
             operator: operator
         });
 
-        _dispatchMessage(bridgeId, message.encode());
-        emit UnstakeExecuted(token, msg.sender, amount, operator);
+        _sendMessage(message.encode(), bridgeId);
     }
 
-    function handleSlashMessage(bytes32 operator, uint8 slashPercent) internal validOperator(operator) returns (bool) {
+    function scheduleWithdrawal(
+        address token,
+        uint256 amount,
+        uint256 bridgeId
+    )
+        external
+        payable
+        validToken(token)
+        validAmount(amount)
+    {
+        userWithdrawals[msg.sender][token] += amount;
+        userDeposits[msg.sender][token] -= amount;
+
+        ICrossChainDelegatorMessage.ScheduleWithdrawalMessage memory message = ICrossChainDelegatorMessage.ScheduleWithdrawalMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender)))
+        });
+
+        _sendMessage(message.encode(), bridgeId);
+        emit WithdrawalScheduled(token, msg.sender, amount);
+    }
+
+    function cancelWithdrawal(
+        address token,
+        uint256 amount,
+        uint256 bridgeId
+    )
+        external
+        payable
+        validToken(token)
+        validAmount(amount)
+    {
+        userWithdrawals[msg.sender][token] -= amount;
+        userDeposits[msg.sender][token] += amount;
+
+        ICrossChainDelegatorMessage.CancelWithdrawalMessage memory message = ICrossChainDelegatorMessage.CancelWithdrawalMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender)))
+        });
+
+        _sendMessage(message.encode(), bridgeId);
+        emit WithdrawalCancelled(token, msg.sender, amount);
+    }
+
+    function executeWithdrawal(
+        address token,
+        uint256 amount,
+        uint256 bridgeId,
+        address recipient
+    )
+        external
+        payable
+        validToken(token)
+        validAmount(amount)
+    {
+        ICrossChainDelegatorMessage.ExecuteWithdrawalMessage memory message = ICrossChainDelegatorMessage.ExecuteWithdrawalMessage({
+            bridgeId: bridgeId,
+            originAsset: uint256(uint160(token)),
+            amount: amount,
+            sender: bytes32(uint256(uint160(msg.sender))),
+            recipient: bytes32(uint256(uint160(recipient)))
+        });
+
+        _sendMessage(message.encode(), bridgeId);
+    }
+
+    fallback() external {
+        _receiveMessage(msg.sender, msg.data, _processMessage);
+    }
+
+    function _processMessage(uint256, bytes calldata _message) internal {
+        uint8 messageType = CrossChainDelegatorMessage.getMessageType(_message);
+        bytes calldata payload = _message[1:];
+
+        if (messageType == CrossChainDelegatorMessage.WITHDRAWAL_EXECUTED_MESSAGE) {
+            _handleExecutedWithdrawalMessage(payload);
+        } else if (messageType == CrossChainDelegatorMessage.UNSTAKE_EXECUTED_MESSAGE) {
+            _handleExecutedUnstakeMessage(payload);
+        }
+    }
+
+    function _handleExecutedWithdrawalMessage(bytes calldata _payload) internal {
+        ICrossChainDelegatorMessage.WithdrawalExecutedMessage memory message =
+            CrossChainDelegatorMessage.decodeWithdrawalExecutedMessage(_payload);
+        address token = address(uint160(message.originAsset));
+        address sender = address(bytes20(message.sender));
+        address recipient = address(bytes20(message.recipient));
+
+        userWithdrawals[sender][token] -= message.amount;
+
+        IERC20(token).safeTransfer(recipient, message.amount);
+
+        emit WithdrawalExecuted(token, sender, recipient, message.amount);
+    }
+
+    function _handleExecutedUnstakeMessage(bytes calldata _payload) internal {
+        ICrossChainDelegatorMessage.UnstakeExecutedMessage memory message =
+            CrossChainDelegatorMessage.decodeUnstakeExecutedMessage(_payload);
+        address token = address(uint160(message.originAsset));
+        address sender = address(bytes20(message.sender));
+
+        userUnstaking[sender][token][message.operator] -= message.amount;
+        userDeposits[sender][token] += message.amount;
+
+        // Clean up operator tracking if no more delegations
+        if (userDelegations[sender][token][message.operator] == 0 && userUnstaking[sender][token][message.operator] == 0) {
+            operatorDelegators[message.operator][token][sender] = false;
+            _cleanupOperatorIfEmpty(message.operator, token);
+        }
+
+        for (uint256 i = 0; i < message.slashes.length;) {
+            _handleSlash(message.operator, message.slashes[i].slashAmount, message.slashes[i].blueprintId);
+            unchecked {
+                ++i;
+            }
+        }
+
+        emit UnstakeExecuted(token, sender, message.amount, message.operator);
+    }
+
+    function _handleSlash(bytes32 operator, uint256 slashAmount, uint64 blueprintId) internal {
         uint256 length = knownTokens.length();
         for (uint256 i = 0; i < length;) {
             address token = knownTokens.at(i);
             if (operatorTokens[operator][token]) {
-                _handleSlashForToken(operator, token, slashPercent);
+                _handleSlashForToken(operator, token, slashAmount, blueprintId);
             }
             unchecked {
                 ++i;
             }
         }
-        return true;
     }
 
-    function _handleSlashForToken(bytes32 operator, address token, uint8 slashPercent) internal {
+    function _handleSlashForToken(bytes32 operator, address token, uint256 slashAmount, uint64 blueprintId) internal {
+        if (slashAmount == 0) return;
+
         uint256 length = knownDelegators.length();
         for (uint256 i = 0; i < length;) {
             address delegator = knownDelegators.at(i);
-            if (operatorDelegators[operator][token][delegator]) {
-                uint256 delegatedAmount = userDelegations[delegator][token][operator];
-                if (delegatedAmount > 0) {
-                    uint256 slashAmount = (delegatedAmount * slashPercent) / 100;
-                    if (slashAmount > 0) {
-                        userDelegations[delegator][token][operator] -= slashAmount;
-                        IERC20(token).safeTransfer(address(0), slashAmount);
-                        emit TokensSlashed(token, operator, delegator, slashAmount);
-                    }
-                }
-            }
+
+            if (!operatorDelegators[operator][token][delegator]) return;
+
+            uint256 delegatedAmount = userDelegations[delegator][token][operator];
+            if (delegatedAmount == 0) return;
+
+            uint256 blueprintAmount = boundToBlueprint[delegator][operator][blueprintId];
+            if (blueprintAmount == 0) return;
+
+            userDelegations[delegator][token][operator] -= slashAmount;
+            boundToBlueprint[delegator][operator][blueprintId] -= slashAmount;
+            IERC20(token).safeTransfer(address(0), slashAmount);
+            emit TokensSlashed(token, operator, delegator, slashAmount);
+
             unchecked {
                 ++i;
             }
@@ -315,16 +442,6 @@ contract RemoteRestakeVault {
 
         if (!hasActiveTokens) {
             knownOperators.remove(operator);
-        }
-    }
-
-    function _dispatchMessage(uint256 bridgeId, bytes memory message) internal {
-        uint256 requiredFee = bridgeId != 0 ? bridgeManager.getMessageFee(bridgeId, message) : msg.value;
-
-        try bridgeManager.dispatchMessage{ value: requiredFee }(message) {
-            // Success case handled by events
-        } catch {
-            revert BridgeDispatchFailed();
         }
     }
 
@@ -377,11 +494,5 @@ contract RemoteRestakeVault {
         }
 
         return delegators;
-    }
-
-    // Admin functions
-    function setTrustedReceiver(address receiver, bool trusted) external validRecipient(receiver) {
-        trustedReceivers[receiver] = trusted;
-        emit TrustedReceiverUpdated(receiver, trusted);
     }
 }

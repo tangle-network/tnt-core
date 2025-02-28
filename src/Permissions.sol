@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 contract Ownable {
     address internal _owner;
@@ -55,7 +55,7 @@ contract RootChainEnabled {
     }
 }
 
-contract RootChainEnabledOwnable is Ownable, RootChainEnabled {
+abstract contract RootChainEnabledOwnable is Ownable, RootChainEnabled {
     constructor() Ownable() RootChainEnabled() { }
 
     modifier onlyOwnerOrRootChain() {

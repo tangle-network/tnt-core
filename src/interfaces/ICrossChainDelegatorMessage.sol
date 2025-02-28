@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 /// @title ICrossChainDelegatorMessage
 /// @notice Defines the structure for cross-chain delegator messages
@@ -10,6 +10,7 @@ interface ICrossChainDelegatorMessage {
         uint256 originAsset;
         uint256 amount;
         bytes32 sender;
+        uint8 lockMultiplier;
     }
 
     /// @notice Structure for cross-chain delegation update messages
@@ -19,6 +20,7 @@ interface ICrossChainDelegatorMessage {
         uint256 amount;
         bytes32 sender;
         bytes32 operator;
+        uint64[] blueprintSelection;
     }
 
     /// @notice Structure for scheduling an unstake operation
@@ -71,6 +73,23 @@ interface ICrossChainDelegatorMessage {
         uint256 amount;
         bytes32 sender;
         bytes32 recipient;
+    }
+
+    /// @notice Structure for a slash
+    struct Slash {
+        uint64 blueprintId;
+        uint64 serviceId;
+        uint256 slashAmount;
+    }
+
+    /// @notice Structure for an unstake executed message
+    struct UnstakeExecutedMessage {
+        uint256 bridgeId;
+        uint256 originAsset;
+        uint256 amount;
+        bytes32 sender;
+        bytes32 operator;
+        Slash[] slashes;
     }
 
     /// @notice Structure for cross-chain withdrawal executed messages
