@@ -8,12 +8,12 @@ import { Assets } from "./AssetsLib.sol";
 /// @dev Contains structs and enums related to service operators.
 /// @notice Holds different structs and enums related to service operators.
 library ServiceOperators {
-    /// @dev Represents the preferences of an operator, including their ECDSA public key and price targets.
+    /// @dev Represents the preferences of an operator, including their ECDSA public key and RPC address.
     struct OperatorPreferences {
         /// @notice The ECDSA public key of the operator.
         bytes ecdsaPublicKey;
-        /// @notice The price targets associated with the operator.
-        PriceTargets priceTargets;
+        /// @notice The address of the RPC server the operator is running.
+        string rpcAddress;
     }
 
     /// @dev Defines the pricing targets for various resources such as CPU, memory, and different types of storage.
@@ -36,7 +36,7 @@ library ServiceOperators {
         uint64 requestId;
         /// @notice Address of the requester
         address requester;
-        /// @notice Array of operator preferences containing public keys and price targets
+        /// @notice Array of operator preferences containing ECDSA public keys and RPC addresses
         OperatorPreferences[] operators;
         /// @notice Input parameters for the request encoded as bytes
         bytes requestInputs;
