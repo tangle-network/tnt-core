@@ -102,10 +102,10 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @param operator The operator's preferences.
     event OperatorUnregistered(uint64 indexed blueprintId, ServiceOperators.OperatorPreferences operator);
 
-    /// @dev Emitted when an operator updates their price targets.
+    /// @dev Emitted when an operator updates their RPC address.
     /// @param blueprintId The unique identifier of the blueprint.
     /// @param operator The operator's updated preferences.
-    event PriceTargetsUpdated(uint64 indexed blueprintId, ServiceOperators.OperatorPreferences operator);
+    event RpcAddressUpdated(uint64 indexed blueprintId, ServiceOperators.OperatorPreferences operator);
 
     /// @dev Emitted when a service instance is requested from a blueprint.
     /// @param blueprintId The unique identifier of the blueprint.
@@ -301,10 +301,10 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         emit OperatorUnregistered(blueprintId, operator);
     }
 
-    /// @dev Called when an operator updates their price targets.
-    /// @param blueprintId The blueprint unique identifier.
-    /// @param operator The operator's details with the updated price targets.
-    function onUpdatePriceTargets(
+    /// @dev Hook to be called upon a new RPC address update on a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param operator The operator's preferences.
+    function onUpdateRpcAddress(
         uint64 blueprintId,
         ServiceOperators.OperatorPreferences calldata operator
     )
@@ -314,8 +314,8 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         whenNotPaused
     {
         address manager = blueprints.get(blueprintId);
-        IBlueprintServiceManager(manager).onUpdatePriceTargets(operator);
-        emit PriceTargetsUpdated(blueprintId, operator);
+        IBlueprintServiceManager(manager).onUpdateRpcAddress(operator);
+        emit RpcAddressUpdated(blueprintId, operator);
     }
 
     /// @dev Called when a user requests a service instance from the blueprint.

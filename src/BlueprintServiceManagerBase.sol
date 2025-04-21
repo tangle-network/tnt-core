@@ -53,7 +53,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     function onUnregister(ServiceOperators.OperatorPreferences calldata operator) external virtual onlyFromMaster { }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onUpdatePriceTargets(ServiceOperators.OperatorPreferences calldata operator)
+    function onUpdateRpcAddress(ServiceOperators.OperatorPreferences calldata operator)
         external
         payable
         virtual
