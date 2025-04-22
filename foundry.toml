@@ -10,6 +10,7 @@ optimizer_runs = 200
 fs_permissions = [{ access = "read-write", path = "./" }]
 solc = "0.8.20"
 evm_version = "shanghai"
+allow_internal_expect_revert = true
 
 [profile.ci]
 verbosity = 4

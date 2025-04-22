@@ -28,29 +28,28 @@ contract ServiceOperatorsLibTest is Test {
 
         // Test OperatorPreferences initialization
         ServiceOperators.OperatorPreferences memory prefs =
-            ServiceOperators.OperatorPreferences({ ecdsaPublicKey: TEST_PUBLIC_KEY, priceTargets: prices });
+            ServiceOperators.OperatorPreferences({ 
+                ecdsaPublicKey: TEST_PUBLIC_KEY, 
+                rpcAddress: "https://example.com/rpc" 
+            });
 
         assertEq(prefs.ecdsaPublicKey, TEST_PUBLIC_KEY, "ECDSA public key not set correctly");
-        assertEq(prefs.priceTargets.cpu, prices.cpu, "Price targets not set correctly");
+        assertEq(prefs.rpcAddress, "https://example.com/rpc", "RPC address not set correctly");
     }
 
     function testRequestParamsInitialization() public {
         // Create operator preferences array
         ServiceOperators.OperatorPreferences[] memory operators = new ServiceOperators.OperatorPreferences[](2);
 
-        // Set up price targets for operators
-        ServiceOperators.PriceTargets memory prices1 =
-            ServiceOperators.PriceTargets({ cpu: 100, mem: 200, storage_hdd: 300, storage_ssd: 400, storage_nvme: 500 });
-
-        ServiceOperators.PriceTargets memory prices2 =
-            ServiceOperators.PriceTargets({ cpu: 150, mem: 250, storage_hdd: 350, storage_ssd: 450, storage_nvme: 550 });
-
         // Set up operator preferences
-        operators[0] = ServiceOperators.OperatorPreferences({ ecdsaPublicKey: TEST_PUBLIC_KEY, priceTargets: prices1 });
+        operators[0] = ServiceOperators.OperatorPreferences({ 
+            ecdsaPublicKey: TEST_PUBLIC_KEY, 
+            rpcAddress: "https://example1.com/rpc" 
+        });
 
         operators[1] = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"04e2688b6bc2ce7676a3a9d2f85e178d1964e0fdc1cc8d8ed3d196b5ca6d7932d18f1a48789057ed03d100147b365627427b1918c405c932c2ca81625fd8a23976",
-            priceTargets: prices2
+            rpcAddress: "https://example2.com/rpc"
         });
 
         // Set up permitted callers
@@ -81,7 +80,7 @@ contract ServiceOperatorsLibTest is Test {
 
         // Verify first operator
         assertEq(params.operators[0].ecdsaPublicKey, TEST_PUBLIC_KEY, "First operator public key not set correctly");
-        assertEq(params.operators[0].priceTargets.cpu, 100, "First operator CPU price not set correctly");
+        assertEq(params.operators[0].rpcAddress, "https://example1.com/rpc", "First operator RPC address not set correctly");
 
         // Verify permitted callers
         assertEq(params.permittedCallers[0], address(0x1234), "First permitted caller not set correctly");

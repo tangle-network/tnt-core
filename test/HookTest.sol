@@ -7,7 +7,7 @@ contract HookTestBlueprintServiceManager is BlueprintServiceManagerBase {
     event OnBlueprintCreated();
     event OnRegister();
     event OnUnregister();
-    event OnUpdatePriceTargets();
+    event OnUpdateRpcAddress();
     event OnRequest();
     event OnApprove();
     event OnReject();
@@ -42,10 +42,10 @@ contract HookTestBlueprintServiceManager is BlueprintServiceManagerBase {
         emit OnUnregister();
     }
 
-    function onUpdatePriceTargets(
+    function onUpdateRpcAddress(
         ServiceOperators.OperatorPreferences calldata
     ) external payable override onlyFromMaster {
-        emit OnUpdatePriceTargets();
+        emit OnUpdateRpcAddress();
     }
 
     function onRequest(
