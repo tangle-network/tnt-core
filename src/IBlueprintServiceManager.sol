@@ -32,10 +32,9 @@ interface IBlueprintServiceManager {
     /// @param operator The operator's details.
     function onUnregister(ServiceOperators.OperatorPreferences calldata operator) external;
 
-    /// @dev Hook for updating operator's Price Targets. Called when an operator updates
-    /// their price targets.
-    /// @param operator The operator's details with the to be updated price targets.
-    function onUpdatePriceTargets(ServiceOperators.OperatorPreferences calldata operator) external payable;
+    /// @dev Hook for updating RPC address. Called when an operator updates their RPC address.
+    /// @param operator The operator's details with the updated RPC address.
+    function onUpdateRpcAddress(ServiceOperators.OperatorPreferences calldata operator) external payable;
 
     /// @dev Hook for service instance requests. Called when a user requests a service
     /// instance from the blueprint but this does not mean the service is initiated yet.

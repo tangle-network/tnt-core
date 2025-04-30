@@ -8,7 +8,7 @@ contract AssetsLibTest is Test {
     // Test constants
     address constant TEST_ERC20_ADDRESS = address(0x1234567890123456789012345678901234567890);
     bytes32 constant TEST_ASSET_ID = bytes32(uint256(123));
-
+    
     function setUp() public {
         // No setup required as we're testing a library
     }

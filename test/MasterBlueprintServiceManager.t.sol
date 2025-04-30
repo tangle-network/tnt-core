@@ -34,7 +34,7 @@ contract MasterBlueprintServiceManagerTest is Test {
     );
     event OperatorRegistered(uint64 indexed blueprintId, ServiceOperators.OperatorPreferences operator);
     event OperatorUnregistered(uint64 indexed blueprintId, ServiceOperators.OperatorPreferences operator);
-    event PriceTargetsUpdated(uint64 indexed blueprintId, ServiceOperators.OperatorPreferences operator);
+    event RpcAddressUpdated(uint64 indexed blueprintId, ServiceOperators.OperatorPreferences operator);
     event ServiceRequested(
         uint64 indexed blueprintId,
         uint64 indexed requestId,
@@ -186,13 +186,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         // Prepare operator preferences
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 100,
-                mem: 200,
-                storage_hdd: 300,
-                storage_ssd: 400,
-                storage_nvme: 500
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         bytes memory registrationInputs = hex"";
@@ -208,13 +202,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         uint64 blueprintId = 1;
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 100,
-                mem: 200,
-                storage_hdd: 300,
-                storage_ssd: 400,
-                storage_nvme: 500
-            })
+            rpcAddress: "https://example.com/rpc"
         });
         bytes memory registrationInputs = hex"";
 
@@ -252,13 +240,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         // Prepare operator preferences
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 100,
-                mem: 200,
-                storage_hdd: 300,
-                storage_ssd: 400,
-                storage_nvme: 500
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         // Expect the OperatorUnregistered event
@@ -272,13 +254,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         uint64 blueprintId = 1;
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 100,
-                mem: 200,
-                storage_hdd: 300,
-                storage_ssd: 400,
-                storage_nvme: 500
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         vm.expectRevert(
@@ -287,8 +263,8 @@ contract MasterBlueprintServiceManagerTest is Test {
         masterManager.onUnregister(blueprintId, operatorPrefs);
     }
 
-    // Test onUpdatePriceTargets
-    function test_onUpdatePriceTargets() public asRootChain {
+    // Test onUpdateRpcAddress
+    function test_onUpdateRpcAddress() public asRootChain {
         uint64 blueprintId = 1;
         address owner = address(this);
 
@@ -312,42 +288,29 @@ contract MasterBlueprintServiceManagerTest is Test {
 
         masterManager.onBlueprintCreated(blueprintId, owner, blueprint);
 
-        // Prepare operator preferences
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 150,
-                mem: 250,
-                storage_hdd: 350,
-                storage_ssd: 450,
-                storage_nvme: 550
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
-        // Expect the PriceTargetsUpdated event
+        // Expect the RpcAddressUpdated event
         vm.expectEmit(true, false, false, true);
-        emit PriceTargetsUpdated(blueprintId, operatorPrefs);
+        emit RpcAddressUpdated(blueprintId, operatorPrefs);
 
-        masterManager.onUpdatePriceTargets(blueprintId, operatorPrefs);
+        masterManager.onUpdateRpcAddress(blueprintId, operatorPrefs);
     }
 
-    function test_onUpdatePriceTargets_NotFromRootChain() public {
+    function test_onUpdateRpcAddress_NotFromRootChain() public {
         uint64 blueprintId = 1;
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 150,
-                mem: 250,
-                storage_hdd: 350,
-                storage_ssd: 450,
-                storage_nvme: 550
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         vm.expectRevert(
             abi.encodeWithSelector(RootChainEnabled.OnlyRootChainAllowed.selector, address(this), ROOT_CHAIN)
         );
-        masterManager.onUpdatePriceTargets(blueprintId, operatorPrefs);
+        masterManager.onUpdateRpcAddress(blueprintId, operatorPrefs);
     }
 
     // Test onRequest
@@ -382,13 +345,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         ServiceOperators.OperatorPreferences[] memory operators = new ServiceOperators.OperatorPreferences[](1);
         operators[0] = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 150,
-                mem: 250,
-                storage_hdd: 350,
-                storage_ssd: 450,
-                storage_nvme: 550
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         address[] memory permittedCallers = new address[](1);
@@ -428,13 +385,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         ServiceOperators.OperatorPreferences[] memory operators = new ServiceOperators.OperatorPreferences[](1);
         operators[0] = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 150,
-                mem: 250,
-                storage_hdd: 350,
-                storage_ssd: 450,
-                storage_nvme: 550
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         address[] memory permittedCallers = new address[](1);
@@ -490,13 +441,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         // Prepare operator preferences
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 150,
-                mem: 250,
-                storage_hdd: 350,
-                storage_ssd: 450,
-                storage_nvme: 550
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         uint64 requestId = 1;
@@ -514,13 +459,7 @@ contract MasterBlueprintServiceManagerTest is Test {
 
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 150,
-                mem: 250,
-                storage_hdd: 350,
-                storage_ssd: 450,
-                storage_nvme: 550
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         uint64 requestId = 1;
@@ -560,13 +499,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         // Prepare operator preferences
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 150,
-                mem: 250,
-                storage_hdd: 350,
-                storage_ssd: 450,
-                storage_nvme: 550
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         uint64 requestId = 1;
@@ -583,13 +516,7 @@ contract MasterBlueprintServiceManagerTest is Test {
 
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 150,
-                mem: 250,
-                storage_hdd: 350,
-                storage_ssd: 450,
-                storage_nvme: 550
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         uint64 requestId = 1;
@@ -716,13 +643,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         // Prepare operator preferences
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"abcd",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 200,
-                mem: 300,
-                storage_hdd: 400,
-                storage_ssd: 500,
-                storage_nvme: 600
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         // Create a blueprint first
@@ -764,13 +685,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         // Prepare operator preferences
         ServiceOperators.OperatorPreferences memory operatorPrefs = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"abcd",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 200,
-                mem: 300,
-                storage_hdd: 400,
-                storage_ssd: 500,
-                storage_nvme: 600
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         vm.expectRevert(
@@ -1123,13 +1038,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         ServiceOperators.OperatorPreferences[] memory operators = new ServiceOperators.OperatorPreferences[](1);
         operators[0] = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 150,
-                mem: 250,
-                storage_hdd: 350,
-                storage_ssd: 450,
-                storage_nvme: 550
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         address[] memory permittedCallers = new address[](1);
@@ -1221,13 +1130,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         ServiceOperators.OperatorPreferences[] memory operators = new ServiceOperators.OperatorPreferences[](1);
         operators[0] = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 150,
-                mem: 250,
-                storage_hdd: 350,
-                storage_ssd: 450,
-                storage_nvme: 550
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         address[] memory permittedCallers = new address[](1);
@@ -1319,13 +1222,7 @@ contract MasterBlueprintServiceManagerTest is Test {
 
         ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 100,
-                mem: 200,
-                storage_hdd: 300,
-                storage_ssd: 400,
-                storage_nvme: 500
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         uint64 serviceId = 1;
@@ -1360,13 +1257,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         uint64 serviceId = 1;
         ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 100,
-                mem: 200,
-                storage_hdd: 300,
-                storage_ssd: 400,
-                storage_nvme: 500
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         // Should not revert
@@ -1399,13 +1290,7 @@ contract MasterBlueprintServiceManagerTest is Test {
 
         ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 100,
-                mem: 200,
-                storage_hdd: 300,
-                storage_ssd: 400,
-                storage_nvme: 500
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         uint64 serviceId = 1;
@@ -1440,13 +1325,7 @@ contract MasterBlueprintServiceManagerTest is Test {
         uint64 serviceId = 1;
         ServiceOperators.OperatorPreferences memory operator = ServiceOperators.OperatorPreferences({
             ecdsaPublicKey: hex"1234",
-            priceTargets: ServiceOperators.PriceTargets({
-                cpu: 100,
-                mem: 200,
-                storage_hdd: 300,
-                storage_ssd: 400,
-                storage_nvme: 500
-            })
+            rpcAddress: "https://example.com/rpc"
         });
 
         // Should not revert
