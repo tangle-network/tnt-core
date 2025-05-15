@@ -106,6 +106,26 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
     /// @param blueprintId The unique identifier of the blueprint.
     /// @param operator The operator's updated preferences.
     event RpcAddressUpdated(uint64 indexed blueprintId, ServiceOperators.OperatorPreferences operator);
+    
+    /// @dev Emitted when heartbeats are enabled or disabled for a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param enabled Whether heartbeats are enabled or disabled.
+    event HeartbeatsEnabledSet(uint64 indexed blueprintId, bool enabled);
+    
+    /// @dev Emitted when a blueprint's heartbeat interval is updated.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param interval The new heartbeat interval in blocks.
+    event HeartbeatIntervalSet(uint64 indexed blueprintId, uint64 interval);
+    
+    /// @dev Emitted when a blueprint's heartbeat threshold is updated.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param threshold The new heartbeat threshold percentage (0-100).
+    event HeartbeatThresholdSet(uint64 indexed blueprintId, uint8 threshold);
+    
+    /// @dev Emitted when a blueprint's slashing window is updated.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param window The new slashing window in blocks.
+    event SlashingWindowSet(uint64 indexed blueprintId, uint64 window);
 
     /// @dev Emitted when a service instance is requested from a blueprint.
     /// @param blueprintId The unique identifier of the blueprint.
@@ -316,6 +336,143 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         address manager = blueprints.get(blueprintId);
         IBlueprintServiceManager(manager).onUpdateRpcAddress(operator);
         emit RpcAddressUpdated(blueprintId, operator);
+    }
+    
+    /// @dev Enable or disable heartbeats for a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param enabled True to enable heartbeats, false to disable.
+    function setHeartbeatsEnabled(
+        uint64 blueprintId,
+        bool enabled
+    )
+        public
+        onlyFromRootChain
+        whenNotPaused
+    {
+        address manager = blueprints.get(blueprintId);
+        IBlueprintServiceManager(manager).setHeartbeatsEnabled(blueprintId, enabled);
+        emit HeartbeatsEnabledSet(blueprintId, enabled);
+    }
+    
+    /// @dev Check if heartbeats are enabled for a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @return True if heartbeats are enabled, false otherwise.
+    function areHeartbeatsEnabled(
+        uint64 blueprintId
+    )
+        public
+        view
+        returns (bool)
+    {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).areHeartbeatsEnabled();
+    }
+
+    /// @dev Get the heartbeat interval for a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @return The heartbeat interval in blocks.
+    function getHeartbeatInterval(
+        uint64 blueprintId
+    )
+        public
+        view
+        returns (uint64)
+    {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).getHeartbeatInterval();
+    }
+
+    /// @dev Get the heartbeat threshold for a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @return The heartbeat threshold percentage (0-100).
+    function getHeartbeatThreshold(
+        uint64 blueprintId
+    )
+        public
+        view
+        returns (uint8)
+    {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).getHeartbeatThreshold();
+    }
+
+    /// @dev Get the slashing window for a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @return The slashing window in blocks.
+    function getSlashingWindow(
+        uint64 blueprintId
+    )
+        public
+        view
+        returns (uint64)
+    {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).getSlashingWindow();
+    }
+
+    /// @dev Enable or disable heartbeats for a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param enabled True to enable heartbeats, false to disable.
+    function setHeartbeatsEnabled(
+        uint64 blueprintId,
+        bool enabled
+    )
+        public
+        onlyFromRootChain
+        whenNotPaused
+    {
+        address manager = blueprints.get(blueprintId);
+        IBlueprintServiceManager(manager).setHeartbeatsEnabled(enabled);
+        emit HeartbeatsEnabledSet(blueprintId, enabled);
+    }
+    
+    /// @dev Set the heartbeat interval for a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param interval The heartbeat interval in blocks.
+    function setHeartbeatInterval(
+        uint64 blueprintId,
+        uint64 interval
+    )
+        public
+        onlyFromRootChain
+        whenNotPaused
+    {
+        address manager = blueprints.get(blueprintId);
+        IBlueprintServiceManager(manager).setHeartbeatInterval(interval);
+        emit HeartbeatIntervalSet(blueprintId, interval);
+    }
+    
+    /// @dev Set the heartbeat threshold for a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param threshold The heartbeat threshold percentage (0-100).
+    function setHeartbeatThreshold(
+        uint64 blueprintId,
+        uint8 threshold
+    )
+        public
+        onlyFromRootChain
+        whenNotPaused
+    {
+        require(threshold <= 100, "Threshold must be between 0 and 100");
+        address manager = blueprints.get(blueprintId);
+        IBlueprintServiceManager(manager).setHeartbeatThreshold(threshold);
+        emit HeartbeatThresholdSet(blueprintId, threshold);
+    }
+    
+    /// @dev Set the slashing window for a blueprint.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param window The slashing window in blocks.
+    function setSlashingWindow(
+        uint64 blueprintId,
+        uint64 window
+    )
+        public
+        onlyFromRootChain
+        whenNotPaused
+    {
+        address manager = blueprints.get(blueprintId);
+        IBlueprintServiceManager(manager).setSlashingWindow(window);
+        emit SlashingWindowSet(blueprintId, window);
     }
 
     /// @dev Called when a user requests a service instance from the blueprint.
