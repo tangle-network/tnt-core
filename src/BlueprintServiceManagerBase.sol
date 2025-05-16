@@ -25,30 +25,6 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
 
     /// @dev The address of the owner of the blueprint
     address public blueprintOwner;
-    
-    /// @dev Whether heartbeats are enabled for this blueprint
-    bool public heartbeatsEnabled = true;
-    
-    /// @dev Heartbeat interval in blocks (e.g., 100 blocks)
-    uint64 public heartbeatInterval = 100;
-    
-    /// @dev Heartbeat threshold percentage (e.g., 80%)
-    uint8 public heartbeatThreshold = 80;
-    
-    /// @dev Slashing window in blocks (e.g., 1000 blocks)
-    uint64 public slashingWindow = 1000;
-    
-    /// @dev Whether the heartbeatsEnabled value has been explicitly set
-    bool private _heartbeatsEnabledSet;
-    
-    /// @dev Whether the heartbeatInterval value has been explicitly set
-    bool private _heartbeatIntervalSet;
-    
-    /// @dev Whether the heartbeatThreshold value has been explicitly set
-    bool private _heartbeatThresholdSet;
-    
-    /// @dev Whether the slashingWindow value has been explicitly set
-    bool private _slashingWindowSet;
 
     /// @dev a mapping between service id and permitted payment assets.
     /// @dev serviceId => EnumerableSet of permitted payment assets.
@@ -85,57 +61,21 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
     { }
     
     /// @inheritdoc IBlueprintServiceManager
-    function areHeartbeatsEnabled() external view virtual returns (bool) {
-        return heartbeatsEnabled;
+    function getHeartbeatInterval(uint64 serviceId) external view virtual returns (bool useDefault, uint64 interval) {
+        // Uses the on-chain default interval by default
+        return (true, 0);
     }
     
     /// @inheritdoc IBlueprintServiceManager
-    function getHeartbeatInterval() external view virtual returns (uint64) {
-        if (!heartbeatsEnabled) {
-            return 0; // Return 0 if heartbeats are disabled
-        }
-        return heartbeatInterval;
+    function getHeartbeatThreshold(uint64 serviceId) external view virtual returns (bool useDefault, uint8 threshold) {
+        // Uses the on-chain default threshold by default
+        return (true, 0);
     }
     
     /// @inheritdoc IBlueprintServiceManager
-    function getHeartbeatThreshold() external view virtual returns (uint8) {
-        if (!heartbeatsEnabled) {
-            return 0; // Return 0 if heartbeats are disabled
-        }
-        return heartbeatThreshold;
-    }
-    
-    /// @inheritdoc IBlueprintServiceManager
-    function getSlashingWindow() external view virtual returns (uint64) {
-        if (!heartbeatsEnabled) {
-            return 0; // Return 0 if heartbeats are disabled
-        }
-        return slashingWindow;
-    }
-    
-    /// @inheritdoc IBlueprintServiceManager
-    function setHeartbeatsEnabled(bool enabled) external virtual onlyFromMaster {
-        heartbeatsEnabled = enabled;
-        _heartbeatsEnabledSet = true;
-    }
-    
-    /// @inheritdoc IBlueprintServiceManager
-    function setHeartbeatInterval(uint64 interval) external virtual onlyFromMaster {
-        heartbeatInterval = interval;
-        _heartbeatIntervalSet = true;
-    }
-    
-    /// @inheritdoc IBlueprintServiceManager
-    function setHeartbeatThreshold(uint8 threshold) external virtual onlyFromMaster {
-        require(threshold <= 100, "Threshold must be between 0 and 100");
-        heartbeatThreshold = threshold;
-        _heartbeatThresholdSet = true;
-    }
-    
-    /// @inheritdoc IBlueprintServiceManager
-    function setSlashingWindow(uint64 window) external virtual onlyFromMaster {
-        slashingWindow = window;
-        _slashingWindowSet = true;
+    function getSlashingWindow(uint64 serviceId) external view virtual returns (bool useDefault, uint64 window) {
+        // Uses the on-chain default window by default
+        return (true, 0);
     }
 
     /// @inheritdoc IBlueprintServiceManager

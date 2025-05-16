@@ -36,37 +36,23 @@ interface IBlueprintServiceManager {
     /// @param operator The operator's details with the updated RPC address.
     function onUpdateRpcAddress(ServiceOperators.OperatorPreferences calldata operator) external payable;
     
-    /// @dev Check if heartbeats are enabled for this blueprint.
-    /// @return True if heartbeats are enabled, false otherwise.
-    function areHeartbeatsEnabled() external view returns (bool);
+    /// @dev Get the heartbeat interval for a service.
+    /// @param serviceId The ID of the service.
+    /// @return useDefault Whether to use the default value.
+    /// @return interval The heartbeat interval in blocks. 0 means heartbeats are disabled.
+    function getHeartbeatInterval(uint64 serviceId) external view returns (bool useDefault, uint64 interval);
     
-    /// @dev Get the heartbeat interval for this blueprint.
-    /// @return The heartbeat interval in blocks. Returns 0 if heartbeats are disabled.
-    function getHeartbeatInterval() external view returns (uint64);
+    /// @dev Get the heartbeat threshold for a service.
+    /// @param serviceId The ID of the service.
+    /// @return useDefault Whether to use the default value.
+    /// @return threshold The heartbeat threshold percentage (0-100).
+    function getHeartbeatThreshold(uint64 serviceId) external view returns (bool useDefault, uint8 threshold);
     
-    /// @dev Get the heartbeat threshold for this blueprint.
-    /// @return The heartbeat threshold percentage (0-100). Returns 0 if heartbeats are disabled.
-    function getHeartbeatThreshold() external view returns (uint8);
-    
-    /// @dev Get the slashing window for this blueprint.
-    /// @return The slashing window in blocks. Returns 0 if heartbeats are disabled.
-    function getSlashingWindow() external view returns (uint64);
-    
-    /// @dev Enable or disable heartbeats for this blueprint.
-    /// @param enabled True to enable heartbeats, false to disable.
-    function setHeartbeatsEnabled(bool enabled) external;
-    
-    /// @dev Set the heartbeat interval for this blueprint.
-    /// @param interval The heartbeat interval in blocks.
-    function setHeartbeatInterval(uint64 interval) external;
-    
-    /// @dev Set the heartbeat threshold for this blueprint.
-    /// @param threshold The heartbeat threshold percentage (0-100).
-    function setHeartbeatThreshold(uint8 threshold) external;
-    
-    /// @dev Set the slashing window for this blueprint.
-    /// @param window The slashing window in blocks.
-    function setSlashingWindow(uint64 window) external;
+    /// @dev Get the slashing window for a service.
+    /// @param serviceId The ID of the service.
+    /// @return useDefault Whether to use the default value.
+    /// @return window The slashing window in blocks.
+    function getSlashingWindow(uint64 serviceId) external view returns (bool useDefault, uint64 window);
 
     /// @dev Hook for service instance requests. Called when a user requests a service
     /// instance from the blueprint but this does not mean the service is initiated yet.
