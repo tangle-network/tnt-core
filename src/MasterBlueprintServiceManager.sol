@@ -317,6 +317,60 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         IBlueprintServiceManager(manager).onUpdateRpcAddress(operator);
         emit RpcAddressUpdated(blueprintId, operator);
     }
+    
+    /// @dev Get the heartbeat interval for a service.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param serviceId The ID of the service.
+    /// @return useDefault Whether to use the default value.
+    /// @return interval The heartbeat interval in blocks.
+    function getHeartbeatInterval(
+        uint64 blueprintId,
+        uint64 serviceId
+    )
+        public
+        view
+        onlyFromRootChain
+        returns (bool useDefault, uint64 interval)
+    {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).getHeartbeatInterval(serviceId);
+    }
+
+    /// @dev Get the heartbeat threshold for a service.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param serviceId The ID of the service.
+    /// @return useDefault Whether to use the default value.
+    /// @return threshold The heartbeat threshold percentage (0-100).
+    function getHeartbeatThreshold(
+        uint64 blueprintId,
+        uint64 serviceId
+    )
+        public
+        view
+        onlyFromRootChain
+        returns (bool useDefault, uint8 threshold)
+    {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).getHeartbeatThreshold(serviceId);
+    }
+
+    /// @dev Get the slashing window for a service.
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @param serviceId The ID of the service.
+    /// @return useDefault Whether to use the default value.
+    /// @return window The slashing window in blocks.
+    function getSlashingWindow(
+        uint64 blueprintId,
+        uint64 serviceId
+    )
+        public
+        view
+        onlyFromRootChain
+        returns (bool useDefault, uint64 window)
+    {
+        address manager = blueprints.get(blueprintId);
+        return IBlueprintServiceManager(manager).getSlashingWindow(serviceId);
+    }
 
     /// @dev Called when a user requests a service instance from the blueprint.
     /// @param blueprintId The blueprint unique identifier.

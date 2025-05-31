@@ -35,6 +35,24 @@ interface IBlueprintServiceManager {
     /// @dev Hook for updating RPC address. Called when an operator updates their RPC address.
     /// @param operator The operator's details with the updated RPC address.
     function onUpdateRpcAddress(ServiceOperators.OperatorPreferences calldata operator) external payable;
+    
+    /// @dev Get the heartbeat interval for a service.
+    /// @param serviceId The ID of the service.
+    /// @return useDefault Whether to use the default value.
+    /// @return interval The heartbeat interval in blocks. 0 means heartbeats are disabled.
+    function getHeartbeatInterval(uint64 serviceId) external view returns (bool useDefault, uint64 interval);
+    
+    /// @dev Get the heartbeat threshold for a service.
+    /// @param serviceId The ID of the service.
+    /// @return useDefault Whether to use the default value.
+    /// @return threshold The heartbeat threshold percentage (0-100).
+    function getHeartbeatThreshold(uint64 serviceId) external view returns (bool useDefault, uint8 threshold);
+    
+    /// @dev Get the slashing window for a service.
+    /// @param serviceId The ID of the service.
+    /// @return useDefault Whether to use the default value.
+    /// @return window The slashing window in blocks.
+    function getSlashingWindow(uint64 serviceId) external view returns (bool useDefault, uint64 window);
 
     /// @dev Hook for service instance requests. Called when a user requests a service
     /// instance from the blueprint but this does not mean the service is initiated yet.

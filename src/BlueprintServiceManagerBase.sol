@@ -59,6 +59,24 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabl
         virtual
         onlyFromMaster
     { }
+    
+    /// @inheritdoc IBlueprintServiceManager
+    function getHeartbeatInterval(uint64 serviceId) external view virtual returns (bool useDefault, uint64 interval) {
+        // Uses the on-chain default interval by default
+        return (true, 0);
+    }
+    
+    /// @inheritdoc IBlueprintServiceManager
+    function getHeartbeatThreshold(uint64 serviceId) external view virtual returns (bool useDefault, uint8 threshold) {
+        // Uses the on-chain default threshold by default
+        return (true, 0);
+    }
+    
+    /// @inheritdoc IBlueprintServiceManager
+    function getSlashingWindow(uint64 serviceId) external view virtual returns (bool useDefault, uint64 window) {
+        // Uses the on-chain default window by default
+        return (true, 0);
+    }
 
     /// @inheritdoc IBlueprintServiceManager
     function onRequest(ServiceOperators.RequestParams calldata params) external payable virtual onlyFromMaster { }
