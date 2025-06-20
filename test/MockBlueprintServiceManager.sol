@@ -6,24 +6,28 @@ import "src/IBlueprintServiceManager.sol";
 
 contract MockBlueprintServiceManager is BlueprintServiceManagerBase {
     // Expose internal functions for testing
-    function permitAsset(uint64 serviceId, Assets.Asset calldata asset) external returns (bool) {
+    function exposePermitAsset(uint64 serviceId, Assets.Asset calldata asset) external returns (bool) {
         return _permitAsset(serviceId, asset);
     }
 
-    function revokeAsset(uint64 serviceId, Assets.Asset calldata asset) external returns (bool) {
+    function exposeRevokeAsset(uint64 serviceId, Assets.Asset calldata asset) external returns (bool) {
         return _revokeAsset(serviceId, asset);
     }
 
-    function clearPermittedAssets(uint64 serviceId) external returns (bool) {
+    function exposeClearPermittedAssets(uint64 serviceId) external returns (bool) {
         return _clearPermittedAssets(serviceId);
     }
 
-    function getPermittedAssetsAsAddresses(uint64 serviceId) external view returns (address[] memory) {
+    function exposeGetPermittedAssetsAsAddresses(uint64 serviceId) external view returns (address[] memory) {
         return _getPermittedAssetsAsAddresses(serviceId);
     }
 
-    function getPermittedAssets(uint64 serviceId) external view returns (Assets.Asset[] memory) {
+    function exposeGetPermittedAssets(uint64 serviceId) external view returns (Assets.Asset[] memory) {
         return _getPermittedAssets(serviceId);
+    }
+
+    function exposeIsAssetPermitted(uint64 serviceId, Assets.Asset calldata asset) external view returns (bool) {
+        return _isAssetPermitted(serviceId, asset);
     }
 
     function setMasterBlueprintServiceManager(address mbsm) external {
@@ -37,7 +41,17 @@ contract MockBlueprintServiceManager is BlueprintServiceManagerBase {
     function setCurrentBlueprintId(uint64 id) external {
         currentBlueprintId = id;
     }
-
+    
+    function exposeTestUnsupportedAssetKind(uint256 invalidKind) external pure {
+        Assets.Asset memory invalidAsset = Assets.Asset({
+            kind: Assets.Kind(invalidKind),
+            data: bytes32(0)
+        });
+        
+        // This should revert with UnsupportedAssetKind
+        Assets.toAddress(invalidAsset);
+    }
+    
     function canJoin(
         uint64 serviceId,
         ServiceOperators.OperatorPreferences calldata operator

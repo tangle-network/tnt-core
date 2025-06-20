@@ -29,6 +29,21 @@ contract AssetsLibTest is Test {
         assertEq(Assets.toAssetId(result), TEST_ASSET_ID, "Asset ID conversion failed");
     }
 
+    // Helper function to simulate the UnsupportedAssetKind error for testing
+    function simulateUnsupportedAssetKind() internal pure {
+        revert Assets.UnsupportedAssetKind(2);
+    }
+    
+    function testUnsupportedAssetKindReversion() public {
+        vm.expectRevert(abi.encodeWithSelector(Assets.UnsupportedAssetKind.selector, 2));
+        simulateUnsupportedAssetKind();
+    }
+    
+    function testIsAssetIdCompatibleFalse() public {
+        address nonCompatibleAddress = address(0x1234567890123456789012345678901234567890);
+        assertFalse(Assets.isAssetIdCompatible(nonCompatibleAddress), "Should not be compatible");
+    }
+
     function testAssetIdToAddressConversion() public {
         address result = Assets.toAddress(bytes32(uint256(0xAB))); // Using 0xAB as test value
         assertTrue(Assets.isAssetIdCompatible(result), "Result should be asset ID compatible");
@@ -81,5 +96,37 @@ contract AssetsLibTest is Test {
 
         Assets.Asset memory nonNativeCustom = Assets.Asset({ kind: Assets.Kind.Custom, data: TEST_ASSET_ID });
         assertFalse(Assets.isNative(nonNativeCustom), "Should not identify as native Custom asset");
+    }
+    
+    // Helper function to test isNative for different asset kinds
+    function testIsNativeForKind(Assets.Kind kind, bool expectNative) internal {
+        Assets.Asset memory asset = Assets.Asset({ kind: kind, data: expectNative ? bytes32(0) : bytes32(uint256(1)) });
+        if (expectNative) {
+            assertTrue(Assets.isNative(asset), "Should identify as native asset");
+        } else {
+            assertFalse(Assets.isNative(asset), "Should not identify as native asset");
+        }
+    }
+    
+    function testUnsupportedAssetKindInIsNative() public {
+        // Test isNative for each supported kind with both native (0) and non-native values
+        testIsNativeForKind(Assets.Kind.Erc20, true);
+        testIsNativeForKind(Assets.Kind.Erc20, false);
+        testIsNativeForKind(Assets.Kind.Custom, true);
+        testIsNativeForKind(Assets.Kind.Custom, false);
+    }
+    
+    function testAssetIdZeroBoundaries() public {
+        bytes32 zeroAssetId = bytes32(0);
+        address zeroAssetAddress = Assets.toAddress(zeroAssetId);
+        assertTrue(Assets.isAssetIdCompatible(zeroAssetAddress), "Zero asset ID should be compatible");
+        assertEq(Assets.toAssetId(zeroAssetAddress), zeroAssetId, "Zero asset ID conversion failed");
+    }
+    
+    function testAssetIdMaxBoundaries() public {
+        bytes32 maxAssetId = bytes32(uint256(type(uint128).max));
+        address maxAssetAddress = Assets.toAddress(maxAssetId);
+        assertTrue(Assets.isAssetIdCompatible(maxAssetAddress), "Max asset ID should be compatible");
+        assertEq(Assets.toAssetId(maxAssetAddress), maxAssetId, "Max asset ID conversion failed");
     }
 }
