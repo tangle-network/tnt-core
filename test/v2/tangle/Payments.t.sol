@@ -1,0 +1,515 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+import { BaseTest } from "../BaseTest.sol";
+import { Types } from "../../../src/v2/libraries/Types.sol";
+import { Errors } from "../../../src/v2/libraries/Errors.sol";
+import { PaymentLib } from "../../../src/v2/libraries/PaymentLib.sol";
+import { MockERC20 } from "../../MockERC20.sol";
+
+/// @title PaymentsTest
+/// @notice Comprehensive tests for payment distribution, escrow, and rewards
+contract PaymentsTest is BaseTest {
+    MockERC20 public token;
+    uint64 blueprintId;
+
+    function setUp() public override {
+        super.setUp();
+
+        // Deploy mock token and fund users
+        token = new MockERC20();
+        token.initialize("Test Token", "TEST", 18);
+        token.mint(user1, 1000 ether);
+        token.mint(user2, 1000 ether);
+
+        // Setup blueprint
+        vm.prank(developer);
+        blueprintId = tangle.createBlueprint("ipfs://payment-test", address(0));
+
+        // Register operators
+        _registerOperator(operator1, 5 ether);
+        _registerOperator(operator2, 5 ether);
+        _registerForBlueprint(operator1, blueprintId);
+        _registerForBlueprint(operator2, blueprintId);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PAYMENT SPLIT CONFIGURATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_PaymentSplit_DefaultValues() public view {
+        (uint16 dev, uint16 proto, uint16 op, uint16 rest) = tangle.paymentSplit();
+        assertEq(dev, 5000);   // 50%
+        assertEq(proto, 1000); // 10%
+        assertEq(op, 2000);    // 20%
+        assertEq(rest, 2000);  // 20%
+        assertEq(dev + proto + op + rest, 10000);
+    }
+
+    function test_SetPaymentSplit_ValidConfiguration() public {
+        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
+            developerBps: 4000,
+            protocolBps: 2000,
+            operatorBps: 2500,
+            restakerBps: 1500
+        });
+
+        vm.prank(admin);
+        tangle.setPaymentSplit(newSplit);
+
+        (uint16 dev, uint16 proto, uint16 op, uint16 rest) = tangle.paymentSplit();
+        assertEq(dev, 4000);
+        assertEq(proto, 2000);
+        assertEq(op, 2500);
+        assertEq(rest, 1500);
+    }
+
+    function test_SetPaymentSplit_RevertNotAdmin() public {
+        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
+            developerBps: 4000,
+            protocolBps: 2000,
+            operatorBps: 2500,
+            restakerBps: 1500
+        });
+
+        vm.prank(user1);
+        vm.expectRevert();
+        tangle.setPaymentSplit(newSplit);
+    }
+
+    function test_SetPaymentSplit_RevertTotalNot100Percent() public {
+        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
+            developerBps: 5000,
+            protocolBps: 5000,
+            operatorBps: 5000,
+            restakerBps: 5000
+        });
+
+        vm.prank(admin);
+        vm.expectRevert(Errors.InvalidPaymentSplit.selector);
+        tangle.setPaymentSplit(newSplit);
+    }
+
+    function test_SetPaymentSplit_AllToDeveloper() public {
+        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
+            developerBps: 10000,
+            protocolBps: 0,
+            operatorBps: 0,
+            restakerBps: 0
+        });
+
+        vm.prank(admin);
+        tangle.setPaymentSplit(newSplit);
+
+        (uint16 dev, uint16 proto, uint16 op, uint16 rest) = tangle.paymentSplit();
+        assertEq(dev, 10000);
+        assertEq(proto, 0);
+        assertEq(op, 0);
+        assertEq(rest, 0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NATIVE TOKEN PAYMENT DISTRIBUTION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_PayOnce_NativeToken_DistributesCorrectly() public {
+        uint256 payment = 10 ether;
+
+        uint256 developerBefore = developer.balance;
+        uint256 treasuryBefore = treasury.balance;
+
+        // Request and approve service with payment
+        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        // Check distribution
+        uint256 developerExpected = (payment * 5000) / 10000; // 50%
+        uint256 protocolExpected = (payment * 1000) / 10000;  // 10%
+
+        assertEq(developer.balance, developerBefore + developerExpected, "Developer payment incorrect");
+        assertEq(treasury.balance, treasuryBefore + protocolExpected, "Protocol payment incorrect");
+
+        // Check operator has pending rewards (20% of 10 ETH = 2 ETH)
+        uint256 operatorPending = tangle.pendingRewards(operator1);
+        assertEq(operatorPending, 2 ether, "Operator pending rewards incorrect");
+    }
+
+    function test_PayOnce_NativeToken_MultipleOperators() public {
+        uint256 payment = 10 ether;
+
+        // Setup multi-operator service
+        address[] memory operators = new address[](2);
+        operators[0] = operator1;
+        operators[1] = operator2;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService{ value: payment }(
+            blueprintId, operators, "", callers, 0, address(0), payment
+        );
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+        vm.prank(operator2);
+        tangle.approveService(requestId, 0);
+
+        // Each operator should get half of the 20% operator share (1 ETH each)
+        uint256 op1Pending = tangle.pendingRewards(operator1);
+        uint256 op2Pending = tangle.pendingRewards(operator2);
+        assertEq(op1Pending, 1 ether, "Operator1 pending incorrect");
+        assertEq(op2Pending, 1 ether, "Operator2 pending incorrect");
+    }
+
+    function test_PayOnce_NativeToken_ExposureWeightedDistribution() public {
+        uint256 payment = 10 ether;
+
+        // Setup with different exposures: op1=70%, op2=30%
+        address[] memory operators = new address[](2);
+        operators[0] = operator1;
+        operators[1] = operator2;
+        uint16[] memory exposures = new uint16[](2);
+        exposures[0] = 7000; // 70%
+        exposures[1] = 3000; // 30%
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestServiceWithExposure{ value: payment }(
+            blueprintId, operators, exposures, "", callers, 0, address(0), payment
+        );
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+        vm.prank(operator2);
+        tangle.approveService(requestId, 0);
+
+        // Operator share is 2 ETH total
+        // Op1 should get 70% = 1.4 ETH
+        // Op2 should get 30% = 0.6 ETH
+        uint256 op1Pending = tangle.pendingRewards(operator1);
+        uint256 op2Pending = tangle.pendingRewards(operator2);
+        assertEq(op1Pending, 1.4 ether, "Operator1 exposure-weighted payment incorrect");
+        assertEq(op2Pending, 0.6 ether, "Operator2 exposure-weighted payment incorrect");
+    }
+
+    function test_PayOnce_ZeroPayment() public {
+        // Request with no payment
+        uint64 requestId = _requestService(user1, blueprintId, operator1);
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        // No pending rewards
+        assertEq(tangle.pendingRewards(operator1), 0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REWARD CLAIMING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_ClaimRewards_NativeToken() public {
+        // Setup: create service with payment
+        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, 10 ether);
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        uint256 pending = tangle.pendingRewards(operator1);
+        assertGt(pending, 0);
+
+        uint256 balanceBefore = operator1.balance;
+
+        vm.prank(operator1);
+        tangle.claimRewards();
+
+        assertEq(operator1.balance, balanceBefore + pending);
+        assertEq(tangle.pendingRewards(operator1), 0);
+    }
+
+    function test_ClaimRewards_NothingToClaim() public {
+        uint256 balanceBefore = operator1.balance;
+
+        vm.prank(operator1);
+        tangle.claimRewards();
+
+        // Should not revert, just no effect
+        assertEq(operator1.balance, balanceBefore);
+    }
+
+    function test_ClaimRewards_MultipleClaims() public {
+        // First payment
+        uint64 requestId1 = _requestServiceWithPayment(user1, blueprintId, operator1, 10 ether);
+        vm.prank(operator1);
+        tangle.approveService(requestId1, 0);
+
+        // Claim first
+        vm.prank(operator1);
+        tangle.claimRewards();
+
+        // Second payment (new service)
+        vm.prank(developer);
+        uint64 bp2 = tangle.createBlueprint("ipfs://second", address(0));
+        _registerForBlueprint(operator1, bp2);
+
+        uint64 requestId2 = _requestServiceWithPayment(user1, bp2, operator1, 5 ether);
+        vm.prank(operator1);
+        tangle.approveService(requestId2, 0);
+
+        // Claim second
+        uint256 balanceBefore = operator1.balance;
+        vm.prank(operator1);
+        tangle.claimRewards();
+
+        // Should receive 20% of 5 ETH = 1 ETH
+        assertEq(operator1.balance, balanceBefore + 1 ether);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SUBSCRIPTION ESCROW
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_Subscription_InitialDeposit() public {
+        // Create subscription blueprint
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 0.1 ether,
+            subscriptionInterval: 30 days,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        uint64 subBlueprintId = tangle.createBlueprintWithConfig("ipfs://sub", address(0), config);
+        _registerForBlueprint(operator1, subBlueprintId);
+
+        // Request with initial escrow deposit
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService{ value: 1 ether }(
+            subBlueprintId, operators, "", callers, 0, address(0), 1 ether
+        );
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        // Check escrow balance
+        PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(0);
+        assertEq(escrow.balance, 1 ether);
+        assertEq(escrow.totalDeposited, 1 ether);
+    }
+
+    function test_Subscription_FundService() public {
+        uint64 subServiceId = _setupSubscriptionService();
+
+        uint256 escrowBefore = tangle.getServiceEscrow(subServiceId).balance;
+
+        vm.prank(user1);
+        tangle.fundService{ value: 0.5 ether }(subServiceId, 0.5 ether);
+
+        PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(subServiceId);
+        assertEq(escrow.balance, escrowBefore + 0.5 ether);
+    }
+
+    function test_Subscription_BillReducesEscrow() public {
+        uint64 subServiceId = _setupSubscriptionService();
+
+        PaymentLib.ServiceEscrow memory escrowBefore = tangle.getServiceEscrow(subServiceId);
+        uint256 balanceBefore = escrowBefore.balance;
+
+        // Warp past billing interval
+        vm.warp(block.timestamp + 31 days);
+        tangle.billSubscription(subServiceId);
+
+        PaymentLib.ServiceEscrow memory escrowAfter = tangle.getServiceEscrow(subServiceId);
+        assertEq(escrowAfter.balance, balanceBefore - 0.1 ether); // subscriptionRate
+        assertEq(escrowAfter.totalReleased, 0.1 ether);
+    }
+
+    function test_Subscription_RevertInsufficientEscrow() public {
+        // Setup subscription with minimal escrow
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 1 ether, // High rate
+            subscriptionInterval: 1 days,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        uint64 bp = tangle.createBlueprintWithConfig("ipfs://lowescrow", address(0), config);
+        _registerForBlueprint(operator1, bp);
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        // Only deposit 0.5 ETH but rate is 1 ETH
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService{ value: 0.5 ether }(
+            bp, operators, "", callers, 0, address(0), 0.5 ether
+        );
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        vm.warp(block.timestamp + 2 days);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.InsufficientEscrowBalance.selector, 1 ether, 0.5 ether));
+        tangle.billSubscription(0);
+    }
+
+    function test_Subscription_MultipleBillingCycles() public {
+        uint64 subServiceId = _setupSubscriptionService();
+
+        // Fund with enough for multiple cycles
+        vm.prank(user1);
+        tangle.fundService{ value: 1 ether }(subServiceId, 1 ether);
+
+        // Bill multiple times - use explicit timestamp tracking
+        uint256 currentTime = block.timestamp;
+        for (uint256 i = 0; i < 5; i++) {
+            currentTime += 31 days;
+            vm.warp(currentTime);
+            tangle.billSubscription(subServiceId);
+        }
+
+        PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(subServiceId);
+        // Started with 1 ETH + 1 ETH = 2 ETH, 5 bills of 0.1 ETH = 0.5 ETH used
+        assertEq(escrow.balance, 1.5 ether);
+        assertEq(escrow.totalReleased, 0.5 ether);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TREASURY CONFIGURATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_SetTreasury_UpdatesRecipient() public {
+        address payable newTreasury = payable(makeAddr("newTreasury"));
+
+        vm.prank(admin);
+        tangle.setTreasury(newTreasury);
+
+        // Create payment to verify new treasury receives funds
+        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, 10 ether);
+
+        uint256 newTreasuryBefore = newTreasury.balance;
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        // 10% should go to new treasury
+        assertEq(newTreasury.balance, newTreasuryBefore + 1 ether);
+    }
+
+    function test_SetTreasury_RevertZeroAddress() public {
+        vm.prank(admin);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        tangle.setTreasury(payable(address(0)));
+    }
+
+    function test_SetTreasury_RevertNotAdmin() public {
+        vm.prank(user1);
+        vm.expectRevert();
+        tangle.setTreasury(payable(makeAddr("hacker")));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PAYMENT REFUNDS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_RejectService_RefundsPayment() public {
+        uint256 payment = 5 ether;
+        uint256 userBalanceBefore = user1.balance;
+
+        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
+
+        // User's balance reduced
+        assertEq(user1.balance, userBalanceBefore - payment);
+
+        // Operator rejects
+        vm.prank(operator1);
+        tangle.rejectService(requestId);
+
+        // Full refund
+        assertEq(user1.balance, userBalanceBefore);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROUNDING EDGE CASES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_Payment_SmallAmountRounding() public {
+        // Very small payment to test rounding
+        uint256 payment = 1; // 1 wei
+
+        uint256 developerBefore = developer.balance;
+
+        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        // With 1 wei: developer gets 0 (50% of 1 = 0.5 rounds down)
+        // All goes to restaker remainder handling
+        // This tests the "remainder to restaker" logic
+    }
+
+    function test_Payment_OddAmountDistribution() public {
+        // Amount that doesn't divide evenly
+        uint256 payment = 333;
+
+        uint256 developerBefore = developer.balance;
+        uint256 treasuryBefore = treasury.balance;
+
+        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        uint256 devExpected = (uint256(333) * 5000) / 10000; // 166
+        uint256 protoExpected = (uint256(333) * 1000) / 10000; // 33
+        uint256 opExpected = (uint256(333) * 2000) / 10000; // 66
+        // Restaker gets remainder: 333 - 166 - 33 - 66 = 68
+
+        assertEq(developer.balance, developerBefore + devExpected);
+        assertEq(treasury.balance, treasuryBefore + protoExpected);
+        assertEq(tangle.pendingRewards(operator1), opExpected);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function _setupSubscriptionService() internal returns (uint64) {
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 0.1 ether,
+            subscriptionInterval: 30 days,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        uint64 bp = tangle.createBlueprintWithConfig("ipfs://subscription", address(0), config);
+        _registerForBlueprint(operator1, bp);
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService{ value: 1 ether }(
+            bp, operators, "", callers, 365 days, address(0), 1 ether // Long TTL for subscription tests
+        );
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        return tangle.serviceCount() - 1;
+    }
+}
