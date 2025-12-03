@@ -1,0 +1,426 @@
+# Tangle Governance
+
+## Architecture
+
+```
+TNT Token (ERC20Votes)
+       ↓
+TangleGovernor
+       ↓
+TangleTimelock (holds protocol roles)
+       ↓
+Tangle.sol / MultiAssetDelegation.sol
+```
+
+## Contracts
+
+| Contract | Path | Purpose |
+|----------|------|---------|
+| TangleToken | `src/v2/governance/TangleToken.sol` | TNT governance token with ERC20Votes |
+| TangleGovernor | `src/v2/governance/TangleGovernor.sol` | On-chain voting and proposal management |
+| TangleTimelock | `src/v2/governance/TangleTimelock.sol` | Execution delay, holds protocol roles |
+| GovernanceDeployer | `src/v2/governance/GovernanceDeployer.sol` | Deployment helper |
+
+## Parameters
+
+### Mainnet (Recommended)
+
+| Parameter | Value |
+|-----------|-------|
+| Initial Supply | 50M TNT |
+| Max Supply | 100M TNT |
+| Timelock Delay | 2 days |
+| Voting Delay | 7200 blocks (~1 day) |
+| Voting Period | 50400 blocks (~1 week) |
+| Proposal Threshold | 100,000 TNT |
+| Quorum | 4% of supply |
+
+### Testnet
+
+| Parameter | Value |
+|-----------|-------|
+| Timelock Delay | 1 day |
+| Voting Delay | 100 blocks |
+| Voting Period | 1000 blocks |
+| Proposal Threshold | 1,000 TNT |
+| Quorum | 1% |
+
+## Roles & Powers
+
+### Role Hierarchy
+
+`DEFAULT_ADMIN_ROLE` (bytes32(0)) is the root role on all contracts. Whoever holds this role can:
+- Grant any role to any address
+- Revoke any role from any address
+- Transfer the DEFAULT_ADMIN_ROLE itself
+
+For full decentralization, governance (timelock) should hold DEFAULT_ADMIN_ROLE on all contracts.
+
+### Tangle.sol
+
+| Role | Controls |
+|------|----------|
+| DEFAULT_ADMIN_ROLE | Grant/revoke all roles |
+| ADMIN_ROLE | `setPaymentSplit()`, `setTreasury()`, `setSlashConfig()` |
+| PAUSER_ROLE | `pause()`, `unpause()` |
+| UPGRADER_ROLE | UUPS contract upgrades |
+| SLASH_ADMIN_ROLE | `cancelSlash()`, `disputeSlash()` override |
+
+### MultiAssetDelegation.sol
+
+| Role | Controls |
+|------|----------|
+| DEFAULT_ADMIN_ROLE | Grant/revoke all roles |
+| ADMIN_ROLE | `addSlasher()`, `removeSlasher()`, `setOperatorCommission()`, `setDelays()`, `pause()`, `unpause()`, upgrades |
+| ASSET_MANAGER_ROLE | `enableAsset()`, `disableAsset()` - controls which tokens can be staked/used for payments |
+| SLASHER_ROLE | `slash()` execution |
+
+### TangleToken.sol
+
+| Role | Controls |
+|------|----------|
+| DEFAULT_ADMIN_ROLE | Grant/revoke all roles |
+| MINTER_ROLE | `mint()` (capped at 100M) |
+| UPGRADER_ROLE | UUPS contract upgrades |
+
+## Deployment
+
+```solidity
+GovernanceDeployer deployer = new GovernanceDeployer();
+
+GovernanceDeployer.DeployParams memory params = deployer.getDefaultMainnetParams(admin);
+// or: deployer.getDefaultTestnetParams(admin);
+
+GovernanceDeployer.DeployedContracts memory c = deployer.deployGovernance(params);
+// c.token, c.timelock, c.governor
+```
+
+## Role Transfer to Governance
+
+### Using GovernanceDeployer (Recommended)
+
+```solidity
+GovernanceDeployer deployer = new GovernanceDeployer();
+
+// Get all roles for each contract (includes DEFAULT_ADMIN_ROLE)
+bytes32[] memory tangleRoles = deployer.getTangleRoles();
+bytes32[] memory madRoles = deployer.getMultiAssetDelegationRoles();
+bytes32[] memory tokenRoles = deployer.getTokenRoles();
+
+// Full transfer with optional revocation from original admin
+deployer.transferFullControl(timelock, address(tangle), tangleRoles, admin);
+deployer.transferFullControl(timelock, address(multiAssetDelegation), madRoles, admin);
+deployer.transferFullControl(timelock, address(tangleToken), tokenRoles, admin);
+```
+
+### Manual Transfer
+
+```solidity
+bytes32 DEFAULT_ADMIN = bytes32(0);
+
+// Grant DEFAULT_ADMIN_ROLE first (enables role management)
+tangle.grantRole(DEFAULT_ADMIN, timelock);
+multiAssetDelegation.grantRole(DEFAULT_ADMIN, timelock);
+tangleToken.grantRole(DEFAULT_ADMIN, timelock);
+
+// Grant operational roles
+tangle.grantRole(keccak256("ADMIN_ROLE"), timelock);
+tangle.grantRole(keccak256("PAUSER_ROLE"), timelock);
+tangle.grantRole(keccak256("UPGRADER_ROLE"), timelock);
+tangle.grantRole(keccak256("SLASH_ADMIN_ROLE"), timelock);
+
+multiAssetDelegation.grantRole(keccak256("ADMIN_ROLE"), timelock);
+multiAssetDelegation.grantRole(keccak256("ASSET_MANAGER_ROLE"), timelock);
+
+tangleToken.grantRole(keccak256("MINTER_ROLE"), timelock);
+tangleToken.grantRole(keccak256("UPGRADER_ROLE"), timelock);
+
+// Revoke from admin for full decentralization (optional)
+tangle.renounceRole(DEFAULT_ADMIN, admin);
+// ... etc
+```
+
+### Governance-Managed Role Assignment
+
+Once timelock has DEFAULT_ADMIN_ROLE, governance can assign roles via proposals:
+
+```solidity
+// Proposal to grant ASSET_MANAGER_ROLE to a new address
+targets[0] = address(multiAssetDelegation);
+calldatas[0] = abi.encodeCall(
+    IAccessControl.grantRole,
+    (keccak256("ASSET_MANAGER_ROLE"), newAssetManager)
+);
+governor.propose(targets, values, calldatas, "Grant ASSET_MANAGER to newAssetManager");
+```
+
+## Proposal Lifecycle
+
+1. **Propose** - Holder with ≥threshold tokens creates proposal
+2. **Delay** - Wait `votingDelay` blocks
+3. **Vote** - `votingPeriod` blocks to vote (For/Against/Abstain)
+4. **Succeed/Defeat** - Passes if For > Against AND quorum met
+5. **Queue** - Successful proposals queued in timelock
+6. **Wait** - `timelockDelay` before execution
+7. **Execute** - Anyone can execute after delay
+
+## Voting
+
+```solidity
+// Delegate to self (required to vote)
+token.delegate(msg.sender);
+
+// Vote on proposal
+governor.castVote(proposalId, 1); // 0=Against, 1=For, 2=Abstain
+
+// Vote with reason
+governor.castVoteWithReason(proposalId, 1, "Reason here");
+```
+
+## Creating Proposals
+
+```solidity
+address[] memory targets = new address[](1);
+uint256[] memory values = new uint256[](1);
+bytes[] memory calldatas = new bytes[](1);
+
+targets[0] = address(tangle);
+values[0] = 0;
+calldatas[0] = abi.encodeCall(tangle.setTreasury, (newTreasury));
+
+uint256 proposalId = governor.propose(targets, values, calldatas, "Update treasury");
+```
+
+## Executing Proposals
+
+```solidity
+bytes32 descHash = keccak256(bytes("Update treasury"));
+
+// After voting succeeds
+governor.queue(targets, values, calldatas, descHash);
+
+// After timelock delay
+governor.execute(targets, values, calldatas, descHash);
+```
+
+## Emergency Actions
+
+Timelock can be bypassed only if admin roles are retained separately. For full decentralization, all admin roles should be held exclusively by the timelock.
+
+For emergency response with decentralized governance:
+1. Create expedited proposal
+2. Rally community vote
+3. Wait minimum timelock delay (1 day minimum)
+
+## Upgrading Governance
+
+Governor and Timelock are UUPS upgradeable:
+- Governor upgrades require governance approval (`onlyGovernance`)
+- Timelock upgrades require self-call (via governance proposal)
+- Token upgrades require UPGRADER_ROLE
+
+## Multi-Asset Management
+
+Governance controls which assets can be used for staking and payments via `ASSET_MANAGER_ROLE`.
+
+### Enabling New Assets
+
+```solidity
+// Proposal to enable a new ERC20 for staking
+targets[0] = address(multiAssetDelegation);
+calldatas[0] = abi.encodeCall(
+    MultiAssetDelegation.enableAsset,
+    (
+        newTokenAddress,
+        1000 ether,  // minOperatorStake
+        100 ether,   // minDelegation
+        0,           // depositCap (0 = unlimited)
+        10000        // rewardMultiplierBps (100% = 10000)
+    )
+);
+governor.propose(targets, values, calldatas, "Enable NEW_TOKEN for staking");
+```
+
+### Disabling Assets
+
+```solidity
+targets[0] = address(multiAssetDelegation);
+calldatas[0] = abi.encodeCall(
+    MultiAssetDelegation.disableAsset,
+    (tokenAddress)
+);
+```
+
+### TNT as Primary Token
+
+TNT (governance token) can be enabled as a staking asset, making it the primary token in the ecosystem:
+
+```solidity
+// Enable TNT for staking with favorable parameters
+multiAssetDelegation.enableAsset(
+    address(tangleToken),
+    10000 * 1e18,  // 10k TNT min operator stake
+    1000 * 1e18,   // 1k TNT min delegation
+    0,             // no cap
+    12000          // 120% reward multiplier (bonus for TNT stakers)
+);
+```
+
+## TNT Incentives (Rewards System)
+
+Separate from payment distribution, TNT incentives are minted as inflation to reward protocol participants.
+
+### Architecture
+
+```
+TangleMetrics (lightweight recorder)
+       ↓ records events
+RewardVaults (calculates & distributes TNT)
+       ↓ mints via MINTER_ROLE
+TangleToken
+```
+
+### Contracts
+
+| Contract | Path | Purpose |
+|----------|------|---------|
+| TangleMetrics | `src/v2/rewards/TangleMetrics.sol` | Records protocol activity events |
+| RewardVaults | `src/v2/rewards/RewardVaults.sol` | Vault-based reward distribution |
+
+### Reward Triggers
+
+- **Staking/Delegation**: Time-weighted rewards based on stake amount and lock duration
+- **Operator Activity**: Heartbeats, job completion, service uptime
+- **Service Usage**: Fees paid, jobs called, services created
+- **Lock Multipliers**: 1.0x (no lock) → 1.6x (6 months)
+
+### Vault Configuration
+
+Each asset has its own reward vault with configurable parameters:
+
+```solidity
+vaults.createVault(
+    address(token),     // Asset address
+    500,                // 5% APY (basis points)
+    1_000_000 ether,    // Deposit cap (rewards only on this amount)
+    100_000 ether,      // Max rewards distributable
+    10000               // Boost multiplier (10000 = 1x)
+);
+```
+
+### Utilization-Based Rewards
+
+Deposit cap limits reward distribution:
+- 10% utilized = 10% of max rewards distributed
+- Prevents over-rewarding under-utilized vaults
+
+### Operator Commission
+
+Operators earn commission on delegator rewards (default 15%):
+
+```solidity
+vaults.setOperatorCommission(1500); // 15%
+```
+
+### Claiming Rewards
+
+```solidity
+// Delegators claim their share from operator pool
+vaults.claimDelegatorRewards(asset, operator);
+
+// Operators claim their commission
+vaults.claimOperatorCommission(asset);
+```
+
+### Governance Controls
+
+| Function | Role | Purpose |
+|----------|------|---------|
+| `createVault()` | ADMIN_ROLE | Create new reward vault |
+| `updateVaultConfig()` | ADMIN_ROLE | Modify APY, caps |
+| `deactivateVault()` | ADMIN_ROLE | Stop new deposits |
+| `setOperatorCommission()` | ADMIN_ROLE | Change commission rate |
+| `setDecayConfig()` | ADMIN_ROLE | Set reward decay |
+
+### Integration with Core Contracts
+
+Tangle.sol has optional metrics recording via `setMetricsRecorder()`:
+
+```solidity
+tangle.setMetricsRecorder(address(metrics));
+metrics.grantRecorderRole(address(tangle));
+```
+
+Events recorded:
+- Service creation/termination
+- Job calls/completions
+- Payments
+- Blueprint creation
+- Operator registrations
+- Slashing
+
+## Inflation Targeting
+
+The InflationController enables precise control over TNT inflation with configurable distribution.
+
+### Configuration
+
+```solidity
+controller.setInflationRate(100);  // 1% yearly inflation
+
+controller.setWeights(
+    6000,   // 60% to stakers
+    2500,   // 25% to operators
+    1500    // 15% to customers
+);
+
+controller.setEpochLength(50400);  // ~1 week distribution cycles
+```
+
+### Inflation Budget
+
+With 50M TNT supply and 1% inflation:
+- **Yearly budget**: 500,000 TNT
+- **Epoch budget**: ~9,600 TNT (at weekly epochs)
+
+Budget is enforced per-year and resets automatically.
+
+### Distribution Categories
+
+| Category | Default | Metric Basis |
+|----------|---------|--------------|
+| Stakers | 60% | Vault deposits, lock multipliers |
+| Operators | 25% | Jobs completed × stake, heartbeats |
+| Customers | 15% | Fees paid, services used |
+
+### Epoch Distribution
+
+```solidity
+// Anyone can trigger when epoch is ready
+if (controller.isEpochReady()) {
+    controller.distributeEpoch();
+}
+
+// Claim rewards
+controller.claimOperatorRewards();
+controller.claimCustomerRewards();
+```
+
+### Governance Controls
+
+| Function | Role | Purpose |
+|----------|------|---------|
+| `setInflationRate()` | ADMIN_ROLE | Change yearly inflation (max 10%) |
+| `setWeights()` | ADMIN_ROLE | Adjust distribution weights |
+| `setEpochLength()` | ADMIN_ROLE | Change distribution frequency |
+
+## Security Considerations
+
+1. **Timelock Delay**: Minimum 1 day gives users time to exit
+2. **Quorum**: 4% prevents low-turnout attacks
+3. **Proposal Threshold**: 100k TNT prevents spam
+4. **Role Separation**: Different roles for different powers
+5. **No Admin Backdoor**: Once roles transferred, only governance controls protocol
+6. **Asset Vetting**: ASSET_MANAGER_ROLE should vet tokens before enabling (check for reentrancy, fee-on-transfer, etc.)
+7. **Inflation Cap**: Yearly budget enforced, max 10% inflation rate
+8. **Merit-Based**: Operator rewards weighted by stake to prevent gaming
