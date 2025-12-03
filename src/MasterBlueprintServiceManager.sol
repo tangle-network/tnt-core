@@ -281,6 +281,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         whenNotPaused
     {
         address manager = blueprints.get(blueprintId);
+        require(manager != address(0), "Invalid blueprint");
         IBlueprintServiceManager(manager).onRegister(operator, registrationInputs);
         emit OperatorRegistered(blueprintId, operator);
     }
@@ -316,6 +317,13 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         address manager = blueprints.get(blueprintId);
         IBlueprintServiceManager(manager).onUpdateRpcAddress(operator);
         emit RpcAddressUpdated(blueprintId, operator);
+    }
+
+    /// @dev Get the blueprint manager address
+    /// @param blueprintId The unique identifier of the blueprint.
+    /// @return the blueprint manager address
+    function getManagerAddress(uint64 blueprintId) public view returns (address manager) {
+        manager = blueprints.get(blueprintId);
     }
     
     /// @dev Get the heartbeat interval for a service.
