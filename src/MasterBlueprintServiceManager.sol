@@ -261,6 +261,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
         onlyFromRootChain
         whenNotPaused
     {
+        require(blueprint.manager != address(0), "Invalid blueprint");
         blueprints.set(blueprintId, blueprint.manager);
         blueprintOwners.set(blueprintId, owner);
         emit BlueprintCreated(owner, blueprintId, blueprint);
