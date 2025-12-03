@@ -321,7 +321,7 @@ contract MasterBlueprintServiceManager is RootChainEnabled, AccessControl, Pausa
 
     /// @dev Get the blueprint manager address
     /// @param blueprintId The unique identifier of the blueprint.
-    /// @return the blueprint manager address
+    /// @return manager The blueprint manager address
     function getManagerAddress(uint64 blueprintId) public view returns (address manager) {
         manager = blueprints.get(blueprintId);
     }
