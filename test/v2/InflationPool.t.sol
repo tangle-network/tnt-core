@@ -85,10 +85,11 @@ contract InflationPoolTest is Test {
         assertEq(pool.currentEpoch(), 1);
         assertEq(pool.poolBalance(), POOL_FUNDING);
 
-        (uint16 staking, uint16 operators, uint16 customers) = pool.getWeights();
-        assertEq(staking, 6000);
+        (uint16 staking, uint16 operators, uint16 customers, uint16 developers) = pool.getWeights();
+        assertEq(staking, 5000);
         assertEq(operators, 2500);
-        assertEq(customers, 1500);
+        assertEq(customers, 1000);
+        assertEq(developers, 1500);
     }
 
     function test_PoolBalance() public view {
@@ -132,18 +133,19 @@ contract InflationPoolTest is Test {
 
     function test_SetWeights() public {
         vm.prank(admin);
-        pool.setWeights(5000, 3000, 2000);
+        pool.setWeights(4000, 3000, 2000, 1000);
 
-        (uint16 staking, uint16 operators, uint16 customers) = pool.getWeights();
-        assertEq(staking, 5000);
+        (uint16 staking, uint16 operators, uint16 customers, uint16 developers) = pool.getWeights();
+        assertEq(staking, 4000);
         assertEq(operators, 3000);
         assertEq(customers, 2000);
+        assertEq(developers, 1000);
     }
 
     function test_SetWeights_RevertInvalid() public {
         vm.prank(admin);
         vm.expectRevert(InflationPool.InvalidWeights.selector);
-        pool.setWeights(5000, 3000, 1000); // Doesn't sum to 10000
+        pool.setWeights(5000, 3000, 1000, 500); // Doesn't sum to 10000
     }
 
     function test_SetEpochLength() public {

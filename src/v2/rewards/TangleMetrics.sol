@@ -149,6 +149,40 @@ contract TangleMetrics is
     uint256 public totalPaymentsRecorded;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT & DEVELOPER AGGREGATES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Blueprint developer mapping
+    mapping(uint64 => address) public blueprintDeveloper;
+
+    /// @notice Number of services created per blueprint
+    mapping(uint64 => uint256) public blueprintServiceCount;
+
+    /// @notice Number of jobs completed per blueprint
+    mapping(uint64 => uint256) public blueprintJobCount;
+
+    /// @notice Number of operators registered per blueprint
+    mapping(uint64 => uint256) public blueprintOperatorCount;
+
+    /// @notice Total fees earned by blueprint (across all services)
+    mapping(uint64 => uint256) public blueprintTotalFees;
+
+    /// @notice Number of blueprints created by developer
+    mapping(address => uint256) public developerBlueprintCount;
+
+    /// @notice Total services across all developer's blueprints
+    mapping(address => uint256) public developerTotalServices;
+
+    /// @notice Total jobs across all developer's blueprints
+    mapping(address => uint256) public developerTotalJobs;
+
+    /// @notice Total fees earned by developer (across all blueprints)
+    mapping(address => uint256) public developerTotalFees;
+
+    /// @notice Service to blueprint mapping (for lookups)
+    mapping(uint64 => uint64) public serviceBlueprintId;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -270,6 +304,18 @@ contract TangleMetrics is
     ) external onlyRole(RECORDER_ROLE) {
         totalServicesCreated++;
 
+        // Track service to blueprint mapping
+        serviceBlueprintId[serviceId] = blueprintId;
+
+        // Update blueprint metrics
+        blueprintServiceCount[blueprintId]++;
+
+        // Update developer metrics
+        address developer = blueprintDeveloper[blueprintId];
+        if (developer != address(0)) {
+            developerTotalServices[developer]++;
+        }
+
         emit ServiceCreated(serviceId, blueprintId, owner, operatorCount, block.timestamp);
     }
 
@@ -289,6 +335,17 @@ contract TangleMetrics is
     ) external onlyRole(RECORDER_ROLE) {
         totalJobsCalled++;
 
+        // Update blueprint and developer job counts
+        uint64 blueprintId = serviceBlueprintId[serviceId];
+        if (blueprintId != 0) {
+            blueprintJobCount[blueprintId]++;
+
+            address developer = blueprintDeveloper[blueprintId];
+            if (developer != address(0)) {
+                developerTotalJobs[developer]++;
+            }
+        }
+
         emit JobCalled(serviceId, caller, jobCallId, block.timestamp);
     }
 
@@ -306,6 +363,17 @@ contract TangleMetrics is
         totalFeesPaid[payer] += amount;
         totalPaymentsRecorded++;
 
+        // Update blueprint and developer fee totals
+        uint64 blueprintId = serviceBlueprintId[serviceId];
+        if (blueprintId != 0) {
+            blueprintTotalFees[blueprintId] += amount;
+
+            address developer = blueprintDeveloper[blueprintId];
+            if (developer != address(0)) {
+                developerTotalFees[developer] += amount;
+            }
+        }
+
         emit PaymentRecorded(payer, serviceId, token, amount, block.timestamp);
     }
 
@@ -318,6 +386,12 @@ contract TangleMetrics is
         uint64 blueprintId,
         address developer
     ) external onlyRole(RECORDER_ROLE) {
+        // Store blueprint developer
+        blueprintDeveloper[blueprintId] = developer;
+
+        // Increment developer's blueprint count
+        developerBlueprintCount[developer]++;
+
         emit BlueprintCreated(blueprintId, developer, block.timestamp);
     }
 
@@ -326,6 +400,9 @@ contract TangleMetrics is
         uint64 blueprintId,
         address operator
     ) external onlyRole(RECORDER_ROLE) {
+        // Increment operator count for this blueprint
+        blueprintOperatorCount[blueprintId]++;
+
         emit BlueprintRegistration(blueprintId, operator, block.timestamp);
     }
 
@@ -345,6 +422,49 @@ contract TangleMetrics is
     /// @param maxAge Maximum age in seconds
     function isHeartbeatRecent(address operator, uint256 maxAge) external view returns (bool) {
         return block.timestamp - operatorLastHeartbeat[operator] <= maxAge;
+    }
+
+    /// @notice Get blueprint stats
+    /// @param blueprintId The blueprint ID
+    /// @return developer The developer address
+    /// @return serviceCount Number of services created
+    /// @return jobCount Number of jobs completed
+    /// @return operatorCount Number of operators registered
+    /// @return totalFees Total fees earned
+    function getBlueprintStats(uint64 blueprintId) external view returns (
+        address developer,
+        uint256 serviceCount,
+        uint256 jobCount,
+        uint256 operatorCount,
+        uint256 totalFees
+    ) {
+        return (
+            blueprintDeveloper[blueprintId],
+            blueprintServiceCount[blueprintId],
+            blueprintJobCount[blueprintId],
+            blueprintOperatorCount[blueprintId],
+            blueprintTotalFees[blueprintId]
+        );
+    }
+
+    /// @notice Get developer stats
+    /// @param developer The developer address
+    /// @return blueprintCount Number of blueprints created
+    /// @return serviceCount Total services across all blueprints
+    /// @return jobCount Total jobs across all blueprints
+    /// @return totalFees Total fees earned across all blueprints
+    function getDeveloperStats(address developer) external view returns (
+        uint256 blueprintCount,
+        uint256 serviceCount,
+        uint256 jobCount,
+        uint256 totalFees
+    ) {
+        return (
+            developerBlueprintCount[developer],
+            developerTotalServices[developer],
+            developerTotalJobs[developer],
+            developerTotalFees[developer]
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
