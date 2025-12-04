@@ -472,4 +472,70 @@ contract BeaconChainProofsTest is BeaconTestBase {
 
         assertTrue(ValidatorTypes.hasValidPrefix(credentials), "Should have valid prefix");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PECTRA 0x02 CREDENTIAL TESTS (EIP-7251)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_hasValidPrefix_02_Valid() public pure {
+        bytes32 pectraCreds = ValidatorTypes.computeWithdrawalCredentials02(address(0x5678));
+        assertTrue(ValidatorTypes.hasValidPrefix(pectraCreds), "Should accept 0x02 prefix");
+        assertTrue(ValidatorTypes.has02Prefix(pectraCreds), "Should detect 0x02 prefix");
+        assertFalse(ValidatorTypes.has01Prefix(pectraCreds), "Should not be 0x01 prefix");
+    }
+
+    function test_computeWithdrawalCredentials02() public pure {
+        address addr = address(0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF);
+        bytes32 creds = ValidatorTypes.computeWithdrawalCredentials02(addr);
+
+        // First byte should be 0x02
+        assertEq(bytes1(creds), bytes1(0x02), "First byte should be 0x02");
+
+        // Should be able to extract address back
+        address extracted = ValidatorTypes.getAddressFromCredentials(creds);
+        assertEq(extracted, addr, "Extracted address should match");
+    }
+
+    function test_computeWithdrawalCredentials02_Fuzz(address addr) public pure {
+        bytes32 creds = ValidatorTypes.computeWithdrawalCredentials02(addr);
+
+        assertTrue(ValidatorTypes.hasValidPrefix(creds), "Should have valid prefix");
+        assertTrue(ValidatorTypes.has02Prefix(creds), "Should have 0x02 prefix");
+
+        address extracted = ValidatorTypes.getAddressFromCredentials(creds);
+        assertEq(extracted, addr, "Extracted address should match");
+    }
+
+    function test_has01Prefix() public pure {
+        bytes32 creds01 = ValidatorTypes.computeWithdrawalCredentials(address(0x1234));
+        assertTrue(ValidatorTypes.has01Prefix(creds01), "Should detect 0x01 prefix");
+        assertFalse(ValidatorTypes.has02Prefix(creds01), "Should not be 0x02 prefix");
+    }
+
+    function test_hasValidPrefix_Both01And02() public pure {
+        address addr = address(0xABCD);
+
+        bytes32 creds01 = ValidatorTypes.computeWithdrawalCredentials(addr);
+        bytes32 creds02 = ValidatorTypes.computeWithdrawalCredentials02(addr);
+
+        // Both should be valid
+        assertTrue(ValidatorTypes.hasValidPrefix(creds01), "0x01 should be valid");
+        assertTrue(ValidatorTypes.hasValidPrefix(creds02), "0x02 should be valid");
+
+        // They should be different
+        assertTrue(creds01 != creds02, "0x01 and 0x02 creds should differ");
+
+        // Both should extract to same address
+        assertEq(
+            ValidatorTypes.getAddressFromCredentials(creds01),
+            ValidatorTypes.getAddressFromCredentials(creds02),
+            "Should extract to same address"
+        );
+    }
+
+    function test_hasValidPrefix_Invalid_0x03() public pure {
+        // Test that 0x03 prefix is invalid
+        bytes32 invalidCreds = bytes32(uint256(0x03) << 248 | uint256(uint160(0x1234)));
+        assertFalse(ValidatorTypes.hasValidPrefix(invalidCreds), "0x03 prefix should be invalid");
+    }
 }

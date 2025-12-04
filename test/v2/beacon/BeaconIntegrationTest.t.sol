@@ -290,8 +290,8 @@ contract BeaconIntegrationTest is BeaconTestBase {
         uint256 gasUsed = gasBefore - gasleft();
 
         console2.log("Gas used for createPod:", gasUsed);
-        // Pod creation deploys a new contract, so ~1.7M gas is expected
-        assertTrue(gasUsed < 2_000_000, "Pod creation should use less than 2M gas");
+        // Pod creation deploys a new contract, ~2.1M gas with ELIP-004 slashing factor
+        assertTrue(gasUsed < 2_200_000, "Pod creation should use less than 2.2M gas");
     }
 
     function test_gas_registerOperator() public {

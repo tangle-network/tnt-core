@@ -394,4 +394,228 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         podManager.notifyRewardForBlueprint(operator1, 1, 1, 1 ether);
         // If we got here without reverting, the test passes
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WITHDRAWAL QUEUE TESTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_queueWithdrawal_Success() public {
+        // Create pod and record shares
+        vm.prank(podOwner1);
+        address podAddr = podManager.createPod();
+
+        vm.prank(podAddr);
+        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+
+        // Queue withdrawal
+        vm.prank(podOwner1);
+        bytes32 withdrawalRoot = podManager.queueWithdrawal(10 ether);
+
+        assertTrue(withdrawalRoot != bytes32(0), "Withdrawal root should be generated");
+        assertEq(podManager.queuedShares(podOwner1), 10 ether, "Queued shares should be tracked");
+
+        // Check withdrawal info
+        (address staker, uint256 shares, uint32 startBlock, bool completed, bool canComplete) =
+            podManager.getWithdrawalInfo(withdrawalRoot);
+
+        assertEq(staker, podOwner1, "Staker should match");
+        assertEq(shares, 10 ether, "Shares should match");
+        assertEq(startBlock, block.number, "Start block should match");
+        assertFalse(completed, "Should not be completed");
+        assertFalse(canComplete, "Should not be able to complete yet");
+    }
+
+    function test_queueWithdrawal_ZeroAmount() public {
+        vm.prank(podOwner1);
+        podManager.createPod();
+
+        vm.prank(podOwner1);
+        vm.expectRevert(ValidatorPodManager.ZeroAmount.selector);
+        podManager.queueWithdrawal(0);
+    }
+
+    function test_queueWithdrawal_InsufficientShares() public {
+        vm.prank(podOwner1);
+        address podAddr = podManager.createPod();
+
+        // Only have 10 ETH shares
+        vm.prank(podAddr);
+        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 10 ether);
+
+        // Try to queue more than available
+        vm.prank(podOwner1);
+        vm.expectRevert(ValidatorPodManager.InsufficientShares.selector);
+        podManager.queueWithdrawal(20 ether);
+    }
+
+    function test_queueWithdrawal_HasPendingDelegations() public {
+        _registerOperator(operator1, MIN_OPERATOR_STAKE);
+
+        vm.prank(podOwner1);
+        address podAddr = podManager.createPod();
+
+        vm.prank(podAddr);
+        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+
+        // Delegate some shares
+        vm.prank(podOwner1);
+        podManager.delegateTo(operator1, 16 ether);
+
+        // Try to queue withdrawal while delegated
+        vm.prank(podOwner1);
+        vm.expectRevert(ValidatorPodManager.HasPendingDelegations.selector);
+        podManager.queueWithdrawal(10 ether);
+    }
+
+    function test_queueWithdrawal_MultipleQueued() public {
+        vm.prank(podOwner1);
+        address podAddr = podManager.createPod();
+
+        vm.prank(podAddr);
+        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+
+        // Queue multiple withdrawals
+        vm.prank(podOwner1);
+        bytes32 root1 = podManager.queueWithdrawal(10 ether);
+
+        vm.prank(podOwner1);
+        bytes32 root2 = podManager.queueWithdrawal(10 ether);
+
+        assertTrue(root1 != root2, "Withdrawal roots should be unique");
+        assertEq(podManager.queuedShares(podOwner1), 20 ether, "Total queued should be sum");
+
+        // Should not be able to queue more than remaining
+        vm.prank(podOwner1);
+        vm.expectRevert(ValidatorPodManager.InsufficientShares.selector);
+        podManager.queueWithdrawal(15 ether); // Only 12 ETH remaining
+    }
+
+    function test_completeWithdrawal_Success() public {
+        vm.prank(podOwner1);
+        address podAddr = podManager.createPod();
+
+        vm.prank(podAddr);
+        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+
+        // Fund the pod with actual ETH
+        vm.deal(podAddr, 32 ether);
+
+        // Queue withdrawal
+        vm.prank(podOwner1);
+        bytes32 withdrawalRoot = podManager.queueWithdrawal(10 ether);
+
+        // Advance past delay
+        vm.roll(block.number + podManager.withdrawalDelayBlocks() + 1);
+
+        // Check can complete
+        (, , , , bool canComplete) = podManager.getWithdrawalInfo(withdrawalRoot);
+        assertTrue(canComplete, "Should be able to complete now");
+
+        uint256 balanceBefore = podOwner1.balance;
+
+        // Complete withdrawal
+        vm.prank(podOwner1);
+        podManager.completeWithdrawal(withdrawalRoot);
+
+        // Verify completion
+        (, , , bool completed, ) = podManager.getWithdrawalInfo(withdrawalRoot);
+        assertTrue(completed, "Should be completed");
+
+        assertEq(podOwner1.balance, balanceBefore + 10 ether, "ETH should be transferred");
+        assertEq(podManager.queuedShares(podOwner1), 0, "Queued shares should be cleared");
+        assertEq(podManager.getShares(podOwner1), 22 ether, "Remaining shares should be reduced");
+    }
+
+    function test_completeWithdrawal_NotFound() public {
+        bytes32 fakeRoot = keccak256("fake");
+
+        vm.prank(podOwner1);
+        vm.expectRevert(ValidatorPodManager.WithdrawalNotFound.selector);
+        podManager.completeWithdrawal(fakeRoot);
+    }
+
+    function test_completeWithdrawal_NotReady() public {
+        vm.prank(podOwner1);
+        address podAddr = podManager.createPod();
+
+        vm.prank(podAddr);
+        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+
+        vm.prank(podOwner1);
+        bytes32 withdrawalRoot = podManager.queueWithdrawal(10 ether);
+
+        // Try to complete before delay
+        vm.prank(podOwner1);
+        vm.expectRevert(ValidatorPodManager.WithdrawalNotReady.selector);
+        podManager.completeWithdrawal(withdrawalRoot);
+    }
+
+    function test_completeWithdrawal_AlreadyCompleted() public {
+        vm.prank(podOwner1);
+        address podAddr = podManager.createPod();
+
+        vm.prank(podAddr);
+        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+
+        vm.deal(podAddr, 32 ether);
+
+        vm.prank(podOwner1);
+        bytes32 withdrawalRoot = podManager.queueWithdrawal(10 ether);
+
+        vm.roll(block.number + podManager.withdrawalDelayBlocks() + 1);
+
+        vm.prank(podOwner1);
+        podManager.completeWithdrawal(withdrawalRoot);
+
+        // Try to complete again
+        vm.prank(podOwner1);
+        vm.expectRevert(ValidatorPodManager.WithdrawalAlreadyCompleted.selector);
+        podManager.completeWithdrawal(withdrawalRoot);
+    }
+
+    function test_getAvailableToWithdraw() public {
+        vm.prank(podOwner1);
+        address podAddr = podManager.createPod();
+
+        vm.prank(podAddr);
+        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 100 ether);
+
+        assertEq(podManager.getAvailableToWithdraw(podOwner1), 100 ether, "Initially all available");
+
+        // Queue some
+        vm.prank(podOwner1);
+        podManager.queueWithdrawal(30 ether);
+
+        assertEq(podManager.getAvailableToWithdraw(podOwner1), 70 ether, "Reduced by queued");
+    }
+
+    function test_setWithdrawalDelay_Success() public {
+        uint32 newDelay = 100_000;
+
+        vm.prank(admin);
+        podManager.setWithdrawalDelay(newDelay);
+
+        assertEq(podManager.withdrawalDelayBlocks(), newDelay, "Delay should be updated");
+    }
+
+    function test_setWithdrawalDelay_ExceedsMax() public {
+        // MAX_WITHDRAWAL_DELAY + 1 exceeds maximum allowed
+        uint32 exceedsMax = uint32(podManager.MAX_WITHDRAWAL_DELAY() + 1);
+
+        vm.prank(admin);
+        vm.expectRevert(ValidatorPodManager.ExceedsMaxDelay.selector);
+        podManager.setWithdrawalDelay(exceedsMax);
+    }
+
+    function test_setWithdrawalDelay_OnlyOwner() public {
+        vm.prank(attacker);
+        vm.expectRevert();
+        podManager.setWithdrawalDelay(100_000);
+    }
+
+    function test_withdrawalConstants() public view {
+        assertEq(podManager.DEFAULT_WITHDRAWAL_DELAY(), 302_400, "Default delay ~7 days");
+        assertEq(podManager.MAX_WITHDRAWAL_DELAY(), 1_296_000, "Max delay ~30 days");
+        assertEq(podManager.withdrawalDelayBlocks(), 302_400, "Initial delay is default");
+    }
 }
