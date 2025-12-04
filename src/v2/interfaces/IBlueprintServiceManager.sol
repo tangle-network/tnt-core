@@ -249,6 +249,48 @@ interface IBlueprintServiceManager {
     function getRequiredResultCount(uint64 serviceId, uint8 jobIndex) external view returns (uint32 required);
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // BLS AGGREGATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Check if a job requires BLS aggregated results
+    /// @dev When true, operators must submit individual signatures that are aggregated
+    ///      off-chain, then submitted via submitAggregatedResult instead of submitResult
+    /// @param serviceId The service ID
+    /// @param jobIndex The job index
+    /// @return required True if BLS aggregation is required for this job
+    function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view returns (bool required);
+
+    /// @notice Get the aggregation threshold configuration for a job
+    /// @dev Only relevant if requiresAggregation returns true
+    /// @param serviceId The service ID
+    /// @param jobIndex The job index
+    /// @return thresholdBps Threshold in basis points (6700 = 67%)
+    /// @return thresholdType 0 = CountBased (% of operators), 1 = StakeWeighted (% of total stake)
+    function getAggregationThreshold(uint64 serviceId, uint8 jobIndex)
+        external
+        view
+        returns (uint16 thresholdBps, uint8 thresholdType);
+
+    /// @notice Called when an aggregated job result is submitted
+    /// @dev Validate the aggregated result, verify BLS signature, check threshold
+    /// @param serviceId The service ID
+    /// @param job The job index
+    /// @param jobCallId The job call ID
+    /// @param output The aggregated output
+    /// @param signerBitmap Bitmap of which operators signed
+    /// @param aggregatedSignature The aggregated BLS signature (G1 point x, y)
+    /// @param aggregatedPubkey The aggregated public key of signers (G2 point)
+    function onAggregatedResult(
+        uint64 serviceId,
+        uint8 job,
+        uint64 jobCallId,
+        bytes calldata output,
+        uint256 signerBitmap,
+        uint256[2] calldata aggregatedSignature,
+        uint256[4] calldata aggregatedPubkey
+    ) external;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // STAKE REQUIREMENTS
     // ═══════════════════════════════════════════════════════════════════════════
 

@@ -55,6 +55,23 @@ interface ITangleJobs {
         bytes[] calldata results
     ) external;
 
+    /// @notice Submit an aggregated BLS result for a job
+    /// @dev Only valid for jobs where requiresAggregation returns true
+    /// @param serviceId The service ID
+    /// @param callId The job call ID
+    /// @param output The aggregated output data
+    /// @param signerBitmap Bitmap indicating which operators signed (bit i = operator i in service)
+    /// @param aggregatedSignature The aggregated BLS signature [x, y]
+    /// @param aggregatedPubkey The aggregated public key [x0, x1, y0, y1]
+    function submitAggregatedResult(
+        uint64 serviceId,
+        uint64 callId,
+        bytes calldata output,
+        uint256 signerBitmap,
+        uint256[2] calldata aggregatedSignature,
+        uint256[4] calldata aggregatedPubkey
+    ) external;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════

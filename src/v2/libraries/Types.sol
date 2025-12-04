@@ -353,4 +353,43 @@ library Types {
         uint256 chainId;
         address verifyingContract;
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLS AGGREGATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Threshold type for BLS aggregation
+    enum ThresholdType {
+        CountBased,     // Percentage of operator count
+        StakeWeighted   // Percentage of total stake
+    }
+
+    /// @notice BLS aggregation configuration for a job
+    struct AggregationConfig {
+        bool required;              // Whether aggregation is required
+        uint16 thresholdBps;        // Threshold in basis points (6700 = 67%)
+        ThresholdType thresholdType; // Count-based or stake-weighted
+    }
+
+    /// @notice BN254 G1 point for BLS signatures
+    struct BN254G1Point {
+        uint256 x;
+        uint256 y;
+    }
+
+    /// @notice BN254 G2 point for BLS public keys
+    struct BN254G2Point {
+        uint256[2] x;  // x = x0 * i + x1
+        uint256[2] y;  // y = y0 * i + y1
+    }
+
+    /// @notice Aggregated job result with BLS signature
+    struct AggregatedJobResult {
+        uint64 serviceId;
+        uint64 callId;
+        bytes output;
+        BN254G1Point signature;         // Aggregated BLS signature
+        uint256 signerBitmap;           // Bitmap of which operators signed
+        BN254G2Point aggregatedPubkey;  // Aggregated public key of signers
+    }
 }

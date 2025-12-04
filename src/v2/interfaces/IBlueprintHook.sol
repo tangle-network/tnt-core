@@ -126,6 +126,29 @@ interface IBlueprintHook {
 
     /// @notice Get the number of results required for job completion
     function getRequiredResultCount(uint64 serviceId, uint8 jobIndex) external view returns (uint32);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLS AGGREGATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Check if a job requires BLS aggregated results
+    function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view returns (bool);
+
+    /// @notice Get the aggregation threshold configuration for a job
+    /// @return thresholdBps Threshold in basis points (6700 = 67%)
+    /// @return thresholdType 0 = CountBased (% of operators), 1 = StakeWeighted (% of total stake)
+    function getAggregationThreshold(uint64 serviceId, uint8 jobIndex)
+        external
+        view
+        returns (uint16 thresholdBps, uint8 thresholdType);
+
+    /// @notice Called when an aggregated result is submitted
+    function onAggregatedResult(
+        uint64 serviceId,
+        uint64 callId,
+        uint256 signerBitmap,
+        bytes calldata output
+    ) external;
 }
 
 /// @title BlueprintHookBase
@@ -197,4 +220,15 @@ abstract contract BlueprintHookBase is IBlueprintHook {
     function getRequiredResultCount(uint64, uint8) external view virtual returns (uint32) {
         return 1;
     }
+
+    // BLS Aggregation defaults
+    function requiresAggregation(uint64, uint8) external view virtual returns (bool) {
+        return false; // No aggregation by default
+    }
+
+    function getAggregationThreshold(uint64, uint8) external view virtual returns (uint16, uint8) {
+        return (6700, 0); // 67% count-based by default
+    }
+
+    function onAggregatedResult(uint64, uint64, uint256, bytes calldata) external virtual {}
 }

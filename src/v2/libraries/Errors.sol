@@ -256,4 +256,35 @@ library Errors {
 
     /// @notice Caller not authorized to cancel slash
     error NotSlashCanceller(uint64 slashId, address caller);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLS AGGREGATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Job requires aggregated result, use submitAggregatedResult
+    error AggregationRequired(uint64 serviceId, uint8 jobIndex);
+
+    /// @notice Aggregated result not allowed for this job
+    error AggregationNotRequired(uint64 serviceId, uint8 jobIndex);
+
+    /// @notice Invalid BLS signature
+    error InvalidBLSSignature();
+
+    /// @notice Aggregation threshold not met
+    error AggregationThresholdNotMet(uint64 serviceId, uint64 callId, uint256 achieved, uint256 required);
+
+    /// @notice Operator not found in signer bitmap
+    error InvalidSignerBitmap(uint256 bitmap);
+
+    /// @notice Signer is not an active operator for this service
+    error InvalidSigner(uint64 serviceId, address signer);
+
+    /// @notice Duplicate signer in bitmap
+    error DuplicateSigner();
+
+    /// @notice Invalid G1 point in signature
+    error InvalidG1Point();
+
+    /// @notice Invalid G2 point in public key
+    error InvalidG2Point();
 }
