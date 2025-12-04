@@ -18,10 +18,28 @@ abstract contract Operators is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     event OperatorPreRegistered(uint64 indexed blueprintId, address indexed operator);
-    event OperatorRegistered(uint64 indexed blueprintId, address indexed operator, bytes preferences);
+
+    /// @notice Emitted when an operator registers for a blueprint
+    /// @param blueprintId The blueprint ID
+    /// @param operator The operator address (wallet)
+    /// @param ecdsaPublicKey The ECDSA public key for gossip network identity
+    /// @param rpcAddress The operator's RPC endpoint
+    event OperatorRegistered(
+        uint64 indexed blueprintId,
+        address indexed operator,
+        bytes ecdsaPublicKey,
+        string rpcAddress
+    );
+
     event OperatorUnregistered(uint64 indexed blueprintId, address indexed operator);
-    event OperatorPreferencesUpdated(uint64 indexed blueprintId, address indexed operator, bytes preferences);
-    event OperatorRpcAddressUpdated(uint64 indexed blueprintId, address indexed operator, string rpcAddress);
+
+    /// @notice Emitted when an operator updates their preferences
+    event OperatorPreferencesUpdated(
+        uint64 indexed blueprintId,
+        address indexed operator,
+        bytes ecdsaPublicKey,
+        string rpcAddress
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PRE-REGISTRATION (Intent Signal)
@@ -44,7 +62,16 @@ abstract contract Operators is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Register as operator for a blueprint
-    function registerOperator(uint64 blueprintId, bytes calldata preferences) external whenNotPaused {
+    /// @param blueprintId The blueprint to register for
+    /// @param ecdsaPublicKey The ECDSA public key for gossip network identity
+    ///        This key is used for signing/verifying messages in the P2P gossip network
+    ///        and may differ from the wallet key (msg.sender)
+    /// @param rpcAddress The operator's RPC endpoint URL
+    function registerOperator(
+        uint64 blueprintId,
+        bytes calldata ecdsaPublicKey,
+        string calldata rpcAddress
+    ) external whenNotPaused {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
 
@@ -71,11 +98,19 @@ abstract contract Operators is Base {
             revert Errors.InsufficientStake(msg.sender, minStake, _restaking.getOperatorStake(msg.sender));
         }
 
+        // Encode preferences for BSM hook (maintains compatibility)
+        bytes memory encodedPreferences = abi.encode(
+            Types.OperatorPreferences({
+                ecdsaPublicKey: ecdsaPublicKey,
+                rpcAddress: rpcAddress
+            })
+        );
+
         // Call manager hook first (may reject)
         if (bp.manager != address(0)) {
             _callManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, preferences))
+                abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, encodedPreferences))
             );
         }
 
@@ -87,10 +122,16 @@ abstract contract Operators is Base {
             online: true
         });
 
+        // Store preferences (including ECDSA public key for gossip)
+        _operatorPreferences[blueprintId][msg.sender] = Types.OperatorPreferences({
+            ecdsaPublicKey: ecdsaPublicKey,
+            rpcAddress: rpcAddress
+        });
+
         _blueprintOperators[blueprintId].add(msg.sender);
         bp.operatorCount++;
 
-        emit OperatorRegistered(blueprintId, msg.sender, preferences);
+        emit OperatorRegistered(blueprintId, msg.sender, ecdsaPublicKey, rpcAddress);
         _recordBlueprintRegistration(blueprintId, msg.sender);
     }
 
@@ -112,48 +153,50 @@ abstract contract Operators is Base {
         }
 
         delete _operatorRegistrations[blueprintId][msg.sender];
+        delete _operatorPreferences[blueprintId][msg.sender];
         _blueprintOperators[blueprintId].remove(msg.sender);
         bp.operatorCount--;
 
         emit OperatorUnregistered(blueprintId, msg.sender);
     }
 
-    /// @notice Update operator preferences
-    function updateOperatorPreferences(uint64 blueprintId, bytes calldata preferences) external {
+    /// @notice Update operator preferences for a blueprint
+    /// @param blueprintId The blueprint to update preferences for
+    /// @param ecdsaPublicKey New ECDSA public key (pass empty bytes to keep unchanged)
+    /// @param rpcAddress New RPC endpoint (pass empty string to keep unchanged)
+    function updateOperatorPreferences(
+        uint64 blueprintId,
+        bytes calldata ecdsaPublicKey,
+        string calldata rpcAddress
+    ) external {
         Types.OperatorRegistration storage reg = _operatorRegistrations[blueprintId][msg.sender];
         if (reg.registeredAt == 0) {
             revert Errors.OperatorNotRegistered(blueprintId, msg.sender);
         }
 
         reg.updatedAt = uint64(block.timestamp);
+
+        Types.OperatorPreferences storage prefs = _operatorPreferences[blueprintId][msg.sender];
+
+        // Update preferences (only if non-empty)
+        if (ecdsaPublicKey.length > 0) {
+            prefs.ecdsaPublicKey = ecdsaPublicKey;
+        }
+        if (bytes(rpcAddress).length > 0) {
+            prefs.rpcAddress = rpcAddress;
+        }
+
+        // Encode for BSM hook
+        bytes memory encodedPreferences = abi.encode(prefs);
 
         Types.Blueprint storage bp = _blueprints[blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onUpdatePreferences, (msg.sender, preferences))
+                abi.encodeCall(IBlueprintServiceManager.onUpdatePreferences, (msg.sender, encodedPreferences))
             );
         }
 
-        emit OperatorPreferencesUpdated(blueprintId, msg.sender, preferences);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // RPC ADDRESS MANAGEMENT
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Update operator's RPC endpoint address for a blueprint
-    /// @dev This is used by blueprint-sdk to discover operator endpoints
-    /// @param blueprintId The blueprint to update RPC for
-    /// @param rpcAddress The new RPC endpoint (e.g., "https://operator.example.com:8545")
-    function updateRpcAddress(uint64 blueprintId, string calldata rpcAddress) external {
-        Types.OperatorRegistration storage reg = _operatorRegistrations[blueprintId][msg.sender];
-        if (reg.registeredAt == 0) {
-            revert Errors.OperatorNotRegistered(blueprintId, msg.sender);
-        }
-
-        reg.updatedAt = uint64(block.timestamp);
-
-        emit OperatorRpcAddressUpdated(blueprintId, msg.sender, rpcAddress);
+        emit OperatorPreferencesUpdated(blueprintId, msg.sender, prefs.ecdsaPublicKey, prefs.rpcAddress);
     }
 }

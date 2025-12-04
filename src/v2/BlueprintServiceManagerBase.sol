@@ -111,6 +111,20 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         return (true, 0); // Use protocol default
     }
 
+    /// @inheritdoc IBlueprintServiceManager
+    function getExitConfig(uint64) external view virtual returns (
+        bool useDefault,
+        uint64 minCommitmentDuration,
+        uint64 exitQueueDuration,
+        bool forceExitAllowed
+    ) {
+        // Use protocol defaults:
+        // - minCommitmentDuration: 1 day
+        // - exitQueueDuration: 7 days
+        // - forceExitAllowed: false
+        return (true, 0, 0, false);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -170,6 +184,16 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
 
     /// @inheritdoc IBlueprintServiceManager
     function onOperatorLeft(uint64, address) external virtual onlyFromTangle {
+        // No action by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onExitScheduled(uint64, address, uint64) external virtual onlyFromTangle {
+        // No action by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onExitCanceled(uint64, address) external virtual onlyFromTangle {
         // No action by default
     }
 

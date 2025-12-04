@@ -150,12 +150,14 @@ library BN254 {
         for (uint256 i = 0; i < elements; i++) {
             input[i * 6 + 0] = p1[i].x;
             input[i * 6 + 1] = p1[i].y;
-            // G2 point encoding: x = x0 * i + x1, y = y0 * i + y1
-            // EVM expects: x1, x0, y1, y0
-            input[i * 6 + 2] = p2[i].x[1];
-            input[i * 6 + 3] = p2[i].x[0];
-            input[i * 6 + 4] = p2[i].y[1];
-            input[i * 6 + 5] = p2[i].y[0];
+            // G2 point encoding per EIP-197:
+            // x = x[0] * i + x[1], y = y[0] * i + y[1]
+            // Point (a0 + i*a1, b0 + i*b1) is encoded as [a1, a0, b1, b0]
+            // So x[0]=a1 (imag), x[1]=a0 (real), encode as [x[0], x[1], y[0], y[1]]
+            input[i * 6 + 2] = p2[i].x[0];
+            input[i * 6 + 3] = p2[i].x[1];
+            input[i * 6 + 4] = p2[i].y[0];
+            input[i * 6 + 5] = p2[i].y[1];
         }
 
         uint256[1] memory result;
@@ -255,8 +257,10 @@ library BN254 {
     /// @return The square root (or garbage if not a QR)
     function sqrtMod(uint256 a) internal pure returns (uint256) {
         // For p ≡ 3 (mod 4): sqrt(a) = a^((p+1)/4)
-        // (P_MOD + 1) / 4 = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-        return expMod(a, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, P_MOD);
+        // P_MOD = 21888242871839275222246405745257275088696311157297823662689037894645226208583
+        // (P_MOD + 1) / 4 = 5472060717959818805561601436314318772174077789324455915672259473661306552146
+        // = 0x0c19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52
+        return expMod(a, 0x0c19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52, P_MOD);
     }
 
     /// @notice Modular exponentiation

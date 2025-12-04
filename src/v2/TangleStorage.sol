@@ -26,6 +26,10 @@ abstract contract TangleStorage {
     uint16 internal constant DEFAULT_OPERATOR_BPS = 2000;   // 20%
     uint16 internal constant DEFAULT_RESTAKER_BPS = 2000;   // 20%
 
+    // Default exit queue configuration
+    uint64 internal constant DEFAULT_MIN_COMMITMENT_DURATION = 1 days;   // Minimum time before exit allowed
+    uint64 internal constant DEFAULT_EXIT_QUEUE_DURATION = 7 days;       // Time between schedule and execute
+
     // ═══════════════════════════════════════════════════════════════════════════
     // PROTOCOL CONFIGURATION (Slot 0-10)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -67,6 +71,9 @@ abstract contract TangleStorage {
 
     /// @notice Blueprint ID => Operator => Registration data
     mapping(uint64 => mapping(address => Types.OperatorRegistration)) internal _operatorRegistrations;
+
+    /// @notice Blueprint ID => Operator => Preferences (includes ECDSA public key for gossip)
+    mapping(uint64 => mapping(address => Types.OperatorPreferences)) internal _operatorPreferences;
 
     /// @notice Blueprint ID => Set of registered operators
     mapping(uint64 => EnumerableSet.AddressSet) internal _blueprintOperators;
@@ -176,10 +183,23 @@ abstract contract TangleStorage {
     address internal _operatorStatusRegistry;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // EXIT QUEUE STORAGE (Slot 101-110)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Service ID => Operator => Exit request
+    mapping(uint64 => mapping(address => Types.ExitRequest)) internal _exitRequests;
+
+    /// @notice Blueprint ID => Custom exit config (if set)
+    mapping(uint64 => Types.ExitConfig) internal _blueprintExitConfigs;
+
+    /// @notice Blueprint ID => Has custom exit config flag
+    mapping(uint64 => bool) internal _hasCustomExitConfig;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev When adding new storage, decrease this gap accordingly
-    uint256[48] private __gap;
+    uint256[45] private __gap;
 }

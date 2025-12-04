@@ -25,7 +25,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Step 3: Delegator stakes with operator
         vm.startPrank(delegator1);
@@ -103,7 +103,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Only fund 2 months of subscription
         uint256 escrowAmount = SUBSCRIPTION_RATE * 2;
@@ -159,17 +159,17 @@ contract EndToEndSubscriptionTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         vm.prank(operator2);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         vm.prank(operator3);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator3);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Start with just operator1
         uint256 escrowAmount = SUBSCRIPTION_RATE * 6;
@@ -210,9 +210,17 @@ contract EndToEndSubscriptionTest is BaseTest {
         tangle.joinService(serviceId, 3000); // 30% exposure
         assertEq(tangle.getService(serviceId).operatorCount, 3, "Should have 3 operators");
 
-        // operator1 leaves
+        // operator1 schedules exit (needs to wait through exit queue - 1 day min commitment + 7 days queue)
+        // Note: startTime + 62 days is already well past the 1 day minimum commitment
         vm.prank(operator1);
-        tangle.leaveService(serviceId);
+        tangle.scheduleExit(serviceId);
+
+        // Warp past exit queue duration (7 days)
+        vm.warp(startTime + 62 days + 7 days + 1);
+
+        // Execute exit
+        vm.prank(operator1);
+        tangle.executeExit(serviceId);
         assertEq(tangle.getService(serviceId).operatorCount, 2, "Should have 2 operators after leave");
         assertFalse(tangle.isServiceOperator(serviceId, operator1), "Operator1 should no longer be in service");
 
@@ -245,7 +253,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Delegator1: 10 ETH (1/4 of total delegations)
         vm.startPrank(delegator1);
@@ -321,7 +329,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Fund 6 months
         uint256 escrowAmount = SUBSCRIPTION_RATE * 6;

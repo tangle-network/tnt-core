@@ -109,7 +109,7 @@ abstract contract BaseTest is Test {
     /// @notice Register operator for a blueprint
     function _registerForBlueprint(address operator, uint64 blueprintId) internal {
         vm.prank(operator);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, hex"04", "http://localhost:8545"); // dummy ecdsa key prefix and RPC
     }
 
     /// @notice Request a service with single operator

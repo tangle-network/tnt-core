@@ -76,9 +76,16 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
         bytes memory customInputs = abi.encode("custom", 123);
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, customInputs);
+        tangle.registerOperator(blueprintId, customInputs, "");
 
-        assertEq(bsm.operatorRegistrationInputs(operator1), customInputs);
+        // The contract wraps inputs in OperatorPreferences struct before calling onRegister
+        bytes memory expectedInputs = abi.encode(
+            Types.OperatorPreferences({
+                ecdsaPublicKey: customInputs,
+                rpcAddress: ""
+            })
+        );
+        assertEq(bsm.operatorRegistrationInputs(operator1), expectedInputs);
     }
 
     function test_V2_OnRegister_AllowlistEnforced() public {
@@ -91,7 +98,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
         // Allowed operator succeeds
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         assertEq(bsm.getHookCalls().onRegister, 1);
 
         // Non-allowed operator fails - error is wrapped in ManagerReverted
@@ -101,7 +108,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             manager,
             abi.encodeWithSelector(MockBSM_V2.OperatorNotAllowed.selector, operator2)
         ));
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
     }
 
     function test_V1_OnUnregister_Called() public {

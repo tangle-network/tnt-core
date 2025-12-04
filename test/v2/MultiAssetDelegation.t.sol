@@ -7,7 +7,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { DelegationErrors } from "../../src/v2/restaking/DelegationErrors.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
-import { MockERC20 } from "../MockERC20.sol";
+import { MockERC20 } from "./mocks/MockERC20.sol";
 
 contract MultiAssetDelegationTest is Test {
     MultiAssetDelegation public delegation;

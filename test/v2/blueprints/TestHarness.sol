@@ -185,7 +185,7 @@ abstract contract BlueprintTestHarness is Test {
     /// @notice Register operator for a blueprint
     function registerOperatorForBlueprint(address operator, uint64 blueprintId) public {
         vm.prank(operator);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         emit OperatorRegisteredForBlueprint(blueprintId, operator);
     }
 

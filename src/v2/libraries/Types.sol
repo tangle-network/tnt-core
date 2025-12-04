@@ -55,6 +55,14 @@ library Types {
         bool online;          // Available for new services
     }
 
+    /// @notice Operator preferences including gossip network identity
+    /// @dev The ecdsaPublicKey is used for gossip network message signing/verification
+    ///      and may differ from the operator's wallet key (msg.sender)
+    struct OperatorPreferences {
+        bytes ecdsaPublicKey;   // ECDSA public key for gossip network identity
+        string rpcAddress;      // RPC endpoint URL
+    }
+
     /// @notice Asset security requirement for a service request
     /// @dev Exposure percentages in basis points (10000 = 100%)
     struct AssetSecurityRequirement {
@@ -391,5 +399,33 @@ library Types {
         BN254G1Point signature;         // Aggregated BLS signature
         uint256 signerBitmap;           // Bitmap of which operators signed
         BN254G2Point aggregatedPubkey;  // Aggregated public key of signers
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OPERATOR EXIT QUEUE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Exit configuration for operator service departures
+    /// @dev Can be set per-blueprint, with protocol defaults as fallback
+    struct ExitConfig {
+        uint64 minCommitmentDuration;   // Minimum time operator must stay after joining (seconds)
+        uint64 exitQueueDuration;       // Time between scheduling exit and completing it (seconds)
+        bool forceExitAllowed;          // Allow service owner to force-exit operators (emergency)
+    }
+
+    /// @notice Operator exit request (pending departure)
+    struct ExitRequest {
+        uint64 serviceId;
+        uint64 scheduledAt;             // When exit was scheduled
+        uint64 executeAfter;            // Earliest time exit can be executed
+        bool pending;                   // True if exit is pending
+    }
+
+    /// @notice Exit status for an operator-service pair
+    enum ExitStatus {
+        None,           // Not in exit queue
+        Scheduled,      // Exit scheduled, waiting for queue duration
+        Executable,     // Queue duration passed, can execute
+        Completed       // Exit completed (operator left)
     }
 }

@@ -9,6 +9,25 @@ import { ITangleBlueprints } from "../../src/v2/interfaces/ITangleBlueprints.sol
 import { ITangleOperators } from "../../src/v2/interfaces/ITangleOperators.sol";
 import { ITangleServices } from "../../src/v2/interfaces/ITangleServices.sol";
 import { ITangleJobs } from "../../src/v2/interfaces/ITangleJobs.sol";
+import { BlueprintServiceManagerBase } from "../../src/v2/BlueprintServiceManagerBase.sol";
+
+/// @notice Minimal mock BSM with zero exit delays for testing
+contract ZeroDelayMockBSM is BlueprintServiceManagerBase {
+    function onBlueprintCreated(uint64 _blueprintId, address owner, address _tangleCore) external override {
+        blueprintId = _blueprintId;
+        blueprintOwner = owner;
+        tangleCore = _tangleCore;
+    }
+
+    function getExitConfig(uint64) external pure override returns (
+        bool useDefault,
+        uint64 minCommitmentDuration,
+        uint64 exitQueueDuration,
+        bool forceExitAllowed
+    ) {
+        return (false, 0, 0, false);
+    }
+}
 
 contract TangleTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
@@ -99,8 +118,8 @@ contract TangleTest is BaseTest {
         // Register
         vm.prank(operator1);
         vm.expectEmit(true, true, false, true);
-        emit ITangleOperators.OperatorRegistered(blueprintId, operator1, "");
-        tangle.registerOperator(blueprintId, "");
+        emit ITangleOperators.OperatorRegistered(blueprintId, operator1, "", "");
+        tangle.registerOperator(blueprintId, "", "");
 
         assertTrue(tangle.isOperatorRegistered(blueprintId, operator1));
         assertEq(tangle.blueprintOperatorCount(blueprintId), 1);
@@ -110,10 +129,8 @@ contract TangleTest is BaseTest {
         _registerOperator(operator1);
         uint64 blueprintId = _createBlueprint(developer);
 
-        bytes memory preferences = abi.encode("https://rpc.example.com", 100);
-
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, preferences);
+        tangle.registerOperator(blueprintId, "", "https://rpc.example.com");
 
         assertTrue(tangle.isOperatorRegistered(blueprintId, operator1));
     }
@@ -124,7 +141,7 @@ contract TangleTest is BaseTest {
         // operator1 has no stake
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotActive.selector, operator1));
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
     }
 
     function test_RegisterOperator_RevertBlueprintNotActive() public {
@@ -136,7 +153,7 @@ contract TangleTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.BlueprintNotActive.selector, blueprintId));
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
     }
 
     function test_RegisterOperator_RevertAlreadyRegistered() public {
@@ -147,7 +164,7 @@ contract TangleTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorAlreadyRegistered.selector, blueprintId, operator1));
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
     }
 
     function test_UnregisterOperator() public {
@@ -168,7 +185,7 @@ contract TangleTest is BaseTest {
         _registerForBlueprint(operator1, blueprintId);
 
         vm.prank(operator1);
-        tangle.updateOperatorPreferences(blueprintId, "newPrefs");
+        tangle.updateOperatorPreferences(blueprintId, "", "newPrefs");
 
         Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
         assertTrue(reg.updatedAt >= reg.registeredAt);
@@ -726,11 +743,21 @@ contract TangleTest is BaseTest {
         uint64 serviceId = 0;
         assertEq(tangle.getService(serviceId).operatorCount, 2);
 
-        // operator1 leaves
+        // Warp past minimum commitment duration (1 day default)
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // operator1 schedules exit
+        vm.prank(operator1);
+        tangle.scheduleExit(serviceId);
+
+        // Warp past exit queue duration (7 days default)
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Execute exit
         vm.prank(operator1);
         vm.expectEmit(true, true, false, false);
         emit ITangleServices.OperatorLeftService(serviceId, operator1);
-        tangle.leaveService(serviceId);
+        tangle.executeExit(serviceId);
 
         assertFalse(tangle.isServiceOperator(serviceId, operator1));
         assertEq(tangle.getService(serviceId).operatorCount, 1);
@@ -747,8 +774,10 @@ contract TangleTest is BaseTest {
             eventRate: 0
         });
 
+        // Use mock BSM with zero exit delays to test min operators check directly
+        ZeroDelayMockBSM zeroDelayBsm = new ZeroDelayMockBSM();
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic", address(0), config);
+        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic", address(zeroDelayBsm), config);
 
         _registerOperator(operator1);
         _registerOperator(operator2);

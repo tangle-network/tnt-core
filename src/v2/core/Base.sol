@@ -334,6 +334,17 @@ abstract contract Base is
         return _operatorRegistrations[blueprintId][op].registeredAt != 0;
     }
 
+    /// @notice Get operator preferences for a blueprint (includes ECDSA public key)
+    function getOperatorPreferences(uint64 blueprintId, address op) external view returns (Types.OperatorPreferences memory) {
+        return _operatorPreferences[blueprintId][op];
+    }
+
+    /// @notice Get operator's ECDSA public key for gossip network identity
+    /// @dev Returns the key used for signing/verifying gossip messages
+    function getOperatorPublicKey(uint64 blueprintId, address op) external view returns (bytes memory) {
+        return _operatorPreferences[blueprintId][op].ecdsaPublicKey;
+    }
+
     function isServiceActive(uint64 serviceId) external view returns (bool) {
         return _services[serviceId].status == Types.ServiceStatus.Active;
     }

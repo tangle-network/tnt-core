@@ -287,4 +287,23 @@ library Errors {
 
     /// @notice Invalid G2 point in public key
     error InvalidG2Point();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EXIT QUEUE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Operator has not been in service long enough to exit
+    error ExitTooEarly(uint64 serviceId, address operator, uint64 minCommitmentEnd, uint64 currentTime);
+
+    /// @notice Exit not yet scheduled
+    error ExitNotScheduled(uint64 serviceId, address operator);
+
+    /// @notice Exit already scheduled
+    error ExitAlreadyScheduled(uint64 serviceId, address operator);
+
+    /// @notice Exit not yet executable (still in queue)
+    error ExitNotExecutable(uint64 serviceId, address operator, uint64 executeAfter, uint64 currentTime);
+
+    /// @notice Force exit not allowed for this service
+    error ForceExitNotAllowed(uint64 serviceId);
 }

@@ -30,7 +30,7 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Delegator1: 20 ETH, Delegator2: 30 ETH (total pool = 60 ETH)
         vm.startPrank(delegator1);
@@ -106,12 +106,12 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         vm.prank(operator2);
         restaking.registerOperator{ value: 8 ether }();
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // D1 delegates 10 ETH to each operator
         vm.startPrank(delegator1);
@@ -164,7 +164,7 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         vm.startPrank(delegator1);
         restaking.deposit{ value: 20 ether }();
@@ -219,7 +219,7 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -249,7 +249,7 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -294,7 +294,7 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Create service with 50% exposure
         address[] memory ops = new address[](1);
@@ -331,7 +331,7 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: MIN_OPERATOR_STAKE + 0.5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -359,7 +359,7 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -400,7 +400,7 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -433,7 +433,7 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);

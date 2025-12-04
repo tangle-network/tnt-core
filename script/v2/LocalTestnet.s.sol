@@ -150,13 +150,13 @@ contract LocalTestnetSetup is Script {
 
         // Operator 1 registers for blueprint
         vm.startBroadcast(OPERATOR1_KEY);
-        tangle.registerOperator(blueprintId, ""); // Empty preferences
+        tangle.registerOperator(blueprintId, "", ""); // Empty preferences
         console2.log("Operator1 registered for blueprint");
         vm.stopBroadcast();
 
         // Operator 2 registers for blueprint
         vm.startBroadcast(OPERATOR2_KEY);
-        tangle.registerOperator(blueprintId, ""); // Empty preferences
+        tangle.registerOperator(blueprintId, "", ""); // Empty preferences
         console2.log("Operator2 registered for blueprint");
         vm.stopBroadcast();
     }

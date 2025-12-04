@@ -77,6 +77,16 @@ contract LifecycleMockBSM is BlueprintServiceManagerBase {
     function canLeave(uint64, address) external view override returns (bool) {
         return !rejectLeaves;
     }
+
+    /// @notice Allow immediate exits for testing (no commitment/queue durations)
+    function getExitConfig(uint64) external pure override returns (
+        bool useDefault,
+        uint64 minCommitmentDuration,
+        uint64 exitQueueDuration,
+        bool forceExitAllowed
+    ) {
+        return (false, 0, 0, false);
+    }
 }
 
 /// @title ServiceLifecycleEdgeCasesTest
@@ -286,7 +296,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
     }
 
     function test_LeaveService_AtMinOperators_Reverts() public {
-        // Create dynamic service with min 2 operators
+        // Create dynamic service with min 2 operators using mockBsm (which has zero exit delays)
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
             membership: Types.MembershipModel.Dynamic,
             pricing: Types.PricingModel.PayOnce,
@@ -297,8 +307,9 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
             eventRate: 0
         });
 
+        LifecycleMockBSM localBsm = new LifecycleMockBSM();
         vm.prank(developer);
-        uint64 minOpBpId = tangle.createBlueprintWithConfig("ipfs://minop", address(0), config);
+        uint64 minOpBpId = tangle.createBlueprintWithConfig("ipfs://minop", address(localBsm), config);
 
         _registerForBlueprint(operator1, minOpBpId);
         _registerForBlueprint(operator2, minOpBpId);
@@ -317,7 +328,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
-        // operator1 tries to leave but would go below min
+        // operator1 tries to leave but would go below min (mockBsm has zero exit delays)
         vm.prank(operator1);
         vm.expectRevert(Errors.InvalidState.selector);
         tangle.leaveService(serviceId);

@@ -185,6 +185,16 @@ contract MockBSM_V1 is BlueprintServiceManagerBase {
     function getHookCalls() external view returns (HookCalls memory) {
         return hookCalls;
     }
+
+    /// @notice Allow immediate exits for testing (no commitment/queue durations)
+    function getExitConfig(uint64) external pure virtual override returns (
+        bool useDefault,
+        uint64 minCommitmentDuration,
+        uint64 exitQueueDuration,
+        bool forceExitAllowed
+    ) {
+        return (false, 0, 0, false);
+    }
 }
 
 /// @title MockBSM_V2

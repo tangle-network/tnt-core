@@ -123,7 +123,7 @@ contract NewFeatureTests is Test {
 
         // Should succeed with exactly minimum stake
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         assertTrue(tangle.isOperatorRegistered(blueprintId, operator1));
     }
@@ -144,7 +144,7 @@ contract NewFeatureTests is Test {
         vm.expectRevert(
             abi.encodeWithSelector(Errors.InsufficientStake.selector, operator1, 5 ether, MIN_OPERATOR_STAKE)
         );
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
     }
 
     function test_RegisterOperator_WithCustomBSMMinStake_Success() public {
@@ -159,7 +159,7 @@ contract NewFeatureTests is Test {
 
         // Should succeed - operator has 10 ETH, BSM requires 5 ETH
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         assertTrue(tangle.isOperatorRegistered(blueprintId, operator1));
     }
@@ -176,7 +176,7 @@ contract NewFeatureTests is Test {
 
         // Should succeed - uses protocol default (1 ETH)
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         assertTrue(tangle.isOperatorRegistered(blueprintId, operator1));
     }
@@ -193,7 +193,7 @@ contract NewFeatureTests is Test {
 
         // Should succeed - 0 custom stake means use default
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         assertTrue(tangle.isOperatorRegistered(blueprintId, operator1));
     }
@@ -221,7 +221,7 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://test", address(mockBsm), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Create service with operator1
         address[] memory ops = new address[](1);
@@ -241,7 +241,7 @@ contract NewFeatureTests is Test {
         restaking.registerOperator{ value: 10 ether }();
 
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         vm.prank(operator2);
         tangle.joinService(serviceId, 10000);
@@ -268,7 +268,7 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://test", address(mockBsm), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         address[] memory ops = new address[](1);
         ops[0] = operator1;
@@ -287,7 +287,7 @@ contract NewFeatureTests is Test {
         restaking.registerOperator{ value: 6 ether }();
 
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Slash operator2 to below minimum
         vm.prank(address(tangle));
@@ -325,9 +325,9 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://test", address(0), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request with exactly 2 operators - should succeed
         address[] memory ops = new address[](2);
@@ -360,7 +360,7 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://test", address(0), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request with only 1 operator - should revert
         address[] memory ops = new address[](1);
@@ -397,11 +397,11 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://test", address(0), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator3);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request with 3 operators - should revert
         address[] memory ops = new address[](3);
@@ -438,11 +438,11 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://test", address(0), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator3);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request with 3 operators - should succeed
         address[] memory ops = new address[](3);
@@ -474,7 +474,7 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://test", address(0), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request with 1 operator - should succeed
         address[] memory ops = new address[](1);
@@ -507,7 +507,7 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://subscription", address(0), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         address[] memory ops = new address[](1);
         ops[0] = operator1;
@@ -557,7 +557,7 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://subscription", address(0), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         address[] memory ops = new address[](1);
         ops[0] = operator1;
@@ -606,7 +606,7 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://subscription", address(0), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         address[] memory ops = new address[](1);
         ops[0] = operator1;
@@ -653,9 +653,9 @@ contract NewFeatureTests is Test {
         uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://test", address(0), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request with exactly 2 operators - should succeed
         address[] memory ops = new address[](2);
@@ -678,7 +678,7 @@ contract NewFeatureTests is Test {
 
         // Should succeed with exactly minimum stake
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         assertTrue(tangle.isOperatorRegistered(blueprintId, operator1));
     }
@@ -695,6 +695,6 @@ contract NewFeatureTests is Test {
         // Should revert - one wei below minimum
         vm.prank(operator1);
         vm.expectRevert(); // InsufficientStake
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
     }
 }

@@ -72,6 +72,20 @@ interface IBlueprintServiceManager {
     /// @return window Slashing window in blocks
     function getSlashingWindow(uint64 serviceId) external view returns (bool useDefault, uint64 window);
 
+    /// @notice Get the exit configuration for operator departures
+    /// @dev Defines minimum commitment and exit queue timing
+    /// @param serviceId The service ID
+    /// @return useDefault True to use protocol default
+    /// @return minCommitmentDuration Minimum time operator must stay after joining (seconds)
+    /// @return exitQueueDuration Time between scheduling exit and completing it (seconds)
+    /// @return forceExitAllowed Whether service owner can force-exit operators
+    function getExitConfig(uint64 serviceId) external view returns (
+        bool useDefault,
+        uint64 minCommitmentDuration,
+        uint64 exitQueueDuration,
+        bool forceExitAllowed
+    );
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -146,6 +160,7 @@ interface IBlueprintServiceManager {
 
     /// @notice Check if an operator can leave a dynamic service
     /// @dev Called before operator leaves - return false to reject
+    ///      Note: This is called AFTER the exit queue check. Use getExitConfig to customize timing.
     /// @param serviceId The service ID
     /// @param operator The operator wanting to leave
     /// @return allowed True if operator can leave
@@ -155,6 +170,18 @@ interface IBlueprintServiceManager {
     /// @param serviceId The service ID
     /// @param operator The operator that left
     function onOperatorLeft(uint64 serviceId, address operator) external;
+
+    /// @notice Called when an operator schedules their exit from a service
+    /// @dev Allows manager to track pending exits, notify other parties, etc.
+    /// @param serviceId The service ID
+    /// @param operator The operator scheduling exit
+    /// @param executeAfter Timestamp when exit can be executed
+    function onExitScheduled(uint64 serviceId, address operator, uint64 executeAfter) external;
+
+    /// @notice Called when an operator cancels their scheduled exit
+    /// @param serviceId The service ID
+    /// @param operator The operator canceling exit
+    function onExitCanceled(uint64 serviceId, address operator) external;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // JOB LIFECYCLE

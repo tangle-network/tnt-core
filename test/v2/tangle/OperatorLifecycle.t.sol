@@ -28,7 +28,7 @@ contract OperatorLifecycleTest is BaseTest {
 
     function test_RegisterOperator_Success() public {
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "operator-preferences");
+        tangle.registerOperator(blueprintId, "", "operator-preferences");
 
         Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
         assertEq(reg.registeredAt, block.timestamp);
@@ -40,27 +40,27 @@ contract OperatorLifecycleTest is BaseTest {
 
         vm.prank(unstaked);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotActive.selector, unstaked));
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
     }
 
     function test_RegisterOperator_RevertAlreadyRegistered() public {
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorAlreadyRegistered.selector, blueprintId, operator1));
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
     }
 
     function test_RegisterOperator_RevertBlueprintNotFound() public {
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.BlueprintNotFound.selector, 999));
-        tangle.registerOperator(999, "");
+        tangle.registerOperator(999, "", "");
     }
 
     function test_UnregisterOperator_Success() public {
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         vm.prank(operator1);
         tangle.unregisterOperator(blueprintId);
@@ -333,9 +333,21 @@ contract OperatorLifecycleTest is BaseTest {
         uint64 serviceId = tangle.serviceCount() - 1;
         assertTrue(tangle.isServiceOperator(serviceId, operator2));
 
-        // Operator2 leaves
+        // Warp past minimum commitment duration (1 day default for no BSM)
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Schedule exit
         vm.prank(operator2);
-        tangle.leaveService(serviceId);
+        tangle.scheduleExit(serviceId);
+        assertEq(uint(tangle.getExitStatus(serviceId, operator2)), uint(Types.ExitStatus.Scheduled));
+
+        // Warp past exit queue duration (7 days default)
+        vm.warp(block.timestamp + 7 days + 1);
+        assertEq(uint(tangle.getExitStatus(serviceId, operator2)), uint(Types.ExitStatus.Executable));
+
+        // Execute exit
+        vm.prank(operator2);
+        tangle.executeExit(serviceId);
 
         assertFalse(tangle.isServiceOperator(serviceId, operator2));
         Types.Service memory svc = tangle.getService(serviceId);
@@ -473,9 +485,9 @@ contract OperatorLifecycleTest is BaseTest {
         uint64 bp3 = tangle.createBlueprint("ipfs://bp3", address(0));
 
         vm.startPrank(operator1);
-        tangle.registerOperator(blueprintId, "prefs1");
-        tangle.registerOperator(bp2, "prefs2");
-        tangle.registerOperator(bp3, "prefs3");
+        tangle.registerOperator(blueprintId, "prefs1", "");
+        tangle.registerOperator(bp2, "prefs2", "");
+        tangle.registerOperator(bp3, "prefs3", "");
         vm.stopPrank();
 
         Types.OperatorRegistration memory reg1 = tangle.getOperatorRegistration(blueprintId, operator1);

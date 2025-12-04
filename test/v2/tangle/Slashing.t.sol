@@ -23,7 +23,7 @@ contract SlashingTest is BaseTest {
         restaking.registerOperator{ value: 10 ether }();
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -402,7 +402,7 @@ contract SlashingTest is BaseTest {
         uint64 bpId = tangle.createBlueprint("ipfs://exposure", address(0));
 
         vm.prank(operator1);
-        tangle.registerOperator(bpId, "");
+        tangle.registerOperator(bpId, "", "");
 
         address[] memory ops = new address[](1);
         ops[0] = operator1;

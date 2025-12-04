@@ -45,9 +45,9 @@ contract IntegrationTest is BaseTest {
 
         // Step 4: Operators register for the blueprint
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Step 5: User requests a service with payment
         address[] memory operators = new address[](2);
@@ -139,9 +139,9 @@ contract IntegrationTest is BaseTest {
         restaking.registerOperator{ value: 5 ether }();
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request service with different exposure levels
         address[] memory operators = new address[](2);
@@ -203,11 +203,11 @@ contract IntegrationTest is BaseTest {
         restaking.registerOperator{ value: 2 ether }();
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator3);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request with just operator1
         address[] memory operators = new address[](1);
@@ -238,11 +238,32 @@ contract IntegrationTest is BaseTest {
         tangle.joinService(serviceId, 3000);
         assertEq(tangle.getService(serviceId).operatorCount, 3);
 
-        // operator2 leaves
+        // operator2 wants to leave - must use exit queue
+        // First, warp past minimum commitment duration (1 day default)
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Schedule exit
         vm.prank(operator2);
-        tangle.leaveService(serviceId);
+        tangle.scheduleExit(serviceId);
+
+        // Check exit status is Scheduled
+        assertEq(uint(tangle.getExitStatus(serviceId, operator2)), uint(Types.ExitStatus.Scheduled));
+
+        // Warp past exit queue duration (7 days default)
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Check exit status is now Executable
+        assertEq(uint(tangle.getExitStatus(serviceId, operator2)), uint(Types.ExitStatus.Executable));
+
+        // Execute exit
+        vm.prank(operator2);
+        tangle.executeExit(serviceId);
+
         assertEq(tangle.getService(serviceId).operatorCount, 2);
         assertFalse(tangle.isServiceOperator(serviceId, operator2));
+
+        // Check exit status is Completed
+        assertEq(uint(tangle.getExitStatus(serviceId, operator2)), uint(Types.ExitStatus.Completed));
     }
 
     function test_FullWorkflow_SubscriptionBilling() public {
@@ -267,7 +288,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request service with enough funds for multiple billing cycles
         address[] memory operators = new address[](1);
@@ -309,7 +330,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Create a service first (required for slashing)
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -343,7 +364,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -384,7 +405,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -428,7 +449,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request service (owner becomes permitted caller automatically)
         address[] memory operators = new address[](1);
@@ -471,7 +492,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -505,7 +526,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Delegator1: 1 ETH, Delegator2: 3 ETH (3x more)
         vm.startPrank(delegator1);
@@ -594,7 +615,7 @@ contract IntegrationTest is BaseTest {
         // operator1 hasn't registered in restaking - cannot register for blueprint
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotActive.selector, operator1));
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
     }
 
     function test_CannotApproveNonExistentRequest() public {
@@ -610,7 +631,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint256 payment = 5 ether;
         uint256 userBalanceBefore = user1.balance;
@@ -632,7 +653,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
 
@@ -665,7 +686,7 @@ contract CustomServiceManagerTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Verify onRegister was called
         assertTrue(serviceManager.operatorRegistered());
@@ -701,7 +722,7 @@ contract CustomServiceManagerTest is BaseTest {
             address(rejectingManager),
             abi.encodeWithSelector(RejectingServiceManager.OperatorRejected.selector)
         ));
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
     }
 
     function test_ServiceManagerCanCustomizeHeartbeat() public {
@@ -822,7 +843,7 @@ contract MultiAssetSecurityTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Create security requirements
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
@@ -861,7 +882,7 @@ contract MultiAssetSecurityTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Create multi-asset security requirements
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](2);
@@ -902,7 +923,7 @@ contract MultiAssetSecurityTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](0);
         address[] memory operators = new address[](1);
@@ -921,7 +942,7 @@ contract MultiAssetSecurityTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // min > max is invalid
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
@@ -947,7 +968,7 @@ contract MultiAssetSecurityTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request with security requirements
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
@@ -987,7 +1008,7 @@ contract MultiAssetSecurityTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
         requirements[0] = Types.AssetSecurityRequirement({
@@ -1024,7 +1045,7 @@ contract MultiAssetSecurityTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
         requirements[0] = Types.AssetSecurityRequirement({
@@ -1061,7 +1082,7 @@ contract MultiAssetSecurityTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Request requires two assets
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](2);
@@ -1104,12 +1125,12 @@ contract MultiAssetSecurityTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         vm.prank(operator2);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
         requirements[0] = Types.AssetSecurityRequirement({
@@ -1210,7 +1231,7 @@ contract RFQTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Create signed quote
         uint64 ttl = 100;
@@ -1261,12 +1282,12 @@ contract RFQTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         vm.prank(operator2);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1326,7 +1347,7 @@ contract RFQTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 ttl = 100;
         uint256 cost = 1 ether;
@@ -1366,7 +1387,7 @@ contract RFQTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1404,7 +1425,7 @@ contract RFQTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1440,7 +1461,7 @@ contract RFQTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1476,7 +1497,7 @@ contract RFQTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 expiry = uint64(block.timestamp + 1 hours);
 
@@ -1511,7 +1532,7 @@ contract RFQTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1552,7 +1573,7 @@ contract RFQTest is BaseTest {
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);

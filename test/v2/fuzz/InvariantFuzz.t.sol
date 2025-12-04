@@ -81,11 +81,11 @@ contract InvariantFuzzTest is Test {
         blueprintId = tangle.createBlueprint("ipfs://invariant", address(0));
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
         vm.prank(operator3);
-        tangle.registerOperator(blueprintId, "");
+        tangle.registerOperator(blueprintId, "", "");
 
         // Create initial service
         address[] memory ops = new address[](1);
@@ -209,12 +209,12 @@ contract InvariantFuzzTest is Test {
 
             if (i >= 3) {
                 vm.prank(op);
-                tangle.registerOperator(newBpId, "");
+                tangle.registerOperator(newBpId, "", "");
             } else {
                 // Use existing registrations if possible, or register
                 if (!tangle.isOperatorRegistered(newBpId, op)) {
                     vm.prank(op);
-                    tangle.registerOperator(newBpId, "");
+                    tangle.registerOperator(newBpId, "", "");
                 }
             }
             operators[i] = op;
@@ -390,7 +390,7 @@ contract InvariantFuzzTest is Test {
         uint64 subBp = tangle.createBlueprintWithConfig("ipfs://escrow-inv", address(0), config);
 
         vm.prank(operator1);
-        tangle.registerOperator(subBp, "");
+        tangle.registerOperator(subBp, "", "");
 
         address[] memory ops = new address[](1);
         ops[0] = operator1;

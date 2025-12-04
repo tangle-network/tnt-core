@@ -7,7 +7,7 @@ import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 import { Errors } from "../../../src/v2/libraries/Errors.sol";
 import { PaymentLib } from "../../../src/v2/libraries/PaymentLib.sol";
-import { MockERC20 } from "../../MockERC20.sol";
+import { MockERC20 } from "../mocks/MockERC20.sol";
 
 /// @notice Mock token that takes a fee on transfer
 contract FeeOnTransferToken is ERC20 {
@@ -70,9 +70,8 @@ contract PaymentEdgeCasesTest is BaseTest {
     function setUp() public override {
         super.setUp();
 
-        // Deploy mock token
+        // Deploy mock token (constructor initializes with default name/symbol)
         token = new MockERC20();
-        token.initialize("Test", "TEST", 18);
         token.mint(user1, 1000 ether);
         token.mint(user2, 1000 ether);
 
