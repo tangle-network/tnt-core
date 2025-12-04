@@ -146,4 +146,9 @@ contract Tangle is
     ) internal override {
         _distributePayment(serviceId, blueprintId, address(0), amount, operators, exposures, totalExposure);
     }
+
+    /// @notice Get the list of operators for a service (called from Jobs mixin for aggregation)
+    function _getServiceOperatorList(uint64 serviceId) internal view override returns (address[] memory) {
+        return _serviceOperatorSet[serviceId].values();
+    }
 }

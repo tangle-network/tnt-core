@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { IMetricsRecorder } from "../interfaces/IMetricsRecorder.sol";
 
 /// @title IOperatorStatusRegistry
 /// @notice Interface for operator status registry
@@ -182,6 +183,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
     /// @notice Slashing callback interface
     address public slashingOracle;
 
+    /// @notice Metrics recorder for reward distribution
+    address public metricsRecorder;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════════
@@ -294,6 +298,15 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
 
         if (oldStatus != newStatus) {
             emit StatusChanged(serviceId, operator, oldStatus, newStatus);
+        }
+
+        // Record heartbeat to metrics for reward distribution
+        if (metricsRecorder != address(0)) {
+            try IMetricsRecorder(metricsRecorder).recordHeartbeat(
+                operator,
+                serviceId,
+                uint64(block.timestamp)
+            ) {} catch {}
         }
     }
 
@@ -495,6 +508,12 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
     function setSlashingOracle(address oracle) external {
         // In production, should be access controlled
         slashingOracle = oracle;
+    }
+
+    /// @notice Set metrics recorder address for reward tracking
+    function setMetricsRecorder(address recorder) external {
+        // In production, should be access controlled
+        metricsRecorder = recorder;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
