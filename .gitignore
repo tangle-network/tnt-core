@@ -37,3 +37,4 @@ deployments.json
 
 # Soldeer
 /dependencies
+script/tanglepod-cli/tanglepod-cli
