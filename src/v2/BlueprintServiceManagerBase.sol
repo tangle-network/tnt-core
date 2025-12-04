@@ -255,6 +255,30 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // BLS AGGREGATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function requiresAggregation(uint64, uint8) external view virtual returns (bool) {
+        return false; // No aggregation required by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function getAggregationThreshold(uint64, uint8) external view virtual returns (uint16, uint8) {
+        // Default: 67% count-based threshold (only used if requiresAggregation returns true)
+        return (6700, 0); // 67% threshold, CountBased
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onAggregatedResult(uint64, uint8, uint64, bytes calldata, uint256, uint256[2] calldata, uint256[4] calldata)
+        external
+        virtual
+        onlyFromTangle
+    {
+        // Accept all aggregated results by default
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // STAKE REQUIREMENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -295,5 +319,24 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     /// @return Array of permitted asset addresses
     function _getPermittedAssets(uint64 serviceId) internal view virtual returns (address[] memory) {
         return _permittedPaymentAssets[serviceId].values();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PAYMENT RECEIVER
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Accept native token payments (e.g., developer revenue)
+    /// @dev Override _onPaymentReceived to handle incoming payments
+    receive() external payable virtual {
+        _onPaymentReceived(address(0), msg.value);
+    }
+
+    /// @notice Hook called when native payments are received
+    /// @dev Override this in child contracts to handle revenue
+    /// @param token The token address (address(0) for native)
+    /// @param amount The amount received
+    function _onPaymentReceived(address token, uint256 amount) internal virtual {
+        // Default: do nothing, just accumulate
+        // Child contracts can override to distribute, buyback, etc.
     }
 }
