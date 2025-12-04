@@ -1,32 +1,53 @@
-# Tangle v2 Progress
+# Tangle v2 Implementation Progress
 
 ## Target
-Production-ready EVM protocol for Tempo L1.
+Production-ready EVM-native protocol for Tempo L1.
 
-## Status: CORE IMPLEMENTATION COMPLETE
+## Status: COMPLETE
+
+**926 tests passing** across 45 test suites.
 
 ---
 
-## Completed
+## Implemented Features
 
-- [x] Architecture design (see DESIGN.md)
-- [x] Types library (`Types.sol`)
-- [x] Errors library (`Errors.sol`)
-- [x] IRestaking interface
-- [x] IBlueprintHook interface + base implementation
-- [x] ITangle interface
-- [x] Tangle.sol core contract
-- [x] NativeRestaking.sol (native token staking)
-- [x] ERC20Restaking.sol (LST/ERC20 support)
-- [x] EigenLayerRestaking.sol (EigenLayer adapter)
-- [x] SymbioticRestaking.sol (Symbiotic adapter)
-- [x] Core tests (71 passing)
+### Core Protocol
+- [x] Tangle.sol - Single monolithic contract with modular architecture
+- [x] Types.sol, Errors.sol - Shared types and custom errors
+- [x] Blueprint registration and management
+- [x] Service lifecycle (request, approve, terminate)
+- [x] Job submission and result handling
+- [x] Payment processing with splits
+- [x] O(1) Masterchef-style rewards distribution
 
-## Pending
+### Restaking
+- [x] MultiAssetDelegation.sol - Native token staking with O(1) share accounting
+- [x] Proportional slashing for operators and delegators
+- [x] Blueprint-aware slashing (only affects exposed delegators)
+- [x] Exposure system for per-operator risk management
 
-- [ ] Deploy scripts
-- [ ] Integration tests for adapters
-- [ ] Documentation
+### Slashing
+- [x] Dispute window mechanism (propose → dispute → execute)
+- [x] Exposure scaling (basis points 0-10000)
+- [x] Batch slash execution
+- [x] Metrics recording for rewards deduction
+- [x] Challenge mechanism for invalid results
+
+### Governance
+- [x] TangleGovernor.sol - OpenZeppelin Governor with timelock
+- [x] TangleToken.sol - Votes-enabled governance token
+- [x] Configurable parameters via governance
+
+### Inflation & Rewards
+- [x] InflationPool.sol - Pre-funded reward pool
+- [x] MetricsRecorder integration for job completion tracking
+- [x] Slashing metrics for rewards deduction
+
+### Extensions
+- [x] Tokenized blueprint extensions (community tokens)
+- [x] Payment receiver hooks
+- [x] Price oracle infrastructure
+- [x] Beacon chain validator pod system
 
 ---
 
@@ -34,96 +55,67 @@ Production-ready EVM protocol for Tempo L1.
 
 ```
 src/v2/
-├── Tangle.sol                    ✅ Core protocol
+├── Tangle.sol                    # Core protocol (single entry point)
+├── core/
+│   ├── Base.sol                  # Shared state and utilities
+│   ├── Blueprints.sol            # Blueprint management
+│   ├── Services.sol              # Service lifecycle
+│   ├── Jobs.sol                  # Job handling
+│   ├── Payments.sol              # Payment processing
+│   ├── Rewards.sol               # Reward distribution
+│   └── Slashing.sol              # Slashing with dispute window
 ├── interfaces/
-│   ├── ITangle.sol               ✅ Core interface
-│   ├── IRestaking.sol            ✅ Staking abstraction
-│   └── IBlueprintHook.sol        ✅ Hook interface + base
+│   ├── ITangle.sol               # Main interface
+│   ├── ITangleFull.sol           # Complete interface including slashing
+│   ├── IRestaking.sol            # Staking abstraction
+│   └── IBlueprintServiceManager.sol  # Hook interface
 ├── restaking/
-│   ├── NativeRestaking.sol       ✅ Native token staking
-│   ├── ERC20Restaking.sol        ✅ LST/ERC20 support
-│   ├── EigenLayerRestaking.sol   ✅ EigenLayer adapter
-│   └── SymbioticRestaking.sol    ✅ Symbiotic adapter
+│   └── MultiAssetDelegation.sol  # Native token staking
+├── rewards/
+│   └── InflationPool.sol         # Pre-funded reward pool
+├── governance/
+│   ├── TangleGovernor.sol        # Governance
+│   ├── TangleToken.sol           # Governance token
+│   └── TangleTimelock.sol        # Timelock controller
 └── libraries/
-    ├── Types.sol                 ✅ Shared types
-    └── Errors.sol                ✅ Custom errors
+    ├── Types.sol                 # Shared types
+    ├── Errors.sol                # Custom errors
+    ├── SlashingLib.sol           # Slashing utilities
+    └── BN254.sol                 # BLS signature support
 ```
-
-## Key Design Decisions
-
-1. **Single core contract** - Tangle.sol handles all protocol logic
-2. **Abstract staking** - IRestaking interface for pluggable backends
-3. **Optional hooks** - Blueprints can customize via IBlueprintHook
-4. **Masterchef rewards** - O(1) claim via accumulated-per-share
-5. **Packed structs** - Gas-optimized storage
-6. **Multi-protocol support** - Native, ERC20, EigenLayer, Symbiotic
 
 ---
 
-## DeFi Integration
+## Test Coverage
 
-### Supported Restaking Protocols
-
-| Protocol | Contract | Status |
-|----------|----------|--------|
-| Native ETH | NativeRestaking.sol | ✅ Complete |
-| Any ERC20/LST | ERC20Restaking.sol | ✅ Complete |
-| EigenLayer | EigenLayerRestaking.sol | ✅ Complete |
-| Symbiotic | SymbioticRestaking.sol | ✅ Complete |
-
-### LST Support (EtherFi, Lido, Renzo, etc.)
-
-The `ERC20Restaking` contract enables **permissionless** integration:
-
-```solidity
-// Any ERC20 can be enabled for staking
-restaking.enableToken(
-    stETH,                // token address
-    1 ether,              // min operator stake
-    0.1 ether,            // min delegation
-    10000                 // multiplier (10000 = 1x)
-);
-
-// Operators stake with their preferred LST
-restaking.registerOperator(stETH, 10 ether);
-
-// Delegators use any enabled token
-restaking.deposit(eETH, 5 ether);
-restaking.delegate(operator, eETH, 5 ether);
-```
-
-### Integration Points
-
-1. **TOKEN_MANAGER_ROLE** - Protocols can request token whitelisting
-2. **Standard ERC20** - Works with any compliant token
-3. **Multipliers** - Support rebasing tokens with value multipliers
-4. **No supervision required** - Standard interfaces, self-service
-
-### Protocol-Specific Adapters
-
-**EigenLayer:**
-- Wraps DelegationManager, StrategyManager, AVSDirectory
-- Operators register through EigenLayer, opt into Tangle AVS
-- Stake queries aggregate across configured strategies
-
-**Symbiotic:**
-- Wraps OperatorRegistry, Network, Slasher
-- Operators opt into Tangle network
-- Stake queries aggregate across configured vaults
+| Category | Tests | Status |
+|----------|-------|--------|
+| Core Protocol | 200+ | Pass |
+| Delegation | 150+ | Pass |
+| Slashing | 80+ | Pass |
+| Governance | 50+ | Pass |
+| Fuzz Tests | 100+ | Pass |
+| Integration | 50+ | Pass |
 
 ---
 
-## Architecture Overview
+## SDK Integration
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Tangle.sol                           │
-│   (Blueprints, Services, Jobs, Payments, Rewards)           │
-└─────────────────────────┬───────────────────────────────────┘
-                          │ IRestaking
-          ┌───────────────┼───────────────┬───────────────┐
-          │               │               │               │
-          ▼               ▼               ▼               ▼
-   NativeRestaking  ERC20Restaking  EigenLayer    Symbiotic
-      (ETH)           (LSTs)         Adapter       Adapter
-```
+Rust bindings generated via `forge bind`:
+- `Tangle` - Main contract
+- `ITangle`, `ITangleFull` - Interfaces
+- `IBlueprintServiceManager` - Hook interface
+- `MultiAssetDelegation` - Restaking
+- `InflationPool` - Rewards
+
+Blueprint SDK crates:
+- `blueprint-tangle-evm-extra` - Producer/consumer for EVM events
+- `blueprint-client-tangle-evm` - EVM client bindings
+
+---
+
+## Next Steps
+
+- [ ] Testnet deployment
+- [ ] External security audit
+- [ ] Documentation site
