@@ -112,6 +112,9 @@ abstract contract Slashing is Base {
 
         SlashingLib.markExecuted(_slashProposals, slashId, actualSlashed);
 
+        // Record slash for metrics tracking (affects rewards distribution)
+        _recordSlash(proposal.operator, proposal.serviceId, actualSlashed);
+
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         if (bp.manager != address(0)) {
             uint256 opStake = _restaking.getOperatorStake(proposal.operator);
@@ -157,6 +160,10 @@ abstract contract Slashing is Base {
             );
 
             SlashingLib.markExecuted(_slashProposals, slashIds[i], actualSlashed);
+
+            // Record slash for metrics tracking (affects rewards distribution)
+            _recordSlash(proposal.operator, proposal.serviceId, actualSlashed);
+
             totalSlashed += actualSlashed;
             executedCount++;
 

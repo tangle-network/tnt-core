@@ -26,10 +26,11 @@ interface ITangleSlashing {
     /// @param operator The operator to slash
     /// @param amount Amount to slash
     /// @param evidence Evidence hash
+    /// @return slashId The ID of the created slash proposal
     function proposeSlash(
         uint64 serviceId,
         address operator,
         uint256 amount,
         bytes32 evidence
-    ) external;
+    ) external returns (uint64 slashId);
 }
