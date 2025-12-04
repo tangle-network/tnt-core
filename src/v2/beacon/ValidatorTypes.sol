@@ -21,7 +21,14 @@ library ValidatorTypes {
     uint256 constant PRECISION = 1e18;
 
     /// @notice Withdrawal credentials prefix for execution layer addresses (0x01)
-    bytes1 constant WITHDRAWAL_CREDENTIALS_PREFIX = 0x01;
+    bytes1 constant WITHDRAWAL_CREDENTIALS_PREFIX_01 = 0x01;
+
+    /// @notice Withdrawal credentials prefix for Pectra compounding validators (0x02)
+    /// @dev Introduced in EIP-7251 (Pectra upgrade) for validators with >32 ETH effective balance
+    bytes1 constant WITHDRAWAL_CREDENTIALS_PREFIX_02 = 0x02;
+
+    /// @dev Legacy alias for 0x01 prefix
+    bytes1 constant WITHDRAWAL_CREDENTIALS_PREFIX = WITHDRAWAL_CREDENTIALS_PREFIX_01;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VALIDATOR STATUS
@@ -124,10 +131,33 @@ library ValidatorTypes {
         return address(uint160(uint256(withdrawalCredentials)));
     }
 
-    /// @notice Check if withdrawal credentials have the correct prefix
+    /// @notice Check if withdrawal credentials have a valid prefix (0x01 or 0x02)
+    /// @param withdrawalCredentials The credentials to check
+    /// @return True if prefix is 0x01 or 0x02
+    function hasValidPrefix(bytes32 withdrawalCredentials) internal pure returns (bool) {
+        bytes1 prefix = bytes1(withdrawalCredentials);
+        return prefix == WITHDRAWAL_CREDENTIALS_PREFIX_01 || prefix == WITHDRAWAL_CREDENTIALS_PREFIX_02;
+    }
+
+    /// @notice Check if withdrawal credentials have the legacy 0x01 prefix
     /// @param withdrawalCredentials The credentials to check
     /// @return True if prefix is 0x01
-    function hasValidPrefix(bytes32 withdrawalCredentials) internal pure returns (bool) {
-        return bytes1(withdrawalCredentials) == WITHDRAWAL_CREDENTIALS_PREFIX;
+    function has01Prefix(bytes32 withdrawalCredentials) internal pure returns (bool) {
+        return bytes1(withdrawalCredentials) == WITHDRAWAL_CREDENTIALS_PREFIX_01;
+    }
+
+    /// @notice Check if withdrawal credentials have the Pectra 0x02 prefix
+    /// @param withdrawalCredentials The credentials to check
+    /// @return True if prefix is 0x02
+    function has02Prefix(bytes32 withdrawalCredentials) internal pure returns (bool) {
+        return bytes1(withdrawalCredentials) == WITHDRAWAL_CREDENTIALS_PREFIX_02;
+    }
+
+    /// @notice Compute expected 0x02 withdrawal credentials for an address
+    /// @dev Used for Pectra validators with compounding enabled
+    /// @param addr The address that should receive withdrawals
+    /// @return The 32-byte withdrawal credentials (0x02 prefix + 11 zero bytes + address)
+    function computeWithdrawalCredentials02(address addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(addr))) | bytes32(uint256(uint8(WITHDRAWAL_CREDENTIALS_PREFIX_02)) << 248);
     }
 }

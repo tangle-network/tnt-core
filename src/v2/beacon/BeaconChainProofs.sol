@@ -33,35 +33,44 @@ library BeaconChainProofs {
     uint256 internal constant VALIDATOR_FIELDS_LENGTH = 8;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CONSTANTS - TREE HEIGHTS
+    // CONSTANTS - TREE HEIGHTS AND INDICES (SSZ Spec)
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Height of beacon block header tree (state_root is at index 3)
     uint256 internal constant BEACON_BLOCK_HEADER_TREE_HEIGHT = 3;
 
-    /// @notice Index of state root in beacon block header
+    /// @notice Index of state root in beacon block header (generalized index)
     uint256 internal constant STATE_ROOT_INDEX = 3;
 
-    /// @notice Height of beacon state tree (Deneb fork)
-    uint256 internal constant BEACON_STATE_TREE_HEIGHT_DENEB = 5;
+    /// @notice Height of beacon state tree (Deneb fork - 28 fields = 5 levels)
+    uint256 internal constant BEACON_STATE_TREE_HEIGHT = 5;
 
-    /// @notice Height of beacon state tree (Pectra fork)
-    uint256 internal constant BEACON_STATE_TREE_HEIGHT_PECTRA = 6;
+    /// @notice Index of validators list in beacon state (field index 11)
+    /// @dev In SSZ, generalized index = 2^depth + field_index = 32 + 11 = 43
+    uint256 internal constant VALIDATOR_LIST_INDEX = 11;
 
-    /// @notice Index of validators in beacon state (generalized index)
-    uint256 internal constant VALIDATORS_INDEX = 11;
-
-    /// @notice Index of balances in beacon state (generalized index)
-    uint256 internal constant BALANCES_INDEX = 12;
+    /// @notice Index of balances list in beacon state (field index 12)
+    /// @dev Generalized index = 32 + 12 = 44
+    uint256 internal constant BALANCE_LIST_INDEX = 12;
 
     /// @notice Height of validator tree (supports up to 2^40 validators)
     uint256 internal constant VALIDATOR_TREE_HEIGHT = 40;
 
-    /// @notice Height of balance tree (supports up to 2^38 balance entries)
+    /// @notice Height of balance tree (supports up to 2^38 balance entries since 4 per leaf)
     uint256 internal constant BALANCE_TREE_HEIGHT = 38;
 
-    /// @notice Number of validators per balance leaf (4 validators packed per leaf)
+    /// @notice Number of validators per balance leaf (4 x 8-byte balances = 32 bytes)
     uint256 internal constant VALIDATORS_PER_BALANCE_LEAF = 4;
+
+    /// @notice Generalized index for validator container root in beacon state
+    /// @dev Formula: (1 << BEACON_STATE_TREE_HEIGHT) | VALIDATOR_LIST_INDEX
+    ///      = (1 << 5) | 11 = 32 | 11 = 43
+    uint256 internal constant VALIDATOR_CONTAINER_GINDEX = 43;
+
+    /// @notice Generalized index for balance container root in beacon state
+    /// @dev Formula: (1 << BEACON_STATE_TREE_HEIGHT) | BALANCE_LIST_INDEX
+    ///      = (1 << 5) | 12 = 32 | 12 = 44
+    uint256 internal constant BALANCE_CONTAINER_GINDEX = 44;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -71,6 +80,7 @@ library BeaconChainProofs {
     error InvalidValidatorFieldsLength();
     error ProofVerificationFailed();
     error InvalidWithdrawalCredentials();
+    error EmptyProof();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE ROOT VERIFICATION
@@ -103,7 +113,7 @@ library BeaconChainProofs {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Verify validator fields against the beacon state root
-    /// @param beaconStateRoot The beacon state root
+    /// @param beaconStateRoot The beacon state root (already verified against block root)
     /// @param validatorIndex The validator's index
     /// @param proof The validator fields and merkle proof
     /// @return True if verification succeeds
@@ -120,50 +130,52 @@ library BeaconChainProofs {
         bytes32 validatorLeaf = _hashValidatorFieldsMemory(proof.validatorFields);
 
         // Calculate the generalized index for this validator
-        // validators is at index 11 in state, then we index into the validator list
-        uint256 validatorGeneralizedIndex = (VALIDATORS_INDEX << VALIDATOR_TREE_HEIGHT) | uint256(validatorIndex);
+        // The validator is in a merkleized list at index VALIDATOR_CONTAINER_GINDEX in state
+        // Within the list, we need to traverse VALIDATOR_TREE_HEIGHT levels to reach the validator
+        // Generalized index = (VALIDATOR_CONTAINER_GINDEX << VALIDATOR_TREE_HEIGHT) | validatorIndex
+        //
+        // This creates a path: state root -> validators container -> specific validator
+        uint256 validatorGIndex = (VALIDATOR_CONTAINER_GINDEX << VALIDATOR_TREE_HEIGHT) | uint256(validatorIndex);
 
-        // Proof goes from validator leaf → validators root → state root
-        uint256 expectedProofLength = (VALIDATOR_TREE_HEIGHT + BEACON_STATE_TREE_HEIGHT_DENEB) * 32;
+        // Proof length: VALIDATOR_TREE_HEIGHT (within list) + BEACON_STATE_TREE_HEIGHT (to state root)
+        uint256 expectedProofLength = (VALIDATOR_TREE_HEIGHT + BEACON_STATE_TREE_HEIGHT) * 32;
         if (proof.proof.length != expectedProofLength) {
             revert InvalidProofLength();
         }
 
-        return _verifyMerkleProofMemory(
+        return _verifyMerkleProofFromGIndexMemory(
             proof.proof,
             beaconStateRoot,
             validatorLeaf,
-            validatorGeneralizedIndex
+            validatorGIndex
         );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // BALANCE VERIFICATION
+    // BALANCE VERIFICATION (Two-step: block -> state -> balances)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Verify balance container root against beacon block root
-    /// @param beaconBlockRoot The beacon block root
+    /// @notice Verify balance container root against beacon state root
+    /// @param beaconStateRoot The beacon state root (must be verified separately against block root)
     /// @param proof The balance container proof
     /// @return True if verification succeeds
+    /// @dev C-3 FIX: Now correctly verifies against state root, not block root
     function verifyBalanceContainer(
-        bytes32 beaconBlockRoot,
+        bytes32 beaconStateRoot,
         ValidatorTypes.BalanceContainerProof calldata proof
     ) internal pure returns (bool) {
-        // Balance container is at index 12 in the beacon state
-        // Need to go through: block root → state root → balances root
-        uint256 expectedProofLength = (BEACON_BLOCK_HEADER_TREE_HEIGHT + BEACON_STATE_TREE_HEIGHT_DENEB) * 32;
+        // Balance container is at generalized index 44 in the beacon state
+        // Proof length: BEACON_STATE_TREE_HEIGHT levels to reach balances from state root
+        uint256 expectedProofLength = BEACON_STATE_TREE_HEIGHT * 32;
         if (proof.proof.length != expectedProofLength) {
             revert InvalidProofLength();
         }
 
-        // Generalized index for balances in beacon state
-        uint256 balancesGeneralizedIndex = BALANCES_INDEX;
-
-        return _verifyMerkleProofFromGeneralizedIndex(
+        return _verifyMerkleProofFromGIndex(
             proof.proof,
-            beaconBlockRoot,
+            beaconStateRoot,
             proof.balanceContainerRoot,
-            balancesGeneralizedIndex
+            BALANCE_CONTAINER_GINDEX
         );
     }
 
@@ -178,6 +190,7 @@ library BeaconChainProofs {
         ValidatorTypes.BalanceProof calldata proof
     ) internal pure returns (uint64 balance) {
         // Each balance leaf contains 4 validator balances packed together
+        // Leaf index = validatorIndex / 4
         uint256 balanceLeafIndex = validatorIndex / VALIDATORS_PER_BALANCE_LEAF;
 
         // Verify the balance leaf against balance container root
@@ -287,7 +300,7 @@ library BeaconChainProofs {
         return uint64(uint256(balanceRoot) >> bitOffset);
     }
 
-    /// @notice Verify a Merkle proof using SHA256
+    /// @notice Verify a Merkle proof using SHA256 with simple index
     /// @param proof The concatenated sibling hashes
     /// @param root The expected root
     /// @param leaf The leaf being proven
@@ -317,39 +330,42 @@ library BeaconChainProofs {
 
     /// @notice Verify a Merkle proof using generalized index
     /// @dev Generalized index encodes the path from root to leaf
-    function _verifyMerkleProofFromGeneralizedIndex(
+    ///      The lowest bit determines left/right at the first level,
+    ///      second lowest at second level, etc.
+    function _verifyMerkleProofFromGIndex(
         bytes calldata proof,
         bytes32 root,
         bytes32 leaf,
-        uint256 generalizedIndex
+        uint256 gindex
     ) internal pure returns (bool) {
         bytes32 computedHash = leaf;
-        uint256 index = generalizedIndex;
 
+        // Number of levels = log2(gindex) = position of highest bit
+        // We process from leaf upward, using the bits of gindex to determine left/right
         for (uint256 i = 0; i < proof.length; i += 32) {
             bytes32 sibling = bytes32(proof[i:i + 32]);
 
-            if (index % 2 == 0) {
-                computedHash = sha256(abi.encodePacked(computedHash, sibling));
-            } else {
+            // If gindex is odd, we are on the right, so sibling is on left
+            if (gindex % 2 == 1) {
                 computedHash = sha256(abi.encodePacked(sibling, computedHash));
+            } else {
+                computedHash = sha256(abi.encodePacked(computedHash, sibling));
             }
 
-            index = index / 2;
+            gindex = gindex / 2;
         }
 
         return computedHash == root;
     }
 
     /// @notice Verify a Merkle proof using generalized index (memory version)
-    function _verifyMerkleProofMemory(
+    function _verifyMerkleProofFromGIndexMemory(
         bytes memory proof,
         bytes32 root,
         bytes32 leaf,
-        uint256 generalizedIndex
+        uint256 gindex
     ) internal pure returns (bool) {
         bytes32 computedHash = leaf;
-        uint256 index = generalizedIndex;
 
         for (uint256 i = 0; i < proof.length; i += 32) {
             bytes32 sibling;
@@ -357,13 +373,13 @@ library BeaconChainProofs {
                 sibling := mload(add(add(proof, 32), i))
             }
 
-            if (index % 2 == 0) {
-                computedHash = sha256(abi.encodePacked(computedHash, sibling));
-            } else {
+            if (gindex % 2 == 1) {
                 computedHash = sha256(abi.encodePacked(sibling, computedHash));
+            } else {
+                computedHash = sha256(abi.encodePacked(computedHash, sibling));
             }
 
-            index = index / 2;
+            gindex = gindex / 2;
         }
 
         return computedHash == root;

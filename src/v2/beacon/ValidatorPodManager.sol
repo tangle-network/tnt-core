@@ -62,8 +62,47 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     /// @notice Total delegated to an operator
     mapping(address operator => uint256) public operatorDelegatedStake;
 
+    /// @notice H-3 FIX: Total amount delegated by a delegator
+    mapping(address delegator => uint256) public delegatorTotalDelegated;
+
+    /// @notice H-4 FIX: Track delegators per operator for proportional slashing
+    mapping(address operator => address[]) internal _operatorDelegators;
+
+    /// @notice H-4 FIX: Track if delegator is in operator's delegator list
+    mapping(address operator => mapping(address delegator => bool)) internal _isDelegator;
+
     /// @notice Authorized slashers
     mapping(address => bool) internal _slashers;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE - WITHDRAWAL QUEUE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Withdrawal request structure
+    struct Withdrawal {
+        address staker;
+        uint256 shares;
+        uint32 startBlock;
+        bool completed;
+    }
+
+    /// @notice Withdrawal delay in blocks (default ~7 days on L2 at 2s blocks)
+    uint32 public withdrawalDelayBlocks;
+
+    /// @notice Default withdrawal delay (~7 days at 2s blocks = 302,400 blocks)
+    uint32 public constant DEFAULT_WITHDRAWAL_DELAY = 302_400;
+
+    /// @notice Maximum withdrawal delay (~30 days)
+    uint32 public constant MAX_WITHDRAWAL_DELAY = 1_296_000;
+
+    /// @notice Pending withdrawals by withdrawal root
+    mapping(bytes32 => Withdrawal) public pendingWithdrawals;
+
+    /// @notice Nonce for unique withdrawal roots per staker
+    mapping(address => uint256) public withdrawalNonce;
+
+    /// @notice Total shares currently queued for withdrawal per staker
+    mapping(address => uint256) public queuedShares;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -76,6 +115,10 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     event Delegated(address indexed delegator, address indexed operator, uint256 amount);
     event Undelegated(address indexed delegator, address indexed operator, uint256 amount);
     event SlasherUpdated(address indexed slasher, bool authorized);
+    event DelegatorSlashed(address indexed delegator, address indexed operator, uint256 amount);
+    event WithdrawalQueued(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares);
+    event WithdrawalCompleted(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares);
+    event WithdrawalDelaySet(uint32 oldDelay, uint32 newDelay);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -91,6 +134,11 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     error NotAuthorizedSlasher();
     error ZeroAddress();
     error ZeroAmount();
+    error WithdrawalNotFound();
+    error WithdrawalNotReady();
+    error WithdrawalAlreadyCompleted();
+    error ExceedsMaxDelay();
+    error HasPendingDelegations();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -106,6 +154,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         if (_beaconOracle == address(0)) revert ZeroAddress();
         beaconOracle = IBeaconOracle(_beaconOracle);
         minOperatorStakeAmount = _minOperatorStake;
+        withdrawalDelayBlocks = DEFAULT_WITHDRAWAL_DELAY;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -205,14 +254,21 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         if (amount == 0) revert ZeroAmount();
 
         int256 availableShares = podOwnerShares[msg.sender];
-        uint256 currentDelegated = _getTotalDelegatedBy(msg.sender);
+        uint256 currentDelegated = delegatorTotalDelegated[msg.sender]; // H-3 FIX
 
         if (availableShares < 0 || uint256(availableShares) < currentDelegated + amount) {
             revert InsufficientShares();
         }
 
+        // H-4 FIX: Track delegator in operator's list for proportional slashing
+        if (!_isDelegator[operator][msg.sender]) {
+            _operatorDelegators[operator].push(msg.sender);
+            _isDelegator[operator][msg.sender] = true;
+        }
+
         delegations[msg.sender][operator] += amount;
         operatorDelegatedStake[operator] += amount;
+        delegatorTotalDelegated[msg.sender] += amount; // H-3 FIX
 
         emit Delegated(msg.sender, operator, amount);
     }
@@ -225,15 +281,133 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
 
         delegations[msg.sender][operator] -= amount;
         operatorDelegatedStake[operator] -= amount;
+        delegatorTotalDelegated[msg.sender] -= amount; // H-3 FIX
 
         emit Undelegated(msg.sender, operator, amount);
     }
 
     /// @notice Get total amount delegated by an address
-    function _getTotalDelegatedBy(address delegator) internal view returns (uint256 total) {
-        // Note: This would need iteration in production
-        // For now, this is a simplified implementation
-        return 0;
+    /// @dev H-3 FIX: Now returns the tracked total instead of 0
+    function _getTotalDelegatedBy(address delegator) internal view returns (uint256) {
+        return delegatorTotalDelegated[delegator];
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WITHDRAWAL QUEUE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Queue a withdrawal of beacon chain ETH shares
+    /// @param shares Amount of shares to withdraw (in wei)
+    /// @return withdrawalRoot Unique identifier for this withdrawal
+    /// @dev Must have no pending delegations to withdraw
+    function queueWithdrawal(uint256 shares) external nonReentrant returns (bytes32 withdrawalRoot) {
+        if (shares == 0) revert ZeroAmount();
+
+        // Check staker has sufficient available shares
+        int256 currentShares = podOwnerShares[msg.sender];
+        uint256 delegated = delegatorTotalDelegated[msg.sender];
+        uint256 queued = queuedShares[msg.sender];
+
+        // Must undelegate before withdrawing
+        if (delegated > 0) revert HasPendingDelegations();
+
+        // Available = total shares - already queued
+        if (currentShares < 0 || uint256(currentShares) < queued + shares) {
+            revert InsufficientShares();
+        }
+
+        // Generate unique withdrawal root
+        uint256 nonce = withdrawalNonce[msg.sender]++;
+        withdrawalRoot = keccak256(abi.encodePacked(msg.sender, shares, block.number, nonce));
+
+        // Store pending withdrawal
+        pendingWithdrawals[withdrawalRoot] = Withdrawal({
+            staker: msg.sender,
+            shares: shares,
+            startBlock: uint32(block.number),
+            completed: false
+        });
+
+        // Track queued shares
+        queuedShares[msg.sender] += shares;
+
+        emit WithdrawalQueued(withdrawalRoot, msg.sender, shares);
+    }
+
+    /// @notice Complete a pending withdrawal after delay period
+    /// @param withdrawalRoot The withdrawal identifier
+    /// @dev Transfers ETH from the pod to the staker
+    function completeWithdrawal(bytes32 withdrawalRoot) external nonReentrant {
+        Withdrawal storage withdrawal = pendingWithdrawals[withdrawalRoot];
+
+        // Verify withdrawal exists and belongs to caller
+        if (withdrawal.staker != msg.sender) revert WithdrawalNotFound();
+        if (withdrawal.completed) revert WithdrawalAlreadyCompleted();
+
+        // Check delay has passed
+        if (block.number < withdrawal.startBlock + withdrawalDelayBlocks) {
+            revert WithdrawalNotReady();
+        }
+
+        // Mark as completed
+        withdrawal.completed = true;
+
+        // Reduce shares and queued amount
+        uint256 shares = withdrawal.shares;
+        podOwnerShares[msg.sender] -= int256(shares);
+        totalShares -= int256(shares);
+        queuedShares[msg.sender] -= shares;
+
+        // Transfer ETH from pod to staker
+        address pod = ownerToPod[msg.sender];
+        if (pod != address(0)) {
+            // Request pod to send ETH to staker
+            ValidatorPod(payable(pod)).withdrawToStaker(msg.sender, shares);
+        }
+
+        emit WithdrawalCompleted(withdrawalRoot, msg.sender, shares);
+    }
+
+    /// @notice Get withdrawal info
+    /// @param withdrawalRoot The withdrawal identifier
+    /// @return staker The staker address
+    /// @return shares Amount of shares
+    /// @return startBlock Block when queued
+    /// @return completed Whether completed
+    /// @return canComplete Whether can be completed now
+    function getWithdrawalInfo(bytes32 withdrawalRoot)
+        external
+        view
+        returns (
+            address staker,
+            uint256 shares,
+            uint32 startBlock,
+            bool completed,
+            bool canComplete
+        )
+    {
+        Withdrawal storage w = pendingWithdrawals[withdrawalRoot];
+        staker = w.staker;
+        shares = w.shares;
+        startBlock = w.startBlock;
+        completed = w.completed;
+        canComplete = !completed && block.number >= startBlock + withdrawalDelayBlocks;
+    }
+
+    /// @notice Calculate available shares for withdrawal
+    /// @param staker The staker address
+    /// @return available Shares available to queue for withdrawal
+    function getAvailableToWithdraw(address staker) external view returns (uint256 available) {
+        int256 shares = podOwnerShares[staker];
+        if (shares <= 0) return 0;
+
+        uint256 delegated = delegatorTotalDelegated[staker];
+        uint256 queued = queuedShares[staker];
+        uint256 used = delegated + queued;
+
+        if (uint256(shares) > used) {
+            available = uint256(shares) - used;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -323,6 +497,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     }
 
     /// @notice Internal slash implementation
+    /// @dev H-4 FIX: Now proportionally slashes delegators
     function _slash(address operator, uint256 amount) internal returns (uint256 actualSlashed) {
         uint256 totalStake = operatorStake[operator] + operatorDelegatedStake[operator];
 
@@ -337,10 +512,32 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         operatorStake[operator] -= selfSlash;
         amount -= selfSlash;
 
-        // Remaining from delegated stake
+        // H-4 FIX: Proportionally slash delegators
         if (amount > 0) {
+            uint256 delegatedBefore = operatorDelegatedStake[operator];
+            if (delegatedBefore > 0) {
+                // Iterate through all delegators and reduce proportionally
+                address[] storage delegators = _operatorDelegators[operator];
+                for (uint256 i = 0; i < delegators.length; i++) {
+                    address delegator = delegators[i];
+                    uint256 delegatorStake = delegations[delegator][operator];
+
+                    if (delegatorStake > 0) {
+                        // Calculate proportional slash: (delegatorStake / delegatedBefore) * amount
+                        uint256 delegatorSlash = (delegatorStake * amount) / delegatedBefore;
+
+                        if (delegatorSlash > delegatorStake) {
+                            delegatorSlash = delegatorStake;
+                        }
+
+                        delegations[delegator][operator] -= delegatorSlash;
+                        delegatorTotalDelegated[delegator] -= delegatorSlash;
+
+                        emit DelegatorSlashed(delegator, operator, delegatorSlash);
+                    }
+                }
+            }
             operatorDelegatedStake[operator] -= amount;
-            // Note: In production, would need to proportionally reduce delegator shares
         }
     }
 
@@ -398,6 +595,15 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     function setBeaconOracle(address _beaconOracle) external onlyOwner {
         if (_beaconOracle == address(0)) revert ZeroAddress();
         beaconOracle = IBeaconOracle(_beaconOracle);
+    }
+
+    /// @notice Set the withdrawal delay
+    /// @param newDelay New delay in blocks
+    function setWithdrawalDelay(uint32 newDelay) external onlyOwner {
+        if (newDelay > MAX_WITHDRAWAL_DELAY) revert ExceedsMaxDelay();
+        uint32 oldDelay = withdrawalDelayBlocks;
+        withdrawalDelayBlocks = newDelay;
+        emit WithdrawalDelaySet(oldDelay, newDelay);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
