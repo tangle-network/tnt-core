@@ -54,6 +54,7 @@ abstract contract Jobs is Base {
         if (svc.pricing == Types.PricingModel.EventDriven) {
             payment = _blueprintConfigs[svc.blueprintId].eventRate;
             PaymentLib.collectPayment(address(0), payment, msg.value);
+            _recordPayment(msg.sender, serviceId, address(0), payment);
         }
 
         callId = _serviceCallCount[serviceId]++;
@@ -79,6 +80,7 @@ abstract contract Jobs is Base {
         }
 
         emit JobSubmitted(serviceId, callId, jobIndex, msg.sender, inputs);
+        _recordJobCall(serviceId, msg.sender, callId);
     }
 
     /// @notice Submit job result

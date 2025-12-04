@@ -103,6 +103,7 @@ abstract contract Quotes is Base {
         }
 
         emit ServiceActivated(serviceId, 0, blueprintId);
+        _recordServiceCreated(serviceId, blueprintId, msg.sender, operators.length);
 
         // Configure heartbeat settings from BSM
         _configureHeartbeat(serviceId, bp.manager, msg.sender);

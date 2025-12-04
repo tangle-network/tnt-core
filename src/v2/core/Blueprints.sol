@@ -43,6 +43,7 @@ abstract contract Blueprints is Base {
         });
 
         emit BlueprintCreated(blueprintId, msg.sender, manager);
+        _recordBlueprintCreated(blueprintId, msg.sender);
 
         if (manager != address(0)) {
             _callManager(
@@ -76,6 +77,7 @@ abstract contract Blueprints is Base {
         _blueprintConfigs[blueprintId] = config;
 
         emit BlueprintCreated(blueprintId, msg.sender, manager);
+        _recordBlueprintCreated(blueprintId, msg.sender);
 
         if (manager != address(0)) {
             _callManager(

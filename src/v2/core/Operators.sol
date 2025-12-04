@@ -91,6 +91,7 @@ abstract contract Operators is Base {
         bp.operatorCount++;
 
         emit OperatorRegistered(blueprintId, msg.sender, preferences);
+        _recordBlueprintRegistration(blueprintId, msg.sender);
     }
 
     /// @notice Unregister from a blueprint

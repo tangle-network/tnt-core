@@ -51,6 +51,7 @@ abstract contract Payments is Base {
         }
 
         emit EscrowFunded(serviceId, token, amount);
+        _recordPayment(msg.sender, serviceId, token, amount);
     }
 
     /// @notice Bill a subscription service
