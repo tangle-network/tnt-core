@@ -391,11 +391,11 @@ contract RewardVaults is
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // EPOCH REWARDS (Called by InflationController)
+    // EPOCH REWARDS (Called by InflationPool)
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Distribute epoch staking rewards across all operators in a vault
-    /// @dev Called by InflationController after minting TNT to this contract
+    /// @dev Called by InflationPool after transferring TNT to this contract
     /// @param asset The vault asset
     /// @param amount Total reward amount to distribute
     function distributeEpochReward(

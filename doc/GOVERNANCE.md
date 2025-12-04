@@ -268,22 +268,26 @@ multiAssetDelegation.enableAsset(
 
 ## TNT Incentives (Rewards System)
 
-Separate from payment distribution, TNT incentives are minted as inflation to reward protocol participants.
+Separate from payment distribution, TNT incentives are distributed from a pre-funded InflationPool to reward protocol participants. This architecture isolates token risk from protocol risk - even if protocol contracts have bugs, attackers cannot mint unlimited tokens.
 
 ### Architecture
 
 ```
+Governance (TangleTimelock)
+       ↓ funds via proposal
+InflationPool (pre-funded)
+       ↓ distributes per epoch
 TangleMetrics (lightweight recorder)
        ↓ records events
-RewardVaults (calculates & distributes TNT)
-       ↓ mints via MINTER_ROLE
-TangleToken
+RewardVaults (receives transfers)
+       ↓ distributes to users
 ```
 
 ### Contracts
 
 | Contract | Path | Purpose |
 |----------|------|---------|
+| InflationPool | `src/v2/rewards/InflationPool.sol` | Pre-funded pool for epoch-based distribution |
 | TangleMetrics | `src/v2/rewards/TangleMetrics.sol` | Records protocol activity events |
 | RewardVaults | `src/v2/rewards/RewardVaults.sol` | Vault-based reward distribution |
 
@@ -359,31 +363,39 @@ Events recorded:
 - Operator registrations
 - Slashing
 
-## Inflation Targeting
+## Inflation Pool
 
-The InflationController enables precise control over TNT inflation with configurable distribution.
+The InflationPool is a pre-funded pool that distributes TNT rewards over time. Unlike mint-on-demand systems, this architecture isolates token risk from protocol risk.
+
+### Security Model
+
+- **MINTER_ROLE**: Only held by governance (TangleTimelock)
+- **Protocol contracts cannot mint**: InflationPool, RewardVaults receive tokens via transfer
+- **Bounded risk**: Attackers can only steal pool balance, never mint unlimited tokens
+- **Emergency withdraw**: Pool can migrate funds to upgraded versions
+
+### Funding the Pool
+
+```solidity
+// Governance proposal to fund inflation pool
+// 1. Mint TNT to treasury (requires MINTER_ROLE via proposal)
+tangleToken.mint(treasury, yearlyInflation);
+
+// 2. Fund pool from treasury
+pool.fund(yearlyInflation);
+```
 
 ### Configuration
 
 ```solidity
-controller.setInflationRate(100);  // 1% yearly inflation
-
-controller.setWeights(
+pool.setWeights(
     6000,   // 60% to stakers
     2500,   // 25% to operators
     1500    // 15% to customers
 );
 
-controller.setEpochLength(50400);  // ~1 week distribution cycles
+pool.setEpochDuration(50400);  // ~1 week distribution cycles
 ```
-
-### Inflation Budget
-
-With 50M TNT supply and 1% inflation:
-- **Yearly budget**: 500,000 TNT
-- **Epoch budget**: ~9,600 TNT (at weekly epochs)
-
-Budget is enforced per-year and resets automatically.
 
 ### Distribution Categories
 
@@ -397,22 +409,32 @@ Budget is enforced per-year and resets automatically.
 
 ```solidity
 // Anyone can trigger when epoch is ready
-if (controller.isEpochReady()) {
-    controller.distributeEpoch();
+if (block.number >= pool.epochEndBlock()) {
+    pool.distributeEpoch();
 }
 
 // Claim rewards
-controller.claimOperatorRewards();
-controller.claimCustomerRewards();
+pool.claimOperatorRewards();
+pool.claimCustomerRewards();
+```
+
+### Emergency Migration
+
+If bugs are found, governance can migrate to a new pool:
+
+```solidity
+// Emergency withdraw to new pool (requires DEFAULT_ADMIN_ROLE)
+pool.emergencyWithdraw(newPoolAddress);
 ```
 
 ### Governance Controls
 
 | Function | Role | Purpose |
 |----------|------|---------|
-| `setInflationRate()` | ADMIN_ROLE | Change yearly inflation (max 10%) |
+| `fund()` | FUNDER_ROLE | Add tokens to pool budget |
 | `setWeights()` | ADMIN_ROLE | Adjust distribution weights |
-| `setEpochLength()` | ADMIN_ROLE | Change distribution frequency |
+| `setEpochDuration()` | ADMIN_ROLE | Change distribution frequency |
+| `emergencyWithdraw()` | DEFAULT_ADMIN_ROLE | Migrate to new pool |
 
 ## Security Considerations
 
@@ -422,5 +444,6 @@ controller.claimCustomerRewards();
 4. **Role Separation**: Different roles for different powers
 5. **No Admin Backdoor**: Once roles transferred, only governance controls protocol
 6. **Asset Vetting**: ASSET_MANAGER_ROLE should vet tokens before enabling (check for reentrancy, fee-on-transfer, etc.)
-7. **Inflation Cap**: Yearly budget enforced, max 10% inflation rate
-8. **Merit-Based**: Operator rewards weighted by stake to prevent gaming
+7. **Token Isolation**: Protocol contracts cannot mint tokens - only governance can mint via proposals
+8. **Bounded Inflation Risk**: InflationPool distributes from funded balance, not minting - attackers can only steal pool funds
+9. **Merit-Based**: Operator rewards weighted by stake to prevent gaming

@@ -42,8 +42,8 @@ contract RewardsTest is Test {
         ERC1967Proxy vaultsProxy = new ERC1967Proxy(address(vaultsImpl), vaultsData);
         vaults = RewardVaults(address(vaultsProxy));
 
-        // Grant MINTER_ROLE to vaults for reward minting
-        tnt.grantRole(tnt.MINTER_ROLE(), address(vaults));
+        // Fund vaults with TNT for reward distribution (new pre-funded model - no minting)
+        tnt.transfer(address(vaults), 1_000_000 ether);
 
         // Grant RECORDER_ROLE to this test contract
         metrics.grantRecorderRole(address(this));
