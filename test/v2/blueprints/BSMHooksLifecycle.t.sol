@@ -31,7 +31,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
     function test_V1_OnBlueprintCreated_Called() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
 
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
         assertEq(bsm.blueprintId(), blueprintId);
         assertEq(bsm.blueprintOwner(), blueprintOwner);
         assertEq(bsm.tangleCore(), address(tangle));
@@ -41,7 +41,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
     function test_V2_OnBlueprintCreated_Called() public {
         (uint64 blueprintId, address manager) = deployBlueprint(2);
 
-        MockBSM_V2 bsm = MockBSM_V2(manager);
+        MockBSM_V2 bsm = MockBSM_V2(payable(manager));
         assertEq(bsm.blueprintId(), blueprintId);
         assertEq(bsm.version(), 2);
         assertEq(bsm.getHookCalls().onBlueprintCreated, 1);
@@ -50,7 +50,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
     function test_V3_OnBlueprintCreated_Called() public {
         (uint64 blueprintId, address manager) = deployBlueprint(3);
 
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
         assertEq(bsm.blueprintId(), blueprintId);
         assertEq(bsm.version(), 3);
         assertEq(bsm.getHookCalls().onBlueprintCreated, 1);
@@ -62,7 +62,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnRegister_TracksOperators() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         registerAllOperatorsForBlueprint(blueprintId);
 
@@ -72,7 +72,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnRegister_StoresInputs() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         bytes memory customInputs = abi.encode("custom", 123);
         vm.prank(operator1);
@@ -83,7 +83,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V2_OnRegister_AllowlistEnforced() public {
         (uint64 blueprintId, address manager) = deployBlueprint(2);
-        MockBSM_V2 bsm = MockBSM_V2(manager);
+        MockBSM_V2 bsm = MockBSM_V2(payable(manager));
 
         // Enable allowlist
         bsm.setOperatorAllowlistEnabled(true);
@@ -106,7 +106,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnUnregister_Called() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
 
@@ -122,7 +122,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnRequest_Called() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
 
@@ -137,7 +137,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V2_OnRequest_EnforcesMinimumPayment() public {
         (uint64 blueprintId, address manager) = deployBlueprint(2);
-        MockBSM_V2 bsm = MockBSM_V2(manager);
+        MockBSM_V2 bsm = MockBSM_V2(payable(manager));
 
         // Set minimum payment
         bsm.setMinimumPayment(1 ether);
@@ -168,7 +168,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnApprove_CalledPerOperator() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         registerOperatorForBlueprint(operator2, blueprintId);
@@ -193,7 +193,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnServiceInitialized_CalledAfterAllApprovals() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
 
@@ -205,7 +205,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnReject_Called() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
 
@@ -229,7 +229,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnJobCall_TracksInputs() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         uint64 serviceId = createService(blueprintId, operator1, 1 ether);
@@ -245,7 +245,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnJobResult_TracksOutputs() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         uint64 serviceId = createService(blueprintId, operator1, 1 ether);
@@ -262,7 +262,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V2_OnJobCall_EnforcesMaxJobIndex() public {
         (uint64 blueprintId, address manager) = deployBlueprint(2);
-        MockBSM_V2 bsm = MockBSM_V2(manager);
+        MockBSM_V2 bsm = MockBSM_V2(payable(manager));
 
         // Set max job index to 5
         bsm.setMaxJobIndex(5);
@@ -286,7 +286,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V3_ServiceActive_TrackedByBSM() public {
         (uint64 blueprintId, address manager) = deployBlueprint(3);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         uint64 serviceId = createService(blueprintId, operator1, 1 ether);
@@ -305,7 +305,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnServiceTermination_Called() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         uint64 serviceId = createService(blueprintId, operator1, 1 ether);
@@ -318,7 +318,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V3_OnServiceTermination_UpdatesState() public {
         (uint64 blueprintId, address manager) = deployBlueprint(3);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         uint64 serviceId = createService(blueprintId, operator1, 1 ether);
@@ -338,7 +338,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_OnSlash_Called() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         uint64 serviceId = createService(blueprintId, operator1, 1 ether);
@@ -353,7 +353,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
     /// are always authorized. The custom origin just adds another authorized party.
     function test_V3_CustomSlashingOrigin_Works() public {
         (uint64 blueprintId, address manager) = deployBlueprint(3);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         uint64 serviceId = createService(blueprintId, operator1, 1 ether);
@@ -400,7 +400,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         registerOperatorForBlueprint(operator2, blueprintId);
@@ -429,7 +429,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
 
@@ -447,7 +447,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V3_CustomDeveloperAddress_Works() public {
         (uint64 blueprintId, address manager) = deployBlueprint(3);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
 
@@ -463,7 +463,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V1_DefaultDeveloperAddress_IsBlueprintOwner() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         assertEq(bsm.queryDeveloperPaymentAddress(0), blueprintOwner);
     }
@@ -474,7 +474,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V3_CustomResultCount_Works() public {
         (uint64 blueprintId, address manager) = deployBlueprint(3);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         uint64 serviceId = createService(blueprintId, operator1, 1 ether);
@@ -493,7 +493,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V2_CustomHeartbeatInterval_Works() public {
         (uint64 blueprintId, address manager) = deployBlueprint(2);
-        MockBSM_V2 bsm = MockBSM_V2(manager);
+        MockBSM_V2 bsm = MockBSM_V2(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         uint64 serviceId = createService(blueprintId, operator1, 1 ether);
@@ -511,7 +511,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
     function test_V2_CustomSlashingWindow_Works() public {
         (uint64 blueprintId, address manager) = deployBlueprint(2);
-        MockBSM_V2 bsm = MockBSM_V2(manager);
+        MockBSM_V2 bsm = MockBSM_V2(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         uint64 serviceId = createService(blueprintId, operator1, 1 ether);
@@ -530,7 +530,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
     /// @notice Full lifecycle test - all hooks are called
     function test_FullLifecycle_AllHooksCalled() public {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
-        MockBSM_V1 bsm = MockBSM_V1(manager);
+        MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
         // 1. Blueprint created
         assertEq(bsm.getHookCalls().onBlueprintCreated, 1);
@@ -598,7 +598,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         registerOperatorForBlueprint(operator2, blueprintId);
@@ -625,7 +625,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         registerOperatorForBlueprint(operator2, blueprintId);
@@ -655,7 +655,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         registerOperatorForBlueprint(operator2, blueprintId);
@@ -684,7 +684,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
-        MockBSM_V3 bsm = MockBSM_V3(manager);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
 
         registerOperatorForBlueprint(operator1, blueprintId);
         registerOperatorForBlueprint(operator2, blueprintId);

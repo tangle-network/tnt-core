@@ -37,9 +37,9 @@ contract CrossVersionCompatibilityTest is BlueprintTestHarness {
         (blueprintV2, m2) = deployBlueprint(2);
         (blueprintV3, m3) = deployBlueprint(3);
 
-        bsmV1 = MockBSM_V1(m1);
-        bsmV2 = MockBSM_V2(m2);
-        bsmV3 = MockBSM_V3(m3);
+        bsmV1 = MockBSM_V1(payable(m1));
+        bsmV2 = MockBSM_V2(payable(m2));
+        bsmV3 = MockBSM_V3(payable(m3));
 
         // Register all operators for all blueprints
         registerAllOperatorsForBlueprint(blueprintV1);
@@ -202,7 +202,7 @@ contract CrossVersionCompatibilityTest is BlueprintTestHarness {
         address m;
         uint64 blueprintV3_2;
         (blueprintV3_2, m) = deployBlueprint(3);
-        MockBSM_V3 bsmV3_2 = MockBSM_V3(m);
+        MockBSM_V3 bsmV3_2 = MockBSM_V3(payable(m));
         registerOperatorForBlueprint(operator1, blueprintV3_2);
 
         // V1 service still works - with hooks called
