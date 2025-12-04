@@ -16,10 +16,15 @@ import { IRewardsManager } from "../interfaces/IRewardsManager.sol";
 ///
 /// Key Concepts:
 /// - One vault per staking asset (TNT, WETH, etc.)
-/// - Rewards are paid in TNT only (minted as inflation)
+/// - Rewards are paid in TNT (funded by InflationPool, NOT minted)
 /// - Deposit cap limits how much can earn rewards
 /// - Utilization affects reward rate: 10% utilized = 10% of max rewards
 /// - Operators earn commission, rest goes to delegator pool
+///
+/// Funding Model:
+/// - InflationPool transfers TNT to this contract each epoch
+/// - This contract holds TNT balance and distributes to claimants
+/// - NO MINTING: This contract cannot mint tokens, only transfer what it holds
 contract RewardVaults is
     Initializable,
     UUPSUpgradeable,
@@ -553,8 +558,8 @@ contract RewardVaults is
         // Update debt checkpoint
         debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
 
-        // Mint and transfer TNT
-        _mintRewards(msg.sender, owed);
+        // Transfer TNT from pool balance
+        _transferRewards(msg.sender, owed);
 
         emit DelegatorRewardsClaimed(asset, msg.sender, operator, owed);
         return owed;
@@ -572,8 +577,8 @@ contract RewardVaults is
 
         pool.pendingCommission = 0;
 
-        // Mint and transfer TNT
-        _mintRewards(msg.sender, commission);
+        // Transfer TNT from pool balance
+        _transferRewards(msg.sender, commission);
 
         emit OperatorCommissionClaimed(asset, msg.sender, commission);
         return commission;
@@ -700,10 +705,12 @@ contract RewardVaults is
         return 0;
     }
 
-    /// @notice Mint TNT rewards
-    function _mintRewards(address to, uint256 amount) internal {
-        // Requires RewardVaults to have MINTER_ROLE on TangleToken
-        tntToken.mint(to, amount);
+    /// @notice Transfer TNT rewards from pool balance
+    /// @dev Requires this contract to hold sufficient TNT (funded by InflationPool)
+    function _transferRewards(address to, uint256 amount) internal {
+        // Transfer from this contract's balance (funded by InflationPool)
+        require(tntToken.balanceOf(address(this)) >= amount, "Insufficient reward balance");
+        require(tntToken.transfer(to, amount), "Reward transfer failed");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

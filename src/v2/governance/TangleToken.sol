@@ -17,6 +17,17 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 ///      - ERC20Permit: Gasless approvals via signatures
 ///      - ERC20Burnable: Token burning capability
 ///      - UUPS: Upgradeable proxy pattern
+///
+/// Token Economics & Security Model:
+/// - MAX_SUPPLY: 100 million TNT (hard cap)
+/// - MINTER_ROLE: Should ONLY be held by governance (TangleTimelock)
+/// - Protocol contracts (InflationPool, RewardVaults) CANNOT mint
+/// - Inflation is distributed via pre-funded InflationPool, not minting
+///
+/// This design isolates token risk from protocol risk:
+/// - If protocol contracts have bugs, attackers cannot mint unlimited tokens
+/// - Governance controls inflation by funding InflationPool from treasury
+/// - Token holders are protected even if reward contracts are compromised
 contract TangleToken is
     Initializable,
     ERC20Upgradeable,
@@ -76,11 +87,14 @@ contract TangleToken is
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // MINTING
+    // MINTING (GOVERNANCE CONTROLLED)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Mint new tokens
-    /// @param to The recipient address
+    /// @notice Mint new tokens (governance-only operation)
+    /// @dev SECURITY: MINTER_ROLE should ONLY be granted to governance (TangleTimelock)
+    ///      Intended use: Fund InflationPool or treasury allocations via governance proposals
+    ///      NOT for: Direct reward distribution (use InflationPool instead)
+    /// @param to The recipient address (typically InflationPool or treasury)
     /// @param amount The amount to mint
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
         require(totalSupply() + amount <= MAX_SUPPLY, "Exceeds max supply");
