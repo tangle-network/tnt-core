@@ -1,0 +1,16 @@
+[package]
+name = "tnt-core-bindings"
+version = "0.1.0"
+edition = "2021"
+description = "Rust bindings for TNT Core contracts"
+license = "MIT"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+alloy = { version = "1.0.35" }
+alloy-contract = "1.0.35"
+alloy-sol-types = "1.2.1"
+serde = { version = "1.0", features = ["derive"], default-features = false }

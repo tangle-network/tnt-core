@@ -148,15 +148,18 @@ contract LocalTestnetSetup is Script {
         console2.log("\n=== Operators Registering for Blueprint ===");
         Tangle tangle = Tangle(payable(tangleProxy));
 
+        bytes memory operator1Key = hex"040102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40";
+        bytes memory operator2Key = hex"044142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80";
+
         // Operator 1 registers for blueprint
         vm.startBroadcast(OPERATOR1_KEY);
-        tangle.registerOperator(blueprintId, "", ""); // Empty preferences
+        tangle.registerOperator(blueprintId, operator1Key, "http://operator1.local:8545");
         console2.log("Operator1 registered for blueprint");
         vm.stopBroadcast();
 
         // Operator 2 registers for blueprint
         vm.startBroadcast(OPERATOR2_KEY);
-        tangle.registerOperator(blueprintId, "", ""); // Empty preferences
+        tangle.registerOperator(blueprintId, operator2Key, "http://operator2.local:8545");
         console2.log("Operator2 registered for blueprint");
         vm.stopBroadcast();
     }
