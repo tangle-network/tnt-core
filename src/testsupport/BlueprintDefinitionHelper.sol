@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Types } from "../../../src/v2/libraries/Types.sol";
-import { SchemaLib } from "../../../src/v2/libraries/SchemaLib.sol";
+import { Types } from "../v2/libraries/Types.sol";
+import { SchemaLib } from "../v2/libraries/SchemaLib.sol";
 
 /// @title BlueprintDefinitionHelper
-/// @notice Shared helper for constructing blueprint definitions in tests
+/// @notice Shared helper for constructing blueprint definitions across tests and scripts
 abstract contract BlueprintDefinitionHelper {
     uint256 internal constant DEFAULT_JOB_COUNT = 8;
 
@@ -86,6 +86,7 @@ abstract contract BlueprintDefinitionHelper {
         return SchemaLib.encodeSchema(fields);
     }
 
+    /// @notice Schema helper for a struct with (bool, uint16)
     function _requestStructBoolUint16Schema() internal pure returns (bytes memory) {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.Struct;
@@ -97,6 +98,7 @@ abstract contract BlueprintDefinitionHelper {
         return SchemaLib.encodeSchema(fields);
     }
 
+    /// @notice Schema helper for a dynamic list of bools
     function _requestListOfBoolSchema() internal pure returns (bytes memory) {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.List;
@@ -106,6 +108,7 @@ abstract contract BlueprintDefinitionHelper {
         return SchemaLib.encodeSchema(fields);
     }
 
+    /// @notice Schema helper for a fixed-size bool array
     function _fixedJobBoolArraySchema(uint16 length) internal pure returns (bytes memory) {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.Array;
@@ -116,6 +119,7 @@ abstract contract BlueprintDefinitionHelper {
         return SchemaLib.encodeSchema(fields);
     }
 
+    /// @notice Schema helper for an optional bool wrapper
     function _optionalBoolFieldSchema() internal pure returns (bytes memory) {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.Optional;
@@ -132,19 +136,11 @@ abstract contract BlueprintDefinitionHelper {
 
     function _defaultBlueprintSource() internal pure returns (Types.BlueprintSource memory source) {
         source.kind = Types.BlueprintSourceKind.Container;
-        source.container = Types.ImageRegistrySource({
-            registry: "registry.tangle.local",
-            image: "blueprint",
-            tag: "latest"
-        });
+        source.container = Types.ImageRegistrySource({ registry: "registry.tangle.local", image: "blueprint", tag: "latest" });
         source.wasm.runtime = Types.WasmRuntime.Wasmtime;
         source.wasm.fetcher = Types.BlueprintFetcherKind.None;
         source.native.fetcher = Types.BlueprintFetcherKind.None;
-        source.testing = Types.TestingSource({
-            cargoPackage: "",
-            cargoBin: "",
-            basePath: ""
-        });
+        source.testing = Types.TestingSource({ cargoPackage: "", cargoBin: "", basePath: "" });
     }
 
     function _buildJobDefinitions(uint256 count, bytes memory schema)
