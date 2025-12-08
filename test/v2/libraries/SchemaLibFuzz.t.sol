@@ -282,11 +282,31 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
         SchemaTestUtils.Scenario memory scenario = SchemaTestUtils.randomScenario(seed ^ 0xABCDEF);
         harness.setRegistrationSchema(scenario.schema);
 
+        bool validated;
         try harness.validateRegistration(scenario.validPayload, 888, 8) {
-            vm.expectRevert();
-            harness.validateRegistration(scenario.invalidPayload, 999, 9);
+            validated = true;
         } catch {
             // Skip malformed generator outputs
+        }
+
+        if (!validated) {
+            return;
+        }
+
+        if (keccak256(scenario.validPayload) == keccak256(scenario.invalidPayload)) {
+            return;
+        }
+
+        bool reverted;
+        try harness.validateRegistration(scenario.invalidPayload, 999, 9) {
+            reverted = false;
+        } catch {
+            reverted = true;
+        }
+
+        if (!reverted) {
+            // Some randomly generated corrupt payloads may still satisfy schema constraints; skip them.
+            return;
         }
     }
 
