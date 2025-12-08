@@ -3,16 +3,18 @@ pragma solidity ^0.8.26;
 
 import { Test, console2 } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { Errors } from "../../src/v2/libraries/Errors.sol";
 import { IBlueprintServiceManager } from "../../src/v2/interfaces/IBlueprintServiceManager.sol";
+import { BlueprintDefinitionHelper } from "./helpers/BlueprintDefinitionHelper.sol";
 
 /// @title BaseTest
 /// @notice Base test contract with common setup for v2 tests
-abstract contract BaseTest is Test {
+abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     // Contracts
     Tangle public tangle;
     MultiAssetDelegation public restaking;
@@ -97,19 +99,120 @@ abstract contract BaseTest is Test {
     /// @notice Create a blueprint and return its ID
     function _createBlueprint(address owner) internal returns (uint64) {
         vm.prank(owner);
-        return tangle.createBlueprint("ipfs://metadata", address(0));
+        return tangle.createBlueprint(_encodeBlueprintDefinition(_blueprintDefinition("ipfs://metadata", address(0))));
+    }
+
+    function _createBlueprint(address owner, string memory metadataUri) internal returns (uint64) {
+        vm.prank(owner);
+        return tangle.createBlueprint(_encodeBlueprintDefinition(_blueprintDefinition(metadataUri, address(0))));
     }
 
     /// @notice Create a blueprint with service manager
     function _createBlueprint(address owner, address manager) internal returns (uint64) {
         vm.prank(owner);
-        return tangle.createBlueprint("ipfs://metadata", manager);
+        return tangle.createBlueprint(_encodeBlueprintDefinition(_blueprintDefinition("ipfs://metadata", manager)));
+    }
+
+    function _createBlueprint(
+        address owner,
+        string memory metadataUri,
+        address manager
+    ) internal returns (uint64) {
+        vm.prank(owner);
+        return tangle.createBlueprint(_encodeBlueprintDefinition(_blueprintDefinition(metadataUri, manager)));
+    }
+
+    /// @notice Create a blueprint with explicit configuration
+    function _createBlueprintWithConfig(
+        address owner,
+        address manager,
+        Types.BlueprintConfig memory config
+    ) internal returns (uint64) {
+        vm.prank(owner);
+        return tangle.createBlueprint(
+            _encodeBlueprintDefinition(_blueprintDefinitionWithConfig("ipfs://metadata", manager, config))
+        );
+    }
+
+    function _createBlueprintWithConfig(
+        address owner,
+        string memory metadataUri,
+        address manager,
+        Types.BlueprintConfig memory config
+    ) internal returns (uint64) {
+        vm.prank(owner);
+        return tangle.createBlueprint(
+            _encodeBlueprintDefinition(_blueprintDefinitionWithConfig(metadataUri, manager, config))
+        );
+    }
+
+    /// @notice Create a blueprint using the current msg.sender (expects caller to prank)
+    function _createBlueprintAsSender(
+        string memory metadataUri,
+        address manager
+    ) internal returns (uint64) {
+        return tangle.createBlueprint(_encodeBlueprintDefinition(_blueprintDefinition(metadataUri, manager)));
+    }
+
+    /// @notice Create a blueprint with config using the current msg.sender
+    function _createBlueprintWithConfigAsSender(
+        string memory metadataUri,
+        address manager,
+        Types.BlueprintConfig memory config
+    ) internal returns (uint64) {
+        return tangle.createBlueprint(
+            _encodeBlueprintDefinition(_blueprintDefinitionWithConfig(metadataUri, manager, config))
+        );
+    }
+
+    /// @notice Create a blueprint with a specific number of job definitions using current msg.sender
+    function _createBlueprintAsSenderWithJobs(
+        string memory metadataUri,
+        address manager,
+        uint256 jobCount
+    ) internal returns (uint64) {
+        return tangle.createBlueprint(
+            _encodeBlueprintDefinition(_blueprintDefinitionWithJobCount(metadataUri, manager, jobCount))
+        );
+    }
+
+    /// @notice Create a fixed service with custom job schemas and optional manager
+    function _createServiceWithSchemas(
+        bytes memory paramsSchema,
+        bytes memory resultSchema,
+        address manager
+    ) internal returns (uint64 blueprintId, uint64 serviceId) {
+        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://schema-service", manager);
+        def.jobs[0].paramsSchema = paramsSchema;
+        def.jobs[0].resultSchema = resultSchema;
+
+        vm.prank(developer);
+        blueprintId = tangle.createBlueprint(_encodeBlueprintDefinition(def));
+
+        _registerForBlueprint(operator1, blueprintId);
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        serviceId = tangle.serviceCount() - 1;
     }
 
     /// @notice Register operator for a blueprint
     function _registerForBlueprint(address operator, uint64 blueprintId) internal {
         vm.prank(operator);
-        tangle.registerOperator(blueprintId, hex"04", "http://localhost:8545"); // dummy ecdsa key prefix and RPC
+        tangle.registerOperator(blueprintId, hex"04", "http://localhost:8545", ""); // dummy ecdsa key prefix and RPC
+    }
+
+    function _registerForBlueprint(address operator, uint64 blueprintId, bytes memory registrationInputs) internal {
+        vm.prank(operator);
+        tangle.registerOperator(blueprintId, hex"04", "http://localhost:8545", registrationInputs);
     }
 
     /// @notice Request a service with single operator
@@ -147,5 +250,69 @@ abstract contract BaseTest is Test {
     function _approveService(address operator, uint64 requestId) internal {
         vm.prank(operator);
         tangle.approveService(requestId, 0);
+    }
+
+    /// @notice Create a service with custom exposures and optional manager
+    function _createServiceWithExposure(
+        address manager,
+        address[] memory ops,
+        uint16[] memory exposures
+    ) internal returns (uint64 blueprintId, uint64 serviceId) {
+        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://job-manager", manager);
+        def.jobs[0].paramsSchema = _boolSchema();
+        def.jobs[0].resultSchema = _boolSchema();
+
+        vm.prank(developer);
+        blueprintId = tangle.createBlueprint(_encodeBlueprintDefinition(def));
+
+        for (uint256 i = 0; i < ops.length; i++) {
+            _registerForBlueprint(ops[i], blueprintId);
+        }
+
+        address[] memory callers = new address[](0);
+        vm.prank(user1);
+        uint64 requestId = tangle.requestServiceWithExposure(
+            blueprintId,
+            ops,
+            exposures,
+            "",
+            callers,
+            0,
+            address(0),
+            0
+        );
+
+        for (uint256 i = 0; i < ops.length; i++) {
+            vm.prank(ops[i]);
+            tangle.approveService(requestId, 0);
+        }
+
+        serviceId = tangle.serviceCount() - 1;
+    }
+
+    /// @notice Request a service paying with ERC20 tokens
+    function _requestServiceWithERC20(
+        address requester,
+        uint64 blueprintId,
+        address operator,
+        address token,
+        uint256 payment
+    ) internal returns (uint64 requestId) {
+        address[] memory operators = new address[](1);
+        operators[0] = operator;
+        address[] memory callers = new address[](0);
+
+        vm.startPrank(requester);
+        IERC20(token).approve(address(tangle), payment);
+        requestId = tangle.requestService(
+            blueprintId,
+            operators,
+            "",
+            callers,
+            0,
+            token,
+            payment
+        );
+        vm.stopPrank();
     }
 }

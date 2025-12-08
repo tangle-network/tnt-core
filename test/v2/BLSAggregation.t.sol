@@ -63,7 +63,7 @@ contract BLSAggregationTest is BaseTest {
 
         // Create blueprint with aggregation-enabled BSM
         vm.prank(developer);
-        blueprintId = tangle.createBlueprint("ipfs://aggregation-test", address(mockBsm));
+        blueprintId = _createBlueprintAsSenderWithJobs("ipfs://aggregation-test", address(mockBsm), 256);
 
         // Register operators
         _registerOperator(operator1, 5 ether);
@@ -360,7 +360,7 @@ contract BLSAggregationTest is BaseTest {
     function test_DefaultConfig_NoBSM() public {
         // Create blueprint without BSM
         vm.prank(developer);
-        uint64 noBsmBlueprintId = tangle.createBlueprint("ipfs://no-bsm", address(0));
+        uint64 noBsmBlueprintId = _createBlueprintAsSender("ipfs://no-bsm", address(0));
 
         // Register and create service
         _registerForBlueprint(operator1, noBsmBlueprintId);

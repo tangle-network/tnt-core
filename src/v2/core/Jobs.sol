@@ -9,6 +9,7 @@ import { Errors } from "../libraries/Errors.sol";
 import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { BN254 } from "../libraries/BN254.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
+import { SchemaLib } from "../libraries/SchemaLib.sol";
 
 /// @title Jobs
 /// @notice Job submission and result handling
@@ -40,6 +41,7 @@ abstract contract Jobs is Base {
         bytes calldata inputs
     ) external payable whenNotPaused nonReentrant returns (uint64 callId) {
         Types.Service storage svc = _getService(serviceId);
+        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         if (svc.status != Types.ServiceStatus.Active) {
             revert Errors.ServiceNotActive(serviceId);
         }
@@ -57,6 +59,9 @@ abstract contract Jobs is Base {
             _recordPayment(msg.sender, serviceId, address(0), payment);
         }
 
+        Types.StoredJobSchema storage schema = _jobSchema(svc.blueprintId, jobIndex);
+        SchemaLib.validateJobParams(schema, inputs, svc.blueprintId, jobIndex);
+
         callId = _serviceCallCount[serviceId]++;
         _jobCalls[serviceId][callId] = Types.JobCall({
             jobIndex: jobIndex,
@@ -71,7 +76,6 @@ abstract contract Jobs is Base {
         _jobInputs[serviceId][callId] = inputs;
 
         // Call BSM hook - allows manager to validate/reject job
-        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         if (bp.manager != address(0)) {
             _callManager(
                 bp.manager,
@@ -94,59 +98,7 @@ abstract contract Jobs is Base {
         Types.JobCall storage job = _getJobCall(serviceId, callId);
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
 
-        // Check if aggregation is required for this job
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).requiresAggregation(serviceId, job.jobIndex) returns (bool aggRequired) {
-                if (aggRequired) {
-                    revert Errors.AggregationRequired(serviceId, job.jobIndex);
-                }
-            } catch {}
-        }
-
-        if (!_serviceOperators[serviceId][msg.sender].active) {
-            revert Errors.OperatorNotInService(serviceId, msg.sender);
-        }
-        if (job.completed) {
-            revert Errors.JobAlreadyCompleted(serviceId, callId);
-        }
-        if (_jobResultSubmitted[serviceId][callId][msg.sender]) {
-            revert Errors.ResultAlreadySubmitted(serviceId, callId, msg.sender);
-        }
-
-        _jobResultSubmitted[serviceId][callId][msg.sender] = true;
-        job.resultCount++;
-
-        // Call BSM hook - notify manager of result
-        if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager,
-                abi.encodeCall(
-                    IBlueprintServiceManager.onJobResult,
-                    (serviceId, job.jobIndex, callId, msg.sender, _jobInputs[serviceId][callId], output)
-                )
-            );
-        }
-
-        emit JobResultSubmitted(serviceId, callId, msg.sender, output);
-
-        uint32 required = 1;
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getRequiredResultCount(serviceId, job.jobIndex) returns (uint32 r) {
-                required = r;
-            } catch {}
-        }
-
-        if (job.resultCount >= required) {
-            job.completed = true;
-            emit JobCompleted(serviceId, callId);
-
-            // Record metrics for rewards distribution
-            _recordJobCompletion(msg.sender, serviceId, callId, true);
-
-            if (svc.pricing == Types.PricingModel.EventDriven && job.payment > 0) {
-                _distributeJobPayment(serviceId, job.payment);
-            }
-        }
+        _processResultSubmission(serviceId, callId, output, svc, job, bp);
     }
 
     /// @notice Batch submit results
@@ -157,57 +109,12 @@ abstract contract Jobs is Base {
     ) external whenNotPaused nonReentrant {
         if (callIds.length != outputs.length) revert Errors.LengthMismatch();
 
-        Types.Service storage svc = _services[serviceId];
+        Types.Service storage svc = _getService(serviceId);
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
 
         for (uint256 i = 0; i < callIds.length; i++) {
-            Types.JobCall storage job = _jobCalls[serviceId][callIds[i]];
-
-            if (!_serviceOperators[serviceId][msg.sender].active) {
-                revert Errors.OperatorNotInService(serviceId, msg.sender);
-            }
-            if (job.completed) {
-                revert Errors.JobAlreadyCompleted(serviceId, callIds[i]);
-            }
-            if (_jobResultSubmitted[serviceId][callIds[i]][msg.sender]) {
-                revert Errors.ResultAlreadySubmitted(serviceId, callIds[i], msg.sender);
-            }
-
-            _jobResultSubmitted[serviceId][callIds[i]][msg.sender] = true;
-            job.resultCount++;
-
-            // Call BSM hook - notify manager of result
-            if (bp.manager != address(0)) {
-                _tryCallManager(
-                    bp.manager,
-                    abi.encodeCall(
-                        IBlueprintServiceManager.onJobResult,
-                        (serviceId, job.jobIndex, callIds[i], msg.sender, _jobInputs[serviceId][callIds[i]], outputs[i])
-                    )
-                );
-            }
-
-            emit JobResultSubmitted(serviceId, callIds[i], msg.sender, outputs[i]);
-
-            // Query required result count from manager (same as submitResult)
-            uint32 required = 1;
-            if (bp.manager != address(0)) {
-                try IBlueprintServiceManager(bp.manager).getRequiredResultCount(serviceId, job.jobIndex) returns (uint32 r) {
-                    required = r;
-                } catch {}
-            }
-
-            if (job.resultCount >= required && !job.completed) {
-                job.completed = true;
-                emit JobCompleted(serviceId, callIds[i]);
-
-                // Record metrics for rewards distribution
-                _recordJobCompletion(msg.sender, serviceId, callIds[i], true);
-
-                if (svc.pricing == Types.PricingModel.EventDriven && job.payment > 0) {
-                    _distributeJobPayment(serviceId, job.payment);
-                }
-            }
+            Types.JobCall storage job = _getJobCall(serviceId, callIds[i]);
+            _processResultSubmission(serviceId, callIds[i], outputs[i], svc, job, bp);
         }
     }
 
@@ -233,60 +140,38 @@ abstract contract Jobs is Base {
     ) external whenNotPaused nonReentrant {
         Types.Service storage svc = _getService(serviceId);
         Types.JobCall storage job = _getJobCall(serviceId, callId);
+        Types.StoredJobSchema storage schema = _jobSchema(svc.blueprintId, job.jobIndex);
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
 
         if (job.completed) {
             revert Errors.JobAlreadyCompleted(serviceId, callId);
         }
 
-        // Verify aggregation is required for this job
-        bool aggregationRequired = false;
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).requiresAggregation(serviceId, job.jobIndex) returns (bool aggReq) {
-                aggregationRequired = aggReq;
-            } catch {}
-        }
-        if (!aggregationRequired) {
-            revert Errors.AggregationNotRequired(serviceId, job.jobIndex);
-        }
+        _ensureAggregationRequired(bp.manager, serviceId, job.jobIndex);
 
-        // Get threshold configuration
-        uint16 thresholdBps = 6700; // Default 67%
-        uint8 thresholdType = 0; // Default CountBased
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getAggregationThreshold(serviceId, job.jobIndex) returns (
-                uint16 _thresholdBps,
-                uint8 _thresholdType
-            ) {
-                thresholdBps = _thresholdBps;
-                thresholdType = _thresholdType;
-            } catch {}
-        }
+        SchemaLib.validateJobResult(schema, output, svc.blueprintId, job.jobIndex);
+
+        AggregationConfig memory config = _getAggregationConfig(bp.manager, serviceId, job.jobIndex);
 
         // Validate signers and compute threshold
         (uint256 achieved, uint256 required) = _validateSignersAndThreshold(
             serviceId,
             signerBitmap,
-            thresholdBps,
-            thresholdType
+            config.thresholdBps,
+            config.thresholdType
         );
 
         if (achieved < required) {
             revert Errors.AggregationThresholdNotMet(serviceId, callId, achieved, required);
         }
 
-        // Verify the BLS signature
-        Types.BN254G1Point memory sig = Types.BN254G1Point(aggregatedSignature[0], aggregatedSignature[1]);
-        Types.BN254G2Point memory pubkey = Types.BN254G2Point(
-            [aggregatedPubkey[0], aggregatedPubkey[1]],
-            [aggregatedPubkey[2], aggregatedPubkey[3]]
+        _verifyAggregatedSignature(
+            serviceId,
+            callId,
+            output,
+            aggregatedSignature,
+            aggregatedPubkey
         );
-
-        // Construct message to verify: hash of (serviceId, callId, outputHash)
-        bytes memory message = abi.encodePacked(serviceId, callId, keccak256(output));
-        if (!BN254.verifyAggregatedBLS(message, sig, pubkey)) {
-            revert Errors.InvalidBLSSignature();
-        }
 
         // Mark job complete
         job.completed = true;
@@ -313,6 +198,70 @@ abstract contract Jobs is Base {
         }
     }
 
+    function _processResultSubmission(
+        uint64 serviceId,
+        uint64 callId,
+        bytes calldata output,
+        Types.Service storage svc,
+        Types.JobCall storage job,
+        Types.Blueprint storage bp
+    ) private {
+        Types.StoredJobSchema storage schema = _jobSchema(svc.blueprintId, job.jobIndex);
+
+        if (bp.manager != address(0)) {
+            try IBlueprintServiceManager(bp.manager).requiresAggregation(serviceId, job.jobIndex) returns (bool aggRequired) {
+                if (aggRequired) {
+                    revert Errors.AggregationRequired(serviceId, job.jobIndex);
+                }
+            } catch {}
+        }
+
+        if (!_serviceOperators[serviceId][msg.sender].active) {
+            revert Errors.OperatorNotInService(serviceId, msg.sender);
+        }
+        if (job.completed) {
+            revert Errors.JobAlreadyCompleted(serviceId, callId);
+        }
+        if (_jobResultSubmitted[serviceId][callId][msg.sender]) {
+            revert Errors.ResultAlreadySubmitted(serviceId, callId, msg.sender);
+        }
+
+        SchemaLib.validateJobResult(schema, output, svc.blueprintId, job.jobIndex);
+
+        _jobResultSubmitted[serviceId][callId][msg.sender] = true;
+        job.resultCount++;
+
+        if (bp.manager != address(0)) {
+            _tryCallManager(
+                bp.manager,
+                abi.encodeCall(
+                    IBlueprintServiceManager.onJobResult,
+                    (serviceId, job.jobIndex, callId, msg.sender, _jobInputs[serviceId][callId], output)
+                )
+            );
+        }
+
+        emit JobResultSubmitted(serviceId, callId, msg.sender, output);
+
+        uint32 required = 1;
+        if (bp.manager != address(0)) {
+            try IBlueprintServiceManager(bp.manager).getRequiredResultCount(serviceId, job.jobIndex) returns (uint32 r) {
+                required = r;
+            } catch {}
+        }
+
+        if (job.resultCount >= required && !job.completed) {
+            job.completed = true;
+            emit JobCompleted(serviceId, callId);
+
+            _recordJobCompletion(msg.sender, serviceId, callId, true);
+
+            if (svc.pricing == Types.PricingModel.EventDriven && job.payment > 0) {
+                _distributeJobPayment(serviceId, job.payment);
+            }
+        }
+    }
+
     /// @notice Record job completion metrics for all signers in an aggregated result
     /// @param serviceId The service ID
     /// @param callId The job call ID
@@ -334,6 +283,17 @@ abstract contract Jobs is Base {
         }
     }
 
+    function _jobSchema(
+        uint64 blueprintId,
+        uint8 jobIndex
+    ) internal view returns (Types.StoredJobSchema storage schema) {
+        Types.StoredJobSchema[] storage schemas = _blueprintJobSchemas[blueprintId];
+        if (jobIndex >= schemas.length) {
+            revert Errors.InvalidJobIndex(jobIndex);
+        }
+        return schemas[jobIndex];
+    }
+
     /// @notice Validate signers in bitmap and compute achieved vs required threshold
     /// @param serviceId The service ID
     /// @param signerBitmap Bitmap of signers
@@ -347,42 +307,107 @@ abstract contract Jobs is Base {
         uint16 thresholdBps,
         uint8 thresholdType
     ) internal view returns (uint256 achieved, uint256 required) {
-        Types.Service storage svc = _services[serviceId];
-        uint32 operatorCount = svc.operatorCount;
-
-        // Get operator list for this service
-        address[] memory operators = _getServiceOperatorList(serviceId);
-
-        uint256 signerCount = 0;
-        uint256 totalWeight = 0;
-        uint256 signerWeight = 0;
-
-        for (uint256 i = 0; i < operators.length; i++) {
-            address op = operators[i];
-            Types.ServiceOperator storage svcOp = _serviceOperators[serviceId][op];
-
-            if (!svcOp.active) continue;
-
-            uint256 weight = thresholdType == 1 ? uint256(svcOp.exposureBps) : 1;
-            totalWeight += weight;
-
-            // Check if operator signed (bit i is set)
-            if ((signerBitmap >> i) & 1 == 1) {
-                signerCount++;
-                signerWeight += weight;
-            }
-        }
+        SignerStats memory stats = _computeSignerStats(serviceId, signerBitmap, thresholdType);
 
         if (thresholdType == 0) {
             // CountBased: achieved = signerCount, required = threshold% of operatorCount
-            achieved = signerCount;
-            required = (uint256(operatorCount) * thresholdBps) / 10000;
-            if (required == 0 && operatorCount > 0) required = 1; // At least 1 signer required
+            achieved = stats.signerCount;
+            required = (uint256(stats.operatorCount) * thresholdBps) / 10000;
+            if (required == 0 && stats.operatorCount > 0) required = 1; // At least 1 signer required
         } else {
             // StakeWeighted: achieved = signerWeight, required = threshold% of totalWeight
-            achieved = signerWeight;
-            required = (totalWeight * thresholdBps) / 10000;
-            if (required == 0 && totalWeight > 0) required = 1;
+            achieved = stats.signerWeight;
+            required = (stats.totalWeight * thresholdBps) / 10000;
+            if (required == 0 && stats.totalWeight > 0) required = 1;
+        }
+    }
+
+    struct SignerStats {
+        uint32 operatorCount;
+        uint256 signerCount;
+        uint256 totalWeight;
+        uint256 signerWeight;
+    }
+
+    function _computeSignerStats(uint64 serviceId, uint256 signerBitmap, uint8 thresholdType)
+        private
+        view
+        returns (SignerStats memory stats)
+    {
+        Types.Service storage svc = _services[serviceId];
+        stats.operatorCount = svc.operatorCount;
+        address[] memory operators = _getServiceOperatorList(serviceId);
+
+        for (uint256 i = 0; i < operators.length; i++) {
+            Types.ServiceOperator storage svcOp = _serviceOperators[serviceId][operators[i]];
+            if (!svcOp.active) continue;
+
+            uint256 weight = thresholdType == 1 ? uint256(svcOp.exposureBps) : 1;
+            stats.totalWeight += weight;
+
+            if ((signerBitmap >> i) & 1 == 1) {
+                stats.signerCount++;
+                stats.signerWeight += weight;
+            }
+        }
+    }
+
+    struct AggregationConfig {
+        uint16 thresholdBps;
+        uint8 thresholdType;
+    }
+
+    function _getAggregationConfig(
+        address manager,
+        uint64 serviceId,
+        uint8 jobIndex
+    ) private view returns (AggregationConfig memory config) {
+        config.thresholdBps = 6700; // Default 67%
+        config.thresholdType = 0;   // Default CountBased
+
+        if (manager != address(0)) {
+            try IBlueprintServiceManager(manager).getAggregationThreshold(serviceId, jobIndex) returns (
+                uint16 thresholdBps,
+                uint8 thresholdType
+            ) {
+                config.thresholdBps = thresholdBps;
+                config.thresholdType = thresholdType;
+            } catch {}
+        }
+    }
+
+    function _ensureAggregationRequired(
+        address manager,
+        uint64 serviceId,
+        uint8 jobIndex
+    ) private view {
+        bool required;
+        if (manager != address(0)) {
+            try IBlueprintServiceManager(manager).requiresAggregation(serviceId, jobIndex) returns (bool aggReq) {
+                required = aggReq;
+            } catch {}
+        }
+        if (!required) {
+            revert Errors.AggregationNotRequired(serviceId, jobIndex);
+        }
+    }
+
+    function _verifyAggregatedSignature(
+        uint64 serviceId,
+        uint64 callId,
+        bytes calldata output,
+        uint256[2] calldata aggregatedSignature,
+        uint256[4] calldata aggregatedPubkey
+    ) private view {
+        Types.BN254G1Point memory sig = Types.BN254G1Point(aggregatedSignature[0], aggregatedSignature[1]);
+        Types.BN254G2Point memory pubkey = Types.BN254G2Point(
+            [aggregatedPubkey[0], aggregatedPubkey[1]],
+            [aggregatedPubkey[2], aggregatedPubkey[3]]
+        );
+
+        bytes memory message = abi.encodePacked(serviceId, callId, keccak256(output));
+        if (!BN254.verifyAggregatedBLS(message, sig, pubkey)) {
+            revert Errors.InvalidBLSSignature();
         }
     }
 

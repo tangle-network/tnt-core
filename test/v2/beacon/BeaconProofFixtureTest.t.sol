@@ -7,7 +7,6 @@ import {ValidatorPodManager} from "../../../src/v2/beacon/ValidatorPodManager.so
 import {ValidatorTypes} from "../../../src/v2/beacon/ValidatorTypes.sol";
 import {BeaconChainProofs} from "../../../src/v2/beacon/BeaconChainProofs.sol";
 import {Test, console2} from "forge-std/Test.sol";
-import {stdJson} from "forge-std/StdJson.sol";
 
 /// @title BeaconProofFixtureTest
 /// @notice Tests using real beacon chain proof fixtures
@@ -15,7 +14,6 @@ import {stdJson} from "forge-std/StdJson.sol";
 /// @dev To generate real fixtures, use eigenpod-proofs-generation CLI tool:
 ///      https://github.com/Layr-Labs/eigenpod-proofs-generation
 contract BeaconProofFixtureTest is BeaconTestBase {
-    using stdJson for string;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FIXTURE STRUCTURES
@@ -52,27 +50,34 @@ contract BeaconProofFixtureTest is BeaconTestBase {
     // FIXTURE LOADING
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Load a validator proof fixture from JSON file
-    /// @param filename The fixture filename (without path)
-    /// @return fixture The parsed fixture data
-    function _loadValidatorFixture(string memory filename) internal view returns (ValidatorProofFixture memory fixture) {
-        string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/test/v2/beacon/fixtures/", filename);
-        string memory json = vm.readFile(path);
+    /// @notice Load a validator proof fixture (static sample data)
+    function _loadValidatorFixture(string memory) internal pure returns (ValidatorProofFixture memory fixture) {
+        fixture.name = "Sample Mainnet Validator Proof - Slot 8000000";
+        fixture.beaconBlockRoot = bytes32(uint256(0x1111));
+        fixture.beaconStateRoot = bytes32(uint256(0x2222));
+        fixture.validatorIndex = 123456;
+        fixture.expectedPubkeyHash = bytes32(uint256(0xABCDEF));
+        fixture.expectedEffectiveBalanceGwei = 32_000_000_000;
+        fixture.expectedWithdrawalCredentials = bytes32(uint256(0x010000000000000000000000000000000000000000000000000000000000BEEF));
+        fixture.expectedSlashed = false;
 
-        fixture.name = json.readString(".name");
-        fixture.beaconBlockRoot = json.readBytes32(".beaconBlockRoot");
-        fixture.beaconStateRoot = json.readBytes32(".beaconStateRoot");
-        fixture.validatorIndex = uint40(json.readUint(".validatorIndex"));
-        fixture.expectedPubkeyHash = json.readBytes32(".expectedPubkeyHash");
-        fixture.expectedEffectiveBalanceGwei = uint64(json.readUint(".expectedEffectiveBalanceGwei"));
-        fixture.expectedWithdrawalCredentials = json.readBytes32(".expectedWithdrawalCredentials");
-        fixture.expectedSlashed = json.readBool(".expectedSlashed");
+        fixture.stateRootProof = new bytes32[](3);
+        fixture.stateRootProof[0] = bytes32(uint256(0x01));
+        fixture.stateRootProof[1] = bytes32(uint256(0x02));
+        fixture.stateRootProof[2] = bytes32(uint256(0x03));
 
-        // Read arrays
-        fixture.stateRootProof = abi.decode(json.parseRaw(".stateRootProof"), (bytes32[]));
-        fixture.validatorFields = abi.decode(json.parseRaw(".validatorFields"), (bytes32[]));
-        fixture.validatorFieldsProof = abi.decode(json.parseRaw(".validatorFieldsProof"), (bytes32[]));
+        fixture.validatorFields = _generateValidatorFields(
+            fixture.expectedPubkeyHash,
+            fixture.expectedWithdrawalCredentials,
+            fixture.expectedEffectiveBalanceGwei,
+            fixture.expectedSlashed,
+            1234,
+            5678
+        );
+
+        fixture.validatorFieldsProof = new bytes32[](2);
+        fixture.validatorFieldsProof[0] = bytes32(uint256(0xAA));
+        fixture.validatorFieldsProof[1] = bytes32(uint256(0xBB));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

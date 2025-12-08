@@ -47,11 +47,41 @@ contract Tangle is
     /// @notice Activate a fully approved service (called from Services mixin)
     function _activateService(uint64 requestId) internal override {
         Types.ServiceRequest storage req = _serviceRequests[requestId];
-
         uint64 serviceId = _serviceCount++;
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
-        Types.BlueprintConfig storage bpConfig = _blueprintConfigs[req.blueprintId];
 
+        _createServiceRecord(serviceId, req, bp);
+
+        (uint16[] memory exposures, uint256 totalExposure) = _assignOperatorsFromRequest(serviceId, requestId);
+
+        _grantPermittedCallers(serviceId, requestId, req.requester);
+
+        _handleInitialPayments(
+            serviceId,
+            req.blueprintId,
+            bp.pricing,
+            req.paymentToken,
+            req.paymentAmount,
+            exposures,
+            totalExposure,
+            requestId
+        );
+
+        _triggerManagerOnActivation(
+            requestId,
+            serviceId,
+            req.blueprintId,
+            req.requester,
+            req.ttl,
+            bp.manager
+        );
+    }
+
+    function _createServiceRecord(
+        uint64 serviceId,
+        Types.ServiceRequest storage req,
+        Types.Blueprint storage bp
+    ) private {
         _services[serviceId] = Types.Service({
             blueprintId: req.blueprintId,
             owner: req.requester,
@@ -66,13 +96,17 @@ contract Tangle is
             pricing: bp.pricing,
             status: Types.ServiceStatus.Active
         });
+    }
 
-        uint256 totalExposure = 0;
-        address[] memory operators = _requestOperators[requestId];
-        uint16[] memory exposures = new uint16[](operators.length);
+    function _assignOperatorsFromRequest(
+        uint64 serviceId,
+        uint64 requestId
+    ) private returns (uint16[] memory exposures, uint256 totalExposure) {
+        address[] storage requestOperators = _requestOperators[requestId];
+        exposures = new uint16[](requestOperators.length);
 
-        for (uint256 i = 0; i < operators.length; i++) {
-            address op = operators[i];
+        for (uint256 i = 0; i < requestOperators.length; i++) {
+            address op = requestOperators[i];
             uint16 exposure = _requestExposures[requestId][op];
             exposures[i] = exposure;
 
@@ -85,37 +119,90 @@ contract Tangle is
             _serviceOperatorSet[serviceId].add(op);
             totalExposure += exposure;
         }
+    }
 
-        _permittedCallers[serviceId].add(req.requester);
-        for (uint256 i = 0; i < _requestCallers[requestId].length; i++) {
-            _permittedCallers[serviceId].add(_requestCallers[requestId][i]);
+    function _grantPermittedCallers(
+        uint64 serviceId,
+        uint64 requestId,
+        address requester
+    ) private {
+        _permittedCallers[serviceId].add(requester);
+        address[] storage requestCallers = _requestCallers[requestId];
+        for (uint256 i = 0; i < requestCallers.length; i++) {
+            _permittedCallers[serviceId].add(requestCallers[i]);
         }
+    }
 
-        emit ServiceActivated(serviceId, requestId, req.blueprintId);
-
-        // Configure heartbeat settings from BSM
-        _configureHeartbeat(serviceId, bp.manager, req.requester);
-
-        if (bp.pricing == Types.PricingModel.PayOnce && req.paymentAmount > 0) {
-            _distributePayment(serviceId, req.blueprintId, req.paymentToken, req.paymentAmount, operators, exposures, totalExposure);
-        } else if (bp.pricing == Types.PricingModel.Subscription && req.paymentAmount > 0) {
-            _depositToEscrow(serviceId, req.paymentToken, req.paymentAmount);
+    function _handleInitialPayments(
+        uint64 serviceId,
+        uint64 blueprintId,
+        Types.PricingModel pricing,
+        address paymentToken,
+        uint256 paymentAmount,
+        uint16[] memory exposures,
+        uint256 totalExposure,
+        uint64 requestId
+    ) private {
+        if (paymentAmount == 0) {
+            return;
         }
-
-        if (bp.manager != address(0)) {
-            address[] memory callers = new address[](_requestCallers[requestId].length + 1);
-            callers[0] = req.requester;
-            for (uint256 i = 0; i < _requestCallers[requestId].length; i++) {
-                callers[i + 1] = _requestCallers[requestId][i];
-            }
-
-            _tryCallManager(
-                bp.manager,
-                abi.encodeCall(
-                    IBlueprintServiceManager.onServiceInitialized,
-                    (req.blueprintId, requestId, serviceId, req.requester, callers, req.ttl)
-                )
+        if (pricing == Types.PricingModel.PayOnce) {
+            address[] memory operators = _copyRequestOperators(requestId);
+            _distributePayment(
+                serviceId,
+                blueprintId,
+                paymentToken,
+                paymentAmount,
+                operators,
+                exposures,
+                totalExposure
             );
+        } else if (pricing == Types.PricingModel.Subscription) {
+            _depositToEscrow(serviceId, paymentToken, paymentAmount);
+        }
+    }
+
+    function _triggerManagerOnActivation(
+        uint64 requestId,
+        uint64 serviceId,
+        uint64 blueprintId,
+        address requester,
+        uint64 ttl,
+        address manager
+    ) private {
+        emit ServiceActivated(serviceId, requestId, blueprintId);
+
+        _configureHeartbeat(serviceId, manager, requester);
+
+        if (manager == address(0)) {
+            return;
+        }
+
+        address[] memory callers = _buildCallerList(requestId, requester);
+
+        _tryCallManager(
+            manager,
+            abi.encodeCall(
+                IBlueprintServiceManager.onServiceInitialized,
+                (blueprintId, requestId, serviceId, requester, callers, ttl)
+            )
+        );
+    }
+
+    function _buildCallerList(uint64 requestId, address requester) private view returns (address[] memory callers) {
+        address[] storage requestCallers = _requestCallers[requestId];
+        callers = new address[](requestCallers.length + 1);
+        callers[0] = requester;
+        for (uint256 i = 0; i < requestCallers.length; i++) {
+            callers[i + 1] = requestCallers[i];
+        }
+    }
+
+    function _copyRequestOperators(uint64 requestId) private view returns (address[] memory operators) {
+        address[] storage requestOperators = _requestOperators[requestId];
+        operators = new address[](requestOperators.length);
+        for (uint256 i = 0; i < requestOperators.length; i++) {
+            operators[i] = requestOperators[i];
         }
     }
 
