@@ -10,7 +10,7 @@ import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegatio
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { Errors } from "../../src/v2/libraries/Errors.sol";
 import { IBlueprintServiceManager } from "../../src/v2/interfaces/IBlueprintServiceManager.sol";
-import { BlueprintDefinitionHelper } from "../../src/testsupport/BlueprintDefinitionHelper.sol";
+import { BlueprintDefinitionHelper } from "../support/BlueprintDefinitionHelper.sol";
 
 /// @title BaseTest
 /// @notice Base test contract with common setup for v2 tests

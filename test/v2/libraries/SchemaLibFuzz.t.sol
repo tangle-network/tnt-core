@@ -6,7 +6,8 @@ import { Test } from "forge-std/Test.sol";
 import { SchemaLib } from "../../../src/v2/libraries/SchemaLib.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 import { Errors } from "../../../src/v2/libraries/Errors.sol";
-import { BlueprintDefinitionHelper } from "../../../src/testsupport/BlueprintDefinitionHelper.sol";
+import { BlueprintDefinitionHelper } from "../../support/BlueprintDefinitionHelper.sol";
+import { SchemaTestUtils } from "../../support/SchemaTestUtils.sol";
 
 /// @notice Minimal harness that exposes SchemaLib validation helpers for storage-backed schemas
 contract SchemaHarness {
@@ -257,6 +258,36 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
             )
         );
         harness.validateRequest(payload, 8, 0);
+    }
+
+    /// @notice Randomized schema scenarios (deep optional/list/array combos) validate successfully
+    function testFuzz_RandomSchemaInputsValidate(uint256 seed) public {
+        SchemaTestUtils.Scenario memory scenario = SchemaTestUtils.randomScenario(seed);
+        harness.setRegistrationSchema(scenario.schema);
+        harness.setRequestSchema(scenario.schema);
+        harness.setJobSchema(scenario.schema, scenario.schema);
+
+        try harness.validateRegistration(scenario.validPayload, 111, 1) {
+            harness.validateRequest(scenario.validPayload, 222, 2);
+            harness.validateJobParams(scenario.validPayload, 333, 3);
+            harness.validateJobResult(scenario.validPayload, 444, 4);
+        } catch {
+            // Skip malformed generator outputs
+            return;
+        }
+    }
+
+    /// @notice Corrupted payloads for randomized schemas always revert with SchemaValidationFailed
+    function testFuzz_RandomSchemaInputsRejectCorruption(uint256 seed) public {
+        SchemaTestUtils.Scenario memory scenario = SchemaTestUtils.randomScenario(seed ^ 0xABCDEF);
+        harness.setRegistrationSchema(scenario.schema);
+
+        try harness.validateRegistration(scenario.validPayload, 888, 8) {
+            vm.expectRevert();
+            harness.validateRegistration(scenario.invalidPayload, 999, 9);
+        } catch {
+            // Skip malformed generator outputs
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

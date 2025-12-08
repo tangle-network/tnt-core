@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Types } from "../v2/libraries/Types.sol";
-import { SchemaLib } from "../v2/libraries/SchemaLib.sol";
+import { Types } from "../../src/v2/libraries/Types.sol";
+import { SchemaLib } from "../../src/v2/libraries/SchemaLib.sol";
 
 /// @title BlueprintDefinitionHelper
 /// @notice Shared helper for constructing blueprint definitions across tests and scripts
