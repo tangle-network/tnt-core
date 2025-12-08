@@ -157,10 +157,27 @@ contract PaymentEdgeCasesTest is BaseTest {
         // Sum of individual amounts should equal original (accounting for operator pending)
     }
 
-    function test_Payment_MaxUint256_Overflow() public {
-        // This should overflow or be handled gracefully
-        // Note: In practice, users won't have this much ETH
-        // This is more of a safety check
+    function test_Payment_MaxUint256_DistributionMatchesSplit() public {
+        uint256 payment = type(uint128).max; // still exercises large values without hitting forge limits
+        vm.deal(user1, payment);
+
+        uint256 developerBefore = developer.balance;
+        uint256 treasuryBefore = treasury.balance;
+        uint256 restakerBefore = address(restaking).balance;
+
+        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
+        _approveService(operator1, requestId);
+
+        (uint16 devBps, uint16 protoBps, uint16 opBps, ) = tangle.paymentSplit();
+        uint256 expectedDev = (payment * devBps) / 10_000;
+        uint256 expectedTreasury = (payment * protoBps) / 10_000;
+        uint256 expectedOperator = (payment * opBps) / 10_000;
+        uint256 expectedRestaker = payment - expectedDev - expectedTreasury - expectedOperator;
+
+        assertEq(developer.balance - developerBefore, expectedDev);
+        assertEq(treasury.balance - treasuryBefore, expectedTreasury);
+        assertEq(address(restaking).balance - restakerBefore, expectedRestaker);
+        assertEq(tangle.pendingRewards(operator1), expectedOperator);
     }
 
     function test_Payment_ThreeOperators_UnevenSplit() public {
@@ -194,9 +211,43 @@ contract PaymentEdgeCasesTest is BaseTest {
         assertTrue(op1Pending + op2Pending + op3Pending <= 20, "Total operator rewards should not exceed 20% of payment");
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // EXPOSURE-WEIGHTED PAYMENTS
-    // ═══════════════════════════════════════════════════════════════════════════
+    function test_Payment_RequestServiceWithRevertingTokenReverts() public {
+        RevertingToken revertToken = new RevertingToken();
+        revertToken.mint(user1, 10 ether);
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.startPrank(user1);
+        revertToken.approve(address(tangle), 5 ether);
+        vm.expectRevert(bytes("TransferFrom disabled"));
+        tangle.requestService(
+            blueprintId,
+            operators,
+            "",
+            callers,
+            0,
+            address(revertToken),
+            5 ether
+        );
+        vm.stopPrank();
+    }
+
+    function test_Payment_TreasuryRejectsETH_Reverts() public {
+        ETHRejecter rejecter = new ETHRejecter();
+        vm.prank(admin);
+        tangle.setTreasury(payable(address(rejecter)));
+
+        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, 1 ether);
+
+        vm.expectRevert(Errors.PaymentFailed.selector);
+        _approveService(operator1, requestId);
+
+        vm.prank(admin);
+        tangle.setTreasury(payable(treasury));
+    }
+
 
     function test_Payment_ZeroExposure_NoReward() public {
         // Create service with 0% exposure (edge case)
