@@ -178,12 +178,15 @@ abstract contract Jobs is Base {
 
         // Call BSM hook
         if (bp.manager != address(0)) {
-            _tryCallManager(
+            _notifyManagerAggregatedResult(
                 bp.manager,
-                abi.encodeCall(
-                    IBlueprintServiceManager.onAggregatedResult,
-                    (serviceId, job.jobIndex, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey)
-                )
+                serviceId,
+                job.jobIndex,
+                callId,
+                output,
+                signerBitmap,
+                aggregatedSignature,
+                aggregatedPubkey
             );
         }
 
@@ -196,6 +199,25 @@ abstract contract Jobs is Base {
         if (svc.pricing == Types.PricingModel.EventDriven && job.payment > 0) {
             _distributeJobPayment(serviceId, job.payment);
         }
+    }
+
+    function _notifyManagerAggregatedResult(
+        address manager,
+        uint64 serviceId,
+        uint8 jobIndex,
+        uint64 callId,
+        bytes calldata output,
+        uint256 signerBitmap,
+        uint256[2] calldata aggregatedSignature,
+        uint256[4] calldata aggregatedPubkey
+    ) private {
+        _tryCallManager(
+            manager,
+            abi.encodeCall(
+                IBlueprintServiceManager.onAggregatedResult,
+                (serviceId, jobIndex, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey)
+            )
+        );
     }
 
     function _processResultSubmission(
