@@ -284,6 +284,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_gas_createPod() public {
+        if (_skipGasChecks()) return;
         uint256 gasBefore = gasleft();
         vm.prank(podOwner1);
         podManager.createPod();
@@ -295,6 +296,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
     }
 
     function test_gas_registerOperator() public {
+        if (_skipGasChecks()) return;
         uint256 gasBefore = gasleft();
         vm.prank(operator1);
         podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
@@ -305,6 +307,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
     }
 
     function test_gas_recordBalanceUpdate() public {
+        if (_skipGasChecks()) return;
         ValidatorPod pod = _createPod(podOwner1);
 
         uint256 gasBefore = gasleft();
@@ -314,5 +317,8 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         console2.log("Gas used for recordBeaconChainETHBalanceUpdate:", gasUsed);
         assertTrue(gasUsed < 50_000, "Balance update should use less than 50k gas");
+    }
+    function _skipGasChecks() internal view returns (bool) {
+        return vm.envOr("FOUNDRY_COVERAGE", false);
     }
 }
