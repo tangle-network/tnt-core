@@ -178,16 +178,16 @@ abstract contract Jobs is Base {
 
         // Call BSM hook
         if (bp.manager != address(0)) {
-            _notifyManagerAggregatedResult(
-                bp.manager,
-                serviceId,
-                job.jobIndex,
-                callId,
-                output,
-                signerBitmap,
-                aggregatedSignature,
-                aggregatedPubkey
-            );
+            AggregatedResultArgs memory args = AggregatedResultArgs({
+                serviceId: serviceId,
+                jobIndex: job.jobIndex,
+                callId: callId,
+                output: output,
+                signerBitmap: signerBitmap,
+                aggregatedSignature: aggregatedSignature,
+                aggregatedPubkey: aggregatedPubkey
+            });
+            _notifyManagerAggregatedResult(bp.manager, args);
         }
 
         emit AggregatedResultSubmitted(serviceId, callId, signerBitmap, output);
@@ -201,21 +201,30 @@ abstract contract Jobs is Base {
         }
     }
 
-    function _notifyManagerAggregatedResult(
-        address manager,
-        uint64 serviceId,
-        uint8 jobIndex,
-        uint64 callId,
-        bytes calldata output,
-        uint256 signerBitmap,
-        uint256[2] calldata aggregatedSignature,
-        uint256[4] calldata aggregatedPubkey
-    ) private {
+    struct AggregatedResultArgs {
+        uint64 serviceId;
+        uint8 jobIndex;
+        uint64 callId;
+        bytes output;
+        uint256 signerBitmap;
+        uint256[2] aggregatedSignature;
+        uint256[4] aggregatedPubkey;
+    }
+
+    function _notifyManagerAggregatedResult(address manager, AggregatedResultArgs memory args) private {
         _tryCallManager(
             manager,
             abi.encodeCall(
                 IBlueprintServiceManager.onAggregatedResult,
-                (serviceId, jobIndex, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey)
+                (
+                    args.serviceId,
+                    args.jobIndex,
+                    args.callId,
+                    args.output,
+                    args.signerBitmap,
+                    args.aggregatedSignature,
+                    args.aggregatedPubkey
+                )
             )
         );
     }
