@@ -100,17 +100,9 @@ contract BeaconFuzzTest is Test {
             }
         }
 
-        // Compute root with correct index
-        bytes32 computedHash = leaf;
-        uint256 proofIndex = correctIndex;
-        for (uint256 i = 0; i < 5; i++) {
-            if (proofIndex % 2 == 0) {
-                computedHash = sha256(abi.encodePacked(computedHash, proofElements[i]));
-            } else {
-                computedHash = sha256(abi.encodePacked(proofElements[i], computedHash));
-            }
-            proofIndex /= 2;
-        }
+        bytes32 computedHash = _computeMerkleRoot(leaf, proofElements, correctIndex);
+        bytes32 wrongRoot = _computeMerkleRoot(leaf, proofElements, wrongIndex);
+        vm.assume(computedHash != wrongRoot);
 
         // Verify with wrong index should fail
         bool valid = _verifyMerkleProof(proof, computedHash, leaf, wrongIndex);
@@ -410,5 +402,22 @@ contract BeaconFuzzTest is Test {
         }
 
         return computedHash == root;
+    }
+
+    function _computeMerkleRoot(
+        bytes32 leaf,
+        bytes32[5] memory proofElements,
+        uint256 index
+    ) internal pure returns (bytes32 root) {
+        root = leaf;
+        uint256 proofIndex = index;
+        for (uint256 i = 0; i < proofElements.length; i++) {
+            if (proofIndex % 2 == 0) {
+                root = sha256(abi.encodePacked(root, proofElements[i]));
+            } else {
+                root = sha256(abi.encodePacked(proofElements[i], root));
+            }
+            proofIndex /= 2;
+        }
     }
 }
