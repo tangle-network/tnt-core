@@ -9,6 +9,7 @@ import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager
 /// @title Blueprints
 /// @notice Blueprint creation and management
 abstract contract Blueprints is Base {
+    uint256 private constant DEFAULT_JOB_SLOT_COUNT = 8;
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -30,6 +31,8 @@ abstract contract Blueprints is Base {
         string calldata metadataUri,
         address manager
     ) external whenNotPaused returns (uint64 blueprintId) {
+        metadataUri; // Silence unused variable warning (metadata emitted via events)
+
         blueprintId = _blueprintCount++;
 
         _blueprints[blueprintId] = Types.Blueprint({
@@ -42,12 +45,56 @@ abstract contract Blueprints is Base {
             active: true
         });
 
+        _initializeBlueprintSchemas(blueprintId, DEFAULT_JOB_SLOT_COUNT);
+
         emit BlueprintCreated(blueprintId, msg.sender, manager);
         _recordBlueprintCreated(blueprintId, msg.sender);
 
         if (manager != address(0)) {
             _callManager(
                 manager,
+                abi.encodeCall(
+                    IBlueprintServiceManager.onBlueprintCreated,
+                    (blueprintId, msg.sender, address(this))
+                )
+            );
+        }
+    }
+
+    /// @notice Create blueprint from encoded definition containing schemas and job metadata
+    function createBlueprint(bytes calldata encodedDefinition) external whenNotPaused returns (uint64 blueprintId) {
+        Types.BlueprintDefinition memory def = abi.decode(encodedDefinition, (Types.BlueprintDefinition));
+        if (def.jobs.length == 0) {
+            revert Errors.InvalidState();
+        }
+
+        blueprintId = _blueprintCount++;
+
+        Types.MembershipModel membership = def.hasConfig ? def.config.membership : Types.MembershipModel.Fixed;
+        Types.PricingModel pricing = def.hasConfig ? def.config.pricing : Types.PricingModel.PayOnce;
+
+        _blueprints[blueprintId] = Types.Blueprint({
+            owner: msg.sender,
+            manager: def.manager,
+            createdAt: uint64(block.timestamp),
+            operatorCount: 0,
+            membership: membership,
+            pricing: pricing,
+            active: true
+        });
+
+        if (def.hasConfig) {
+            _blueprintConfigs[blueprintId] = def.config;
+        }
+
+        _storeBlueprintSchemas(blueprintId, def);
+
+        emit BlueprintCreated(blueprintId, msg.sender, def.manager);
+        _recordBlueprintCreated(blueprintId, msg.sender);
+
+        if (def.manager != address(0)) {
+            _callManager(
+                def.manager,
                 abi.encodeCall(
                     IBlueprintServiceManager.onBlueprintCreated,
                     (blueprintId, msg.sender, address(this))
@@ -75,6 +122,7 @@ abstract contract Blueprints is Base {
         });
 
         _blueprintConfigs[blueprintId] = config;
+        _initializeBlueprintSchemas(blueprintId, DEFAULT_JOB_SLOT_COUNT);
 
         emit BlueprintCreated(blueprintId, msg.sender, manager);
         _recordBlueprintCreated(blueprintId, msg.sender);
@@ -122,5 +170,32 @@ abstract contract Blueprints is Base {
 
         bp.active = false;
         emit BlueprintDeactivated(blueprintId);
+    }
+
+    function _initializeBlueprintSchemas(uint64 blueprintId, uint256 jobCount) private {
+        delete _registrationSchemas[blueprintId];
+        delete _requestSchemas[blueprintId];
+        delete _blueprintJobSchemas[blueprintId];
+
+        Types.StoredJobSchema[] storage schemas = _blueprintJobSchemas[blueprintId];
+        for (uint256 i = 0; i < jobCount; ++i) {
+            schemas.push();
+        }
+    }
+
+    function _storeBlueprintSchemas(uint64 blueprintId, Types.BlueprintDefinition memory def) private {
+        _registrationSchemas[blueprintId] = def.registrationSchema;
+        _requestSchemas[blueprintId] = def.requestSchema;
+
+        delete _blueprintJobSchemas[blueprintId];
+        Types.StoredJobSchema[] storage schemas = _blueprintJobSchemas[blueprintId];
+        for (uint256 i = 0; i < def.jobs.length; ++i) {
+            schemas.push(
+                Types.StoredJobSchema({
+                    params: def.jobs[i].paramsSchema,
+                    result: def.jobs[i].resultSchema
+                })
+            );
+        }
     }
 }

@@ -90,7 +90,7 @@ library SchemaLib {
     /// @notice Validate payload against schema (registration/request params)
     function validatePayload(
         bytes storage schemaStorage,
-        bytes calldata payload,
+        bytes memory payload,
         Types.SchemaTarget target,
         uint64 refId,
         uint64 auxId
@@ -101,7 +101,7 @@ library SchemaLib {
     /// @notice Validate job inputs against stored schema
     function validateJobParams(
         Types.StoredJobSchema storage schema,
-        bytes calldata payload,
+        bytes memory payload,
         uint64 blueprintId,
         uint8 jobIndex
     ) internal view {
@@ -111,7 +111,7 @@ library SchemaLib {
     /// @notice Validate job results against stored schema
     function validateJobResult(
         Types.StoredJobSchema storage schema,
-        bytes calldata payload,
+        bytes memory payload,
         uint64 blueprintId,
         uint8 jobIndex
     ) internal view {
@@ -120,7 +120,7 @@ library SchemaLib {
 
     function _validate(
         bytes storage schemaStorage,
-        bytes calldata payload,
+        bytes memory payload,
         Types.SchemaTarget target,
         uint64 refId,
         uint64 auxId
@@ -134,7 +134,7 @@ library SchemaLib {
 
     function _validateEncoded(
         bytes memory schema,
-        bytes calldata payload,
+        bytes memory payload,
         Types.SchemaTarget target,
         uint64 refId,
         uint64 auxId
@@ -173,7 +173,7 @@ library SchemaLib {
     function _validateField(
         bytes memory schema,
         uint256 start,
-        bytes calldata data,
+        bytes memory data,
         uint256 cursor,
         uint256 limit,
         ValidationContext memory ctx,
@@ -414,7 +414,7 @@ library SchemaLib {
     }
 
     function _consume(
-        bytes calldata data,
+        bytes memory data,
         uint256 cursor,
         uint256 size,
         uint256 limit,
@@ -429,7 +429,7 @@ library SchemaLib {
     }
 
     function _readCompactLength(
-        bytes calldata data,
+        bytes memory data,
         uint256 cursor,
         uint256 limit,
         ValidationContext memory ctx,

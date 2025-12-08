@@ -28,6 +28,19 @@ library Errors {
     error DeadlineExpired();
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // SCHEMA
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Schema exceeds supported depth or node limits
+    error SchemaTooLarge();
+
+    /// @notice Schema validation failed at encoded path
+    error SchemaValidationFailed(uint8 target, uint64 refId, uint64 auxId, uint256 path);
+
+    /// @notice Schema field kind is not supported
+    error UnsupportedFieldKind(uint8 kind);
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT
     // ═══════════════════════════════════════════════════════════════════════════
 

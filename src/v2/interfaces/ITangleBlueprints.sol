@@ -33,6 +33,11 @@ interface ITangleBlueprints {
     /// @return blueprintId The new blueprint ID
     function createBlueprint(string calldata metadataUri, address manager) external returns (uint64 blueprintId);
 
+    /// @notice Create a blueprint from an encoded definition that includes schemas and job metadata
+    /// @param encodedDefinition ABI-encoded Types.BlueprintDefinition struct
+    /// @return blueprintId The new blueprint ID
+    function createBlueprint(bytes calldata encodedDefinition) external returns (uint64 blueprintId);
+
     /// @notice Create a blueprint with full configuration
     /// @param metadataUri IPFS or URL to blueprint metadata
     /// @param manager IBlueprintServiceManager implementation

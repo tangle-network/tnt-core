@@ -37,7 +37,7 @@ abstract contract Quotes is Base {
 
         uint16[] memory exposures = _extractQuoteExposures(quotes);
 
-        uint256 totalCost = SignatureLib.verifyQuoteBatch(
+        (uint256 totalCost,) = SignatureLib.verifyQuoteBatch(
             _usedQuotes,
             _domainSeparator,
             quotes,

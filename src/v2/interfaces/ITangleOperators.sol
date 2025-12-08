@@ -54,6 +54,15 @@ interface ITangleOperators {
         string calldata rpcAddress
     ) external;
 
+    /// @notice Register as operator providing blueprint-specific registration inputs
+    /// @param registrationInputs Encoded payload validated by blueprint's schema
+    function registerOperator(
+        uint64 blueprintId,
+        bytes calldata ecdsaPublicKey,
+        string calldata rpcAddress,
+        bytes calldata registrationInputs
+    ) external;
+
     /// @notice Unregister from a blueprint
     function unregisterOperator(uint64 blueprintId) external;
 

@@ -78,6 +78,15 @@ abstract contract TangleStorage {
     /// @notice Blueprint ID => Set of registered operators
     mapping(uint64 => EnumerableSet.AddressSet) internal _blueprintOperators;
 
+    /// @notice Blueprint ID => Registration schema (encoded TLV bytes)
+    mapping(uint64 => bytes) internal _registrationSchemas;
+
+    /// @notice Blueprint ID => Service request schema
+    mapping(uint64 => bytes) internal _requestSchemas;
+
+    /// @notice Blueprint ID => Job schemas (params/result per job index)
+    mapping(uint64 => Types.StoredJobSchema[]) internal _blueprintJobSchemas;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE REQUEST STORAGE (Slot 26-35)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -165,6 +174,9 @@ abstract contract TangleStorage {
 
     /// @notice Quote hash => Used flag (for replay protection)
     mapping(bytes32 => bool) internal _usedQuotes;
+
+    /// @notice Temporary bitmap for deduplicating operators within a quote batch
+    mapping(address => bool) internal _quoteOperatorSeen;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // METRICS STORAGE (Slot 91-95)

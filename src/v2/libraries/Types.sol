@@ -43,6 +43,151 @@ library Types {
         uint256 eventRate;          // Rate per event (for EventDriven model)
     }
 
+    /// @notice Metadata describing a blueprint for explorers and off-chain tooling
+    struct BlueprintMetadata {
+        string name;
+        string description;
+        string author;
+        string category;
+        string codeRepository;
+        string logo;
+        string website;
+        string license;
+        string profilingData;
+    }
+
+    /// @notice Definition of a single job entry in a blueprint
+    struct JobDefinition {
+        string name;
+        string description;
+        string metadataUri;
+        bytes paramsSchema;
+        bytes resultSchema;
+    }
+
+    /// @notice Serialized schema bytes for job params/result pairs
+    struct StoredJobSchema {
+        bytes params;
+        bytes result;
+    }
+
+    /// @notice Blueprint definition emitted by off-chain tooling and persisted on-chain
+    struct BlueprintDefinition {
+        string metadataUri;                 // IPFS/HTTPS pointer to raw blueprint JSON
+        address manager;                    // Service manager contract for hooks
+        uint32 masterManagerRevision;       // Revision of the master manager contract
+        bool hasConfig;                     // True when config should be applied
+        BlueprintConfig config;             // Optional blueprint-specific config
+        BlueprintMetadata metadata;         // Human friendly metadata
+        JobDefinition[] jobs;               // Job descriptors
+        bytes registrationSchema;           // Operator registration schema
+        bytes requestSchema;                // Service request schema
+        BlueprintSource[] sources;          // Implementation sources
+        MembershipModel[] supportedMemberships; // Allowed membership models
+    }
+
+    /// @notice Schema validation target used for contextual error reporting
+    enum SchemaTarget {
+        Registration,
+        Request,
+        JobParams,
+        JobResult
+    }
+
+    /// @notice Supported blueprint source kinds
+    enum BlueprintSourceKind {
+        Container,
+        Wasm,
+        Native
+    }
+
+    /// @notice Fetcher types for blueprint artifacts
+    enum BlueprintFetcherKind {
+        None,
+        Ipfs,
+        Http,
+        Github
+    }
+
+    /// @notice Supported WASM runtimes
+    enum WasmRuntime {
+        Unknown,
+        Wasmtime,
+        Wasmer
+    }
+
+    /// @notice Container image reference
+    struct ImageRegistrySource {
+        string registry;
+        string image;
+        string tag;
+    }
+
+    /// @notice WASM runtime configuration
+    struct WasmSource {
+        WasmRuntime runtime;
+        BlueprintFetcherKind fetcher;
+        string artifactUri; // e.g. CID or URL
+        string entrypoint;  // Function entrypoint
+    }
+
+    /// @notice Native binary configuration
+    struct NativeSource {
+        BlueprintFetcherKind fetcher;
+        string artifactUri;
+        string entrypoint;
+    }
+
+    /// @notice Testing harness metadata for blueprints
+    struct TestingSource {
+        string cargoPackage;
+        string cargoBin;
+        string basePath;
+    }
+
+    /// @notice Blueprint binary source reference
+    struct BlueprintSource {
+        BlueprintSourceKind kind;
+        ImageRegistrySource container;
+        WasmSource wasm;
+        NativeSource native;
+        TestingSource testing;
+    }
+
+    /// @notice Blueprint schema node definition used by SchemaLib
+    struct BlueprintFieldType {
+        BlueprintFieldKind kind;
+        uint16 arrayLength;
+        BlueprintFieldType[] children;
+    }
+
+    /// @notice Primitive kinds supported within blueprint schemas
+    enum BlueprintFieldKind {
+        Void,
+        Bool,
+        Uint8,
+        Int8,
+        Uint16,
+        Int16,
+        Uint32,
+        Int32,
+        Uint64,
+        Int64,
+        Uint128,
+        Int128,
+        Uint256,
+        Int256,
+        Address,
+        Bytes32,
+        FixedBytes,
+        String,
+        Bytes,
+        Optional,
+        Array,
+        List,
+        Struct
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // OPERATOR
     // ═══════════════════════════════════════════════════════════════════════════

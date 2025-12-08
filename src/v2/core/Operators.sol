@@ -7,6 +7,7 @@ import { Base } from "./Base.sol";
 import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
+import { SchemaLib } from "../libraries/SchemaLib.sol";
 
 /// @title Operators
 /// @notice Operator registration and management for blueprints
@@ -72,6 +73,25 @@ abstract contract Operators is Base {
         bytes calldata ecdsaPublicKey,
         string calldata rpcAddress
     ) external whenNotPaused {
+        _registerOperator(blueprintId, ecdsaPublicKey, rpcAddress, bytes(""));
+    }
+
+    /// @notice Register as operator with blueprint-specific registration inputs
+    function registerOperator(
+        uint64 blueprintId,
+        bytes calldata ecdsaPublicKey,
+        string calldata rpcAddress,
+        bytes calldata registrationInputs
+    ) external whenNotPaused {
+        _registerOperator(blueprintId, ecdsaPublicKey, rpcAddress, registrationInputs);
+    }
+
+    function _registerOperator(
+        uint64 blueprintId,
+        bytes calldata ecdsaPublicKey,
+        string calldata rpcAddress,
+        bytes memory registrationInputs
+    ) private {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
 
@@ -98,7 +118,15 @@ abstract contract Operators is Base {
             revert Errors.InsufficientStake(msg.sender, minStake, _restaking.getOperatorStake(msg.sender));
         }
 
-        // Encode preferences for BSM hook (maintains compatibility)
+        SchemaLib.validatePayload(
+            _registrationSchemas[blueprintId],
+            registrationInputs,
+            Types.SchemaTarget.Registration,
+            blueprintId,
+            0
+        );
+
+        // Encode preferences for storage and backwards-compatible manager hooks
         bytes memory encodedPreferences = abi.encode(
             Types.OperatorPreferences({
                 ecdsaPublicKey: ecdsaPublicKey,
@@ -106,11 +134,13 @@ abstract contract Operators is Base {
             })
         );
 
+        bytes memory managerPayload = registrationInputs.length > 0 ? registrationInputs : encodedPreferences;
+
         // Call manager hook first (may reject)
         if (bp.manager != address(0)) {
             _callManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, encodedPreferences))
+                abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, managerPayload))
             );
         }
 
