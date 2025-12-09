@@ -45,6 +45,8 @@ contract BeaconProofsHarness {
 /// @dev Tests Merkle proof verification, field extraction, and edge cases
 contract BeaconChainProofsTest is BeaconTestBase {
     BeaconProofsHarness public harness;
+    uint256 private constant BALANCE_TREE_HEIGHT = 38;
+    uint256 private constant BALANCE_CONTAINER_GINDEX = 44;
 
     function setUp() public override {
         super.setUp();
@@ -196,6 +198,43 @@ contract BeaconChainProofsTest is BeaconTestBase {
 
         // The internal function should produce the same hash
         assertTrue(expected != bytes32(0), "Hash should be non-zero");
+    }
+
+    function test_verifyBalanceContainer_ValidProof() public view {
+        bytes32 balanceContainerRoot = keccak256("balanceContainer");
+        (bytes memory proofBytes, bytes32 stateRoot) =
+            _buildProofFromGindex(balanceContainerRoot, BALANCE_CONTAINER_GINDEX);
+
+        ValidatorTypes.BalanceContainerProof memory proof = ValidatorTypes.BalanceContainerProof({
+            balanceContainerRoot: balanceContainerRoot,
+            proof: proofBytes
+        });
+
+        bool result = harness.verifyBalanceContainer(stateRoot, proof);
+        assertTrue(result, "Balance container proof should verify");
+    }
+
+    function test_verifyValidatorBalance_ValidProof() public view {
+        uint40 validatorIndex = 2;
+        uint64 expectedBalance = 300;
+        bytes32 balanceLeaf = _generateBalanceRoot(100, 200, expectedBalance, 400);
+
+        bytes32[] memory siblings = new bytes32[](BALANCE_TREE_HEIGHT);
+        for (uint256 i = 0; i < siblings.length; i++) {
+            siblings[i] = keccak256(abi.encodePacked("balance-sibling", i));
+        }
+
+        (bytes memory proofBytes, bytes32 balanceContainerRoot) =
+            _generateMerkleProof(balanceLeaf, siblings, validatorIndex / 4);
+
+        ValidatorTypes.BalanceProof memory proof = ValidatorTypes.BalanceProof({
+            pubkeyHash: bytes32(0),
+            balanceRoot: balanceLeaf,
+            proof: proofBytes
+        });
+
+        uint64 balance = harness.verifyValidatorBalance(balanceContainerRoot, validatorIndex, proof);
+        assertEq(balance, expectedBalance);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -537,5 +576,37 @@ contract BeaconChainProofsTest is BeaconTestBase {
         // Test that 0x03 prefix is invalid
         bytes32 invalidCreds = bytes32(uint256(0x03) << 248 | uint256(uint160(0x1234)));
         assertFalse(ValidatorTypes.hasValidPrefix(invalidCreds), "0x03 prefix should be invalid");
+    }
+
+    function _buildProofFromGindex(bytes32 leaf, uint256 gindex)
+        internal
+        pure
+        returns (bytes memory proof, bytes32 root)
+    {
+        uint256 depth = 0;
+        uint256 temp = gindex;
+        while (temp > 1) {
+            depth++;
+            temp >>= 1;
+        }
+
+        bytes memory proofBytes;
+        uint256 currentIndex = gindex;
+        bytes32 current = leaf;
+
+        for (uint256 i = 0; i < depth; i++) {
+            bytes32 sibling = keccak256(abi.encodePacked("gindex-sib", gindex, i));
+            proofBytes = bytes.concat(proofBytes, sibling);
+
+            if (currentIndex % 2 == 1) {
+                current = sha256(abi.encodePacked(sibling, current));
+            } else {
+                current = sha256(abi.encodePacked(current, sibling));
+            }
+            currentIndex /= 2;
+        }
+
+        proof = proofBytes;
+        root = current;
     }
 }

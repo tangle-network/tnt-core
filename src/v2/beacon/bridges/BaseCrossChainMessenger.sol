@@ -13,6 +13,7 @@ interface IBaseCrossDomainMessenger {
 
 contract BaseCrossChainMessenger is ICrossChainMessenger {
     /// @notice Base L1 CrossDomainMessenger
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IBaseCrossDomainMessenger public immutable l1Messenger;
 
     /// @notice Base L2 chain ID
@@ -36,9 +37,12 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
         );
 
         // Base native messaging
+        // gasLimit fits into uint32 because bridge enforces < 2^32.
+        // forge-lint: disable-next-line(unsafe-typecast)
         l1Messenger.sendMessage{value: msg.value}(
             target,
             abi.encodeCall(ICrossChainReceiver.receiveMessage, (block.chainid, msg.sender, payload)),
+            // forge-lint: disable-next-line(unsafe-typecast)
             uint32(gasLimit)
         );
 
@@ -65,8 +69,11 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
 /// @title BaseL2Receiver
 /// @notice Adapter for receiving messages on Base L2
 contract BaseL2Receiver {
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IBaseCrossDomainMessenger public immutable l2Messenger;
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     address public immutable l1Sender;
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     ICrossChainReceiver public immutable receiver;
 
     constructor(address _l2Messenger, address _l1Sender, address _receiver) {

@@ -5,13 +5,51 @@ import {Script, console2} from "forge-std/Script.sol";
 
 import {L2SlashingReceiver} from "../../src/v2/beacon/L2SlashingReceiver.sol";
 import {TangleL2Slasher} from "../../src/v2/beacon/TangleL2Slasher.sol";
-import {HyperlaneReceiver} from "../../src/v2/beacon/bridges/HyperlaneCrossChainMessenger.sol";
-import {LayerZeroReceiver} from "../../src/v2/beacon/bridges/LayerZeroCrossChainMessenger.sol";
+
+error MissingEnv(string key);
+error AddressNotAllowlisted(string key, address provided, address expected);
+
+abstract contract EnvUtils is Script {
+    function _requireEnvUint(string memory key) internal returns (uint256 value) {
+        try vm.envUint(key) returns (uint256 raw) {
+            return raw;
+        } catch {
+            revert MissingEnv(key);
+        }
+    }
+
+    function _requireEnvAddress(string memory key) internal returns (address value) {
+        try vm.envAddress(key) returns (address raw) {
+            if (raw == address(0)) revert MissingEnv(key);
+            return raw;
+        } catch {
+            revert MissingEnv(key);
+        }
+    }
+
+    function _envAddressOrDefault(string memory key, address defaultValue) internal returns (address) {
+        try vm.envAddress(key) returns (address raw) {
+            if (raw == address(0)) revert MissingEnv(key);
+            return raw;
+        } catch {
+            if (defaultValue == address(0)) revert MissingEnv(key);
+            return defaultValue;
+        }
+    }
+
+    function _enforceAllowlist(string memory key, address candidate) internal view {
+        try vm.envAddress(key) returns (address allowed) {
+            if (allowed != address(0) && candidate != allowed) {
+                revert AddressNotAllowlisted(key, candidate, allowed);
+            }
+        } catch {}
+    }
+}
 
 /// @title DeployL2Slashing
 /// @notice Deploy script for L2 (Tangle) slashing receiver infrastructure
 /// @dev Deploys to Tangle mainnet/testnet
-contract DeployL2Slashing is Script {
+contract DeployL2Slashing is EnvUtils {
     // Chain IDs
     uint256 public constant ETHEREUM_MAINNET = 1;
     uint256 public constant ETHEREUM_SEPOLIA = 11155111;
@@ -28,12 +66,21 @@ contract DeployL2Slashing is Script {
     }
 
     function run(BridgeProtocol bridge) public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = _requireEnvUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        address admin = vm.envOr("ADMIN", deployer);
-        address restaking = vm.envAddress("RESTAKING");
+        address admin = _envAddressOrDefault("ADMIN", deployer);
+        address restaking = _requireEnvAddress("RESTAKING");
         uint256 sourceChainId = vm.envOr("SOURCE_CHAIN_ID", ETHEREUM_SEPOLIA);
         address l1Connector = vm.envOr("L1_CONNECTOR", address(0));
+        address messengerOverride = vm.envOr("MOCK_MESSENGER", deployer);
+        if (messengerOverride == address(0)) revert MissingEnv("MOCK_MESSENGER");
+
+        _enforceAllowlist("ADMIN_ALLOWLIST", admin);
+        _enforceAllowlist("RESTAKING_ALLOWLIST", restaking);
+        if (l1Connector != address(0)) {
+            _enforceAllowlist("L1_CONNECTOR_ALLOWLIST", l1Connector);
+        }
+        _enforceAllowlist("MESSENGER_ALLOWLIST", messengerOverride);
 
         console2.log("=== L2 Slashing Receiver Deployment ===");
         console2.log("Deployer:", deployer);
@@ -41,51 +88,27 @@ contract DeployL2Slashing is Script {
         console2.log("Restaking:", restaking);
         console2.log("Source Chain ID:", sourceChainId);
 
-        vm.startBroadcast(deployerPrivateKey);
-
-        // 1. Deploy TangleL2Slasher
-        TangleL2Slasher slasher = new TangleL2Slasher(restaking, admin);
-        console2.log("TangleL2Slasher:", address(slasher));
-
-        // 2. Determine messenger address (bridge receiver or direct mock)
-        address messengerAddr;
-        address bridgeReceiver;
-
-        if (bridge == BridgeProtocol.Hyperlane) {
-            // Deploy Hyperlane receiver first
-            bridgeReceiver = deployHyperlaneReceiver(sourceChainId, l1Connector);
-            messengerAddr = bridgeReceiver;
-        } else if (bridge == BridgeProtocol.LayerZero) {
-            // Deploy LayerZero receiver first
-            bridgeReceiver = deployLayerZeroReceiver(sourceChainId, l1Connector);
-            messengerAddr = bridgeReceiver;
-        } else {
-            // DirectMessenger: use deployer or mock as messenger
-            messengerAddr = vm.envOr("MOCK_MESSENGER", deployer);
-            bridgeReceiver = address(0);
-        }
-
-        // 3. Deploy L2SlashingReceiver with slasher and messenger
-        L2SlashingReceiver receiver = new L2SlashingReceiver(address(slasher), messengerAddr);
-        console2.log("L2SlashingReceiver:", address(receiver));
-
-        // 4. Authorize receiver to call slasher
-        slasher.setAuthorizedCaller(address(receiver), true);
-        console2.log("Authorized receiver as slasher caller");
-
-        // 5. Configure authorized senders if L1 connector is known
-        if (l1Connector != address(0)) {
-            receiver.setAuthorizedSender(sourceChainId, l1Connector, true);
-            console2.log("Authorized L1 connector:", l1Connector);
-        }
-
-        vm.stopBroadcast();
+        (
+            address slasher,
+            address receiver,
+            address bridgeReceiver
+        ) = _deploy(
+            bridge,
+            deployerPrivateKey,
+            deployer,
+            admin,
+            restaking,
+            sourceChainId,
+            l1Connector,
+            messengerOverride,
+            true
+        );
 
         // Log deployment summary
         console2.log("\n=== L2 Deployment Summary ===");
         console2.log("Chain ID:", block.chainid);
-        console2.log("TangleL2Slasher:", address(slasher));
-        console2.log("L2SlashingReceiver:", address(receiver));
+        console2.log("TangleL2Slasher:", slasher);
+        console2.log("L2SlashingReceiver:", receiver);
         if (bridgeReceiver != address(0)) {
             console2.log("BridgeReceiver:", bridgeReceiver);
         }
@@ -95,13 +118,102 @@ contract DeployL2Slashing is Script {
         }
     }
 
+    /// @notice Dry-run deployment for testing/CI
+    function dryRun(
+        BridgeProtocol bridge,
+        address deployer,
+        address admin,
+        address restaking,
+        uint256 sourceChainId,
+        address l1Connector,
+        address messengerOverride
+    )
+        external
+        returns (address slasher, address receiver)
+    {
+        _enforceAllowlist("ADMIN_ALLOWLIST", admin);
+        _enforceAllowlist("RESTAKING_ALLOWLIST", restaking);
+        if (l1Connector != address(0)) {
+            _enforceAllowlist("L1_CONNECTOR_ALLOWLIST", l1Connector);
+        }
+        if (messengerOverride != address(0)) {
+            _enforceAllowlist("MESSENGER_ALLOWLIST", messengerOverride);
+        }
+        (slasher, receiver,) = _deploy(
+            bridge,
+            0,
+            deployer == address(0) ? msg.sender : deployer,
+            admin,
+            restaking,
+            sourceChainId,
+            l1Connector,
+            messengerOverride,
+            false
+        );
+    }
+
+    function _deploy(
+        BridgeProtocol bridge,
+        uint256 deployerPrivateKey,
+        address deployer,
+        address admin,
+        address restaking,
+        uint256 sourceChainId,
+        address l1Connector,
+        address messengerOverride,
+        bool broadcast
+    )
+        internal
+        returns (address slasher, address receiver, address bridgeReceiver)
+    {
+        if (broadcast) {
+            vm.startBroadcast(deployerPrivateKey);
+        } else if (deployer != address(0)) {
+            vm.startPrank(deployer);
+        }
+
+        TangleL2Slasher slasherContract = new TangleL2Slasher(restaking, admin);
+        slasher = address(slasherContract);
+        console2.log("TangleL2Slasher:", slasher);
+
+        address messengerAddr;
+        if (bridge == BridgeProtocol.Hyperlane) {
+            bridgeReceiver = deployHyperlaneReceiver(sourceChainId, l1Connector);
+            messengerAddr = bridgeReceiver;
+        } else if (bridge == BridgeProtocol.LayerZero) {
+            bridgeReceiver = deployLayerZeroReceiver(sourceChainId, l1Connector);
+            messengerAddr = bridgeReceiver;
+        } else {
+            messengerAddr = messengerOverride != address(0) ? messengerOverride : deployer;
+            bridgeReceiver = address(0);
+        }
+
+        L2SlashingReceiver receiverContract = new L2SlashingReceiver(slasher, messengerAddr);
+        receiver = address(receiverContract);
+        console2.log("L2SlashingReceiver:", receiver);
+
+        slasherContract.setAuthorizedCaller(receiver, true);
+        console2.log("Authorized receiver as slasher caller");
+
+        if (l1Connector != address(0)) {
+            receiverContract.setAuthorizedSender(sourceChainId, l1Connector, true);
+            console2.log("Authorized L1 connector:", l1Connector);
+        }
+
+        if (broadcast) {
+            vm.stopBroadcast();
+        } else if (deployer != address(0)) {
+            vm.stopPrank();
+        }
+    }
+
     /// @dev Deploy and configure HyperlaneReceiver
     /// Note: The receiver will be set as messenger for L2SlashingReceiver
     /// This is a placeholder that returns deployer for now - configure after L2SlashingReceiver is deployed
     function deployHyperlaneReceiver(
         uint256 sourceChainId,
         address l1Connector
-    ) internal returns (address) {
+    ) internal view returns (address) {
         // Hyperlane Mailbox on Tangle (placeholder - update with actual address)
         address mailbox = vm.envAddress("HYPERLANE_MAILBOX");
 
@@ -125,7 +237,7 @@ contract DeployL2Slashing is Script {
     function deployLayerZeroReceiver(
         uint256 sourceChainId,
         address l1Connector
-    ) internal returns (address) {
+    ) internal view returns (address) {
         // LayerZero Endpoint on Tangle (placeholder - update with actual address)
         address endpoint = vm.envAddress("LAYERZERO_ENDPOINT");
 
@@ -143,7 +255,7 @@ contract DeployL2Slashing is Script {
 
 /// @title DeployL2SlashingTestnet
 /// @notice Convenience script for testnet deployment
-contract DeployL2SlashingTestnet is Script {
+contract DeployL2SlashingTestnet is EnvUtils {
     function run() external {
         DeployL2Slashing deploy = new DeployL2Slashing();
         deploy.run(DeployL2Slashing.BridgeProtocol.DirectMessenger);
@@ -152,13 +264,13 @@ contract DeployL2SlashingTestnet is Script {
 
 /// @title ConfigureL2SlashingReceiver
 /// @notice Configure an existing L2SlashingReceiver
-contract ConfigureL2SlashingReceiver is Script {
+contract ConfigureL2SlashingReceiver is EnvUtils {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address receiverAddr = vm.envAddress("RECEIVER");
-        address messenger = vm.envAddress("MESSENGER");
-        uint256 sourceChainId = vm.envUint("SOURCE_CHAIN_ID");
-        address l1Connector = vm.envAddress("L1_CONNECTOR");
+        uint256 deployerPrivateKey = _requireEnvUint("PRIVATE_KEY");
+        address receiverAddr = _requireEnvAddress("RECEIVER");
+        address messenger = _requireEnvAddress("MESSENGER");
+        uint256 sourceChainId = _requireEnvUint("SOURCE_CHAIN_ID");
+        address l1Connector = _requireEnvAddress("L1_CONNECTOR");
 
         L2SlashingReceiver receiver = L2SlashingReceiver(receiverAddr);
 
@@ -177,11 +289,11 @@ contract ConfigureL2SlashingReceiver is Script {
 
 /// @title AuthorizeTangleL2Slasher
 /// @notice Add authorized callers to TangleL2Slasher
-contract AuthorizeTangleL2Slasher is Script {
+contract AuthorizeTangleL2Slasher is EnvUtils {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address slasherAddr = vm.envAddress("SLASHER");
-        address caller = vm.envAddress("CALLER");
+        uint256 deployerPrivateKey = _requireEnvUint("PRIVATE_KEY");
+        address slasherAddr = _requireEnvAddress("SLASHER");
+        address caller = _requireEnvAddress("CALLER");
 
         TangleL2Slasher slasher = TangleL2Slasher(slasherAddr);
 
@@ -197,10 +309,10 @@ contract AuthorizeTangleL2Slasher is Script {
 
 /// @title PauseTangleL2Slasher
 /// @notice Emergency pause for slashing
-contract PauseTangleL2Slasher is Script {
+contract PauseTangleL2Slasher is EnvUtils {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address slasherAddr = vm.envAddress("SLASHER");
+        uint256 deployerPrivateKey = _requireEnvUint("PRIVATE_KEY");
+        address slasherAddr = _requireEnvAddress("SLASHER");
         bool pause = vm.envBool("PAUSE");
 
         TangleL2Slasher slasher = TangleL2Slasher(slasherAddr);

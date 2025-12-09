@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Test, console2 } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { Tangle } from "../../../src/v2/Tangle.sol";
 import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
-import { BlueprintServiceManagerBase } from "../../../src/v2/BlueprintServiceManagerBase.sol";
-import { IBlueprintServiceManager } from "../../../src/v2/interfaces/IBlueprintServiceManager.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
-import { Errors } from "../../../src/v2/libraries/Errors.sol";
 
 /// @title BlueprintTestHarness
 /// @notice Comprehensive test harness for BSM testing with reusable primitives
@@ -328,6 +325,7 @@ abstract contract BlueprintTestHarness is Test {
         bytes memory buffer = new bytes(digits);
         while (value != 0) {
             digits -= 1;
+            // forge-lint: disable-next-line(unsafe-typecast)
             buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
             value /= 10;
         }

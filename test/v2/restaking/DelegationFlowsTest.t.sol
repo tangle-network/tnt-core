@@ -183,6 +183,43 @@ contract DelegationFlowsTest is Test {
         assertEq(delegation.getDelegation(delegator1, operator1), 5 ether);
     }
 
+    function test_ExecuteWithdraw_PreservesRequestOrder() public {
+        vm.prank(delegator1);
+        delegation.deposit{ value: 12 ether }();
+
+        vm.prank(delegator1);
+        delegation.scheduleWithdraw(address(0), 3 ether);
+        delegation.advanceRound();
+        vm.prank(delegator1);
+        delegation.scheduleWithdraw(address(0), 4 ether);
+        delegation.advanceRound();
+        vm.prank(delegator1);
+        delegation.scheduleWithdraw(address(0), 5 ether);
+
+        Types.WithdrawRequest[] memory pending = delegation.getPendingWithdrawals(delegator1);
+        assertEq(pending.length, 3);
+        assertEq(pending[0].amount, 3 ether);
+        assertEq(pending[1].amount, 4 ether);
+        assertEq(pending[2].amount, 5 ether);
+
+        uint64 delay = delegation.leaveDelegatorsDelay();
+        uint64 targetRound = pending[0].requestedRound + delay;
+        while (delegation.currentRound() < targetRound) {
+            delegation.advanceRound();
+        }
+
+        uint256 balanceBefore = delegator1.balance;
+        vm.prank(delegator1);
+        delegation.executeWithdraw();
+
+        assertEq(delegator1.balance, balanceBefore + 3 ether);
+
+        pending = delegation.getPendingWithdrawals(delegator1);
+        assertEq(pending.length, 2);
+        assertEq(pending[0].amount, 4 ether);
+        assertEq(pending[1].amount, 5 ether);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ERROR TESTS - EARLY EXECUTION
     // ═══════════════════════════════════════════════════════════════════════════

@@ -140,7 +140,7 @@ contract BLSAggregationE2ETest is BaseTest {
         Types.BN254G2Point memory pubkey = BLSTestHelper.getTestPubkey(1);
 
         // Verify signature
-        bool valid = BN254.verifyBLS(message, sig, pubkey);
+        bool valid = BN254.verifyBls(message, sig, pubkey);
         assertTrue(valid, "BLS signature should verify");
     }
 

@@ -327,6 +327,7 @@ library SchemaLib {
                     current,
                     limit,
                     ctx,
+                    // forge-lint: disable-next-line(unsafe-typecast)
                     _encodePath(path, uint16(i))
                 );
             }

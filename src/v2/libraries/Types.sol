@@ -525,12 +525,14 @@ library Types {
     }
 
     /// @notice BN254 G1 point for BLS signatures
+    // forge-lint: disable-next-line(pascal-case-struct)
     struct BN254G1Point {
         uint256 x;
         uint256 y;
     }
 
     /// @notice BN254 G2 point for BLS public keys
+    // forge-lint: disable-next-line(pascal-case-struct)
     struct BN254G2Point {
         uint256[2] x;  // x = x0 * i + x1
         uint256[2] y;  // y = y0 * i + y1

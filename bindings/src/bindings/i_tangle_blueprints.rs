@@ -1122,6 +1122,7 @@ interface ITangleBlueprints {
 
     function blueprintCount() external view returns (uint64);
     function blueprintOperatorCount(uint64 blueprintId) external view returns (uint256);
+    function createBlueprint(bytes memory encodedDefinition) external returns (uint64 blueprintId);
     function createBlueprint(string memory metadataUri, address manager) external returns (uint64 blueprintId);
     function createBlueprintWithConfig(string memory metadataUri, address manager, Types.BlueprintConfig memory config) external returns (uint64 blueprintId);
     function deactivateBlueprint(uint64 blueprintId) external;
@@ -1166,6 +1167,25 @@ interface ITangleBlueprints {
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "createBlueprint",
+    "inputs": [
+      {
+        "name": "encodedDefinition",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -2332,13 +2352,169 @@ function blueprintOperatorCount(uint64 blueprintId) external view returns (uint2
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `createBlueprint(bytes)` and selector `0xc45a6865`.
+```solidity
+function createBlueprint(bytes memory encodedDefinition) external returns (uint64 blueprintId);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct createBlueprint_0Call {
+        #[allow(missing_docs)]
+        pub encodedDefinition: alloy::sol_types::private::Bytes,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`createBlueprint(bytes)`](createBlueprint_0Call) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct createBlueprint_0Return {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bytes,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Bytes,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<createBlueprint_0Call>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: createBlueprint_0Call) -> Self {
+                    (value.encodedDefinition,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for createBlueprint_0Call {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { encodedDefinition: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<createBlueprint_0Return>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: createBlueprint_0Return) -> Self {
+                    (value.blueprintId,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for createBlueprint_0Return {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { blueprintId: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for createBlueprint_0Call {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Bytes,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = u64;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "createBlueprint(bytes)";
+            const SELECTOR: [u8; 4] = [196u8, 90u8, 104u8, 101u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
+                        &self.encodedDefinition,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: createBlueprint_0Return = r.into();
+                        r.blueprintId
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: createBlueprint_0Return = r.into();
+                        r.blueprintId
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `createBlueprint(string,address)` and selector `0xe72146a9`.
 ```solidity
 function createBlueprint(string memory metadataUri, address manager) external returns (uint64 blueprintId);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct createBlueprintCall {
+    pub struct createBlueprint_1Call {
         #[allow(missing_docs)]
         pub metadataUri: alloy::sol_types::private::String,
         #[allow(missing_docs)]
@@ -2346,10 +2522,10 @@ function createBlueprint(string memory metadataUri, address manager) external re
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`createBlueprint(string,address)`](createBlueprintCall) function.
+    ///Container type for the return parameters of the [`createBlueprint(string,address)`](createBlueprint_1Call) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct createBlueprintReturn {
+    pub struct createBlueprint_1Return {
         #[allow(missing_docs)]
         pub blueprintId: u64,
     }
@@ -2386,14 +2562,16 @@ function createBlueprint(string memory metadataUri, address manager) external re
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<createBlueprintCall> for UnderlyingRustTuple<'_> {
-                fn from(value: createBlueprintCall) -> Self {
+            impl ::core::convert::From<createBlueprint_1Call>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: createBlueprint_1Call) -> Self {
                     (value.metadataUri, value.manager)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for createBlueprintCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for createBlueprint_1Call {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         metadataUri: tuple.0,
@@ -2421,23 +2599,23 @@ function createBlueprint(string memory metadataUri, address manager) external re
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<createBlueprintReturn>
+            impl ::core::convert::From<createBlueprint_1Return>
             for UnderlyingRustTuple<'_> {
-                fn from(value: createBlueprintReturn) -> Self {
+                fn from(value: createBlueprint_1Return) -> Self {
                     (value.blueprintId,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for createBlueprintReturn {
+            for createBlueprint_1Return {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { blueprintId: tuple.0 }
                 }
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolCall for createBlueprintCall {
+        impl alloy_sol_types::SolCall for createBlueprint_1Call {
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::String,
                 alloy::sol_types::sol_data::Address,
@@ -2483,7 +2661,7 @@ function createBlueprint(string memory metadataUri, address manager) external re
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(|r| {
-                        let r: createBlueprintReturn = r.into();
+                        let r: createBlueprint_1Return = r.into();
                         r.blueprintId
                     })
             }
@@ -2495,7 +2673,7 @@ function createBlueprint(string memory metadataUri, address manager) external re
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(|r| {
-                        let r: createBlueprintReturn = r.into();
+                        let r: createBlueprint_1Return = r.into();
                         r.blueprintId
                     })
             }
@@ -3467,7 +3645,9 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
         #[allow(missing_docs)]
         blueprintOperatorCount(blueprintOperatorCountCall),
         #[allow(missing_docs)]
-        createBlueprint(createBlueprintCall),
+        createBlueprint_0(createBlueprint_0Call),
+        #[allow(missing_docs)]
+        createBlueprint_1(createBlueprint_1Call),
         #[allow(missing_docs)]
         createBlueprintWithConfig(createBlueprintWithConfigCall),
         #[allow(missing_docs)]
@@ -3495,6 +3675,7 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             [138u8, 76u8, 247u8, 99u8],
             [141u8, 63u8, 101u8, 190u8],
             [183u8, 105u8, 109u8, 187u8],
+            [196u8, 90u8, 104u8, 101u8],
             [198u8, 2u8, 212u8, 250u8],
             [229u8, 56u8, 218u8, 102u8],
             [231u8, 33u8, 70u8, 169u8],
@@ -3507,9 +3688,10 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             ::core::stringify!(transferBlueprint),
             ::core::stringify!(blueprintOperatorCount),
             ::core::stringify!(getBlueprint),
+            ::core::stringify!(createBlueprint_0),
             ::core::stringify!(blueprintCount),
             ::core::stringify!(updateBlueprint),
-            ::core::stringify!(createBlueprint),
+            ::core::stringify!(createBlueprint_1),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
@@ -3519,9 +3701,10 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             <transferBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintOperatorCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <createBlueprint_0Call as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <updateBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <createBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <createBlueprint_1Call as alloy_sol_types::SolCall>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
         #[inline]
@@ -3548,7 +3731,7 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
     impl alloy_sol_types::SolInterface for ITangleBlueprintsCalls {
         const NAME: &'static str = "ITangleBlueprintsCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 9usize;
+        const COUNT: usize = 10usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -3558,8 +3741,11 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                 Self::blueprintOperatorCount(_) => {
                     <blueprintOperatorCountCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::createBlueprint(_) => {
-                    <createBlueprintCall as alloy_sol_types::SolCall>::SELECTOR
+                Self::createBlueprint_0(_) => {
+                    <createBlueprint_0Call as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::createBlueprint_1(_) => {
+                    <createBlueprint_1Call as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::createBlueprintWithConfig(_) => {
                     <createBlueprintWithConfigCall as alloy_sol_types::SolCall>::SELECTOR
@@ -3665,6 +3851,17 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                     getBlueprint
                 },
                 {
+                    fn createBlueprint_0(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
+                        <createBlueprint_0Call as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleBlueprintsCalls::createBlueprint_0)
+                    }
+                    createBlueprint_0
+                },
+                {
                     fn blueprintCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
@@ -3687,15 +3884,15 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                     updateBlueprint
                 },
                 {
-                    fn createBlueprint(
+                    fn createBlueprint_1(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
-                        <createBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                        <createBlueprint_1Call as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
                             )
-                            .map(ITangleBlueprintsCalls::createBlueprint)
+                            .map(ITangleBlueprintsCalls::createBlueprint_1)
                     }
-                    createBlueprint
+                    createBlueprint_1
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
@@ -3784,6 +3981,17 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                     getBlueprint
                 },
                 {
+                    fn createBlueprint_0(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
+                        <createBlueprint_0Call as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleBlueprintsCalls::createBlueprint_0)
+                    }
+                    createBlueprint_0
+                },
+                {
                     fn blueprintCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
@@ -3806,15 +4014,15 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                     updateBlueprint
                 },
                 {
-                    fn createBlueprint(
+                    fn createBlueprint_1(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
-                        <createBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                        <createBlueprint_1Call as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(ITangleBlueprintsCalls::createBlueprint)
+                            .map(ITangleBlueprintsCalls::createBlueprint_1)
                     }
-                    createBlueprint
+                    createBlueprint_1
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
@@ -3840,8 +4048,13 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                         inner,
                     )
                 }
-                Self::createBlueprint(inner) => {
-                    <createBlueprintCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                Self::createBlueprint_0(inner) => {
+                    <createBlueprint_0Call as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::createBlueprint_1(inner) => {
+                    <createBlueprint_1Call as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -3892,8 +4105,14 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                         out,
                     )
                 }
-                Self::createBlueprint(inner) => {
-                    <createBlueprintCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                Self::createBlueprint_0(inner) => {
+                    <createBlueprint_0Call as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::createBlueprint_1(inner) => {
+                    <createBlueprint_1Call as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -4279,14 +4498,25 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
-        ///Creates a new call builder for the [`createBlueprint`] function.
-        pub fn createBlueprint(
+        ///Creates a new call builder for the [`createBlueprint_0`] function.
+        pub fn createBlueprint_0(
+            &self,
+            encodedDefinition: alloy::sol_types::private::Bytes,
+        ) -> alloy_contract::SolCallBuilder<&P, createBlueprint_0Call, N> {
+            self.call_builder(
+                &createBlueprint_0Call {
+                    encodedDefinition,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`createBlueprint_1`] function.
+        pub fn createBlueprint_1(
             &self,
             metadataUri: alloy::sol_types::private::String,
             manager: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<&P, createBlueprintCall, N> {
+        ) -> alloy_contract::SolCallBuilder<&P, createBlueprint_1Call, N> {
             self.call_builder(
-                &createBlueprintCall {
+                &createBlueprint_1Call {
                     metadataUri,
                     manager,
                 },

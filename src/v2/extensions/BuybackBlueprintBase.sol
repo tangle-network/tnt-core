@@ -80,6 +80,7 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
 
     event Buyback(uint256 ethSpent, uint256 tokensReceived, TokenDestination destination);
     event BuybackConfigUpdated(BuybackMode mode, TokenDestination destination, uint256 threshold);
+    event BuybackPauseUpdated(bool paused);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -117,6 +118,9 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
 
     /// @notice Treasury address for TREASURY destination
     address public buybackTreasury;
+
+    /// @notice Whether buybacks are paused
+    bool public buybackPaused;
 
     /// @notice Accumulated ETH for buyback (not yet spent)
     uint256 public pendingBuybackBalance;
@@ -198,6 +202,10 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
     function _executeBuyback(uint256 ethAmount) internal {
         if (ethAmount == 0) return;
         if (address(swapRouter) == address(0)) revert PoolNotSet();
+        if (buybackPaused) {
+            pendingBuybackBalance += ethAmount;
+            return;
+        }
 
         // Wrap ETH to WETH
         weth.deposit{value: ethAmount}();
@@ -257,6 +265,7 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
     /// @notice Get expected output for a given ETH input
     /// @dev Override this to use an oracle or TWAP for better estimates
     function _getExpectedOutput(uint256 ethAmount) internal view virtual returns (uint256) {
+        ethAmount; // Default implementation ignores the amount; overrides can apply pricing logic.
         // Default: no minimum (override for production with oracle/TWAP)
         return 0;
     }
@@ -280,6 +289,17 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
     /// @notice Set swap router
     function _setSwapRouter(address router) internal {
         swapRouter = ISwapRouter(router);
+    }
+
+    /// @notice Pause or resume buybacks
+    function setBuybackPaused(bool paused) external onlyBlueprintOwner {
+        _setBuybackPaused(paused);
+    }
+
+    function _setBuybackPaused(bool paused) internal {
+        if (buybackPaused == paused) return;
+        buybackPaused = paused;
+        emit BuybackPauseUpdated(paused);
     }
 
     /// @notice Set WETH address

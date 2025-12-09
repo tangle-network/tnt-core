@@ -24,6 +24,7 @@ contract InflationPoolTest is Test {
     address public customer2 = address(0x5);
     address public delegator1 = address(0x6);
     address public treasury = address(0x7);
+    address public developer1 = address(0x8);
 
     uint256 public constant INITIAL_SUPPLY = 50_000_000 * 1e18;
     uint256 public constant POOL_FUNDING = 500_000 * 1e18; // 1% of supply for year 1
@@ -431,6 +432,83 @@ contract InflationPoolTest is Test {
         pool.emergencyWithdraw(treasury);
     }
 
+    function test_ResetFundingPeriodResetsBudgetAndBlocks() public {
+        _activateAllRewardStreams();
+        InflationPool.EpochData memory epoch = _distributeCurrentEpoch();
+        assertGt(pool.distributedThisPeriod(), 0);
+        assertGt(epoch.stakingDistributed + epoch.operatorsDistributed + epoch.customersDistributed + epoch.developersDistributed, 0);
+
+        uint256 balanceBefore = pool.poolBalance();
+
+        vm.prank(admin);
+        pool.resetFundingPeriod();
+
+        assertEq(pool.distributedThisPeriod(), 0);
+        assertEq(pool.periodBudget(), balanceBefore);
+        assertEq(pool.fundingPeriodStartBlock(), block.number);
+    }
+
+    function test_ResetFundingPeriod_RevertWhenNotAdmin() public {
+        vm.prank(operator1);
+        vm.expectRevert();
+        pool.resetFundingPeriod();
+    }
+
+    function test_DistributeEpoch_AutoFundingPeriodReset() public {
+        _activateAllRewardStreams();
+        uint256 originalStart = pool.fundingPeriodStartBlock();
+
+        uint256 targetBlock = originalStart + pool.BLOCKS_PER_YEAR() + pool.epochLength() + 1;
+        vm.roll(targetBlock);
+        pool.distributeEpoch();
+
+        assertEq(pool.fundingPeriodStartBlock(), targetBlock);
+        assertGt(pool.distributedThisPeriod(), 0);
+    }
+
+    function test_DistributeEpoch_RedistributesToActiveStaking() public {
+        vm.prank(admin);
+        vaults.recordStake(address(0), delegator1, operator1, 1_000 ether, RewardVaults.LockDuration.None);
+
+        InflationPool.EpochData memory epoch = _distributeCurrentEpoch();
+
+        uint256 totalDistributed = epoch.stakingDistributed +
+            epoch.operatorsDistributed +
+            epoch.customersDistributed +
+            epoch.developersDistributed;
+
+        assertGt(totalDistributed, 0);
+        assertEq(epoch.stakingDistributed, totalDistributed);
+        assertEq(epoch.operatorsDistributed, 0);
+        assertEq(epoch.customersDistributed, 0);
+        assertEq(epoch.developersDistributed, 0);
+    }
+
+    function test_MultiEpochWeightAccounting() public {
+        _activateAllRewardStreams();
+
+        vm.prank(admin);
+        pool.setWeights(7000, 1000, 1000, 1000);
+        InflationPool.EpochData memory epochOne = _distributeCurrentEpoch();
+
+        vm.prank(admin);
+        pool.setWeights(1000, 7000, 1000, 1000);
+        InflationPool.EpochData memory epochTwo = _distributeCurrentEpoch();
+
+        uint256 totalOne = epochOne.stakingDistributed + epochOne.operatorsDistributed + epochOne.customersDistributed + epochOne.developersDistributed;
+        uint256 totalTwo = epochTwo.stakingDistributed + epochTwo.operatorsDistributed + epochTwo.customersDistributed + epochTwo.developersDistributed;
+
+        assertGt(epochOne.operatorsDistributed, 0);
+        assertGt(epochTwo.operatorsDistributed, 0);
+
+        // Operators capture a much larger share in epoch two once weights change.
+        assertGt(epochTwo.operatorsDistributed * totalOne, epochOne.operatorsDistributed * totalTwo);
+        // Staking sees the inverse relationship across epochs.
+        assertGt(epochOne.stakingDistributed * totalTwo, epochTwo.stakingDistributed * totalOne);
+        assertGt(epochOne.customersDistributed, 0);
+        assertGt(epochOne.developersDistributed, 0);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTION TESTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -552,5 +630,31 @@ contract InflationPoolTest is Test {
 
         // Total distributed should never exceed what was funded
         assertLe(pool.totalDistributed(), POOL_FUNDING);
+    }
+
+    function _distributeCurrentEpoch() internal returns (InflationPool.EpochData memory) {
+        InflationPool.EpochData memory epoch = pool.getEpoch(pool.currentEpoch());
+        vm.roll(epoch.endBlock + 1);
+        pool.distributeEpoch();
+        return pool.getEpoch(pool.currentEpoch() - 1);
+    }
+
+    function _activateAllRewardStreams() internal {
+        vm.startPrank(admin);
+        pool.registerOperator(operator1);
+        pool.registerCustomer(customer1);
+        pool.registerDeveloper(developer1);
+        vaults.recordStake(address(0), delegator1, operator1, 500 ether, RewardVaults.LockDuration.None);
+        vm.stopPrank();
+
+        metrics.recordOperatorRegistered(operator1, address(0), 500 ether);
+        metrics.recordJobCompletion(operator1, 1, 0, true);
+        metrics.recordHeartbeat(operator1, 1, uint64(block.timestamp));
+
+        metrics.recordBlueprintCreated(1, developer1);
+        metrics.recordServiceCreated(1, 1, developer1, 1);
+        metrics.recordJobCall(1, customer1, 1);
+
+        metrics.recordPayment(customer1, 1, address(0), 200 ether);
     }
 }

@@ -68,6 +68,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
     using OptionsBuilder for bytes;
 
     /// @notice LayerZero V2 Endpoint
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     ILayerZeroEndpointV2 public immutable endpoint;
 
     /// @notice Owner address
@@ -112,8 +113,12 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner");
+        _onlyOwner();
         _;
+    }
+
+    function _onlyOwner() internal view {
+        require(msg.sender == owner, "Only owner");
     }
 
     /// @inheritdoc ICrossChainMessenger
@@ -131,6 +136,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
 
         // Build execution options
         bytes memory options = OptionsBuilder.newOptions()
+            // forge-lint: disable-next-line(unsafe-typecast)
             .addExecutorLzReceiveOption(uint128(gasLimit), 0);
 
         ILayerZeroEndpointV2.MessagingParams memory params = ILayerZeroEndpointV2.MessagingParams({
@@ -163,6 +169,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
 
         // Build options
         bytes memory options = OptionsBuilder.newOptions()
+            // forge-lint: disable-next-line(unsafe-typecast)
             .addExecutorLzReceiveOption(uint128(gasLimit), 0);
 
         ILayerZeroEndpointV2.MessagingParams memory params = ILayerZeroEndpointV2.MessagingParams({
@@ -211,9 +218,11 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
 /// @dev Implements lzReceive to process incoming cross-chain messages
 contract LayerZeroReceiver {
     /// @notice LayerZero V2 Endpoint
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     address public immutable endpoint;
 
     /// @notice The actual message receiver
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     ICrossChainReceiver public immutable receiver;
 
     /// @notice Trusted peers (eid => peer as bytes32)
@@ -243,8 +252,12 @@ contract LayerZeroReceiver {
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner");
+        _receiverOnlyOwner();
         _;
+    }
+
+    function _receiverOnlyOwner() internal view {
+        require(msg.sender == owner, "Only owner");
     }
 
     /// @notice LayerZero V2 receive function

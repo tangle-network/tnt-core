@@ -201,7 +201,7 @@ library BN254 {
     /// @dev This is a simple hash-to-curve, not a constant-time one
     /// @param message The message to hash
     /// @return The G1 point
-    function hashToG1(bytes memory message) internal view returns (Types.BN254G1Point memory) {
+    function hashToG1(bytes memory message) internal pure returns (Types.BN254G1Point memory) {
         uint256 h = uint256(keccak256(message)) % P_MOD;
         uint256 x = h;
 
@@ -223,7 +223,7 @@ library BN254 {
     /// @param signature The BLS signature (G1 point)
     /// @param pubkey The public key (G2 point)
     /// @return True if signature is valid
-    function verifyBLS(
+    function verifyBls(
         bytes memory message,
         Types.BN254G1Point memory signature,
         Types.BN254G2Point memory pubkey
@@ -239,12 +239,12 @@ library BN254 {
     /// @param aggregatedSignature The aggregated BLS signature
     /// @param aggregatedPubkey The aggregated public key
     /// @return True if signature is valid
-    function verifyAggregatedBLS(
+    function verifyAggregatedBls(
         bytes memory message,
         Types.BN254G1Point memory aggregatedSignature,
         Types.BN254G2Point memory aggregatedPubkey
     ) internal view returns (bool) {
-        return verifyBLS(message, aggregatedSignature, aggregatedPubkey);
+        return verifyBls(message, aggregatedSignature, aggregatedPubkey);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -58,7 +58,7 @@ abstract contract DepositManager is DelegationStorage {
     /// @notice Deposit ERC20 token
     /// @param token Token address
     /// @param amount Amount to deposit
-    function _depositERC20(address token, uint256 amount) internal {
+    function _depositErc20(address token, uint256 amount) internal {
         if (token == address(0)) revert DelegationErrors.AssetNotEnabled(address(0));
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -73,7 +73,7 @@ abstract contract DepositManager is DelegationStorage {
     /// @param token Token address
     /// @param amount Amount to deposit
     /// @param lockMultiplier Lock duration for bonus multiplier
-    function _depositERC20WithLock(
+    function _depositErc20WithLock(
         address token,
         uint256 amount,
         Types.LockMultiplier lockMultiplier
@@ -114,6 +114,7 @@ abstract contract DepositManager is DelegationStorage {
 
         // Handle lock if specified
         if (lockMultiplier != Types.LockMultiplier.None) {
+            _validateLockMultiplier(lockMultiplier);
             uint64 lockDuration = _getLockDuration(lockMultiplier);
             _depositLocks[msg.sender][assetHash].push(Types.LockInfo({
                 amount: amount,
@@ -174,13 +175,13 @@ abstract contract DepositManager is DelegationStorage {
         // First pass: identify ready withdrawals and update state (CHECKS + EFFECTS)
         // Store withdrawal data in memory before modifying storage
         uint256 readyCount = 0;
-        uint256[] memory readyIndices = new uint256[](requests.length);
+        bool[] memory isReady = new bool[](requests.length);
         Types.Asset[] memory readyAssets = new Types.Asset[](requests.length);
         uint256[] memory readyAmounts = new uint256[](requests.length);
 
         for (uint256 i = 0; i < requests.length; i++) {
             if (currentRound >= requests[i].requestedRound + leaveDelegatorsDelay) {
-                readyIndices[readyCount] = i;
+                isReady[i] = true;
                 readyAssets[readyCount] = requests[i].asset;
                 readyAmounts[readyCount] = requests[i].amount;
                 totalWithdrawn += requests[i].amount;
@@ -188,15 +189,20 @@ abstract contract DepositManager is DelegationStorage {
             }
         }
 
-        // Remove processed requests from storage (EFFECTS - complete before any external calls)
-        // Process in reverse order to maintain correct indices
-        for (uint256 i = readyCount; i > 0; i--) {
-            uint256 idx = readyIndices[i - 1];
-            // Swap with last element and pop
-            if (idx < requests.length - 1) {
-                requests[idx] = requests[requests.length - 1];
+        // Remove processed requests from storage while preserving FIFO semantics
+        if (readyCount > 0) {
+            uint256 writeIndex = 0;
+            for (uint256 i = 0; i < requests.length; i++) {
+                if (!isReady[i]) {
+                    if (writeIndex != i) {
+                        requests[writeIndex] = requests[i];
+                    }
+                    writeIndex++;
+                }
             }
-            requests.pop();
+            while (requests.length > writeIndex) {
+                requests.pop();
+            }
         }
 
         // Second pass: perform all transfers (INTERACTIONS - after all state changes)

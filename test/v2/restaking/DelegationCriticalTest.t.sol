@@ -241,6 +241,78 @@ contract DelegationCriticalTest is DelegationTestHarness {
         delegation.delegate(operator1, 5 ether);
     }
 
+    /// @notice Test operator lifecycle through unstake, slash, and leaving
+    function test_OperatorLifecycle_UnstakeSlashAndLeaveFlow() public {
+        // Schedule partial unstake
+        vm.prank(operator1);
+        delegation.scheduleOperatorUnstake(3 ether);
+
+        uint64 currentRound = uint64(delegation.currentRound());
+        vm.startPrank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DelegationErrors.LeavingTooEarly.selector,
+                currentRound,
+                currentRound + DEFAULT_DELAY
+            )
+        );
+        delegation.executeOperatorUnstake();
+        vm.stopPrank();
+
+        vm.startPrank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DelegationErrors.InsufficientStake.selector,
+                MIN_OPERATOR_STAKE,
+                0
+            )
+        );
+        delegation.scheduleOperatorUnstake(7 ether);
+        vm.stopPrank();
+
+        // Slash while the request is pending to hit reduced stake edge case
+        _slash(operator1, 3 ether);
+
+        _advanceRounds(DEFAULT_DELAY);
+
+        uint256 operatorStakeBefore = delegation.getOperatorSelfStake(operator1);
+        uint256 balanceBefore = operator1.balance;
+
+        vm.prank(operator1);
+        delegation.executeOperatorUnstake();
+
+        assertEq(operator1.balance, balanceBefore + 3 ether, "Unstake should release requested amount");
+        assertEq(
+            delegation.getOperatorSelfStake(operator1),
+            operatorStakeBefore - 3 ether,
+            "Operator stake reduced after executing unstake"
+        );
+
+        // Start leaving with the reduced stake
+        vm.prank(operator1);
+        delegation.startLeaving();
+
+        vm.startPrank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.OperatorNotActive.selector, operator1));
+        delegation.scheduleOperatorUnstake(1 ether);
+        vm.stopPrank();
+
+        // Slash again while leaving to ensure completion returns remaining stake
+        _slash(operator1, 1 ether);
+
+        _advanceRounds(DEFAULT_DELAY);
+
+        balanceBefore = operator1.balance;
+        uint256 remainingStake = delegation.getOperatorSelfStake(operator1);
+
+        vm.prank(operator1);
+        delegation.completeLeaving();
+
+        assertEq(operator1.balance, balanceBefore + remainingStake, "Complete leaving releases remaining stake");
+        assertFalse(delegation.isOperator(operator1), "Operator should be removed after leaving");
+        assertEq(delegation.getOperatorSelfStake(operator1), 0, "Operator stake should be zero");
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════════
     // SECTION 3: REENTRANCY TESTS (Critical)
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -417,7 +489,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         _depositAndDelegate(delegator1, operator1, 5 ether);
 
         // Delegate ERC20
-        _depositAndDelegateERC20(delegator1, operator1, address(token), 5 ether);
+        _depositAndDelegateErc20(delegator1, operator1, address(token), 5 ether);
 
         // Total delegation should include both
         uint256 totalDelegation = delegation.getTotalDelegation(delegator1);
@@ -427,7 +499,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
     /// @notice Test unstake order: ERC20 first, then native
     function test_UnstakeMixedOrder_ERC20ThenNative() public {
         _depositAndDelegate(delegator1, operator1, 5 ether);
-        _depositAndDelegateERC20(delegator1, operator1, address(token), 5 ether);
+        _depositAndDelegateErc20(delegator1, operator1, address(token), 5 ether);
 
         // Unstake ERC20 first
         _scheduleUnstake(delegator1, operator1, address(token), 5 ether);
@@ -447,7 +519,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         _registerOperator(operator2, 10 ether);
 
         _depositAndDelegate(delegator1, operator1, 5 ether);
-        _depositAndDelegateERC20(delegator1, operator2, address(token), 5 ether);
+        _depositAndDelegateErc20(delegator1, operator2, address(token), 5 ether);
 
         assertDelegationEq(delegator1, operator1, 5 ether);
         assertDelegationEq(delegator1, operator2, 5 ether);
@@ -457,7 +529,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
     function test_SlashOnlyAffectsNativeDelegations() public {
         // Both delegators delegate to operator1
         _depositAndDelegate(delegator1, operator1, 10 ether); // Native
-        _depositAndDelegateERC20(delegator2, operator1, address(token), 10 ether); // ERC20
+        _depositAndDelegateErc20(delegator2, operator1, address(token), 10 ether); // ERC20
 
         // Slash affects both proportionally based on pool
         _slash(operator1, 15 ether);
@@ -469,8 +541,8 @@ contract DelegationCriticalTest is DelegationTestHarness {
 
     /// @notice Test multiple ERC20 tokens
     function test_MultipleDifferentERC20Tokens() public {
-        _depositAndDelegateERC20(delegator1, operator1, address(token), 5 ether);
-        _depositAndDelegateERC20(delegator1, operator1, address(token2), 3 ether);
+        _depositAndDelegateErc20(delegator1, operator1, address(token), 5 ether);
+        _depositAndDelegateErc20(delegator1, operator1, address(token2), 3 ether);
 
         uint256 total = delegation.getTotalDelegation(delegator1);
         assertEq(total, 8 ether);
@@ -1051,7 +1123,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
 
     /// @notice Test asset disabled mid-operation
     function test_AssetDisabledMidOperation() public {
-        _depositAndDelegateERC20(delegator1, operator1, address(token), 10 ether);
+        _depositAndDelegateErc20(delegator1, operator1, address(token), 10 ether);
 
         // Disable asset
         vm.prank(admin);
@@ -1094,5 +1166,28 @@ contract DelegationCriticalTest is DelegationTestHarness {
         assertEq(storedBps.length, 2);
         assertEq(storedBps[0], 1);
         assertEq(storedBps[1], 2);
+    }
+
+    function test_LegacySlashRevertsWhenFixedModeStakeExists() public {
+        _depositNative(delegator1, 10 ether);
+        uint64[] memory bps = new uint64[](1);
+        bps[0] = 42;
+
+        vm.prank(operator1);
+        delegation.addBlueprint(42);
+
+        vm.prank(delegator1);
+        delegation.delegateWithOptions(
+            operator1,
+            address(0),
+            5 ether,
+            Types.BlueprintSelectionMode.Fixed,
+            bps
+        );
+
+        vm.startPrank(slasher);
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.LegacySlashRequiresAllMode.selector, operator1));
+        delegation.slash(operator1, 0, 1 ether, keccak256("fixed-slash"));
+        vm.stopPrank();
     }
 }

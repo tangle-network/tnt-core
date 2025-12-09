@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Types } from "./Types.sol";
 import { Errors } from "./Errors.sol";
 
 /// @title SlashingLib

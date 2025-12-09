@@ -73,6 +73,7 @@ contract MultiAssetDelegation is
             minDelegation: nativeMinDelegation,
             depositCap: 0,
             currentDeposits: 0,
+            // forge-lint: disable-next-line(unsafe-typecast)
             rewardMultiplierBps: uint16(BPS_DENOMINATOR)
         });
         nativeEnabled = true;
@@ -157,7 +158,7 @@ contract MultiAssetDelegation is
 
     /// @notice Deposit ERC20 token
     function depositERC20(address token, uint256 amount) external whenNotPaused nonReentrant {
-        _depositERC20(token, amount);
+        _depositErc20(token, amount);
     }
 
     /// @notice Deposit ERC20 with lock
@@ -166,7 +167,7 @@ contract MultiAssetDelegation is
         uint256 amount,
         Types.LockMultiplier lockMultiplier
     ) external whenNotPaused nonReentrant {
-        _depositERC20WithLock(token, amount, lockMultiplier);
+        _depositErc20WithLock(token, amount, lockMultiplier);
     }
 
     /// @notice Schedule withdrawal
@@ -206,7 +207,7 @@ contract MultiAssetDelegation is
         if (token == address(0)) {
             _depositNative();
         } else {
-            _depositERC20(token, amount);
+            _depositErc20(token, amount);
         }
         _delegateWithOptions(operator, token, amount, selectionMode, blueprintIds);
     }
@@ -301,7 +302,12 @@ contract MultiAssetDelegation is
 
     /// @notice Claim operator rewards
     function claimOperatorRewards() external nonReentrant {
-        _claimOperatorRewards();
+        _claimOperatorRewards(payable(msg.sender));
+    }
+
+    /// @notice Claim operator rewards to a specific recipient (useful for contracts without receive hooks)
+    function claimOperatorRewardsTo(address payable recipient) external nonReentrant {
+        _claimOperatorRewards(recipient);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -368,7 +374,7 @@ contract MultiAssetDelegation is
             currentDeposits: 0,
             rewardMultiplierBps: _rewardMultiplierBps
         });
-        _enabledERC20s.add(token);
+        _enabledErc20s.add(token);
 
         emit AssetEnabled(token, _minOperatorStake, _minDelegation);
     }
@@ -381,7 +387,7 @@ contract MultiAssetDelegation is
             nativeEnabled = false;
         } else {
             assetHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
-            _enabledERC20s.remove(token);
+            _enabledErc20s.remove(token);
         }
         _assetConfigs[assetHash].enabled = false;
         emit AssetDisabled(token);

@@ -15,6 +15,7 @@ import { Types } from "../libraries/Types.sol";
 ///      This is the same pattern used by Lido, Rocket Pool, and ERC4626 vaults.
 abstract contract SlashingManager is RewardsManager {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet for EnumerableSet.UintSet;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -169,6 +170,10 @@ abstract contract SlashingManager is RewardsManager {
             revert DelegationErrors.OperatorNotRegistered(operator);
         }
 
+        if (_hasFixedModeStake(operator)) {
+            revert DelegationErrors.LegacySlashRequiresAllMode(operator);
+        }
+
         Types.OperatorRewardPool storage pool = _rewardPools[operator];
 
         // Calculate total stake (operator self-stake + delegated assets)
@@ -223,6 +228,22 @@ abstract contract SlashingManager is RewardsManager {
 
         emit Slashed(operator, serviceId, actualOperatorSlash, actualDelegatorSlash, exchangeRateAfter);
         emit SlashRecorded(operator, slashId, actualSlashed, exchangeRateBefore, exchangeRateAfter);
+    }
+
+    function _hasFixedModeStake(address operator) internal view returns (bool) {
+        EnumerableSet.UintSet storage blueprints = _operatorBlueprints[operator];
+        uint256 length = blueprints.length();
+        if (length == 0) {
+            return false;
+        }
+
+        for (uint256 i = 0; i < length; i++) {
+            uint64 blueprintId = uint64(blueprints.at(i));
+            if (_blueprintPools[operator][blueprintId].totalAssets > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// @notice Slash operator's self-stake

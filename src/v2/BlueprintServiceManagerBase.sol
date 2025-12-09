@@ -29,6 +29,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     // ═══════════════════════════════════════════════════════════════════════════
 
     error OnlyTangleAllowed(address caller, address tangle);
+    error OnlyBlueprintOwnerAllowed(address caller, address owner);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
@@ -53,8 +54,20 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
 
     /// @notice Restricts function to calls from Tangle core
     modifier onlyFromTangle() {
+        _onlyFromTangle();
+        _;
+    }
+
+    function _onlyFromTangle() internal view {
         if (msg.sender != tangleCore) {
             revert OnlyTangleAllowed(msg.sender, tangleCore);
+        }
+    }
+
+    /// @notice Restricts function to blueprint owner
+    modifier onlyBlueprintOwner() {
+        if (msg.sender != blueprintOwner) {
+            revert OnlyBlueprintOwnerAllowed(msg.sender, blueprintOwner);
         }
         _;
     }

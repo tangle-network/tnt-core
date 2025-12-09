@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 /// @title IStreamingPaymentAdapter
 /// @notice Common interface for streaming payment adapters (Superfluid, Sablier, etc.)
 /// @dev Adapters implement this interface to provide streaming payment capabilities
@@ -262,6 +260,7 @@ interface ISablierAdapter is IStreamingPaymentAdapter {
     /// @notice Get the NFT token ID for a stream (Sablier streams are NFTs)
     /// @param streamId The stream ID
     /// @return tokenId The ERC-721 token ID
+    // forge-lint: disable-next-line(mixed-case-function)
     function getStreamNFT(uint256 streamId) external view returns (uint256 tokenId);
 
     /// @notice Transfer stream ownership (NFT transfer)

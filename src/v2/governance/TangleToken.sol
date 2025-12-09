@@ -112,6 +112,7 @@ contract TangleToken is
 
     /// @notice Description of the clock mode
     // solhint-disable-next-line func-name-mixedcase
+    // forge-lint: disable-next-line(mixed-case-function)
     function CLOCK_MODE() public pure override returns (string memory) {
         return "mode=blocknumber&from=default";
     }

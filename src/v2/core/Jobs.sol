@@ -316,7 +316,7 @@ abstract contract Jobs is Base {
         address[] memory operators = _getServiceOperatorList(serviceId);
 
         for (uint256 i = 0; i < operators.length; i++) {
-            if ((signerBitmap & (1 << i)) != 0) {
+            if ((signerBitmap & (uint256(1) << i)) != 0) {
                 // This operator signed - record job completion
                 _recordJobCompletion(operators[i], serviceId, callId, true);
             }
@@ -446,7 +446,7 @@ abstract contract Jobs is Base {
         );
 
         bytes memory message = abi.encodePacked(serviceId, callId, keccak256(output));
-        if (!BN254.verifyAggregatedBLS(message, sig, pubkey)) {
+        if (!BN254.verifyAggregatedBls(message, sig, pubkey)) {
             revert Errors.InvalidBLSSignature();
         }
     }

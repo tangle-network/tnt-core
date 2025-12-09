@@ -5,12 +5,42 @@ import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 import { Errors } from "../../../src/v2/libraries/Errors.sol";
 import { SlashingLib } from "../../../src/v2/libraries/SlashingLib.sol";
+import { BlueprintServiceManagerBase } from "../../../src/v2/BlueprintServiceManagerBase.sol";
 
 /// @title SlashingTest
 /// @notice Comprehensive tests for the slashing system with dispute window
+contract HookedBSM is BlueprintServiceManagerBase {
+    address public allowedOrigin;
+    uint8 public lastUnappliedPercent;
+    uint8 public lastExecutedPercent;
+
+    function setAllowedOrigin(address origin) external {
+        allowedOrigin = origin;
+    }
+
+    function onBlueprintCreated(uint64 _blueprintId, address owner, address _tangleCore) external override {
+        blueprintId = _blueprintId;
+        blueprintOwner = owner;
+        tangleCore = _tangleCore;
+    }
+
+    function querySlashingOrigin(uint64) external view override returns (address) {
+        return allowedOrigin;
+    }
+
+    function onUnappliedSlash(uint64, bytes calldata, uint8 slashPercent) external override onlyFromTangle {
+        lastUnappliedPercent = slashPercent;
+    }
+
+    function onSlash(uint64, bytes calldata, uint8 slashPercent) external override onlyFromTangle {
+        lastExecutedPercent = slashPercent;
+    }
+}
+
 contract SlashingTest is BaseTest {
     uint64 blueprintId;
     uint64 serviceId;
+    address public managerCaller = makeAddr("managerCaller");
 
     function setUp() public override {
         super.setUp();
@@ -172,6 +202,44 @@ contract SlashingTest is BaseTest {
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Disputed));
+    }
+
+    function test_ProposeSlash_ByManagerOriginTriggersHook() public {
+        HookedBSM manager = new HookedBSM();
+        manager.setAllowedOrigin(managerCaller);
+        uint64 managedServiceId = _deployManagedService(address(manager));
+
+        vm.prank(managerCaller);
+        tangle.proposeSlash(managedServiceId, operator1, 1 ether, keccak256("hook"));
+
+        assertEq(manager.lastUnappliedPercent(), 10, "manager notified");
+    }
+
+    function test_ExecuteSlashBatch_ManagerHookCalled() public {
+        HookedBSM manager = new HookedBSM();
+        manager.setAllowedOrigin(user1);
+        uint64 managedServiceId = _deployManagedService(address(manager));
+
+        vm.prank(user1);
+        uint64 slashId = tangle.proposeSlash(managedServiceId, operator1, 1 ether, keccak256("hook"));
+
+        vm.warp(block.timestamp + 7 days + 1);
+        uint64[] memory ids = new uint64[](1);
+        ids[0] = slashId;
+        tangle.executeSlashBatch(ids);
+
+        assertEq(manager.lastExecutedPercent(), 10, "manager onSlash called");
+    }
+
+    function _deployManagedService(address manager) internal returns (uint64 svcId) {
+        vm.prank(developer);
+        uint64 managedBlueprint = tangle.createBlueprint("ipfs://manager", manager);
+        _registerForBlueprint(operator1, managedBlueprint);
+
+        uint64 requestId = _requestService(user1, managedBlueprint, operator1);
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+        svcId = tangle.serviceCount() - 1;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

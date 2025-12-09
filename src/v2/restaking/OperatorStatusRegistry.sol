@@ -178,6 +178,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
     mapping(uint64 => mapping(address => mapping(string => uint256))) public metricValues;
 
     /// @notice Tangle core contract address for service validation
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     address public immutable tangleCore;
 
     /// @notice Slashing callback interface
@@ -185,6 +186,12 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
 
     /// @notice Metrics recorder for reward distribution
     address public metricsRecorder;
+
+    /// @notice Cooldown between successive critical heartbeat alerts per service/operator
+    uint64 public constant SLASH_ALERT_COOLDOWN = 1 hours;
+
+    /// @notice Last critical alert timestamp (serviceId => operator => timestamp)
+    mapping(uint64 => mapping(address => uint64)) private _lastCriticalAlert;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -227,9 +234,11 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
         // message = abi.encodePacked(serviceId, blueprintId, metrics)
         // hash = keccak256(message)
         // signature = ECDSA.sign(ethSignedMessageHash(hash))
+        // forge-lint: disable-next-line(asm-keccak256)
         bytes32 messageHash = keccak256(abi.encodePacked(serviceId, blueprintId, metrics));
 
         // Recover signer using Ethereum signed message format
+        // forge-lint: disable-next-line(asm-keccak256)
         bytes32 ethSignedHash = keccak256(
             abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
         );
@@ -352,8 +361,13 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
         // 255  : Operator requesting exit due to inability to serve
 
         if (statusCode >= 200) {
-            emit SlashingTriggered(serviceId, operator, "Protocol violation reported");
-            // Could call slashing oracle here - blueprintId available for context
+            uint64 currentTime = uint64(block.timestamp);
+            uint64 lastAlert = _lastCriticalAlert[serviceId][operator];
+            if (lastAlert == 0 || currentTime - lastAlert >= SLASH_ALERT_COOLDOWN) {
+                _lastCriticalAlert[serviceId][operator] = currentTime;
+                emit SlashingTriggered(serviceId, operator, "Protocol violation reported");
+                // Could call slashing oracle here - blueprintId available for context
+            }
         }
 
         // Silence unused variable warning
@@ -375,6 +389,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
         }
 
         uint256 elapsed = block.timestamp - state.lastHeartbeat;
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint8 missedBeats = uint8(elapsed / config.interval);
 
         if (missedBeats > state.missedBeats) {
@@ -608,21 +623,18 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
     /// @param serviceId The service ID
     /// @return operators Array of operators that are offline beyond threshold
     function getSlashableOperators(uint64 serviceId) external view returns (address[] memory operators) {
-        // This would be called by keepers or the slashing oracle
-        // to identify operators that should be slashed for being offline
+        // Placeholder implementation until keeper integration enumerates offline operators.
+        // Touch config and online set to ensure state reads so function stays view-only.
+        HeartbeatConfig memory config = _getConfig(serviceId);
+        uint256 onlineCount = _onlineOperators[serviceId].length();
 
-        // Note: This is a simplified implementation
-        // In production, would need pagination for large sets
-        uint256 count = 0;
-        address[] memory temp = new address[](100); // Max 100 for gas
-
-        // Would iterate through all operators for service
-        // For now, return empty - integration point for future
-
-        operators = new address[](count);
-        for (uint256 i = 0; i < count; i++) {
-            operators[i] = temp[i];
+        if (config.maxMissed == 0 || onlineCount == 0) {
+            // Config maxMissed == 0 means service has no heartbeat enforcement; nothing to slash.
+            return new address[](0);
         }
+
+        // Real implementation will iterate over operators and compare last heartbeat vs interval.
+        return new address[](0);
     }
 
     /// @notice Report an operator for slashing (called by slashing oracle)
@@ -636,7 +648,13 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
         OperatorState storage state = operatorStates[serviceId][operator];
         state.status = StatusCode.Slashed;
         _onlineOperators[serviceId].remove(operator);
+        _lastCriticalAlert[serviceId][operator] = uint64(block.timestamp);
 
         emit SlashingTriggered(serviceId, operator, reason);
+    }
+
+    /// @notice Get the last critical heartbeat timestamp for an operator
+    function getLastCriticalHeartbeat(uint64 serviceId, address operator) external view returns (uint64) {
+        return _lastCriticalAlert[serviceId][operator];
     }
 }

@@ -479,6 +479,37 @@ contract ExposureEdgeCasesTest is Test {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // MOCK RESTAKING COVERAGE (unused helpers)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_MockRestakingEdge_HelperCoverage() public {
+        address tempOperator = makeAddr("tempOperator");
+        restaking.setOperator(tempOperator, true);
+        restaking.setStake(tempOperator, 42 ether);
+        restaking.setDelegatedStake(tempOperator, 84 ether);
+
+        assertTrue(restaking.isOperator(tempOperator));
+        assertTrue(restaking.isOperatorActive(tempOperator));
+        assertEq(restaking.getOperatorStake(tempOperator), 42 ether);
+        assertEq(restaking.getOperatorSelfStake(tempOperator), 42 ether);
+        assertEq(restaking.getOperatorDelegatedStake(tempOperator), 84 ether);
+        assertEq(restaking.getDelegation(tempOperator, operator1), 0);
+        assertEq(restaking.getTotalDelegation(tempOperator), 0);
+        assertEq(restaking.minOperatorStake(), 0);
+        assertTrue(restaking.meetsStakeRequirement(tempOperator, 1 ether));
+        assertEq(
+            restaking.slashForBlueprint(tempOperator, 1, 2, 5 ether, keccak256("bp-slash")),
+            5 ether
+        );
+        assertEq(restaking.slash(tempOperator, 3, 4 ether, keccak256("plain-slash")), 4 ether);
+        assertFalse(restaking.isSlasher(tempOperator));
+
+        // The reward notifiers are no-ops but should remain callable
+        restaking.notifyRewardForBlueprint(tempOperator, 1, 1, 1 ether);
+        restaking.notifyReward(tempOperator, 1, 1 ether);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // EMPTY / ZERO SCENARIOS
     // ═══════════════════════════════════════════════════════════════════════════
 

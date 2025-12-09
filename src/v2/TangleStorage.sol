@@ -213,5 +213,5 @@ abstract contract TangleStorage {
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev When adding new storage, decrease this gap accordingly
-    uint256[45] private __gap;
+    uint256[45] private _gap;
 }

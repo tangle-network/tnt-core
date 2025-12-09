@@ -9,6 +9,26 @@ import { DelegationErrors } from "../../src/v2/restaking/DelegationErrors.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { MockERC20 } from "./mocks/MockERC20.sol";
 
+contract NonPayableOperator {
+    MultiAssetDelegation public immutable delegation;
+
+    constructor(MultiAssetDelegation _delegation) {
+        delegation = _delegation;
+    }
+
+    function register() external payable {
+        delegation.registerOperator{ value: msg.value }();
+    }
+
+    function claimRewards() external {
+        delegation.claimOperatorRewards();
+    }
+
+    function claimRewardsTo(address payable recipient) external {
+        delegation.claimOperatorRewardsTo(recipient);
+    }
+}
+
 contract MultiAssetDelegationTest is Test {
     MultiAssetDelegation public delegation;
     MockERC20 public token;
@@ -389,6 +409,29 @@ contract MultiAssetDelegationTest is Test {
 
         assertEq(operator1.balance, balanceBefore + 0.1 ether);
         assertEq(delegation.getPendingOperatorRewards(operator1), 0);
+    }
+
+    function test_ClaimOperatorRewardsToCustomRecipient() public {
+        NonPayableOperator opContract = new NonPayableOperator(delegation);
+        opContract.register{ value: MIN_OPERATOR_STAKE }();
+
+        vm.startPrank(delegator1);
+        delegation.deposit{ value: 1 ether }();
+        delegation.delegate(address(opContract), 1 ether);
+        vm.stopPrank();
+
+        vm.deal(address(delegation), 10 ether);
+        delegation.notifyReward(address(opContract), 0, 1 ether);
+
+        vm.expectRevert(DelegationErrors.TransferFailed.selector);
+        opContract.claimRewards();
+
+        address payable recipient = payable(makeAddr("reward-recipient"));
+        uint256 balanceBefore = recipient.balance;
+        opContract.claimRewardsTo(recipient);
+
+        assertEq(recipient.balance, balanceBefore + 0.1 ether);
+        assertEq(delegation.getPendingOperatorRewards(address(opContract)), 0);
     }
 
     function test_RewardsProportionalToStake() public {

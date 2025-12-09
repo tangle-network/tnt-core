@@ -47,6 +47,8 @@ library ExposureCalculator {
 
         if (totalDelegation == 0) return 0;
 
+        // Casting is safe because weighted average of basis points stays within 0-10000.
+        // forge-lint: disable-next-line(unsafe-typecast)
         return uint16(weightedSum / totalDelegation);
     }
 
@@ -56,13 +58,14 @@ library ExposureCalculator {
     /// @param exposureBps Array of exposure percentages per asset
     /// @param oracle Price oracle for USD conversions
     /// @return weightedExposureBps USD-weighted average exposure
-    /// @return totalValueUSD Total value of all delegations in USD (18 decimals)
+    /// @return totalValueUsd Total value of all delegations in USD (18 decimals)
+    // forge-lint: disable-next-line(mixed-case-function)
     function calculateUSDWeightedExposure(
         address[] memory tokens,
         uint256[] memory delegations,
         uint16[] memory exposureBps,
         IPriceOracle oracle
-    ) internal view returns (uint16 weightedExposureBps, uint256 totalValueUSD) {
+    ) internal view returns (uint16 weightedExposureBps, uint256 totalValueUsd) {
         require(tokens.length == delegations.length, "Length mismatch");
         require(delegations.length == exposureBps.length, "Length mismatch");
 
@@ -74,11 +77,11 @@ library ExposureCalculator {
         for (uint256 i = 0; i < delegations.length; i++) {
             if (delegations[i] > 0) {
                 usdValues[i] = oracle.toUSD(tokens[i], delegations[i]);
-                totalValueUSD += usdValues[i];
+                totalValueUsd += usdValues[i];
             }
         }
 
-        if (totalValueUSD == 0) return (0, 0);
+        if (totalValueUsd == 0) return (0, 0);
 
         // Calculate USD-weighted exposure
         uint256 weightedSum = 0;
@@ -86,7 +89,9 @@ library ExposureCalculator {
             weightedSum += uint256(exposureBps[i]) * usdValues[i];
         }
 
-        weightedExposureBps = uint16(weightedSum / totalValueUSD);
+        // Casting is safe because weighted average of basis points stays within 0-10000.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        weightedExposureBps = uint16(weightedSum / totalValueUsd);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

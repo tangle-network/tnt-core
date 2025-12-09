@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import { DelegationStorage } from "./DelegationStorage.sol";
 import { DelegationErrors } from "./DelegationErrors.sol";
 import { OperatorManager } from "./OperatorManager.sol";
 import { Types } from "../libraries/Types.sol";
@@ -59,7 +58,11 @@ abstract contract DelegationManagerLib is OperatorManager {
             return amount;
         }
         // shares = amount * totalShares / totalAssets (rounds down)
-        return (amount * pool.totalShares) / pool.totalAssets;
+        shares = (amount * pool.totalShares) / pool.totalAssets;
+        if (shares == 0) {
+            // Prevent dust amounts from getting stuck by ensuring a minimum share is minted
+            shares = 1;
+        }
     }
 
     /// @notice Convert shares to asset amount (for withdrawing)

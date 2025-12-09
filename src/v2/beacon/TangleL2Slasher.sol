@@ -81,13 +81,21 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
 
     modifier onlyAuthorized() {
-        if (!authorizedCallers[msg.sender]) revert UnauthorizedCaller();
+        _onlyAuthorized();
         _;
     }
 
+    function _onlyAuthorized() internal view {
+        if (!authorizedCallers[msg.sender]) revert UnauthorizedCaller();
+    }
+
     modifier whenNotPaused() {
-        if (paused) revert SlashingPaused();
+        _ensureNotPaused();
         _;
+    }
+
+    function _ensureNotPaused() internal view {
+        if (paused) revert SlashingPaused();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -107,6 +115,7 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
         if (!canSlash(operator)) revert OperatorNotSlashable();
 
         // Generate evidence hash from the reason
+        // forge-lint: disable-next-line(asm-keccak256)
         bytes32 evidence = keccak256(abi.encodePacked(
             "BEACON_CHAIN_SLASH",
             operator,

@@ -39,7 +39,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     mapping(uint64 => uint32) private _blueprintPinnedRevision;
 
     /// @notice Storage gap for upgrades
-    uint256[47] private __gap;
+    uint256[47] private _gap;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -143,6 +143,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     /// @dev Returns pinned version if set, otherwise latest
     /// @param blueprintId The blueprint ID
     /// @return mbsmAddress The MBSM contract address (or address(0) if none)
+    // forge-lint: disable-next-line(mixed-case-function)
     function getMBSM(uint64 blueprintId) external view returns (address mbsmAddress) {
         uint32 pinnedRevision = _blueprintPinnedRevision[blueprintId];
 
@@ -157,6 +158,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
 
     /// @notice Get the latest MBSM address
     /// @return The latest MBSM contract address (or address(0) if none)
+    // forge-lint: disable-next-line(mixed-case-function)
     function getLatestMBSM() public view returns (address) {
         if (_versions.length == 0) return address(0);
         return _versions[_versions.length - 1];
@@ -165,6 +167,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     /// @notice Get MBSM address by revision number
     /// @param revision The revision number (1-indexed)
     /// @return The MBSM contract address
+    // forge-lint: disable-next-line(mixed-case-function)
     function getMBSMByRevision(uint32 revision) external view returns (address) {
         if (revision == 0 || revision > _versions.length) revert InvalidRevision(revision);
         return _versions[revision - 1];

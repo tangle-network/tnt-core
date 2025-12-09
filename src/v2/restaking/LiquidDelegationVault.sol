@@ -3,12 +3,11 @@ pragma solidity ^0.8.26;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { IERC7540, IERC7540Deposit, IERC7540Redeem, IERC7540Operator } from "../interfaces/IERC7540.sol";
+import { IERC7540Deposit, IERC7540Redeem, IERC7540Operator } from "../interfaces/IERC7540.sol";
 import { MultiAssetDelegation } from "./MultiAssetDelegation.sol";
 import { Types } from "../libraries/Types.sol";
 
@@ -25,21 +24,26 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice The underlying restaking contract
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     MultiAssetDelegation public immutable restaking;
 
     /// @notice The operator this vault delegates to
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     address public immutable operator;
 
     /// @notice The underlying asset (WETH for native, or ERC20)
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IERC20 public immutable asset;
 
     /// @notice Whether this vault uses native ETH (wrapped as WETH)
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     bool public immutable isNative;
 
     /// @notice Blueprint IDs for Fixed mode (empty array = All mode)
     uint64[] private _blueprintIds;
 
     /// @notice Blueprint selection mode
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     Types.BlueprintSelectionMode public immutable selectionMode;
 
     // ═══════════════════════════════════════════════════════════════════════════

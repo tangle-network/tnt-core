@@ -62,6 +62,7 @@ library SchemaTestUtils {
         returns (Types.BlueprintFieldType memory field, uint256 nextSeed)
     {
         nextSeed = _nextSeed(seed);
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint8 variant = uint8(seed & 0x0F);
         if (depth >= MAX_DEPTH) {
             variant %= 6;
@@ -303,15 +304,18 @@ library SchemaTestUtils {
         uint256 cur = seed;
         for (uint256 i = 0; i < length; ++i) {
             cur = uint256(keccak256(abi.encode(cur, i)));
+            // forge-lint: disable-next-line(unsafe-typecast)
             data[i] = bytes1(uint8(cur));
         }
     }
 
     function _encodeCompactLength(uint256 value) private pure returns (bytes memory out) {
         if (value < 0x80) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             out = abi.encodePacked(uint8(value));
         } else if (value < 0x4000) {
             uint8 hi = uint8(0x80 | (value >> 8));
+            // forge-lint: disable-next-line(unsafe-typecast)
             uint8 lo = uint8(value);
             out = abi.encodePacked(hi, lo);
         } else {
@@ -322,6 +326,7 @@ library SchemaTestUtils {
     function _encodeUint(uint256 value, uint8 size) private pure returns (bytes memory out) {
         out = new bytes(size);
         for (uint8 i = 0; i < size; ++i) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             out[size - 1 - i] = bytes1(uint8(value & 0xFF));
             value >>= 8;
         }

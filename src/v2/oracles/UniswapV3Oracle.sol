@@ -115,6 +115,7 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IPriceOracle
+    // forge-lint: disable-next-line(mixed-case-function)
     function toUSD(address token, uint256 amount) external view override returns (uint256 usdValue) {
         PriceData memory data = _getPriceData(token);
         if (!data.isValid) {
@@ -125,6 +126,7 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     }
 
     /// @inheritdoc IPriceOracle
+    // forge-lint: disable-next-line(mixed-case-function)
     function fromUSD(address token, uint256 usdValue) external view override returns (uint256 amount) {
         PriceData memory data = _getPriceData(token);
         if (!data.isValid) {
@@ -135,10 +137,11 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     }
 
     /// @inheritdoc IPriceOracle
+    // forge-lint: disable-next-line(mixed-case-function)
     function batchToUSD(
         address[] calldata tokens,
         uint256[] calldata amounts
-    ) external view override returns (uint256 totalUSD) {
+    ) external view override returns (uint256 totalUsd) {
         require(tokens.length == amounts.length, "Length mismatch");
 
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -147,7 +150,7 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
                 if (!data.isValid) {
                     revert PriceNotAvailable(tokens[i]);
                 }
-                totalUSD += (amounts[i] * data.price) / (10 ** data.decimals);
+                totalUsd += (amounts[i] * data.price) / (10 ** data.decimals);
             }
         }
     }
@@ -264,7 +267,7 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
 
         // Get quote token USD price if configured
         address quoteFeed = quoteTokenFeeds[config.quoteToken];
-        uint256 quoteUSDPrice = PRICE_PRECISION; // Default 1:1 if no feed
+        uint256 quoteUsdPrice = PRICE_PRECISION; // Default 1:1 if no feed
 
         if (quoteFeed != address(0)) {
             // Assume Chainlink-style feed
@@ -278,11 +281,14 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
                 if (answer > 0 && block.timestamp - updatedAt <= maxAge) {
                     uint8 feedDecimals = AggregatorV3Interface(quoteFeed).decimals();
                     if (feedDecimals < 18) {
-                        quoteUSDPrice = uint256(answer) * (10 ** (18 - feedDecimals));
+                        // forge-lint: disable-next-line(unsafe-typecast)
+                        quoteUsdPrice = uint256(answer) * (10 ** (18 - feedDecimals));
                     } else if (feedDecimals > 18) {
-                        quoteUSDPrice = uint256(answer) / (10 ** (feedDecimals - 18));
+                        // forge-lint: disable-next-line(unsafe-typecast)
+                        quoteUsdPrice = uint256(answer) / (10 ** (feedDecimals - 18));
                     } else {
-                        quoteUSDPrice = uint256(answer);
+                        // forge-lint: disable-next-line(unsafe-typecast)
+                        quoteUsdPrice = uint256(answer);
                     }
                 }
             } catch {
@@ -290,8 +296,8 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
             }
         }
 
-        // Final price in USD = priceInQuote * quoteUSDPrice / 10^quoteDecimals
-        data.price = (priceInQuote * quoteUSDPrice) / (10 ** config.quoteDecimals);
+        // Final price in USD = priceInQuote * quoteUsdPrice / 10^quoteDecimals
+        data.price = (priceInQuote * quoteUsdPrice) / (10 ** config.quoteDecimals);
         data.updatedAt = block.timestamp; // TWAP is always "fresh"
         data.decimals = config.tokenDecimals;
         data.isValid = true;
@@ -306,6 +312,8 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         (int56[] memory tickCumulatives,) = IUniswapV3Pool(pool).observe(secondsAgos);
 
         int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
+        // Casting fits because Uniswap ticks are bounded within int24 range.
+        // forge-lint: disable-next-line(unsafe-typecast)
         int24 arithmeticMeanTick = int24(tickCumulativesDelta / int56(uint56(period)));
 
         // Round towards negative infinity
@@ -318,6 +326,7 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
 
     /// @notice Convert tick to sqrtPriceX96
     function _getSqrtPriceX96FromTick(int24 tick) internal pure returns (uint256) {
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 absTick = tick < 0 ? uint256(uint24(-tick)) : uint256(uint24(tick));
         require(absTick <= 887272, "Tick out of range");
 

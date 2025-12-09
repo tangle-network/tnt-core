@@ -153,13 +153,15 @@ abstract contract RewardsManager is DelegationManagerLib {
     }
 
     /// @notice Claim operator rewards
+    /// @param recipient Address that should receive the payout
     /// @return amount Amount claimed
-    function _claimOperatorRewards() internal returns (uint256 amount) {
+    function _claimOperatorRewards(address payable recipient) internal returns (uint256 amount) {
+        if (recipient == address(0)) revert DelegationErrors.ZeroAddress();
         amount = _operatorPendingRewards[msg.sender];
         if (amount == 0) revert DelegationErrors.NoRewardsToClaim();
 
         _operatorPendingRewards[msg.sender] = 0;
-        (bool success,) = msg.sender.call{ value: amount }("");
+        (bool success,) = recipient.call{ value: amount }("");
         if (!success) revert DelegationErrors.TransferFailed();
 
         emit RewardClaimed(msg.sender, amount);

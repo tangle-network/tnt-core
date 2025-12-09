@@ -3356,6 +3356,7 @@ dependencies = [
  "alloy",
  "alloy-contract",
  "alloy-sol-types",
+ "serde",
 ]
 
 [[package]]

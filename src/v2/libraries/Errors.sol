@@ -209,7 +209,7 @@ library Errors {
     error QuoteBlueprintMismatch(address operator, uint64 expectedBlueprint, uint64 quotedBlueprint);
 
     /// @notice Quote TTL mismatch
-    error QuoteTTLMismatch(address operator, uint64 expectedTTL, uint64 quotedTTL);
+error QuoteTTLMismatch(address operator, uint64 expectedTtl, uint64 quotedTtl);
 
     /// @notice No quotes provided
     error NoQuotes();

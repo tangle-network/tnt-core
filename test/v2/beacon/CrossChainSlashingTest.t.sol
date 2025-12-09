@@ -265,6 +265,91 @@ contract CrossChainSlashingTest is Test {
         assertEq(connector.lastProcessedSlashingFactor(pod1), newFactor);
     }
 
+    function test_propagateBeaconSlashingToSpecificChain() public {
+        uint256 altChainId = 8453;
+        address altReceiver = makeAddr("altReceiver");
+
+        vm.prank(admin);
+        connector.setChainConfig(altChainId, altReceiver, 150_000, true);
+
+        vm.prank(oracle);
+        connector.propagateBeaconSlashingToChain{value: 0.01 ether}(pod1, 0.95e18, altChainId);
+
+        MockCrossChainMessenger.Message memory msgAlt = messenger.getLastMessage();
+        assertEq(msgAlt.destinationChainId, altChainId);
+        assertEq(connector.lastProcessedSlashingFactor(pod1), 0.95e18);
+    }
+
+    function test_batchPropagateBeaconSlashing_MultiplePods() public {
+        messenger.setMockFee(0); // simplify fee accounting for batch calls
+
+        address pod2 = makeAddr("pod2");
+        address operator2 = makeAddr("operator2");
+
+        vm.prank(admin);
+        connector.registerPodOperator(pod2, operator2);
+
+        vm.mockCall(
+            address(podManager),
+            abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator1),
+            abi.encode(40 ether)
+        );
+        vm.mockCall(
+            address(podManager),
+            abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator2),
+            abi.encode(20 ether)
+        );
+
+        address[] memory pods = new address[](2);
+        pods[0] = pod1;
+        pods[1] = pod2;
+
+        uint64[] memory newFactors = new uint64[](2);
+        newFactors[0] = 0.9e18;
+        newFactors[1] = 0.85e18;
+
+        vm.prank(oracle);
+        connector.batchPropagateBeaconSlashing(pods, newFactors);
+
+        assertEq(connector.lastProcessedSlashingFactor(pod1), 0.9e18);
+        assertEq(connector.lastProcessedSlashingFactor(pod2), 0.85e18);
+        assertTrue(connector.cumulativeSlashAmount(pod1) > 0);
+        assertTrue(connector.cumulativeSlashAmount(pod2) > 0);
+    }
+
+    function test_getPendingSlashAmountAndHasPending() public {
+        vm.mockCall(
+            address(podManager),
+            abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator1),
+            abi.encode(40 ether)
+        );
+
+        vm.prank(oracle);
+        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+
+        uint64 futureFactor = 0.8e18;
+        uint256 delta = uint256(0.9e18 - futureFactor);
+        uint256 slashPercentage = (delta * 1e18) / 0.9e18;
+        uint256 expected = (40 ether * slashPercentage) / 1e18;
+
+        uint256 pending = connector.getPendingSlashAmount(pod1, futureFactor);
+        assertEq(pending, expected);
+        assertTrue(connector.hasPendingSlashing(pod1, futureFactor));
+        assertFalse(connector.hasPendingSlashing(pod1, 0.95e18));
+    }
+
+    function test_estimatePropagationFee_UsesMessengerQuote() public {
+        uint256 quotedFee = messenger.mockFee();
+        vm.mockCall(
+            address(podManager),
+            abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator1),
+            abi.encode(10 ether)
+        );
+
+        uint256 fee = connector.estimatePropagationFee(pod1, 0.95e18, TANGLE_CHAIN_ID);
+        assertEq(fee, quotedFee);
+    }
+
     function test_propagateBeaconSlashing_RevertUnauthorized() public {
         address random = makeAddr("random");
         vm.deal(random, 1 ether);
@@ -292,6 +377,39 @@ contract CrossChainSlashingTest is Test {
         vm.expectRevert(L2SlashingConnector.UnsupportedDestinationChain.selector);
         vm.prank(oracle);
         connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+    }
+
+    function test_propagateBeaconSlashing_RevertMessengerNotConfigured() public {
+        vm.prank(admin);
+        connector.setMessenger(address(0));
+
+        vm.startPrank(oracle);
+        vm.expectRevert(L2SlashingConnector.MessengerNotConfigured.selector);
+        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+        vm.stopPrank();
+    }
+
+    function test_propagateBeaconSlashing_RevertInsufficientFee() public {
+        messenger.setMockFee(0.1 ether);
+
+        vm.startPrank(oracle);
+        vm.expectRevert(L2SlashingConnector.InsufficientFee.selector);
+        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+        vm.stopPrank();
+    }
+
+    function test_batchPropagateBeaconSlashing_LengthMismatch() public {
+        address[] memory pods = new address[](1);
+        pods[0] = pod1;
+
+        uint64[] memory factors = new uint64[](2);
+        factors[0] = 0.95e18;
+        factors[1] = 0.9e18;
+
+        vm.startPrank(oracle);
+        vm.expectRevert(bytes("Length mismatch"));
+        connector.batchPropagateBeaconSlashing(pods, factors);
+        vm.stopPrank();
     }
 
     function test_batchPropagateBeaconSlashing() public {
@@ -328,6 +446,15 @@ contract CrossChainSlashingTest is Test {
         // Now estimate fee for next slash
         uint256 fee = connector.estimatePropagationFee(pod1, 0.9e18, TANGLE_CHAIN_ID);
         assertEq(fee, messenger.mockFee());
+    }
+
+    function test_batchRegisterPodOperators_LengthMismatch() public {
+        address[] memory pods = new address[](1);
+        address[] memory operators = new address[](2);
+
+        vm.prank(admin);
+        vm.expectRevert(bytes("Length mismatch"));
+        connector.batchRegisterPodOperators(pods, operators);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -400,6 +527,23 @@ contract CrossChainSlashingTest is Test {
         assertTrue(receiver.isNonceProcessed(ETH_CHAIN_ID, address(connector), nonce));
     }
 
+    function test_receiveMessage_SkipsWhenSlashingPaused() public {
+        vm.prank(admin);
+        slasher.setPaused(true);
+
+        bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
+        bytes memory payload = abi.encodePacked(
+            messageType,
+            abi.encode(operator1, 10 ether, 0.9e18, 0, pod1)
+        );
+
+        uint256 previousSlash = restaking.lastSlashAmount();
+        vm.prank(address(messenger));
+        receiver.receiveMessage(ETH_CHAIN_ID, address(connector), payload);
+
+        assertEq(restaking.lastSlashAmount(), previousSlash, "Slashing should be skipped while paused");
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // TangleL2Slasher Tests
     // ═══════════════════════════════════════════════════════════════════════════
@@ -445,6 +589,26 @@ contract CrossChainSlashingTest is Test {
 
     function test_getSlashableStake() public {
         assertEq(slasher.getSlashableStake(operator1), INITIAL_STAKE);
+    }
+
+    function test_slasher_setRestakingUpdatesReference() public {
+        MockRestaking newRestaking = new MockRestaking();
+        vm.prank(admin);
+        slasher.setRestaking(address(newRestaking));
+        assertEq(address(slasher.restaking()), address(newRestaking));
+    }
+
+    function test_slasher_getRemainingSlashableStake() public {
+        uint256 beforeSlash = slasher.getRemainingSlashableStake(operator1);
+        assertEq(beforeSlash, INITIAL_STAKE);
+
+        vm.prank(address(receiver));
+        slasher.slashOperator(operator1, 50 ether, "");
+
+        uint256 total = slasher.getSlashableStake(operator1);
+        uint256 already = slasher.totalBeaconSlashed(operator1);
+        uint256 expected = total > already ? total - already : 0;
+        assertEq(slasher.getRemainingSlashableStake(operator1), expected);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -526,6 +690,58 @@ contract CrossChainSlashingTest is Test {
         assertEq(rcv, makeAddr("receiver"));
         assertEq(gas, 300_000);
         assertTrue(enabled);
+    }
+
+    function test_connector_setDefaultDestinationChain() public {
+        uint256 newChainId = 7777;
+        vm.prank(admin);
+        connector.setDefaultDestinationChain(newChainId);
+        assertEq(connector.defaultDestinationChainId(), newChainId);
+    }
+
+    function test_connector_batchRegisterPodOperators() public {
+        address[] memory pods = new address[](2);
+        pods[0] = makeAddr("batchPod1");
+        pods[1] = makeAddr("batchPod2");
+
+        address[] memory operators = new address[](2);
+        operators[0] = makeAddr("batchOp1");
+        operators[1] = makeAddr("batchOp2");
+
+        vm.prank(admin);
+        connector.batchRegisterPodOperators(pods, operators);
+
+        assertEq(connector.podOperator(pods[0]), operators[0]);
+        assertEq(connector.podOperator(pods[1]), operators[1]);
+    }
+
+    function test_connector_setSlashingOracle() public {
+        address newOracle = makeAddr("newOracle");
+        vm.prank(admin);
+        connector.setSlashingOracle(newOracle);
+        assertEq(connector.slashingOracle(), newOracle);
+    }
+
+    function test_connector_setMessenger() public {
+        MockCrossChainMessenger newMessenger = new MockCrossChainMessenger();
+        vm.prank(admin);
+        connector.setMessenger(address(newMessenger));
+        assertEq(address(connector.messenger()), address(newMessenger));
+    }
+
+    function test_connector_transferOwnership() public {
+        address newOwner = makeAddr("newOwner");
+        vm.prank(admin);
+        connector.transferOwnership(newOwner);
+
+        vm.prank(admin);
+        vm.expectRevert("Only owner");
+        connector.setChainConfig(999, makeAddr("fail"), 1, true);
+
+        vm.prank(newOwner);
+        connector.setChainConfig(999, makeAddr("ok"), 1, true);
+        (address receiverAddr,,) = connector.chainConfigs(999);
+        assertEq(receiverAddr, makeAddr("ok"));
     }
 
     function test_receiver_setAuthorizedSender() public {

@@ -50,6 +50,7 @@ interface IInterchainGasPaymaster {
 
 contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
     /// @notice Hyperlane Mailbox
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IHyperlaneMailbox public immutable mailbox;
 
     /// @notice Interchain Gas Paymaster
@@ -66,7 +67,9 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
 
     /// @notice Events
     event DomainMappingSet(uint256 chainId, uint32 domain);
-    event IGPUpdated(address oldIGP, address newIGP);
+    event IGPUpdated(address oldIgp, address newIgp);
+    error InsufficientMsgValue(uint256 required, uint256 provided);
+    error RefundFailed();
 
     constructor(address _mailbox, address _igp) {
         mailbox = IHyperlaneMailbox(_mailbox);
@@ -89,8 +92,12 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner");
+        _onlyOwner();
         _;
+    }
+
+    function _onlyOwner() internal view {
+        require(msg.sender == owner, "Only owner");
     }
 
     /// @inheritdoc ICrossChainMessenger
@@ -112,23 +119,36 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
             _addressToBytes32(target),
             messageBody
         );
+        if (msg.value < dispatchFee) revert InsufficientMsgValue(dispatchFee, msg.value);
 
         // Dispatch message
-        messageId = mailbox.dispatch{value: dispatchFee}(
+        messageId = mailbox.dispatch{ value: dispatchFee }(
             destDomain,
             _addressToBytes32(target),
             messageBody
         );
 
         // Pay for destination gas if IGP is set and we have remaining value
-        if (address(igp) != address(0) && msg.value > dispatchFee && gasLimit > 0) {
-            uint256 gasPayment = msg.value - dispatchFee;
-            igp.payForGas{value: gasPayment}(
-                messageId,
-                destDomain,
-                gasLimit,
-                msg.sender
-            );
+        uint256 amountForGas;
+        if (address(igp) != address(0) && gasLimit > 0) {
+            uint256 gasQuote = igp.quoteGasPayment(destDomain, gasLimit);
+            if (gasQuote > 0) {
+                uint256 required = dispatchFee + gasQuote;
+                if (msg.value < required) revert InsufficientMsgValue(required, msg.value);
+                igp.payForGas{ value: gasQuote }(
+                    messageId,
+                    destDomain,
+                    gasLimit,
+                    msg.sender
+                );
+                amountForGas = gasQuote;
+            }
+        }
+
+        uint256 refund = msg.value - dispatchFee - amountForGas;
+        if (refund > 0) {
+            (bool success,) = msg.sender.call{ value: refund }("");
+            if (!success) revert RefundFailed();
         }
     }
 
@@ -171,7 +191,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
     }
 
     /// @notice Update IGP address
-    function setIGP(address _igp) external onlyOwner {
+    function setIgp(address _igp) external onlyOwner {
         address old = address(igp);
         igp = IInterchainGasPaymaster(_igp);
         emit IGPUpdated(old, _igp);
@@ -199,9 +219,11 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
 /// @dev Implements handle() to process incoming messages
 contract HyperlaneReceiver {
     /// @notice Hyperlane Mailbox
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     address public immutable mailbox;
 
     /// @notice The actual message receiver
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     ICrossChainReceiver public immutable receiver;
 
     /// @notice Owner
@@ -232,13 +254,21 @@ contract HyperlaneReceiver {
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner");
+        _receiverOnlyOwner();
         _;
     }
 
+    function _receiverOnlyOwner() internal view {
+        require(msg.sender == owner, "Only owner");
+    }
+
     modifier onlyMailbox() {
-        require(msg.sender == mailbox, "Only mailbox");
+        _onlyMailbox();
         _;
+    }
+
+    function _onlyMailbox() internal view {
+        require(msg.sender == mailbox, "Only mailbox");
     }
 
     /// @notice Handle incoming Hyperlane message

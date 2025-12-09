@@ -297,6 +297,8 @@ library BeaconChainProofs {
         uint256 position = validatorIndex % VALIDATORS_PER_BALANCE_LEAF;
         // Each balance is 8 bytes (64 bits), little-endian
         uint256 bitOffset = position * 64;
+        // Casting down to uint64 is safe because only 64 bits remain after shifting.
+        // forge-lint: disable-next-line(unsafe-typecast)
         return uint64(uint256(balanceRoot) >> bitOffset);
     }
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Types } from "../libraries/Types.sol";
+import { DelegationErrors } from "./DelegationErrors.sol";
 
 /// @title DelegationStorage
 /// @notice Centralized storage layout for the multi-asset delegation system
@@ -77,7 +78,7 @@ abstract contract DelegationStorage {
     mapping(bytes32 => Types.AssetConfig) internal _assetConfigs;
 
     /// @notice Set of enabled ERC20 tokens
-    EnumerableSet.AddressSet internal _enabledERC20s;
+    EnumerableSet.AddressSet internal _enabledErc20s;
 
     /// @notice Whether native asset is enabled
     bool public nativeEnabled;
@@ -191,6 +192,7 @@ abstract contract DelegationStorage {
 
     /// @notice Compute hash for an asset
     function _assetHash(Types.Asset memory asset) internal pure returns (bytes32) {
+        // forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(asset.kind, asset.token));
     }
 
@@ -212,6 +214,20 @@ abstract contract DelegationStorage {
         return MULTIPLIER_NONE;
     }
 
+    function _validateLockMultiplier(Types.LockMultiplier multiplier) internal pure {
+        if (
+            multiplier == Types.LockMultiplier.None ||
+            multiplier == Types.LockMultiplier.OneMonth ||
+            multiplier == Types.LockMultiplier.TwoMonths ||
+            multiplier == Types.LockMultiplier.ThreeMonths ||
+            multiplier == Types.LockMultiplier.SixMonths
+        ) {
+            return;
+        }
+
+        revert DelegationErrors.InvalidLockMultiplier(uint8(multiplier));
+    }
+
     /// @notice Reserved storage gap for future upgrades
-    uint256[49] private __gap;
+    uint256[49] private _gap;
 }

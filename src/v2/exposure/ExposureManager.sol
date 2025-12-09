@@ -24,6 +24,7 @@ contract ExposureManager is IExposureManager {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice The restaking contract for delegation queries
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IRestaking public immutable restaking;
 
     /// @notice Operator global exposure configs
@@ -295,7 +296,7 @@ contract ExposureManager is IExposureManager {
     function getOperatorServiceExposure(
         address operator,
         uint64 serviceId
-    ) external view override returns (ExposureTypes.AggregateExposure memory exposure) {
+    ) external pure override returns (ExposureTypes.AggregateExposure memory exposure) {
         // This would need access to service storage to get commitments
         // For now, return empty - actual implementation needs Tangle integration
         exposure.operator = operator;
@@ -370,6 +371,7 @@ contract ExposureManager is IExposureManager {
     }
 
     function _hashAsset(Types.Asset memory asset) internal pure returns (bytes32) {
+        // forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(asset.kind, asset.token));
     }
 

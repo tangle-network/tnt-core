@@ -42,6 +42,7 @@ library SignatureLib {
         string memory version,
         address verifyingContract
     ) internal view returns (bytes32) {
+        // forge-lint: disable-next-line(asm-keccak256)
         return keccak256(
             abi.encode(
                 DOMAIN_TYPEHASH,
@@ -59,6 +60,7 @@ library SignatureLib {
 
     /// @notice Compute the hash of quote details for signing
     function hashQuote(Types.QuoteDetails memory details) internal pure returns (bytes32) {
+        // forge-lint: disable-next-line(asm-keccak256)
         return keccak256(
             abi.encode(
                 QUOTE_TYPEHASH,
@@ -76,6 +78,7 @@ library SignatureLib {
         bytes32 domainSeparator,
         Types.QuoteDetails memory details
     ) internal pure returns (bytes32) {
+        // forge-lint: disable-next-line(asm-keccak256)
         return keccak256(
             abi.encodePacked(
                 "\x19\x01",

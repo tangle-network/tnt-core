@@ -44,7 +44,7 @@ This document outlines the implementation of **Ethereum Beacon Chain Native Rest
 │  ┌───────────────────────────▼─────────────────────────────┐   │
 │  │    ValidatorPodManager.sol (Factory + IRestaking)        │   │
 │  │    ├── createPod() - Deploy user's ValidatorPod          │   │
-│  │    ├── recordBeaconChainETHBalanceUpdate()               │   │
+│  │    ├── recordBeaconChainEthBalanceUpdate()               │   │
 │  │    └── Implements IRestaking for Tangle integration      │   │
 │  └───────────────────────────┬─────────────────────────────┘   │
 │                              │                                   │
@@ -114,13 +114,13 @@ For native restaking, validators change their withdrawal credentials to point to
      │                  EigenPod.sol                      │
      │  - verifyWithdrawalCredentials()                  │
      │  - startCheckpoint() / verifyCheckpointProofs()   │
-     │  - withdrawNonBeaconChainETH()                    │
+     │  - withdrawNonBeaconChainEth()                    │
      └─────────────────────────┬─────────────────────────┘
                                │
      ┌─────────────────────────▼─────────────────────────┐
      │              EigenPodManager.sol                   │
      │  - createPod() / stake()                          │
-     │  - recordBeaconChainETHBalanceUpdate()            │
+     │  - recordBeaconChainEthBalanceUpdate()            │
      │  - podOwnerShares tracking                        │
      └───────────────────────────────────────────────────┘
 ```
@@ -349,7 +349,7 @@ contract ValidatorPod {
     ) external;
 
     /// @notice Withdraw ETH that was sent to pod outside beacon chain
-    function withdrawNonBeaconChainETH(address recipient, uint256 amount) external;
+    function withdrawNonBeaconChainEth(address recipient, uint256 amount) external;
 
     /// @notice Recover ERC20 tokens sent to pod by mistake
     function recoverTokens(IERC20 token, address recipient, uint256 amount) external;
@@ -412,7 +412,7 @@ contract ValidatorPodManager is IRestaking, Ownable {
 
     /// @notice Record balance update from pod verification
     /// @dev Called by ValidatorPod after credential/checkpoint verification
-    function recordBeaconChainETHBalanceUpdate(
+    function recordBeaconChainEthBalanceUpdate(
         address podOwner,
         int256 sharesDelta
     ) external onlyPod;
@@ -509,7 +509,7 @@ contract ValidatorPodTest is Test {
     function test_checkpoint_detectsSlashing() external;
 
     // Withdrawals
-    function test_withdrawNonBeaconChainETH_onlyOwner() external;
+    function test_withdrawNonBeaconChainEth_onlyOwner() external;
 }
 ```
 

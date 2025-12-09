@@ -55,7 +55,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         // Step 4: Pod owner can withdraw non-beacon ETH
         vm.prank(podOwner1);
-        pod.withdrawNonBeaconChainETH(podOwner1, 1 ether);
+        pod.withdrawNonBeaconChainEth(podOwner1, 1 ether);
         assertEq(address(pod).balance, 31 ether, "Pod should have remaining ETH");
     }
 
@@ -70,10 +70,10 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         // Simulate beacon balance updates (would normally come from proof verification)
         vm.prank(address(pod1));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 64 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 64 ether);
 
         vm.prank(address(pod2));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner2, 32 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner2, 32 ether);
 
         // Verify total shares
         assertEq(podManager.totalShares(), 96 ether, "Total shares should be 96 ETH");
@@ -98,7 +98,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         // Record some shares
         vm.prank(address(pod));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 64 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 64 ether);
 
         // Delegate to operator
         vm.prank(podOwner1);
@@ -157,22 +157,22 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         // Initial positive update (validator restaking)
         vm.prank(address(pod));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
         assertEq(podManager.getShares(podOwner1), 32 ether, "Initial shares");
 
         // Positive update (balance increase)
         vm.prank(address(pod));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 1 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 1 ether);
         assertEq(podManager.getShares(podOwner1), 33 ether, "After increase");
 
         // Negative update (slashing on beacon chain)
         vm.prank(address(pod));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, -5 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -5 ether);
         assertEq(podManager.getShares(podOwner1), 28 ether, "After slashing");
 
         // Large negative (can go negative if slashed more than deposited)
         vm.prank(address(pod));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, -30 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -30 ether);
         assertEq(podManager.getShares(podOwner1), -2 ether, "Shares can be negative");
     }
 
@@ -181,16 +181,16 @@ contract BeaconIntegrationTest is BeaconTestBase {
         ValidatorPod pod2 = _createPod(podOwner2);
 
         vm.prank(address(pod1));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
 
         vm.prank(address(pod2));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner2, 64 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner2, 64 ether);
 
         assertEq(podManager.totalShares(), 96 ether, "Total should be sum");
 
         // Negative update
         vm.prank(address(pod1));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, -10 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -10 ether);
 
         assertEq(podManager.totalShares(), 86 ether, "Total should decrease");
     }
@@ -209,7 +209,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
         // Create pod and delegate
         ValidatorPod pod = _createPod(podOwner1);
         vm.prank(address(pod));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
 
         vm.prank(podOwner1);
         podManager.delegateTo(operator1, 10 ether);
@@ -239,16 +239,16 @@ contract BeaconIntegrationTest is BeaconTestBase {
         // Attacker tries to update shares
         vm.prank(attacker);
         vm.expectRevert(ValidatorPodManager.OnlyPod.selector);
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 1000 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 1000 ether);
 
         // Pod owner tries directly (not through pod)
         vm.prank(podOwner1);
         vm.expectRevert(ValidatorPodManager.OnlyPod.selector);
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 1000 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 1000 ether);
 
         // Only the actual pod contract should work
         vm.prank(address(pod));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
         assertEq(podManager.getShares(podOwner1), 32 ether, "Update from pod should work");
     }
 
@@ -258,7 +258,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         // Record 32 ETH of shares
         vm.prank(address(pod));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
 
         // Try to delegate more than available
         vm.prank(podOwner1);
@@ -285,8 +285,8 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
     function test_gas_createPod() public {
         if (_skipGasChecks()) return;
-        uint256 gasBefore = gasleft();
         vm.prank(podOwner1);
+        uint256 gasBefore = gasleft();
         podManager.createPod();
         uint256 gasUsed = gasBefore - gasleft();
 
@@ -297,8 +297,8 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
     function test_gas_registerOperator() public {
         if (_skipGasChecks()) return;
-        uint256 gasBefore = gasleft();
         vm.prank(operator1);
+        uint256 gasBefore = gasleft();
         podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
         uint256 gasUsed = gasBefore - gasleft();
 
@@ -310,12 +310,12 @@ contract BeaconIntegrationTest is BeaconTestBase {
         if (_skipGasChecks()) return;
         ValidatorPod pod = _createPod(podOwner1);
 
-        uint256 gasBefore = gasleft();
         vm.prank(address(pod));
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner1, 32 ether);
+        uint256 gasBefore = gasleft();
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
         uint256 gasUsed = gasBefore - gasleft();
 
-        console2.log("Gas used for recordBeaconChainETHBalanceUpdate:", gasUsed);
+        console2.log("Gas used for recordBeaconChainEthBalanceUpdate:", gasUsed);
         assertTrue(gasUsed < 50_000, "Balance update should use less than 50k gas");
     }
     function _skipGasChecks() internal view returns (bool) {

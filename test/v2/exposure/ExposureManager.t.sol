@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import {ExposureManager} from "../../../src/v2/exposure/ExposureManager.sol";
 import {ExposureTypes} from "../../../src/v2/exposure/ExposureTypes.sol";
 import {ExposureCalculator} from "../../../src/v2/exposure/ExposureCalculator.sol";
+import {MockPriceOracle} from "./MockPriceOracle.sol";
 import {Types} from "../../../src/v2/libraries/Types.sol";
 import {IRestaking} from "../../../src/v2/interfaces/IRestaking.sol";
 
@@ -604,6 +605,56 @@ contract ExposureCalculatorTest is Test {
             200 ether  // total exposed value
         );
         assertEq(share, 25 ether); // 50 ETH / 200 ETH * 100 ETH reward
+    }
+
+    function test_CalculateRewardShare_NoTotalExposure() public pure {
+        uint256 share = ExposureCalculator.calculateRewardShare(100 ether, 5000, 100 ether, 0);
+        assertEq(share, 0);
+    }
+
+    function test_CalculateUSDWeightedExposure() public {
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(0xAAA);
+        tokens[1] = address(0xBBB);
+
+        uint256[] memory delegations = new uint256[](2);
+        delegations[0] = 10 ether;
+        delegations[1] = 5 ether;
+
+        uint16[] memory exposures = new uint16[](2);
+        exposures[0] = 5000;
+        exposures[1] = 1000;
+
+        MockPriceOracle oracle = new MockPriceOracle();
+        oracle.setPrice(tokens[0], 2e18); // $2 per unit
+        oracle.setPrice(tokens[1], 1e18); // $1 per unit
+
+        (uint16 weighted, uint256 totalUsd) = ExposureCalculator.calculateUSDWeightedExposure(
+            tokens,
+            delegations,
+            exposures,
+            oracle
+        );
+
+        // USD values: token0 => 20, token1 => 5
+        // Weighted = (50% * 20 + 10% * 5) / 25 = 42% (rounded down)
+        assertEq(weighted, 4200);
+        assertEq(totalUsd, 25e18);
+    }
+
+    function test_CalculateUSDWeightedExposure_NoDelegations() public {
+        address[] memory tokens = new address[](0);
+        uint256[] memory delegations = new uint256[](0);
+        uint16[] memory exposures = new uint16[](0);
+        MockPriceOracle oracle = new MockPriceOracle();
+        (uint16 weighted, uint256 totalUsd) = ExposureCalculator.calculateUSDWeightedExposure(
+            tokens,
+            delegations,
+            exposures,
+            oracle
+        );
+        assertEq(weighted, 0);
+        assertEq(totalUsd, 0);
     }
 
     function test_CalculateTotalExposedValue() public pure {

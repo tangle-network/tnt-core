@@ -11,7 +11,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// @title IValidatorPodManager
 /// @notice Interface for the pod manager (forward declaration)
 interface IValidatorPodManager {
-    function recordBeaconChainETHBalanceUpdate(
+    function recordBeaconChainEthBalanceUpdate(
         address podOwner,
         int256 sharesDelta
     ) external;
@@ -29,15 +29,19 @@ contract ValidatorPod is ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice The owner of this pod (set at deployment, immutable)
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     address public immutable podOwner;
 
     /// @notice The ValidatorPodManager that created this pod
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IValidatorPodManager public immutable podManager;
 
     /// @notice The beacon oracle for accessing beacon block roots
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IBeaconOracle public immutable beaconOracle;
 
     /// @notice Expected withdrawal credentials (computed from this contract's address)
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     bytes32 public immutable podWithdrawalCredentials;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -122,23 +126,35 @@ contract ValidatorPod is ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════════════
 
     modifier onlyPodOwner() {
-        if (msg.sender != podOwner) revert OnlyPodOwner();
+        _onlyPodOwner();
         _;
     }
 
+    function _onlyPodOwner() internal view {
+        if (msg.sender != podOwner) revert OnlyPodOwner();
+    }
+
     modifier onlyPodManager() {
-        if (msg.sender != address(podManager)) revert OnlyPodManager();
+        _onlyPodManager();
         _;
+    }
+
+    function _onlyPodManager() internal view {
+        if (msg.sender != address(podManager)) revert OnlyPodManager();
     }
 
     error TransferFailed();
 
     /// @notice Allows pod owner or designated proof submitter
     modifier onlyOwnerOrProofSubmitter() {
+        _onlyOwnerOrProofSubmitter();
+        _;
+    }
+
+    function _onlyOwnerOrProofSubmitter() internal view {
         if (msg.sender != podOwner && msg.sender != proofSubmitter) {
             revert NotOwnerOrProofSubmitter();
         }
-        _;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -213,11 +229,13 @@ contract ValidatorPod is ReentrancyGuard {
 
         // Update shares in the pod manager
         if (totalRestakedGwei > 0) {
-            podManager.recordBeaconChainETHBalanceUpdate(
-                podOwner,
-                int256(uint256(totalRestakedGwei)) * 1 gwei
-            );
-        }
+                podManager.recordBeaconChainEthBalanceUpdate(
+                    podOwner,
+                    // totalRestakedGwei fits within int256 when scaled to wei
+                    // forge-lint: disable-next-line(unsafe-typecast)
+                    int256(uint256(totalRestakedGwei)) * 1 gwei
+                );
+            }
     }
 
     /// @notice Internal function to verify and process a single validator
@@ -379,6 +397,8 @@ contract ValidatorPod is ReentrancyGuard {
 
         // Calculate delta from previous balance
         uint64 previousBalance = info.restakedBalanceGwei;
+        // currentBalance/previousBalance are 64-bit gwei values, safe to cast to int64/int128.
+        // forge-lint: disable-next-line(unsafe-typecast)
         balanceDelta = int128(int64(currentBalance)) - int128(int64(previousBalance));
 
         // Update validator info
@@ -429,7 +449,7 @@ contract ValidatorPod is ReentrancyGuard {
         }
 
         // Record the balance update with the pod manager
-        podManager.recordBeaconChainETHBalanceUpdate(podOwner, totalDeltaWei);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner, totalDeltaWei);
 
         lastCompletedCheckpointTimestamp = currentCheckpointTimestamp;
 
@@ -448,7 +468,7 @@ contract ValidatorPod is ReentrancyGuard {
     /// @param recipient Address to send ETH to
     /// @param amount Amount to withdraw
     /// @dev For recovering tips, MEV, or accidental transfers
-    function withdrawNonBeaconChainETH(
+    function withdrawNonBeaconChainEth(
         address recipient,
         uint256 amount
     ) external onlyPodOwner nonReentrant {

@@ -354,6 +354,59 @@ contract LiquidDelegationTest is Test {
         assertTrue(user2Shares > user1Shares, "User2 should get more shares after slash");
     }
 
+    function test_Vault_MintSlashRedeemScenario() public {
+        address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
+        LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
+
+        // User1 mints exact shares
+        vm.startPrank(user1);
+        token.approve(address(vault), 10 ether);
+        uint256 assetsIn = vault.mint(10 ether, user1);
+        vm.stopPrank();
+
+        assertEq(assetsIn, 10 ether, "Mint should pull 10 assets");
+        assertEq(vault.balanceOf(user1), 10 ether, "User should hold minted shares");
+
+        // Slash operator to reduce backing assets
+        vm.prank(slasher);
+        restaking.slash(operator1, 0, 4 ether, keccak256("evidence"));
+
+        uint256 sharesToRedeem = vault.balanceOf(user1);
+        uint256 expectedAssets = vault.convertToAssets(sharesToRedeem);
+        assertLt(expectedAssets, sharesToRedeem, "Slash should devalue shares");
+
+        // Request redeem (burning shares and scheduling unstake)
+        vm.startPrank(user1);
+        uint256 requestId = vault.requestRedeem(sharesToRedeem, user1, user1);
+        vm.stopPrank();
+
+        assertEq(requestId, 0, "First request id");
+        assertEq(vault.balanceOf(user1), 0, "Shares burned during request");
+
+        // Wait out the bond-less delay
+        uint64 delay = uint64(restaking.delegationBondLessDelay());
+        for (uint64 i = 0; i <= delay; i++) {
+            restaking.advanceRound();
+        }
+
+        assertEq(vault.claimableRedeemRequest(requestId, user1), sharesToRedeem, "Entire request becomes claimable");
+
+        uint256 tokenBalanceBefore = token.balanceOf(user1);
+        vm.startPrank(user1);
+        uint256 assetsOut = vault.redeem(sharesToRedeem, user1, user1);
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(user1), tokenBalanceBefore + assetsOut, "Return value matches transferred assets");
+        assertEq(vault.totalAssets(), 0, "All delegation should be exited after redeem");
+        assertEq(restaking.getDelegation(address(vault), operator1), 0, "Underlying delegation removed");
+
+        // Subsequent redeem attempts should fail since request is consumed
+        vm.startPrank(user1);
+        vm.expectRevert(LiquidDelegationVault.NotClaimable.selector);
+        vault.redeem(sharesToRedeem, user1, user1);
+        vm.stopPrank();
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // OPERATOR PERMISSION TESTS
     // ═══════════════════════════════════════════════════════════════════════════

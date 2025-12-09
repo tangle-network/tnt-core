@@ -135,6 +135,8 @@ library ValidatorTypes {
     /// @param withdrawalCredentials The credentials to check
     /// @return True if prefix is 0x01 or 0x02
     function hasValidPrefix(bytes32 withdrawalCredentials) internal pure returns (bool) {
+        // Casting bytes32→bytes1 only truncates upper bytes by design.
+        // forge-lint: disable-next-line(unsafe-typecast)
         bytes1 prefix = bytes1(withdrawalCredentials);
         return prefix == WITHDRAWAL_CREDENTIALS_PREFIX_01 || prefix == WITHDRAWAL_CREDENTIALS_PREFIX_02;
     }
@@ -143,6 +145,7 @@ library ValidatorTypes {
     /// @param withdrawalCredentials The credentials to check
     /// @return True if prefix is 0x01
     function has01Prefix(bytes32 withdrawalCredentials) internal pure returns (bool) {
+        // forge-lint: disable-next-line(unsafe-typecast)
         return bytes1(withdrawalCredentials) == WITHDRAWAL_CREDENTIALS_PREFIX_01;
     }
 
@@ -150,6 +153,7 @@ library ValidatorTypes {
     /// @param withdrawalCredentials The credentials to check
     /// @return True if prefix is 0x02
     function has02Prefix(bytes32 withdrawalCredentials) internal pure returns (bool) {
+        // forge-lint: disable-next-line(unsafe-typecast)
         return bytes1(withdrawalCredentials) == WITHDRAWAL_CREDENTIALS_PREFIX_02;
     }
 

@@ -9,6 +9,9 @@ import {L2SlashingConnector} from "../../src/v2/beacon/L2SlashingConnector.sol";
 import {HyperlaneCrossChainMessenger} from "../../src/v2/beacon/bridges/HyperlaneCrossChainMessenger.sol";
 import {LayerZeroCrossChainMessenger} from "../../src/v2/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 
+error MissingEnv(string key);
+error AddressNotAllowlisted(string key, address provided, address expected);
+
 /// @title DeployBeaconSlashingL1
 /// @notice Deploy script for L1 beacon chain restaking and slashing infrastructure
 /// @dev Deploys to Ethereum mainnet/testnet
@@ -31,12 +34,17 @@ contract DeployBeaconSlashingL1 is Script {
     }
 
     function run(BridgeProtocol bridge) public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = _requireEnvUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        address admin = vm.envOr("ADMIN", deployer);
-        address oracle = vm.envOr("SLASHING_ORACLE", deployer);
+        address admin = _envAddressOrDefault("ADMIN", deployer);
+        address oracle = _envAddressOrDefault("SLASHING_ORACLE", deployer);
         uint256 tangleChainId = vm.envOr("TANGLE_CHAIN_ID", TANGLE_TESTNET);
-        address l2Receiver = vm.envAddress("L2_RECEIVER");
+        address l2Receiver = _requireEnvAddress("L2_RECEIVER");
+        address beaconOracleOverride = vm.envOr("BEACON_ORACLE", address(0));
+
+        _enforceAllowlist("ADMIN_ALLOWLIST", admin);
+        _enforceAllowlist("SLASHING_ORACLE_ALLOWLIST", oracle);
+        _enforceAllowlist("L2_RECEIVER_ALLOWLIST", l2Receiver);
 
         console2.log("=== L1 Beacon Slashing Deployment ===");
         console2.log("Deployer:", deployer);
@@ -44,67 +52,122 @@ contract DeployBeaconSlashingL1 is Script {
         console2.log("Oracle:", oracle);
         console2.log("Target Tangle Chain ID:", tangleChainId);
 
-        vm.startBroadcast(deployerPrivateKey);
+        (
+            address beaconOracle,
+            address podManager,
+            address connector,
+            address messenger
+        ) = _deploy(
+            bridge,
+            deployerPrivateKey,
+            deployer,
+            admin,
+            oracle,
+            tangleChainId,
+            l2Receiver,
+            beaconOracleOverride,
+            true
+        );
 
-        // 1. Deploy beacon oracle (or use existing)
-        address beaconOracle = vm.envOr("BEACON_ORACLE", address(0));
+        // Log deployment summary
+        console2.log("\n=== L1 Deployment Summary ===");
+        console2.log("Chain ID:", block.chainid);
+        console2.log("ValidatorPodManager:", podManager);
+        console2.log("L2SlashingConnector:", connector);
+        console2.log("CrossChainMessenger:", messenger);
+        console2.log("Target L2 Chain:", tangleChainId);
+        console2.log("L2 Receiver:", l2Receiver);
+    }
+
+    /// @notice Dry-run deployment for testing/CI
+    function dryRun(
+        BridgeProtocol bridge,
+        address deployer,
+        address admin,
+        address oracle,
+        uint256 tangleChainId,
+        address l2Receiver,
+        address beaconOracle
+    )
+        external
+        returns (address podManager, address connector, address messenger)
+    {
+        (, podManager, connector, messenger) = _deploy(
+            bridge,
+            0,
+            deployer == address(0) ? msg.sender : deployer,
+            admin,
+            oracle,
+            tangleChainId,
+            l2Receiver,
+            beaconOracle,
+            false
+        );
+    }
+
+    function _deploy(
+        BridgeProtocol bridge,
+        uint256 deployerPrivateKey,
+        address deployer,
+        address admin,
+        address oracle,
+        uint256 tangleChainId,
+        address l2Receiver,
+        address beaconOracleOverride,
+        bool broadcast
+    )
+        internal
+        returns (
+            address beaconOracle,
+            address podManager,
+            address connector,
+            address messenger
+        )
+    {
+        if (broadcast) {
+            vm.startBroadcast(deployerPrivateKey);
+        } else if (deployer != address(0)) {
+            vm.startPrank(deployer);
+        }
+
+        beaconOracle = beaconOracleOverride;
         if (beaconOracle == address(0)) {
-            // Deploy mock for testnet, production uses 4788 precompile receiver
             beaconOracle = address(new MockBeaconOracle());
             console2.log("MockBeaconOracle:", beaconOracle);
         } else {
+            _enforceAllowlist("BEACON_ORACLE_ALLOWLIST", beaconOracle);
             console2.log("Using existing BeaconOracle:", beaconOracle);
         }
 
-        // 2. Deploy ValidatorPodManager
-        ValidatorPodManager podManager = new ValidatorPodManager(
-            beaconOracle,
-            minOperatorStake
-        );
-        console2.log("ValidatorPodManager:", address(podManager));
+        ValidatorPodManager podManagerContract = new ValidatorPodManager(beaconOracle, minOperatorStake);
+        podManager = address(podManagerContract);
+        console2.log("ValidatorPodManager:", podManager);
 
-        // Transfer ownership if admin is different from deployer
         if (admin != deployer) {
-            podManager.transferOwnership(admin);
+            podManagerContract.transferOwnership(admin);
             console2.log("Transferred ownership to admin");
         }
 
-        // 3. Deploy L2SlashingConnector
-        L2SlashingConnector connector = new L2SlashingConnector(
-            address(podManager),
-            oracle
-        );
-        console2.log("L2SlashingConnector:", address(connector));
+        L2SlashingConnector connectorContract = new L2SlashingConnector(podManager, oracle);
+        connector = address(connectorContract);
+        console2.log("L2SlashingConnector:", connector);
 
-        // 4. Deploy cross-chain messenger based on selected protocol
-        address messenger;
         if (bridge == BridgeProtocol.Hyperlane) {
             messenger = deployHyperlaneMessenger();
         } else {
             messenger = deployLayerZeroMessenger();
         }
 
-        // 5. Configure connector
-        connector.setMessenger(messenger);
-        connector.setDefaultDestinationChain(tangleChainId);
-        connector.setChainConfig(
-            tangleChainId,
-            l2Receiver,
-            200_000,  // Gas limit for L2 execution
-            true      // Enabled
-        );
+        connectorContract.setMessenger(messenger);
+        connectorContract.setDefaultDestinationChain(tangleChainId);
+        connectorContract.setChainConfig(tangleChainId, l2Receiver, 200_000, true);
         console2.log("Connector configured for chain:", tangleChainId);
 
-        vm.stopBroadcast();
-
-        // Log deployment summary
-        console2.log("\n=== L1 Deployment Summary ===");
-        console2.log("Chain ID:", block.chainid);
-        console2.log("ValidatorPodManager:", address(podManager));
-        console2.log("L2SlashingConnector:", address(connector));
-        console2.log("CrossChainMessenger:", messenger);
-        console2.log("Target L2 Chain:", tangleChainId);
-        console2.log("L2 Receiver:", l2Receiver);
+        if (broadcast) {
+            vm.stopBroadcast();
+        } else if (deployer != address(0)) {
+            vm.stopPrank();
+        }
     }
 
     function deployHyperlaneMessenger() internal returns (address) {
@@ -149,6 +212,41 @@ contract DeployBeaconSlashingL1 is Script {
         LayerZeroCrossChainMessenger messenger = new LayerZeroCrossChainMessenger(endpoint);
         console2.log("LayerZeroCrossChainMessenger:", address(messenger));
         return address(messenger);
+    }
+
+    function _requireEnvUint(string memory key) internal returns (uint256 value) {
+        try vm.envUint(key) returns (uint256 raw) {
+            return raw;
+        } catch {
+            revert MissingEnv(key);
+        }
+    }
+
+    function _requireEnvAddress(string memory key) internal returns (address value) {
+        try vm.envAddress(key) returns (address raw) {
+            if (raw == address(0)) revert MissingEnv(key);
+            return raw;
+        } catch {
+            revert MissingEnv(key);
+        }
+    }
+
+    function _envAddressOrDefault(string memory key, address defaultValue) internal returns (address) {
+        try vm.envAddress(key) returns (address raw) {
+            if (raw == address(0)) revert MissingEnv(key);
+            return raw;
+        } catch {
+            if (defaultValue == address(0)) revert MissingEnv(key);
+            return defaultValue;
+        }
+    }
+
+    function _enforceAllowlist(string memory key, address candidate) internal view {
+        try vm.envAddress(key) returns (address allowed) {
+            if (allowed != address(0) && candidate != allowed) {
+                revert AddressNotAllowlisted(key, candidate, allowed);
+            }
+        } catch {}
     }
 }
 

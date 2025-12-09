@@ -65,22 +65,25 @@ interface IPriceOracle {
     /// @param token The token address
     /// @param amount The amount in token's native decimals
     /// @return usdValue USD value with 18 decimals
+    // forge-lint: disable-next-line(mixed-case-function)
     function toUSD(address token, uint256 amount) external view returns (uint256 usdValue);
 
     /// @notice Convert USD value to token amount
     /// @param token The token address
     /// @param usdValue USD value with 18 decimals
     /// @return amount Token amount in token's native decimals
+    // forge-lint: disable-next-line(mixed-case-function)
     function fromUSD(address token, uint256 usdValue) external view returns (uint256 amount);
 
     /// @notice Batch convert multiple token amounts to USD
     /// @param tokens Array of token addresses
     /// @param amounts Array of amounts in each token's native decimals
-    /// @return totalUSD Total USD value with 18 decimals
+    /// @return totalUsd Total USD value with 18 decimals
+    // forge-lint: disable-next-line(mixed-case-function)
     function batchToUSD(
         address[] calldata tokens,
         uint256[] calldata amounts
-    ) external view returns (uint256 totalUSD);
+    ) external view returns (uint256 totalUsd);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONFIGURATION

@@ -22,9 +22,11 @@ contract BeaconRootRelayer {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice OP Stack L1 Cross Domain Messenger
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IL1CrossDomainMessenger public immutable messenger;
 
     /// @notice Target contract on L2 to receive beacon roots
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     address public immutable l2BeaconRootReceiver;
 
     /// @notice Tracks which timestamps have been relayed (to prevent duplicates)

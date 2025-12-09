@@ -5,8 +5,6 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import { TangleToken } from "../governance/TangleToken.sol";
 import { IRewardsManager } from "../interfaces/IRewardsManager.sol";
 
@@ -45,6 +43,12 @@ contract RewardVaults is
 
     /// @notice Blocks per year (assuming ~12s blocks)
     uint256 public constant BLOCKS_PER_YEAR = 2_628_000;
+
+    /// @notice Configurable lock durations for multiplier rewards (in seconds)
+    uint256 public lockDurationOneMonth = 30 days;
+    uint256 public lockDurationTwoMonths = 60 days;
+    uint256 public lockDurationThreeMonths = 90 days;
+    uint256 public lockDurationSixMonths = 180 days;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
@@ -90,6 +94,7 @@ contract RewardVaults is
         uint256 stakedAmount;            // Current stake
         LockDuration lockDuration;       // Lock duration for multiplier
         uint256 lockExpiry;              // When lock expires (0 = no lock)
+        uint256 boostedScore;            // Weighted score minted for this delegator/operator pair
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -113,6 +118,10 @@ contract RewardVaults is
 
     /// @notice Delegator debt per asset: asset => delegator => operator => debt
     mapping(address => mapping(address => mapping(address => DelegatorDebt))) public delegatorDebts;
+
+    /// @notice Operators tracked per asset for epoch reward fan-out
+    mapping(address => address[]) private assetOperators;
+    mapping(address => mapping(address => bool)) private isAssetOperator;
 
     /// @notice Decay configuration
     uint256 public decayStartBlock;  // Block after which decay starts
@@ -138,6 +147,7 @@ contract RewardVaults is
 
     event DecayConfigUpdated(uint256 startBlock, uint256 rateBps);
     event OperatorCommissionUpdated(uint16 newBps);
+    event LockDurationsUpdated(uint256 oneMonth, uint256 twoMonths, uint256 threeMonths, uint256 sixMonths);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -153,6 +163,8 @@ contract RewardVaults is
     error NoRewardsToClaim();
     error StillLocked(uint256 expiry);
     error MintFailed();
+    error DepositCapExceeded(address asset);
+    error InsufficientStake();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -273,6 +285,26 @@ contract RewardVaults is
         emit DecayConfigUpdated(startBlock, rateBps);
     }
 
+    /// @notice Update lock durations to better align with observed block times
+    function setLockDurations(
+        uint256 oneMonth,
+        uint256 twoMonths,
+        uint256 threeMonths,
+        uint256 sixMonths
+    ) external onlyRole(ADMIN_ROLE) {
+        require(oneMonth > 0, "oneMonth=0");
+        require(twoMonths >= oneMonth, "twoMonths<one");
+        require(threeMonths >= twoMonths, "threeMonths<two");
+        require(sixMonths >= threeMonths, "sixMonths<three");
+
+        lockDurationOneMonth = oneMonth;
+        lockDurationTwoMonths = twoMonths;
+        lockDurationThreeMonths = threeMonths;
+        lockDurationSixMonths = sixMonths;
+
+        emit LockDurationsUpdated(oneMonth, twoMonths, threeMonths, sixMonths);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // IRewardsManager IMPLEMENTATION (Called by MultiAssetDelegation)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -286,26 +318,31 @@ contract RewardVaults is
         uint16 lockMultiplierBps
     ) external override onlyRole(REWARDS_MANAGER_ROLE) {
         // Skip if asset not in a vault
-        if (vaultConfigs[asset].depositCap == 0) return;
+        VaultConfig storage config = vaultConfigs[asset];
+        if (config.depositCap == 0) return;
+        if (!config.active) revert VaultNotActive(asset);
 
+        _trackOperator(asset, operator);
         _updateVaultRewards(asset);
 
         // Update vault totals
         VaultState storage state = vaultStates[asset];
-        state.totalDeposits += amount;
-
-        // Calculate score with lock multiplier
         uint256 score = lockMultiplierBps > 0
             ? (amount * lockMultiplierBps) / BPS_DENOMINATOR
             : amount;
+        if (state.totalScore + score > config.depositCap) revert DepositCapExceeded(asset);
+        state.totalDeposits += amount;
         state.totalScore += score;
 
         // Track delegator's first interaction for reward claiming
-        if (delegatorDebts[asset][delegator][operator].stakedAmount == 0) {
-            delegatorDebts[asset][delegator][operator].lastAccumulatedPerShare =
-                operatorPools[asset][operator].accumulatedPerShare;
+        DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
+        if (debt.stakedAmount == 0) {
+            debt.lastAccumulatedPerShare = operatorPools[asset][operator].accumulatedPerShare;
         }
-        delegatorDebts[asset][delegator][operator].stakedAmount += amount;
+        debt.stakedAmount += amount;
+        debt.boostedScore += score;
+        debt.lockDuration = LockDuration.None;
+        debt.lockExpiry = 0;
 
         // Update operator pool total
         operatorPools[asset][operator].totalStaked += amount;
@@ -327,20 +364,31 @@ contract RewardVaults is
 
         // Update vault totals
         VaultState storage state = vaultStates[asset];
+        DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
+        if (debt.stakedAmount < amount) revert InsufficientStake();
+        uint256 stakedBefore = debt.stakedAmount;
+        uint256 score = debt.boostedScore == 0
+            ? amount
+            : (debt.boostedScore * amount) / stakedBefore;
         state.totalDeposits -= amount;
-        state.totalScore -= amount; // Simplified - assumes no lock multiplier on unstake
+        state.totalScore -= score;
 
         // Update delegator tracking
-        DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
-        if (debt.stakedAmount >= amount) {
-            debt.stakedAmount -= amount;
+        debt.stakedAmount -= amount;
+        if (debt.boostedScore >= score) {
+            debt.boostedScore -= score;
+        } else {
+            debt.boostedScore = 0;
+        }
+        if (debt.stakedAmount == 0) {
+            debt.lockDuration = LockDuration.None;
+            debt.lockExpiry = 0;
         }
 
         // Update operator pool total
         OperatorPool storage pool = operatorPools[asset][operator];
-        if (pool.totalStaked >= amount) {
-            pool.totalStaked -= amount;
-        }
+        if (pool.totalStaked < amount) revert InsufficientStake();
+        pool.totalStaked -= amount;
 
         emit UnstakeRecorded(asset, delegator, operator, amount);
     }
@@ -354,24 +402,11 @@ contract RewardVaults is
         // Skip if asset not in a vault or no amount
         if (vaultConfigs[asset].depositCap == 0 || amount == 0) return;
 
+        _trackOperator(asset, operator);
         _updateVaultRewards(asset);
         _updateOperatorPool(asset, operator);
 
-        OperatorPool storage pool = operatorPools[asset][operator];
-
-        // Split between commission and delegator pool
-        uint256 commission = (amount * operatorCommissionBps) / BPS_DENOMINATOR;
-        uint256 poolReward = amount - commission;
-
-        pool.pendingCommission += commission;
-
-        if (pool.totalStaked > 0 && poolReward > 0) {
-            pool.accumulatedPerShare += (poolReward * PRECISION) / pool.totalStaked;
-        }
-
-        vaultStates[asset].rewardsDistributed += amount;
-
-        emit RewardsDistributed(asset, operator, poolReward, commission);
+        _distributeToOperatorPool(asset, operator, amount);
     }
 
     /// @inheritdoc IRewardsManager
@@ -410,11 +445,30 @@ contract RewardVaults is
         VaultState storage state = vaultStates[asset];
         if (state.totalDeposits == 0) return;
 
-        // Distribute to all operator pools proportionally to their stake
-        // This is a simplified distribution - in practice you'd iterate over operators
-        // For now, we track it at the vault level and individual operators claim their share
+        address[] storage operators = assetOperators[asset];
+        uint256 totalStake = 0;
+        for (uint256 i = 0; i < operators.length; i++) {
+            uint256 stake = operatorPools[asset][operators[i]].totalStaked;
+            if (stake == 0) continue;
+            totalStake += stake;
+        }
+        if (totalStake == 0) return;
 
-        state.rewardsDistributed += amount;
+        uint256 amountRemaining = amount;
+        uint256 stakeRemaining = totalStake;
+        for (uint256 i = 0; i < operators.length && amountRemaining > 0; i++) {
+            address operator = operators[i];
+            uint256 operatorStake = operatorPools[asset][operator].totalStaked;
+            if (operatorStake == 0) continue;
+
+            uint256 share = (amountRemaining * operatorStake) / stakeRemaining;
+            amountRemaining -= share;
+            stakeRemaining -= operatorStake;
+            if (share == 0) continue;
+
+            _updateOperatorPool(asset, operator);
+            _distributeToOperatorPool(asset, operator, share);
+        }
 
         emit EpochRewardDistributed(asset, amount);
     }
@@ -431,24 +485,11 @@ contract RewardVaults is
         if (amount == 0) return;
         if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
 
+        _trackOperator(asset, operator);
         _updateVaultRewards(asset);
         _updateOperatorPool(asset, operator);
 
-        OperatorPool storage pool = operatorPools[asset][operator];
-
-        // Split between commission and delegator pool
-        uint256 commission = (amount * operatorCommissionBps) / BPS_DENOMINATOR;
-        uint256 poolReward = amount - commission;
-
-        pool.pendingCommission += commission;
-
-        if (pool.totalStaked > 0 && poolReward > 0) {
-            pool.accumulatedPerShare += (poolReward * PRECISION) / pool.totalStaked;
-        }
-
-        vaultStates[asset].rewardsDistributed += amount;
-
-        emit RewardsDistributed(asset, operator, poolReward, commission);
+        _distributeToOperatorPool(asset, operator, amount);
     }
 
     // Event for epoch rewards
@@ -475,6 +516,7 @@ contract RewardVaults is
         if (config.depositCap == 0) revert VaultNotFound(asset);
         if (!config.active) revert VaultNotActive(asset);
 
+        _trackOperator(asset, operator);
         // Update vault and operator pool rewards first
         _updateVaultRewards(asset);
         _updateOperatorPool(asset, operator);
@@ -482,6 +524,7 @@ contract RewardVaults is
         // Update vault state
         VaultState storage state = vaultStates[asset];
         uint256 score = _calculateScore(amount, lock);
+        if (state.totalScore + score > config.depositCap) revert DepositCapExceeded(asset);
         state.totalDeposits += amount;
         state.totalScore += score;
 
@@ -496,7 +539,10 @@ contract RewardVaults is
         debt.lockDuration = lock;
         if (lock != LockDuration.None) {
             debt.lockExpiry = block.timestamp + _lockDurationSeconds(lock);
+        } else {
+            debt.lockExpiry = 0;
         }
+        debt.boostedScore += score;
 
         emit StakeRecorded(asset, delegator, operator, amount, lock);
     }
@@ -510,6 +556,7 @@ contract RewardVaults is
     ) external onlyRole(REWARDS_MANAGER_ROLE) {
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
         if (debt.lockExpiry > block.timestamp) revert StillLocked(debt.lockExpiry);
+        if (debt.stakedAmount < amount) revert InsufficientStake();
 
         // Update rewards before unstaking
         _updateVaultRewards(asset);
@@ -517,16 +564,24 @@ contract RewardVaults is
 
         // Update vault state
         VaultState storage state = vaultStates[asset];
-        uint256 score = _calculateScore(amount, debt.lockDuration);
+        uint256 score = debt.boostedScore == 0
+            ? _calculateScore(amount, debt.lockDuration)
+            : (debt.boostedScore * amount) / debt.stakedAmount;
         state.totalDeposits -= amount;
         state.totalScore -= score;
 
         // Update operator pool
         OperatorPool storage pool = operatorPools[asset][operator];
+        if (pool.totalStaked < amount) revert InsufficientStake();
         pool.totalStaked -= amount;
 
         // Update delegator debt
         debt.stakedAmount -= amount;
+        if (debt.boostedScore >= score) {
+            debt.boostedScore -= score;
+        } else {
+            debt.boostedScore = 0;
+        }
         if (debt.stakedAmount == 0) {
             debt.lockDuration = LockDuration.None;
             debt.lockExpiry = 0;
@@ -600,27 +655,11 @@ contract RewardVaults is
     ) external onlyRole(REWARDS_MANAGER_ROLE) {
         if (amount == 0) return;
 
+        _trackOperator(asset, operator);
         _updateVaultRewards(asset);
         _updateOperatorPool(asset, operator);
 
-        OperatorPool storage pool = operatorPools[asset][operator];
-
-        // Split between commission and delegator pool
-        uint256 commission = (amount * operatorCommissionBps) / BPS_DENOMINATOR;
-        uint256 poolReward = amount - commission;
-
-        // Add commission to pending
-        pool.pendingCommission += commission;
-
-        // Add to pool (increases accumulated per share)
-        if (pool.totalStaked > 0 && poolReward > 0) {
-            pool.accumulatedPerShare += (poolReward * PRECISION) / pool.totalStaked;
-        }
-
-        // Track in vault state
-        vaultStates[asset].rewardsDistributed += amount;
-
-        emit RewardsDistributed(asset, operator, poolReward, commission);
+        _distributeToOperatorPool(asset, operator, amount);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -669,6 +708,31 @@ contract RewardVaults is
         pool.lastUpdateBlock = block.number;
     }
 
+    function _trackOperator(address asset, address operator) internal {
+        if (isAssetOperator[asset][operator]) return;
+        isAssetOperator[asset][operator] = true;
+        assetOperators[asset].push(operator);
+    }
+
+    function _distributeToOperatorPool(address asset, address operator, uint256 amount) internal {
+        if (amount == 0) return;
+
+        OperatorPool storage pool = operatorPools[asset][operator];
+
+        uint256 commission = (amount * operatorCommissionBps) / BPS_DENOMINATOR;
+        uint256 poolReward = amount - commission;
+
+        pool.pendingCommission += commission;
+
+        if (pool.totalStaked > 0 && poolReward > 0) {
+            pool.accumulatedPerShare += (poolReward * PRECISION) / pool.totalStaked;
+        }
+
+        vaultStates[asset].rewardsDistributed += amount;
+
+        emit RewardsDistributed(asset, operator, poolReward, commission);
+    }
+
     /// @notice Calculate delegator rewards owed
     function _calculateDelegatorRewards(
         OperatorPool storage pool,
@@ -697,11 +761,11 @@ contract RewardVaults is
     }
 
     /// @notice Get lock duration in seconds
-    function _lockDurationSeconds(LockDuration lock) internal pure returns (uint256) {
-        if (lock == LockDuration.OneMonth) return 30 days;
-        if (lock == LockDuration.TwoMonths) return 60 days;
-        if (lock == LockDuration.ThreeMonths) return 90 days;
-        if (lock == LockDuration.SixMonths) return 180 days;
+    function _lockDurationSeconds(LockDuration lock) internal view returns (uint256) {
+        if (lock == LockDuration.OneMonth) return lockDurationOneMonth;
+        if (lock == LockDuration.TwoMonths) return lockDurationTwoMonths;
+        if (lock == LockDuration.ThreeMonths) return lockDurationThreeMonths;
+        if (lock == LockDuration.SixMonths) return lockDurationSixMonths;
         return 0;
     }
 

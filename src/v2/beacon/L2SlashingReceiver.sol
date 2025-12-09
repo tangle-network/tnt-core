@@ -102,13 +102,21 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     // ═══════════════════════════════════════════════════════════════════════════
 
     modifier onlyMessenger() {
-        if (msg.sender != messenger) revert UnauthorizedMessenger();
+        _onlyMessenger();
         _;
     }
 
+    function _onlyMessenger() internal view {
+        if (msg.sender != messenger) revert UnauthorizedMessenger();
+    }
+
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner");
+        _onlyOwner();
         _;
+    }
+
+    function _onlyOwner() internal view {
+        require(msg.sender == owner, "Only owner");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

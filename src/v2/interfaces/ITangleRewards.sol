@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Types } from "../libraries/Types.sol";
-
 /// @title ITangleRewards
 /// @notice Reward distribution and claiming interface
 interface ITangleRewards {

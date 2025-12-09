@@ -109,6 +109,7 @@ abstract contract Blueprints is Base {
         address manager,
         Types.BlueprintConfig calldata config
     ) external whenNotPaused returns (uint64 blueprintId) {
+        metadataUri; // Metadata stored off-chain; emitted via events in extensions.
         blueprintId = _blueprintCount++;
 
         _blueprints[blueprintId] = Types.Blueprint({

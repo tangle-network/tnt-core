@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test, console2} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {ValidatorPod} from "../../../src/v2/beacon/ValidatorPod.sol";
 import {ValidatorPodManager} from "../../../src/v2/beacon/ValidatorPodManager.sol";
 import {ValidatorTypes} from "../../../src/v2/beacon/ValidatorTypes.sol";
-import {BeaconChainProofs} from "../../../src/v2/beacon/BeaconChainProofs.sol";
 import {MockBeaconOracle} from "../../../src/v2/beacon/BeaconRootReceiver.sol";
 
 /// @title BeaconTestBase
 /// @notice Base test contract for beacon chain restaking tests
 abstract contract BeaconTestBase is Test {
+    function assertEq(
+        ValidatorTypes.ValidatorStatus left,
+        ValidatorTypes.ValidatorStatus right,
+        string memory err
+    ) internal pure {
+        if (left != right) {
+            revert(err);
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // CONTRACTS
     // ═══════════════════════════════════════════════════════════════════════════

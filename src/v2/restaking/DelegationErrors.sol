@@ -19,6 +19,7 @@ library DelegationErrors {
 
     error InsufficientStake(uint256 required, uint256 provided);
     error ZeroAmount();
+    error ZeroAddress();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ASSET ERRORS
@@ -58,6 +59,7 @@ library DelegationErrors {
     // ═══════════════════════════════════════════════════════════════════════════
 
     error NotSlasher(address caller);
+    error LegacySlashRequiresAllMode(address operator);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT MANAGEMENT ERRORS
@@ -68,4 +70,10 @@ library DelegationErrors {
     error BlueprintAlreadySelected(uint64 blueprintId);
     error BlueprintNotSelected(uint64 blueprintId);
     error CannotRemoveLastBlueprint();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LOCK VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    error InvalidLockMultiplier(uint8 value);
 }

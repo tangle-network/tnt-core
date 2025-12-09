@@ -645,6 +645,7 @@ interface ITangleOperators {
     function getOperatorPublicKey(uint64 blueprintId, address operator) external view returns (bytes memory);
     function getOperatorRegistration(uint64 blueprintId, address operator) external view returns (Types.OperatorRegistration memory);
     function isOperatorRegistered(uint64 blueprintId, address operator) external view returns (bool);
+    function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external;
     function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external;
     function setOperatorOnline(uint64 blueprintId, bool online) external;
     function unregisterOperator(uint64 blueprintId) external;
@@ -784,6 +785,34 @@ interface ITangleOperators {
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "registerOperator",
+    "inputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "ecdsaPublicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "rpcAddress",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "registrationInputs",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -2209,13 +2238,201 @@ function isOperatorRegistered(uint64 blueprintId, address operator) external vie
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `registerOperator(uint64,bytes,string,bytes)` and selector `0x7324e916`.
+```solidity
+function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct registerOperator_0Call {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub ecdsaPublicKey: alloy::sol_types::private::Bytes,
+        #[allow(missing_docs)]
+        pub rpcAddress: alloy::sol_types::private::String,
+        #[allow(missing_docs)]
+        pub registrationInputs: alloy::sol_types::private::Bytes,
+    }
+    ///Container type for the return parameters of the [`registerOperator(uint64,bytes,string,bytes)`](registerOperator_0Call) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct registerOperator_0Return {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Bytes,
+                alloy::sol_types::sol_data::String,
+                alloy::sol_types::sol_data::Bytes,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                u64,
+                alloy::sol_types::private::Bytes,
+                alloy::sol_types::private::String,
+                alloy::sol_types::private::Bytes,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<registerOperator_0Call>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: registerOperator_0Call) -> Self {
+                    (
+                        value.blueprintId,
+                        value.ecdsaPublicKey,
+                        value.rpcAddress,
+                        value.registrationInputs,
+                    )
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for registerOperator_0Call {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        blueprintId: tuple.0,
+                        ecdsaPublicKey: tuple.1,
+                        rpcAddress: tuple.2,
+                        registrationInputs: tuple.3,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<registerOperator_0Return>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: registerOperator_0Return) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for registerOperator_0Return {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl registerOperator_0Return {
+            fn _tokenize(
+                &self,
+            ) -> <registerOperator_0Call as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for registerOperator_0Call {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Bytes,
+                alloy::sol_types::sol_data::String,
+                alloy::sol_types::sol_data::Bytes,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = registerOperator_0Return;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "registerOperator(uint64,bytes,string,bytes)";
+            const SELECTOR: [u8; 4] = [115u8, 36u8, 233u8, 22u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
+                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
+                        &self.ecdsaPublicKey,
+                    ),
+                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
+                        &self.rpcAddress,
+                    ),
+                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
+                        &self.registrationInputs,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                registerOperator_0Return::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `registerOperator(uint64,bytes,string)` and selector `0xd4e1ab7c`.
 ```solidity
 function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct registerOperatorCall {
+    pub struct registerOperator_1Call {
         #[allow(missing_docs)]
         pub blueprintId: u64,
         #[allow(missing_docs)]
@@ -2223,10 +2440,10 @@ function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, strin
         #[allow(missing_docs)]
         pub rpcAddress: alloy::sol_types::private::String,
     }
-    ///Container type for the return parameters of the [`registerOperator(uint64,bytes,string)`](registerOperatorCall) function.
+    ///Container type for the return parameters of the [`registerOperator(uint64,bytes,string)`](registerOperator_1Call) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct registerOperatorReturn {}
+    pub struct registerOperator_1Return {}
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -2262,16 +2479,16 @@ function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, strin
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<registerOperatorCall>
+            impl ::core::convert::From<registerOperator_1Call>
             for UnderlyingRustTuple<'_> {
-                fn from(value: registerOperatorCall) -> Self {
+                fn from(value: registerOperator_1Call) -> Self {
                     (value.blueprintId, value.ecdsaPublicKey, value.rpcAddress)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for registerOperatorCall {
+            for registerOperator_1Call {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         blueprintId: tuple.0,
@@ -2300,30 +2517,30 @@ function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, strin
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<registerOperatorReturn>
+            impl ::core::convert::From<registerOperator_1Return>
             for UnderlyingRustTuple<'_> {
-                fn from(value: registerOperatorReturn) -> Self {
+                fn from(value: registerOperator_1Return) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for registerOperatorReturn {
+            for registerOperator_1Return {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
             }
         }
-        impl registerOperatorReturn {
+        impl registerOperator_1Return {
             fn _tokenize(
                 &self,
-            ) -> <registerOperatorCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            ) -> <registerOperator_1Call as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolCall for registerOperatorCall {
+        impl alloy_sol_types::SolCall for registerOperator_1Call {
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Bytes,
@@ -2332,7 +2549,7 @@ function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, strin
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = registerOperatorReturn;
+            type Return = registerOperator_1Return;
             type ReturnTuple<'a> = ();
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -2361,7 +2578,7 @@ function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, strin
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                registerOperatorReturn::_tokenize(ret)
+                registerOperator_1Return::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -2881,7 +3098,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         isOperatorRegistered(isOperatorRegisteredCall),
         #[allow(missing_docs)]
-        registerOperator(registerOperatorCall),
+        registerOperator_0(registerOperator_0Call),
+        #[allow(missing_docs)]
+        registerOperator_1(registerOperator_1Call),
         #[allow(missing_docs)]
         setOperatorOnline(setOperatorOnlineCall),
         #[allow(missing_docs)]
@@ -2901,6 +3120,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [24u8, 12u8, 174u8, 103u8],
             [100u8, 70u8, 37u8, 149u8],
             [107u8, 218u8, 66u8, 243u8],
+            [115u8, 36u8, 233u8, 22u8],
             [126u8, 138u8, 193u8, 62u8],
             [144u8, 158u8, 172u8, 36u8],
             [212u8, 225u8, 171u8, 124u8],
@@ -2912,9 +3132,10 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(getOperatorPublicKey),
             ::core::stringify!(isOperatorRegistered),
             ::core::stringify!(getOperatorRegistration),
+            ::core::stringify!(registerOperator_0),
             ::core::stringify!(setOperatorOnline),
             ::core::stringify!(updateOperatorPreferences),
-            ::core::stringify!(registerOperator),
+            ::core::stringify!(registerOperator_1),
             ::core::stringify!(getOperatorPreferences),
         ];
         /// The signatures in the same order as `SELECTORS`.
@@ -2923,9 +3144,10 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <getOperatorPublicKeyCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isOperatorRegisteredCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorRegistrationCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <registerOperator_0Call as alloy_sol_types::SolCall>::SIGNATURE,
             <setOperatorOnlineCall as alloy_sol_types::SolCall>::SIGNATURE,
             <updateOperatorPreferencesCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <registerOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <registerOperator_1Call as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorPreferencesCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -2953,7 +3175,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
     impl alloy_sol_types::SolInterface for ITangleOperatorsCalls {
         const NAME: &'static str = "ITangleOperatorsCalls";
         const MIN_DATA_LENGTH: usize = 32usize;
-        const COUNT: usize = 8usize;
+        const COUNT: usize = 9usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -2969,8 +3191,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 Self::isOperatorRegistered(_) => {
                     <isOperatorRegisteredCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::registerOperator(_) => {
-                    <registerOperatorCall as alloy_sol_types::SolCall>::SELECTOR
+                Self::registerOperator_0(_) => {
+                    <registerOperator_0Call as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::registerOperator_1(_) => {
+                    <registerOperator_1Call as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::setOperatorOnline(_) => {
                     <setOperatorOnlineCall as alloy_sol_types::SolCall>::SELECTOR
@@ -3045,6 +3270,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     getOperatorRegistration
                 },
                 {
+                    fn registerOperator_0(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleOperatorsCalls> {
+                        <registerOperator_0Call as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleOperatorsCalls::registerOperator_0)
+                    }
+                    registerOperator_0
+                },
+                {
                     fn setOperatorOnline(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleOperatorsCalls> {
@@ -3067,15 +3303,15 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     updateOperatorPreferences
                 },
                 {
-                    fn registerOperator(
+                    fn registerOperator_1(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleOperatorsCalls> {
-                        <registerOperatorCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                        <registerOperator_1Call as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
                             )
-                            .map(ITangleOperatorsCalls::registerOperator)
+                            .map(ITangleOperatorsCalls::registerOperator_1)
                     }
-                    registerOperator
+                    registerOperator_1
                 },
                 {
                     fn getOperatorPreferences(
@@ -3153,6 +3389,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     getOperatorRegistration
                 },
                 {
+                    fn registerOperator_0(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleOperatorsCalls> {
+                        <registerOperator_0Call as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleOperatorsCalls::registerOperator_0)
+                    }
+                    registerOperator_0
+                },
+                {
                     fn setOperatorOnline(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleOperatorsCalls> {
@@ -3175,15 +3422,15 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     updateOperatorPreferences
                 },
                 {
-                    fn registerOperator(
+                    fn registerOperator_1(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleOperatorsCalls> {
-                        <registerOperatorCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                        <registerOperator_1Call as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(ITangleOperatorsCalls::registerOperator)
+                            .map(ITangleOperatorsCalls::registerOperator_1)
                     }
-                    registerOperator
+                    registerOperator_1
                 },
                 {
                     fn getOperatorPreferences(
@@ -3230,8 +3477,13 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         inner,
                     )
                 }
-                Self::registerOperator(inner) => {
-                    <registerOperatorCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                Self::registerOperator_0(inner) => {
+                    <registerOperator_0Call as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::registerOperator_1(inner) => {
+                    <registerOperator_1Call as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -3279,8 +3531,14 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         out,
                     )
                 }
-                Self::registerOperator(inner) => {
-                    <registerOperatorCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                Self::registerOperator_0(inner) => {
+                    <registerOperator_0Call as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::registerOperator_1(inner) => {
+                    <registerOperator_1Call as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -3687,15 +3945,32 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
-        ///Creates a new call builder for the [`registerOperator`] function.
-        pub fn registerOperator(
+        ///Creates a new call builder for the [`registerOperator_0`] function.
+        pub fn registerOperator_0(
             &self,
             blueprintId: u64,
             ecdsaPublicKey: alloy::sol_types::private::Bytes,
             rpcAddress: alloy::sol_types::private::String,
-        ) -> alloy_contract::SolCallBuilder<&P, registerOperatorCall, N> {
+            registrationInputs: alloy::sol_types::private::Bytes,
+        ) -> alloy_contract::SolCallBuilder<&P, registerOperator_0Call, N> {
             self.call_builder(
-                &registerOperatorCall {
+                &registerOperator_0Call {
+                    blueprintId,
+                    ecdsaPublicKey,
+                    rpcAddress,
+                    registrationInputs,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`registerOperator_1`] function.
+        pub fn registerOperator_1(
+            &self,
+            blueprintId: u64,
+            ecdsaPublicKey: alloy::sol_types::private::Bytes,
+            rpcAddress: alloy::sol_types::private::String,
+        ) -> alloy_contract::SolCallBuilder<&P, registerOperator_1Call, N> {
+            self.call_builder(
+                &registerOperator_1Call {
                     blueprintId,
                     ecdsaPublicKey,
                     rpcAddress,

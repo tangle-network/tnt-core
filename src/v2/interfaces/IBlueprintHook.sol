@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IBlueprintServiceManager } from "./IBlueprintServiceManager.sol";
-import { BlueprintServiceManagerBase } from "../BlueprintServiceManagerBase.sol";
-
 /// @title IBlueprintHook
 /// @notice Simplified hook interface for basic blueprint customization
 /// @dev For full control, implement IBlueprintServiceManager directly.

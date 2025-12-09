@@ -96,6 +96,7 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IPriceOracle
+    // forge-lint: disable-next-line(mixed-case-function)
     function toUSD(address token, uint256 amount) external view override returns (uint256 usdValue) {
         PriceData memory data = _getPriceData(token);
         if (!data.isValid) {
@@ -109,6 +110,7 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     }
 
     /// @inheritdoc IPriceOracle
+    // forge-lint: disable-next-line(mixed-case-function)
     function fromUSD(address token, uint256 usdValue) external view override returns (uint256 amount) {
         PriceData memory data = _getPriceData(token);
         if (!data.isValid) {
@@ -121,10 +123,11 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     }
 
     /// @inheritdoc IPriceOracle
+    // forge-lint: disable-next-line(mixed-case-function)
     function batchToUSD(
         address[] calldata tokens,
         uint256[] calldata amounts
-    ) external view override returns (uint256 totalUSD) {
+    ) external view override returns (uint256 totalUsd) {
         require(tokens.length == amounts.length, "Length mismatch");
 
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -133,7 +136,7 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
                 if (!data.isValid) {
                     revert PriceNotAvailable(tokens[i]);
                 }
-                totalUSD += (amounts[i] * data.price) / (10 ** data.decimals);
+                totalUsd += (amounts[i] * data.price) / (10 ** data.decimals);
             }
         }
     }
@@ -227,10 +230,14 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
             uint256 normalizedPrice;
 
             if (feedDecimals < 18) {
+                // Casting is safe because Chainlink answers fit in uint256.
+                // forge-lint: disable-next-line(unsafe-typecast)
                 normalizedPrice = uint256(answer) * (10 ** (18 - feedDecimals));
             } else if (feedDecimals > 18) {
+                // forge-lint: disable-next-line(unsafe-typecast)
                 normalizedPrice = uint256(answer) / (10 ** (feedDecimals - 18));
             } else {
+                // forge-lint: disable-next-line(unsafe-typecast)
                 normalizedPrice = uint256(answer);
             }
 

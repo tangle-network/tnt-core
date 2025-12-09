@@ -381,12 +381,12 @@ contract MockBSM_V3 is MockBSM_V2 {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function onServiceInitialized(
-        uint64 _blueprintId,
-        uint64 _requestId,
+        uint64,
+        uint64,
         uint64 serviceId,
-        address _owner,
-        address[] calldata _callers,
-        uint64 _ttl
+        address,
+        address[] calldata,
+        uint64
     ) external override onlyFromTangle {
         hookCalls.onServiceInitialized++;
         initializedServices.push(serviceId);

@@ -61,7 +61,7 @@ contract TangleTimelock is Initializable, TimelockControllerUpgradeable, UUPSUpg
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Only the timelock itself (via governance) can upgrade
-    function _authorizeUpgrade(address) internal override {
+    function _authorizeUpgrade(address) internal view override {
         // Only callable by the timelock itself (i.e., through a governance proposal)
         require(msg.sender == address(this), "Only self-upgrade via governance");
     }

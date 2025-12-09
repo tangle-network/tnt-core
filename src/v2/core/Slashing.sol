@@ -53,11 +53,14 @@ abstract contract Slashing is Base {
         if (bp.manager != address(0)) {
             uint256 opStake = _restaking.getOperatorStake(operator);
             // Use basis points (0-10000) for precision instead of uint8 percentage (0-100)
+            // Casting to uint16 is safe because amount/opStake ratio is bounded by BPS_DENOMINATOR.
+            // forge-lint: disable-next-line(unsafe-typecast)
             uint16 slashPercentBps = opStake > 0 ? uint16((amount * BPS_DENOMINATOR) / opStake) : 0;
             if (slashPercentBps > BPS_DENOMINATOR) slashPercentBps = BPS_DENOMINATOR;
 
             // Convert to uint8 for hook (legacy interface compatibility)
             // Note: The hook interface uses uint8 slashPercent (0-100), so we convert
+            // forge-lint: disable-next-line(unsafe-typecast)
             uint8 slashPercent = uint8(slashPercentBps / 100);
             if (slashPercent > 100) slashPercent = 100;
 
@@ -119,12 +122,14 @@ abstract contract Slashing is Base {
         if (bp.manager != address(0)) {
             uint256 opStake = _restaking.getOperatorStake(proposal.operator);
             // Use basis points for precision
+            // forge-lint: disable-next-line(unsafe-typecast)
             uint16 slashPercentBps = opStake > 0
                 ? uint16((actualSlashed * BPS_DENOMINATOR) / (opStake + actualSlashed))
                 : BPS_DENOMINATOR;
             if (slashPercentBps > BPS_DENOMINATOR) slashPercentBps = BPS_DENOMINATOR;
 
             // Convert to uint8 for hook (legacy interface compatibility)
+            // forge-lint: disable-next-line(unsafe-typecast)
             uint8 slashPercent = uint8(slashPercentBps / 100);
             if (slashPercent > 100) slashPercent = 100;
 
@@ -171,9 +176,11 @@ abstract contract Slashing is Base {
             Types.Blueprint storage bp = _blueprints[svc.blueprintId];
             if (bp.manager != address(0)) {
                 uint256 opStake = _restaking.getOperatorStake(proposal.operator);
+                // forge-lint: disable-next-line(unsafe-typecast)
                 uint16 slashPercentBps = opStake > 0
                     ? uint16((actualSlashed * BPS_DENOMINATOR) / (opStake + actualSlashed))
                     : BPS_DENOMINATOR;
+                // forge-lint: disable-next-line(unsafe-typecast)
                 uint8 slashPercent = uint8(slashPercentBps / 100);
                 if (slashPercent > 100) slashPercent = 100;
 

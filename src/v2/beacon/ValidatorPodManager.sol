@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import {IBeaconOracle} from "./IBeaconOracle.sol";
 import {ValidatorPod} from "./ValidatorPod.sol";
-import {ValidatorTypes} from "./ValidatorTypes.sol";
 import {IRestaking} from "../interfaces/IRestaking.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -205,7 +204,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     /// @param podOwner The pod owner
     /// @param sharesDelta Change in shares (can be negative)
     /// @dev Only callable by a valid pod
-    function recordBeaconChainETHBalanceUpdate(
+    function recordBeaconChainEthBalanceUpdate(
         address podOwner,
         int256 sharesDelta
     ) external {
@@ -256,6 +255,8 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         int256 availableShares = podOwnerShares[msg.sender];
         uint256 currentDelegated = delegatorTotalDelegated[msg.sender]; // H-3 FIX
 
+        // availableShares fits in uint256 because negative case handled.
+        // forge-lint: disable-next-line(unsafe-typecast)
         if (availableShares < 0 || uint256(availableShares) < currentDelegated + amount) {
             revert InsufficientShares();
         }
@@ -312,6 +313,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         if (delegated > 0) revert HasPendingDelegations();
 
         // Available = total shares - already queued
+        // forge-lint: disable-next-line(unsafe-typecast)
         if (currentShares < 0 || uint256(currentShares) < queued + shares) {
             revert InsufficientShares();
         }
@@ -354,7 +356,9 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
 
         // Reduce shares and queued amount
         uint256 shares = withdrawal.shares;
+        // forge-lint: disable-next-line(unsafe-typecast)
         podOwnerShares[msg.sender] -= int256(shares);
+        // forge-lint: disable-next-line(unsafe-typecast)
         totalShares -= int256(shares);
         queuedShares[msg.sender] -= shares;
 
@@ -406,6 +410,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         uint256 used = delegated + queued;
 
         if (uint256(shares) > used) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             available = uint256(shares) - used;
         }
     }
@@ -451,6 +456,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     function getTotalDelegation(address delegator) external view override returns (uint256) {
         // Simplified - in production would need to track this
         int256 shares = podOwnerShares[delegator];
+        // forge-lint: disable-next-line(unsafe-typecast)
         return shares > 0 ? uint256(shares) : 0;
     }
 
@@ -470,7 +476,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     /// @inheritdoc IRestaking
     function slashForBlueprint(
         address operator,
-        uint64 blueprintId,
+        uint64 /*blueprintId*/,
         uint64 serviceId,
         uint256 amount,
         bytes32 evidence

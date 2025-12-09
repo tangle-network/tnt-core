@@ -7,7 +7,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { OperatorStatusRegistry } from "../../src/v2/restaking/OperatorStatusRegistry.sol";
-import { Types } from "../../src/v2/libraries/Types.sol";
 
 /// @title LocalTestnetSetup
 /// @notice Deploy and setup a complete local testnet environment for integration testing
@@ -25,6 +24,8 @@ contract LocalTestnetSetup is Script {
     address operator2;
     address delegator;
 
+    bool internal useBroadcastKeys;
+
     // Deployed contracts
     address public tangleProxy;
     address public restakingProxy;
@@ -36,6 +37,17 @@ contract LocalTestnetSetup is Script {
     uint64 public serviceId;
 
     function run() external {
+        _executeSetup(true);
+    }
+
+    /// @notice Dry run setup for CI/tests (no broadcast cheatcodes)
+    function dryRun() external returns (uint64) {
+        return _executeSetup(false);
+    }
+
+    function _executeSetup(bool broadcast) internal returns (uint64) {
+        useBroadcastKeys = broadcast;
+
         // Derive addresses
         deployer = vm.addr(DEPLOYER_KEY);
         operator1 = vm.addr(OPERATOR1_KEY);
@@ -48,25 +60,13 @@ contract LocalTestnetSetup is Script {
         console2.log("Operator2:", operator2);
         console2.log("Delegator:", delegator);
 
-        // Step 1: Deploy all contracts
         _deployContracts();
-
-        // Step 2: Register operators in restaking
         _registerOperatorsRestaking();
-
-        // Step 3: Create a test blueprint
         _createBlueprint();
-
-        // Step 4: Operators register for blueprint
         _operatorsRegisterForBlueprint();
-
-        // Step 5: Delegator stakes to operators
         _delegatorStake();
-
-        // Step 6: Request and approve a service
         _createAndApproveService();
 
-        // Summary
         console2.log("\n=== Local Testnet Ready ===");
         console2.log("Tangle:", tangleProxy);
         console2.log("MultiAssetDelegation:", restakingProxy);
@@ -76,11 +76,17 @@ contract LocalTestnetSetup is Script {
         console2.log("\nOperators registered and staked");
         console2.log("Delegator has delegated to both operators");
         console2.log("Service is active and ready for jobs");
+
+        return serviceId;
     }
 
     function _deployContracts() internal {
         console2.log("\n=== Deploying Contracts ===");
-        vm.startBroadcast(DEPLOYER_KEY);
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DEPLOYER_KEY);
+        } else {
+            vm.startPrank(deployer);
+        }
 
         // Deploy MultiAssetDelegation
         MultiAssetDelegation restakingImpl = new MultiAssetDelegation();
@@ -108,7 +114,11 @@ contract LocalTestnetSetup is Script {
         MultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
         Tangle(payable(tangleProxy)).setOperatorStatusRegistry(statusRegistry);
 
-        vm.stopBroadcast();
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
     }
 
     function _registerOperatorsRestaking() internal {
@@ -116,21 +126,41 @@ contract LocalTestnetSetup is Script {
         MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingProxy));
 
         // Operator 1 registers with 10 ETH stake
-        vm.startBroadcast(OPERATOR1_KEY);
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR1_KEY);
+        } else {
+            vm.startPrank(operator1);
+        }
         restaking.registerOperator{ value: 10 ether }();
         console2.log("Operator1 registered with 10 ETH stake");
-        vm.stopBroadcast();
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
 
         // Operator 2 registers with 10 ETH stake
-        vm.startBroadcast(OPERATOR2_KEY);
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR2_KEY);
+        } else {
+            vm.startPrank(operator2);
+        }
         restaking.registerOperator{ value: 10 ether }();
         console2.log("Operator2 registered with 10 ETH stake");
-        vm.stopBroadcast();
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
     }
 
     function _createBlueprint() internal {
         console2.log("\n=== Creating Blueprint ===");
-        vm.startBroadcast(DEPLOYER_KEY);
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DEPLOYER_KEY);
+        } else {
+            vm.startPrank(deployer);
+        }
 
         Tangle tangle = Tangle(payable(tangleProxy));
 
@@ -141,7 +171,11 @@ contract LocalTestnetSetup is Script {
         );
         console2.log("Blueprint created:", blueprintId);
 
-        vm.stopBroadcast();
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
     }
 
     function _operatorsRegisterForBlueprint() internal {
@@ -152,23 +186,43 @@ contract LocalTestnetSetup is Script {
         bytes memory operator2Key = hex"044142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80";
 
         // Operator 1 registers for blueprint
-        vm.startBroadcast(OPERATOR1_KEY);
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR1_KEY);
+        } else {
+            vm.startPrank(operator1);
+        }
         tangle.registerOperator(blueprintId, operator1Key, "http://operator1.local:8545");
         console2.log("Operator1 registered for blueprint");
-        vm.stopBroadcast();
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
 
         // Operator 2 registers for blueprint
-        vm.startBroadcast(OPERATOR2_KEY);
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR2_KEY);
+        } else {
+            vm.startPrank(operator2);
+        }
         tangle.registerOperator(blueprintId, operator2Key, "http://operator2.local:8545");
         console2.log("Operator2 registered for blueprint");
-        vm.stopBroadcast();
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
     }
 
     function _delegatorStake() internal {
         console2.log("\n=== Delegator Staking ===");
         MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingProxy));
 
-        vm.startBroadcast(DELEGATOR_KEY);
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DELEGATOR_KEY);
+        } else {
+            vm.startPrank(delegator);
+        }
 
         // Deposit and delegate 5 ETH to operator1
         restaking.depositAndDelegate{ value: 5 ether }(operator1);
@@ -178,7 +232,11 @@ contract LocalTestnetSetup is Script {
         restaking.depositAndDelegate{ value: 5 ether }(operator2);
         console2.log("Delegated 5 ETH to Operator2");
 
-        vm.stopBroadcast();
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
     }
 
     function _createAndApproveService() internal {
@@ -193,7 +251,11 @@ contract LocalTestnetSetup is Script {
 
         address[] memory permittedCallers = new address[](0);
 
-        vm.startBroadcast(DEPLOYER_KEY);
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DEPLOYER_KEY);
+        } else {
+            vm.startPrank(deployer);
+        }
         requestId = tangle.requestService(
             blueprintId,
             operators,
@@ -204,18 +266,38 @@ contract LocalTestnetSetup is Script {
             0 // No payment for one-time
         );
         console2.log("Service requested, ID:", requestId);
-        vm.stopBroadcast();
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
 
         // Operators approve the service
-        vm.startBroadcast(OPERATOR1_KEY);
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR1_KEY);
+        } else {
+            vm.startPrank(operator1);
+        }
         tangle.approveService(requestId, 50); // 50% restaking exposure
         console2.log("Operator1 approved service");
-        vm.stopBroadcast();
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
 
-        vm.startBroadcast(OPERATOR2_KEY);
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR2_KEY);
+        } else {
+            vm.startPrank(operator2);
+        }
         tangle.approveService(requestId, 50); // 50% restaking exposure
         console2.log("Operator2 approved service");
-        vm.stopBroadcast();
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
 
         // After all approvals, service should be active with same ID as request
         serviceId = requestId;

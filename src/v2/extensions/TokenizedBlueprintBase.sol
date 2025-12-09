@@ -374,7 +374,7 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
     /// @notice Get staking APY estimate (based on recent rewards)
     /// @param token The reward token
     /// @return apy Annual percentage yield in basis points
-    function estimateAPY(address token) external view returns (uint256 apy) {
+    function estimateApy(address token) external view returns (uint256 apy) {
         if (totalStaked == 0) return 0;
 
         RewardState storage state = rewardStates[token];

@@ -91,6 +91,7 @@ contract L2SlashingConnector {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice The ValidatorPodManager contract
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     ValidatorPodManager public immutable podManager;
 
     /// @notice The cross-chain messenger (bridge-agnostic)
@@ -136,15 +137,23 @@ contract L2SlashingConnector {
     // ═══════════════════════════════════════════════════════════════════════════
 
     modifier onlySlashingOracle() {
-        if (msg.sender != slashingOracle && msg.sender != owner) {
-            revert OnlySlashingOracle();
-        }
+        _onlySlashingOracle();
         _;
     }
 
+    function _onlySlashingOracle() internal view {
+        if (msg.sender != slashingOracle && msg.sender != owner) {
+            revert OnlySlashingOracle();
+        }
+    }
+
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner");
+        _onlyOwner();
         _;
+    }
+
+    function _onlyOwner() internal view {
+        require(msg.sender == owner, "Only owner");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

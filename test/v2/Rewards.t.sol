@@ -175,6 +175,25 @@ contract RewardsTest is Test {
         assertEq(totalDep, 100 ether);
     }
 
+    function test_Vaults_RecordDelegateAndUndelegate() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        vaults.recordDelegate(delegator1, operator1, address(0), 500 ether, 12000);
+        (uint256 totalDeposits, uint256 totalScore,,) = vaults.vaultStates(address(0));
+        assertEq(totalDeposits, 500 ether);
+        assertEq(totalScore, 600 ether); // 1.2x multiplier
+
+        vaults.recordUndelegate(delegator1, operator1, address(0), 200 ether);
+
+        (totalDeposits, totalScore,,) = vaults.vaultStates(address(0));
+        assertEq(totalDeposits, 300 ether);
+        assertEq(totalScore, 360 ether); // Maintains proportional boosted score
+
+        (, uint256 totalStaked,,) = vaults.operatorPools(address(0), operator1);
+        assertEq(totalStaked, 300 ether);
+    }
+
     function test_Vaults_DistributeRewards() public {
         // Create vault
         vm.prank(admin);
@@ -236,6 +255,46 @@ contract RewardsTest is Test {
         assertEq(totalScore, 160 ether);
     }
 
+    function test_Vaults_RecordStake_RevertWhenVaultInactive() public {
+        vm.startPrank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.deactivateVault(address(0));
+        vm.stopPrank();
+
+        vm.expectRevert(abi.encodeWithSelector(RewardVaults.VaultNotActive.selector, address(0)));
+        vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
+    }
+
+    function test_Vaults_RecordStake_RevertWhenDepositCapExceeded() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 100 ether, 100 ether, 10000);
+
+        vaults.recordStake(address(0), delegator1, operator1, 80 ether, RewardVaults.LockDuration.None);
+
+        vm.expectRevert(abi.encodeWithSelector(RewardVaults.DepositCapExceeded.selector, address(0)));
+        vaults.recordStake(address(0), delegator1, operator1, 30 ether, RewardVaults.LockDuration.SixMonths);
+    }
+
+    function test_Vaults_RecordDelegate_RevertWhenDepositCapExceeded() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 100 ether, 100 ether, 10000);
+
+        vaults.recordDelegate(delegator1, operator1, address(0), 90 ether, 10000);
+
+        vm.expectRevert(abi.encodeWithSelector(RewardVaults.DepositCapExceeded.selector, address(0)));
+        vaults.recordDelegate(delegator2, operator1, address(0), 20 ether, 15000);
+    }
+
+    function test_Vaults_RecordDelegate_RevertWhenVaultInactive() public {
+        vm.startPrank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.deactivateVault(address(0));
+        vm.stopPrank();
+
+        vm.expectRevert(abi.encodeWithSelector(RewardVaults.VaultNotActive.selector, address(0)));
+        vaults.recordDelegate(delegator1, operator1, address(0), 10 ether, 10000);
+    }
+
     function test_Vaults_MultipleOperators() public {
         // Create vault
         vm.prank(admin);
@@ -258,6 +317,27 @@ contract RewardsTest is Test {
 
         assertEq(claimed1, 8.5 ether);  // 85% of 10
         assertEq(claimed2, 17 ether);   // 85% of 20
+    }
+
+    function test_Vaults_EpochRewardDistributesAcrossOperators() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
+        vaults.recordStake(address(0), delegator2, operator2, 300 ether, RewardVaults.LockDuration.None);
+
+        vaults.distributeEpochReward(address(0), 80 ether);
+
+        vm.prank(delegator1);
+        uint256 claimed1 = vaults.claimDelegatorRewards(address(0), operator1);
+
+        vm.prank(delegator2);
+        uint256 claimed2 = vaults.claimDelegatorRewards(address(0), operator2);
+
+        assertEq(claimed1, 17 ether);
+        assertEq(claimed2, 51 ether);
+        assertEq(vaults.pendingOperatorCommission(address(0), operator1), 3 ether);
+        assertEq(vaults.pendingOperatorCommission(address(0), operator2), 9 ether);
     }
 
     function test_Vaults_UtilizationView() public {
@@ -312,5 +392,46 @@ contract RewardsTest is Test {
 
         assertEq(vaults.decayStartBlock(), 1_000_000);
         assertEq(vaults.decayRateBps(), 100);
+    }
+
+    function test_Vaults_LargeBalanceRewardAccrual() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 10_000_000 ether, 2_000_000 ether, 10000);
+
+        vaults.recordStake(address(0), delegator1, operator1, 5_000_000 ether, RewardVaults.LockDuration.None);
+
+        vaults.distributeRewards(address(0), operator1, 400_000 ether);
+        vaults.distributeRewards(address(0), operator1, 100_000 ether);
+
+        uint256 pendingCommission = vaults.pendingOperatorCommission(address(0), operator1);
+        assertEq(pendingCommission, 75_000 ether); // 15% of 500k
+
+        vm.prank(delegator1);
+        uint256 claimedRewards = vaults.claimDelegatorRewards(address(0), operator1);
+        assertEq(claimedRewards, 425_000 ether); // Remaining 85%
+
+        uint256 operatorBalanceBefore = tnt.balanceOf(operator1);
+        vm.prank(operator1);
+        uint256 claimedCommission = vaults.claimOperatorCommission(address(0));
+        assertEq(claimedCommission, 75_000 ether);
+        assertEq(tnt.balanceOf(operator1) - operatorBalanceBefore, 75_000 ether);
+    }
+
+    function test_Vaults_RecordUndelegateClearsBoostedScore() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        vaults.recordDelegate(delegator1, operator1, address(0), 400 ether, 15000); // Score = 600
+
+        (, uint256 totalScore,,) = vaults.vaultStates(address(0));
+        assertEq(totalScore, 600 ether);
+
+        vaults.recordUndelegate(delegator1, operator1, address(0), 400 ether);
+
+        (, totalScore,,) = vaults.vaultStates(address(0));
+        assertEq(totalScore, 0);
+
+        (, uint256 totalStaked,,) = vaults.operatorPools(address(0), operator1);
+        assertEq(totalStaked, 0);
     }
 }

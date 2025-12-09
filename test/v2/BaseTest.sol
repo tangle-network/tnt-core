@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Test, console2 } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
-import { Errors } from "../../src/v2/libraries/Errors.sol";
-import { IBlueprintServiceManager } from "../../src/v2/interfaces/IBlueprintServiceManager.sol";
 import { BlueprintDefinitionHelper } from "../support/BlueprintDefinitionHelper.sol";
 
 /// @title BaseTest
@@ -291,7 +289,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     }
 
     /// @notice Request a service paying with ERC20 tokens
-    function _requestServiceWithERC20(
+    function _requestServiceWithErc20(
         address requester,
         uint64 blueprintId,
         address operator,

@@ -59,6 +59,7 @@ abstract contract Base is
     /// @param admin Admin address
     /// @param restaking_ Restaking module address
     /// @param treasury_ Protocol treasury address
+    // forge-lint: disable-next-line(mixed-case-function)
     function __Base_init(
         address admin,
         address restaking_,

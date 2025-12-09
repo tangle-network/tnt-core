@@ -41,6 +41,7 @@ interface IArbitrumOutbox {
 
 contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     /// @notice Arbitrum L1 Inbox
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IArbitrumInbox public immutable inbox;
 
     /// @notice Arbitrum One chain ID
@@ -59,8 +60,12 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner");
+        _onlyOwner();
         _;
+    }
+
+    function _onlyOwner() internal view {
+        require(msg.sender == owner, "Only owner");
     }
 
     /// @inheritdoc ICrossChainMessenger
@@ -146,9 +151,11 @@ contract ArbitrumL2Receiver {
     uint160 internal constant OFFSET = uint160(0x1111000000000000000000000000000000001111);
 
     /// @notice Expected L1 sender (before aliasing)
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     address public immutable l1Sender;
 
     /// @notice The actual receiver contract
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     ICrossChainReceiver public immutable receiver;
 
     constructor(address _l1Sender, address _receiver) {

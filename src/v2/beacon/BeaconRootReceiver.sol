@@ -13,6 +13,7 @@ contract BeaconRootReceiver is IBeaconOracle, Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice OP Stack L2 Cross Domain Messenger
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IL2CrossDomainMessenger public immutable messenger;
 
     /// @notice Authorized L1 relayer address

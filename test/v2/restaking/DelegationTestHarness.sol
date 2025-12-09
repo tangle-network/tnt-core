@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Test, console2 } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
-import { DelegationErrors } from "../../../src/v2/restaking/DelegationErrors.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -267,7 +266,7 @@ abstract contract DelegationTestHarness is Test {
     }
 
     /// @notice Deposit and delegate ERC20
-    function _depositAndDelegateERC20(
+    function _depositAndDelegateErc20(
         address delegator,
         address operator,
         address tokenAddr,
@@ -298,7 +297,7 @@ abstract contract DelegationTestHarness is Test {
     }
 
     /// @notice Deposit ERC20 only (no delegation)
-    function _depositERC20(address delegator, address tokenAddr, uint256 amount) internal {
+    function _depositErc20(address delegator, address tokenAddr, uint256 amount) internal {
         vm.startPrank(delegator);
         ERC20(tokenAddr).approve(address(delegation), amount);
         delegation.depositERC20(tokenAddr, amount);

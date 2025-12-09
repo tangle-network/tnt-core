@@ -19,6 +19,7 @@ contract LiquidDelegationFactory is Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice The underlying restaking contract
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     MultiAssetDelegation public immutable restaking;
 
     /// @notice Mapping: vaultKey => vault address
@@ -134,6 +135,7 @@ contract LiquidDelegationFactory is Ownable {
         address asset,
         uint64[] calldata blueprintIds
     ) public pure returns (bytes32) {
+        // forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(operator, asset, blueprintIds));
     }
 
@@ -268,6 +270,7 @@ contract LiquidDelegationFactory is Ownable {
         bytes memory buffer = new bytes(digits);
         while (value != 0) {
             digits--;
+            // forge-lint: disable-next-line(unsafe-typecast)
             buffer[digits] = bytes1(uint8(48 + value % 10));
             value /= 10;
         }

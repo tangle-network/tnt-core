@@ -382,6 +382,119 @@ contract GovernanceTest is Test {
         assertEq(token.balanceOf(voter1), voter1BalanceBefore + 1_000_000 * 1e18);
     }
 
+    function test_ProposalLifecycle_QueueAndExecuteGuards() public {
+        bytes32 minterRole = token.MINTER_ROLE();
+        vm.prank(admin);
+        token.grantRole(minterRole, address(timelock));
+
+        address[] memory targets = new address[](1);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        targets[0] = address(token);
+        values[0] = 0;
+        uint256 mintAmount = 500 * 1e18;
+        calldatas[0] = abi.encodeCall(TangleToken.mint, (voter1, mintAmount));
+        string memory description = "Queue lifecycle regression";
+        bytes32 succeededBitmap = _stateBitmap(IGovernor.ProposalState.Succeeded);
+
+        vm.prank(proposer);
+        uint256 proposalId = governor.propose(targets, values, calldatas, description);
+        bytes32 descriptionHash = keccak256(bytes(description));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGovernor.GovernorUnexpectedProposalState.selector,
+                proposalId,
+                IGovernor.ProposalState.Pending,
+                succeededBitmap
+            )
+        );
+        governor.queue(targets, values, calldatas, descriptionHash);
+
+        vm.roll(block.number + VOTING_DELAY + 1);
+        vm.prank(voter2);
+        governor.castVote(proposalId, 1);
+        vm.prank(voter3);
+        governor.castVote(proposalId, 1);
+
+        vm.roll(block.number + VOTING_PERIOD + 1);
+        assertEq(uint8(governor.state(proposalId)), uint8(IGovernor.ProposalState.Succeeded));
+        assertTrue(governor.proposalNeedsQueuing(proposalId));
+
+        governor.queue(targets, values, calldatas, descriptionHash);
+        assertEq(uint8(governor.state(proposalId)), uint8(IGovernor.ProposalState.Queued));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGovernor.GovernorUnexpectedProposalState.selector,
+                proposalId,
+                IGovernor.ProposalState.Queued,
+                succeededBitmap
+            )
+        );
+        governor.queue(targets, values, calldatas, descriptionHash);
+
+        bytes32 salt = _timelockSalt(descriptionHash);
+        bytes32 opId = timelock.hashOperationBatch(targets, values, calldatas, 0, salt);
+        bytes32 readyState = bytes32(uint256(1) << uint8(TimelockControllerUpgradeable.OperationState.Ready));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockControllerUpgradeable.TimelockUnexpectedOperationState.selector,
+                opId,
+                readyState
+            )
+        );
+        governor.execute(targets, values, calldatas, descriptionHash);
+
+        vm.warp(block.timestamp + TIMELOCK_DELAY + 1);
+        uint256 voter1BalanceBefore = token.balanceOf(voter1);
+        governor.execute(targets, values, calldatas, descriptionHash);
+
+        assertEq(token.balanceOf(voter1), voter1BalanceBefore + mintAmount);
+        assertEq(uint8(governor.state(proposalId)), uint8(IGovernor.ProposalState.Executed));
+    }
+
+    function test_ProposalLifecycle_CancelPreventsProgression() public {
+        address[] memory targets = new address[](1);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        targets[0] = address(token);
+        values[0] = 0;
+        calldatas[0] = abi.encodeCall(TangleToken.mint, (voter1, 1));
+        string memory description = "Cancel lifecycle regression";
+        bytes32 succeeded = _stateBitmap(IGovernor.ProposalState.Succeeded);
+        bytes32 executableStates = succeeded | _stateBitmap(IGovernor.ProposalState.Queued);
+
+        vm.prank(proposer);
+        uint256 proposalId = governor.propose(targets, values, calldatas, description);
+        bytes32 descriptionHash = keccak256(bytes(description));
+
+        vm.prank(proposer);
+        governor.cancel(targets, values, calldatas, descriptionHash);
+
+        assertEq(uint8(governor.state(proposalId)), uint8(IGovernor.ProposalState.Canceled));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGovernor.GovernorUnexpectedProposalState.selector,
+                proposalId,
+                IGovernor.ProposalState.Canceled,
+                succeeded
+            )
+        );
+        governor.queue(targets, values, calldatas, descriptionHash);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGovernor.GovernorUnexpectedProposalState.selector,
+                proposalId,
+                IGovernor.ProposalState.Canceled,
+                executableStates
+            )
+        );
+        governor.execute(targets, values, calldatas, descriptionHash);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // DEPLOYER TESTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -454,6 +567,14 @@ contract GovernanceTest is Test {
 
         // Deployer no longer has admin role
         assertFalse(timelock.hasRole(timelock.DEFAULT_ADMIN_ROLE(), address(deployer)));
+    }
+
+    function _stateBitmap(IGovernor.ProposalState proposalState) internal pure returns (bytes32) {
+        return bytes32(uint256(1) << uint8(proposalState));
+    }
+
+    function _timelockSalt(bytes32 descriptionHash) internal view returns (bytes32) {
+        return bytes32(bytes20(address(governor))) ^ descriptionHash;
     }
 }
 
