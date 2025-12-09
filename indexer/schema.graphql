@@ -137,6 +137,13 @@ type BlueprintDefinition {
   txHash: String!
 }
 
+type ValidatorPod {
+  id: ID!
+  owner: String!
+  createdAt: BigInt!
+  txHash: String!
+}
+
 type Operator {
   id: ID!
   ecdsaPublicKey: String
@@ -385,6 +392,9 @@ type RestakingRound {
   timestamp: BigInt!
 }
 
+"""
+Historical stake deltas emitted from MultiAssetDelegation operator lifecycle events.
+"""
 type OperatorStakeChange {
   id: ID!
   operator: Operator!
@@ -434,9 +444,7 @@ type DepositLock {
   expiryBlock: BigInt!
 }
 
-"""
-Delegator withdrawal queue entries (MultiAssetDelegation.WithdrawScheduled/Withdrawn).
-"""
+"""Withdraw request queue mirrored from MultiAssetDelegation.WithdrawScheduled/Withdrawn. readyAtRound matches the contract's executeAfter round."""
 type WithdrawRequest {
   id: ID!
   delegator: Delegator!
@@ -467,9 +475,7 @@ type DelegationPosition {
   unstakeRequests: [DelegationUnstakeRequest!]! @derivedFrom(field: "position")
 }
 
-"""
-Delegator unstake queue entries (DelegatorUnstakeScheduled/DelegatorUnstakeExecuted).
-"""
+"""Delegator unstake queue from MultiAssetDelegation events; readyAtRound + blueprintSelection capture the contract's state."""
 type DelegationUnstakeRequest {
   id: ID!
   delegator: Delegator!
@@ -650,6 +656,7 @@ type PointsProgram {
   weight: Int!
   createdAt: BigInt!
   participationStates: [ParticipationState!]! @derivedFrom(field: "program")
+  hourlyTotals: [PointsHourlyTotal!]! @derivedFrom(field: "program")
 }
 
 type PointsAccount {
@@ -687,6 +694,19 @@ type PointsSnapshot {
   timestamp: BigInt!
 }
 
+"""
+Aggregated hourly USD totals per program for downstream API consumers.
+"""
+type PointsHourlyTotal {
+  id: ID!
+  program: PointsProgram!
+  hourTimestamp: BigInt!
+  usdBasis: BigInt!
+  liquidUsdBasis: BigInt!
+  serviceUsdBasis: BigInt!
+  updatedAt: BigInt!
+}
+
 type ParticipationState {
   id: ID!
   entityId: String!
@@ -715,6 +735,7 @@ type RewardVaultEvent {
   valueA: BigInt
   valueB: BigInt
   valueC: BigInt
+  valueD: BigInt
   blockNumber: BigInt!
   timestamp: BigInt!
   txHash: String!
@@ -738,6 +759,7 @@ type LiquidDelegationVault {
   totalShares: BigInt!
   totalDepositors: BigInt!
   pendingRedeemShares: BigInt!
+  harvestedRewards: BigInt!
   createdAt: BigInt!
   updatedAt: BigInt!
   txHash: String!
@@ -745,14 +767,14 @@ type LiquidDelegationVault {
   redeemRequests: [LiquidRedeemRequest!]! @derivedFrom(field: "vault")
 }
 
-"""
-Share balances per depositor, maintained from the vault's ERC20 Transfer events.
-"""
+"""Share balances per depositor, including shares pending asynchronous redemption."""
 type LiquidVaultPosition {
   id: ID!
   vault: LiquidDelegationVault!
   account: Delegator!
   shares: BigInt!
+  pendingShares: BigInt!
+  pendingAssets: BigInt!
   firstMintedAt: BigInt!
   updatedAt: BigInt!
 }
@@ -767,6 +789,7 @@ type LiquidRedeemRequest {
   owner: Delegator!
   requestId: BigInt!
   shares: BigInt!
+  estimatedAssets: BigInt!
   requestedRound: BigInt!
   claimed: Boolean!
   claimer: String

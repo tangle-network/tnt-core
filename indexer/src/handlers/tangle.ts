@@ -47,6 +47,7 @@ import {
   awardCustomerServiceActivation,
   awardCustomerServiceRequest,
   awardDeveloperBlueprint,
+  awardOperatorServiceJoin,
 } from "../points/awards";
 
 export function registerTangleHandlers() {
@@ -447,6 +448,9 @@ export function registerTangleHandlers() {
       active: true,
     } as ServiceOperator;
     context.ServiceOperator.set(membership);
+    const points = getPointsManager(pointsContext(context), event);
+    await awardOperatorServiceJoin(points, operator.id, service.id);
+    await activateParticipation(context, "operator-service-hourly", operator.id, "OPERATOR", timestamp);
   });
 
   Tangle.OperatorLeftService.handler(async ({ event, context }) => {
@@ -455,7 +459,9 @@ export function registerTangleHandlers() {
     const id = `${service.id}-${normalizeAddress(event.params.operator)}`;
     const membership = await context.ServiceOperator.get(id);
     if (!membership) return;
-    context.ServiceOperator.set({ ...membership, active: false, leftAt: getTimestamp(event) });
+    const timestamp = getTimestamp(event);
+    context.ServiceOperator.set({ ...membership, active: false, leftAt: timestamp });
+    await deactivateParticipation(context, "operator-service-hourly", normalizeAddress(event.params.operator), timestamp);
   });
 
   Tangle.ExitScheduled.handler(async ({ event, context }) => {
@@ -499,6 +505,7 @@ export function registerTangleHandlers() {
       exitExecuteAfter: undefined,
       exitForcedBy: normalizeAddress(event.params.forcer),
     });
+    await deactivateParticipation(context, "operator-service-hourly", normalizeAddress(event.params.operator), getTimestamp(event));
   });
 
   Tangle.JobSubmitted.handler(async ({ event, context }) => {

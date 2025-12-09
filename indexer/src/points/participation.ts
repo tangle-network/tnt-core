@@ -22,6 +22,7 @@ export const HOURLY_PROGRAMS: Array<{ programId: PointsProgramId; category: Poin
     { programId: "operator-hourly", category: "OPERATOR", statePrefix: "operator" },
     { programId: "delegator-hourly", category: "DELEGATOR", statePrefix: "delegator" },
     { programId: "service-hourly", category: "SERVICE", statePrefix: "service" },
+    { programId: "operator-service-hourly", category: "OPERATOR", statePrefix: "operator-service" },
   ];
 
 const USD_SCALE = 10n ** 18n;

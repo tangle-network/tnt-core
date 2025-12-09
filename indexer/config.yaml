@@ -58,7 +58,15 @@ networks:
         handler: src/EventHandlers.ts
         events:
           - event: BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition)
-      - name: MultiAssetDelegation
+      - name: ValidatorPodManager
+        address:
+          - "0x0000000000000000000000851234512121212888"
+        handler: src/EventHandlers.ts
+        events:
+          - event: PodCreated(address indexed owner, address indexed pod)
+          - event: Delegated(address indexed delegator, address indexed operator, uint256 amount)
+          - event: Undelegated(address indexed delegator, address indexed operator, uint256 amount)
+     - name: MultiAssetDelegation
         address:
           - "0x0000000000000000000000246123412121212222"
         handler: src/EventHandlers.ts
@@ -99,6 +107,7 @@ networks:
           - event: Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)
           - event: Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)
           - event: RedeemRequest(address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares)
+          - event: RewardsHarvested(address indexed caller, uint256 amount)
           - event: OperatorSet(address indexed controller, address indexed operator, bool approved)
           - event: Transfer(address indexed from, address indexed to, uint256 value)
       - name: OperatorStatusRegistry

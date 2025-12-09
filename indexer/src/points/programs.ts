@@ -56,6 +56,14 @@ export const PROGRAMS = {
     network: "GENERIC",
     weight: 6,
   },
+  "native-pod": {
+    id: "native-pod",
+    name: "Validator Pod",
+    description: "Creating validator pods",
+    category: "DELEGATOR",
+    network: "GENERIC",
+    weight: 25,
+  },
   "customer-service": {
     id: "customer-service",
     name: "Service Instantiation",
@@ -79,6 +87,22 @@ export const PROGRAMS = {
     category: "SERVICE",
     network: "GENERIC",
     weight: 2,
+  },
+  "operator-service": {
+    id: "operator-service",
+    name: "Service Participation",
+    description: "Joining services as an operator",
+    category: "OPERATOR",
+    network: "GENERIC",
+    weight: 15,
+  },
+  "operator-service-hourly": {
+    id: "operator-service-hourly",
+    name: "Operator Service Uptime",
+    description: "Hourly reward for active service operators",
+    category: "OPERATOR",
+    network: "GENERIC",
+    weight: 1,
   },
   "developer-blueprint": {
     id: "developer-blueprint",

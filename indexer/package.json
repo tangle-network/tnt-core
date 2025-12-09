@@ -10,7 +10,8 @@
     "codegen": "envio codegen",
     "dev": "envio dev",
     "start": "envio start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --require ts-node/register src/points/__tests__/*.test.ts"
   },
   "engines": {
     "node": ">=18.0.0"

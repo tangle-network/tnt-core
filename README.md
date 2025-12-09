@@ -47,11 +47,11 @@ Operators must approve the TNT bond token before calling `registerOperator`, and
 An Envio indexer is included under `indexer/` to track on-chain protocol data. The handler stack is now modular:
 
 - `indexer/src/EventHandlers.ts` is a tiny registry that wires every contract-specific module.
-- `indexer/src/handlers/*.ts` group logic by domain (`tangle`, `restaking`, `rewardVaults`, `blueprintManager`, `credits`, `hourly`).
+- `indexer/src/handlers/*.ts` group logic by domain (`tangle`, `restaking`, `rewardVaults`, `blueprintManager`, `credits`, `hourly`, `liquidDelegation`, `validatorPods`).
 - `indexer/src/lib/handlerUtils.ts` centralises common helpers (entity upsert helpers, ID builders, etc.).
 - Incentive logic lives under `indexer/src/points/` (`programs.ts` for program definitions, `awards.ts` for reusable award helpers, `participation.ts` for hourly ticking).
 
-The schema is defined in `indexer/schema.graphql`, and contract coverage is configured in `indexer/config.yaml`. To work on the indexer locally:
+The schema is defined in `indexer/schema.graphql`, and contract coverage is configured in `indexer/config.yaml`. A detailed breakdown of point weights/programs lives in [`docs/points.md`](docs/points.md). To work on the indexer locally:
 
 ```sh
 cd indexer
@@ -60,9 +60,10 @@ npm run codegen     # generates the ./generated package
 npm run dev         # starts the indexer with live auto-reload
 ```
 
-* `npm run build` runs the TypeScript compiler so you can type-check handlers.
-* `npm run start` runs the compiled indexer once (useful in CI).
-* Update/add contract stanzas in `indexer/config.yaml` before targeting another deployment, then re-run `npm run codegen`.
+- `npm run build` runs the TypeScript compiler so you can type-check handlers.
+- `npm run start` runs the compiled indexer once (useful in CI).
+- `npm run test` executes the lightweight points tests under `src/points/__tests__`.
+- Update/add contract stanzas in `indexer/config.yaml` before targeting another deployment, then re-run `npm run codegen`.
 
 #### Indexer incentives
 
@@ -80,3 +81,4 @@ Contract modules call the award helpers, so adding a new incentive is as simple 
 - [Points & Pricing Pipeline](docs/points-pipeline.md) – covers the asset
   registry policy, USD conversion flow, and the runbooks for updating assets or
   responding to price API outages.
+- [Points Program Reference](docs/points.md) – lists every program, weight, and award helper.
