@@ -26,6 +26,12 @@ export type PointsContext = {
   };
 };
 
+export type PointsAwardBasis = {
+  usdValue?: bigint;
+  liquidUsdValue?: bigint;
+  serviceUsdValue?: bigint;
+};
+
 let pointsEventCounter = 0;
 
 export class PointsManager {
@@ -36,7 +42,14 @@ export class PointsManager {
     private readonly txHash: string
   ) {}
 
-  async award(accountId: string, programId: PointsProgramId, amount: bigint, reason?: string, metadata?: string) {
+  async award(
+    accountId: string,
+    programId: PointsProgramId,
+    amount: bigint,
+    reason?: string,
+    metadata?: string,
+    basis?: PointsAwardBasis
+  ) {
     if (amount === 0n) {
       return;
     }
@@ -71,6 +84,9 @@ export class PointsManager {
       account_id: updatedAccount.id,
       program_id: program.id,
       totalPoints: updatedAccount.totalPoints,
+      usdBasis: basis?.usdValue,
+      liquidUsdBasis: basis?.liquidUsdValue,
+      serviceUsdBasis: basis?.serviceUsdValue,
       blockNumber: this.blockNumber,
       timestamp: this.timestamp,
     } as PointsSnapshot;

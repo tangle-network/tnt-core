@@ -1,6 +1,8 @@
 import type {
   Delegator,
   DelegatorAssetPosition,
+  LiquidDelegationVault,
+  LiquidVaultPosition,
   Operator,
   ParticipationState,
   PointsProgram,
@@ -23,6 +25,14 @@ export const HOURLY_PROGRAMS: Array<{ programId: PointsProgramId; category: Poin
   ];
 
 const USD_SCALE = 10n ** 18n;
+
+type ParticipationValue = {
+  total: bigint;
+  directUsd?: bigint;
+  liquidUsd?: bigint;
+  serviceUsd?: bigint;
+};
+
 
 export const pointsContext = (context: any): PointsContext => ({
   PointsProgram: context.PointsProgram,
@@ -135,13 +145,41 @@ const sumDelegatorPositions = async (
   return convertAmountToUsd(context, fallbackAmount, ZERO_ADDRESS, blockNumber, timestamp);
 };
 
+const getLiquidVaultStakeBasis = async (
+  context: any,
+  delegatorId: string,
+  blockNumber: bigint,
+  timestamp: bigint
+): Promise<bigint> => {
+  if (!context.LiquidVaultPosition) {
+    return 0n;
+  }
+  const positions = (await context.LiquidVaultPosition.getWhere.account_id.eq(delegatorId)) as LiquidVaultPosition[];
+  let total = 0n;
+  for (const position of positions) {
+    const shares = position.shares ?? 0n;
+    if (shares <= 0n) continue;
+    const vault = (await context.LiquidDelegationVault.get(position.vault_id)) as LiquidDelegationVault | undefined;
+    if (!vault) continue;
+    const totalShares = vault.totalShares ?? 0n;
+    const totalAssets = vault.totalAssets ?? 0n;
+    if (totalShares === 0n || totalAssets === 0n) continue;
+    const proportionalAssets = (shares * totalAssets) / totalShares;
+    if (proportionalAssets === 0n) continue;
+    total += await convertAmountToUsd(context, proportionalAssets, vault.assetAddress, blockNumber, timestamp);
+  }
+  return total;
+};
+
 const getDelegatorStakeBasis = async (context: any, delegatorId: string, blockNumber: bigint, timestamp: bigint): Promise<bigint> => {
   const delegator = (await context.Delegator.get(delegatorId)) as Delegator | undefined;
   if (!delegator) {
     return 0n;
   }
   const positions = (await context.DelegatorAssetPosition.getWhere.delegator_id.eq(delegator.id)) as DelegatorAssetPosition[];
-  return sumDelegatorPositions(context, delegator, positions, blockNumber, timestamp);
+  const direct = await sumDelegatorPositions(context, delegator, positions, blockNumber, timestamp);
+  const liquid = await getLiquidVaultStakeBasis(context, delegator.id, blockNumber, timestamp);
+  return direct + liquid;
 };
 
 const getServiceActivityBasis = async (context: any, serviceId: string): Promise<bigint> => {
@@ -159,17 +197,21 @@ const calculateParticipationValue = async (
   state: ParticipationState,
   blockNumber: bigint,
   timestamp: bigint
-): Promise<bigint> => {
+): Promise<ParticipationValue> => {
   if (state.category === "OPERATOR") {
-    return getOperatorStakeBasis(context, state.entityId, blockNumber, timestamp);
+    const total = await getOperatorStakeBasis(context, state.entityId, blockNumber, timestamp);
+    return { total, directUsd: total };
   }
   if (state.category === "DELEGATOR") {
-    return getDelegatorStakeBasis(context, state.entityId, blockNumber, timestamp);
+    const direct = await getDelegatorStakeBasis(context, state.entityId, blockNumber, timestamp);
+    const liquid = await getLiquidVaultStakeBasis(context, state.entityId, blockNumber, timestamp);
+    return { total: direct + liquid, directUsd: direct, liquidUsd: liquid };
   }
   if (state.category === "SERVICE") {
-    return getServiceActivityBasis(context, state.entityId);
+    const total = await getServiceActivityBasis(context, state.entityId);
+    return { total, serviceUsd: total };
   }
-  return 0n;
+  return { total: 0n };
 };
 
 export const processParticipation = async (
@@ -186,9 +228,20 @@ export const processParticipation = async (
     const sinceLastAward = timestamp - (state.lastAwardAt ?? 0n);
     if (sinceLastAward < 3600n) continue;
     const usdValue = await calculateParticipationValue(context, state, blockNumber, timestamp);
-    const amount = toPointsValue(usdValue);
+    const amount = toPointsValue(usdValue.total);
     if (amount === 0n) continue;
-    await points.award(state.entityId, programId, amount, "hourly participation");
+    await points.award(
+      state.entityId,
+      programId,
+      amount,
+      "hourly participation",
+      undefined,
+      {
+        usdValue: usdValue.total,
+        liquidUsdValue: usdValue.liquidUsd,
+        serviceUsdValue: usdValue.serviceUsd,
+      }
+    );
     context.ParticipationState.set({ ...state, lastAwardAt: timestamp } as ParticipationState);
   }
 };

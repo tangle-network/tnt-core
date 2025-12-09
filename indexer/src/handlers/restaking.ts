@@ -31,8 +31,8 @@ import {
   getPointsManager,
   getTimestamp,
   getTxHash,
-  mapLockMultiplier,
-  mapSelectionMode,
+  mapBlueprintSelection,
+  mapLockDuration,
   maybeDeactivateDelegatorParticipation,
   maybeDeactivateOperatorParticipation,
   normalizeAddress,
@@ -81,12 +81,14 @@ export function registerRestakingHandlers() {
 
   MultiAssetDelegation.OperatorUnstakeScheduled.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
+    const amount = toBigInt(event.params.amount);
+    const readyAtRound = toBigInt(event.params.readyRound);
     const operator = await ensureOperator(context, event.params.operator, timestamp, {
-      restakingScheduledUnstakeAmount: toBigInt(event.params.amount),
-      restakingScheduledUnstakeReadyRound: toBigInt(event.params.readyRound),
+      restakingScheduledUnstakeAmount: amount,
+      restakingScheduledUnstakeRound: readyAtRound,
       restakingUpdatedAt: timestamp,
     });
-    await recordOperatorStakeChange(context, operator, "UNSTAKE_SCHEDULED", toBigInt(event.params.amount), toBigInt(event.params.readyRound), event);
+    await recordOperatorStakeChange(context, operator, "UNSTAKE_SCHEDULED", amount, readyAtRound, event);
   });
 
   MultiAssetDelegation.OperatorUnstakeExecuted.handler(async ({ event, context }) => {
@@ -98,7 +100,7 @@ export function registerRestakingHandlers() {
       ...operator,
       restakingStake: nextStake,
       restakingScheduledUnstakeAmount: undefined,
-      restakingScheduledUnstakeReadyRound: undefined,
+      restakingScheduledUnstakeRound: undefined,
       restakingUpdatedAt: timestamp,
     } as Operator;
     context.Operator.set(updatedOperator);
@@ -176,13 +178,13 @@ export function registerRestakingHandlers() {
       totalDeposited: (delegator.totalDeposited ?? 0n) + amount,
     } as Delegator;
     context.Delegator.set(updatedDelegator);
-    const multiplier = mapLockMultiplier(event.params.lock as any);
+    const multiplier = mapLockDuration(event.params.lock as any);
     if (multiplier !== "NONE") {
       const lock: DepositLock = {
         id: `lock-${position.id}-${getEventId(event)}`,
         position_id: position.id,
         amount,
-        multiplier,
+        duration: multiplier,
         expiryBlock: 0n,
       } as DepositLock;
       context.DepositLock.set(lock);
@@ -210,7 +212,7 @@ export function registerRestakingHandlers() {
       token: normalizeAddress(event.params.token ?? ZERO_ADDRESS),
       amount,
       requestedRound: toBigInt(event.params.readyRound),
-      readyRound: toBigInt(event.params.readyRound),
+      readyAtRound: toBigInt(event.params.readyRound),
       status: "PENDING",
       nonce,
     } as WithdrawRequest;
@@ -235,7 +237,7 @@ export function registerRestakingHandlers() {
     const delegator = await ensureDelegator(context, event.params.delegator, timestamp);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const round = await latestRound(context);
-    const mode = mapSelectionMode(event.params.selectionMode as any);
+    const mode = mapBlueprintSelection(event.params.selectionMode as any);
     const position = await ensureDelegationPosition(context, delegator, operator, event.params.token, mode, round, timestamp);
     const wasZero = (position.shares ?? 0n) === 0n;
     const updatedPosition: DelegationPosition = {
@@ -282,7 +284,7 @@ export function registerRestakingHandlers() {
       shares: toBigInt(event.params.shares),
       estimatedAmount: toBigInt(event.params.estimatedAmount),
       requestedRound: toBigInt(event.params.readyRound),
-      readyRound: toBigInt(event.params.readyRound),
+      readyAtRound: toBigInt(event.params.readyRound),
       status: "PENDING",
     } as DelegationUnstakeRequest;
     context.DelegationUnstakeRequest.set(request);

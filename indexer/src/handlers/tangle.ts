@@ -33,7 +33,7 @@ import {
   getSlashProposalId,
   getTimestamp,
   getTxHash,
-  mapSelectionMode,
+  mapBlueprintSelection,
   normalizeAddress,
   subtractToZero,
   toBigInt,

@@ -27,7 +27,7 @@ enum RestakingOperatorStatus {
   INACTIVE
 }
 
-enum LockMultiplier {
+enum LockDuration {
   NONE
   ONE_MONTH
   TWO_MONTHS
@@ -35,7 +35,7 @@ enum LockMultiplier {
   SIX_MONTHS
 }
 
-enum DelegationSelectionMode {
+enum BlueprintSelectionMode {
   ALL
   FIXED
 }
@@ -148,7 +148,7 @@ type Operator {
   restakingDelegationCount: BigInt
   restakingLeavingRound: BigInt
   restakingScheduledUnstakeAmount: BigInt
-  restakingScheduledUnstakeReadyRound: BigInt
+  restakingScheduledUnstakeRound: BigInt
   restakingUpdatedAt: BigInt
   registrations: [OperatorRegistration!]! @derivedFrom(field: "operator")
   intents: [OperatorIntent!]! @derivedFrom(field: "operator")
@@ -158,6 +158,7 @@ type Operator {
   delegationPositions: [DelegationPosition!]! @derivedFrom(field: "operator")
   heartbeats: [OperatorHeartbeat!]! @derivedFrom(field: "operator")
   blueprintMemberships: [OperatorBlueprint!]! @derivedFrom(field: "operator")
+  liquidVaults: [LiquidDelegationVault!]! @derivedFrom(field: "operator")
 }
 
 type OperatorRegistration {
@@ -358,6 +359,9 @@ type RoleAssignment {
   sender: String!
 }
 
+"""
+ERC20/LST assets enabled in MultiAssetDelegation. Populated from AssetEnabled/AssetDisabled events.
+"""
 type RestakingAsset {
   id: ID!
   token: String!
@@ -371,6 +375,9 @@ type RestakingAsset {
   updatedAt: BigInt!
 }
 
+"""
+Tracks the on-chain restaking round (MultiAssetDelegation.RoundAdvanced).
+"""
 type RestakingRound {
   id: ID!
   round: BigInt!
@@ -383,7 +390,7 @@ type OperatorStakeChange {
   operator: Operator!
   kind: OperatorStakeChangeKind!
   amount: BigInt
-  readyRound: BigInt
+  readyAtRound: BigInt
   blockNumber: BigInt!
   timestamp: BigInt!
   txHash: String!
@@ -404,6 +411,7 @@ type Delegator {
   delegations: [DelegationPosition!]! @derivedFrom(field: "delegator")
   withdrawRequests: [WithdrawRequest!]! @derivedFrom(field: "delegator")
   unstakeRequests: [DelegationUnstakeRequest!]! @derivedFrom(field: "delegator")
+  liquidVaultPositions: [LiquidVaultPosition!]! @derivedFrom(field: "account")
 }
 
 type DelegatorAssetPosition {
@@ -422,10 +430,13 @@ type DepositLock {
   id: ID!
   position: DelegatorAssetPosition!
   amount: BigInt!
-  multiplier: LockMultiplier!
+  duration: LockDuration!
   expiryBlock: BigInt!
 }
 
+"""
+Delegator withdrawal queue entries (MultiAssetDelegation.WithdrawScheduled/Withdrawn).
+"""
 type WithdrawRequest {
   id: ID!
   delegator: Delegator!
@@ -434,11 +445,14 @@ type WithdrawRequest {
   nonce: BigInt!
   amount: BigInt!
   requestedRound: BigInt!
-  readyRound: BigInt!
+  readyAtRound: BigInt!
   status: RequestStatus!
   executedAt: BigInt
 }
 
+"""
+Per-operator delegation tracking mirroring RewardsManager storage.
+"""
 type DelegationPosition {
   id: ID!
   delegator: Delegator!
@@ -446,13 +460,16 @@ type DelegationPosition {
   token: String!
   shares: BigInt!
   lastKnownAmount: BigInt!
-  selectionMode: DelegationSelectionMode!
+  blueprintSelection: BlueprintSelectionMode!
   blueprintIds: [BigInt!]
   createdAtRound: BigInt!
   updatedAtRound: BigInt!
   unstakeRequests: [DelegationUnstakeRequest!]! @derivedFrom(field: "position")
 }
 
+"""
+Delegator unstake queue entries (DelegatorUnstakeScheduled/DelegatorUnstakeExecuted).
+"""
 type DelegationUnstakeRequest {
   id: ID!
   delegator: Delegator!
@@ -463,7 +480,7 @@ type DelegationUnstakeRequest {
   shares: BigInt!
   estimatedAmount: BigInt!
   requestedRound: BigInt!
-  readyRound: BigInt!
+  readyAtRound: BigInt!
   status: RequestStatus!
   executedAt: BigInt
 }
@@ -663,6 +680,9 @@ type PointsSnapshot {
   account: PointsAccount!
   program: PointsProgram
   totalPoints: BigInt!
+  usdBasis: BigInt
+  liquidUsdBasis: BigInt
+  serviceUsdBasis: BigInt
   blockNumber: BigInt!
   timestamp: BigInt!
 }
@@ -697,6 +717,61 @@ type RewardVaultEvent {
   valueC: BigInt
   blockNumber: BigInt!
   timestamp: BigInt!
+  txHash: String!
+}
+
+"""
+ERC7540 vault wrapper deployed by LiquidDelegationFactory. Indexed via VaultCreated + ERC20 events.
+"""
+type LiquidDelegationVault {
+  id: ID!
+  address: String!
+  name: String!
+  symbol: String!
+  isNative: Boolean!
+  operator: Operator!
+  assetAddress: String!
+  asset: RestakingAsset
+  blueprintSelection: BlueprintSelectionMode!
+  blueprintIds: [BigInt!]!
+  totalAssets: BigInt!
+  totalShares: BigInt!
+  totalDepositors: BigInt!
+  pendingRedeemShares: BigInt!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  txHash: String!
+  positions: [LiquidVaultPosition!]! @derivedFrom(field: "vault")
+  redeemRequests: [LiquidRedeemRequest!]! @derivedFrom(field: "vault")
+}
+
+"""
+Share balances per depositor, maintained from the vault's ERC20 Transfer events.
+"""
+type LiquidVaultPosition {
+  id: ID!
+  vault: LiquidDelegationVault!
+  account: Delegator!
+  shares: BigInt!
+  firstMintedAt: BigInt!
+  updatedAt: BigInt!
+}
+
+"""
+Async redemption requests emitted by LiquidDelegationVault::RedeemRequest.
+"""
+type LiquidRedeemRequest {
+  id: ID!
+  vault: LiquidDelegationVault!
+  controller: String!
+  owner: Delegator!
+  requestId: BigInt!
+  shares: BigInt!
+  requestedRound: BigInt!
+  claimed: Boolean!
+  claimer: String
+  createdAt: BigInt!
+  claimedAt: BigInt
   txHash: String!
 }
 
