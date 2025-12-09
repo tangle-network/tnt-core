@@ -21,7 +21,7 @@ contract IntegrationTest is BaseTest {
     function test_FullWorkflow_PayOnce() public {
         // Step 1: Developer creates blueprint
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://test-blueprint", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://test-blueprint", address(0)));
         assertEq(tangle.blueprintCount(), 1);
 
         // Step 2: Operators register in restaking with stake
@@ -44,10 +44,8 @@ contract IntegrationTest is BaseTest {
         vm.stopPrank();
 
         // Step 4: Operators register for the blueprint
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
-        vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
+        _directRegisterOperator(operator2, blueprintId, "");
 
         // Step 5: User requests a service with payment
         address[] memory operators = new address[](2);
@@ -130,7 +128,7 @@ contract IntegrationTest is BaseTest {
 
         // Setup blueprint
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://exposure-test", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://exposure-test", address(0)));
 
         // Register operators
         vm.prank(operator1);
@@ -138,10 +136,8 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator2);
         restaking.registerOperator{ value: 5 ether }();
 
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
-        vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
+        _directRegisterOperator(operator2, blueprintId, "");
 
         // Request service with different exposure levels
         address[] memory operators = new address[](2);
@@ -188,11 +184,12 @@ contract IntegrationTest is BaseTest {
             maxOperators: 5,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic", address(0), config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         // Register all operators
         vm.prank(operator1);
@@ -202,12 +199,9 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator3);
         restaking.registerOperator{ value: 2 ether }();
 
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
-        vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "", "");
-        vm.prank(operator3);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
+        _directRegisterOperator(operator2, blueprintId, "");
+        _directRegisterOperator(operator3, blueprintId, "");
 
         // Request with just operator1
         address[] memory operators = new address[](1);
@@ -278,17 +272,17 @@ contract IntegrationTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://subscription", address(0), config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         // Setup operator
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Request service with enough funds for multiple billing cycles
         address[] memory operators = new address[](1);
@@ -325,12 +319,11 @@ contract IntegrationTest is BaseTest {
         // Test slashing reduces operator stake
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://slashing-test", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://slashing-test", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Create a service first (required for slashing)
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -359,12 +352,11 @@ contract IntegrationTest is BaseTest {
         // Test multiple job submissions and results
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://multi-job", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://multi-job", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -400,12 +392,11 @@ contract IntegrationTest is BaseTest {
         // Test batch result submission
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://batch", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://batch", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -444,12 +435,11 @@ contract IntegrationTest is BaseTest {
         // Test that permitted callers can submit jobs
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://callers", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://callers", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Request service (owner becomes permitted caller automatically)
         address[] memory operators = new address[](1);
@@ -487,12 +477,11 @@ contract IntegrationTest is BaseTest {
 
     function test_FullWorkflow_ServiceTermination() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://terminate", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://terminate", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -521,12 +510,11 @@ contract IntegrationTest is BaseTest {
     function test_RewardDistribution_ProportionalByDelegation() public {
         // Setup
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rewards", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rewards", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Delegator1: 1 ETH, Delegator2: 3 ETH (3x more)
         vm.startPrank(delegator1);
@@ -610,7 +598,7 @@ contract IntegrationTest is BaseTest {
 
     function test_CannotRegisterWithoutRestakingStake() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://test", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://test", address(0)));
 
         // operator1 hasn't registered in restaking - cannot register for blueprint
         vm.prank(operator1);
@@ -626,12 +614,11 @@ contract IntegrationTest is BaseTest {
 
     function test_ServiceRejectionRefundsPayment() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://refund", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://refund", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint256 payment = 5 ether;
         uint256 userBalanceBefore = user1.balance;
@@ -648,16 +635,17 @@ contract IntegrationTest is BaseTest {
 
     function test_UnregisteredOperatorCannotApprove() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://test", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://test", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
 
         // operator2 (not in request) tries to approve
+        vm.prank(operator2);
+        restaking.registerOperator{ value: 2 ether }();
         vm.prank(operator2);
         vm.expectRevert(Errors.Unauthorized.selector);
         tangle.approveService(requestId, 0);
@@ -677,7 +665,7 @@ contract CustomServiceManagerTest is BaseTest {
     function test_ServiceManagerHooksAreCalled() public {
         // Create blueprint with custom service manager
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://hooked", address(serviceManager));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://hooked", address(serviceManager)));
 
         // Verify onBlueprintCreated was called
         assertTrue(serviceManager.blueprintCreated());
@@ -685,8 +673,7 @@ contract CustomServiceManagerTest is BaseTest {
         // Setup operator
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Verify onRegister was called
         assertTrue(serviceManager.operatorRegistered());
@@ -710,7 +697,7 @@ contract CustomServiceManagerTest is BaseTest {
         RejectingServiceManager rejectingManager = new RejectingServiceManager();
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rejecting", address(rejectingManager));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rejecting", address(rejectingManager)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 2 ether }();
@@ -722,14 +709,14 @@ contract CustomServiceManagerTest is BaseTest {
             address(rejectingManager),
             abi.encodeWithSelector(RejectingServiceManager.OperatorRejected.selector)
         ));
-        tangle.registerOperator(blueprintId, "", "");
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 0), "");
     }
 
     function test_ServiceManagerCanCustomizeHeartbeat() public {
         CustomHeartbeatManager customManager = new CustomHeartbeatManager();
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://heartbeat", address(customManager));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://heartbeat", address(customManager)));
 
         // Query heartbeat through manager
         (bool useDefault, uint64 interval) = customManager.getHeartbeatInterval(0);
@@ -837,13 +824,12 @@ contract MultiAssetSecurityTest is BaseTest {
     function test_RequestServiceWithSecurity_SingleAsset() public {
         // Create blueprint
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://security-test", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://security-test", address(0)));
 
         // Setup operator
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Create security requirements
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
@@ -877,12 +863,11 @@ contract MultiAssetSecurityTest is BaseTest {
 
     function test_RequestServiceWithSecurity_MultipleAssets() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://multi-asset", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://multi-asset", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Create multi-asset security requirements
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](2);
@@ -918,12 +903,11 @@ contract MultiAssetSecurityTest is BaseTest {
 
     function test_RequestServiceWithSecurity_RevertNoRequirements() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://no-req", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://no-req", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](0);
         address[] memory operators = new address[](1);
@@ -937,12 +921,11 @@ contract MultiAssetSecurityTest is BaseTest {
 
     function test_RequestServiceWithSecurity_RevertInvalidMinMax() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://invalid", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://invalid", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // min > max is invalid
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
@@ -963,12 +946,11 @@ contract MultiAssetSecurityTest is BaseTest {
 
     function test_ApproveWithCommitments_ValidCommitment() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://commit", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://commit", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Request with security requirements
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
@@ -1003,12 +985,11 @@ contract MultiAssetSecurityTest is BaseTest {
 
     function test_ApproveWithCommitments_RevertBelowMinimum() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://below-min", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://below-min", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
         requirements[0] = Types.AssetSecurityRequirement({
@@ -1040,12 +1021,11 @@ contract MultiAssetSecurityTest is BaseTest {
 
     function test_ApproveWithCommitments_RevertAboveMaximum() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://above-max", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://above-max", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
         requirements[0] = Types.AssetSecurityRequirement({
@@ -1077,12 +1057,11 @@ contract MultiAssetSecurityTest is BaseTest {
 
     function test_ApproveWithCommitments_RevertMissingAsset() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://missing", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://missing", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Request requires two assets
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](2);
@@ -1120,17 +1099,15 @@ contract MultiAssetSecurityTest is BaseTest {
 
     function test_ApproveWithCommitments_MultiOperator() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://multi-op", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://multi-op", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         vm.prank(operator2);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator2, blueprintId, "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
         requirements[0] = Types.AssetSecurityRequirement({
@@ -1225,13 +1202,12 @@ contract RFQTest is BaseTest {
     function test_CreateServiceFromQuotes_SingleOperator() public {
         // Create blueprint
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rfq-test", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-test", address(0)));
 
         // Setup operator
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Create signed quote
         uint64 ttl = 100;
@@ -1276,18 +1252,16 @@ contract RFQTest is BaseTest {
 
     function test_CreateServiceFromQuotes_MultipleOperators() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rfq-multi", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-multi", address(0)));
 
         // Setup both operators
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         vm.prank(operator2);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator2, blueprintId, "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1342,12 +1316,11 @@ contract RFQTest is BaseTest {
 
     function test_CreateServiceFromQuotes_RefundsExcessPayment() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rfq-refund", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-refund", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
         uint256 cost = 1 ether;
@@ -1382,12 +1355,11 @@ contract RFQTest is BaseTest {
 
     function test_CreateServiceFromQuotes_RevertExpiredQuote() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rfq-expired", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-expired", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1420,12 +1392,11 @@ contract RFQTest is BaseTest {
 
     function test_CreateServiceFromQuotes_RevertInvalidSignature() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rfq-badsig", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-badsig", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1456,12 +1427,11 @@ contract RFQTest is BaseTest {
 
     function test_CreateServiceFromQuotes_RevertBlueprintMismatch() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rfq-mismatch", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-mismatch", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1492,12 +1462,11 @@ contract RFQTest is BaseTest {
 
     function test_CreateServiceFromQuotes_RevertTTLMismatch() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rfq-ttl", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-ttl", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 expiry = uint64(block.timestamp + 1 hours);
 
@@ -1527,12 +1496,11 @@ contract RFQTest is BaseTest {
 
     function test_CreateServiceFromQuotes_RevertDuplicateOperator() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rfq-dup", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-dup", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1568,12 +1536,11 @@ contract RFQTest is BaseTest {
 
     function test_CreateServiceFromQuotes_RevertInsufficientPayment() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rfq-pay", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-pay", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1603,7 +1570,7 @@ contract RFQTest is BaseTest {
 
     function test_CreateServiceFromQuotes_RevertNoQuotes() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://rfq-empty", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-empty", address(0)));
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](0);
         address[] memory callers = new address[](0);
