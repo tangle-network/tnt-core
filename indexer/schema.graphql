@@ -1,0 +1,644 @@
+enum OperatorRegistrationStatus {
+  ACTIVE
+  UNREGISTERED
+}
+
+enum ServiceRequestStatus {
+  PENDING
+  ACTIVATED
+  CANCELLED
+}
+
+enum ServiceStatus {
+  ACTIVE
+  TERMINATED
+}
+
+enum SlashStatus {
+  PENDING
+  DISPUTED
+  EXECUTED
+  CANCELLED
+}
+
+enum RestakingOperatorStatus {
+  ACTIVE
+  LEAVING
+  INACTIVE
+}
+
+enum LockMultiplier {
+  NONE
+  ONE_MONTH
+  TWO_MONTHS
+  THREE_MONTHS
+  SIX_MONTHS
+}
+
+enum DelegationSelectionMode {
+  ALL
+  FIXED
+}
+
+enum RequestStatus {
+  PENDING
+  READY
+  EXECUTED
+  CANCELLED
+}
+
+enum OperatorStakeChangeKind {
+  REGISTERED
+  STAKE_INCREASED
+  UNSTAKE_SCHEDULED
+  UNSTAKE_EXECUTED
+  LEAVING_SCHEDULED
+  LEFT
+}
+
+enum RewardDistributionKind {
+  POOL
+  DELEGATOR_CLAIM
+  OPERATOR_COMMISSION
+  INFLATION
+}
+
+enum RewardVaultEventType {
+  DECAY_UPDATED
+  COMMISSION_UPDATED
+  LOCK_DURATIONS_UPDATED
+}
+
+enum PointsProgramCategory {
+  OPERATOR
+  DELEGATOR
+  SERVICE
+  CREDIT
+  BONUS
+}
+
+enum PointsNetwork {
+  MAINNET
+  TESTNET
+  GENERIC
+}
+
+enum DelegationBlueprintAction {
+  ADDED
+  REMOVED
+}
+
+enum OperatorLifecycleEventType {
+  WENT_OFFLINE
+  CAME_ONLINE
+  STATUS_CHANGED
+  SLASH_ALERT
+}
+
+enum CreditOpType {
+  CLAIM
+}
+
+type Blueprint {
+  id: ID!
+  blueprintId: BigInt!
+  owner: String!
+  manager: String
+  metadataUri: String
+  active: Boolean!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  operatorCount: BigInt!
+  services: [Service!]! @derivedFrom(field: "blueprint")
+  registrations: [OperatorRegistration!]! @derivedFrom(field: "blueprint")
+  requests: [ServiceRequest!]! @derivedFrom(field: "blueprint")
+}
+
+type Operator {
+  id: ID!
+  ecdsaPublicKey: String
+  rpcAddress: String
+  createdAt: BigInt
+  updatedAt: BigInt
+  restakingStatus: RestakingOperatorStatus
+  restakingStake: BigInt
+  restakingDelegationCount: BigInt
+  restakingLeavingRound: BigInt
+  restakingScheduledUnstakeAmount: BigInt
+  restakingScheduledUnstakeReadyRound: BigInt
+  restakingUpdatedAt: BigInt
+  registrations: [OperatorRegistration!]! @derivedFrom(field: "operator")
+  intents: [OperatorIntent!]! @derivedFrom(field: "operator")
+  memberships: [ServiceOperator!]! @derivedFrom(field: "operator")
+  jobResults: [JobResult!]! @derivedFrom(field: "operator")
+  stakeEvents: [OperatorStakeChange!]! @derivedFrom(field: "operator")
+  delegationPositions: [DelegationPosition!]! @derivedFrom(field: "operator")
+  heartbeats: [OperatorHeartbeat!]! @derivedFrom(field: "operator")
+}
+
+type OperatorRegistration {
+  id: ID!
+  blueprint: Blueprint!
+  operator: Operator!
+  status: OperatorRegistrationStatus!
+  registeredAt: BigInt!
+  updatedAt: BigInt!
+  unregisteredAt: BigInt
+  ecdsaPublicKey: String
+  rpcAddress: String
+}
+
+type OperatorIntent {
+  id: ID!
+  blueprint: Blueprint!
+  operator: Operator!
+  createdAt: BigInt!
+  txHash: String!
+}
+
+type ServiceRequest {
+  id: ID!
+  requestId: BigInt!
+  blueprint: Blueprint!
+  requester: String!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  status: ServiceRequestStatus!
+  approvalCount: BigInt!
+  approvedOperators: [String!]!
+  rejectedOperators: [String!]!
+  operatorCandidates: [String!]
+  securityRequirements: String
+  services: [Service!]! @derivedFrom(field: "request")
+}
+
+type Service {
+  id: ID!
+  serviceId: BigInt!
+  blueprint: Blueprint!
+  request: ServiceRequest
+  owner: String!
+  status: ServiceStatus!
+  createdAt: BigInt!
+  terminatedAt: BigInt
+  serviceOperators: [ServiceOperator!]! @derivedFrom(field: "service")
+  jobCalls: [JobCall!]! @derivedFrom(field: "service")
+}
+
+type ServiceOperator {
+  id: ID!
+  service: Service!
+  operator: Operator!
+  exposureBps: BigInt!
+  joinedAt: BigInt!
+  leftAt: BigInt
+  active: Boolean!
+  exitScheduledAt: BigInt
+  exitExecuteAfter: BigInt
+  exitCancelledAt: BigInt
+  exitForcedBy: String
+}
+
+type JobCall {
+  id: ID!
+  service: Service!
+  callId: BigInt!
+  jobIndex: Int!
+  caller: String!
+  inputs: String
+  createdAt: BigInt!
+  completed: Boolean!
+  completedAt: BigInt
+  results: [JobResult!]! @derivedFrom(field: "jobCall")
+}
+
+type JobResult {
+  id: ID!
+  jobCall: JobCall!
+  operator: Operator
+  output: String!
+  signerBitmap: BigInt
+  aggregated: Boolean!
+  submittedAt: BigInt!
+  txHash: String!
+}
+
+type EscrowBalance {
+  id: ID!
+  service: Service!
+  token: String!
+  totalFunded: BigInt!
+  totalBilled: BigInt!
+  lastFundedAt: BigInt
+  lastBilledAt: BigInt
+}
+
+type SubscriptionBilling {
+  id: ID!
+  service: Service!
+  amount: BigInt!
+  period: BigInt!
+  billedAt: BigInt!
+  txHash: String!
+}
+
+type RewardClaim {
+  id: ID!
+  account: String!
+  token: String!
+  amount: BigInt!
+  claimedAt: BigInt!
+  txHash: String!
+}
+
+type QuoteUsage {
+  id: ID!
+  operator: Operator!
+  quoteHash: String!
+  usedAt: BigInt!
+  txHash: String!
+}
+
+type SlashProposal {
+  id: ID!
+  slashId: BigInt!
+  service: Service
+  serviceId: BigInt!
+  operator: Operator
+  proposer: String!
+  amount: BigInt!
+  effectiveAmount: BigInt!
+  evidence: String
+  executeAfter: BigInt!
+  status: SlashStatus!
+  createdAt: BigInt!
+  disputedAt: BigInt
+  disputeReason: String
+  disputer: String
+  executedAt: BigInt
+  actualSlashed: BigInt
+  cancelledAt: BigInt
+  canceller: String
+}
+
+type SlashConfig {
+  id: ID!
+  disputeWindow: BigInt!
+  instantSlashEnabled: Boolean!
+  maxSlashBps: BigInt!
+  updatedAt: BigInt!
+}
+
+type ProtocolState {
+  id: ID!
+  paused: Boolean!
+  pausedAt: BigInt
+  pausedBy: String
+  version: BigInt
+  currentImplementation: String
+  lastUpdatedAt: BigInt
+}
+
+type Upgrade {
+  id: ID!
+  implementation: String!
+  upgradedAt: BigInt!
+  txHash: String!
+}
+
+type Role {
+  id: ID!
+  role: String!
+  adminRole: String
+  updatedAt: BigInt
+  members: [RoleAssignment!]! @derivedFrom(field: "roleRef")
+}
+
+type RoleAssignment {
+  id: ID!
+  roleRef: Role!
+  account: String!
+  active: Boolean!
+  grantedAt: BigInt!
+  revokedAt: BigInt
+  sender: String!
+}
+
+type RestakingAsset {
+  id: ID!
+  token: String!
+  enabled: Boolean!
+  minOperatorStake: BigInt!
+  minDelegation: BigInt!
+  depositCap: BigInt
+  currentDeposits: BigInt!
+  rewardMultiplierBps: Int!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+type RestakingRound {
+  id: ID!
+  round: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type OperatorStakeChange {
+  id: ID!
+  operator: Operator!
+  kind: OperatorStakeChangeKind!
+  amount: BigInt
+  readyRound: BigInt
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type Delegator {
+  id: ID!
+  address: String!
+  totalDeposited: BigInt!
+  totalDelegated: BigInt!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  withdrawNonce: BigInt!
+  withdrawCursor: BigInt!
+  unstakeNonce: BigInt!
+  unstakeCursor: BigInt!
+  assetPositions: [DelegatorAssetPosition!]! @derivedFrom(field: "delegator")
+  delegations: [DelegationPosition!]! @derivedFrom(field: "delegator")
+  withdrawRequests: [WithdrawRequest!]! @derivedFrom(field: "delegator")
+  unstakeRequests: [DelegationUnstakeRequest!]! @derivedFrom(field: "delegator")
+}
+
+type DelegatorAssetPosition {
+  id: ID!
+  delegator: Delegator!
+  token: String!
+  totalDeposited: BigInt!
+  delegatedAmount: BigInt!
+  lockedAmount: BigInt!
+  lastUpdatedAt: BigInt!
+  locks: [DepositLock!]! @derivedFrom(field: "position")
+  withdrawRequests: [WithdrawRequest!]! @derivedFrom(field: "position")
+}
+
+type DepositLock {
+  id: ID!
+  position: DelegatorAssetPosition!
+  amount: BigInt!
+  multiplier: LockMultiplier!
+  expiryBlock: BigInt!
+}
+
+type WithdrawRequest {
+  id: ID!
+  delegator: Delegator!
+  position: DelegatorAssetPosition!
+  token: String!
+  nonce: BigInt!
+  amount: BigInt!
+  requestedRound: BigInt!
+  readyRound: BigInt!
+  status: RequestStatus!
+  executedAt: BigInt
+}
+
+type DelegationPosition {
+  id: ID!
+  delegator: Delegator!
+  operator: Operator!
+  token: String!
+  shares: BigInt!
+  lastKnownAmount: BigInt!
+  selectionMode: DelegationSelectionMode!
+  blueprintIds: [BigInt!]
+  createdAtRound: BigInt!
+  updatedAtRound: BigInt!
+  unstakeRequests: [DelegationUnstakeRequest!]! @derivedFrom(field: "position")
+}
+
+type DelegationUnstakeRequest {
+  id: ID!
+  delegator: Delegator!
+  operator: Operator!
+  position: DelegationPosition
+  token: String!
+  nonce: BigInt!
+  shares: BigInt!
+  estimatedAmount: BigInt!
+  requestedRound: BigInt!
+  readyRound: BigInt!
+  status: RequestStatus!
+  executedAt: BigInt
+}
+
+type RestakingSlash {
+  id: ID!
+  operator: Operator!
+  serviceId: BigInt!
+  operatorSlashed: BigInt!
+  delegatorsSlashed: BigInt!
+  exchangeRateAfter: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+type SlashRecord {
+  id: ID!
+  operator: Operator!
+  slashId: BigInt!
+  totalSlashed: BigInt!
+  exchangeRateBefore: BigInt!
+  exchangeRateAfter: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+type RewardVault {
+  id: ID!
+  asset: String!
+  apyBps: BigInt!
+  depositCap: BigInt
+  incentiveCap: BigInt
+  boostMultiplierBps: BigInt
+  active: Boolean!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  states: [RewardVaultState!]! @derivedFrom(field: "vault")
+  events: [RewardVaultEvent!]! @derivedFrom(field: "vault")
+}
+
+type RewardVaultState {
+  id: ID!
+  vault: RewardVault!
+  totalDeposits: BigInt!
+  totalScore: BigInt!
+  rewardsDistributed: BigInt!
+  lastUpdateBlock: BigInt!
+  updatedAt: BigInt!
+}
+
+type RewardDistribution {
+  id: ID!
+  kind: RewardDistributionKind!
+  asset: String!
+  operator: Operator
+  delegator: Delegator
+  amount: BigInt!
+  commission: BigInt
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type RestakingRewardClaim {
+  id: ID!
+  delegator: Delegator
+  operator: Operator
+  asset: String!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+  kind: RewardDistributionKind!
+}
+
+type OperatorHeartbeat {
+  id: ID!
+  operator: Operator!
+  serviceId: BigInt!
+  blueprintId: BigInt!
+  statusCode: Int!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type OperatorLifecycleEvent {
+  id: ID!
+  operator: Operator!
+  serviceId: BigInt!
+  eventType: OperatorLifecycleEventType!
+  statusCode: Int
+  missedBeats: Int
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type HeartbeatConfig {
+  id: ID!
+  serviceId: BigInt!
+  interval: BigInt!
+  maxMissed: Int!
+  updatedAt: BigInt!
+}
+
+type OperatorMetricSnapshot {
+  id: ID!
+  operator: Operator!
+  serviceId: BigInt!
+  metricName: String!
+  value: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type CreditBalance {
+  id: ID!
+  account: String!
+  amount: BigInt!
+  lastUpdatedAt: BigInt!
+  operations: [CreditOperation!]! @derivedFrom(field: "balance")
+}
+
+type CreditOperation {
+  id: ID!
+  balance: CreditBalance!
+  operationType: CreditOpType!
+  from: String
+  to: String
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+  offchainAccountId: String
+}
+
+type PointsProgram {
+  id: ID!
+  name: String!
+  description: String
+  category: PointsProgramCategory!
+  network: PointsNetwork!
+  weight: Int!
+  createdAt: BigInt!
+  participationStates: [ParticipationState!]! @derivedFrom(field: "program")
+}
+
+type PointsAccount {
+  id: ID!
+  totalPoints: BigInt!
+  totalMainnetPoints: BigInt!
+  totalTestnetPoints: BigInt!
+  leaderboardScore: BigInt!
+  updatedAt: BigInt!
+  events: [PointsEvent!]! @derivedFrom(field: "account")
+  snapshots: [PointsSnapshot!]! @derivedFrom(field: "account")
+}
+
+type PointsEvent {
+  id: ID!
+  account: PointsAccount!
+  program: PointsProgram!
+  amount: BigInt!
+  reason: String
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+  metadata: String
+}
+
+type PointsSnapshot {
+  id: ID!
+  account: PointsAccount!
+  program: PointsProgram
+  totalPoints: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type ParticipationState {
+  id: ID!
+  entityId: String!
+  program: PointsProgram!
+  category: PointsProgramCategory!
+  active: Boolean!
+  lastAwardAt: BigInt!
+}
+
+type DelegationBlueprintEvent {
+  id: ID!
+  delegator: String!
+  delegationIndex: BigInt!
+  blueprintId: BigInt!
+  action: DelegationBlueprintAction!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type RewardVaultEvent {
+  id: ID!
+  vault: RewardVault
+  eventType: RewardVaultEventType!
+  asset: String
+  valueA: BigInt
+  valueB: BigInt
+  valueC: BigInt
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}

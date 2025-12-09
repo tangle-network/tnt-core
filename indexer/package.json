@@ -1,0 +1,27 @@
+{
+  "name": "tnt-envio-indexer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "clean": "tsc --build --clean",
+    "build": "tsc --build",
+    "watch": "tsc --watch",
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.2",
+    "envio": "^2.32.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "optionalDependencies": {
+    "generated": "file:generated"
+  }
+}
