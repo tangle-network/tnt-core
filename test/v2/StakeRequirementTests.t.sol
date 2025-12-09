@@ -47,9 +47,9 @@ contract MockBSM_StakeRequirement is BlueprintServiceManagerBase {
     function onOperatorLeft(uint64, address) external override onlyFromTangle {}
 }
 
-/// @title NewFeatureTests
-/// @notice Tests for newly added features: stake validation, operator count, excess ETH refund
-contract NewFeatureTests is BaseTest {
+/// @title StakeRequirementTests
+/// @notice Tests covering operator stake validation, operator count bounds, and payment refunds
+contract StakeRequirementTests is BaseTest {
     MockBSM_StakeRequirement public mockBsm;
 
     address public operator4 = makeAddr("operator4");
