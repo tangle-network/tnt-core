@@ -88,6 +88,19 @@ enum DelegationBlueprintAction {
   REMOVED
 }
 
+enum PriceSource {
+  COINGECKO
+  STATIC
+  DERIVED
+  FALLBACK
+}
+
+enum PriceSampleStatus {
+  SUCCESS
+  FAILURE
+  FALLBACK
+}
+
 enum OperatorLifecycleEventType {
   WENT_OFFLINE
   CAME_ONLINE
@@ -112,6 +125,16 @@ type Blueprint {
   services: [Service!]! @derivedFrom(field: "blueprint")
   registrations: [OperatorRegistration!]! @derivedFrom(field: "blueprint")
   requests: [ServiceRequest!]! @derivedFrom(field: "blueprint")
+  operatorBlueprints: [OperatorBlueprint!]! @derivedFrom(field: "blueprint")
+}
+
+type BlueprintDefinition {
+  id: ID!
+  blueprintId: BigInt!
+  owner: String!
+  encodedDefinition: String!
+  recordedAt: BigInt!
+  txHash: String!
 }
 
 type Operator {
@@ -134,6 +157,7 @@ type Operator {
   stakeEvents: [OperatorStakeChange!]! @derivedFrom(field: "operator")
   delegationPositions: [DelegationPosition!]! @derivedFrom(field: "operator")
   heartbeats: [OperatorHeartbeat!]! @derivedFrom(field: "operator")
+  blueprintMemberships: [OperatorBlueprint!]! @derivedFrom(field: "operator")
 }
 
 type OperatorRegistration {
@@ -154,6 +178,15 @@ type OperatorIntent {
   operator: Operator!
   createdAt: BigInt!
   txHash: String!
+}
+
+type OperatorBlueprint {
+  id: ID!
+  operator: Operator!
+  blueprint: Blueprint!
+  addedAt: BigInt!
+  removedAt: BigInt
+  active: Boolean!
 }
 
 type ServiceRequest {
@@ -279,6 +312,7 @@ type SlashProposal {
   actualSlashed: BigInt
   cancelledAt: BigInt
   canceller: String
+  cancelReason: String
 }
 
 type SlashConfig {
@@ -551,6 +585,9 @@ type CreditBalance {
   account: String!
   amount: BigInt!
   lastUpdatedAt: BigInt!
+  claimCount: BigInt!
+  firstClaimAt: BigInt
+  lastClaimAt: BigInt
   operations: [CreditOperation!]! @derivedFrom(field: "balance")
 }
 
@@ -565,6 +602,26 @@ type CreditOperation {
   timestamp: BigInt!
   txHash: String!
   offchainAccountId: String
+  ledger: CreditLedger
+}
+
+type CreditLedger {
+  id: ID!
+  offchainAccountId: String!
+  totalClaimed: BigInt!
+  claimCount: BigInt!
+  lastClaimAt: BigInt!
+  claimers: [CreditLedgerAccount!]! @derivedFrom(field: "ledger")
+  operations: [CreditOperation!]! @derivedFrom(field: "ledger")
+}
+
+type CreditLedgerAccount {
+  id: ID!
+  ledger: CreditLedger!
+  account: String!
+  totalClaimed: BigInt!
+  claimCount: BigInt!
+  lastClaimAt: BigInt!
 }
 
 type PointsProgram {
@@ -583,7 +640,7 @@ type PointsAccount {
   totalPoints: BigInt!
   totalMainnetPoints: BigInt!
   totalTestnetPoints: BigInt!
-  leaderboardScore: BigInt!
+  leaderboardPoints: BigInt!
   updatedAt: BigInt!
   events: [PointsEvent!]! @derivedFrom(field: "account")
   snapshots: [PointsSnapshot!]! @derivedFrom(field: "account")
@@ -641,4 +698,26 @@ type RewardVaultEvent {
   blockNumber: BigInt!
   timestamp: BigInt!
   txHash: String!
+}
+
+type AssetPrice {
+  id: ID!
+  asset: String!
+  symbol: String!
+  price: BigInt!
+  source: PriceSource!
+  blockNumber: BigInt!
+  updatedAt: BigInt!
+}
+
+type AssetPriceSample {
+  id: ID!
+  asset: String!
+  symbol: String!
+  price: BigInt
+  source: PriceSource!
+  status: PriceSampleStatus!
+  reason: String
+  blockNumber: BigInt!
+  fetchedAt: BigInt!
 }

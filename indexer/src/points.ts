@@ -4,6 +4,10 @@ import type {
   PointsProgram,
   PointsSnapshot,
 } from "generated/src/Types.gen";
+import { ensurePointsProgram, PROGRAMS } from "./points/programs";
+import type { PointsProgramId } from "./points/programs";
+export { ensurePointsProgram } from "./points/programs";
+export type { PointsProgramId } from "./points/programs";
 
 export type PointsContext = {
   PointsProgram: {
@@ -22,119 +26,7 @@ export type PointsContext = {
   };
 };
 
-interface ProgramDefinition {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  network: string;
-  weight: number;
-}
-
-export const PROGRAMS = {
-  "operator-registration": {
-    id: "operator-registration",
-    name: "Operator Registration",
-    description: "Registration bonus",
-    category: "OPERATOR",
-    network: "GENERIC",
-    weight: 100,
-  },
-  "operator-stake": {
-    id: "operator-stake",
-    name: "Operator Stake",
-    description: "Self-stake boost",
-    category: "OPERATOR",
-    network: "GENERIC",
-    weight: 10,
-  },
-  "delegator-deposit": {
-    id: "delegator-deposit",
-    name: "Delegator Deposit",
-    description: "Depositing assets into restaking",
-    category: "DELEGATOR",
-    network: "GENERIC",
-    weight: 5,
-  },
-  "delegation": {
-    id: "delegation",
-    name: "Delegation",
-    description: "Delegating stake to operators",
-    category: "DELEGATOR",
-    network: "GENERIC",
-    weight: 8,
-  },
-  "credit-claim": {
-    id: "credit-claim",
-    name: "Credit Claim",
-    description: "Claiming off-chain credits",
-    category: "CREDIT",
-    network: "GENERIC",
-    weight: 3,
-  },
-  "service-activity": {
-    id: "service-activity",
-    name: "Service Activity",
-    description: "Submitting jobs or results",
-    category: "SERVICE",
-    network: "GENERIC",
-    weight: 2,
-  },
-  "operator-hourly": {
-    id: "operator-hourly",
-    name: "Operator Uptime",
-    description: "Hourly reward for active operators",
-    category: "OPERATOR",
-    network: "GENERIC",
-    weight: 1,
-  },
-  "delegator-hourly": {
-    id: "delegator-hourly",
-    name: "Delegator Uptime",
-    description: "Hourly reward for active delegators",
-    category: "DELEGATOR",
-    network: "GENERIC",
-    weight: 1,
-  },
-  "service-hourly": {
-    id: "service-hourly",
-    name: "Service Uptime",
-    description: "Hourly reward for active services",
-    category: "SERVICE",
-    network: "GENERIC",
-    weight: 1,
-  },
-} satisfies Record<string, ProgramDefinition>;
-
-export type PointsProgramId = keyof typeof PROGRAMS;
-
 let pointsEventCounter = 0;
-
-export async function ensurePointsProgram(
-  context: PointsContext,
-  programId: PointsProgramId,
-  timestamp: bigint
-): Promise<PointsProgram> {
-  const def = PROGRAMS[programId];
-  if (!def) {
-    throw new Error(`Unknown points program ${programId}`);
-  }
-  const existing = await context.PointsProgram.get(def.id);
-  if (existing) {
-    return existing;
-  }
-  const program: PointsProgram = {
-    id: def.id,
-    name: def.name,
-    description: def.description,
-    category: def.category,
-    network: def.network,
-    weight: def.weight,
-    createdAt: timestamp,
-  } as PointsProgram;
-  context.PointsProgram.set(program);
-  return program;
-}
 
 export class PointsManager {
   constructor(
@@ -157,7 +49,7 @@ export class PointsManager {
         program.network === "MAINNET" ? (account.totalMainnetPoints ?? 0n) + amount : account.totalMainnetPoints ?? 0n,
       totalTestnetPoints:
         program.network === "TESTNET" ? (account.totalTestnetPoints ?? 0n) + amount : account.totalTestnetPoints ?? 0n,
-      leaderboardScore: (account.totalPoints ?? 0n) + amount,
+      leaderboardPoints: (account.leaderboardPoints ?? 0n) + amount,
       updatedAt: this.timestamp,
     } as PointsAccount;
 
@@ -197,7 +89,7 @@ export class PointsManager {
         totalPoints: 0n,
         totalMainnetPoints: 0n,
         totalTestnetPoints: 0n,
-        leaderboardScore: 0n,
+        leaderboardPoints: 0n,
         updatedAt: this.timestamp,
       } as PointsAccount;
     }

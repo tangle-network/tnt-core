@@ -52,6 +52,12 @@ networks:
           - event: SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period)
           - event: Unpaused(address account)
           - event: Upgraded(address indexed implementation)
+      - name: MasterBlueprintServiceManager
+        address:
+          - "0x0000000000000000000000751234512121212777"
+        handler: src/EventHandlers.ts
+        events:
+          - event: BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition)
       - name: MultiAssetDelegation
         address:
           - "0x0000000000000000000000246123412121212222"
