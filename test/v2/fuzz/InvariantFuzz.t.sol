@@ -68,8 +68,12 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         restaking.addSlasher(address(tangle));
 
         masterManager = new MasterBlueprintServiceManager(admin, address(tangle));
-        mbsmRegistry = new MBSMRegistry();
-        mbsmRegistry.initialize(admin);
+        MBSMRegistry registryImpl = new MBSMRegistry();
+        ERC1967Proxy registryProxy = new ERC1967Proxy(
+            address(registryImpl),
+            abi.encodeCall(MBSMRegistry.initialize, (admin))
+        );
+        mbsmRegistry = MBSMRegistry(address(registryProxy));
         vm.startPrank(admin);
         mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), address(tangle));
         mbsmRegistry.addVersion(address(masterManager));

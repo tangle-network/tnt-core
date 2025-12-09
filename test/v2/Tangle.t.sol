@@ -281,6 +281,7 @@ contract TangleTest is BaseTest {
 
     function test_ApproveService() public {
         _registerOperator(operator1);
+        _registerOperator(operator2);
         uint64 blueprintId = _createBlueprint(developer);
         _registerForBlueprint(operator1, blueprintId);
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -324,7 +325,7 @@ contract TangleTest is BaseTest {
         uint64 requestId = _requestService(user1, blueprintId, operator1);
 
         vm.prank(operator2);
-        vm.expectRevert(Errors.Unauthorized.selector);
+        vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotActive.selector, operator2));
         tangle.approveService(requestId, 0);
     }
 

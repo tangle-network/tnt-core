@@ -97,7 +97,7 @@ contract NewFeatureTests is BaseTest {
         vm.expectRevert(
             abi.encodeWithSelector(Errors.InsufficientStake.selector, operator1, 5 ether, MIN_OPERATOR_STAKE)
         );
-        tangle.registerOperator(blueprintId, "", "");
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 0), "");
     }
 
     function test_RegisterOperator_WithCustomBSMMinStake_Success() public {
