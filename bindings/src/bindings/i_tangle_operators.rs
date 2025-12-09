@@ -4,7 +4,7 @@
 ```solidity
 library Types {
     struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
-    struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
+    struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; uint256 bondAmount; address bondToken; }
 }
 ```*/
 #[allow(
@@ -241,7 +241,7 @@ struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
+struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; uint256 bondAmount; address bondToken; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -254,6 +254,10 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
         pub active: bool,
         #[allow(missing_docs)]
         pub online: bool,
+        #[allow(missing_docs)]
+        pub bondAmount: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub bondToken: alloy::sol_types::private::Address,
     }
     #[allow(
         non_camel_case_types,
@@ -270,9 +274,18 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Bool,
             alloy::sol_types::sol_data::Bool,
+            alloy::sol_types::sol_data::Uint<256>,
+            alloy::sol_types::sol_data::Address,
         );
         #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = (u64, u64, bool, bool);
+        type UnderlyingRustTuple<'a> = (
+            u64,
+            u64,
+            bool,
+            bool,
+            alloy::sol_types::private::primitives::aliases::U256,
+            alloy::sol_types::private::Address,
+        );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
         fn _type_assertion(
@@ -288,7 +301,14 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
         #[doc(hidden)]
         impl ::core::convert::From<OperatorRegistration> for UnderlyingRustTuple<'_> {
             fn from(value: OperatorRegistration) -> Self {
-                (value.registeredAt, value.updatedAt, value.active, value.online)
+                (
+                    value.registeredAt,
+                    value.updatedAt,
+                    value.active,
+                    value.online,
+                    value.bondAmount,
+                    value.bondToken,
+                )
             }
         }
         #[automatically_derived]
@@ -300,6 +320,8 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                     updatedAt: tuple.1,
                     active: tuple.2,
                     online: tuple.3,
+                    bondAmount: tuple.4,
+                    bondToken: tuple.5,
                 }
             }
         }
@@ -323,6 +345,12 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                     ),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.online,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.bondAmount),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.bondToken,
                     ),
                 )
             }
@@ -398,7 +426,7 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "OperatorRegistration(uint64 registeredAt,uint64 updatedAt,bool active,bool online)",
+                    "OperatorRegistration(uint64 registeredAt,uint64 updatedAt,bool active,bool online,uint256 bondAmount,address bondToken)",
                 )
             }
             #[inline]
@@ -430,6 +458,14 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                             &self.online,
                         )
                         .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.bondAmount)
+                        .0,
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.bondToken,
+                        )
+                        .0,
                 ]
                     .concat()
             }
@@ -454,6 +490,14 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                     )
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.online,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.bondAmount,
+                    )
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.bondToken,
                     )
             }
             #[inline]
@@ -482,6 +526,16 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                 );
                 <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.online,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    256,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.bondAmount,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.bondToken,
                     out,
                 );
             }
@@ -632,6 +686,8 @@ library Types {
         uint64 updatedAt;
         bool active;
         bool online;
+        uint256 bondAmount;
+        address bondToken;
     }
 }
 
@@ -645,8 +701,8 @@ interface ITangleOperators {
     function getOperatorPublicKey(uint64 blueprintId, address operator) external view returns (bytes memory);
     function getOperatorRegistration(uint64 blueprintId, address operator) external view returns (Types.OperatorRegistration memory);
     function isOperatorRegistered(uint64 blueprintId, address operator) external view returns (bool);
-    function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external;
-    function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external;
+    function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external payable;
+    function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external payable;
     function setOperatorOnline(uint64 blueprintId, bool online) external;
     function unregisterOperator(uint64 blueprintId) external;
     function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external;
@@ -756,6 +812,16 @@ interface ITangleOperators {
             "name": "online",
             "type": "bool",
             "internalType": "bool"
+          },
+          {
+            "name": "bondAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "bondToken",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       }
@@ -812,7 +878,7 @@ interface ITangleOperators {
       }
     ],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -835,7 +901,7 @@ interface ITangleOperators {
       }
     ],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -2240,7 +2306,7 @@ function isOperatorRegistered(uint64 blueprintId, address operator) external vie
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `registerOperator(uint64,bytes,string,bytes)` and selector `0x7324e916`.
 ```solidity
-function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external;
+function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external payable;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2428,7 +2494,7 @@ function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, strin
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `registerOperator(uint64,bytes,string)` and selector `0xd4e1ab7c`.
 ```solidity
-function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external;
+function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external payable;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
