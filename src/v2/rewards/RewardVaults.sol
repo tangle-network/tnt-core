@@ -97,6 +97,38 @@ contract RewardVaults is
         uint256 boostedScore;            // Weighted score minted for this delegator/operator pair
     }
 
+    /// @notice Snapshot returned when rendering vaults in UI clients
+    struct VaultSummary {
+        address asset;
+        uint256 apyBps;
+        uint256 depositCap;
+        uint256 incentiveCap;
+        uint256 boostMultiplierBps;
+        bool active;
+        uint256 totalDeposits;
+        uint256 totalScore;
+        uint256 rewardsDistributed;
+        uint256 lastUpdateBlock;
+        uint256 depositCapRemaining;
+        uint256 utilizationBps;
+    }
+
+    /// @notice Delegator position view model
+    struct DelegatorPosition {
+        address operator;
+        uint256 stakedAmount;
+        uint256 boostedScore;
+        LockDuration lockDuration;
+        uint256 lockExpiry;
+        uint256 pendingRewards;
+    }
+
+    /// @notice Lightweight pending reward tuple for dashboards
+    struct PendingRewardsView {
+        address operator;
+        uint256 amount;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -122,6 +154,12 @@ contract RewardVaults is
     /// @notice Operators tracked per asset for epoch reward fan-out
     mapping(address => address[]) private assetOperators;
     mapping(address => mapping(address => bool)) private isAssetOperator;
+
+    /// @notice Operators a delegator currently has stake with per asset
+    mapping(address => mapping(address => address[])) private delegatorOperators;
+
+    /// @notice Index of an operator inside a delegator's operator list (index + 1)
+    mapping(address => mapping(address => mapping(address => uint256))) private delegatorOperatorIndex;
 
     /// @notice Decay configuration
     uint256 public decayStartBlock;  // Block after which decay starts
@@ -336,13 +374,18 @@ contract RewardVaults is
 
         // Track delegator's first interaction for reward claiming
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
-        if (debt.stakedAmount == 0) {
+        bool isNewDelegator = debt.stakedAmount == 0;
+        if (isNewDelegator) {
             debt.lastAccumulatedPerShare = operatorPools[asset][operator].accumulatedPerShare;
         }
         debt.stakedAmount += amount;
         debt.boostedScore += score;
         debt.lockDuration = LockDuration.None;
         debt.lockExpiry = 0;
+
+        if (isNewDelegator) {
+            _trackDelegatorOperator(asset, delegator, operator);
+        }
 
         // Update operator pool total
         operatorPools[asset][operator].totalStaked += amount;
@@ -383,6 +426,7 @@ contract RewardVaults is
         if (debt.stakedAmount == 0) {
             debt.lockDuration = LockDuration.None;
             debt.lockExpiry = 0;
+            _untrackDelegatorOperator(asset, delegator, operator);
         }
 
         // Update operator pool total
@@ -534,7 +578,10 @@ contract RewardVaults is
 
         // Update delegator debt
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
-        debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
+        bool isNewDelegator = debt.stakedAmount == 0;
+        if (isNewDelegator) {
+            debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
+        }
         debt.stakedAmount += amount;
         debt.lockDuration = lock;
         if (lock != LockDuration.None) {
@@ -543,6 +590,10 @@ contract RewardVaults is
             debt.lockExpiry = 0;
         }
         debt.boostedScore += score;
+
+        if (isNewDelegator) {
+            _trackDelegatorOperator(asset, delegator, operator);
+        }
 
         emit StakeRecorded(asset, delegator, operator, amount, lock);
     }
@@ -585,6 +636,7 @@ contract RewardVaults is
         if (debt.stakedAmount == 0) {
             debt.lockDuration = LockDuration.None;
             debt.lockExpiry = 0;
+            _untrackDelegatorOperator(asset, delegator, operator);
         }
 
         emit UnstakeRecorded(asset, delegator, operator, amount);
@@ -601,23 +653,38 @@ contract RewardVaults is
         address asset,
         address operator
     ) external nonReentrant returns (uint256) {
-        _updateVaultRewards(asset);
-        _updateOperatorPool(asset, operator);
+        uint256 claimed = _claimDelegatorReward(msg.sender, asset, operator);
+        if (claimed == 0) revert NoRewardsToClaim();
+        return claimed;
+    }
 
-        DelegatorDebt storage debt = delegatorDebts[asset][msg.sender][operator];
-        OperatorPool storage pool = operatorPools[asset][operator];
+    /// @notice Claim delegator rewards from multiple operator pools
+    /// @param asset The vault asset
+    /// @param operators Operator list to claim from
+    function claimDelegatorRewardsBatch(
+        address asset,
+        address[] calldata operators
+    ) external nonReentrant returns (uint256) {
+        uint256 totalClaimed;
+        for (uint256 i = 0; i < operators.length; i++) {
+            totalClaimed += _claimDelegatorReward(msg.sender, asset, operators[i]);
+        }
+        if (totalClaimed == 0) revert NoRewardsToClaim();
+        return totalClaimed;
+    }
 
-        uint256 owed = _calculateDelegatorRewards(pool, debt);
-        if (owed == 0) revert NoRewardsToClaim();
-
-        // Update debt checkpoint
-        debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
-
-        // Transfer TNT from pool balance
-        _transferRewards(msg.sender, owed);
-
-        emit DelegatorRewardsClaimed(asset, msg.sender, operator, owed);
-        return owed;
+    /// @notice Claim rewards on behalf of a delegator (recipient receives funds directly)
+    /// @param asset The vault asset
+    /// @param operator The operator address
+    /// @param delegator The account whose rewards are claimed
+    function claimDelegatorRewardsFor(
+        address asset,
+        address operator,
+        address delegator
+    ) external nonReentrant returns (uint256) {
+        uint256 claimed = _claimDelegatorReward(delegator, asset, operator);
+        if (claimed == 0) revert NoRewardsToClaim();
+        return claimed;
     }
 
     /// @notice Claim operator commission
@@ -714,6 +781,35 @@ contract RewardVaults is
         assetOperators[asset].push(operator);
     }
 
+    function _trackDelegatorOperator(address asset, address delegator, address operator) internal {
+        if (delegatorOperatorIndex[asset][delegator][operator] != 0) {
+            return;
+        }
+        delegatorOperators[asset][delegator].push(operator);
+        delegatorOperatorIndex[asset][delegator][operator] =
+            delegatorOperators[asset][delegator].length;
+    }
+
+    function _untrackDelegatorOperator(address asset, address delegator, address operator) internal {
+        uint256 indexPlusOne = delegatorOperatorIndex[asset][delegator][operator];
+        if (indexPlusOne == 0) {
+            return;
+        }
+
+        address[] storage operators = delegatorOperators[asset][delegator];
+        uint256 index = indexPlusOne - 1;
+        uint256 lastIndex = operators.length - 1;
+
+        if (index != lastIndex) {
+            address lastOperator = operators[lastIndex];
+            operators[index] = lastOperator;
+            delegatorOperatorIndex[asset][delegator][lastOperator] = index + 1;
+        }
+
+        operators.pop();
+        delegatorOperatorIndex[asset][delegator][operator] = 0;
+    }
+
     function _distributeToOperatorPool(address asset, address operator, uint256 amount) internal {
         if (amount == 0) return;
 
@@ -742,6 +838,31 @@ contract RewardVaults is
 
         uint256 accumulatedDiff = pool.accumulatedPerShare - debt.lastAccumulatedPerShare;
         return (debt.stakedAmount * accumulatedDiff) / PRECISION;
+    }
+
+    /// @notice Shared implementation for delegator reward claims
+    function _claimDelegatorReward(
+        address delegator,
+        address asset,
+        address operator
+    ) internal returns (uint256) {
+        if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
+        _updateVaultRewards(asset);
+        _updateOperatorPool(asset, operator);
+
+        DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
+        OperatorPool storage pool = operatorPools[asset][operator];
+
+        uint256 owed = _calculateDelegatorRewards(pool, debt);
+        if (owed == 0) {
+            return 0;
+        }
+
+        debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
+        _transferRewards(delegator, owed);
+
+        emit DelegatorRewardsClaimed(asset, delegator, operator, owed);
+        return owed;
     }
 
     /// @notice Calculate weighted score for stake
@@ -816,6 +937,92 @@ contract RewardVaults is
     /// @notice Get vault count
     function vaultCount() external view returns (uint256) {
         return vaultAssets.length;
+    }
+
+    /// @notice Return vault summary for UI dashboards
+    function getVaultSummary(address asset) public view returns (VaultSummary memory) {
+        VaultConfig storage config = vaultConfigs[asset];
+        if (config.depositCap == 0) revert VaultNotFound(asset);
+
+        VaultState storage state = vaultStates[asset];
+        uint256 depositCapRemaining =
+            state.totalScore >= config.depositCap ? 0 : config.depositCap - state.totalScore;
+        uint256 utilizationBps =
+            (state.totalDeposits * BPS_DENOMINATOR) / config.depositCap;
+
+        return VaultSummary({
+            asset: asset,
+            apyBps: config.apyBps,
+            depositCap: config.depositCap,
+            incentiveCap: config.incentiveCap,
+            boostMultiplierBps: config.boostMultiplierBps,
+            active: config.active,
+            totalDeposits: state.totalDeposits,
+            totalScore: state.totalScore,
+            rewardsDistributed: state.rewardsDistributed,
+            lastUpdateBlock: state.lastUpdateBlock,
+            depositCapRemaining: depositCapRemaining,
+            utilizationBps: utilizationBps
+        });
+    }
+
+    /// @notice Return summaries for all vaults (expensive if many vaults)
+    function getAllVaultSummaries() external view returns (VaultSummary[] memory summaries) {
+        summaries = new VaultSummary[](vaultAssets.length);
+        for (uint256 i = 0; i < vaultAssets.length; i++) {
+            summaries[i] = getVaultSummary(vaultAssets[i]);
+        }
+    }
+
+    /// @notice Return operators a delegator is currently staked with
+    function getDelegatorOperators(address asset, address delegator) external view returns (address[] memory) {
+        address[] storage operators = delegatorOperators[asset][delegator];
+        address[] memory copy = new address[](operators.length);
+        for (uint256 i = 0; i < operators.length; i++) {
+            copy[i] = operators[i];
+        }
+        return copy;
+    }
+
+    /// @notice Inspect delegator positions including pending rewards for each operator
+    function getDelegatorPositions(
+        address asset,
+        address delegator
+    ) external view returns (DelegatorPosition[] memory positions) {
+        address[] storage operators = delegatorOperators[asset][delegator];
+        positions = new DelegatorPosition[](operators.length);
+        for (uint256 i = 0; i < operators.length; i++) {
+            address operator = operators[i];
+            DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
+            OperatorPool storage pool = operatorPools[asset][operator];
+            positions[i] = DelegatorPosition({
+                operator: operator,
+                stakedAmount: debt.stakedAmount,
+                boostedScore: debt.boostedScore,
+                lockDuration: debt.lockDuration,
+                lockExpiry: debt.lockExpiry,
+                pendingRewards: _calculateDelegatorRewards(pool, debt)
+            });
+        }
+    }
+
+    /// @notice Return pending rewards for all operators a delegator is staked to
+    function pendingDelegatorRewardsAll(
+        address asset,
+        address delegator
+    ) external view returns (PendingRewardsView[] memory rewards, uint256 totalPending) {
+        address[] storage operators = delegatorOperators[asset][delegator];
+        rewards = new PendingRewardsView[](operators.length);
+
+        for (uint256 i = 0; i < operators.length; i++) {
+            address operator = operators[i];
+            OperatorPool storage pool = operatorPools[asset][operator];
+            DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
+            uint256 pending = _calculateDelegatorRewards(pool, debt);
+
+            rewards[i] = PendingRewardsView({ operator: operator, amount: pending });
+            totalPending += pending;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

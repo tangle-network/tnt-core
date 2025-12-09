@@ -434,4 +434,150 @@ contract RewardsTest is Test {
         (, uint256 totalStaked,,) = vaults.operatorPools(address(0), operator1);
         assertEq(totalStaked, 0);
     }
+
+    function test_Vaults_VaultSummaryAndAllSummaries() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 16000);
+
+        vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.SixMonths);
+
+        RewardVaults.VaultSummary memory summary = vaults.getVaultSummary(address(0));
+        assertEq(summary.asset, address(0));
+        assertEq(summary.totalDeposits, 100 ether);
+        assertEq(summary.totalScore, 160 ether);
+        assertEq(summary.depositCapRemaining, 1_000_000 ether - 160 ether);
+
+        RewardVaults.VaultSummary[] memory summaries = vaults.getAllVaultSummaries();
+        assertEq(summaries.length, 1);
+        assertEq(summaries[0].totalDeposits, 100 ether);
+    }
+
+    function test_Vaults_GetDelegatorPositionsAndPending() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
+        vaults.recordStake(address(0), delegator1, operator2, 50 ether, RewardVaults.LockDuration.OneMonth);
+
+        vaults.distributeRewards(address(0), operator1, 10 ether);
+        vaults.distributeRewards(address(0), operator2, 8 ether);
+
+        (RewardVaults.PendingRewardsView[] memory pending, uint256 total) =
+            vaults.pendingDelegatorRewardsAll(address(0), delegator1);
+        assertEq(pending.length, 2);
+        assertEq(total, 15.3 ether);
+
+        RewardVaults.DelegatorPosition[] memory positions =
+            vaults.getDelegatorPositions(address(0), delegator1);
+        assertEq(positions.length, 2);
+        assertEq(positions[0].pendingRewards, 8.5 ether);
+        assertEq(positions[1].pendingRewards, 6.8 ether);
+    }
+
+    function test_Vaults_ClaimDelegatorRewardsBatch() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
+        vaults.recordStake(address(0), delegator1, operator2, 100 ether, RewardVaults.LockDuration.None);
+
+        vaults.distributeRewards(address(0), operator1, 10 ether);
+        vaults.distributeRewards(address(0), operator2, 5 ether);
+
+        address[] memory operatorsList = new address[](2);
+        operatorsList[0] = operator1;
+        operatorsList[1] = operator2;
+
+        uint256 balanceBefore = tnt.balanceOf(delegator1);
+        vm.prank(delegator1);
+        uint256 claimed = vaults.claimDelegatorRewardsBatch(address(0), operatorsList);
+        uint256 balanceAfter = tnt.balanceOf(delegator1);
+
+        assertEq(claimed, 8.5 ether + 4.25 ether);
+        assertEq(balanceAfter - balanceBefore, claimed);
+
+        (, uint256 totalPending) = vaults.pendingDelegatorRewardsAll(address(0), delegator1);
+        assertEq(totalPending, 0);
+    }
+
+    function test_Vaults_ClaimDelegatorRewardsBatch_RevertWhenNothingOwed() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        address[] memory operatorsList = new address[](1);
+        operatorsList[0] = operator1;
+
+        vm.prank(delegator1);
+        vm.expectRevert(RewardVaults.NoRewardsToClaim.selector);
+        vaults.claimDelegatorRewardsBatch(address(0), operatorsList);
+    }
+
+    function test_Vaults_ClaimDelegatorRewardsFor() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
+        vaults.distributeRewards(address(0), operator1, 10 ether);
+
+        uint256 balanceBefore = tnt.balanceOf(delegator1);
+        vm.prank(admin);
+        uint256 claimed = vaults.claimDelegatorRewardsFor(address(0), operator1, delegator1);
+        uint256 balanceAfter = tnt.balanceOf(delegator1);
+
+        assertEq(claimed, 8.5 ether);
+        assertEq(balanceAfter - balanceBefore, claimed);
+    }
+
+    function test_Vaults_ClaimDelegatorRewardsFor_RevertWhenNothingOwed() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        vm.prank(admin);
+        vm.expectRevert(RewardVaults.NoRewardsToClaim.selector);
+        vaults.claimDelegatorRewardsFor(address(0), operator1, delegator1);
+    }
+
+    function test_Vaults_DelegatorOperatorTracking() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
+        vaults.recordStake(address(0), delegator1, operator2, 50 ether, RewardVaults.LockDuration.None);
+
+        address[] memory operatorsBefore = vaults.getDelegatorOperators(address(0), delegator1);
+        assertEq(operatorsBefore.length, 2);
+
+        vaults.recordUnstake(address(0), delegator1, operator1, 100 ether);
+
+        address[] memory operatorsAfter = vaults.getDelegatorOperators(address(0), delegator1);
+        assertEq(operatorsAfter.length, 1);
+        assertEq(operatorsAfter[0], operator2);
+    }
+
+    function test_Vaults_DelegatorOperatorTracking_NoDuplicates() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
+        // stake additional amount to same operator - should not duplicate entry
+        vaults.recordStake(address(0), delegator1, operator1, 50 ether, RewardVaults.LockDuration.None);
+
+        address[] memory operators = vaults.getDelegatorOperators(address(0), delegator1);
+        assertEq(operators.length, 1);
+        assertEq(operators[0], operator1);
+    }
+
+    function test_Vaults_PendingRewardsAllAfterClaimIsZero() public {
+        vm.prank(admin);
+        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+
+        vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
+        vaults.distributeRewards(address(0), operator1, 10 ether);
+
+        vm.prank(delegator1);
+        vaults.claimDelegatorRewards(address(0), operator1);
+
+        (, uint256 totalPending) = vaults.pendingDelegatorRewardsAll(address(0), delegator1);
+        assertEq(totalPending, 0);
+    }
 }

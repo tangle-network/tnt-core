@@ -156,3 +156,18 @@ TangleMetrics.getOperatorSuccessRate(operator) // basis points
 TangleMetrics.getBlueprintStats(blueprintId)
 TangleMetrics.getDeveloperStats(developer)
 ```
+
+## Vault UI + Claiming Helpers
+
+To make the on-chain experience parity with the Substrate pallet while preserving our pre-funded guarantees, `RewardVaults` now exposes the following helpers:
+
+| Function | Purpose |
+|----------|---------|
+| `getVaultSummary(asset)` | Returns config+state+derived utilization so UIs can render vault tables without extra RPC calls |
+| `getAllVaultSummaries()` | Convenience helper to fetch every vault snapshot in one call |
+| `getDelegatorPositions(asset, delegator)` | Lists every operator the delegator is staked with, including boosted score, lock metadata, and pending TNT |
+| `pendingDelegatorRewardsAll(asset, delegator)` | Batch view of claimable rewards + total, used to drive “Claim All” buttons |
+| `claimDelegatorRewardsBatch(asset, operators[])` | Single transaction to claim multiple operator pools; reduces UX friction and gas |
+| `claimDelegatorRewardsFor(asset, operator, delegator)` | Lets helper services trigger claims on behalf of a delegator (funds always sent to delegator) |
+
+These helpers mirror the capabilities of the Substrate rewards pallet (vault metadata, other-account claims, pooled accounting) while keeping TNT distribution limited to whatever funds governance pre-loads into `RewardVaults`.
