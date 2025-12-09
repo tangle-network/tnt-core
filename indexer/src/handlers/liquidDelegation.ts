@@ -11,6 +11,7 @@ import {
   ensureDelegator,
   ensureOperator,
   ensureRestakingAsset,
+  getPointsManager,
   getTimestamp,
   getTxHash,
   normalizeAddress,
@@ -18,7 +19,8 @@ import {
   toBigInt,
   maybeDeactivateDelegatorParticipation,
 } from "../lib/handlerUtils";
-import { activateParticipation } from "../points/participation";
+import { activateParticipation, pointsContext } from "../points/participation";
+import { awardRestakerVaultStake } from "../points/awards";
 
 const getVaultId = (address: string) => normalizeAddress(address);
 
@@ -111,6 +113,9 @@ export function registerLiquidDelegationHandlers() {
       updatedAt: timestamp,
     } as LiquidVaultEntity;
     saveVaultEntity(context, updatedVault);
+    const owner = normalizeAddress(event.params.owner);
+    const points = getPointsManager(pointsContext(context), event);
+    await awardRestakerVaultStake(points, owner, vault.id, assets);
   });
 
   LiquidDelegationVault.Withdraw.handler(async ({ event, context }) => {
