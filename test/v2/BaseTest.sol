@@ -9,6 +9,8 @@ import { Tangle } from "../../src/v2/Tangle.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { BlueprintDefinitionHelper } from "../support/BlueprintDefinitionHelper.sol";
+import { MasterBlueprintServiceManager } from "../../src/v2/MasterBlueprintServiceManager.sol";
+import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
 
 /// @title BaseTest
 /// @notice Base test contract with common setup for v2 tests
@@ -16,6 +18,8 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     // Contracts
     Tangle public tangle;
     MultiAssetDelegation public restaking;
+    MasterBlueprintServiceManager public masterManager;
+    MBSMRegistry public mbsmRegistry;
 
     // Proxies
     ERC1967Proxy public tangleProxy;
@@ -67,6 +71,21 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         vm.prank(admin);
         restaking.addSlasher(address(tangle));
 
+        // Deploy master blueprint service manager and registry
+        masterManager = new MasterBlueprintServiceManager(admin, address(tangle));
+        MBSMRegistry registryImpl = new MBSMRegistry();
+        ERC1967Proxy registryProxy = new ERC1967Proxy(
+            address(registryImpl),
+            abi.encodeCall(MBSMRegistry.initialize, (admin))
+        );
+        mbsmRegistry = MBSMRegistry(address(registryProxy));
+
+        vm.startPrank(admin);
+        mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), address(tangle));
+        mbsmRegistry.addVersion(address(masterManager));
+        tangle.setMBSMRegistry(address(mbsmRegistry));
+        vm.stopPrank();
+
         // Fund actors
         vm.deal(operator1, 100 ether);
         vm.deal(operator2, 100 ether);
@@ -97,18 +116,18 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     /// @notice Create a blueprint and return its ID
     function _createBlueprint(address owner) internal returns (uint64) {
         vm.prank(owner);
-        return tangle.createBlueprint(_encodeBlueprintDefinition(_blueprintDefinition("ipfs://metadata", address(0))));
+        return tangle.createBlueprint(_blueprintDefinition("ipfs://metadata", address(0)));
     }
 
     function _createBlueprint(address owner, string memory metadataUri) internal returns (uint64) {
         vm.prank(owner);
-        return tangle.createBlueprint(_encodeBlueprintDefinition(_blueprintDefinition(metadataUri, address(0))));
+        return tangle.createBlueprint(_blueprintDefinition(metadataUri, address(0)));
     }
 
     /// @notice Create a blueprint with service manager
     function _createBlueprint(address owner, address manager) internal returns (uint64) {
         vm.prank(owner);
-        return tangle.createBlueprint(_encodeBlueprintDefinition(_blueprintDefinition("ipfs://metadata", manager)));
+        return tangle.createBlueprint(_blueprintDefinition("ipfs://metadata", manager));
     }
 
     function _createBlueprint(
@@ -117,7 +136,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         address manager
     ) internal returns (uint64) {
         vm.prank(owner);
-        return tangle.createBlueprint(_encodeBlueprintDefinition(_blueprintDefinition(metadataUri, manager)));
+        return tangle.createBlueprint(_blueprintDefinition(metadataUri, manager));
     }
 
     /// @notice Create a blueprint with explicit configuration
@@ -127,9 +146,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         Types.BlueprintConfig memory config
     ) internal returns (uint64) {
         vm.prank(owner);
-        return tangle.createBlueprint(
-            _encodeBlueprintDefinition(_blueprintDefinitionWithConfig("ipfs://metadata", manager, config))
-        );
+        return tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://metadata", manager, config));
     }
 
     function _createBlueprintWithConfig(
@@ -139,9 +156,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         Types.BlueprintConfig memory config
     ) internal returns (uint64) {
         vm.prank(owner);
-        return tangle.createBlueprint(
-            _encodeBlueprintDefinition(_blueprintDefinitionWithConfig(metadataUri, manager, config))
-        );
+        return tangle.createBlueprint(_blueprintDefinitionWithConfig(metadataUri, manager, config));
     }
 
     /// @notice Create a blueprint using the current msg.sender (expects caller to prank)
@@ -149,7 +164,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         string memory metadataUri,
         address manager
     ) internal returns (uint64) {
-        return tangle.createBlueprint(_encodeBlueprintDefinition(_blueprintDefinition(metadataUri, manager)));
+        return tangle.createBlueprint(_blueprintDefinition(metadataUri, manager));
     }
 
     /// @notice Create a blueprint with config using the current msg.sender
@@ -158,9 +173,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         address manager,
         Types.BlueprintConfig memory config
     ) internal returns (uint64) {
-        return tangle.createBlueprint(
-            _encodeBlueprintDefinition(_blueprintDefinitionWithConfig(metadataUri, manager, config))
-        );
+        return tangle.createBlueprint(_blueprintDefinitionWithConfig(metadataUri, manager, config));
     }
 
     /// @notice Create a blueprint with a specific number of job definitions using current msg.sender
@@ -169,9 +182,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         address manager,
         uint256 jobCount
     ) internal returns (uint64) {
-        return tangle.createBlueprint(
-            _encodeBlueprintDefinition(_blueprintDefinitionWithJobCount(metadataUri, manager, jobCount))
-        );
+        return tangle.createBlueprint(_blueprintDefinitionWithJobCount(metadataUri, manager, jobCount));
     }
 
     /// @notice Create a fixed service with custom job schemas and optional manager
@@ -185,7 +196,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         def.jobs[0].resultSchema = resultSchema;
 
         vm.prank(developer);
-        blueprintId = tangle.createBlueprint(_encodeBlueprintDefinition(def));
+        blueprintId = tangle.createBlueprint(def);
 
         _registerForBlueprint(operator1, blueprintId);
 
@@ -205,12 +216,37 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     /// @notice Register operator for a blueprint
     function _registerForBlueprint(address operator, uint64 blueprintId) internal {
         vm.prank(operator);
-        tangle.registerOperator(blueprintId, hex"04", "http://localhost:8545", ""); // dummy ecdsa key prefix and RPC
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator, 0), "http://localhost:8545", "");
     }
 
     function _registerForBlueprint(address operator, uint64 blueprintId, bytes memory registrationInputs) internal {
         vm.prank(operator);
-        tangle.registerOperator(blueprintId, hex"04", "http://localhost:8545", registrationInputs);
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator, 0), "http://localhost:8545", registrationInputs);
+    }
+
+    function _directRegisterOperator(address operator, uint64 blueprintId, string memory rpc) internal {
+        vm.prank(operator);
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator, 0), rpc);
+    }
+
+    function _directRegisterOperator(
+        address operator,
+        uint64 blueprintId,
+        string memory rpc,
+        bytes memory registrationInputs
+    ) internal {
+        vm.prank(operator);
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator, 0), rpc, registrationInputs);
+    }
+
+    /// @notice Deterministically derives a unique 65-byte uncompressed key per operator/salt
+    function _operatorGossipKey(address operator, uint8 salt) internal pure returns (bytes memory key) {
+        key = new bytes(65);
+        key[0] = 0x04;
+        bytes32 payload = keccak256(abi.encodePacked(operator, salt));
+        for (uint256 i = 0; i < 32; ++i) {
+            key[i + 1] = payload[i];
+        }
     }
 
     /// @notice Request a service with single operator
@@ -261,7 +297,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         def.jobs[0].resultSchema = _boolSchema();
 
         vm.prank(developer);
-        blueprintId = tangle.createBlueprint(_encodeBlueprintDefinition(def));
+        blueprintId = tangle.createBlueprint(def);
 
         for (uint256 i = 0; i < ops.length; i++) {
             _registerForBlueprint(ops[i], blueprintId);

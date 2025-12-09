@@ -27,27 +27,10 @@ interface ITangleBlueprints {
     // FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Create a new blueprint with a service manager
-    /// @param metadataUri IPFS or URL to blueprint metadata
-    /// @param manager IBlueprintServiceManager implementation
-    /// @return blueprintId The new blueprint ID
-    function createBlueprint(string calldata metadataUri, address manager) external returns (uint64 blueprintId);
-
     /// @notice Create a blueprint from an encoded definition that includes schemas and job metadata
-    /// @param encodedDefinition ABI-encoded Types.BlueprintDefinition struct
+    /// @param definition Fully populated blueprint definition struct
     /// @return blueprintId The new blueprint ID
-    function createBlueprint(bytes calldata encodedDefinition) external returns (uint64 blueprintId);
-
-    /// @notice Create a blueprint with full configuration
-    /// @param metadataUri IPFS or URL to blueprint metadata
-    /// @param manager IBlueprintServiceManager implementation
-    /// @param config Blueprint configuration
-    /// @return blueprintId The new blueprint ID
-    function createBlueprintWithConfig(
-        string calldata metadataUri,
-        address manager,
-        Types.BlueprintConfig calldata config
-    ) external returns (uint64 blueprintId);
+    function createBlueprint(Types.BlueprintDefinition calldata definition) external returns (uint64 blueprintId);
 
     /// @notice Update blueprint metadata
     function updateBlueprint(uint64 blueprintId, string calldata metadataUri) external;
@@ -73,4 +56,10 @@ interface ITangleBlueprints {
 
     /// @notice Get current blueprint count
     function blueprintCount() external view returns (uint64);
+
+    /// @notice Get the original blueprint definition
+    function getBlueprintDefinition(uint64 blueprintId)
+        external
+        view
+        returns (Types.BlueprintDefinition memory definition);
 }

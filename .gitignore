@@ -16,6 +16,8 @@ docs/
 **/cache
 **/node_modules
 **/out
+**/generated
+**/build
 
 # files
 *.env

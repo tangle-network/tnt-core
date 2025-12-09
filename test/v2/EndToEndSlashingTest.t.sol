@@ -24,13 +24,12 @@ contract EndToEndSlashingTest is BaseTest {
     function test_E2E_ProportionalSlashing_AllBalancesVerified() public {
         // Setup blueprint
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://slash-test", address(0));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://slash-test", address(0));
 
         // Operator: 10 ETH
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Delegator1: 20 ETH, Delegator2: 30 ETH (total pool = 60 ETH)
         vm.startPrank(delegator1);
@@ -100,18 +99,16 @@ contract EndToEndSlashingTest is BaseTest {
     /// @notice Multi-operator: slashing one doesn't affect others' balances
     function test_E2E_MultiOperator_IsolatedSlashing() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://multi-op", address(0));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://multi-op", address(0));
 
         // Op1: 10 ETH, Op2: 8 ETH
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         vm.prank(operator2);
         restaking.registerOperator{ value: 8 ether }();
-        vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator2, blueprintId, "");
 
         // D1 delegates 10 ETH to each operator
         vm.startPrank(delegator1);
@@ -159,12 +156,11 @@ contract EndToEndSlashingTest is BaseTest {
     function test_E2E_Challenge_InvalidSquare_SlashesOperator() public {
         // Setup blueprint with challenge BSM
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://square", address(challengeBSM));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://square", address(challengeBSM));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         vm.startPrank(delegator1);
         restaking.deposit{ value: 20 ether }();
@@ -214,12 +210,11 @@ contract EndToEndSlashingTest is BaseTest {
     /// @notice Valid result cannot be challenged
     function test_E2E_Challenge_ValidResult_Reverts() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://square", address(challengeBSM));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://square", address(challengeBSM));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -244,12 +239,11 @@ contract EndToEndSlashingTest is BaseTest {
     /// @notice Cumulative slashing: multiple slashes deplete stake
     function test_E2E_CumulativeSlashing_DepletesStake() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://cumulative", address(0));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://cumulative", address(0));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -289,12 +283,11 @@ contract EndToEndSlashingTest is BaseTest {
     /// @notice Slashing with exposure scaling
     function test_E2E_ExposureScaling_ReducesEffectiveSlash() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://exposure", address(0));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://exposure", address(0));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Create service with 50% exposure
         address[] memory ops = new address[](1);
@@ -325,13 +318,12 @@ contract EndToEndSlashingTest is BaseTest {
     /// @notice Slashing below minimum deactivates operator
     function test_E2E_SlashBelowMinimum_DeactivatesOperator() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://deactivate", address(0));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://deactivate", address(0));
 
         // Register with exactly minimum + buffer
         vm.prank(operator1);
         restaking.registerOperator{ value: MIN_OPERATOR_STAKE + 0.5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -354,12 +346,11 @@ contract EndToEndSlashingTest is BaseTest {
     /// @notice Dispute prevents execution
     function test_E2E_Dispute_PreventsExecution() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://dispute", address(0));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://dispute", address(0));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -395,12 +386,11 @@ contract EndToEndSlashingTest is BaseTest {
         tangle.setMetricsRecorder(address(mockMetrics));
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://metrics", address(0));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://metrics", address(0));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -428,12 +418,11 @@ contract EndToEndSlashingTest is BaseTest {
         tangle.setMetricsRecorder(address(mockMetrics));
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://batch-metrics", address(0));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://batch-metrics", address(0));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);

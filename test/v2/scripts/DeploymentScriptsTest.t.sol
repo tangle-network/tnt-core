@@ -9,9 +9,10 @@ import {DeployL2Slashing} from "../../../script/v2/DeployL2Slashing.s.sol";
 import {LocalTestnetSetup} from "../../../script/v2/LocalTestnet.s.sol";
 import {L2SlashingReceiver} from "../../../src/v2/beacon/L2SlashingReceiver.sol";
 import {TangleL2Slasher} from "../../../src/v2/beacon/TangleL2Slasher.sol";
-import {IRestaking} from "../../../src/v2/interfaces/IRestaking.sol";
-import {MultiAssetDelegation} from "../../../src/v2/restaking/MultiAssetDelegation.sol";
-import {Tangle} from "../../../src/v2/Tangle.sol";
+import { IRestaking } from "../../../src/v2/interfaces/IRestaking.sol";
+import { Types } from "../../../src/v2/libraries/Types.sol";
+import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
+import { Tangle } from "../../../src/v2/Tangle.sol";
 
 /// @notice Minimal restaking stub so L2 slashing scripts can deploy their contracts
 contract MockRestaking is IRestaking {
@@ -188,6 +189,7 @@ contract DeploymentScriptsTest is Test {
         bytes32 slasherRole = restaking.SLASHER_ROLE();
         assertTrue(restaking.hasRole(slasherRole, tangleProxy), "tangle should be slasher");
         assertEq(Tangle(payable(tangleProxy)).operatorStatusRegistry(), statusRegistry, "registry wired");
+        assertTrue(Tangle(payable(tangleProxy)).operatorBondToken() != address(0), "bond token configured");
     }
 
     function testDeployBeaconSlashingScriptRunsHyperlane() public {

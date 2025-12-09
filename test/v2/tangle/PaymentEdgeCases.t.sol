@@ -464,11 +464,12 @@ contract PaymentEdgeCasesTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 subBlueprintId = tangle.createBlueprintWithConfig("ipfs://sub", address(0), config);
+        uint64 subBlueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://sub", address(0), config));
 
         _registerForBlueprint(operator1, subBlueprintId);
 

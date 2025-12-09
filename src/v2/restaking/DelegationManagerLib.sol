@@ -6,6 +6,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { DelegationErrors } from "./DelegationErrors.sol";
 import { OperatorManager } from "./OperatorManager.sol";
 import { Types } from "../libraries/Types.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title DelegationManagerLib
 /// @notice Manages delegation of deposits to operators using share-based accounting
@@ -213,7 +214,19 @@ abstract contract DelegationManagerLib is OperatorManager {
         }
 
         // Update reward pool - pass shares, amount, and selection mode for proper pool routing
-        _onDelegationChanged(msg.sender, operator, shares, amount, true, selectionMode, blueprintIds);
+        uint16 lockMultiplierBps = _calculateLockMultiplierBps(msg.sender, assetHash, dep.delegatedAmount, amount);
+
+        _onDelegationChanged(
+            msg.sender,
+            operator,
+            asset,
+            shares,
+            amount,
+            true,
+            selectionMode,
+            blueprintIds,
+            lockMultiplierBps
+        );
 
         emit Delegated(msg.sender, operator, asset.token, amount, shares, selectionMode);
     }
@@ -331,7 +344,17 @@ abstract contract DelegationManagerLib is OperatorManager {
                         }
 
                         // Notify rewards manager before changing shares
-                        _onDelegationChanged(msg.sender, req.operator, req.shares, amountToReturn, false, d.selectionMode, blueprintIds);
+                        _onDelegationChanged(
+                            msg.sender,
+                            req.operator,
+                            req.asset,
+                            req.shares,
+                            amountToReturn,
+                            false,
+                            d.selectionMode,
+                            blueprintIds,
+                            _getLockMultiplierBps(Types.LockMultiplier.None)
+                        );
 
                         d.shares -= req.shares;
 
@@ -496,6 +519,50 @@ abstract contract DelegationManagerLib is OperatorManager {
         }
     }
 
+    function _getActiveLockTotals(
+        address delegator,
+        bytes32 assetHash
+    ) internal view returns (uint256 lockedAmount, uint256 weightedBpsSum) {
+        Types.LockInfo[] storage locks = _depositLocks[delegator][assetHash];
+        for (uint256 i = 0; i < locks.length; i++) {
+            Types.LockInfo storage info = locks[i];
+            if (info.expiryBlock > block.number) {
+                uint16 lockBps = _getLockMultiplierBps(info.multiplier);
+                lockedAmount += info.amount;
+                weightedBpsSum += Math.mulDiv(info.amount, lockBps, 1);
+            }
+        }
+    }
+
+    function _calculateLockMultiplierBps(
+        address delegator,
+        bytes32 assetHash,
+        uint256 delegatedAfter,
+        uint256 amount
+    ) internal view returns (uint16) {
+        if (amount == 0) {
+            return _getLockMultiplierBps(Types.LockMultiplier.None);
+        }
+
+        (uint256 lockedAmount, uint256 weightedBpsSum) = _getActiveLockTotals(delegator, assetHash);
+        if (lockedAmount == 0) {
+            return _getLockMultiplierBps(Types.LockMultiplier.None);
+        }
+
+        uint256 delegatedBefore = delegatedAfter >= amount ? delegatedAfter - amount : 0;
+        uint256 lockedUsedBefore = delegatedBefore < lockedAmount ? delegatedBefore : lockedAmount;
+        uint256 lockedAvailable = lockedAmount > lockedUsedBefore ? lockedAmount - lockedUsedBefore : 0;
+        uint256 lockedPortion = amount < lockedAvailable ? amount : lockedAvailable;
+        if (lockedPortion == 0) {
+            return _getLockMultiplierBps(Types.LockMultiplier.None);
+        }
+
+        uint256 avgLockedBps = weightedBpsSum / lockedAmount;
+        uint256 baseBps = _getLockMultiplierBps(Types.LockMultiplier.None);
+        uint256 numerator = lockedPortion * avgLockedBps + (amount - lockedPortion) * baseBps;
+        return uint16(numerator / amount);
+    }
+
     /// @notice Hook for rewards manager to update on delegation changes
     /// @dev Override in RewardsManager. Supports both All and Fixed blueprint selection modes.
     /// @param delegator The delegator address
@@ -508,11 +575,13 @@ abstract contract DelegationManagerLib is OperatorManager {
     function _onDelegationChanged(
         address delegator,
         address operator,
+        Types.Asset memory asset,
         uint256 shares,
         uint256 amount,
         bool isIncrease,
         Types.BlueprintSelectionMode selectionMode,
-        uint64[] memory blueprintIds
+        uint64[] memory blueprintIds,
+        uint16 lockMultiplierBps
     ) internal virtual;
 
     // ═══════════════════════════════════════════════════════════════════════════

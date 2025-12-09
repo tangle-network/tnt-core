@@ -15,6 +15,11 @@ import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager
 abstract contract Quotes is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    struct QuoteActivation {
+        uint64 serviceId;
+        uint256 totalExposure;
+    }
+
     // ServiceActivated event inherited from Base.sol
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -30,33 +35,21 @@ abstract contract Quotes is Base {
         uint64 ttl
     ) external payable whenNotPaused nonReentrant returns (uint64 serviceId) {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
-        if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
+        _requireBlueprintActive(bp, blueprintId);
 
         address[] memory operators = _gatherQuoteOperators(quotes);
         _ensureOperatorsRegistered(blueprintId, operators);
-
         uint16[] memory exposures = _extractQuoteExposures(quotes);
 
-        (uint256 totalCost,) = SignatureLib.verifyQuoteBatch(
-            _usedQuotes,
-            _domainSeparator,
-            quotes,
-            blueprintId,
-            ttl
-        );
+        uint256 totalCost = _verifyQuotesAndGetCost(quotes, blueprintId, ttl);
 
         _ensureQuotePaymentAsset(bp.manager, totalCost);
         _collectQuotePayment(totalCost);
         _notifyManagerQuoteRequest(bp.manager, operators, config, ttl, totalCost);
 
-        uint256 totalExposure;
-        (serviceId, totalExposure) = _activateQuoteService(
-            blueprintId,
-            bp,
-            operators,
-            exposures,
-            ttl
-        );
+        QuoteActivation memory activation =
+            _activateQuoteService(blueprintId, bp, operators, exposures, ttl);
+        serviceId = activation.serviceId;
 
         _addInitialQuoteCallers(serviceId, msg.sender, permittedCallers);
         _notifyManagerQuoteInitialization(
@@ -68,7 +61,14 @@ abstract contract Quotes is Base {
             ttl
         );
 
-        _finalizeQuotePayment(serviceId, blueprintId, totalCost, operators, exposures, totalExposure);
+        _finalizeQuotePayment(
+            serviceId,
+            blueprintId,
+            totalCost,
+            operators,
+            exposures,
+            activation.totalExposure
+        );
     }
 
     function _gatherQuoteOperators(
@@ -142,17 +142,35 @@ abstract contract Quotes is Base {
         }
     }
 
+    function _requireBlueprintActive(Types.Blueprint storage bp, uint64 blueprintId) private view {
+        if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
+    }
+
+    function _verifyQuotesAndGetCost(
+        Types.SignedQuote[] calldata quotes,
+        uint64 blueprintId,
+        uint64 ttl
+    ) private returns (uint256 totalCost) {
+        (totalCost,) = SignatureLib.verifyQuoteBatch(
+            _usedQuotes,
+            _domainSeparator,
+            quotes,
+            blueprintId,
+            ttl
+        );
+    }
+
     function _activateQuoteService(
         uint64 blueprintId,
         Types.Blueprint storage bp,
         address[] memory operators,
         uint16[] memory exposures,
         uint64 ttl
-    ) private returns (uint64 serviceId, uint256 totalExposure) {
-        serviceId = _serviceCount++;
+    ) private returns (QuoteActivation memory activation) {
+        activation.serviceId = _serviceCount++;
         Types.BlueprintConfig storage bpConfig = _blueprintConfigs[blueprintId];
 
-        _services[serviceId] = Types.Service({
+        _services[activation.serviceId] = Types.Service({
             blueprintId: blueprintId,
             owner: msg.sender,
             createdAt: uint64(block.timestamp),
@@ -167,11 +185,11 @@ abstract contract Quotes is Base {
             status: Types.ServiceStatus.Active
         });
 
-        totalExposure = _processOperatorQuotes(serviceId, operators, exposures);
+        activation.totalExposure = _processOperatorQuotes(activation.serviceId, operators, exposures);
 
-        emit ServiceActivated(serviceId, 0, blueprintId);
-        _recordServiceCreated(serviceId, blueprintId, msg.sender, operators.length);
-        _configureHeartbeat(serviceId, bp.manager, msg.sender);
+        emit ServiceActivated(activation.serviceId, 0, blueprintId);
+        _recordServiceCreated(activation.serviceId, blueprintId, msg.sender, operators.length);
+        _configureHeartbeat(activation.serviceId, bp.manager, msg.sender);
     }
 
     function _addInitialQuoteCallers(

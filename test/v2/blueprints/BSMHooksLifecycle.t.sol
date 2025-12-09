@@ -74,16 +74,13 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         (uint64 blueprintId, address manager) = deployBlueprint(1);
         MockBSM_V1 bsm = MockBSM_V1(payable(manager));
 
-        bytes memory customInputs = abi.encode("custom", 123);
+        bytes memory customKey = _operatorGossipKey(operator1, 0);
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, customInputs, "");
+        tangle.registerOperator(blueprintId, customKey, "");
 
         // The contract wraps inputs in OperatorPreferences struct before calling onRegister
         bytes memory expectedInputs = abi.encode(
-            Types.OperatorPreferences({
-                ecdsaPublicKey: customInputs,
-                rpcAddress: ""
-            })
+            Types.OperatorPreferences({ ecdsaPublicKey: customKey, rpcAddress: "" })
         );
         assertEq(bsm.operatorRegistrationInputs(operator1), expectedInputs);
     }
@@ -98,7 +95,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
         // Allowed operator succeeds
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 0), "");
         assertEq(bsm.getHookCalls().onRegister, 1);
 
         // Non-allowed operator fails - error is wrapped in ManagerReverted
@@ -108,7 +105,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             manager,
             abi.encodeWithSelector(MockBSM_V2.OperatorNotAllowed.selector, operator2)
         ));
-        tangle.registerOperator(blueprintId, "", "");
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator2, 0), "");
     }
 
     function test_V1_OnUnregister_Called() public {
@@ -403,7 +400,8 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
@@ -432,7 +430,8 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
@@ -601,7 +600,8 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
@@ -628,7 +628,8 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
@@ -658,7 +659,8 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
@@ -687,7 +689,8 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);

@@ -23,4 +23,13 @@ interface IMBSMRegistry {
     /// @return mbsmAddress The registered address for the revision
     // forge-lint: disable-next-line(mixed-case-function)
     function getMBSMByRevision(uint32 revision) external view returns (address mbsmAddress);
+
+    /// @notice Get the latest revision number registered in the registry
+    function getLatestRevision() external view returns (uint32);
+
+    /// @notice Pin a blueprint to a specific revision (0 disallowed)
+    function pinBlueprint(uint64 blueprintId, uint32 revision) external;
+
+    /// @notice Unpin a blueprint (reverting to latest)
+    function unpinBlueprint(uint64 blueprintId) external;
 }

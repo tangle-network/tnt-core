@@ -138,30 +138,46 @@ contract TangleCore is
     // BLUEPRINT OPERATIONS
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// @notice Create a new blueprint
-    /// @param metadataURI IPFS URI containing full blueprint metadata
-    /// @param manager Address of the IBlueprintServiceManager contract
-    /// @param codeHash Hash of the blueprint code for verification
-    function createBlueprint(
-        string calldata metadataURI,
-        address manager,
-        bytes32 codeHash
-    ) external whenNotPaused returns (uint64 blueprintId) {
-        blueprintId = blueprintRegistry.create(msg.sender, metadataURI, manager, codeHash);
+    /// @notice Create a new blueprint from a full definition
+    /// @param definition Fully specified Types.BlueprintDefinition payload
+    function createBlueprint(Types.BlueprintDefinition calldata definition) external whenNotPaused returns (uint64 blueprintId) {
+        Types.BlueprintDefinition memory def = definition;
+        // ... validate + store metadata, schemas, sources, memberships
+        blueprintId = _nextBlueprintId++;
+        blueprints[blueprintId] = Blueprint({
+            owner: msg.sender,
+            manager: def.manager,
+            createdAt: block.timestamp,
+            active: true,
+            membership: def.config.membership,
+            pricing: def.config.pricing
+        });
 
-        // Call hook
-        if (manager != address(0)) {
-            IBlueprintServiceManager(manager).onBlueprintCreated(
-                blueprintId,
-                msg.sender,
-                address(this)
-            );
+        // Notify service-specific manager
+        if (def.manager != address(0)) {
+            IBlueprintServiceManager(def.manager).onBlueprintCreated(blueprintId, msg.sender, address(this));
         }
+
+        // Record the definition with the Master Blueprint Service Manager
+        IMasterBlueprintServiceManager(masterManager).onBlueprintCreated(
+            blueprintId,
+            msg.sender,
+            abi.encode(def)
+        );
+        _mbsmRegistry.pinBlueprint(blueprintId, resolvedRevision);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
     // OPERATOR OPERATIONS
     // ═══════════════════════════════════════════════════════════════════════
+
+    // Operator bonding
+    // -----------------
+    // - All operator registrations are collateralized with TNT.
+    // - `setOperatorBondAsset(address token)` selects the ERC20 used for bonding (address(0) keeps native).
+    // - `setOperatorBlueprintBond(uint256 amount)` defines the default amount (overridable per blueprint config).
+    // - Registering transfers the TNT bond into Tangle and stores both amount + token on the OperatorRegistration.
+    // - Unregistering refunds that token back to the operator.
 
     /// @notice Register operator to a blueprint
     /// @param blueprintId The blueprint to register for

@@ -8,6 +8,7 @@ import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/P
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
+import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 import { SlashingManager } from "./SlashingManager.sol";
 import { DepositManager } from "./DepositManager.sol";
 import { IRestaking } from "../interfaces/IRestaking.sol";
@@ -80,11 +81,11 @@ contract MultiAssetDelegation is
 
         operatorCommissionBps = _operatorCommissionBps;
         currentRound = 1;
-        roundDuration = 7200; // ~1 day at 12s blocks
+        roundDuration = ProtocolConfig.ROUND_DURATION_BLOCKS;
 
-        delegationBondLessDelay = 7;
-        leaveDelegatorsDelay = 7;
-        leaveOperatorsDelay = 7;
+        delegationBondLessDelay = ProtocolConfig.DELEGATOR_DELAY_ROUNDS;
+        leaveDelegatorsDelay = ProtocolConfig.DELEGATOR_DELAY_ROUNDS;
+        leaveOperatorsDelay = ProtocolConfig.OPERATOR_DELAY_ROUNDS;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -546,6 +547,7 @@ contract MultiAssetDelegation is
     function getOperatorDelegatorCount(address operator) external view returns (uint256) {
         return _getOperatorDelegatorCount(operator);
     }
+
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN FUNCTIONS

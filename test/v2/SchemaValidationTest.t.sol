@@ -24,12 +24,14 @@ contract SchemaValidationTest is BaseTest {
                 uint256(0)
             )
         );
-        tangle.registerOperator(blueprintId, hex"04", "http://localhost:8545", bytes(""));
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 0), "http://localhost:8545", bytes(""));
 
         // Correct payload succeeds
         bytes memory registrationPayload = _encodeBool(true);
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, hex"04", "http://localhost:8545", registrationPayload);
+        tangle.registerOperator(
+            blueprintId, _operatorGossipKey(operator1, 0), "http://localhost:8545", registrationPayload
+        );
     }
 
     function test_ServiceRequestSchemaMismatch() public {
@@ -128,7 +130,7 @@ contract SchemaValidationTest is BaseTest {
         }
 
         vm.prank(developer);
-        return tangle.createBlueprint(_encodeBlueprintDefinition(def));
+        return tangle.createBlueprint(def);
     }
 
     function _registerOperatorWithPayload(address operator, uint64 blueprintId, bytes memory payload) private {
@@ -136,7 +138,7 @@ contract SchemaValidationTest is BaseTest {
         restaking.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         vm.prank(operator);
-        tangle.registerOperator(blueprintId, hex"04", "http://localhost:8545", payload);
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 0), "http://localhost:8545", payload);
     }
 
     function _encodeBool(bool value) private pure returns (bytes memory) {

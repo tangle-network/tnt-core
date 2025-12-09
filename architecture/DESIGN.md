@@ -121,11 +121,12 @@ struct JobCall {
 
 ### 1. Create Blueprint
 ```
-Developer calls: createBlueprint(metadataUri, hook)
+Developer calls: createBlueprint(definition)
   → Assigns blueprintId
-  → Stores Blueprint struct
+  → Stores Blueprint struct, metadata, schemas, sources and supported memberships
   → Emits BlueprintCreated(id, owner, hook, metadataUri)
   → Calls hook.onBlueprintCreated() if hook != 0
+  → Pins requested Master Blueprint Service Manager revision and records definition on the master manager
 ```
 
 ### 2. Register Operator

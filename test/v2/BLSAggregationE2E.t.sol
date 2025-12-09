@@ -63,7 +63,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
         // Create blueprint with aggregation-enabled BSM
         vm.prank(developer);
-        blueprintId = tangle.createBlueprint("ipfs://bls-e2e-test", address(mockBsm));
+        blueprintId = _createBlueprintAsSender("ipfs://bls-e2e-test", address(mockBsm));
 
         // Register operators with different stakes for stake-weighted tests
         _registerOperator(operator1, 5 ether);  // 50%
@@ -284,11 +284,13 @@ contract BLSAggregationE2ETest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 dynamicBpId = tangle.createBlueprintWithConfig("ipfs://dynamic", address(0), config);
+        uint64 dynamicBpId =
+            _createBlueprintWithConfigAsSender("ipfs://dynamic", address(0), config);
 
         _registerForBlueprint(operator1, dynamicBpId);
         _registerForBlueprint(operator2, dynamicBpId);
@@ -353,11 +355,13 @@ contract BLSAggregationE2ETest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 dynamicBpId = tangle.createBlueprintWithConfig("ipfs://dynamic-agg", address(0), config);
+        uint64 dynamicBpId =
+            _createBlueprintWithConfigAsSender("ipfs://dynamic-agg", address(0), config);
 
         _registerForBlueprint(operator1, dynamicBpId);
         _registerForBlueprint(operator2, dynamicBpId);

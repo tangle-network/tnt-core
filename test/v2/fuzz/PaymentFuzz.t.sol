@@ -15,7 +15,7 @@ contract PaymentFuzzTest is BaseTest {
         super.setUp();
 
         vm.prank(developer);
-        blueprintId = tangle.createBlueprint("ipfs://fuzz", address(0));
+        blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://fuzz", address(0)));
 
         _registerOperator(operator1, 10 ether);
         _registerForBlueprint(operator1, blueprintId);
@@ -178,11 +178,12 @@ contract PaymentFuzzTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: rate,
             subscriptionInterval: 1 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 subBp = tangle.createBlueprintWithConfig("ipfs://sub-fuzz", address(0), config);
+        uint64 subBp = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://sub-fuzz", address(0), config));
         _registerForBlueprint(operator1, subBp);
 
         // Create service with initial escrow

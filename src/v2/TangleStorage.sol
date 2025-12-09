@@ -6,6 +6,8 @@ import { Types } from "./libraries/Types.sol";
 import { PaymentLib } from "./libraries/PaymentLib.sol";
 import { SlashingLib } from "./libraries/SlashingLib.sol";
 import { IRestaking } from "./interfaces/IRestaking.sol";
+import { IMBSMRegistry } from "./interfaces/IMBSMRegistry.sol";
+import { ProtocolConfig } from "./config/ProtocolConfig.sol";
 
 /// @title TangleStorage
 /// @notice Storage layout for Tangle Protocol v2
@@ -27,8 +29,8 @@ abstract contract TangleStorage {
     uint16 internal constant DEFAULT_RESTAKER_BPS = 2000;   // 20%
 
     // Default exit queue configuration
-    uint64 internal constant DEFAULT_MIN_COMMITMENT_DURATION = 1 days;   // Minimum time before exit allowed
-    uint64 internal constant DEFAULT_EXIT_QUEUE_DURATION = 7 days;       // Time between schedule and execute
+    uint64 internal constant DEFAULT_MIN_COMMITMENT_DURATION = ProtocolConfig.MIN_COMMITMENT_DURATION;
+    uint64 internal constant DEFAULT_EXIT_QUEUE_DURATION = ProtocolConfig.EXIT_QUEUE_DURATION;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PROTOCOL CONFIGURATION (Slot 0-10)
@@ -40,11 +42,23 @@ abstract contract TangleStorage {
     /// @notice Protocol treasury address
     address payable internal _treasury;
 
+    /// @notice Configurable maximum number of blueprints per operator
+    uint32 internal _maxBlueprintsPerOperator;
+
+    /// @notice Default operator bond amount (denominated in configured bond asset)
+    uint256 internal _defaultOperatorBond;
+
+    /// @notice Asset used for operator bonds (address(0) = native)
+    address internal _operatorBondToken;
+
     /// @notice Payment split configuration
     Types.PaymentSplit internal _paymentSplit;
 
     /// @notice EIP-712 domain separator (cached)
     bytes32 internal _domainSeparator;
+
+    /// @notice Registry that resolves master blueprint service managers
+    IMBSMRegistry internal _mbsmRegistry;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // COUNTERS (Slot 11-15)
@@ -69,11 +83,35 @@ abstract contract TangleStorage {
     /// @notice Blueprint ID => Configuration
     mapping(uint64 => Types.BlueprintConfig) internal _blueprintConfigs;
 
+    /// @notice Blueprint ID => Metadata URI
+    mapping(uint64 => string) internal _blueprintMetadataUri;
+
+    /// @notice Blueprint ID => Rich metadata
+    mapping(uint64 => Types.BlueprintMetadata) internal _blueprintMetadata;
+
+    /// @notice Blueprint ID => Implementation sources
+    mapping(uint64 => Types.BlueprintSource[]) internal _blueprintSources;
+
+    /// @notice Blueprint ID => Supported membership models
+    mapping(uint64 => Types.MembershipModel[]) internal _blueprintSupportedMemberships;
+
+    /// @notice Blueprint ID => Resolved master blueprint service manager revision
+    mapping(uint64 => uint32) internal _blueprintMasterRevisions;
+
+    /// @notice Blueprint ID => encoded blueprint definition blob
+    mapping(uint64 => bytes) internal _blueprintDefinitionBlobs;
+
+    /// @notice Operator => Count of registered blueprints (enforces limits)
+    mapping(address => uint32) internal _operatorBlueprintCounts;
+
     /// @notice Blueprint ID => Operator => Registration data
     mapping(uint64 => mapping(address => Types.OperatorRegistration)) internal _operatorRegistrations;
 
     /// @notice Blueprint ID => Operator => Preferences (includes ECDSA public key for gossip)
     mapping(uint64 => mapping(address => Types.OperatorPreferences)) internal _operatorPreferences;
+
+    /// @notice Blueprint ID => Key hash => Operator (prevents duplicate gossip keys)
+    mapping(uint64 => mapping(bytes32 => address)) internal _blueprintOperatorKeys;
 
     /// @notice Blueprint ID => Set of registered operators
     mapping(uint64 => EnumerableSet.AddressSet) internal _blueprintOperators;

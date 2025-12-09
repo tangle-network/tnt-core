@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 import { Errors } from "../../../src/v2/libraries/Errors.sol";
+import { MockERC20 } from "../mocks/MockERC20.sol";
 
 /// @title OperatorLifecycleTest
 /// @notice Tests for operator registration, blueprint participation, and service lifecycle
@@ -15,7 +16,7 @@ contract OperatorLifecycleTest is BaseTest {
 
         // Create a blueprint
         vm.prank(developer);
-        blueprintId = tangle.createBlueprint("ipfs://operator-test", address(0));
+        blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://operator-test", address(0)));
 
         // Register operators with restaking
         _registerOperator(operator1, 5 ether);
@@ -27,12 +28,13 @@ contract OperatorLifecycleTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_RegisterOperator_Success() public {
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "operator-preferences");
+        _directRegisterOperator(operator1, blueprintId, "operator-preferences");
 
         Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
         assertEq(reg.registeredAt, block.timestamp);
         assertTrue(reg.active);
+        assertEq(reg.bondToken, address(0));
+        assertEq(reg.bondAmount, 0);
     }
 
     function test_RegisterOperator_RevertNotStaked() public {
@@ -44,8 +46,7 @@ contract OperatorLifecycleTest is BaseTest {
     }
 
     function test_RegisterOperator_RevertAlreadyRegistered() public {
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorAlreadyRegistered.selector, blueprintId, operator1));
@@ -58,9 +59,88 @@ contract OperatorLifecycleTest is BaseTest {
         tangle.registerOperator(999, "", "");
     }
 
-    function test_UnregisterOperator_Success() public {
+    function test_PreRegisterRequiresActiveOperator() public {
+        address inactive = makeAddr("inactive-operator");
+        vm.deal(inactive, 10 ether);
+        vm.prank(inactive);
+        vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotActive.selector, inactive));
+        tangle.preRegister(blueprintId);
+
+        _registerOperator(inactive);
+        vm.prank(inactive);
+        tangle.preRegister(blueprintId);
+    }
+
+    function test_RegisterOperator_RevertDuplicateKey() public {
+        _directRegisterOperator(operator1, blueprintId, "");
+
+        bytes memory key = _operatorGossipKey(operator1, 0);
+        vm.prank(operator2);
+        vm.expectRevert(abi.encodeWithSelector(Errors.DuplicateOperatorKey.selector, blueprintId, keccak256(key)));
+        tangle.registerOperator(blueprintId, key, "");
+    }
+
+    function test_RegisterOperator_RespectsMaxBlueprintLimit() public {
+        _directRegisterOperator(operator1, blueprintId, "");
+
+        vm.prank(admin);
+        tangle.setMaxBlueprintsPerOperator(1);
+
+        vm.prank(developer);
+        uint64 bp2 = tangle.createBlueprint(_blueprintDefinition("ipfs://bp-limit", address(0)));
+
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        vm.expectRevert(abi.encodeWithSelector(Errors.MaxBlueprintsPerOperatorExceeded.selector, operator1, 1));
+        tangle.registerOperator(bp2, _operatorGossipKey(operator1, 1), "");
+    }
+
+    function test_RegisterOperator_RequiresBondWhenConfigured() public {
+        uint256 bond = 1 ether;
+        vm.prank(admin);
+        tangle.setOperatorBlueprintBond(bond);
+
+        bytes memory key = _operatorGossipKey(operator1, 0);
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.OperatorBondMismatch.selector, blueprintId, bond, 0));
+        tangle.registerOperator(blueprintId, key, "");
+
+        uint256 contractBalanceBefore = address(tangle).balance;
+        vm.prank(operator1);
+        tangle.registerOperator{ value: bond }(blueprintId, key, "");
+        assertEq(address(tangle).balance, contractBalanceBefore + bond);
+
+        vm.prank(operator1);
+        tangle.unregisterOperator(blueprintId);
+        assertEq(address(tangle).balance, contractBalanceBefore);
+    }
+
+    function test_RegisterOperator_WithERC20Bond() public {
+        MockERC20 token = new MockERC20();
+        token.mint(operator1, 500 ether);
+
+        vm.prank(admin);
+        tangle.setOperatorBondAsset(address(token));
+        vm.prank(admin);
+        tangle.setOperatorBlueprintBond(100 ether);
+        assertEq(tangle.operatorBondToken(), address(token));
+
+        vm.prank(operator1);
+        token.approve(address(tangle), type(uint256).max);
+
+        vm.prank(operator1);
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 4), "");
+
+        Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
+        assertEq(reg.bondAmount, 100 ether);
+        assertEq(reg.bondToken, address(token));
+
+        vm.prank(operator1);
+        tangle.unregisterOperator(blueprintId);
+        assertEq(token.balanceOf(operator1), 500 ether);
+    }
+
+    function test_UnregisterOperator_Success() public {
+        _directRegisterOperator(operator1, blueprintId, "");
 
         vm.prank(operator1);
         tangle.unregisterOperator(blueprintId);
@@ -253,11 +333,12 @@ contract OperatorLifecycleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 dynamicBp = tangle.createBlueprintWithConfig("ipfs://dynamic", address(0), config);
+        uint64 dynamicBp = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         _registerForBlueprint(operator1, dynamicBp);
         _registerForBlueprint(operator2, dynamicBp);
@@ -308,11 +389,12 @@ contract OperatorLifecycleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 dynamicBp = tangle.createBlueprintWithConfig("ipfs://dynamic", address(0), config);
+        uint64 dynamicBp = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         _registerForBlueprint(operator1, dynamicBp);
         _registerForBlueprint(operator2, dynamicBp);
@@ -480,14 +562,14 @@ contract OperatorLifecycleTest is BaseTest {
 
     function test_RegisterForMultipleBlueprints() public {
         vm.prank(developer);
-        uint64 bp2 = tangle.createBlueprint("ipfs://bp2", address(0));
+        uint64 bp2 = tangle.createBlueprint(_blueprintDefinition("ipfs://bp2", address(0)));
         vm.prank(developer);
-        uint64 bp3 = tangle.createBlueprint("ipfs://bp3", address(0));
+        uint64 bp3 = tangle.createBlueprint(_blueprintDefinition("ipfs://bp3", address(0)));
 
         vm.startPrank(operator1);
-        tangle.registerOperator(blueprintId, "prefs1", "");
-        tangle.registerOperator(bp2, "prefs2", "");
-        tangle.registerOperator(bp3, "prefs3", "");
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 1), "");
+        tangle.registerOperator(bp2, _operatorGossipKey(operator1, 2), "");
+        tangle.registerOperator(bp3, _operatorGossipKey(operator1, 3), "");
         vm.stopPrank();
 
         Types.OperatorRegistration memory reg1 = tangle.getOperatorRegistration(blueprintId, operator1);

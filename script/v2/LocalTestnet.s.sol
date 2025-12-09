@@ -7,11 +7,16 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { OperatorStatusRegistry } from "../../src/v2/restaking/OperatorStatusRegistry.sol";
+import { TangleToken } from "../../src/v2/governance/TangleToken.sol";
+import { MasterBlueprintServiceManager } from "../../src/v2/MasterBlueprintServiceManager.sol";
+import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
+import { Types } from "../../src/v2/libraries/Types.sol";
+import { BlueprintDefinitionHelper } from "../../test/support/BlueprintDefinitionHelper.sol";
 
 /// @title LocalTestnetSetup
 /// @notice Deploy and setup a complete local testnet environment for integration testing
 /// @dev Run with: forge script script/v2/LocalTestnet.s.sol:LocalTestnetSetup --rpc-url http://localhost:8545 --broadcast
-contract LocalTestnetSetup is Script {
+contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     // Anvil default accounts
     uint256 constant DEPLOYER_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
@@ -30,6 +35,7 @@ contract LocalTestnetSetup is Script {
     address public tangleProxy;
     address public restakingProxy;
     address public statusRegistry;
+    TangleToken public bondToken;
 
     // Test blueprint/service
     uint64 public blueprintId;
@@ -110,9 +116,37 @@ contract LocalTestnetSetup is Script {
         statusRegistry = address(new OperatorStatusRegistry(tangleProxy));
         console2.log("OperatorStatusRegistry:", statusRegistry);
 
+        // Deploy TNT bond token via proxy and mint to deployer
+        TangleToken tokenImpl = new TangleToken();
+        ERC1967Proxy tokenProxy = new ERC1967Proxy(
+            address(tokenImpl),
+            abi.encodeCall(TangleToken.initialize, (deployer, 1_000_000 ether))
+        );
+        bondToken = TangleToken(address(tokenProxy));
+        console2.log("TangleToken (bond asset):", address(bondToken));
+
+        // Distribute TNT to operators so they can bond
+        bondToken.transfer(operator1, 1_000 ether);
+        bondToken.transfer(operator2, 1_000 ether);
+
         // Configure cross-references
         MultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
-        Tangle(payable(tangleProxy)).setOperatorStatusRegistry(statusRegistry);
+
+        Tangle tangle = Tangle(payable(tangleProxy));
+        tangle.setOperatorStatusRegistry(statusRegistry);
+        tangle.setOperatorBondAsset(address(bondToken));
+
+        // Deploy master blueprint service manager + registry
+        MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(deployer, tangleProxy);
+        MBSMRegistry registryImpl = new MBSMRegistry();
+        ERC1967Proxy registryProxy = new ERC1967Proxy(
+            address(registryImpl),
+            abi.encodeCall(MBSMRegistry.initialize, (deployer))
+        );
+        MBSMRegistry registry = MBSMRegistry(address(registryProxy));
+        registry.grantRole(registry.MANAGER_ROLE(), tangleProxy);
+        registry.addVersion(address(masterManager));
+        tangle.setMBSMRegistry(address(registry));
 
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -164,12 +198,13 @@ contract LocalTestnetSetup is Script {
 
         Tangle tangle = Tangle(payable(tangleProxy));
 
-        // Create a simple blueprint (no manager)
-        blueprintId = tangle.createBlueprint(
-            "ipfs://QmTestBlueprint",
-            address(0) // No manager for simplicity
-        );
+        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://QmTestBlueprint", address(0));
+        blueprintId = tangle.createBlueprint(def);
         console2.log("Blueprint created:", blueprintId);
+
+        // Require a 100 TNT bond per operator registration
+        tangle.setOperatorBlueprintBond(100 ether);
+        console2.log("Operator bond set to 100 TNT");
 
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -181,6 +216,8 @@ contract LocalTestnetSetup is Script {
     function _operatorsRegisterForBlueprint() internal {
         console2.log("\n=== Operators Registering for Blueprint ===");
         Tangle tangle = Tangle(payable(tangleProxy));
+        uint256 bond = tangle.operatorBlueprintBond();
+        address bondAsset = tangle.operatorBondToken();
 
         bytes memory operator1Key = hex"040102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40";
         bytes memory operator2Key = hex"044142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80";
@@ -191,7 +228,12 @@ contract LocalTestnetSetup is Script {
         } else {
             vm.startPrank(operator1);
         }
-        tangle.registerOperator(blueprintId, operator1Key, "http://operator1.local:8545");
+        if (bondAsset != address(0)) {
+            bondToken.approve(tangleProxy, bond);
+            tangle.registerOperator(blueprintId, operator1Key, "http://operator1.local:8545");
+        } else {
+            tangle.registerOperator{ value: bond }(blueprintId, operator1Key, "http://operator1.local:8545");
+        }
         console2.log("Operator1 registered for blueprint");
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -205,7 +247,12 @@ contract LocalTestnetSetup is Script {
         } else {
             vm.startPrank(operator2);
         }
-        tangle.registerOperator(blueprintId, operator2Key, "http://operator2.local:8545");
+        if (bondAsset != address(0)) {
+            bondToken.approve(tangleProxy, bond);
+            tangle.registerOperator(blueprintId, operator2Key, "http://operator2.local:8545");
+        } else {
+            tangle.registerOperator{ value: bond }(blueprintId, operator2Key, "http://operator2.local:8545");
+        }
         console2.log("Operator2 registered for blueprint");
         if (useBroadcastKeys) {
             vm.stopBroadcast();

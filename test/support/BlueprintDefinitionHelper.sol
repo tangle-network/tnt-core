@@ -18,6 +18,17 @@ abstract contract BlueprintDefinitionHelper {
         def.metadataUri = metadataUri;
         def.manager = manager;
         def.masterManagerRevision = 0;
+        def.hasConfig = true;
+        def.config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.PayOnce,
+            minOperators: 0,
+            maxOperators: 0,
+            subscriptionRate: 0,
+            subscriptionInterval: 0,
+            eventRate: 0,
+            operatorBond: 0
+        });
         def.metadata = Types.BlueprintMetadata({
             name: "Test Blueprint",
             description: "Test blueprint definition",
@@ -46,8 +57,8 @@ abstract contract BlueprintDefinitionHelper {
         Types.BlueprintConfig memory config
     ) internal pure returns (Types.BlueprintDefinition memory def) {
         def = _blueprintDefinition(metadataUri, manager);
-        def.hasConfig = true;
         def.config = config;
+        def.hasConfig = true;
     }
 
     function _blueprintDefinitionWithJobCount(
@@ -61,10 +72,6 @@ abstract contract BlueprintDefinitionHelper {
         }
         bytes memory emptySchema = _emptySchema();
         def.jobs = _buildJobDefinitions(jobCount, emptySchema);
-    }
-
-    function _encodeBlueprintDefinition(Types.BlueprintDefinition memory def) internal pure returns (bytes memory) {
-        return abi.encode(def);
     }
 
     function _boolSchema() internal pure returns (bytes memory) {

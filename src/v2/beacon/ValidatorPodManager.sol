@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IBeaconOracle} from "./IBeaconOracle.sol";
-import {ValidatorPod} from "./ValidatorPod.sol";
-import {IRestaking} from "../interfaces/IRestaking.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IBeaconOracle } from "./IBeaconOracle.sol";
+import { ValidatorPod } from "./ValidatorPod.sol";
+import { IRestaking } from "../interfaces/IRestaking.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title ValidatorPodManager
 /// @notice Factory and manager for ValidatorPods, implements IRestaking for Tangle integration

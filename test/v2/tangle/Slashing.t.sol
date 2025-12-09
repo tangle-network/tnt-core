@@ -47,13 +47,12 @@ contract SlashingTest is BaseTest {
 
         // Setup: create blueprint, register operator, create service
         vm.prank(developer);
-        blueprintId = tangle.createBlueprint("ipfs://slashing-test", address(0));
+        blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://slashing-test", address(0)));
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
 
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
@@ -233,7 +232,7 @@ contract SlashingTest is BaseTest {
 
     function _deployManagedService(address manager) internal returns (uint64 svcId) {
         vm.prank(developer);
-        uint64 managedBlueprint = tangle.createBlueprint("ipfs://manager", manager);
+        uint64 managedBlueprint = tangle.createBlueprint(_blueprintDefinition("ipfs://manager", manager));
         _registerForBlueprint(operator1, managedBlueprint);
 
         uint64 requestId = _requestService(user1, managedBlueprint, operator1);
@@ -467,10 +466,9 @@ contract SlashingTest is BaseTest {
 
     function _setupServiceWithExposure(uint16 exposure) internal returns (uint64) {
         vm.prank(developer);
-        uint64 bpId = tangle.createBlueprint("ipfs://exposure", address(0));
+        uint64 bpId = tangle.createBlueprint(_blueprintDefinition("ipfs://exposure", address(0)));
 
-        vm.prank(operator1);
-        tangle.registerOperator(bpId, "", "");
+        _directRegisterOperator(operator1, bpId, "");
 
         address[] memory ops = new address[](1);
         ops[0] = operator1;

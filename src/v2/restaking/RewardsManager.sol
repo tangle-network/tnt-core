@@ -184,11 +184,13 @@ abstract contract RewardsManager is DelegationManagerLib {
     function _onDelegationChanged(
         address delegator,
         address operator,
+        Types.Asset memory asset,
         uint256 shares,
         uint256 amount,
         bool isIncrease,
         Types.BlueprintSelectionMode selectionMode,
-        uint64[] memory blueprintIds
+        uint64[] memory blueprintIds,
+        uint16 lockMultiplierBps
     ) internal override {
         if (selectionMode == Types.BlueprintSelectionMode.All) {
             // All mode: use the operator's main pool (exposed to ALL blueprints)
@@ -199,7 +201,7 @@ abstract contract RewardsManager is DelegationManagerLib {
         }
 
         // Notify external rewards manager for TNT incentives (if configured)
-        _notifyExternalRewardsManager(delegator, operator, amount, isIncrease);
+        _notifyExternalRewardsManager(delegator, operator, asset, amount, isIncrease, lockMultiplierBps);
     }
 
     /// @notice Update reward pool for All mode delegations
@@ -316,21 +318,29 @@ abstract contract RewardsManager is DelegationManagerLib {
     function _notifyExternalRewardsManager(
         address delegator,
         address operator,
+        Types.Asset memory asset,
         uint256 amount,
-        bool isIncrease
+        bool isIncrease,
+        uint16 lockMultiplierBps
     ) internal {
         if (_rewardsManager == address(0)) return;
 
-        // Native asset = address(0)
-        address asset = address(0);
+        address assetAddress = asset.kind == Types.AssetKind.Native ? address(0) : asset.token;
 
         if (isIncrease) {
             try IRewardsManager(_rewardsManager).recordDelegate(
-                delegator, operator, asset, amount, 0
+                delegator,
+                operator,
+                assetAddress,
+                amount,
+                lockMultiplierBps
             ) {} catch {}
         } else {
             try IRewardsManager(_rewardsManager).recordUndelegate(
-                delegator, operator, asset, amount
+                delegator,
+                operator,
+                assetAddress,
+                amount
             ) {} catch {}
         }
     }

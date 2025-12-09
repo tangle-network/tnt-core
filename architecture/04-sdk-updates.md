@@ -392,14 +392,9 @@ pub struct EVMRegistration {
 
 impl EVMRegistration {
     /// Register a new blueprint
-    pub async fn register_blueprint(
-        &self,
-        metadata_uri: String,
-        manager_address: Address,
-        code_hash: B256,
-    ) -> Result<u64, Error> {
+    pub async fn register_blueprint(&self, definition: BlueprintDefinition) -> Result<u64, Error> {
         let tx = self.core
-            .createBlueprint(metadata_uri, manager_address, code_hash)
+            .createBlueprint(definition)
             .send()
             .await?;
 
@@ -409,7 +404,7 @@ impl EVMRegistration {
         let event = receipt
             .logs()
             .iter()
-            .find(|log| log.topics()[0] == keccak256("BlueprintCreated(uint64,address,address,bytes32)"))
+            .find(|log| log.topics()[0] == keccak256("BlueprintCreated(uint64,address,address,string)"))
             .ok_or(Error::EventNotFound)?;
 
         let blueprint_id = u64::from_be_bytes(event.topics()[1].0[24..32].try_into()?);

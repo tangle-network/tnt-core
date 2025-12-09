@@ -7,15 +7,36 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { OperatorStatusRegistry } from "../../src/v2/restaking/OperatorStatusRegistry.sol";
+import { TangleToken } from "../../src/v2/governance/TangleToken.sol";
+import { MasterBlueprintServiceManager } from "../../src/v2/MasterBlueprintServiceManager.sol";
+import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
 
 error InvalidAddress(string field);
 error AddressNotAllowlisted(string field, address provided, address expected);
 error MissingEnv(string key);
 
 abstract contract DeployScriptBase is Script {
+    error MissingOperatorBondToken();
+
     function _requireEnvUint(string memory key) internal view returns (uint256 value) {
         try vm.envUint(key) returns (uint256 raw) {
             return raw;
+        } catch {
+            revert MissingEnv(key);
+        }
+    }
+
+    function _envUintOrDefault(string memory key, uint256 defaultValue) internal view returns (uint256 value) {
+        try vm.envUint(key) returns (uint256 raw) {
+            return raw;
+        } catch {
+            return defaultValue;
+        }
+    }
+
+    function _requireEnvAddress(string memory key) internal view returns (address value) {
+        try vm.envAddress(key) returns (address raw) {
+            return _requireNonZero(raw, key);
         } catch {
             revert MissingEnv(key);
         }
@@ -53,6 +74,8 @@ contract DeployV2 is DeployScriptBase {
     uint256 public minOperatorStake = 1 ether;
     uint256 public minDelegation = 0.1 ether;
     uint16 public operatorCommissionBps = 1000; // 10%
+    address public operatorBondToken;
+    uint256 public operatorBondAmount = 100 ether;
 
     function run() external {
         uint256 deployerPrivateKey = _requireEnvUint("PRIVATE_KEY");
@@ -123,6 +146,8 @@ contract DeployV2 is DeployScriptBase {
             vm.startPrank(deployer);
         }
 
+        _ensureOperatorBondToken(admin);
+
         (restakingProxy, restakingImpl) = deployMultiAssetDelegation(admin);
         console2.log("MultiAssetDelegation implementation:", restakingImpl);
         console2.log("MultiAssetDelegation proxy:", restakingProxy);
@@ -135,16 +160,68 @@ contract DeployV2 is DeployScriptBase {
         console2.log("OperatorStatusRegistry:", statusRegistry);
 
         MultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
-        console2.log("Granted SLASHER_ROLE to Tangle");
 
+        MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(admin, tangleProxy);
+        MBSMRegistry registryImpl = new MBSMRegistry();
+        ERC1967Proxy registryProxy = new ERC1967Proxy(
+            address(registryImpl),
+            abi.encodeCall(MBSMRegistry.initialize, (admin))
+        );
+        MBSMRegistry mbsmRegistry = MBSMRegistry(address(registryProxy));
+        mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), tangleProxy);
+        mbsmRegistry.addVersion(address(masterManager));
+        Tangle(payable(tangleProxy)).setMBSMRegistry(address(mbsmRegistry));
+
+        console2.log("Granted SLASHER_ROLE to Tangle");
         Tangle(payable(tangleProxy)).setOperatorStatusRegistry(statusRegistry);
         console2.log("Set OperatorStatusRegistry on Tangle");
+
+        _configureOperatorBonds(tangleProxy);
 
         if (broadcast) {
             vm.stopBroadcast();
         } else if (deployer != address(0)) {
             vm.stopPrank();
         }
+    }
+
+    function _configureOperatorBonds(address tangleProxy) internal {
+        if (operatorBondToken == address(0)) {
+            revert MissingOperatorBondToken();
+        }
+        Tangle tangle = Tangle(payable(tangleProxy));
+        tangle.setOperatorBondAsset(operatorBondToken);
+        tangle.setOperatorBlueprintBond(operatorBondAmount);
+        console2.log("Configured operator bond asset:", operatorBondToken);
+        console2.log("Configured operator bond amount:", operatorBondAmount);
+    }
+
+    function _ensureOperatorBondToken(address admin) internal {
+        if (operatorBondToken != address(0)) {
+            return;
+        }
+
+        try vm.envAddress("OPERATOR_BOND_TOKEN") returns (address tokenFromEnv) {
+            operatorBondToken = _requireNonZero(tokenFromEnv, "OPERATOR_BOND_TOKEN");
+            operatorBondAmount = _envUintOrDefault("OPERATOR_BOND_AMOUNT", operatorBondAmount);
+            console2.log("Using existing TNT token:", operatorBondToken);
+            return;
+        } catch {}
+
+        operatorBondToken = _deployTNTToken(admin);
+        operatorBondAmount = _envUintOrDefault("OPERATOR_BOND_AMOUNT", operatorBondAmount);
+    }
+
+    function _deployTNTToken(address admin) internal returns (address) {
+        uint256 initialSupply = _envUintOrDefault("TNT_INITIAL_SUPPLY", 1_000_000 ether);
+        TangleToken tokenImpl = new TangleToken();
+        ERC1967Proxy tokenProxy = new ERC1967Proxy(
+            address(tokenImpl),
+            abi.encodeCall(TangleToken.initialize, (admin, initialSupply))
+        );
+        console2.log("Deployed TangleToken proxy:", address(tokenProxy));
+        console2.log("Initial TNT supply minted to admin:", initialSupply);
+        return address(tokenProxy);
     }
 
     function deployMultiAssetDelegation(address admin) internal returns (address proxy, address impl) {
@@ -181,12 +258,16 @@ contract DeployV2 is DeployScriptBase {
         proxy = address(proxyContract);
     }
 
+    function setBondConfig(address token, uint256 amount) public {
+        operatorBondToken = token;
+        operatorBondAmount = amount;
+    }
+
     function deployOperatorStatusRegistry(address tangleCore) internal returns (address) {
         // OperatorStatusRegistry is not upgradeable - uses immutable tangleCore
         OperatorStatusRegistry registry = new OperatorStatusRegistry(tangleCore);
         return address(registry);
     }
-
 }
 
 /// @title UpgradeTangle

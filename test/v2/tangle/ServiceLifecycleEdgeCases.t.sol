@@ -118,11 +118,12 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        dynamicBlueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic", address(mockBsm), dynamicConfig);
+        dynamicBlueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(mockBsm), dynamicConfig));
 
         // Register operators for both blueprints
         _registerForBlueprint(operator1, blueprintId);
@@ -176,11 +177,12 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 subBlueprintId = tangle.createBlueprintWithConfig("ipfs://sub", address(0), subConfig);
+        uint64 subBlueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://sub", address(0), subConfig));
 
         _registerForBlueprint(operator1, subBlueprintId);
 
@@ -265,11 +267,12 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
             maxOperators: 2,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 limitedBpId = tangle.createBlueprintWithConfig("ipfs://limited", address(0), config);
+        uint64 limitedBpId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://limited", address(0), config));
 
         _registerForBlueprint(operator1, limitedBpId);
         _registerForBlueprint(operator2, limitedBpId);
@@ -304,12 +307,13 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         LifecycleMockBSM localBsm = new LifecycleMockBSM();
         vm.prank(developer);
-        uint64 minOpBpId = tangle.createBlueprintWithConfig("ipfs://minop", address(localBsm), config);
+        uint64 minOpBpId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://minop", address(localBsm), config));
 
         _registerForBlueprint(operator1, minOpBpId);
         _registerForBlueprint(operator2, minOpBpId);

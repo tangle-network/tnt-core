@@ -16,7 +16,7 @@ contract SlashingFuzzTest is BaseTest {
         super.setUp();
 
         vm.prank(developer);
-        blueprintId = tangle.createBlueprint("ipfs://slash-fuzz", address(0));
+        blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://slash-fuzz", address(0)));
 
         _registerOperator(operator1, 10 ether);
         _registerForBlueprint(operator1, blueprintId);

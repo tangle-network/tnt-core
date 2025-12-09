@@ -53,6 +53,21 @@ library Errors {
     /// @notice Caller is not blueprint owner
     error NotBlueprintOwner(uint64 blueprintId, address caller);
 
+    /// @notice Blueprint definition missing required metadata
+    error BlueprintMetadataRequired();
+
+    /// @notice Blueprint definition missing supported membership models
+    error BlueprintMembershipRequired();
+
+    /// @notice Blueprint definition missing implementation sources
+    error BlueprintSourcesRequired();
+
+    /// @notice MBSM registry not configured
+    error MBSMRegistryNotSet();
+
+    /// @notice Unable to resolve a master blueprint service manager revision
+    error MasterManagerUnavailable();
+
     // ═══════════════════════════════════════════════════════════════════════════
     // OPERATOR
     // ═══════════════════════════════════════════════════════════════════════════
@@ -68,6 +83,21 @@ library Errors {
 
     /// @notice Operator does not meet minimum stake requirement
     error InsufficientStake(address operator, uint256 required, uint256 actual);
+
+    /// @notice Operator exceeded blueprint registration limit
+    error MaxBlueprintsPerOperatorExceeded(address operator, uint32 maxAllowed);
+
+    /// @notice Operator provided invalid gossip key
+    error InvalidOperatorKey();
+
+    /// @notice Gossip key already registered for blueprint
+    error DuplicateOperatorKey(uint64 blueprintId, bytes32 keyHash);
+
+    /// @notice Incorrect bond amount supplied during registration
+    error OperatorBondMismatch(uint64 blueprintId, uint256 required, uint256 sent);
+
+    /// @notice Failed to refund operator bond on unregister
+    error OperatorBondRefundFailed(address operator, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE

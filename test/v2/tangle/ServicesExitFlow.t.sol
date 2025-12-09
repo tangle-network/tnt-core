@@ -131,11 +131,12 @@ contract ServicesExitFlowTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic-exit", manager, config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic-exit", manager, config));
 
         _registerOperator(operator1, 5 ether);
         _registerOperator(operator2, 5 ether);

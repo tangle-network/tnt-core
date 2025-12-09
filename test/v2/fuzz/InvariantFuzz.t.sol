@@ -10,12 +10,17 @@ import { Types } from "../../../src/v2/libraries/Types.sol";
 import { Errors } from "../../../src/v2/libraries/Errors.sol";
 import { SlashingLib } from "../../../src/v2/libraries/SlashingLib.sol";
 import { PaymentLib } from "../../../src/v2/libraries/PaymentLib.sol";
+import { MasterBlueprintServiceManager } from "../../../src/v2/MasterBlueprintServiceManager.sol";
+import { MBSMRegistry } from "../../../src/v2/MBSMRegistry.sol";
+import { BlueprintDefinitionHelper } from "../../support/BlueprintDefinitionHelper.sol";
 
 /// @title InvariantFuzzTest
 /// @notice Critical invariant tests for the system
-contract InvariantFuzzTest is Test {
+contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     Tangle public tangle;
     MultiAssetDelegation public restaking;
+    MasterBlueprintServiceManager public masterManager;
+    MBSMRegistry public mbsmRegistry;
 
     address public admin = makeAddr("admin");
     address public treasury = makeAddr("treasury");
@@ -62,6 +67,15 @@ contract InvariantFuzzTest is Test {
         vm.prank(admin);
         restaking.addSlasher(address(tangle));
 
+        masterManager = new MasterBlueprintServiceManager(admin, address(tangle));
+        mbsmRegistry = new MBSMRegistry();
+        mbsmRegistry.initialize(admin);
+        vm.startPrank(admin);
+        mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), address(tangle));
+        mbsmRegistry.addVersion(address(masterManager));
+        tangle.setMBSMRegistry(address(mbsmRegistry));
+        vm.stopPrank();
+
         // Fund actors
         vm.deal(operator1, 1000 ether);
         vm.deal(operator2, 1000 ether);
@@ -78,14 +92,14 @@ contract InvariantFuzzTest is Test {
         restaking.registerOperator{ value: 100 ether }();
 
         vm.prank(developer);
-        blueprintId = tangle.createBlueprint("ipfs://invariant", address(0));
+        blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://invariant", address(0)));
 
         vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 0), "");
         vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "", "");
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator2, 0), "");
         vm.prank(operator3);
-        tangle.registerOperator(blueprintId, "", "");
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator3, 0), "");
 
         // Create initial service
         address[] memory ops = new address[](1);
@@ -187,11 +201,13 @@ contract InvariantFuzzTest is Test {
             maxOperators: maxOps,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 newBpId = tangle.createBlueprintWithConfig("ipfs://bounds", address(0), config);
+        uint64 newBpId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://bounds", address(0), config));
 
         // Register enough operators
         address[] memory operators = new address[](requestOps);
@@ -209,12 +225,12 @@ contract InvariantFuzzTest is Test {
 
             if (i >= 3) {
                 vm.prank(op);
-                tangle.registerOperator(newBpId, "", "");
+                tangle.registerOperator(newBpId, _operatorGossipKey(op, i), "");
             } else {
                 // Use existing registrations if possible, or register
                 if (!tangle.isOperatorRegistered(newBpId, op)) {
                     vm.prank(op);
-                    tangle.registerOperator(newBpId, "", "");
+                    tangle.registerOperator(newBpId, _operatorGossipKey(op, i), "");
                 }
             }
             operators[i] = op;
@@ -383,14 +399,16 @@ contract InvariantFuzzTest is Test {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 1 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 subBp = tangle.createBlueprintWithConfig("ipfs://escrow-inv", address(0), config);
+        uint64 subBp =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://escrow-inv", address(0), config));
 
         vm.prank(operator1);
-        tangle.registerOperator(subBp, "", "");
+        tangle.registerOperator(subBp, _operatorGossipKey(operator1, 0), "");
 
         address[] memory ops = new address[](1);
         ops[0] = operator1;
@@ -486,11 +504,20 @@ contract InvariantFuzzTest is Test {
 
         for (uint8 i = 0; i < numBlueprints; i++) {
             vm.prank(developer);
-            tangle.createBlueprint(string(abi.encodePacked("ipfs://bp", uint256(i))), address(0));
+            tangle.createBlueprint(_blueprintDefinition(string(abi.encodePacked("ipfs://bp", uint256(i))), address(0)));
 
             uint64 currentCount = tangle.blueprintCount();
             assertGt(currentCount, previousCount, "INVARIANT VIOLATED: blueprint count didn't increase");
             previousCount = currentCount;
+        }
+    }
+
+    function _operatorGossipKey(address operator, uint256 salt) internal pure returns (bytes memory key) {
+        key = new bytes(65);
+        key[0] = 0x04;
+        bytes32 payload = keccak256(abi.encodePacked(operator, salt));
+        for (uint256 i = 0; i < 32; ++i) {
+            key[i + 1] = payload[i];
         }
     }
 }

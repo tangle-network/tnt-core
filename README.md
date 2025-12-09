@@ -74,3 +74,9 @@ Points programs are defined in `indexer/src/points/programs.ts` and exposed via 
 - Restakers – deposits, delegations, and vault staking (`delegator-deposit`, `delegation`, `restaker-vault`).
 
 Contract modules call the award helpers, so adding a new incentive is as simple as wiring the relevant event to a helper (or introducing a new helper/program when needed).
+
+### Additional Documentation
+
+- [Points & Pricing Pipeline](docs/points-pipeline.md) – covers the asset
+  registry policy, USD conversion flow, and the runbooks for updating assets or
+  responding to price API outages.

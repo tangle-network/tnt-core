@@ -16,7 +16,9 @@ import { SlashingLib } from "../libraries/SlashingLib.sol";
 import { IRestaking } from "../interfaces/IRestaking.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { IMetricsRecorder } from "../interfaces/IMetricsRecorder.sol";
+import { IMBSMRegistry } from "../interfaces/IMBSMRegistry.sol";
 import { IOperatorStatusRegistry } from "../restaking/OperatorStatusRegistry.sol";
+import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
 /// @title Base
 /// @notice Base contract for Tangle Protocol with initialization, access control, and helpers
@@ -45,6 +47,7 @@ abstract contract Base is
     // ═══════════════════════════════════════════════════════════════════════════
 
     event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId);
+    event MBSMRegistryUpdated(address indexed registry);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -82,6 +85,10 @@ abstract contract Base is
 
         _restaking = IRestaking(restaking_);
         _treasury = treasury_;
+
+        _maxBlueprintsPerOperator = ProtocolConfig.MAX_BLUEPRINTS_PER_OPERATOR;
+        _defaultOperatorBond = ProtocolConfig.DEFAULT_OPERATOR_BOND;
+        _operatorBondToken = ProtocolConfig.DEFAULT_OPERATOR_BOND_TOKEN;
 
         // Initialize payment split
         _paymentSplit = Types.PaymentSplit({
@@ -141,6 +148,90 @@ abstract contract Base is
         return _operatorStatusRegistry;
     }
 
+    /// @notice Configure the Master Blueprint Service Manager registry
+    function setMBSMRegistry(address registry) external onlyRole(ADMIN_ROLE) {
+        if (registry == address(0)) revert Errors.ZeroAddress();
+        _mbsmRegistry = IMBSMRegistry(registry);
+        emit MBSMRegistryUpdated(registry);
+    }
+
+    /// @notice Get the configured Master Blueprint Service Manager registry
+    function mbsmRegistry() external view returns (address) {
+        return address(_mbsmRegistry);
+    }
+
+    /// @notice Get current bond asset used for operator registration (address(0) = native)
+    function operatorBondToken() external view returns (address) {
+        return _operatorBondToken;
+    }
+
+    /// @notice Get maximum registered blueprints allowed per operator
+    function maxBlueprintsPerOperator() external view returns (uint32) {
+        return _maxBlueprintsPerOperator;
+    }
+
+    /// @notice Update maximum blueprints per operator (0 disables the limit)
+    function setMaxBlueprintsPerOperator(uint32 newMax) external onlyRole(ADMIN_ROLE) {
+        _maxBlueprintsPerOperator = newMax;
+    }
+
+    /// @notice Get the default operator bond required for registration
+    function operatorBlueprintBond() external view returns (uint256) {
+        return _defaultOperatorBond;
+    }
+
+    /// @notice Set the default operator bond (overridden per blueprint via config)
+    function setOperatorBlueprintBond(uint256 newBond) external onlyRole(ADMIN_ROLE) {
+        _defaultOperatorBond = newBond;
+    }
+
+    /// @notice Set the asset used for operator bonds (address(0) = native)
+    function setOperatorBondAsset(address token) external onlyRole(ADMIN_ROLE) {
+        _operatorBondToken = token;
+    }
+
+    /// @notice Get number of blueprints registered by an operator
+    function operatorBlueprintCount(address operator) external view returns (uint32) {
+        return _operatorBlueprintCounts[operator];
+    }
+
+    /// @notice Get stored blueprint metadata
+    function blueprintMetadata(uint64 blueprintId)
+        external
+        view
+        returns (Types.BlueprintMetadata memory metadata, string memory metadataUri)
+    {
+        metadata = _blueprintMetadata[blueprintId];
+        metadataUri = _blueprintMetadataUri[blueprintId];
+    }
+
+    /// @notice Get stored blueprint sources
+    function blueprintSources(uint64 blueprintId) external view returns (Types.BlueprintSource[] memory sources) {
+        Types.BlueprintSource[] storage stored = _blueprintSources[blueprintId];
+        sources = new Types.BlueprintSource[](stored.length);
+        for (uint256 i = 0; i < stored.length; ++i) {
+            sources[i] = stored[i];
+        }
+    }
+
+    /// @notice Get supported membership models for a blueprint
+    function blueprintSupportedMemberships(uint64 blueprintId)
+        external
+        view
+        returns (Types.MembershipModel[] memory memberships)
+    {
+        Types.MembershipModel[] storage stored = _blueprintSupportedMemberships[blueprintId];
+        memberships = new Types.MembershipModel[](stored.length);
+        for (uint256 i = 0; i < stored.length; ++i) {
+            memberships[i] = stored[i];
+        }
+    }
+
+    /// @notice Get the pinned master blueprint service manager revision for a blueprint
+    function blueprintMasterRevision(uint64 blueprintId) external view returns (uint32) {
+        return _blueprintMasterRevisions[blueprintId];
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // METRICS HOOKS (lightweight, fail-safe)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -192,6 +283,15 @@ abstract contract Base is
         if (_metricsRecorder != address(0)) {
             try IMetricsRecorder(_metricsRecorder).recordSlash(operator, serviceId, amount) {} catch {}
         }
+    }
+
+    /// @notice Resolve the required operator bond for a blueprint
+    function _getOperatorBondRequirement(uint64 blueprintId) internal view returns (uint256) {
+        uint256 custom = _blueprintConfigs[blueprintId].operatorBond;
+        if (custom > 0) {
+            return custom;
+        }
+        return _defaultOperatorBond;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

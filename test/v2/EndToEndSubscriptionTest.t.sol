@@ -19,13 +19,12 @@ contract EndToEndSubscriptionTest is BaseTest {
     function test_E2E_Subscription_FullLifecycle() public {
         // Step 1: Create PayOnce blueprint (simpler for this test)
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://subscription-service", address(0));
+        uint64 blueprintId = _createBlueprintAsSender("ipfs://subscription-service", address(0));
 
         // Step 2: Operator registers and stakes
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Step 3: Delegator stakes with operator
         vm.startPrank(delegator1);
@@ -94,16 +93,17 @@ contract EndToEndSubscriptionTest is BaseTest {
             maxOperators: 5,
             subscriptionRate: SUBSCRIPTION_RATE,
             subscriptionInterval: SUBSCRIPTION_INTERVAL,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://exhaustion-test", address(0), config);
+        uint64 blueprintId =
+            _createBlueprintWithConfigAsSender("ipfs://exhaustion-test", address(0), config);
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Only fund 2 months of subscription
         uint256 escrowAmount = SUBSCRIPTION_RATE * 2;
@@ -149,27 +149,26 @@ contract EndToEndSubscriptionTest is BaseTest {
             maxOperators: 5,
             subscriptionRate: SUBSCRIPTION_RATE,
             subscriptionInterval: SUBSCRIPTION_INTERVAL,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic-subscription", address(0), config);
+        uint64 blueprintId =
+            _createBlueprintWithConfigAsSender("ipfs://dynamic-subscription", address(0), config);
 
         // Register all operators
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         vm.prank(operator2);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator2);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator2, blueprintId, "");
 
         vm.prank(operator3);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator3);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator3, blueprintId, "");
 
         // Start with just operator1
         uint256 escrowAmount = SUBSCRIPTION_RATE * 6;
@@ -244,16 +243,17 @@ contract EndToEndSubscriptionTest is BaseTest {
             maxOperators: 5,
             subscriptionRate: 10 ether, // Higher rate for easier math
             subscriptionInterval: SUBSCRIPTION_INTERVAL,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://proportional-rewards", address(0), config);
+        uint64 blueprintId =
+            _createBlueprintWithConfigAsSender("ipfs://proportional-rewards", address(0), config);
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Delegator1: 10 ETH (1/4 of total delegations)
         vm.startPrank(delegator1);
@@ -320,16 +320,17 @@ contract EndToEndSubscriptionTest is BaseTest {
             maxOperators: 5,
             subscriptionRate: SUBSCRIPTION_RATE,
             subscriptionInterval: SUBSCRIPTION_INTERVAL,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://termination", address(0), config);
+        uint64 blueprintId =
+            _createBlueprintWithConfigAsSender("ipfs://termination", address(0), config);
 
         vm.prank(operator1);
         restaking.registerOperator{ value: 5 ether }();
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "");
+        _directRegisterOperator(operator1, blueprintId, "");
 
         // Fund 6 months
         uint256 escrowAmount = SUBSCRIPTION_RATE * 6;

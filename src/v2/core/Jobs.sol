@@ -40,48 +40,18 @@ abstract contract Jobs is Base {
         uint8 jobIndex,
         bytes calldata inputs
     ) external payable whenNotPaused nonReentrant returns (uint64 callId) {
-        Types.Service storage svc = _getService(serviceId);
-        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
-        if (svc.status != Types.ServiceStatus.Active) {
-            revert Errors.ServiceNotActive(serviceId);
-        }
-        if (svc.ttl > 0 && block.timestamp > svc.createdAt + svc.ttl) {
-            revert Errors.ServiceExpired(serviceId);
-        }
-        if (!_permittedCallers[serviceId].contains(msg.sender)) {
-            revert Errors.NotPermittedCaller(serviceId, msg.sender);
-        }
+        (Types.Service storage svc, Types.Blueprint storage bp) = _loadServiceAndBlueprint(serviceId);
 
-        uint256 payment = 0;
-        if (svc.pricing == Types.PricingModel.EventDriven) {
-            payment = _blueprintConfigs[svc.blueprintId].eventRate;
-            PaymentLib.collectPayment(address(0), payment, msg.value);
-            _recordPayment(msg.sender, serviceId, address(0), payment);
-        }
+        _validateServiceForSubmission(svc, serviceId);
+        _requirePermittedCaller(serviceId, msg.sender);
 
-        Types.StoredJobSchema storage schema = _jobSchema(svc.blueprintId, jobIndex);
-        SchemaLib.validateJobParams(schema, inputs, svc.blueprintId, jobIndex);
+        uint256 payment = _collectJobPaymentIfNeeded(svc, serviceId, msg.value, msg.sender);
+        _validateJobInputs(svc.blueprintId, jobIndex, inputs);
 
-        callId = _serviceCallCount[serviceId]++;
-        _jobCalls[serviceId][callId] = Types.JobCall({
-            jobIndex: jobIndex,
-            caller: msg.sender,
-            createdAt: uint64(block.timestamp),
-            resultCount: 0,
-            payment: payment,
-            completed: false
-        });
-
-        // Store inputs for onJobResult hook
+        callId = _createJobCall(serviceId, jobIndex, msg.sender, payment);
         _jobInputs[serviceId][callId] = inputs;
 
-        // Call BSM hook - allows manager to validate/reject job
-        if (bp.manager != address(0)) {
-            _callManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onJobCall, (serviceId, jobIndex, callId, inputs))
-            );
-        }
+        _notifyManagerOnJobCall(bp.manager, serviceId, jobIndex, callId, inputs);
 
         emit JobSubmitted(serviceId, callId, jobIndex, msg.sender, inputs);
         _recordJobCall(serviceId, msg.sender, callId);
@@ -94,9 +64,8 @@ abstract contract Jobs is Base {
         uint64 callId,
         bytes calldata output
     ) external whenNotPaused nonReentrant {
-        Types.Service storage svc = _getService(serviceId);
-        Types.JobCall storage job = _getJobCall(serviceId, callId);
-        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
+        (Types.Service storage svc, Types.JobCall storage job, Types.Blueprint storage bp) =
+            _loadServiceJobAndBlueprint(serviceId, callId);
 
         _processResultSubmission(serviceId, callId, output, svc, job, bp);
     }
@@ -109,8 +78,7 @@ abstract contract Jobs is Base {
     ) external whenNotPaused nonReentrant {
         if (callIds.length != outputs.length) revert Errors.LengthMismatch();
 
-        Types.Service storage svc = _getService(serviceId);
-        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
+        (Types.Service storage svc, Types.Blueprint storage bp) = _loadServiceAndBlueprint(serviceId);
 
         for (uint256 i = 0; i < callIds.length; i++) {
             Types.JobCall storage job = _getJobCall(serviceId, callIds[i]);
@@ -138,40 +106,15 @@ abstract contract Jobs is Base {
         uint256[2] calldata aggregatedSignature,
         uint256[4] calldata aggregatedPubkey
     ) external whenNotPaused nonReentrant {
-        Types.Service storage svc = _getService(serviceId);
-        Types.JobCall storage job = _getJobCall(serviceId, callId);
-        Types.StoredJobSchema storage schema = _jobSchema(svc.blueprintId, job.jobIndex);
-        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
+        (Types.Service storage svc, Types.JobCall storage job, Types.Blueprint storage bp) =
+            _loadServiceJobAndBlueprint(serviceId, callId);
 
-        if (job.completed) {
-            revert Errors.JobAlreadyCompleted(serviceId, callId);
-        }
-
-        _ensureAggregationRequired(bp.manager, serviceId, job.jobIndex);
-
-        SchemaLib.validateJobResult(schema, output, svc.blueprintId, job.jobIndex);
+        _validateAggregatedSubmissionPreconditions(serviceId, callId, output, svc, job, bp.manager);
 
         AggregationConfig memory config = _getAggregationConfig(bp.manager, serviceId, job.jobIndex);
+        _enforceAggregationThreshold(serviceId, callId, signerBitmap, config);
 
-        // Validate signers and compute threshold
-        (uint256 achieved, uint256 required) = _validateSignersAndThreshold(
-            serviceId,
-            signerBitmap,
-            config.thresholdBps,
-            config.thresholdType
-        );
-
-        if (achieved < required) {
-            revert Errors.AggregationThresholdNotMet(serviceId, callId, achieved, required);
-        }
-
-        _verifyAggregatedSignature(
-            serviceId,
-            callId,
-            output,
-            aggregatedSignature,
-            aggregatedPubkey
-        );
+        _verifyAggregatedSignature(serviceId, callId, output, aggregatedSignature, aggregatedPubkey);
 
         AggregatedResultPayload memory payload = AggregatedResultPayload({
             serviceId: serviceId,
@@ -246,60 +189,17 @@ abstract contract Jobs is Base {
         Types.JobCall storage job,
         Types.Blueprint storage bp
     ) private {
-        Types.StoredJobSchema storage schema = _jobSchema(svc.blueprintId, job.jobIndex);
+        _ensureAggregationBypass(bp.manager, serviceId, job.jobIndex);
+        _validateResultSubmissionState(serviceId, callId, job);
 
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).requiresAggregation(serviceId, job.jobIndex) returns (bool aggRequired) {
-                if (aggRequired) {
-                    revert Errors.AggregationRequired(serviceId, job.jobIndex);
-                }
-            } catch {}
-        }
+        _validateJobResultOutput(svc.blueprintId, job.jobIndex, output);
+        _recordOperatorResult(serviceId, callId, job);
 
-        if (!_serviceOperators[serviceId][msg.sender].active) {
-            revert Errors.OperatorNotInService(serviceId, msg.sender);
-        }
-        if (job.completed) {
-            revert Errors.JobAlreadyCompleted(serviceId, callId);
-        }
-        if (_jobResultSubmitted[serviceId][callId][msg.sender]) {
-            revert Errors.ResultAlreadySubmitted(serviceId, callId, msg.sender);
-        }
-
-        SchemaLib.validateJobResult(schema, output, svc.blueprintId, job.jobIndex);
-
-        _jobResultSubmitted[serviceId][callId][msg.sender] = true;
-        job.resultCount++;
-
-        if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager,
-                abi.encodeCall(
-                    IBlueprintServiceManager.onJobResult,
-                    (serviceId, job.jobIndex, callId, msg.sender, _jobInputs[serviceId][callId], output)
-                )
-            );
-        }
+        _notifyManagerOnJobResult(bp.manager, serviceId, job.jobIndex, callId, output);
 
         emit JobResultSubmitted(serviceId, callId, msg.sender, output);
 
-        uint32 required = 1;
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getRequiredResultCount(serviceId, job.jobIndex) returns (uint32 r) {
-                required = r;
-            } catch {}
-        }
-
-        if (job.resultCount >= required && !job.completed) {
-            job.completed = true;
-            emit JobCompleted(serviceId, callId);
-
-            _recordJobCompletion(msg.sender, serviceId, callId, true);
-
-            if (svc.pricing == Types.PricingModel.EventDriven && job.payment > 0) {
-                _distributeJobPayment(serviceId, job.payment);
-            }
-        }
+        _maybeFinalizeJob(serviceId, callId, svc, job, bp.manager);
     }
 
     /// @notice Record job completion metrics for all signers in an aggregated result
@@ -321,6 +221,219 @@ abstract contract Jobs is Base {
                 _recordJobCompletion(operators[i], serviceId, callId, true);
             }
         }
+    }
+
+    function _loadServiceAndBlueprint(uint64 serviceId)
+        private
+        view
+        returns (Types.Service storage svc, Types.Blueprint storage bp)
+    {
+        svc = _getService(serviceId);
+        bp = _blueprints[svc.blueprintId];
+    }
+
+    function _loadServiceJobAndBlueprint(uint64 serviceId, uint64 callId)
+        private
+        view
+        returns (Types.Service storage svc, Types.JobCall storage job, Types.Blueprint storage bp)
+    {
+        svc = _getService(serviceId);
+        job = _getJobCall(serviceId, callId);
+        bp = _blueprints[svc.blueprintId];
+    }
+
+    function _validateServiceForSubmission(Types.Service storage svc, uint64 serviceId) private view {
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
+        if (svc.ttl > 0 && block.timestamp > svc.createdAt + svc.ttl) {
+            revert Errors.ServiceExpired(serviceId);
+        }
+    }
+
+    function _requirePermittedCaller(uint64 serviceId, address caller) private view {
+        if (!_permittedCallers[serviceId].contains(caller)) {
+            revert Errors.NotPermittedCaller(serviceId, caller);
+        }
+    }
+
+    function _collectJobPaymentIfNeeded(
+        Types.Service storage svc,
+        uint64 serviceId,
+        uint256 msgValue,
+        address payer
+    ) private returns (uint256 payment) {
+        if (svc.pricing == Types.PricingModel.EventDriven) {
+            payment = _blueprintConfigs[svc.blueprintId].eventRate;
+            PaymentLib.collectPayment(address(0), payment, msgValue);
+            _recordPayment(payer, serviceId, address(0), payment);
+        }
+    }
+
+    function _validateJobInputs(uint64 blueprintId, uint8 jobIndex, bytes calldata inputs) private view {
+        Types.StoredJobSchema storage schema = _jobSchema(blueprintId, jobIndex);
+        SchemaLib.validateJobParams(schema, inputs, blueprintId, jobIndex);
+    }
+
+    function _createJobCall(
+        uint64 serviceId,
+        uint8 jobIndex,
+        address caller,
+        uint256 payment
+    ) private returns (uint64 callId) {
+        callId = _serviceCallCount[serviceId]++;
+        _jobCalls[serviceId][callId] = Types.JobCall({
+            jobIndex: jobIndex,
+            caller: caller,
+            createdAt: uint64(block.timestamp),
+            resultCount: 0,
+            payment: payment,
+            completed: false
+        });
+    }
+
+    function _notifyManagerOnJobCall(
+        address manager,
+        uint64 serviceId,
+        uint8 jobIndex,
+        uint64 callId,
+        bytes calldata inputs
+    ) private {
+        if (manager == address(0)) {
+            return;
+        }
+
+        _callManager(
+            manager,
+            abi.encodeCall(IBlueprintServiceManager.onJobCall, (serviceId, jobIndex, callId, inputs))
+        );
+    }
+
+    function _validateAggregatedSubmissionPreconditions(
+        uint64 serviceId,
+        uint64 callId,
+        bytes calldata output,
+        Types.Service storage svc,
+        Types.JobCall storage job,
+        address manager
+    ) private view {
+        if (job.completed) {
+            revert Errors.JobAlreadyCompleted(serviceId, callId);
+        }
+
+        _ensureAggregationRequired(manager, serviceId, job.jobIndex);
+
+        Types.StoredJobSchema storage schema = _jobSchema(svc.blueprintId, job.jobIndex);
+        SchemaLib.validateJobResult(schema, output, svc.blueprintId, job.jobIndex);
+    }
+
+    function _enforceAggregationThreshold(
+        uint64 serviceId,
+        uint64 callId,
+        uint256 signerBitmap,
+        AggregationConfig memory config
+    ) private view {
+        (uint256 achieved, uint256 required) = _validateSignersAndThreshold(
+            serviceId,
+            signerBitmap,
+            config.thresholdBps,
+            config.thresholdType
+        );
+
+        if (achieved < required) {
+            revert Errors.AggregationThresholdNotMet(serviceId, callId, achieved, required);
+        }
+    }
+
+    function _ensureAggregationBypass(address manager, uint64 serviceId, uint8 jobIndex) private view {
+        if (manager == address(0)) return;
+
+        try IBlueprintServiceManager(manager).requiresAggregation(serviceId, jobIndex) returns (bool aggRequired) {
+            if (aggRequired) {
+                revert Errors.AggregationRequired(serviceId, jobIndex);
+            }
+        } catch {}
+    }
+
+    function _validateResultSubmissionState(
+        uint64 serviceId,
+        uint64 callId,
+        Types.JobCall storage job
+    ) private view {
+        if (!_serviceOperators[serviceId][msg.sender].active) {
+            revert Errors.OperatorNotInService(serviceId, msg.sender);
+        }
+        if (job.completed) {
+            revert Errors.JobAlreadyCompleted(serviceId, callId);
+        }
+        if (_jobResultSubmitted[serviceId][callId][msg.sender]) {
+            revert Errors.ResultAlreadySubmitted(serviceId, callId, msg.sender);
+        }
+    }
+
+    function _validateJobResultOutput(uint64 blueprintId, uint8 jobIndex, bytes calldata output) private view {
+        Types.StoredJobSchema storage schema = _jobSchema(blueprintId, jobIndex);
+        SchemaLib.validateJobResult(schema, output, blueprintId, jobIndex);
+    }
+
+    function _recordOperatorResult(uint64 serviceId, uint64 callId, Types.JobCall storage job) private {
+        _jobResultSubmitted[serviceId][callId][msg.sender] = true;
+        job.resultCount++;
+    }
+
+    function _notifyManagerOnJobResult(
+        address manager,
+        uint64 serviceId,
+        uint8 jobIndex,
+        uint64 callId,
+        bytes calldata output
+    ) private {
+        if (manager == address(0)) return;
+
+        _tryCallManager(
+            manager,
+            abi.encodeCall(
+                IBlueprintServiceManager.onJobResult,
+                (serviceId, jobIndex, callId, msg.sender, _jobInputs[serviceId][callId], output)
+            )
+        );
+    }
+
+    function _maybeFinalizeJob(
+        uint64 serviceId,
+        uint64 callId,
+        Types.Service storage svc,
+        Types.JobCall storage job,
+        address manager
+    ) private {
+        uint32 required = _getRequiredResultCount(manager, serviceId, job.jobIndex);
+        if (job.resultCount < required || job.completed) {
+            return;
+        }
+
+        job.completed = true;
+        emit JobCompleted(serviceId, callId);
+
+        _recordJobCompletion(msg.sender, serviceId, callId, true);
+
+        if (svc.pricing == Types.PricingModel.EventDriven && job.payment > 0) {
+            _distributeJobPayment(serviceId, job.payment);
+        }
+    }
+
+    function _getRequiredResultCount(
+        address manager,
+        uint64 serviceId,
+        uint8 jobIndex
+    ) private view returns (uint32 required) {
+        required = 1;
+        if (manager == address(0)) {
+            return required;
+        }
+
+        try IBlueprintServiceManager(manager).getRequiredResultCount(serviceId, jobIndex) returns (uint32 r) {
+            required = r;
+        } catch {}
     }
 
     function _jobSchema(

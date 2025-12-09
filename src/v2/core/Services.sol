@@ -15,6 +15,17 @@ import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager
 abstract contract Services is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    struct BlueprintRequestData {
+        address manager;
+        Types.MembershipModel membership;
+    }
+
+    struct RequestBounds {
+        uint32 minOperators;
+        uint32 maxOperators;
+        uint32 operatorCount;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -126,52 +137,30 @@ abstract contract Services is Base {
     ) internal returns (uint64 requestId) {
         if (operators.length == 0) revert Errors.NoOperators();
 
-        address manager;
-        Types.MembershipModel membership;
-        {
-            Types.Blueprint storage bp = _getBlueprint(blueprintId);
-            if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
-            manager = bp.manager;
-            membership = bp.membership;
-        }
+        BlueprintRequestData memory blueprintData = _loadBlueprintRequestData(blueprintId);
 
-        _validateRequestPaymentAsset(manager, paymentToken, paymentAmount);
+        _validateRequestPaymentAsset(blueprintData.manager, paymentToken, paymentAmount);
         _validateRequestOperators(blueprintId, operators, exposures);
 
         PaymentLib.collectPayment(paymentToken, paymentAmount, msg.value);
 
-        requestId = _serviceRequestCount++;
-        uint32 minOps;
-        uint32 maxOperators;
-        {
-            Types.BlueprintConfig storage bpConfig = _blueprintConfigs[blueprintId];
-            minOps = _resolveMinOperators(bpConfig);
-            maxOperators = bpConfig.maxOperators;
-        }
-        uint32 operatorCount = uint32(operators.length);
-        _validateOperatorBounds(maxOperators, operatorCount, minOps);
+        RequestBounds memory bounds = _computeRequestBounds(blueprintId, uint32(operators.length));
 
-        _serviceRequests[requestId] = Types.ServiceRequest({
-            blueprintId: blueprintId,
-            requester: msg.sender,
-            createdAt: uint64(block.timestamp),
-            ttl: ttl,
-            operatorCount: operatorCount,
-            approvalCount: 0,
-            paymentToken: paymentToken,
-            paymentAmount: paymentAmount,
-            membership: membership,
-            minOperators: minOps,
-            maxOperators: maxOperators,
-            rejected: false
-        });
+        requestId = _createServiceRequest(
+            blueprintId,
+            ttl,
+            paymentToken,
+            paymentAmount,
+            blueprintData,
+            bounds
+        );
 
         _storeRequestOperators(requestId, operators, exposures);
         _storePermittedCallers(requestId, permittedCallers);
 
         emit ServiceRequested(requestId, blueprintId, msg.sender);
 
-        _notifyManagerOnRequest(manager, requestId, operators, config);
+        _notifyManagerOnRequest(blueprintData.manager, requestId, operators, config);
     }
 
     function _validateRequestConfig(uint64 blueprintId, bytes calldata config) private view {
@@ -209,6 +198,9 @@ abstract contract Services is Base {
         for (uint256 i = 0; i < operators.length; i++) {
             if (_operatorRegistrations[blueprintId][operators[i]].registeredAt == 0) {
                 revert Errors.OperatorNotRegistered(blueprintId, operators[i]);
+            }
+            if (!_restaking.isOperatorActive(operators[i])) {
+                revert Errors.OperatorNotActive(operators[i]);
             }
             if (exposures[i] > BPS_DENOMINATOR) {
                 revert Errors.InvalidState();
@@ -295,6 +287,54 @@ abstract contract Services is Base {
         }
     }
 
+    function _loadBlueprintRequestData(uint64 blueprintId)
+        private
+        view
+        returns (BlueprintRequestData memory data)
+    {
+        Types.Blueprint storage bp = _getBlueprint(blueprintId);
+        if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
+        data.manager = bp.manager;
+        data.membership = bp.membership;
+    }
+
+    function _computeRequestBounds(uint64 blueprintId, uint32 operatorCount)
+        private
+        view
+        returns (RequestBounds memory bounds)
+    {
+        Types.BlueprintConfig storage bpConfig = _blueprintConfigs[blueprintId];
+        bounds.minOperators = _resolveMinOperators(bpConfig);
+        bounds.maxOperators = bpConfig.maxOperators;
+        bounds.operatorCount = operatorCount;
+        _validateOperatorBounds(bounds.maxOperators, operatorCount, bounds.minOperators);
+    }
+
+    function _createServiceRequest(
+        uint64 blueprintId,
+        uint64 ttl,
+        address paymentToken,
+        uint256 paymentAmount,
+        BlueprintRequestData memory blueprintData,
+        RequestBounds memory bounds
+    ) private returns (uint64 requestId) {
+        requestId = _serviceRequestCount++;
+        _serviceRequests[requestId] = Types.ServiceRequest({
+            blueprintId: blueprintId,
+            requester: msg.sender,
+            createdAt: uint64(block.timestamp),
+            ttl: ttl,
+            operatorCount: bounds.operatorCount,
+            approvalCount: 0,
+            paymentToken: paymentToken,
+            paymentAmount: paymentAmount,
+            membership: blueprintData.membership,
+            minOperators: bounds.minOperators,
+            maxOperators: bounds.maxOperators,
+            rejected: false
+        });
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE APPROVAL
     // ═══════════════════════════════════════════════════════════════════════════
@@ -304,6 +344,9 @@ abstract contract Services is Base {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
+        if (!_restaking.isOperatorActive(msg.sender)) {
+            revert Errors.OperatorNotActive(msg.sender);
+        }
         bool isOperator = false;
         for (uint256 i = 0; i < _requestOperators[requestId].length; i++) {
             if (_requestOperators[requestId][i] == msg.sender) {
@@ -343,6 +386,9 @@ abstract contract Services is Base {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
+        if (!_restaking.isOperatorActive(msg.sender)) {
+            revert Errors.OperatorNotActive(msg.sender);
+        }
         bool isOperator = false;
         for (uint256 i = 0; i < _requestOperators[requestId].length; i++) {
             if (_requestOperators[requestId][i] == msg.sender) {
@@ -418,6 +464,9 @@ abstract contract Services is Base {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
+        if (!_restaking.isOperatorActive(msg.sender)) {
+            revert Errors.OperatorNotActive(msg.sender);
+        }
         bool isOperator = false;
         for (uint256 i = 0; i < _requestOperators[requestId].length; i++) {
             if (_requestOperators[requestId][i] == msg.sender) {

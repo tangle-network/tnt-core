@@ -23,7 +23,7 @@ contract PaymentsTest is BaseTest {
 
         // Setup blueprint
         vm.prank(developer);
-        blueprintId = tangle.createBlueprint("ipfs://payment-test", address(0));
+        blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://payment-test", address(0)));
 
         // Register operators
         _registerOperator(operator1, 5 ether);
@@ -245,7 +245,7 @@ contract PaymentsTest is BaseTest {
 
         // Second payment (new service)
         vm.prank(developer);
-        uint64 bp2 = tangle.createBlueprint("ipfs://second", address(0));
+        uint64 bp2 = tangle.createBlueprint(_blueprintDefinition("ipfs://second", address(0)));
         _registerForBlueprint(operator1, bp2);
 
         uint64 requestId2 = _requestServiceWithPayment(user1, bp2, operator1, 5 ether);
@@ -293,11 +293,12 @@ contract PaymentsTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 subBlueprintId = tangle.createBlueprintWithConfig("ipfs://sub", address(0), config);
+        uint64 subBlueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://sub", address(0), config));
         _registerForBlueprint(operator1, subBlueprintId);
 
         // Request with initial escrow deposit
@@ -396,11 +397,12 @@ contract PaymentsTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 10 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 ercBlueprintId = tangle.createBlueprintWithConfig("ipfs://erc20-subscription", address(0), config);
+        uint64 ercBlueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://erc20-subscription", address(0), config));
         _registerForBlueprint(operator1, ercBlueprintId);
 
         address[] memory operators = new address[](1);
@@ -464,11 +466,12 @@ contract PaymentsTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 1 ether, // High rate
             subscriptionInterval: 1 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 bp = tangle.createBlueprintWithConfig("ipfs://lowescrow", address(0), config);
+        uint64 bp = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://lowescrow", address(0), config));
         _registerForBlueprint(operator1, bp);
 
         address[] memory operators = new address[](1);
@@ -519,11 +522,12 @@ contract PaymentsTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 expBlueprintId = tangle.createBlueprintWithConfig("ipfs://expiring-sub", address(0), config);
+        uint64 expBlueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://expiring-sub", address(0), config));
         _registerForBlueprint(operator1, expBlueprintId);
 
         address[] memory operators = new address[](1);
@@ -728,11 +732,12 @@ contract PaymentsTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 bp = tangle.createBlueprintWithConfig("ipfs://subscription", address(0), config);
+        uint64 bp = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
         _registerForBlueprint(operator1, bp);
 
         address[] memory operators = new address[](1);

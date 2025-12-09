@@ -36,7 +36,7 @@ contract TangleTest is BaseTest {
 
     function test_CreateBlueprint() public {
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint("ipfs://test", address(0));
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://test", address(0)));
 
         assertEq(blueprintId, 0);
         assertEq(tangle.blueprintCount(), 1);
@@ -50,9 +50,9 @@ contract TangleTest is BaseTest {
 
     function test_CreateMultipleBlueprints() public {
         vm.startPrank(developer);
-        uint64 id1 = tangle.createBlueprint("ipfs://test1", address(0));
-        uint64 id2 = tangle.createBlueprint("ipfs://test2", address(0));
-        uint64 id3 = tangle.createBlueprint("ipfs://test3", address(0));
+        uint64 id1 = tangle.createBlueprint(_blueprintDefinition("ipfs://test1", address(0)));
+        uint64 id2 = tangle.createBlueprint(_blueprintDefinition("ipfs://test2", address(0)));
+        uint64 id3 = tangle.createBlueprint(_blueprintDefinition("ipfs://test3", address(0)));
         vm.stopPrank();
 
         assertEq(id1, 0);
@@ -115,11 +115,12 @@ contract TangleTest is BaseTest {
         _registerOperator(operator1);
         uint64 blueprintId = _createBlueprint(developer);
 
+        bytes memory key = _operatorGossipKey(operator1, 0);
         // Register
         vm.prank(operator1);
         vm.expectEmit(true, true, false, true);
-        emit ITangleOperators.OperatorRegistered(blueprintId, operator1, "", "");
-        tangle.registerOperator(blueprintId, "", "");
+        emit ITangleOperators.OperatorRegistered(blueprintId, operator1, key, "");
+        tangle.registerOperator(blueprintId, key, "");
 
         assertTrue(tangle.isOperatorRegistered(blueprintId, operator1));
         assertEq(tangle.blueprintOperatorCount(blueprintId), 1);
@@ -129,8 +130,7 @@ contract TangleTest is BaseTest {
         _registerOperator(operator1);
         uint64 blueprintId = _createBlueprint(developer);
 
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, "", "https://rpc.example.com");
+        _directRegisterOperator(operator1, blueprintId, "https://rpc.example.com");
 
         assertTrue(tangle.isOperatorRegistered(blueprintId, operator1));
     }
@@ -554,7 +554,7 @@ contract TangleTest is BaseTest {
 
         vm.prank(developer);
         vm.expectRevert();
-        tangle.createBlueprint("test", address(0));
+        tangle.createBlueprint(_blueprintDefinition("test", address(0)));
     }
 
     function test_Unpause() public {
@@ -565,7 +565,7 @@ contract TangleTest is BaseTest {
         tangle.unpause();
 
         vm.prank(developer);
-        tangle.createBlueprint("test", address(0));
+        tangle.createBlueprint(_blueprintDefinition("test", address(0)));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -580,11 +580,12 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic", address(0), config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         assertEq(blueprintId, 0);
         Types.Blueprint memory bp = tangle.getBlueprint(blueprintId);
@@ -600,11 +601,12 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic", address(0), config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         // Register operators
         _registerOperator(operator1);
@@ -672,11 +674,12 @@ contract TangleTest is BaseTest {
             maxOperators: 1, // Only 1 allowed
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic", address(0), config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         _registerOperator(operator1);
         _registerOperator(operator2);
@@ -711,11 +714,12 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic", address(0), config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         _registerOperator(operator1);
         _registerOperator(operator2);
@@ -771,13 +775,14 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         // Use mock BSM with zero exit delays to test min operators check directly
         ZeroDelayMockBSM zeroDelayBsm = new ZeroDelayMockBSM();
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://dynamic", address(zeroDelayBsm), config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(zeroDelayBsm), config));
 
         _registerOperator(operator1);
         _registerOperator(operator2);
@@ -890,11 +895,12 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://subscription", address(0), config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         Types.Blueprint memory bp = tangle.getBlueprint(blueprintId);
         assertEq(uint8(bp.pricing), uint8(Types.PricingModel.Subscription));
@@ -909,11 +915,12 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://subscription", address(0), config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         _registerOperator(operator1);
         _registerForBlueprint(operator1, blueprintId);
@@ -964,11 +971,12 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0
+            eventRate: 0,
+            operatorBond: 0
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprintWithConfig("ipfs://subscription", address(0), config);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         _registerOperator(operator1);
         _registerForBlueprint(operator1, blueprintId);

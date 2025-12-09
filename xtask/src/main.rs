@@ -55,6 +55,8 @@ fn gen_bindings() -> Result<()> {
                 "--select",
                 "ITangle",
                 "--select",
+                "ITangleBlueprints",
+                "--select",
                 "IBlueprintServiceManager",
                 "--select",
                 "MultiAssetDelegation",

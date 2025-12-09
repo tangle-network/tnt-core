@@ -8,7 +8,7 @@ import {TangleL2Slasher} from "../../../src/v2/beacon/TangleL2Slasher.sol";
 import {ICrossChainMessenger, ICrossChainReceiver} from "../../../src/v2/beacon/interfaces/ICrossChainMessenger.sol";
 import {ValidatorPodManager} from "../../../src/v2/beacon/ValidatorPodManager.sol";
 import {MockBeaconOracle} from "../../../src/v2/beacon/BeaconRootReceiver.sol";
-import {IRestaking} from "../../../src/v2/interfaces/IRestaking.sol";
+import { IRestaking } from "../../../src/v2/interfaces/IRestaking.sol";
 
 /// @title MockCrossChainMessenger
 /// @notice Mock messenger for testing cross-chain message flow

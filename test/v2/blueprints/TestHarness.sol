@@ -7,11 +7,14 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Tangle } from "../../../src/v2/Tangle.sol";
 import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
+import { MasterBlueprintServiceManager } from "../../../src/v2/MasterBlueprintServiceManager.sol";
+import { MBSMRegistry } from "../../../src/v2/MBSMRegistry.sol";
+import { BlueprintDefinitionHelper } from "../../support/BlueprintDefinitionHelper.sol";
 
 /// @title BlueprintTestHarness
 /// @notice Comprehensive test harness for BSM testing with reusable primitives
 /// @dev Provides easy blueprint deployment, operator setup, and hook verification
-abstract contract BlueprintTestHarness is Test {
+abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
     // ═══════════════════════════════════════════════════════════════════════════
     // CORE CONTRACTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -20,6 +23,8 @@ abstract contract BlueprintTestHarness is Test {
     MultiAssetDelegation public restaking;
     ERC1967Proxy public tangleProxy;
     ERC1967Proxy public restakingProxy;
+    MasterBlueprintServiceManager public masterManager;
+    MBSMRegistry public mbsmRegistry;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ACTORS
@@ -96,6 +101,19 @@ abstract contract BlueprintTestHarness is Test {
         // Grant slasher role
         vm.prank(admin);
         restaking.addSlasher(address(tangle));
+
+        masterManager = new MasterBlueprintServiceManager(admin, address(tangle));
+        MBSMRegistry registryImpl = new MBSMRegistry();
+        ERC1967Proxy registryProxy = new ERC1967Proxy(
+            address(registryImpl),
+            abi.encodeCall(MBSMRegistry.initialize, (admin))
+        );
+        mbsmRegistry = MBSMRegistry(address(registryProxy));
+        vm.startPrank(admin);
+        mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), address(tangle));
+        mbsmRegistry.addVersion(address(masterManager));
+        tangle.setMBSMRegistry(address(mbsmRegistry));
+        vm.stopPrank();
     }
 
     function _fundActors() internal {
@@ -135,10 +153,8 @@ abstract contract BlueprintTestHarness is Test {
 
         // Create blueprint
         vm.prank(owner);
-        blueprintId = tangle.createBlueprint(
-            string(abi.encodePacked("ipfs://blueprint-v", _toString(version))),
-            manager
-        );
+        blueprintId =
+            tangle.createBlueprint(_blueprintDefinition(string(abi.encodePacked("ipfs://blueprint-v", _toString(version))), manager));
 
         // Track
         blueprintManagers[blueprintId] = manager;
@@ -158,10 +174,12 @@ abstract contract BlueprintTestHarness is Test {
         manager = _deployManager(version);
 
         vm.prank(owner);
-        blueprintId = tangle.createBlueprintWithConfig(
-            string(abi.encodePacked("ipfs://blueprint-v", _toString(version))),
-            manager,
-            config
+        blueprintId = tangle.createBlueprint(
+            _blueprintDefinitionWithConfig(
+                string(abi.encodePacked("ipfs://blueprint-v", _toString(version))),
+                manager,
+                config
+            )
         );
 
         blueprintManagers[blueprintId] = manager;
@@ -182,7 +200,7 @@ abstract contract BlueprintTestHarness is Test {
     /// @notice Register operator for a blueprint
     function registerOperatorForBlueprint(address operator, uint64 blueprintId) public {
         vm.prank(operator);
-        tangle.registerOperator(blueprintId, "", "");
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator, 0), "");
         emit OperatorRegisteredForBlueprint(blueprintId, operator);
     }
 
@@ -330,5 +348,14 @@ abstract contract BlueprintTestHarness is Test {
             value /= 10;
         }
         return string(buffer);
+    }
+
+    function _operatorGossipKey(address operator, uint8 salt) internal pure returns (bytes memory key) {
+        key = new bytes(65);
+        key[0] = 0x04;
+        bytes32 payload = keccak256(abi.encodePacked(operator, salt));
+        for (uint256 i = 0; i < 32; ++i) {
+            key[i + 1] = payload[i];
+        }
     }
 }
