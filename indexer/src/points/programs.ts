@@ -1,11 +1,27 @@
+import type { PointsProgram as PointsProgramEntity, PointsProgram } from "generated/src/Types.gen";
+
 interface ProgramDefinition {
   id: string;
   name: string;
   description: string;
   category: string;
-  network: string;
+  network: PointsProgramEntity["network"];
   weight: number;
 }
+
+const normalizeNetwork = (value: string | undefined, fallback: PointsProgramEntity["network"]) => {
+  if (!value) return fallback;
+  const upper = value.toUpperCase();
+  if (upper === "MAINNET" || upper === "TESTNET" || upper === "GENERIC") {
+    return upper as PointsProgramEntity["network"];
+  }
+  return fallback;
+};
+
+const getProgramNetwork = (programId: string, fallback: PointsProgramEntity["network"] = "MAINNET") => {
+  const envKey = `POINTS_NETWORK_${programId.replace(/-/g, "_").toUpperCase()}`;
+  return normalizeNetwork(process.env[envKey] ?? process.env.POINTS_NETWORK, fallback);
+};
 
 export const PROGRAMS = {
   "operator-registration": {
@@ -13,7 +29,7 @@ export const PROGRAMS = {
     name: "Operator Registration",
     description: "Registration bonus",
     category: "OPERATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("operator-registration"),
     weight: 100,
   },
   "operator-stake": {
@@ -21,7 +37,7 @@ export const PROGRAMS = {
     name: "Operator Stake",
     description: "Self-stake boost",
     category: "OPERATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("operator-stake"),
     weight: 10,
   },
   "operator-uptime": {
@@ -29,7 +45,7 @@ export const PROGRAMS = {
     name: "Operator Uptime",
     description: "Heartbeats and service participation",
     category: "OPERATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("operator-uptime"),
     weight: 3,
   },
   "delegator-deposit": {
@@ -37,7 +53,7 @@ export const PROGRAMS = {
     name: "Delegator Deposit",
     description: "Depositing assets into restaking",
     category: "DELEGATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("delegator-deposit"),
     weight: 5,
   },
   delegation: {
@@ -45,7 +61,7 @@ export const PROGRAMS = {
     name: "Delegation",
     description: "Delegating stake to operators",
     category: "DELEGATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("delegation"),
     weight: 8,
   },
   "restaker-vault": {
@@ -53,15 +69,31 @@ export const PROGRAMS = {
     name: "Vault Stake",
     description: "Locking restaked assets into vaults",
     category: "DELEGATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("restaker-vault"),
     weight: 6,
+  },
+  "liquid-vault-deposit": {
+    id: "liquid-vault-deposit",
+    name: "Liquid Vault Deposit",
+    description: "Depositing into liquid delegation vaults",
+    category: "DELEGATOR",
+    network: getProgramNetwork("liquid-vault-deposit"),
+    weight: 4,
+  },
+  "liquid-unstake": {
+    id: "liquid-unstake",
+    name: "Liquid Vault Withdrawals",
+    description: "Penalty when exiting liquid vaults",
+    category: "DELEGATOR",
+    network: getProgramNetwork("liquid-unstake"),
+    weight: 2,
   },
   "native-pod": {
     id: "native-pod",
     name: "Validator Pod",
     description: "Creating validator pods",
     category: "DELEGATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("native-pod", "TESTNET"),
     weight: 25,
   },
   "customer-service": {
@@ -69,7 +101,7 @@ export const PROGRAMS = {
     name: "Service Instantiation",
     description: "Requesting and activating services",
     category: "SERVICE",
-    network: "GENERIC",
+    network: getProgramNetwork("customer-service"),
     weight: 4,
   },
   "customer-escrow": {
@@ -77,7 +109,7 @@ export const PROGRAMS = {
     name: "Service Funding",
     description: "Funding and maintaining service escrows",
     category: "SERVICE",
-    network: "GENERIC",
+    network: getProgramNetwork("customer-escrow"),
     weight: 4,
   },
   "service-activity": {
@@ -85,7 +117,7 @@ export const PROGRAMS = {
     name: "Service Activity",
     description: "Submitting jobs or aggregated results",
     category: "SERVICE",
-    network: "GENERIC",
+    network: getProgramNetwork("service-activity"),
     weight: 2,
   },
   "operator-service": {
@@ -93,7 +125,7 @@ export const PROGRAMS = {
     name: "Service Participation",
     description: "Joining services as an operator",
     category: "OPERATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("operator-service"),
     weight: 15,
   },
   "operator-service-hourly": {
@@ -101,7 +133,7 @@ export const PROGRAMS = {
     name: "Operator Service Uptime",
     description: "Hourly reward for active service operators",
     category: "OPERATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("operator-service-hourly"),
     weight: 1,
   },
   "developer-blueprint": {
@@ -109,7 +141,7 @@ export const PROGRAMS = {
     name: "Blueprint Deployment",
     description: "Publishing new blueprints",
     category: "BONUS",
-    network: "GENERIC",
+    network: getProgramNetwork("developer-blueprint"),
     weight: 10,
   },
   "operator-hourly": {
@@ -117,7 +149,7 @@ export const PROGRAMS = {
     name: "Operator Uptime",
     description: "Hourly reward for active operators",
     category: "OPERATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("operator-hourly"),
     weight: 1,
   },
   "delegator-hourly": {
@@ -125,7 +157,7 @@ export const PROGRAMS = {
     name: "Delegator Uptime",
     description: "Hourly reward for active delegators",
     category: "DELEGATOR",
-    network: "GENERIC",
+    network: getProgramNetwork("delegator-hourly"),
     weight: 1,
   },
   "service-hourly": {
@@ -133,7 +165,7 @@ export const PROGRAMS = {
     name: "Service Uptime",
     description: "Hourly reward for active services",
     category: "SERVICE",
-    network: "GENERIC",
+    network: getProgramNetwork("service-hourly"),
     weight: 1,
   },
 } satisfies Record<string, ProgramDefinition>;
@@ -167,4 +199,3 @@ export async function ensurePointsProgram(
   context.PointsProgram.set(program);
   return program;
 }
-import type { PointsProgram } from "generated/src/Types.gen";

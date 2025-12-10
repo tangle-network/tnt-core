@@ -144,6 +144,44 @@ type ValidatorPod {
   txHash: String!
 }
 
+type NativeOperator {
+  id: ID!
+  registered: Boolean!
+  registeredAt: BigInt
+  deregisteredAt: BigInt
+  totalDelegated: BigInt!
+  updatedAt: BigInt!
+}
+
+type ValidatorPodShareEvent {
+  id: ID!
+  owner: String!
+  sharesDelta: BigInt!
+  newShares: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type ValidatorPodWithdrawal {
+  id: ID!
+  withdrawalRoot: String!
+  staker: String!
+  shares: BigInt!
+  status: RequestStatus!
+  queuedAt: BigInt!
+  completedAt: BigInt
+  txHash: String!
+}
+
+type ValidatorPodSlash {
+  id: ID!
+  delegator: String!
+  operator: String!
+  amount: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
 type Operator {
   id: ID!
   ecdsaPublicKey: String

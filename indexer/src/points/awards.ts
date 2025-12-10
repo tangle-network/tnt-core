@@ -51,6 +51,23 @@ export const awardRestakerVaultStake = async (
   await points.award(delegator, "restaker-vault", toPointsValue(amount), `vault stake ${asset ?? ""}`);
 };
 
+export const awardLiquidVaultStake = async (points: PointsManager, delegator: string | undefined, vault: string, amount: bigint) => {
+  if (!delegator || amount <= 0n) return;
+  await points.award(delegator, "liquid-vault-deposit", toPointsValue(amount), `liquid vault deposit ${vault}`);
+};
+
+export const penalizeLiquidVaultWithdraw = async (
+  points: PointsManager,
+  delegator: string | undefined,
+  vault: string,
+  amount: bigint
+) => {
+  if (!delegator || amount <= 0n) return;
+  const penalty = toPointsValue(amount);
+  if (penalty === 0n) return;
+  await points.award(delegator, "liquid-unstake", -penalty, `liquid vault withdraw ${vault}`);
+};
+
 export const awardNativePodCreated = async (points: PointsManager, owner: string | undefined, podId: string) => {
   if (!owner) return;
   await points.award(owner, "native-pod", 25n, `pod ${podId}`);

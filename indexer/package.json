@@ -11,7 +11,10 @@
     "dev": "envio dev",
     "start": "envio start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --require ts-node/register src/points/__tests__/*.test.ts"
+    "test": "pnpm run test:unit",
+    "test:unit": "vitest run",
+    "check:asset-registry": "ts-node scripts/check-asset-registry.ts",
+    "backfill:points-basis": "ts-node scripts/backfill-points-basis.ts"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -20,7 +23,8 @@
     "@types/node": "^24.10.2",
     "envio": "^2.32.3",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
   },
   "optionalDependencies": {
     "generated": "file:generated"

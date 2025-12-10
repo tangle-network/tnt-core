@@ -12,7 +12,7 @@ All reward programs are defined in `indexer/src/points/programs.ts`. Each entry 
 | `operator-stake` | Increasing operator stake | OPERATOR | 10 |
 | `operator-uptime` | Heartbeat reports | OPERATOR | 1 |
 | `operator-service` | Joining a service | OPERATOR | 15 |
-| `operator-service-hourly` | Staying in a service (hourly) | OPERATOR | 1 |
+| `operator-service-hourly` | Staying in services (hourly, √active services) | OPERATOR | 1 |
 | `operator-hourly` | General operator uptime (stake-based) | OPERATOR | 1 |
 | `delegator-deposit` | Depositing restaking assets | DELEGATOR | 5 |
 | `delegation` | Delegating stake (MultiAsset + native pods) | DELEGATOR | 8 |
@@ -21,11 +21,19 @@ All reward programs are defined in `indexer/src/points/programs.ts`. Each entry 
 | `delegator-hourly` | Hourly delegation participation | DELEGATOR | 1 |
 | `service-hourly` | Active services (owner participation) | SERVICE | 1 |
 
-Hourly participation awards are driven by `indexer/src/points/participation.ts`, which computes a USD-scaled basis for each category before converting to points via `toPointsValue`.
+Hourly participation awards are driven by `indexer/src/points/participation.ts`, which computes a USD-scaled basis for each category before converting to points via `toPointsValue`. For operator service uptime we take the square root of the number of active services (min 1) so that running more services has diminishing returns rather than scaling linearly.
+
+The hourly worker is registered in `handlers/hourly.ts`. Every `HOURLY_BLOCK_INTERVAL` blocks it loads the `HOURLY_PROGRAMS` array, pulls every active `ParticipationState`, and awards `operator-hourly`, `operator-service-hourly`, `delegator-hourly`, and `service-hourly` based on the USD basis that `participation.ts` calculates. When an entity leaves the participation set (operator leaves a service, delegator exits, etc.), the relevant handler calls `deactivateParticipation` so the hourly loop stops awarding points automatically.
 
 ### Award Hooks
 
 Reusable award helpers live in `indexer/src/points/awards.ts`. Contract handler modules invoke these helpers when specific events fire (see `indexer/src/handlers/*.ts`). The helpers encode the exact amounts noted above so reviewers can audit a single file instead of scanning every handler.
+
+Every helper uses the constants defined at the top of `awards.ts`. To update the award amounts:
+
+1. Edit the constants (e.g., `SERVICE_REQUEST_BONUS`) and rerun `pnpm typecheck` / `pnpm test`.
+2. If you need a new program, add it to `points/programs.ts` (keeping the table above in sync) and create a helper that references it.
+3. Wire that helper into the appropriate handler module.
 
 ### Testing
 

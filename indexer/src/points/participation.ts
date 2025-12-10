@@ -40,6 +40,7 @@ export const pointsContext = (context: any): PointsContext => ({
   PointsAccount: context.PointsAccount,
   PointsEvent: context.PointsEvent,
   PointsSnapshot: context.PointsSnapshot,
+  PointsHourlyTotal: context.PointsHourlyTotal,
 });
 
 const getParticipationId = (programId: string, entityId: string) => `${programId}:${entityId}`;
@@ -53,7 +54,13 @@ const adjustAmountToScale = (amount: bigint, decimals: number) => {
   return amount / divisor;
 };
 
-const convertAmountToUsd = async (context: any, amount: bigint, token: string | undefined, blockNumber: bigint, timestamp: bigint): Promise<bigint> => {
+export const convertAmountToUsd = async (
+  context: any,
+  amount: bigint,
+  token: string | undefined,
+  blockNumber: bigint,
+  timestamp: bigint
+): Promise<bigint> => {
   if (amount === 0n) {
     return 0n;
   }
@@ -158,16 +165,22 @@ const getLiquidVaultStakeBasis = async (
   const positions = (await context.LiquidVaultPosition.getWhere.account_id.eq(delegatorId)) as LiquidVaultPosition[];
   let total = 0n;
   for (const position of positions) {
-    const shares = position.shares ?? 0n;
-    if (shares <= 0n) continue;
     const vault = (await context.LiquidDelegationVault.get(position.vault_id)) as LiquidDelegationVault | undefined;
     if (!vault) continue;
     const totalShares = vault.totalShares ?? 0n;
     const totalAssets = vault.totalAssets ?? 0n;
-    if (totalShares === 0n || totalAssets === 0n) continue;
-    const proportionalAssets = (shares * totalAssets) / totalShares;
-    if (proportionalAssets === 0n) continue;
-    total += await convertAmountToUsd(context, proportionalAssets, vault.assetAddress, blockNumber, timestamp);
+    if (totalAssets <= 0n) continue;
+    const shares = position.shares ?? 0n;
+    if (shares > 0n && totalShares > 0n) {
+      const proportionalAssets = (shares * totalAssets) / totalShares;
+      if (proportionalAssets > 0n) {
+        total += await convertAmountToUsd(context, proportionalAssets, vault.assetAddress, blockNumber, timestamp);
+      }
+    }
+    const pendingAssets = position.pendingAssets ?? 0n;
+    if (pendingAssets > 0n) {
+      total += await convertAmountToUsd(context, pendingAssets, vault.assetAddress, blockNumber, timestamp);
+    }
   }
   return total;
 };
@@ -178,9 +191,7 @@ const getDelegatorStakeBasis = async (context: any, delegatorId: string, blockNu
     return 0n;
   }
   const positions = (await context.DelegatorAssetPosition.getWhere.delegator_id.eq(delegator.id)) as DelegatorAssetPosition[];
-  const direct = await sumDelegatorPositions(context, delegator, positions, blockNumber, timestamp);
-  const liquid = await getLiquidVaultStakeBasis(context, delegator.id, blockNumber, timestamp);
-  return direct + liquid;
+  return sumDelegatorPositions(context, delegator, positions, blockNumber, timestamp);
 };
 
 const getServiceActivityBasis = async (context: any, serviceId: string): Promise<bigint> => {
@@ -193,12 +204,29 @@ const getServiceActivityBasis = async (context: any, serviceId: string): Promise
   return BigInt(activeCount) * USD_SCALE;
 };
 
+const getOperatorServiceBasis = async (context: any, operatorId: string): Promise<bigint> => {
+  if (!context.ServiceOperator) {
+    return 0n;
+  }
+  const memberships = (await context.ServiceOperator.getWhere.operator_id.eq(operatorId)) as ServiceOperator[];
+  const activeCount = memberships.filter((membership) => membership.active).length;
+  if (activeCount <= 0) {
+    return 0n;
+  }
+  const weight = Math.max(1, Math.floor(Math.sqrt(activeCount)));
+  return BigInt(weight) * USD_SCALE;
+};
+
 const calculateParticipationValue = async (
   context: any,
   state: ParticipationState,
   blockNumber: bigint,
   timestamp: bigint
 ): Promise<ParticipationValue> => {
+  if (state.program_id === "operator-service-hourly") {
+    const serviceUsd = await getOperatorServiceBasis(context, state.entityId);
+    return { total: serviceUsd, serviceUsd };
+  }
   if (state.category === "OPERATOR") {
     const total = await getOperatorStakeBasis(context, state.entityId, blockNumber, timestamp);
     return { total, directUsd: total };
