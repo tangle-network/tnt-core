@@ -198,12 +198,18 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         vm.prank(pod);
         podManager.recordBeaconChainEthBalanceUpdate(podOwner1, int256(10 ether));
 
-        // Delegate then undelegate
+        // Delegate then undelegate (queue-based)
         vm.prank(podOwner1);
         podManager.delegateTo(operator1, 5 ether);
 
         vm.prank(podOwner1);
-        podManager.undelegateFrom(operator1, 5 ether);
+        bytes32 undelegationRoot = podManager.queueUndelegation(operator1, 5 ether);
+
+        // Move past delay period
+        vm.roll(block.number + podManager.withdrawalDelayBlocks() + 1);
+
+        vm.prank(podOwner1);
+        podManager.completeUndelegation(undelegationRoot);
 
         // Now deregister should succeed
         uint256 balanceBefore = operator1.balance;
@@ -305,13 +311,114 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         podManager.delegateTo(operator1, 1 ether);
     }
 
-    function test_undelegateFrom_InsufficientDelegation() public {
+    function test_queueUndelegation_InsufficientDelegation() public {
         _registerOperator(operator1, MIN_OPERATOR_STAKE);
 
         // No delegation exists
         vm.prank(podOwner1);
         vm.expectRevert(ValidatorPodManager.InsufficientShares.selector);
-        podManager.undelegateFrom(operator1, 1 ether);
+        podManager.queueUndelegation(operator1, 1 ether);
+    }
+
+    function test_queueUndelegation_Success() public {
+        _registerOperator(operator1, MIN_OPERATOR_STAKE);
+        _createPodWithShares(podOwner1, 10 ether);
+
+        vm.prank(podOwner1);
+        podManager.delegateTo(operator1, 5 ether);
+
+        vm.prank(podOwner1);
+        bytes32 undelegationRoot = podManager.queueUndelegation(operator1, 3 ether);
+
+        // Check queued state
+        (address delegator, address operator, uint256 amount, uint32 startBlock, uint32 completableBlock, bool completed) =
+            podManager.getUndelegationInfo(undelegationRoot);
+
+        assertEq(delegator, podOwner1, "Delegator mismatch");
+        assertEq(operator, operator1, "Operator mismatch");
+        assertEq(amount, 3 ether, "Amount mismatch");
+        assertEq(startBlock, block.number, "Start block mismatch");
+        assertFalse(completed, "Should not be completed");
+
+        // Delegation should still be active until completed
+        assertEq(podManager.getDelegation(podOwner1, operator1), 5 ether, "Delegation should remain");
+        assertEq(podManager.getOperatorDelegatedStake(operator1), 5 ether, "Operator delegated stake should remain");
+    }
+
+    function test_completeUndelegation_BeforeDelay() public {
+        _registerOperator(operator1, MIN_OPERATOR_STAKE);
+        _createPodWithShares(podOwner1, 10 ether);
+
+        vm.prank(podOwner1);
+        podManager.delegateTo(operator1, 5 ether);
+
+        vm.prank(podOwner1);
+        bytes32 undelegationRoot = podManager.queueUndelegation(operator1, 3 ether);
+
+        // Try to complete before delay
+        vm.prank(podOwner1);
+        vm.expectRevert(ValidatorPodManager.UndelegationNotReady.selector);
+        podManager.completeUndelegation(undelegationRoot);
+    }
+
+    function test_completeUndelegation_Success() public {
+        _registerOperator(operator1, MIN_OPERATOR_STAKE);
+        _createPodWithShares(podOwner1, 10 ether);
+
+        vm.prank(podOwner1);
+        podManager.delegateTo(operator1, 5 ether);
+
+        vm.prank(podOwner1);
+        bytes32 undelegationRoot = podManager.queueUndelegation(operator1, 3 ether);
+
+        // Move past delay
+        vm.roll(block.number + podManager.withdrawalDelayBlocks() + 1);
+
+        vm.prank(podOwner1);
+        podManager.completeUndelegation(undelegationRoot);
+
+        // Check final state
+        assertEq(podManager.getDelegation(podOwner1, operator1), 2 ether, "Delegation should decrease");
+        assertEq(podManager.getOperatorDelegatedStake(operator1), 2 ether, "Operator delegated stake should decrease");
+        assertEq(podManager.delegatorTotalDelegated(podOwner1), 2 ether, "Total delegated should decrease");
+    }
+
+    function test_completeUndelegation_AlreadyCompleted() public {
+        _registerOperator(operator1, MIN_OPERATOR_STAKE);
+        _createPodWithShares(podOwner1, 10 ether);
+
+        vm.prank(podOwner1);
+        podManager.delegateTo(operator1, 5 ether);
+
+        vm.prank(podOwner1);
+        bytes32 undelegationRoot = podManager.queueUndelegation(operator1, 3 ether);
+
+        vm.roll(block.number + podManager.withdrawalDelayBlocks() + 1);
+
+        vm.prank(podOwner1);
+        podManager.completeUndelegation(undelegationRoot);
+
+        // Try to complete again
+        vm.prank(podOwner1);
+        vm.expectRevert(ValidatorPodManager.UndelegationAlreadyCompleted.selector);
+        podManager.completeUndelegation(undelegationRoot);
+    }
+
+    function test_getEffectiveDelegation() public {
+        _registerOperator(operator1, MIN_OPERATOR_STAKE);
+        _createPodWithShares(podOwner1, 10 ether);
+
+        vm.prank(podOwner1);
+        podManager.delegateTo(operator1, 5 ether);
+
+        // Before queuing, effective = actual
+        assertEq(podManager.getEffectiveDelegation(podOwner1, operator1), 5 ether, "Before queue");
+
+        vm.prank(podOwner1);
+        podManager.queueUndelegation(operator1, 2 ether);
+
+        // After queuing, effective = actual - queued
+        assertEq(podManager.getEffectiveDelegation(podOwner1, operator1), 3 ether, "After queue");
     }
 
     function test_getDelegation() public view {

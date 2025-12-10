@@ -7,7 +7,7 @@ field_selection:
     - hash
     - from
 networks:
-  - id: 84532  # Use same chain ID as production (Base Sepolia) for handler compatibility
+  - id: 31337  # Anvil default chain ID for local development
     start_block: 0
     rpc_config:
       url: http://127.0.0.1:8545

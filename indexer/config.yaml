@@ -1,16 +1,20 @@
 # yaml-language-server: $schema=./node_modules/envio/evm.schema.json
-name: tangle-indexer
+# Local testnet configuration - matches addresses from LocalTestnet.s.sol
+# Deployed by Anvil's default deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+name: tangle-indexer-local
 field_selection:
   transaction_fields:
     - hash
     - from
 networks:
-  - id: 84532
+  - id: 31337  # Anvil default chain ID for local development
     start_block: 0
+    rpc_config:
+      url: http://127.0.0.1:8545
     contracts:
       - name: Tangle
         address:
-          - "0x0000000000000000000000112112312121121222"
+          - "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"  # nonce 3
         handler: src/EventHandlers.ts
         events:
           - event: AggregatedResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint256 signerBitmap, bytes output)
@@ -54,27 +58,13 @@ networks:
           - event: Upgraded(address indexed implementation)
       - name: MasterBlueprintServiceManager
         address:
-          - "0x0000000000000000000000751234512121212777"
+          - "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"  # nonce 7
         handler: src/EventHandlers.ts
         events:
           - event: BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition)
-      - name: ValidatorPodManager
-        address:
-          - "0x0000000000000000000000851234512121212888"
-        handler: src/EventHandlers.ts
-        events:
-          - event: PodCreated(address indexed owner, address indexed pod)
-          - event: Delegated(address indexed delegator, address indexed operator, uint256 amount)
-          - event: Undelegated(address indexed delegator, address indexed operator, uint256 amount)
-          - event: SharesUpdated(address indexed owner, int256 sharesDelta, int256 newShares)
-          - event: OperatorRegistered(address indexed operator)
-          - event: OperatorDeregistered(address indexed operator)
-          - event: DelegatorSlashed(address indexed delegator, address indexed operator, uint256 amount)
-          - event: WithdrawalQueued(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
-          - event: WithdrawalCompleted(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
       - name: MultiAssetDelegation
         address:
-          - "0x0000000000000000000000246123412121212222"
+          - "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"  # nonce 1
         handler: src/EventHandlers.ts
         events:
           - event: OperatorRegistered(address indexed operator, uint256 stake)
@@ -100,6 +90,33 @@ networks:
           - event: SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 totalSlashed, uint256 exchangeRateBefore, uint256 exchangeRateAfter)
           - event: RewardDistributed(address indexed operator, uint256 amount)
           - event: RewardClaimed(address indexed account, uint256 amount)
+      - name: OperatorStatusRegistry
+        address:
+          - "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"  # nonce 4
+        handler: src/EventHandlers.ts
+        events:
+          - event: HeartbeatReceived(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed operator, uint8 statusCode, uint256 timestamp)
+          - event: OperatorWentOffline(uint64 indexed serviceId, address indexed operator, uint8 missedBeats)
+          - event: OperatorCameOnline(uint64 indexed serviceId, address indexed operator)
+          - event: StatusChanged(uint64 indexed serviceId, address indexed operator, uint8 oldStatus, uint8 newStatus)
+          - event: HeartbeatConfigUpdated(uint64 indexed serviceId, uint64 interval, uint8 maxMissed)
+          - event: MetricReported(uint64 indexed serviceId, address indexed operator, string metricName, uint256 value)
+          - event: SlashingTriggered(uint64 indexed serviceId, address indexed operator, string reason)
+      # === NOT DEPLOYED - placeholder addresses (won't receive events) ===
+      - name: ValidatorPodManager
+        address:
+          - "0x0000000000000000000000851234512121212888"
+        handler: src/EventHandlers.ts
+        events:
+          - event: PodCreated(address indexed owner, address indexed pod)
+          - event: Delegated(address indexed delegator, address indexed operator, uint256 amount)
+          - event: Undelegated(address indexed delegator, address indexed operator, uint256 amount)
+          - event: SharesUpdated(address indexed owner, int256 sharesDelta, int256 newShares)
+          - event: OperatorRegistered(address indexed operator)
+          - event: OperatorDeregistered(address indexed operator)
+          - event: DelegatorSlashed(address indexed delegator, address indexed operator, uint256 amount)
+          - event: WithdrawalQueued(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
+          - event: WithdrawalCompleted(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
       - name: LiquidDelegationFactory
         address:
           - "0x0000000000000000000000000000000000000101"
@@ -116,18 +133,6 @@ networks:
           - event: RewardsHarvested(address indexed caller, uint256 amount)
           - event: OperatorSet(address indexed controller, address indexed operator, bool approved)
           - event: Transfer(address indexed from, address indexed to, uint256 value)
-      - name: OperatorStatusRegistry
-        address:
-          - "0x0000000000000000000000351234121212123333"
-        handler: src/EventHandlers.ts
-        events:
-          - event: HeartbeatReceived(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed operator, uint8 statusCode, uint256 timestamp)
-          - event: OperatorWentOffline(uint64 indexed serviceId, address indexed operator, uint8 missedBeats)
-          - event: OperatorCameOnline(uint64 indexed serviceId, address indexed operator)
-          - event: StatusChanged(uint64 indexed serviceId, address indexed operator, uint8 oldStatus, uint8 newStatus)
-          - event: HeartbeatConfigUpdated(uint64 indexed serviceId, uint64 interval, uint8 maxMissed)
-          - event: MetricReported(uint64 indexed serviceId, address indexed operator, string metricName, uint256 value)
-          - event: SlashingTriggered(uint64 indexed serviceId, address indexed operator, string reason)
       - name: RewardVaults
         address:
           - "0x0000000000000000000000451234512121212444"

@@ -87,6 +87,17 @@ abstract contract BeaconTestBase is Test {
         podManager.registerOperator{value: stake}();
     }
 
+    /// @notice Create a pod and give it shares for delegation testing
+    /// @param owner The pod owner
+    /// @param shares The amount of shares to grant (in wei)
+    function _createPodWithShares(address owner, uint256 shares) internal returns (ValidatorPod) {
+        ValidatorPod pod = _createPod(owner);
+        // Prank as the pod to record a positive balance update
+        vm.prank(address(pod));
+        podManager.recordBeaconChainEthBalanceUpdate(owner, int256(shares));
+        return pod;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // HELPERS - MERKLE PROOF GENERATION
     // ═══════════════════════════════════════════════════════════════════════════

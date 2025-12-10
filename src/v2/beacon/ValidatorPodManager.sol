@@ -104,6 +104,29 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     mapping(address => uint256) public queuedShares;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // STATE - UNDELEGATION QUEUE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Undelegation request structure
+    /// @dev Similar to EigenLayer's queued withdrawal model - undelegation is not instant
+    struct Undelegation {
+        address delegator;
+        address operator;
+        uint256 amount;
+        uint32 startBlock;
+        bool completed;
+    }
+
+    /// @notice Pending undelegations by undelegation root
+    mapping(bytes32 => Undelegation) public pendingUndelegations;
+
+    /// @notice Nonce for unique undelegation roots per delegator
+    mapping(address => uint256) public undelegationNonce;
+
+    /// @notice Total amount currently queued for undelegation per delegator per operator
+    mapping(address => mapping(address => uint256)) public queuedUndelegations;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -113,6 +136,8 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     event OperatorDeregistered(address indexed operator);
     event Delegated(address indexed delegator, address indexed operator, uint256 amount);
     event Undelegated(address indexed delegator, address indexed operator, uint256 amount);
+    event UndelegationQueued(bytes32 indexed undelegationRoot, address indexed delegator, address indexed operator, uint256 amount);
+    event UndelegationCompleted(bytes32 indexed undelegationRoot, address indexed delegator, address indexed operator, uint256 amount);
     event SlasherUpdated(address indexed slasher, bool authorized);
     event DelegatorSlashed(address indexed delegator, address indexed operator, uint256 amount);
     event WithdrawalQueued(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares);
@@ -139,6 +164,9 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     error ExceedsMaxDelay();
     error HasPendingDelegations();
     error StakeTransferFailed();
+    error UndelegationNotFound();
+    error UndelegationNotReady();
+    error UndelegationAlreadyCompleted();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -300,17 +328,129 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         emit Delegated(msg.sender, operator, amount);
     }
 
-    /// @notice Undelegate from an operator
+    /// @notice Queue an undelegation from an operator
+    /// @dev SECURITY: Undelegation is queued with delay to match EigenLayer model.
+    ///      This prevents delegators from instantly rugging operators who are in services.
+    ///      During the delay period, if the operator misbehaves, the stake can still be slashed.
     /// @param operator The operator to undelegate from
     /// @param amount Amount to undelegate
-    function undelegateFrom(address operator, uint256 amount) external nonReentrant {
-        if (delegations[msg.sender][operator] < amount) revert InsufficientShares();
+    /// @return undelegationRoot Unique identifier for this undelegation
+    function queueUndelegation(address operator, uint256 amount) external nonReentrant returns (bytes32 undelegationRoot) {
+        if (amount == 0) revert ZeroAmount();
 
+        // Check delegator has sufficient delegation (accounting for already queued undelegations)
+        uint256 currentDelegation = delegations[msg.sender][operator];
+        uint256 alreadyQueued = queuedUndelegations[msg.sender][operator];
+
+        if (currentDelegation < alreadyQueued + amount) revert InsufficientShares();
+
+        // Generate unique undelegation root
+        uint256 nonce = undelegationNonce[msg.sender]++;
+        undelegationRoot = keccak256(abi.encodePacked(msg.sender, operator, amount, block.number, nonce));
+
+        // Store pending undelegation
+        pendingUndelegations[undelegationRoot] = Undelegation({
+            delegator: msg.sender,
+            operator: operator,
+            amount: amount,
+            startBlock: uint32(block.number),
+            completed: false
+        });
+
+        // Track queued undelegations
+        queuedUndelegations[msg.sender][operator] += amount;
+
+        emit UndelegationQueued(undelegationRoot, msg.sender, operator, amount);
+    }
+
+    /// @notice Complete a pending undelegation after delay period
+    /// @param undelegationRoot The undelegation identifier
+    function completeUndelegation(bytes32 undelegationRoot) external nonReentrant {
+        Undelegation storage undelegation = pendingUndelegations[undelegationRoot];
+
+        // Verify undelegation exists and belongs to caller
+        if (undelegation.delegator != msg.sender) revert UndelegationNotFound();
+        if (undelegation.completed) revert UndelegationAlreadyCompleted();
+
+        // Check delay has passed (uses same delay as withdrawals)
+        if (block.number < undelegation.startBlock + withdrawalDelayBlocks) {
+            revert UndelegationNotReady();
+        }
+
+        // Mark as completed
+        undelegation.completed = true;
+
+        // Get values before updating state
+        address operator = undelegation.operator;
+        uint256 amount = undelegation.amount;
+
+        // Update queued tracking
+        queuedUndelegations[msg.sender][operator] -= amount;
+
+        // Actually perform the undelegation
         delegations[msg.sender][operator] -= amount;
         operatorDelegatedStake[operator] -= amount;
-        delegatorTotalDelegated[msg.sender] -= amount; // H-3 FIX
+        delegatorTotalDelegated[msg.sender] -= amount;
 
-        emit Undelegated(msg.sender, operator, amount);
+        // Clean up delegator tracking if fully undelegated
+        if (delegations[msg.sender][operator] == 0) {
+            _removeDelegator(operator, msg.sender);
+        }
+
+        emit UndelegationCompleted(undelegationRoot, msg.sender, operator, amount);
+    }
+
+    /// @notice Get undelegation info
+    /// @param undelegationRoot The undelegation identifier
+    /// @return delegator The delegator address
+    /// @return operator The operator address
+    /// @return amount The undelegation amount
+    /// @return startBlock When the undelegation was queued
+    /// @return completableBlock When the undelegation can be completed
+    /// @return completed Whether already completed
+    function getUndelegationInfo(bytes32 undelegationRoot) external view returns (
+        address delegator,
+        address operator,
+        uint256 amount,
+        uint32 startBlock,
+        uint32 completableBlock,
+        bool completed
+    ) {
+        Undelegation storage u = pendingUndelegations[undelegationRoot];
+        return (
+            u.delegator,
+            u.operator,
+            u.amount,
+            u.startBlock,
+            u.startBlock + withdrawalDelayBlocks,
+            u.completed
+        );
+    }
+
+    /// @notice Get effective delegation (current minus queued undelegations)
+    /// @param delegator The delegator address
+    /// @param operator The operator address
+    /// @return Effective delegation amount
+    function getEffectiveDelegation(address delegator, address operator) external view returns (uint256) {
+        uint256 current = delegations[delegator][operator];
+        uint256 queued = queuedUndelegations[delegator][operator];
+        return current > queued ? current - queued : 0;
+    }
+
+    /// @notice Internal function to remove a delegator from operator's delegator list
+    function _removeDelegator(address operator, address delegator) internal {
+        if (_isDelegator[operator][delegator]) {
+            _isDelegator[operator][delegator] = false;
+            // Remove from array (swap and pop)
+            address[] storage delegators = _operatorDelegators[operator];
+            for (uint256 i = 0; i < delegators.length; i++) {
+                if (delegators[i] == delegator) {
+                    delegators[i] = delegators[delegators.length - 1];
+                    delegators.pop();
+                    break;
+                }
+            }
+        }
     }
 
     /// @notice Get total amount delegated by an address

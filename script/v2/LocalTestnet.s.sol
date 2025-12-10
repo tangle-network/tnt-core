@@ -12,6 +12,11 @@ import { MasterBlueprintServiceManager } from "../../src/v2/MasterBlueprintServi
 import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { BlueprintDefinitionHelper } from "../../test/support/BlueprintDefinitionHelper.sol";
+import { MockToken } from "../../test/v2/mocks/MockToken.sol";
+import { ValidatorPodManager } from "../../src/v2/beacon/ValidatorPodManager.sol";
+import { MockBeaconOracle } from "../../src/v2/beacon/BeaconRootReceiver.sol";
+import { LiquidDelegationFactory } from "../../src/v2/restaking/LiquidDelegationFactory.sol";
+import { LiquidDelegationVault } from "../../src/v2/restaking/LiquidDelegationVault.sol";
 
 /// @title LocalTestnetSetup
 /// @notice Deploy and setup a complete local testnet environment for integration testing
@@ -36,6 +41,24 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     address public restakingProxy;
     address public statusRegistry;
     TangleToken public bondToken;
+
+    // Mock ERC20 tokens for restaking
+    MockToken public usdc;
+    MockToken public usdt;
+    MockToken public dai;
+    MockToken public weth;
+    MockToken public stETH;
+    MockToken public wstETH;
+    MockToken public eigen;
+
+    // Beacon chain / L1 pod manager contracts
+    MockBeaconOracle public beaconOracle;
+    ValidatorPodManager public podManager;
+
+    // Liquid delegation
+    LiquidDelegationFactory public liquidFactory;
+    address payable public liquidVaultETH;
+    address payable public liquidVaultUSDC;
 
     // Test blueprint/service
     uint64 public blueprintId;
@@ -67,10 +90,15 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("Delegator:", delegator);
 
         _deployContracts();
+        _deployMockTokens();
+        _deployPodManager();
         _registerOperatorsRestaking();
+        _deployLiquidDelegation();
+        _registerPodManagerOperators();
         _createBlueprint();
         _operatorsRegisterForBlueprint();
         _delegatorStake();
+        _delegatorStakeERC20();
         _createAndApproveService();
 
         console2.log("\n=== Local Testnet Ready ===");
@@ -79,6 +107,21 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("OperatorStatusRegistry:", statusRegistry);
         console2.log("Blueprint ID:", blueprintId);
         console2.log("Service ID:", serviceId);
+        console2.log("\n=== Mock Tokens ===");
+        console2.log("USDC:", address(usdc));
+        console2.log("USDT:", address(usdt));
+        console2.log("DAI:", address(dai));
+        console2.log("WETH:", address(weth));
+        console2.log("stETH:", address(stETH));
+        console2.log("wstETH:", address(wstETH));
+        console2.log("EIGEN:", address(eigen));
+        console2.log("\n=== Beacon / Pod Manager ===");
+        console2.log("MockBeaconOracle:", address(beaconOracle));
+        console2.log("ValidatorPodManager:", address(podManager));
+        console2.log("\n=== Liquid Delegation ===");
+        console2.log("LiquidDelegationFactory:", address(liquidFactory));
+        console2.log("LiquidVault WETH (operator1):", liquidVaultETH);
+        console2.log("LiquidVault USDC (operator2):", liquidVaultUSDC);
         console2.log("\nOperators registered and staked");
         console2.log("Delegator has delegated to both operators");
         console2.log("Service is active and ready for jobs");
@@ -125,9 +168,18 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         bondToken = TangleToken(address(tokenProxy));
         console2.log("TangleToken (bond asset):", address(bondToken));
 
-        // Distribute TNT to operators so they can bond
-        bondToken.transfer(operator1, 1_000 ether);
-        bondToken.transfer(operator2, 1_000 ether);
+        // Distribute TNT to all dev accounts so they can bond
+        bondToken.transfer(operator1, 10_000 ether);
+        bondToken.transfer(operator2, 10_000 ether);
+        bondToken.transfer(delegator, 10_000 ether);
+        // Distribute to remaining Anvil accounts (4-9)
+        bondToken.transfer(vm.addr(0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a), 10_000 ether);
+        bondToken.transfer(vm.addr(0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba), 10_000 ether);
+        bondToken.transfer(vm.addr(0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e), 10_000 ether);
+        bondToken.transfer(vm.addr(0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356), 10_000 ether);
+        bondToken.transfer(vm.addr(0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97), 10_000 ether);
+        bondToken.transfer(vm.addr(0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6), 10_000 ether);
+        console2.log("TNT tokens distributed to all dev accounts (10,000 TNT each)");
 
         // Configure cross-references
         MultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
@@ -147,6 +199,83 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         registry.grantRole(registry.MANAGER_ROLE(), tangleProxy);
         registry.addVersion(address(masterManager));
         tangle.setMBSMRegistry(address(registry));
+
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+    }
+
+    function _deployMockTokens() internal {
+        console2.log("\n=== Deploying Mock Tokens ===");
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DEPLOYER_KEY);
+        } else {
+            vm.startPrank(deployer);
+        }
+
+        MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingProxy));
+
+        // Deploy stablecoins (6 decimals for USDC/USDT)
+        usdc = new MockToken("USD Coin", "USDC", 6);
+        usdt = new MockToken("Tether USD", "USDT", 6);
+        dai = new MockToken("Dai Stablecoin", "DAI", 18);
+        console2.log("USDC:", address(usdc));
+        console2.log("USDT:", address(usdt));
+        console2.log("DAI:", address(dai));
+
+        // Deploy ETH-related tokens (18 decimals)
+        weth = new MockToken("Wrapped Ether", "WETH", 18);
+        stETH = new MockToken("Lido Staked ETH", "stETH", 18);
+        wstETH = new MockToken("Wrapped stETH", "wstETH", 18);
+        console2.log("WETH:", address(weth));
+        console2.log("stETH:", address(stETH));
+        console2.log("wstETH:", address(wstETH));
+
+        // Deploy EIGEN token
+        eigen = new MockToken("Eigenlayer", "EIGEN", 18);
+        console2.log("EIGEN:", address(eigen));
+
+        // Enable all tokens as restaking assets
+        // Parameters: token, minOperatorStake, minDelegation, depositCap, rewardMultiplierBps
+        restaking.enableAsset(address(usdc), 0, 0, 0, 10_000);
+        restaking.enableAsset(address(usdt), 0, 0, 0, 10_000);
+        restaking.enableAsset(address(dai), 0, 0, 0, 10_000);
+        restaking.enableAsset(address(weth), 0, 0, 0, 12_000); // 1.2x multiplier for WETH
+        restaking.enableAsset(address(stETH), 0, 0, 0, 15_000); // 1.5x multiplier for stETH
+        restaking.enableAsset(address(wstETH), 0, 0, 0, 15_000); // 1.5x multiplier for wstETH
+        restaking.enableAsset(address(eigen), 0, 0, 0, 20_000); // 2x multiplier for EIGEN
+        console2.log("All tokens enabled as restaking assets");
+
+        // Mint tokens to test accounts (use large amounts for testing)
+        address[] memory accounts = new address[](10);
+        accounts[0] = deployer;
+        accounts[1] = operator1;
+        accounts[2] = operator2;
+        accounts[3] = delegator;
+        accounts[4] = vm.addr(0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a); // Account 5
+        accounts[5] = vm.addr(0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba); // Account 6
+        accounts[6] = vm.addr(0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e); // Account 7
+        accounts[7] = vm.addr(0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356); // Account 8
+        accounts[8] = vm.addr(0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97); // Account 9
+        accounts[9] = vm.addr(0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6); // Account 10
+
+        for (uint256 i = 0; i < accounts.length; i++) {
+            usdc.mint(accounts[i], 1_000_000 * 10**6); // 1M USDC
+            usdt.mint(accounts[i], 1_000_000 * 10**6); // 1M USDT
+            dai.mint(accounts[i], 1_000_000 ether); // 1M DAI
+            weth.mint(accounts[i], 1_000 ether); // 1000 WETH
+            stETH.mint(accounts[i], 1_000 ether); // 1000 stETH
+            wstETH.mint(accounts[i], 1_000 ether); // 1000 wstETH
+            eigen.mint(accounts[i], 10_000 ether); // 10000 EIGEN
+        }
+        console2.log("\n=== Funded Development Accounts ===");
+        console2.log("All accounts have: 1M USDC, 1M USDT, 1M DAI, 1000 WETH/stETH/wstETH, 10000 EIGEN");
+        for (uint256 i = 0; i < accounts.length; i++) {
+            console2.log("Account", i, ":", accounts[i]);
+        }
+        console2.log("Tokens minted to all 10 test accounts");
 
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -290,6 +419,66 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
     }
 
+    function _delegatorStakeERC20() internal {
+        console2.log("\n=== Delegator ERC20 Staking ===");
+        MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingProxy));
+        uint64[] memory emptyBlueprints = new uint64[](0);
+
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DELEGATOR_KEY);
+        } else {
+            vm.startPrank(delegator);
+        }
+
+        // Deposit and delegate USDC
+        usdc.approve(restakingProxy, type(uint256).max);
+        restaking.depositERC20(address(usdc), 10_000 * 10**6); // 10k USDC
+        restaking.delegateWithOptions(operator1, address(usdc), 5_000 * 10**6, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        console2.log("Deposited 10k USDC, delegated 5k to Operator1");
+
+        // Deposit and delegate USDT
+        usdt.approve(restakingProxy, type(uint256).max);
+        restaking.depositERC20(address(usdt), 10_000 * 10**6); // 10k USDT
+        restaking.delegateWithOptions(operator2, address(usdt), 5_000 * 10**6, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        console2.log("Deposited 10k USDT, delegated 5k to Operator2");
+
+        // Deposit and delegate DAI
+        dai.approve(restakingProxy, type(uint256).max);
+        restaking.depositERC20(address(dai), 10_000 ether); // 10k DAI
+        restaking.delegateWithOptions(operator1, address(dai), 5_000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        console2.log("Deposited 10k DAI, delegated 5k to Operator1");
+
+        // Deposit and delegate WETH
+        weth.approve(restakingProxy, type(uint256).max);
+        restaking.depositERC20(address(weth), 10 ether); // 10 WETH
+        restaking.delegateWithOptions(operator2, address(weth), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        console2.log("Deposited 10 WETH, delegated 5 to Operator2");
+
+        // Deposit and delegate stETH
+        stETH.approve(restakingProxy, type(uint256).max);
+        restaking.depositERC20(address(stETH), 10 ether); // 10 stETH
+        restaking.delegateWithOptions(operator1, address(stETH), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        console2.log("Deposited 10 stETH, delegated 5 to Operator1");
+
+        // Deposit and delegate wstETH
+        wstETH.approve(restakingProxy, type(uint256).max);
+        restaking.depositERC20(address(wstETH), 10 ether); // 10 wstETH
+        restaking.delegateWithOptions(operator2, address(wstETH), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        console2.log("Deposited 10 wstETH, delegated 5 to Operator2");
+
+        // Deposit and delegate EIGEN
+        eigen.approve(restakingProxy, type(uint256).max);
+        restaking.depositERC20(address(eigen), 100 ether); // 100 EIGEN
+        restaking.delegateWithOptions(operator1, address(eigen), 50 ether, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        console2.log("Deposited 100 EIGEN, delegated 50 to Operator1");
+
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+    }
+
     function _createAndApproveService() internal {
         console2.log("\n=== Creating and Approving Service ===");
 
@@ -353,6 +542,142 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         // After all approvals, service should be active with same ID as request
         serviceId = requestId;
         console2.log("Service activated:", serviceId);
+    }
+
+    function _deployPodManager() internal {
+        console2.log("\n=== Deploying Beacon / Pod Manager ===");
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DEPLOYER_KEY);
+        } else {
+            vm.startPrank(deployer);
+        }
+
+        // Deploy mock beacon oracle for local testing
+        beaconOracle = new MockBeaconOracle();
+        console2.log("MockBeaconOracle:", address(beaconOracle));
+
+        // Set some mock beacon roots for testing
+        uint64 currentTimestamp = uint64(block.timestamp);
+        beaconOracle.setBeaconBlockRoot(currentTimestamp, keccak256(abi.encode("mock_root_1", currentTimestamp)));
+
+        // Deploy ValidatorPodManager with 32 ETH minimum operator stake
+        uint256 minOperatorStake = 32 ether;
+        podManager = new ValidatorPodManager(address(beaconOracle), minOperatorStake);
+        console2.log("ValidatorPodManager:", address(podManager));
+
+        // Add Tangle as a slasher so it can slash validators for service violations
+        podManager.addSlasher(tangleProxy);
+        console2.log("Tangle added as pod manager slasher");
+
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+    }
+
+    function _registerPodManagerOperators() internal {
+        console2.log("\n=== Registering Pod Manager Operators ===");
+
+        // Operator 1 registers with 32 ETH stake
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR1_KEY);
+        } else {
+            vm.startPrank(operator1);
+        }
+        podManager.registerOperator{ value: 32 ether }();
+        console2.log("Operator1 registered in PodManager with 32 ETH");
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+
+        // Operator 2 registers with 32 ETH stake
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR2_KEY);
+        } else {
+            vm.startPrank(operator2);
+        }
+        podManager.registerOperator{ value: 32 ether }();
+        console2.log("Operator2 registered in PodManager with 32 ETH");
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+
+        // Delegator creates a pod
+        // Note: To delegate in PodManager, delegator needs podOwnerShares
+        // which come from beacon chain ETH via verifyWithdrawalCredentials.
+        // For local testing we just deploy the contracts and create a pod.
+        // Real beacon chain integration would be needed to test full delegation flow.
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DELEGATOR_KEY);
+        } else {
+            vm.startPrank(delegator);
+        }
+        address pod = podManager.createPod();
+        console2.log("Delegator created pod:", pod);
+        console2.log("Note: PodManager delegation requires beacon chain shares (not simulated in local testnet)");
+
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+    }
+
+    function _deployLiquidDelegation() internal {
+        console2.log("\n=== Deploying Liquid Delegation ===");
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DEPLOYER_KEY);
+        } else {
+            vm.startPrank(deployer);
+        }
+
+        // Deploy liquid delegation factory
+        liquidFactory = new LiquidDelegationFactory(MultiAssetDelegation(payable(restakingProxy)));
+        console2.log("LiquidDelegationFactory:", address(liquidFactory));
+
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+
+        // Create vaults (anyone can create vaults)
+        // Note: LiquidDelegationVault uses ERC20 safeTransferFrom, so we use WETH instead of native ETH
+        uint64[] memory emptyBlueprints = new uint64[](0);
+        liquidVaultETH = payable(liquidFactory.createVault(operator1, address(weth), emptyBlueprints));
+        console2.log("LiquidVault WETH (operator1):", liquidVaultETH);
+
+        // Create USDC vault for operator2
+        liquidVaultUSDC = payable(liquidFactory.createVault(operator2, address(usdc), emptyBlueprints));
+        console2.log("LiquidVault USDC (operator2):", liquidVaultUSDC);
+
+        // Delegator deposits into liquid vaults
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DELEGATOR_KEY);
+        } else {
+            vm.startPrank(delegator);
+        }
+
+        // Approve and deposit WETH into liquid vault
+        weth.approve(liquidVaultETH, type(uint256).max);
+        LiquidDelegationVault(liquidVaultETH).deposit(1 ether, delegator);
+        console2.log("Delegator deposited 1 WETH to liquid vault");
+
+        // Approve and deposit USDC into liquid USDC vault
+        usdc.approve(liquidVaultUSDC, type(uint256).max);
+        LiquidDelegationVault(liquidVaultUSDC).deposit(1000 * 10**6, delegator);
+        console2.log("Delegator deposited 1000 USDC to liquid vault");
+
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
     }
 }
 

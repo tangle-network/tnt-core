@@ -12,7 +12,7 @@ This audit tracks security issues identified and their resolution status.
 | Severity | Count | Fixed | Status |
 |----------|-------|-------|--------|
 | CRITICAL | 3 | 3 | ✅ All Fixed |
-| HIGH | 5 | 5 | ✅ All Fixed |
+| HIGH | 6 | 6 | ✅ All Fixed |
 | MEDIUM | 3 | 2 | ⚠️ 1 Acknowledged |
 | LOW | 2 | 1 | ⚠️ 1 Acknowledged |
 
@@ -154,6 +154,41 @@ if (block.timestamp > beaconTimestamp + MAX_BEACON_ROOT_AGE) {
 
 ---
 
+### H-6: Instant Undelegation Allows Rug During Service ✅ FIXED
+
+**Location**: `ValidatorPodManager.sol`
+
+**Issue**: `undelegateFrom()` was instant, allowing delegators to withdraw delegated stake immediately. This created a security gap where delegators could "rug" operators in active services - removing stake before slashing could be applied for misbehavior.
+
+**Fix Applied**: Replaced instant undelegation with queued undelegation (matching EigenLayer's model):
+```solidity
+struct Undelegation {
+    address delegator;
+    address operator;
+    uint256 amount;
+    uint32 startBlock;
+    bool completed;
+}
+
+mapping(bytes32 => Undelegation) public pendingUndelegations;
+mapping(address => uint256) public undelegationNonce;
+mapping(address => mapping(address => uint256)) public queuedUndelegations;
+
+function queueUndelegation(address operator, uint256 amount) external returns (bytes32 undelegationRoot);
+function completeUndelegation(bytes32 undelegationRoot) external;
+```
+
+**Features**:
+- Uses same delay as withdrawals (`withdrawalDelayBlocks`, ~7 days default)
+- During delay, stake remains slashable if operator misbehaves
+- `getEffectiveDelegation()` shows stake minus queued undelegations
+- Unique undelegation roots for tracking
+- Full test coverage (6 new tests)
+
+**Note**: This matches EigenLayer's approach - beacon chain validator exit itself cannot be prevented (L1 operation), but withdrawal and undelegation are queued with delay to allow slashing during the window.
+
+---
+
 ## MEDIUM Issues
 
 ### M-1: No Withdrawal Mechanism ✅ FIXED
@@ -289,7 +324,7 @@ This prevents pod owners from avoiding slashing factor updates.
 
 ## Test Coverage ✅
 
-**171 tests passing** across 7 test suites:
+**184 tests passing** across 7 test suites:
 
 | Test Suite | Tests |
 |------------|-------|
@@ -298,7 +333,7 @@ This prevents pod owners from avoiding slashing factor updates.
 | BeaconIntegrationTest | 15 |
 | BeaconProofFixtureTest | 6 |
 | LiveBeaconTest | 9 |
-| ValidatorPodManagerTest | 55 |
+| ValidatorPodManagerTest | 68 |
 | ValidatorPodTest | 26 |
 
 Coverage includes:
@@ -316,6 +351,7 @@ Coverage includes:
 - [x] Proof submitter management
 - [x] Stale balance verification flow
 - [x] Withdrawal queue (queue, complete, delays)
+- [x] Undelegation queue (queue, complete, delays, effective delegation)
 - [x] Withdrawal constants and admin functions
 - [x] **Extensive fuzz testing** (26 fuzz tests)
 - [x] **Live testnet data validation** (9 tests)
