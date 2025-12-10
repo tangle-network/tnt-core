@@ -123,6 +123,162 @@ contract ValidatorPodManagerTest is BeaconTestBase {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // OPERATOR DEREGISTRATION TESTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_deregisterOperator_Success() public {
+        // Register operator with stake
+        vm.prank(operator1);
+        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+
+        uint256 balanceBefore = operator1.balance;
+
+        // Deregister
+        vm.prank(operator1);
+        podManager.deregisterOperator();
+
+        // Verify operator status cleared
+        assertFalse(podManager.isOperator(operator1), "Should no longer be operator");
+        assertFalse(podManager.isOperatorActive(operator1), "Should not be active");
+        assertEq(podManager.getOperatorSelfStake(operator1), 0, "Self stake should be zero");
+
+        // Verify stake returned
+        assertEq(operator1.balance, balanceBefore + MIN_OPERATOR_STAKE, "Stake should be returned");
+    }
+
+    function test_deregisterOperator_EmitsEvent() public {
+        vm.prank(operator1);
+        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+
+        vm.prank(operator1);
+        vm.expectEmit(true, false, false, false);
+        emit ValidatorPodManager.OperatorDeregistered(operator1);
+        podManager.deregisterOperator();
+    }
+
+    function test_deregisterOperator_NotOperator() public {
+        vm.prank(operator1);
+        vm.expectRevert(ValidatorPodManager.NotOperator.selector);
+        podManager.deregisterOperator();
+    }
+
+    function test_deregisterOperator_HasPendingDelegations() public {
+        // Setup: Register operator and create pod with shares
+        vm.prank(operator1);
+        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+
+        // Create pod and add shares for podOwner1
+        vm.prank(podOwner1);
+        address pod = podManager.createPod();
+
+        // Simulate shares being added (via beacon chain proof in real scenario)
+        // We need to call recordBeaconChainEthBalanceUpdate from the pod
+        vm.prank(pod);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, int256(10 ether));
+
+        // Delegate to operator
+        vm.prank(podOwner1);
+        podManager.delegateTo(operator1, 5 ether);
+
+        // Attempt to deregister should fail
+        vm.prank(operator1);
+        vm.expectRevert(ValidatorPodManager.HasPendingDelegations.selector);
+        podManager.deregisterOperator();
+    }
+
+    function test_deregisterOperator_AfterDelegatorsUndelegate() public {
+        // Setup: Register operator
+        vm.prank(operator1);
+        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+
+        // Create pod and add shares
+        vm.prank(podOwner1);
+        address pod = podManager.createPod();
+
+        vm.prank(pod);
+        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, int256(10 ether));
+
+        // Delegate then undelegate
+        vm.prank(podOwner1);
+        podManager.delegateTo(operator1, 5 ether);
+
+        vm.prank(podOwner1);
+        podManager.undelegateFrom(operator1, 5 ether);
+
+        // Now deregister should succeed
+        uint256 balanceBefore = operator1.balance;
+
+        vm.prank(operator1);
+        podManager.deregisterOperator();
+
+        assertFalse(podManager.isOperator(operator1), "Should no longer be operator");
+        assertEq(operator1.balance, balanceBefore + MIN_OPERATOR_STAKE, "Stake should be returned");
+    }
+
+    function test_deregisterOperator_ZeroStake() public {
+        // Register with minimum stake
+        vm.prank(operator1);
+        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+
+        // Get slashed to zero (need to setup slasher)
+        vm.prank(admin);
+        podManager.addSlasher(admin);
+
+        vm.prank(admin);
+        podManager.slash(operator1, 1, MIN_OPERATOR_STAKE, bytes32(0));
+
+        // Stake should be zero now
+        assertEq(podManager.getOperatorSelfStake(operator1), 0, "Stake should be zero after slash");
+
+        // Deregister should still work (no ETH to return)
+        uint256 balanceBefore = operator1.balance;
+
+        vm.prank(operator1);
+        podManager.deregisterOperator();
+
+        assertFalse(podManager.isOperator(operator1), "Should no longer be operator");
+        assertEq(operator1.balance, balanceBefore, "Balance unchanged (no stake to return)");
+    }
+
+    function test_deregisterOperator_CanReregister() public {
+        // Register
+        vm.prank(operator1);
+        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+
+        // Deregister
+        vm.prank(operator1);
+        podManager.deregisterOperator();
+
+        // Re-register should work
+        vm.prank(operator1);
+        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+
+        assertTrue(podManager.isOperator(operator1), "Should be operator again");
+        assertEq(podManager.getOperatorSelfStake(operator1), MIN_OPERATOR_STAKE, "Stake should be set");
+    }
+
+    function test_deregisterOperator_WithIncreasedStake() public {
+        // Register with minimum
+        vm.prank(operator1);
+        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+
+        // Increase stake
+        vm.prank(operator1);
+        podManager.increaseOperatorStake{value: 5 ether}();
+
+        uint256 totalStake = MIN_OPERATOR_STAKE + 5 ether;
+        assertEq(podManager.getOperatorSelfStake(operator1), totalStake, "Total stake should be sum");
+
+        // Deregister and verify full stake returned
+        uint256 balanceBefore = operator1.balance;
+
+        vm.prank(operator1);
+        podManager.deregisterOperator();
+
+        assertEq(operator1.balance, balanceBefore + totalStake, "Full stake should be returned");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // DELEGATION TESTS
     // ═══════════════════════════════════════════════════════════════════════════
 

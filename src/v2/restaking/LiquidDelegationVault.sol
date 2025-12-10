@@ -182,7 +182,8 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         asset.safeTransferFrom(msg.sender, address(this), assets);
 
         // Approve and deposit into restaking
-        asset.approve(address(restaking), assets);
+        // Use forceApprove to handle tokens like USDT that require resetting to 0 first
+        asset.forceApprove(address(restaking), assets);
 
         if (isNative) {
             // For native: need to unwrap and deposit
@@ -216,7 +217,8 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
         // Use deposit logic
         asset.safeTransferFrom(msg.sender, address(this), assets);
-        asset.approve(address(restaking), assets);
+        // Use forceApprove to handle tokens like USDT that require resetting to 0 first
+        asset.forceApprove(address(restaking), assets);
 
         restaking.depositERC20(address(asset), assets);
         restaking.delegateWithOptions(operator, address(asset), assets, selectionMode, _blueprintIds);

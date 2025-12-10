@@ -35,6 +35,22 @@ interface IERC20Decimals {
 /// @title UniswapV3Oracle
 /// @notice Price oracle using Uniswap V3 TWAP
 /// @dev Uses time-weighted average prices from Uniswap V3 pools
+///
+/// SECURITY CONSIDERATIONS:
+/// - TWAP Period: The default 30-minute TWAP period provides reasonable manipulation resistance
+///   for liquid pools but may be vulnerable in low-liquidity pools. Attackers with sufficient
+///   capital can manipulate prices over the TWAP window.
+///
+/// - Minimum Liquidity: Before configuring a pool, verify it has sufficient liquidity.
+///   Recommended minimum: $1M TVL for high-value operations, $100K for low-value operations.
+///
+/// - For high-stakes operations (slashing, large withdrawals), consider:
+///   1. Using longer TWAP periods (1-4 hours) via setTwapPeriod()
+///   2. Cross-referencing with Chainlink oracle prices
+///   3. Implementing circuit breakers for large price deviations
+///
+/// - Pool observation cardinality must be sufficient for the TWAP period. The pool
+///   should have at least (twapPeriod / 12 seconds) observations initialized.
 contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTANTS

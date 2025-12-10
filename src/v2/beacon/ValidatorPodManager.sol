@@ -138,6 +138,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     error WithdrawalAlreadyCompleted();
     error ExceedsMaxDelay();
     error HasPendingDelegations();
+    error StakeTransferFailed();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -239,6 +240,31 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     function increaseOperatorStake() external payable {
         if (!_operators[msg.sender]) revert NotOperator();
         operatorStake[msg.sender] += msg.value;
+    }
+
+    /// @notice Deregister as an operator and withdraw self-stake
+    /// @dev Cannot deregister if delegators still have stake with this operator
+    function deregisterOperator() external nonReentrant {
+        if (!_operators[msg.sender]) revert NotOperator();
+
+        // Safety: cannot deregister if delegators have stake with this operator
+        if (operatorDelegatedStake[msg.sender] > 0) {
+            revert HasPendingDelegations();
+        }
+
+        uint256 stake = operatorStake[msg.sender];
+
+        // Clear operator state
+        _operators[msg.sender] = false;
+        operatorStake[msg.sender] = 0;
+
+        emit OperatorDeregistered(msg.sender);
+
+        // Return self-stake
+        if (stake > 0) {
+            (bool sent,) = payable(msg.sender).call{value: stake}("");
+            if (!sent) revert StakeTransferFailed();
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
