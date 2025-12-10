@@ -1,10 +1,24 @@
 [package]
 name = "tnt-core-bindings"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Rust bindings for TNT Core contracts"
-license = "MIT"
-publish = false
+rust-version = "1.81"
+description = "Rust bindings for TNT Core Solidity contracts (Tangle restaking protocol)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tangle-network/tnt-core"
+homepage = "https://tangle.tools"
+documentation = "https://docs.rs/tnt-core-bindings"
+readme = "README.md"
+keywords = ["tangle", "restaking", "ethereum", "solidity", "alloy"]
+categories = ["cryptography::cryptocurrencies", "api-bindings"]
+include = [
+    "src/**/*",
+    "abi/**/*",
+    "TNT_CORE_VERSION",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE-*",
+]
 
 [lib]
 path = "src/lib.rs"
