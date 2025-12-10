@@ -13,8 +13,8 @@ This audit tracks security issues identified and their resolution status.
 |----------|-------|-------|--------|
 | CRITICAL | 3 | 3 | ✅ All Fixed |
 | HIGH | 5 | 5 | ✅ All Fixed |
-| MEDIUM | 3 | 2 | ⚠️ 1 Open |
-| LOW | 2 | 0 | ⚠️ Open |
+| MEDIUM | 3 | 2 | ⚠️ 1 Acknowledged |
+| LOW | 2 | 1 | ⚠️ 1 Acknowledged |
 
 ### New Features Added (ELIP-004 Compliance)
 - ✅ `beaconChainSlashingFactor` - Tracks beacon chain slashing proportionally
@@ -204,9 +204,38 @@ function completeWithdrawal(bytes32 withdrawalRoot) external;
 
 ## LOW Issues
 
-### L-1: No Event for Operator Deregistration ⚠️ OPEN
+### L-1: No Event for Operator Deregistration ✅ FIXED
 
-**Status**: Low priority. No deregistration function implemented yet.
+**Location**: `ValidatorPodManager.sol`
+
+**Fix Applied**: Added `deregisterOperator()` function with event:
+```solidity
+function deregisterOperator() external nonReentrant {
+    if (!_operators[msg.sender]) revert NotOperator();
+    if (operatorDelegatedStake[msg.sender] > 0) revert HasPendingDelegations();
+
+    uint256 stake = operatorStake[msg.sender];
+    _operators[msg.sender] = false;
+    operatorStake[msg.sender] = 0;
+
+    emit OperatorDeregistered(msg.sender);
+
+    if (stake > 0) {
+        (bool sent,) = payable(msg.sender).call{value: stake}("");
+        if (!sent) revert StakeTransferFailed();
+    }
+}
+```
+
+**Test Coverage**: 8 tests in `ValidatorPodManagerTest.t.sol`:
+- `test_deregisterOperator_Success`
+- `test_deregisterOperator_EmitsEvent`
+- `test_deregisterOperator_NotOperator`
+- `test_deregisterOperator_HasPendingDelegations`
+- `test_deregisterOperator_AfterDelegatorsUndelegate`
+- `test_deregisterOperator_ZeroStake`
+- `test_deregisterOperator_CanReregister`
+- `test_deregisterOperator_WithIncreasedStake`
 
 ---
 
