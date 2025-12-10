@@ -76,6 +76,21 @@ Points programs are defined in `indexer/src/points/programs.ts` and exposed via 
 
 Contract modules call the award helpers, so adding a new incentive is as simple as wiring the relevant event to a helper (or introducing a new helper/program when needed).
 
+### Rust Bindings
+
+The `bindings/` crate provides Rust bindings for TNT Core contracts, published to crates.io as [`tnt-core-bindings`](https://crates.io/crates/tnt-core-bindings).
+
+```bash
+# Regenerate bindings after contract changes
+cargo xtask gen-bindings
+
+# Bump version and publish
+cargo xtask bump-version 0.3.0
+cargo xtask publish
+```
+
+See [xtask/README.md](xtask/README.md) for full documentation.
+
 ### Additional Documentation
 
 - [Points & Pricing Pipeline](docs/points-pipeline.md) – covers the asset
