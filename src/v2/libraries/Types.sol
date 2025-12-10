@@ -146,6 +146,37 @@ library Types {
         string basePath;
     }
 
+    /// @notice Supported CPU/architecture targets for blueprint binaries
+    enum BlueprintArchitecture {
+        Wasm32,
+        Wasm64,
+        Wasi32,
+        Wasi64,
+        Amd32,
+        Amd64,
+        Arm32,
+        Arm64,
+        RiscV32,
+        RiscV64
+    }
+
+    /// @notice Supported operating systems for blueprint binaries
+    enum BlueprintOperatingSystem {
+        Unknown,
+        Linux,
+        Windows,
+        MacOS,
+        BSD
+    }
+
+    /// @notice Binary descriptor including sha256 hash used for integrity checks
+    struct BlueprintBinary {
+        BlueprintArchitecture arch;
+        BlueprintOperatingSystem os;
+        string name;
+        bytes32 sha256;
+    }
+
     /// @notice Blueprint binary source reference
     struct BlueprintSource {
         BlueprintSourceKind kind;
@@ -153,6 +184,7 @@ library Types {
         WasmSource wasm;
         NativeSource native;
         TestingSource testing;
+        BlueprintBinary[] binaries;
     }
 
     /// @notice Blueprint schema node definition used by SchemaLib

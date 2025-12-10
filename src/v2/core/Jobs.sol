@@ -49,12 +49,10 @@ abstract contract Jobs is Base {
         _validateJobInputs(svc.blueprintId, jobIndex, inputs);
 
         callId = _createJobCall(serviceId, jobIndex, msg.sender, payment);
-        _jobInputs[serviceId][callId] = inputs;
+        bytes memory managerInputs = inputs;
+        _jobInputs[serviceId][callId] = managerInputs;
 
-        _notifyManagerOnJobCall(bp.manager, serviceId, jobIndex, callId, inputs);
-
-        emit JobSubmitted(serviceId, callId, jobIndex, msg.sender, inputs);
-        _recordJobCall(serviceId, msg.sender, callId);
+        _finalizeJobSubmission(bp.manager, serviceId, jobIndex, callId, msg.sender, managerInputs);
     }
 
     /// @notice Submit job result
@@ -116,69 +114,74 @@ abstract contract Jobs is Base {
 
         _verifyAggregatedSignature(serviceId, callId, output, aggregatedSignature, aggregatedPubkey);
 
-        AggregatedResultPayload memory payload = AggregatedResultPayload({
-            serviceId: serviceId,
-            callId: callId,
-            signerBitmap: signerBitmap,
-            output: output,
-            aggregatedSignature: aggregatedSignature,
-            aggregatedPubkey: aggregatedPubkey
-        });
-
-        _finalizeAggregatedResult(svc, job, bp, payload);
-    }
-
-    struct AggregatedResultPayload {
-        uint64 serviceId;
-        uint64 callId;
-        uint256 signerBitmap;
-        bytes output;
-        uint256[2] aggregatedSignature;
-        uint256[4] aggregatedPubkey;
+        _finalizeAggregatedResult(
+            svc,
+            job,
+            bp,
+            serviceId,
+            callId,
+            signerBitmap,
+            output,
+            aggregatedSignature,
+            aggregatedPubkey
+        );
     }
 
     function _finalizeAggregatedResult(
         Types.Service storage svc,
         Types.JobCall storage job,
         Types.Blueprint storage bp,
-        AggregatedResultPayload memory payload
+        uint64 serviceId,
+        uint64 callId,
+        uint256 signerBitmap,
+        bytes calldata output,
+        uint256[2] calldata aggregatedSignature,
+        uint256[4] calldata aggregatedPubkey
     ) private {
         job.completed = true;
 
-        if (bp.manager != address(0)) {
-            _notifyManagerAggregatedResult(bp.manager, job.jobIndex, payload);
-        }
+        emit AggregatedResultSubmitted(serviceId, callId, signerBitmap, output);
+        emit JobCompleted(serviceId, callId);
 
-        emit AggregatedResultSubmitted(payload.serviceId, payload.callId, payload.signerBitmap, payload.output);
-        emit JobCompleted(payload.serviceId, payload.callId);
-
-        _recordAggregatedJobCompletion(payload.serviceId, payload.callId, payload.signerBitmap);
+        _recordAggregatedJobCompletion(serviceId, callId, signerBitmap);
 
         if (svc.pricing == Types.PricingModel.EventDriven && job.payment > 0) {
-            _distributeJobPayment(payload.serviceId, job.payment);
+            _distributeJobPayment(serviceId, job.payment);
+        }
+
+        if (bp.manager != address(0)) {
+            _notifyManagerAggregatedResult(
+                bp.manager,
+                job.jobIndex,
+                serviceId,
+                callId,
+                output,
+                signerBitmap,
+                aggregatedSignature,
+                aggregatedPubkey
+            );
         }
     }
 
     function _notifyManagerAggregatedResult(
         address manager,
         uint8 jobIndex,
-        AggregatedResultPayload memory payload
+        uint64 serviceId,
+        uint64 callId,
+        bytes calldata output,
+        uint256 signerBitmap,
+        uint256[2] calldata aggregatedSignature,
+        uint256[4] calldata aggregatedPubkey
     ) private {
-        _tryCallManager(
-            manager,
-            abi.encodeCall(
-                IBlueprintServiceManager.onAggregatedResult,
-                (
-                    payload.serviceId,
-                    jobIndex,
-                    payload.callId,
-                    payload.output,
-                    payload.signerBitmap,
-                    payload.aggregatedSignature,
-                    payload.aggregatedPubkey
-                )
-            )
-        );
+        try IBlueprintServiceManager(manager).onAggregatedResult(
+            serviceId,
+            jobIndex,
+            callId,
+            output,
+            signerBitmap,
+            aggregatedSignature,
+            aggregatedPubkey
+        ) {} catch {}
     }
 
     function _processResultSubmission(
@@ -292,21 +295,33 @@ abstract contract Jobs is Base {
         });
     }
 
+    function _finalizeJobSubmission(
+        address manager,
+        uint64 serviceId,
+        uint8 jobIndex,
+        uint64 callId,
+        address caller,
+        bytes memory inputs
+    ) private {
+        emit JobSubmitted(serviceId, callId, jobIndex, caller, inputs);
+        _notifyManagerOnJobCall(manager, serviceId, jobIndex, callId, inputs);
+        _recordJobCall(serviceId, caller, callId);
+    }
+
     function _notifyManagerOnJobCall(
         address manager,
         uint64 serviceId,
         uint8 jobIndex,
         uint64 callId,
-        bytes calldata inputs
+        bytes memory inputs
     ) private {
         if (manager == address(0)) {
             return;
         }
 
-        _callManager(
-            manager,
-            abi.encodeCall(IBlueprintServiceManager.onJobCall, (serviceId, jobIndex, callId, inputs))
-        );
+        bytes memory payload =
+            abi.encodeCall(IBlueprintServiceManager.onJobCall, (serviceId, jobIndex, callId, inputs));
+        _callManager(manager, payload);
     }
 
     function _validateAggregatedSubmissionPreconditions(

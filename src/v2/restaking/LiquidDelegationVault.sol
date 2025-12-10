@@ -52,9 +52,9 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
     /// @notice Redeem request state
     struct RedeemRequestData {
-        uint256 shares;           // Shares to redeem
-        uint64 requestedRound;    // Round when requested
-        bool claimed;             // Whether claimed
+        uint256 shares; // Shares to redeem
+        uint64 requestedRound; // Round when requested
+        bool claimed; // Whether claimed
     }
 
     /// @notice Mapping: controller => requestId => RedeemRequestData
@@ -71,7 +71,10 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     // ═══════════════════════════════════════════════════════════════════════════
 
     event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
-    event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
+    event Withdraw(
+        address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares
+    );
+    event RewardsHarvested(address indexed caller, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -103,7 +106,9 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         uint64[] memory _blueprints,
         string memory _name,
         string memory _symbol
-    ) ERC20(_name, _symbol) {
+    )
+        ERC20(_name, _symbol)
+    {
         restaking = _restaking;
         operator = _operator;
         asset = _asset;
@@ -191,13 +196,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         }
 
         // Delegate to operator with blueprint selection
-        restaking.delegateWithOptions(
-            operator,
-            address(asset),
-            assets,
-            selectionMode,
-            _blueprintIds
-        );
+        restaking.delegateWithOptions(operator, address(asset), assets, selectionMode, _blueprintIds);
 
         // Mint liquid shares to receiver
         _mint(receiver, shares);
@@ -220,13 +219,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         asset.approve(address(restaking), assets);
 
         restaking.depositERC20(address(asset), assets);
-        restaking.delegateWithOptions(
-            operator,
-            address(asset),
-            assets,
-            selectionMode,
-            _blueprintIds
-        );
+        restaking.delegateWithOptions(operator, address(asset), assets, selectionMode, _blueprintIds);
 
         _mint(receiver, shares);
 
@@ -247,7 +240,11 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         uint256 shares,
         address controller,
         address owner
-    ) external nonReentrant returns (uint256 requestId) {
+    )
+        external
+        nonReentrant
+        returns (uint256 requestId)
+    {
         if (shares == 0) revert ZeroShares();
 
         // Verify caller can act on behalf of owner
@@ -269,20 +266,14 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
         // Create request record
         requestId = _nextRequestId[controller]++;
-        _redeemRequests[controller][requestId] = RedeemRequestData({
-            shares: shares,
-            requestedRound: uint64(restaking.currentRound()),
-            claimed: false
-        });
+        _redeemRequests[controller][requestId] =
+            RedeemRequestData({ shares: shares, requestedRound: uint64(restaking.currentRound()), claimed: false });
 
         emit RedeemRequest(controller, owner, requestId, msg.sender, shares);
     }
 
     /// @notice Get pending redeem request amount
-    function pendingRedeemRequest(
-        uint256 requestId,
-        address controller
-    ) external view returns (uint256 shares) {
+    function pendingRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
         RedeemRequestData memory req = _redeemRequests[controller][requestId];
 
         if (req.claimed) return 0;
@@ -298,10 +289,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     }
 
     /// @notice Get claimable redeem request amount
-    function claimableRedeemRequest(
-        uint256 requestId,
-        address controller
-    ) external view returns (uint256 shares) {
+    function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares) {
         RedeemRequestData memory req = _redeemRequests[controller][requestId];
 
         if (req.claimed) return 0;
@@ -325,7 +313,11 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         uint256 shares,
         address receiver,
         address controller
-    ) external nonReentrant returns (uint256 assets) {
+    )
+        external
+        nonReentrant
+        returns (uint256 assets)
+    {
         // Verify caller is controller or approved operator
         if (msg.sender != controller && !_operators[controller][msg.sender]) {
             revert NotController();
@@ -365,19 +357,14 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     }
 
     /// @notice Find a claimable request matching shares
-    function _findClaimableRequest(
-        address controller,
-        uint256 shares
-    ) internal view returns (uint256 requestId) {
+    function _findClaimableRequest(address controller, uint256 shares) internal view returns (uint256 requestId) {
         uint256 nextId = _nextRequestId[controller];
         uint64 currentRound = uint64(restaking.currentRound());
         uint64 delay = uint64(restaking.delegationBondLessDelay());
 
         for (uint256 i = 0; i < nextId; i++) {
             RedeemRequestData memory req = _redeemRequests[controller][i];
-            if (!req.claimed &&
-                req.shares == shares &&
-                currentRound >= req.requestedRound + delay) {
+            if (!req.claimed && req.shares == shares && currentRound >= req.requestedRound + delay) {
                 return i;
             }
         }
@@ -416,10 +403,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Check if operator is approved for controller
-    function isOperator(
-        address controller,
-        address _operator
-    ) external view returns (bool) {
+    function isOperator(address controller, address _operator) external view returns (bool) {
         return _operators[controller][_operator];
     }
 
@@ -437,9 +421,8 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     /// @notice Harvest rewards and distribute to vault
     /// @dev Rewards increase totalAssets, benefiting all share holders
     function harvestRewards() external nonReentrant {
-        restaking.claimDelegatorRewards();
-        // Rewards received as native ETH - could wrap to WETH and add to assets
-        // For now, rewards stay in contract and affect exchange rate
+        uint256 harvested = restaking.claimDelegatorRewards();
+        emit RewardsHarvested(msg.sender, harvested);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -459,5 +442,5 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     // RECEIVE ETH
     // ═══════════════════════════════════════════════════════════════════════════
 
-    receive() external payable {}
+    receive() external payable { }
 }

@@ -39,6 +39,8 @@ const DEFAULT_CACHE_MS = 5 * 60 * 1000;
 const DEFAULT_BATCH_SIZE = 30;
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 250;
+const MAX_BACKOFF_MS = 2000;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const PRICE_SCALE = 10n ** 8n;
 
@@ -94,6 +96,15 @@ export class PriceOracle {
       try {
         const response = await fetch(url, { headers: { accept: "application/json" } });
         if (!response.ok) {
+          if (response.status === 429) {
+            const retryAfterSeconds = Number(response.headers.get("retry-after"));
+            const waitMs =
+              Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+                ? retryAfterSeconds * 1000
+                : Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** attempt);
+            await sleep(waitMs);
+            continue;
+          }
           throw new Error(`coingecko ${response.status}`);
         }
         const data = (await response.json()) as Record<string, { usd?: number }>;
@@ -104,12 +115,21 @@ export class PriceOracle {
             output[id] = value;
           }
         }
+        const remaining = Number(response.headers.get("x-ratelimit-remaining"));
+        if (!Number.isNaN(remaining) && remaining <= 1) {
+          const resetSeconds = Number(response.headers.get("x-ratelimit-reset"));
+          if (Number.isFinite(resetSeconds) && resetSeconds > 0) {
+            await sleep(resetSeconds * 1000);
+          }
+        }
         return output;
       } catch (error) {
         if (attempt === MAX_RETRIES - 1) {
           throw error;
         }
-        await new Promise((resolve) => setTimeout(resolve, BASE_BACKOFF_MS * 2 ** attempt));
+        const backoff = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** attempt);
+        const jitter = Math.random() * BASE_BACKOFF_MS;
+        await sleep(backoff + jitter);
       }
     }
     return {};

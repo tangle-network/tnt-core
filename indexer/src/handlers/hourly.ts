@@ -4,13 +4,27 @@ import { HOURLY_BLOCK_INTERVAL } from "../lib/handlerUtils";
 import { HOURLY_PROGRAMS, pointsContext, processParticipation } from "../points/participation";
 import { refreshRegisteredAssetPrices } from "../points/prices";
 
+const extractBlockMeta = (block: { number?: number | string; timestamp?: number | string; hash?: string }) => {
+  const blockNumber = typeof block.number === "string" ? BigInt(block.number) : BigInt(block.number ?? 0);
+  const timestamp =
+    typeof block.timestamp === "string"
+      ? BigInt(block.timestamp)
+      : typeof block.timestamp === "number"
+        ? BigInt(block.timestamp)
+        : blockNumber * 12n;
+  const hash = block.hash ? block.hash.toString() : `hourly-${block.number}`;
+  return { blockNumber, timestamp, hash };
+};
+
 export function registerHourlyHandlers() {
-  onBlock({ name: "hourly-participation", chain: 84532, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
-    const blockNumber = typeof block.number === "string" ? BigInt(block.number) : BigInt(block.number ?? 0);
-    const timestamp = blockNumber * 12n;
-    const blockHash = `hourly-${block.number}`;
-    const points = new PointsManager(pointsContext(context), blockNumber, timestamp, blockHash);
+  onBlock({ name: "asset-price-refresh", chain: 84532, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
+    const { blockNumber, timestamp } = extractBlockMeta(block);
     await refreshRegisteredAssetPrices(context, blockNumber, timestamp);
+  });
+
+  onBlock({ name: "hourly-participation", chain: 84532, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
+    const { blockNumber, timestamp, hash } = extractBlockMeta(block);
+    const points = new PointsManager(pointsContext(context), blockNumber, timestamp, hash);
     for (const program of HOURLY_PROGRAMS) {
       await processParticipation(context, program.programId, blockNumber, timestamp, points);
     }

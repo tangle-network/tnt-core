@@ -152,13 +152,12 @@ abstract contract Operators is Base {
             0
         );
 
+        string memory rpcAddressCopy = rpcAddress;
+
         // Encode preferences for backwards-compatible manager hooks
         {
             bytes memory encodedPreferences = abi.encode(
-                Types.OperatorPreferences({
-                    ecdsaPublicKey: ecdsaPublicKey,
-                    rpcAddress: rpcAddress
-                })
+                Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy })
             );
 
             // Call manager hook first (may reject)
@@ -173,7 +172,7 @@ abstract contract Operators is Base {
             // Store preferences (including ECDSA public key for gossip)
             _operatorPreferences[blueprintId][msg.sender] = Types.OperatorPreferences({
                 ecdsaPublicKey: ecdsaPublicKey,
-                rpcAddress: rpcAddress
+                rpcAddress: rpcAddressCopy
             });
         }
 
@@ -192,7 +191,8 @@ abstract contract Operators is Base {
         _blueprintOperators[blueprintId].add(msg.sender);
         bp.operatorCount++;
 
-        _afterOperatorRegistered(blueprintId, msg.sender, ecdsaPublicKey, rpcAddress);
+        _recordBlueprintRegistration(blueprintId, msg.sender);
+        emit OperatorRegistered(blueprintId, msg.sender, ecdsaPublicKey, rpcAddressCopy);
     }
 
     /// @notice Unregister from a blueprint
@@ -300,16 +300,6 @@ abstract contract Operators is Base {
         }
 
         emit OperatorPreferencesUpdated(blueprintId, msg.sender, prefs.ecdsaPublicKey, prefs.rpcAddress);
-    }
-
-    function _afterOperatorRegistered(
-        uint64 blueprintId,
-        address operator,
-        bytes calldata ecdsaPublicKey,
-        string calldata rpcAddress
-    ) private {
-        _recordBlueprintRegistration(blueprintId, operator);
-        emit OperatorRegistered(blueprintId, operator, ecdsaPublicKey, rpcAddress);
     }
 
     function _collectOperatorBond(uint64 blueprintId, uint256 requiredBond) private returns (address bondAsset) {

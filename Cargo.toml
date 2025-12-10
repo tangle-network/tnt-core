@@ -1,3 +1,7 @@
 [workspace]
 members = ["bindings", "xtask"]
 resolver = "2"
+
+[profile.dev]
+
+[profile.release]

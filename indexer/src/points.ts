@@ -1,9 +1,4 @@
-import type {
-  PointsAccount,
-  PointsEvent,
-  PointsProgram,
-  PointsSnapshot,
-} from "generated/src/Types.gen";
+import type { PointsAccount, PointsEvent, PointsHourlyTotal, PointsProgram, PointsSnapshot } from "generated/src/Types.gen";
 import { ensurePointsProgram, PROGRAMS } from "./points/programs";
 import type { PointsProgramId } from "./points/programs";
 export { ensurePointsProgram } from "./points/programs";
@@ -23,6 +18,10 @@ export type PointsContext = {
   };
   PointsSnapshot: {
     set: (entity: PointsSnapshot) => void;
+  };
+  PointsHourlyTotal: {
+    get: (id: string) => Promise<PointsHourlyTotal | undefined>;
+    set: (entity: PointsHourlyTotal) => void;
   };
 };
 
@@ -94,6 +93,7 @@ export class PointsManager {
     this.context.PointsAccount.set(updatedAccount);
     this.context.PointsEvent.set(event);
     this.context.PointsSnapshot.set(snapshot);
+    await this.recordHourlyBasis(program.id, basis);
   }
 
   private async ensureAccount(address: string) {
@@ -110,5 +110,28 @@ export class PointsManager {
       } as PointsAccount;
     }
     return account;
+  }
+
+  private async recordHourlyBasis(programId: string, basis?: PointsAwardBasis) {
+    if (!basis) return;
+    const usd = basis.usdValue ?? 0n;
+    const liquid = basis.liquidUsdValue ?? 0n;
+    const service = basis.serviceUsdValue ?? 0n;
+    if (usd === 0n && liquid === 0n && service === 0n) {
+      return;
+    }
+    const hour = (this.timestamp / 3600n) * 3600n;
+    const id = `${programId}-${hour.toString()}`;
+    const existing = await this.context.PointsHourlyTotal.get(id);
+    const entity: PointsHourlyTotal = {
+      id,
+      program_id: programId,
+      hourTimestamp: hour,
+      usdBasis: (existing?.usdBasis ?? 0n) + usd,
+      liquidUsdBasis: (existing?.liquidUsdBasis ?? 0n) + liquid,
+      serviceUsdBasis: (existing?.serviceUsdBasis ?? 0n) + service,
+      updatedAt: this.timestamp,
+    } as PointsHourlyTotal;
+    this.context.PointsHourlyTotal.set(entity);
   }
 }

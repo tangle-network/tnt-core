@@ -18,6 +18,6 @@
       "generated/*": ["generated/*"]
     }
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules", "generated", "build", "src/handlers"]
 }

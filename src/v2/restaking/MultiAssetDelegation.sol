@@ -56,7 +56,10 @@ contract MultiAssetDelegation is
         uint256 nativeMinOperatorStake,
         uint256 nativeMinDelegation,
         uint16 _operatorCommissionBps
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         __UUPSUpgradeable_init();
         __AccessControl_init();
         __Pausable_init();
@@ -98,10 +101,7 @@ contract MultiAssetDelegation is
     }
 
     /// @notice Register as operator with ERC20 stake
-    function registerOperatorWithAsset(
-        address token,
-        uint256 amount
-    ) external whenNotPaused nonReentrant {
+    function registerOperatorWithAsset(address token, uint256 amount) external whenNotPaused nonReentrant {
         _registerOperatorWithAsset(token, amount);
     }
 
@@ -151,9 +151,7 @@ contract MultiAssetDelegation is
     }
 
     /// @notice Deposit native token with lock
-    function depositWithLock(
-        Types.LockMultiplier lockMultiplier
-    ) external payable whenNotPaused nonReentrant {
+    function depositWithLock(Types.LockMultiplier lockMultiplier) external payable whenNotPaused nonReentrant {
         _depositNativeWithLock(lockMultiplier);
     }
 
@@ -167,7 +165,11 @@ contract MultiAssetDelegation is
         address token,
         uint256 amount,
         Types.LockMultiplier lockMultiplier
-    ) external whenNotPaused nonReentrant {
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         _depositErc20WithLock(token, amount, lockMultiplier);
     }
 
@@ -204,7 +206,12 @@ contract MultiAssetDelegation is
         uint256 amount,
         Types.BlueprintSelectionMode selectionMode,
         uint64[] calldata blueprintIds
-    ) external payable whenNotPaused nonReentrant {
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+    {
         if (token == address(0)) {
             _depositNative();
         } else {
@@ -225,16 +232,16 @@ contract MultiAssetDelegation is
         uint256 amount,
         Types.BlueprintSelectionMode selectionMode,
         uint64[] calldata blueprintIds
-    ) external whenNotPaused nonReentrant {
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         _delegateWithOptions(operator, token, amount, selectionMode, blueprintIds);
     }
 
     /// @notice Schedule undelegation
-    function scheduleDelegatorUnstake(
-        address operator,
-        address token,
-        uint256 amount
-    ) external whenNotPaused {
+    function scheduleDelegatorUnstake(address operator, address token, uint256 amount) external whenNotPaused {
         _scheduleDelegatorUnstake(operator, token, amount);
     }
 
@@ -281,24 +288,23 @@ contract MultiAssetDelegation is
         uint64 blueprintId,
         uint64 serviceId,
         uint256 amount
-    ) external override {
+    )
+        external
+        override
+    {
         serviceId; // silence unused warning
         _notifyRewardForBlueprint(operator, blueprintId, amount);
     }
 
     /// @notice Notify reward for an operator (legacy - all delegators get rewards)
-    function notifyReward(
-        address operator,
-        uint64 serviceId,
-        uint256 amount
-    ) external override {
+    function notifyReward(address operator, uint64 serviceId, uint256 amount) external override {
         serviceId; // silence unused warning
         _notifyReward(operator, amount);
     }
 
     /// @notice Claim delegator rewards
-    function claimDelegatorRewards() external nonReentrant {
-        _claimDelegatorRewards();
+    function claimDelegatorRewards() external nonReentrant returns (uint256 totalRewards) {
+        totalRewards = _claimDelegatorRewards();
     }
 
     /// @notice Claim operator rewards
@@ -323,7 +329,12 @@ contract MultiAssetDelegation is
         uint64 serviceId,
         uint256 amount,
         bytes32 evidence
-    ) external override onlyRole(SLASHER_ROLE) returns (uint256 actualSlashed) {
+    )
+        external
+        override
+        onlyRole(SLASHER_ROLE)
+        returns (uint256 actualSlashed)
+    {
         return _slashForBlueprint(operator, blueprintId, serviceId, amount, evidence);
     }
 
@@ -333,7 +344,12 @@ contract MultiAssetDelegation is
         uint64 serviceId,
         uint256 amount,
         bytes32 evidence
-    ) external override onlyRole(SLASHER_ROLE) returns (uint256 actualSlashed) {
+    )
+        external
+        override
+        onlyRole(SLASHER_ROLE)
+        returns (uint256 actualSlashed)
+    {
         return _slash(operator, serviceId, amount, evidence);
     }
 
@@ -363,7 +379,10 @@ contract MultiAssetDelegation is
         uint256 _minDelegation,
         uint256 _depositCap,
         uint16 _rewardMultiplierBps
-    ) external onlyRole(ASSET_MANAGER_ROLE) {
+    )
+        external
+        onlyRole(ASSET_MANAGER_ROLE)
+    {
         require(token != address(0), "Use native");
         bytes32 assetHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
 
@@ -432,10 +451,7 @@ contract MultiAssetDelegation is
     }
 
     /// @inheritdoc IRestaking
-    function getDelegation(
-        address delegator,
-        address operator
-    ) external view override returns (uint256) {
+    function getDelegation(address delegator, address operator) external view override returns (uint256) {
         return _getDelegationToOperator(delegator, operator);
     }
 
@@ -455,10 +471,7 @@ contract MultiAssetDelegation is
     }
 
     /// @inheritdoc IRestaking
-    function meetsStakeRequirement(
-        address operator,
-        uint256 required
-    ) external view override returns (bool) {
+    function meetsStakeRequirement(address operator, uint256 required) external view override returns (bool) {
         return _getOperatorSelfStake(operator) >= required;
     }
 
@@ -548,7 +561,6 @@ contract MultiAssetDelegation is
         return _getOperatorDelegatorCount(operator);
     }
 
-
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -574,7 +586,10 @@ contract MultiAssetDelegation is
         uint64 _delegationBondLessDelay,
         uint64 _leaveDelegatorsDelay,
         uint64 _leaveOperatorsDelay
-    ) external onlyRole(ADMIN_ROLE) {
+    )
+        external
+        onlyRole(ADMIN_ROLE)
+    {
         delegationBondLessDelay = _delegationBondLessDelay;
         leaveDelegatorsDelay = _leaveDelegatorsDelay;
         leaveOperatorsDelay = _leaveOperatorsDelay;
@@ -602,8 +617,8 @@ contract MultiAssetDelegation is
     }
 
     /// @notice Authorize upgrade
-    function _authorizeUpgrade(address) internal override onlyRole(ADMIN_ROLE) {}
+    function _authorizeUpgrade(address) internal override onlyRole(ADMIN_ROLE) { }
 
     /// @notice Receive native tokens
-    receive() external payable {}
+    receive() external payable { }
 }

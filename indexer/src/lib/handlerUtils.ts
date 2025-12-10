@@ -465,7 +465,12 @@ const hasLiquidVaultStake = async (context: any, delegatorId: string): Promise<b
     return false;
   }
   const positions = (await context.LiquidVaultPosition.getWhere.account_id.eq(delegatorId)) as LiquidVaultPosition[];
-  return positions.some((position) => (position.shares ?? 0n) > 0n);
+  return positions.some((position) => {
+    const activeShares = position.shares ?? 0n;
+    const pendingShares = position.pendingShares ?? 0n;
+    const pendingAssets = position.pendingAssets ?? 0n;
+    return activeShares + pendingShares > 0n || pendingAssets > 0n;
+  });
 };
 
 export const maybeDeactivateDelegatorParticipation = async (context: any, delegator: Delegator, timestamp: bigint) => {

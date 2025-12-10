@@ -199,8 +199,12 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         Tangle tangle = Tangle(payable(tangleProxy));
 
         Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://QmTestBlueprint", address(0));
+        def.config.membership = Types.MembershipModel.Dynamic;
+        def.config.minOperators = 1;
+        def.config.maxOperators = 0; // unlimited to allow future joins
         blueprintId = tangle.createBlueprint(def);
         console2.log("Blueprint created:", blueprintId);
+        console2.log("Blueprint configured for dynamic membership (CLI join target)");
 
         // Require a 100 TNT bond per operator registration
         tangle.setOperatorBlueprintBond(100 ether);

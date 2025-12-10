@@ -148,6 +148,13 @@ abstract contract BlueprintDefinitionHelper {
         source.wasm.fetcher = Types.BlueprintFetcherKind.None;
         source.native.fetcher = Types.BlueprintFetcherKind.None;
         source.testing = Types.TestingSource({ cargoPackage: "", cargoBin: "", basePath: "" });
+        source.binaries = new Types.BlueprintBinary[](1);
+        source.binaries[0] = Types.BlueprintBinary({
+            arch: Types.BlueprintArchitecture.Amd64,
+            os: Types.BlueprintOperatingSystem.Linux,
+            name: "blueprint-binary",
+            sha256: bytes32(uint256(0x1234))
+        });
     }
 
     function _buildJobDefinitions(uint256 count, bytes memory schema)

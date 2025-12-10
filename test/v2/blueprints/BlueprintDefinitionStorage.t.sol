@@ -22,6 +22,13 @@ contract BlueprintDefinitionStorageTest is BaseTest {
 		def.sources[1].wasm.fetcher = Types.BlueprintFetcherKind.Ipfs;
 		def.sources[1].wasm.artifactUri = "ipfs://artifact";
 		def.sources[1].wasm.entrypoint = "main";
+		def.sources[1].binaries = new Types.BlueprintBinary[](1);
+		def.sources[1].binaries[0] = Types.BlueprintBinary({
+			arch: Types.BlueprintArchitecture.Wasm32,
+			os: Types.BlueprintOperatingSystem.Unknown,
+			name: "wasm",
+			sha256: bytes32(uint256(0x5678))
+		});
 
 		def.supportedMemberships = new Types.MembershipModel[](1);
 		def.supportedMemberships[0] = Types.MembershipModel.Dynamic;
@@ -100,6 +107,22 @@ contract BlueprintDefinitionStorageTest is BaseTest {
 		def.supportedMemberships = new Types.MembershipModel[](0);
 		vm.prank(developer);
 		vm.expectRevert(Errors.BlueprintMembershipRequired.selector);
+		tangle.createBlueprint(def);
+	}
+
+	function test_CreateBlueprintFailsWithoutBinaryDescriptors() public {
+		Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://missing-binaries", address(0));
+		def.sources[0].binaries = new Types.BlueprintBinary[](0);
+		vm.prank(developer);
+		vm.expectRevert(Errors.BlueprintBinaryRequired.selector);
+		tangle.createBlueprint(def);
+	}
+
+	function test_CreateBlueprintFailsWithZeroHash() public {
+		Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://zero-hash", address(0));
+		def.sources[0].binaries[0].sha256 = bytes32(0);
+		vm.prank(developer);
+		vm.expectRevert(Errors.BlueprintBinaryHashRequired.selector);
 		tangle.createBlueprint(def);
 	}
 }

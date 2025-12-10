@@ -31,6 +31,22 @@ export const registerAssetMetadata = (metadata: AssetMetadata) => {
   registry.set(metadata.address.toLowerCase(), metadata);
 };
 
+export const upsertAssetMetadata = (metadata: Partial<AssetMetadata> & { address: string }) => {
+  const key = metadata.address.toLowerCase();
+  const current = registry.get(key);
+  const base: AssetMetadata =
+    current ??
+    ({
+      address: key,
+      symbol: `token-${key.slice(2, 6)}`,
+      decimals: 18,
+      category: "RESTAKING",
+    } satisfies AssetMetadata);
+  const next: AssetMetadata = { ...base, ...metadata };
+  registry.set(key, next);
+  return next;
+};
+
 const STATIC_ASSETS: AssetMetadata[] = [
   {
     address: ZERO_ADDRESS,

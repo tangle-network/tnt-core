@@ -177,22 +177,21 @@ abstract contract SlashingManager is RewardsManager {
         Types.OperatorRewardPool storage pool = _rewardPools[operator];
 
         // Calculate total stake (operator self-stake + delegated assets)
+        uint256 slashAmount = amount;
         uint256 operatorStake = meta.stake;
-        uint256 delegatedStake = pool.totalAssets;
-        uint256 totalStake = operatorStake + delegatedStake;
+        uint256 totalStake = operatorStake + pool.totalAssets;
 
         if (totalStake == 0) {
             return 0;
         }
 
         // Cap slash to total stake
-        if (amount > totalStake) {
-            amount = totalStake;
+        if (slashAmount > totalStake) {
+            slashAmount = totalStake;
         }
 
         // Calculate proportional slash amounts
-        uint256 operatorSlashAmount = (amount * operatorStake) / totalStake;
-        uint256 delegatorSlashAmount = amount - operatorSlashAmount;
+        uint256 operatorSlashAmount = (slashAmount * operatorStake) / totalStake;
 
         // Record exchange rate before slash
         uint256 exchangeRateBefore = _getExchangeRate(operator);
@@ -202,7 +201,7 @@ abstract contract SlashingManager is RewardsManager {
 
         // Slash delegators by reducing totalAssets - O(1)!
         // Shares stay constant, but each share is now worth less
-        uint256 actualDelegatorSlash = _slashAllModePool(operator, delegatorSlashAmount);
+        uint256 actualDelegatorSlash = _slashAllModePool(operator, slashAmount - operatorSlashAmount);
 
         actualSlashed = actualOperatorSlash + actualDelegatorSlash;
 

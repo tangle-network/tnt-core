@@ -62,6 +62,12 @@ library Errors {
     /// @notice Blueprint definition missing implementation sources
     error BlueprintSourcesRequired();
 
+    /// @notice Blueprint source missing binary descriptors with hashes
+    error BlueprintBinaryRequired();
+
+    /// @notice Blueprint binary missing sha256 hash
+    error BlueprintBinaryHashRequired();
+
     /// @notice MBSM registry not configured
     error MBSMRegistryNotSet();
 

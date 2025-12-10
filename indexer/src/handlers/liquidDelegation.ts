@@ -20,9 +20,34 @@ import {
   maybeDeactivateDelegatorParticipation,
 } from "../lib/handlerUtils";
 import { activateParticipation, pointsContext } from "../points/participation";
-import { awardRestakerVaultStake } from "../points/awards";
+import { awardLiquidVaultStake, penalizeLiquidVaultWithdraw } from "../points/awards";
+import { upsertAssetMetadata } from "../points/assets";
 
 const getVaultId = (address: string) => normalizeAddress(address);
+
+const SHARE_PRICE_SCALE = 1_000_000n;
+
+const computeDerivedScale = (vault: LiquidVaultEntity) => {
+  const totalShares = vault.totalShares ?? 0n;
+  const totalAssets = vault.totalAssets ?? 0n;
+  if (totalShares === 0n || totalAssets === 0n) {
+    return 1;
+  }
+  const scaled = (totalAssets * SHARE_PRICE_SCALE) / totalShares;
+  return Number(scaled) / Number(SHARE_PRICE_SCALE);
+};
+
+const syncVaultAssetMetadata = (vault: LiquidVaultEntity) => {
+  upsertAssetMetadata({
+    address: vault.id,
+    symbol: vault.symbol ?? `ld-${vault.id.slice(2, 6)}`,
+    decimals: 18,
+    category: "VAULT",
+    derivedFrom: vault.assetAddress ?? ZERO_ADDRESS,
+    derivedScale: computeDerivedScale(vault),
+    description: vault.name ? `${vault.name} vault share` : undefined,
+  });
+};
 
 const getPositionId = (vaultId: string, accountId: string) => `${vaultId}-${accountId}`;
 
@@ -33,6 +58,7 @@ const ensureVaultEntity = async (context: any, vaultAddress: string): Promise<Li
 
 const saveVaultEntity = (context: any, entity: LiquidVaultEntity) => {
   context.LiquidDelegationVault.set(entity);
+  syncVaultAssetMetadata(entity);
 };
 
 const ensurePosition = async (
@@ -49,6 +75,8 @@ const ensurePosition = async (
       vault_id: vaultId,
       account_id: accountId,
       shares: 0n,
+      pendingShares: 0n,
+      pendingAssets: 0n,
       firstMintedAt: timestamp,
       updatedAt: timestamp,
     } as LiquidVaultPosition;
@@ -58,6 +86,32 @@ const ensurePosition = async (
 
 const savePosition = (context: any, position: LiquidVaultPosition) => {
   context.LiquidVaultPosition.set(position);
+};
+
+const applyDelta = (current: bigint | undefined, delta: bigint) => {
+  if (delta >= 0n) {
+    return (current ?? 0n) + delta;
+  }
+  return subtractToZero(current, -delta);
+};
+
+const adjustPendingPosition = async (
+  context: any,
+  vaultId: string,
+  accountId: string,
+  shareDelta: bigint,
+  assetDelta: bigint,
+  timestamp: bigint
+) => {
+  const position = await ensurePosition(context, vaultId, accountId, timestamp);
+  const updated: LiquidVaultPosition = {
+    ...position,
+    pendingShares: applyDelta(position.pendingShares, shareDelta),
+    pendingAssets: applyDelta(position.pendingAssets, assetDelta),
+    updatedAt: timestamp,
+  } as LiquidVaultPosition;
+  savePosition(context, updated);
+  return updated;
 };
 
 export function registerLiquidDelegationHandlers() {
@@ -88,6 +142,7 @@ export function registerLiquidDelegationHandlers() {
       totalShares: 0n,
       totalDepositors: 0n,
       pendingRedeemShares: 0n,
+       harvestedRewards: 0n,
       createdAt: timestamp,
       updatedAt: timestamp,
       txHash: getTxHash(event),
@@ -115,7 +170,7 @@ export function registerLiquidDelegationHandlers() {
     saveVaultEntity(context, updatedVault);
     const owner = normalizeAddress(event.params.owner);
     const points = getPointsManager(pointsContext(context), event);
-    await awardRestakerVaultStake(points, owner, vault.id, assets);
+    await awardLiquidVaultStake(points, owner, vault.id, assets);
   });
 
   LiquidDelegationVault.Withdraw.handler(async ({ event, context }) => {
@@ -123,25 +178,37 @@ export function registerLiquidDelegationHandlers() {
     const vault = await ensureVaultEntity(context, event.srcAddress);
     if (!vault) return;
     const assets = toBigInt(event.params.assets);
+    const shares = toBigInt(event.params.shares);
     const updatedVault: LiquidVaultEntity = {
       ...vault,
       totalAssets: subtractToZero(vault.totalAssets, assets),
-      pendingRedeemShares: subtractToZero(vault.pendingRedeemShares, toBigInt(event.params.shares)),
+      pendingRedeemShares: subtractToZero(vault.pendingRedeemShares, shares),
       updatedAt: timestamp,
     } as LiquidVaultEntity;
     saveVaultEntity(context, updatedVault);
 
     const controller = normalizeAddress(event.params.owner);
-    const requestId = await resolveRedeemRequest(context, updatedVault.id, controller, toBigInt(event.params.shares));
-    if (requestId) {
-      const req = (await context.LiquidRedeemRequest.get(requestId)) as LiquidRedeemRequest | undefined;
-      if (req) {
-        context.LiquidRedeemRequest.set({
-          ...req,
-          claimed: true,
-          claimedAt: timestamp,
-          claimer: normalizeAddress(event.params.receiver),
-        } as LiquidRedeemRequest);
+    const request = await resolveRedeemRequest(context, updatedVault.id, controller, shares);
+    if (request) {
+      context.LiquidRedeemRequest.set({
+        ...request,
+        claimed: true,
+        claimedAt: timestamp,
+        claimer: normalizeAddress(event.params.receiver),
+      } as LiquidRedeemRequest);
+      if (request.owner_id) {
+        await adjustPendingPosition(
+          context,
+          updatedVault.id,
+          request.owner_id,
+          -(request.shares ?? 0n),
+          -(request.estimatedAssets ?? 0n),
+          timestamp
+        );
+        const delegator = await ensureDelegator(context, request.owner_id, timestamp);
+        await maybeDeactivateDelegatorParticipation(context, delegator, timestamp);
+        const points = getPointsManager(pointsContext(context), event);
+        await penalizeLiquidVaultWithdraw(points, request.owner_id, updatedVault.id, assets);
       }
     }
   });
@@ -152,6 +219,10 @@ export function registerLiquidDelegationHandlers() {
     if (!vault) return;
     const controller = normalizeAddress(event.params.controller);
     const owner = normalizeAddress(event.params.owner);
+    const shares = toBigInt(event.params.shares);
+    const totalShares = vault.totalShares ?? 0n;
+    const totalAssets = vault.totalAssets ?? 0n;
+    const estimatedAssets = totalShares > 0n && totalAssets > 0n ? (shares * totalAssets) / totalShares : shares;
     const id = `${vault.id}-${controller}-${toBigInt(event.params.requestId).toString()}`;
     const request: LiquidRedeemRequest = {
       id,
@@ -159,7 +230,8 @@ export function registerLiquidDelegationHandlers() {
       controller,
       owner_id: owner,
       requestId: toBigInt(event.params.requestId),
-      shares: toBigInt(event.params.shares),
+      shares,
+      estimatedAssets,
       requestedRound: 0n,
       claimed: false,
       createdAt: timestamp,
@@ -168,11 +240,13 @@ export function registerLiquidDelegationHandlers() {
     context.LiquidRedeemRequest.set(request);
     const updatedVault: LiquidVaultEntity = {
       ...vault,
-      totalShares: subtractToZero(vault.totalShares, request.shares),
-      pendingRedeemShares: (vault.pendingRedeemShares ?? 0n) + request.shares,
+      totalShares: subtractToZero(vault.totalShares, request.shares ?? 0n),
+      pendingRedeemShares: (vault.pendingRedeemShares ?? 0n) + (request.shares ?? 0n),
       updatedAt: timestamp,
     } as LiquidVaultEntity;
     saveVaultEntity(context, updatedVault);
+    await adjustPendingPosition(context, updatedVault.id, owner, shares, estimatedAssets, timestamp);
+    await activateParticipation(context, "delegator-hourly", owner, "DELEGATOR", timestamp);
   });
 
   LiquidDelegationVault.Transfer.handler(async ({ event, context }) => {
@@ -186,6 +260,20 @@ export function registerLiquidDelegationHandlers() {
     const from = normalizeAddress(event.params.from);
     const to = normalizeAddress(event.params.to);
     await handleShareMovement(context, vault, from, to, value, timestamp);
+  });
+
+  LiquidDelegationVault.RewardsHarvested.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const vault = await ensureVaultEntity(context, event.srcAddress);
+    if (!vault) return;
+    const amount = toBigInt(event.params.amount);
+    const updatedVault: LiquidVaultEntity = {
+      ...vault,
+      totalAssets: (vault.totalAssets ?? 0n) + amount,
+      harvestedRewards: (vault.harvestedRewards ?? 0n) + amount,
+      updatedAt: timestamp,
+    } as LiquidVaultEntity;
+    saveVaultEntity(context, updatedVault);
   });
 }
 
@@ -202,12 +290,16 @@ const handleShareMovement = async (
     const delegator = await ensureDelegator(context, from, timestamp);
     const position = await ensurePosition(context, vault.id, delegator.id, timestamp);
     const nextShares = subtractToZero(position.shares, value);
-    savePosition(context, { ...position, shares: nextShares, updatedAt: timestamp } as LiquidVaultPosition);
+    const updatedPosition: LiquidVaultPosition = { ...position, shares: nextShares, updatedAt: timestamp } as LiquidVaultPosition;
+    savePosition(context, updatedPosition);
     if (nextShares === 0n) {
       if ((position.shares ?? 0n) > 0n && totalDepositors > 0n) {
         totalDepositors -= 1n;
       }
-      await maybeDeactivateDelegatorParticipation(context, delegator, timestamp);
+      const hasPending = (updatedPosition.pendingShares ?? 0n) > 0n || (updatedPosition.pendingAssets ?? 0n) > 0n;
+      if (!hasPending) {
+        await maybeDeactivateDelegatorParticipation(context, delegator, timestamp);
+      }
     }
   }
   if (to !== ZERO_ADDRESS) {
@@ -225,15 +317,7 @@ const handleShareMovement = async (
   saveVaultEntity(context, { ...vault, totalDepositors, updatedAt: timestamp } as LiquidVaultEntity);
 };
 
-const resolveRedeemRequest = async (
-  context: any,
-  vaultId: string,
-  controller: string,
-  shares: bigint
-) => {
+const resolveRedeemRequest = async (context: any, vaultId: string, controller: string, shares: bigint) => {
   const requests = (await context.LiquidRedeemRequest.getWhere.vault_id.eq(vaultId)) as LiquidRedeemRequest[];
-  const pending = requests.find(
-    (req) => !req.claimed && req.controller === controller && (req.shares ?? 0n) === shares
-  );
-  return pending?.id;
+  return requests.find((req) => !req.claimed && req.controller === controller && (req.shares ?? 0n) === shares);
 };
