@@ -7,6 +7,8 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 import { SlashingManager } from "./SlashingManager.sol";
@@ -29,6 +31,7 @@ contract MultiAssetDelegation is
     IRestaking
 {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using SafeERC20 for IERC20;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -697,6 +700,24 @@ contract MultiAssetDelegation is
     /// @notice Unpause the contract
     function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
+    }
+
+    /// @notice Rescue tokens accidentally sent to this contract
+    /// @dev Only allows rescuing tokens that are NOT registered restaking assets
+    /// @param token The ERC20 token to rescue
+    /// @param to The recipient address
+    /// @param amount The amount to rescue
+    function rescueTokens(address token, address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(to != address(0), "Invalid recipient");
+        require(amount > 0, "Invalid amount");
+
+        // Prevent rescuing registered restaking assets (user funds)
+        require(!_enabledErc20s.contains(token), "Cannot rescue registered asset");
+
+        // Also check if there's an adapter registered for this token
+        require(_assetAdapters[token] == address(0), "Cannot rescue adapted asset");
+
+        IERC20(token).safeTransfer(to, amount);
     }
 
     /// @notice Authorize upgrade

@@ -10,8 +10,11 @@ import { OperatorStatusRegistry } from "../../src/v2/restaking/OperatorStatusReg
 import { TangleToken } from "../../src/v2/governance/TangleToken.sol";
 import { MasterBlueprintServiceManager } from "../../src/v2/MasterBlueprintServiceManager.sol";
 import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 error InvalidAddress(string field);
+error ProxyVerificationFailed(string reason);
 error AddressNotAllowlisted(string field, address provided, address expected);
 error MissingEnv(string key);
 
@@ -63,6 +66,30 @@ abstract contract DeployScriptBase is Script {
                 revert AddressNotAllowlisted(field, candidate, allowed);
             }
         } catch {}
+    }
+
+    /// @notice Verify UUPS proxy deployment was successful
+    /// @param proxy The proxy address
+    /// @param expectedAdmin The expected admin address
+    /// @param label Human-readable label for error messages
+    function _verifyProxy(address proxy, address expectedAdmin, string memory label) internal view {
+        // 1. Check proxy address is valid
+        if (proxy == address(0)) {
+            revert ProxyVerificationFailed(string.concat(label, ": proxy is zero address"));
+        }
+
+        // 2. Check proxy has code (is a contract)
+        if (proxy.code.length == 0) {
+            revert ProxyVerificationFailed(string.concat(label, ": proxy has no code"));
+        }
+
+        // 3. Verify admin role is properly set
+        bytes32 adminRole = AccessControlUpgradeable(proxy).DEFAULT_ADMIN_ROLE();
+        if (!AccessControlUpgradeable(proxy).hasRole(adminRole, expectedAdmin)) {
+            revert ProxyVerificationFailed(string.concat(label, ": admin role not set"));
+        }
+
+        console2.log(string.concat("[VERIFIED] ", label, " proxy at"), proxy);
     }
 }
 
@@ -158,6 +185,10 @@ contract DeployV2 is DeployScriptBase {
 
         statusRegistry = deployOperatorStatusRegistry(tangleProxy);
         console2.log("OperatorStatusRegistry:", statusRegistry);
+
+        // Verify proxy deployments
+        _verifyProxy(restakingProxy, admin, "MultiAssetDelegation");
+        _verifyProxy(tangleProxy, admin, "Tangle");
 
         MultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
 

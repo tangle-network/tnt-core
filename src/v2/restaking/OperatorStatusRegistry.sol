@@ -73,7 +73,6 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
     /// @notice Heartbeat message typehash (for reference - actual signing uses raw keccak256)
     /// @dev Signature: keccak256(abi.encodePacked(serviceId, blueprintId, abiEncodedStatus)) with Ethereum prefix
     ///      HeartbeatStatus = (uint64 blockNumber, uint64 timestamp, uint64 serviceId, uint64 blueprintId, uint32 statusCode, string statusMessage)
-    ///      TODO(blueprint-sdk): Update to use ABI encoding instead of SCALE, and big-endian for serviceId/blueprintId
     bytes32 public constant HEARTBEAT_TYPEHASH = keccak256(
         "HeartbeatStatus(uint64 blockNumber,uint64 timestamp,uint64 serviceId,uint64 blueprintId,uint32 statusCode,string statusMessage)"
     );
