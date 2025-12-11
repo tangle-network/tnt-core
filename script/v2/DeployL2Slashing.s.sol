@@ -53,6 +53,7 @@ contract DeployL2Slashing is EnvUtils {
     // Chain IDs
     uint256 public constant ETHEREUM_MAINNET = 1;
     uint256 public constant ETHEREUM_SEPOLIA = 11155111;
+    uint256 public constant ETHEREUM_HOLESKY = 17000;
 
     // Bridge protocol selection
     enum BridgeProtocol {
