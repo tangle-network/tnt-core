@@ -1,6 +1,6 @@
 import { onBlock } from "generated";
 import { PointsManager } from "../points";
-import { HOURLY_BLOCK_INTERVAL } from "../lib/handlerUtils";
+import { HOURLY_BLOCK_INTERVAL, CHAIN_ID } from "../lib/handlerUtils";
 import { HOURLY_PROGRAMS, pointsContext, processParticipation } from "../points/participation";
 import { refreshRegisteredAssetPrices } from "../points/prices";
 
@@ -17,12 +17,12 @@ const extractBlockMeta = (block: { number?: number | string; timestamp?: number 
 };
 
 export function registerHourlyHandlers() {
-  onBlock({ name: "asset-price-refresh", chain: 84532, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
+  onBlock({ name: "asset-price-refresh", chain: CHAIN_ID, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
     const { blockNumber, timestamp } = extractBlockMeta(block);
     await refreshRegisteredAssetPrices(context, blockNumber, timestamp);
   });
 
-  onBlock({ name: "hourly-participation", chain: 84532, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
+  onBlock({ name: "hourly-participation", chain: CHAIN_ID, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
     const { blockNumber, timestamp, hash } = extractBlockMeta(block);
     const points = new PointsManager(pointsContext(context), blockNumber, timestamp, hash);
     for (const program of HOURLY_PROGRAMS) {

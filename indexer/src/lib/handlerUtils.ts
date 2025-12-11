@@ -34,6 +34,10 @@ export const GLOBAL_PROTOCOL_ID = "tangle-protocol";
 export const GLOBAL_SLASH_CONFIG_ID = "slash-config";
 export const HOURLY_BLOCK_INTERVAL = 300;
 
+// Chain ID - reads from INDEXER_CHAIN_ID env var, defaults to 31337 for local dev
+// Production (config.yaml) uses 84532 (Base Sepolia), local (config.local.yaml) uses 31337
+export const CHAIN_ID = parseInt(process.env.INDEXER_CHAIN_ID || "31337") as 31337 | 84532;
+
 export type EventLike = {
   block: { hash: string; number: number | string; timestamp: number };
   transaction?: { hash?: string };
