@@ -84,6 +84,18 @@ abstract contract DelegationStorage {
     bool public nativeEnabled;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ASSET ADAPTERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Asset adapter registry: token address => adapter address
+    /// @dev If adapter is set, deposits/withdrawals go through adapter for share accounting
+    mapping(address => address) internal _assetAdapters;
+
+    /// @notice Whether to require adapters for all ERC20 deposits
+    /// @dev When true, deposits revert if no adapter is registered
+    bool public requireAdapters;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // OPERATOR STORAGE
     // ═══════════════════════════════════════════════════════════════════════════
 

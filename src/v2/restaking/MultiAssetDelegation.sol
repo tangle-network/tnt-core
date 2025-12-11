@@ -13,6 +13,7 @@ import { SlashingManager } from "./SlashingManager.sol";
 import { DepositManager } from "./DepositManager.sol";
 import { IRestaking } from "../interfaces/IRestaking.sol";
 import { Types } from "../libraries/Types.sol";
+import { IAssetAdapter } from "./adapters/IAssetAdapter.sol";
 
 /// @title MultiAssetDelegation
 /// @notice Modular multi-asset delegation system with proportional slashing
@@ -419,6 +420,88 @@ contract MultiAssetDelegation is
             ? Types.Asset(Types.AssetKind.Native, address(0))
             : Types.Asset(Types.AssetKind.ERC20, token);
         return _assetConfigs[_assetHash(asset)];
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ADAPTER MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    event AdapterRegistered(address indexed token, address indexed adapter);
+    event AdapterRemoved(address indexed token);
+    event RequireAdaptersUpdated(bool required);
+
+    /// @notice Register an adapter for a token
+    /// @param token The token address
+    /// @param adapter The adapter address
+    /// @dev Adapter must support the token (checked via supportsAsset)
+    function registerAdapter(address token, address adapter) external onlyRole(ASSET_MANAGER_ROLE) {
+        require(token != address(0), "Cannot set adapter for native");
+        require(adapter != address(0), "Invalid adapter");
+
+        // Verify adapter supports the token
+        require(
+            IAssetAdapter(adapter).supportsAsset(token),
+            "Adapter doesn't support token"
+        );
+
+        _assetAdapters[token] = adapter;
+        emit AdapterRegistered(token, adapter);
+    }
+
+    /// @notice Remove adapter for a token (falls back to direct transfers)
+    /// @param token The token address
+    function removeAdapter(address token) external onlyRole(ASSET_MANAGER_ROLE) {
+        require(_assetAdapters[token] != address(0), "No adapter registered");
+        delete _assetAdapters[token];
+        emit AdapterRemoved(token);
+    }
+
+    /// @notice Set whether adapters are required for ERC20 deposits
+    /// @param required If true, deposits revert when no adapter is registered
+    function setRequireAdapters(bool required) external onlyRole(ASSET_MANAGER_ROLE) {
+        requireAdapters = required;
+        emit RequireAdaptersUpdated(required);
+    }
+
+    /// @notice Enable asset with adapter in one call
+    /// @param token Token address
+    /// @param adapter Adapter address
+    /// @param _minOperatorStake Minimum stake for operators
+    /// @param _minDelegation Minimum delegation amount
+    /// @param _depositCap Maximum total deposits (0 = unlimited)
+    /// @param _rewardMultiplierBps Reward multiplier in basis points
+    function enableAssetWithAdapter(
+        address token,
+        address adapter,
+        uint256 _minOperatorStake,
+        uint256 _minDelegation,
+        uint256 _depositCap,
+        uint16 _rewardMultiplierBps
+    ) external onlyRole(ASSET_MANAGER_ROLE) {
+        require(token != address(0), "Use native");
+        require(adapter != address(0), "Invalid adapter");
+        require(
+            IAssetAdapter(adapter).supportsAsset(token),
+            "Adapter doesn't support token"
+        );
+
+        // Register adapter
+        _assetAdapters[token] = adapter;
+        emit AdapterRegistered(token, adapter);
+
+        // Enable asset
+        bytes32 assetHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
+        _assetConfigs[assetHash] = Types.AssetConfig({
+            enabled: true,
+            minOperatorStake: _minOperatorStake,
+            minDelegation: _minDelegation,
+            depositCap: _depositCap,
+            currentDeposits: 0,
+            rewardMultiplierBps: _rewardMultiplierBps
+        });
+        _enabledErc20s.add(token);
+
+        emit AssetEnabled(token, _minOperatorStake, _minDelegation);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

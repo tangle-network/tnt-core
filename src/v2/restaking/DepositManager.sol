@@ -7,6 +7,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { DelegationStorage } from "./DelegationStorage.sol";
 import { DelegationErrors } from "./DelegationErrors.sol";
 import { Types } from "../libraries/Types.sol";
+import { IAssetAdapter } from "./adapters/IAssetAdapter.sol";
 
 /// @title DepositManager
 /// @notice Manages delegator deposits, withdrawals, and locks
@@ -61,10 +62,10 @@ abstract contract DepositManager is DelegationStorage {
     function _depositErc20(address token, uint256 amount) internal {
         if (token == address(0)) revert DelegationErrors.AssetNotEnabled(address(0));
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        uint256 shares = _handleErc20Deposit(token, amount);
         _depositAsset(
             Types.Asset(Types.AssetKind.ERC20, token),
-            amount,
+            shares,
             Types.LockMultiplier.None
         );
     }
@@ -80,12 +81,30 @@ abstract contract DepositManager is DelegationStorage {
     ) internal {
         if (token == address(0)) revert DelegationErrors.AssetNotEnabled(address(0));
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        uint256 shares = _handleErc20Deposit(token, amount);
         _depositAsset(
             Types.Asset(Types.AssetKind.ERC20, token),
-            amount,
+            shares,
             lockMultiplier
         );
+    }
+
+    /// @notice Handle ERC20 deposit through adapter or directly
+    /// @param token Token address
+    /// @param amount Amount to deposit
+    /// @return shares Amount of shares (equals amount for direct deposits)
+    function _handleErc20Deposit(address token, uint256 amount) internal returns (uint256 shares) {
+        address adapter = _assetAdapters[token];
+
+        if (adapter != address(0)) {
+            // Use adapter - user must have approved the adapter
+            shares = IAssetAdapter(adapter).deposit(msg.sender, amount);
+        } else {
+            // Direct deposit - require adapters mode check
+            if (requireAdapters) revert DelegationErrors.AssetNotEnabled(token);
+            IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+            shares = amount; // 1:1 for direct deposits
+        }
     }
 
     /// @notice Internal deposit logic
@@ -270,12 +289,39 @@ abstract contract DepositManager is DelegationStorage {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Transfer asset to recipient
+    /// @dev For ERC20s with adapters, `amount` is actually shares and adapter converts to assets
     function _transferAsset(Types.Asset memory asset, address to, uint256 amount) internal {
         if (asset.kind == Types.AssetKind.Native) {
             (bool success,) = to.call{ value: amount }("");
             require(success, "Native transfer failed");
         } else {
-            IERC20(asset.token).safeTransfer(to, amount);
+            address adapter = _assetAdapters[asset.token];
+            if (adapter != address(0)) {
+                // Use adapter - amount is shares, adapter converts to assets
+                IAssetAdapter(adapter).withdraw(to, amount);
+            } else {
+                // Direct transfer - amount is actual token amount
+                IERC20(asset.token).safeTransfer(to, amount);
+            }
         }
+    }
+
+    /// @notice Get the asset value for a given share amount
+    /// @param token Token address
+    /// @param shares Share amount
+    /// @return assets Asset value (equals shares if no adapter)
+    function _sharesToAssets(address token, uint256 shares) internal view returns (uint256 assets) {
+        address adapter = _assetAdapters[token];
+        if (adapter != address(0)) {
+            return IAssetAdapter(adapter).sharesToAssets(shares);
+        }
+        return shares; // 1:1 for non-adapter tokens
+    }
+
+    /// @notice Get adapter for a token
+    /// @param token Token address
+    /// @return adapter Adapter address (or zero if none)
+    function getAssetAdapter(address token) external view returns (address) {
+        return _assetAdapters[token];
     }
 }
