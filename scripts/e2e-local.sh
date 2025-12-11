@@ -53,8 +53,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Step 1: Start Anvil
-log "Starting Anvil on chain ID 84532 (Base Sepolia)..."
-anvil --chain-id 84532 --block-time 1 --base-fee 0 --gas-limit 30000000 --disable-code-size-limit --silent &
+# Use chain ID 31337 (Anvil default) to match config.local.yaml and hourly.ts handlers
+log "Starting Anvil on chain ID 31337 (local development)..."
+anvil --chain-id 31337 --block-time 1 --base-fee 0 --gas-limit 30000000 --disable-code-size-limit --silent &
 ANVIL_PID=$!
 sleep 2
 
@@ -155,7 +156,7 @@ ln -sfn ../generated node_modules/generated
 # Step 5: Start the indexer directly (bypass envio dev to avoid re-codegen)
 log "Starting indexer..."
 cd "$INDEXER_DIR/generated"
-TUI_OFF=true ENVIO_RPC_URL_84532=http://127.0.0.1:8545 pnpm start &
+TUI_OFF=true ENVIO_RPC_URL_31337=http://127.0.0.1:8545 pnpm start &
 INDEXER_PID=$!
 cd "$INDEXER_DIR"
 sleep 5
