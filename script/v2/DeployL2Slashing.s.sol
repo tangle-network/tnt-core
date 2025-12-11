@@ -50,10 +50,13 @@ abstract contract EnvUtils is Script {
 /// @notice Deploy script for L2 (Tangle) slashing receiver infrastructure
 /// @dev Deploys to Tangle mainnet/testnet
 contract DeployL2Slashing is EnvUtils {
-    // Chain IDs
+    // Chain IDs - Ethereum
     uint256 public constant ETHEREUM_MAINNET = 1;
     uint256 public constant ETHEREUM_SEPOLIA = 11155111;
     uint256 public constant ETHEREUM_HOLESKY = 17000;
+    // Chain IDs - Base
+    uint256 public constant BASE_MAINNET = 8453;
+    uint256 public constant BASE_SEPOLIA = 84532;
 
     // Bridge protocol selection
     enum BridgeProtocol {

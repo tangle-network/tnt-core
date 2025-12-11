@@ -173,6 +173,7 @@ contract DeployBeaconSlashingL1 is Script {
     function deployHyperlaneMessenger() internal returns (address) {
         // Hyperlane Mailbox addresses by chain
         // See: https://docs.hyperlane.xyz/docs/reference/addresses/deployments/mailbox
+        // See: https://github.com/hyperlane-xyz/hyperlane-registry/tree/main/chains
         address mailbox;
         address igp;
 
@@ -188,6 +189,14 @@ contract DeployBeaconSlashingL1 is Script {
             // Holesky testnet
             mailbox = 0x5b6CFf85442B851A8e6eaBd2A4E4507B5135B3B0;
             igp = 0x6f2756380FD49228ae25Aa7F2817993cB74Ecc56; // Same as Sepolia - verify before mainnet
+        } else if (block.chainid == 8453) {
+            // Base mainnet
+            mailbox = 0xeA87ae93Fa0019a82A727bfd3eBd1cFCa8f64f1D;
+            igp = 0xc3F23848Ed2e04C0c6d41bd7804fa8f89F940B94;
+        } else if (block.chainid == 84532) {
+            // Base Sepolia testnet
+            mailbox = 0x6966b0E55883d49BFB24539356a2f8A673E02039;
+            igp = 0x28B02B97a850872C4D33C3E024fab6499ad96564;
         } else {
             revert("Unsupported chain for Hyperlane");
         }
@@ -213,6 +222,12 @@ contract DeployBeaconSlashingL1 is Script {
             endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
         } else if (block.chainid == 17000) {
             // Holesky testnet
+            endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+        } else if (block.chainid == 8453) {
+            // Base mainnet
+            endpoint = 0x1a44076050125825900e736c501f859c50fE728c;
+        } else if (block.chainid == 84532) {
+            // Base Sepolia testnet
             endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
         } else {
             revert("Unsupported chain for LayerZero");
@@ -272,6 +287,26 @@ contract DeployBeaconSlashingL1Testnet is Script {
 /// @notice Convenience script for Holesky testnet deployment
 /// @dev Run with: forge script script/v2/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1Holesky --rpc-url $HOLESKY_RPC --broadcast
 contract DeployBeaconSlashingL1Holesky is Script {
+    function run() external {
+        DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
+        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.Hyperlane);
+    }
+}
+
+/// @title DeployBeaconSlashingBase
+/// @notice Convenience script for Base mainnet deployment
+/// @dev Run with: forge script script/v2/DeployBeaconSlashing.s.sol:DeployBeaconSlashingBase --rpc-url $BASE_RPC --broadcast
+contract DeployBeaconSlashingBase is Script {
+    function run() external {
+        DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
+        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.Hyperlane);
+    }
+}
+
+/// @title DeployBeaconSlashingBaseSepolia
+/// @notice Convenience script for Base Sepolia testnet deployment
+/// @dev Run with: forge script script/v2/DeployBeaconSlashing.s.sol:DeployBeaconSlashingBaseSepolia --rpc-url $BASE_SEPOLIA_RPC --broadcast
+contract DeployBeaconSlashingBaseSepolia is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
         deploy.run(DeployBeaconSlashingL1.BridgeProtocol.Hyperlane);
