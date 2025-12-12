@@ -28,6 +28,20 @@ forge build
 
 Every deployment must register at least one Master Blueprint Service Manager (MBSM) version and configure it on `Tangle` before blueprint creation. The provided deploy scripts already deploy an `MBSMRegistry`, add the first version, and call `setMBSMRegistry` on the Tangle proxy. If you roll your own tooling, replicate those steps (or call `setMBSMRegistry` with an existing registry) before attempting `createBlueprint`; the call now enforces that dependency and will revert if the registry is unset.
 
+#### Full Deploy pipeline
+
+- The config-driven orchestrator lives at `script/v2/FullDeploy.s.sol`. Point `FULL_DEPLOY_CONFIG` at a JSON file under `deploy/config/` (see [`docs/full-deploy.md`](docs/full-deploy.md) for the schema) and run:
+  ```bash
+  export PRIVATE_KEY=0x...
+  export FULL_DEPLOY_CONFIG=deploy/config/base-sepolia.example.json
+  forge script script/v2/FullDeploy.s.sol:FullDeploy --rpc-url $RPC_URL --broadcast --slow
+  ```
+- The script deploys or reuses the core stack, onboards restake assets, configures the inflation/reward modules, and writes a manifest/migration bundle under `deployments/`.
+- Additional skeleton profiles are staged for upcoming rollouts:
+  - `deploy/config/base-sepolia-holesky.json` – Base Sepolia ↔ Holesky bridge rehearsal (placeholders + TODOs for every address).
+  - `deploy/config/base-mainnet.json` – Base mainnet deployment (with placeholder TNT/restake asset data).
+- Local developers can bootstrap Anvil with `scripts/local-env/start-local-env.sh`, which wraps the same entrypoint using `deploy/config/local.anvil.json`.
+
 Operator onboarding also requires a TNT bond. The deployment script enforces this automatically:
 
 1. Provide the TNT ERC20 address (and optional bond amount) via environment variables:

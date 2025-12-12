@@ -246,6 +246,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         restaking.enableAsset(address(stETH), 0, 0, 0, 15_000); // 1.5x multiplier for stETH
         restaking.enableAsset(address(wstETH), 0, 0, 0, 15_000); // 1.5x multiplier for wstETH
         restaking.enableAsset(address(eigen), 0, 0, 0, 20_000); // 2x multiplier for EIGEN
+        restaking.enableAsset(address(bondToken), 0, 0, 0, 10_000); // TNT native token
         console2.log("All tokens enabled as restaking assets");
 
         // Mint tokens to test accounts (use large amounts for testing)

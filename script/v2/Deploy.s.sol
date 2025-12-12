@@ -104,7 +104,7 @@ contract DeployV2 is DeployScriptBase {
     address public operatorBondToken;
     uint256 public operatorBondAmount = 100 ether;
 
-    function run() external {
+    function run() external virtual {
         uint256 deployerPrivateKey = _requireEnvUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         address admin = _envAddressOrDefault("ADMIN", deployer);
