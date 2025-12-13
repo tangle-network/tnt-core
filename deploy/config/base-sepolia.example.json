@@ -39,7 +39,7 @@
     "deployRewardVaults": true,
     "vaultOperatorCommissionBps": 1500,
     "deployInflationPool": true,
-    "epochLength": 50400,
+    "epochLength": 604800,
     "weights": {
       "stakingBps": 5000,
       "operatorsBps": 2500,

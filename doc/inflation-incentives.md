@@ -19,8 +19,9 @@ Pre-funded reward pool that distributes TNT to ecosystem participants based on a
 
 | Parameter | Value | Contract Field |
 |-----------|-------|----------------|
-| Blocks per year | 2,628,000 | `BLOCKS_PER_YEAR` |
-| Default epoch | ~1 week | `epochLength` (configurable) |
+| Seconds per year | 365 days | `SECONDS_PER_YEAR` |
+| Legacy blocks per year (unused) | 2,628,000 | `BLOCKS_PER_YEAR` |
+| Default epoch | 7 days | `epochLength` (configurable, in seconds) |
 
 **Verify:** `InflationPool.epochLength()`
 
@@ -114,8 +115,8 @@ InflationPool.setWeights(
 
 ```solidity
 // Requires ADMIN_ROLE
-// Min: 100 blocks, Max: 2,628,000 blocks (1 year)
-InflationPool.setEpochLength(50400) // ~1 week at 12s blocks
+// Min: 60 seconds, Max: 365 days
+InflationPool.setEpochLength(7 days);
 ```
 
 ### Funding the Pool

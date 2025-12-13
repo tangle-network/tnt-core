@@ -28,7 +28,7 @@ contract InflationPoolTest is Test {
 
     uint256 public constant INITIAL_SUPPLY = 50_000_000 * 1e18;
     uint256 public constant POOL_FUNDING = 500_000 * 1e18; // 1% of supply for year 1
-    uint256 public constant EPOCH_LENGTH = 100; // 100 blocks for testing
+    uint256 public constant EPOCH_LENGTH = 100; // 100 seconds for testing
 
     function setUp() public {
         vm.startPrank(admin);
@@ -91,6 +91,28 @@ contract InflationPoolTest is Test {
         assertEq(operators, 2500);
         assertEq(customers, 1000);
         assertEq(developers, 1500);
+    }
+
+    function test_Initialize_RevertEpochTooShort() public {
+        InflationPool poolImpl = new InflationPool();
+        bytes memory poolData = abi.encodeCall(
+            InflationPool.initialize,
+            (admin, address(tnt), address(metrics), address(vaults), 59)
+        );
+
+        vm.expectRevert(InflationPool.InvalidEpochLength.selector);
+        new ERC1967Proxy(address(poolImpl), poolData);
+    }
+
+    function test_Initialize_RevertEpochTooLong() public {
+        InflationPool poolImpl = new InflationPool();
+        bytes memory poolData = abi.encodeCall(
+            InflationPool.initialize,
+            (admin, address(tnt), address(metrics), address(vaults), 365 days + 1)
+        );
+
+        vm.expectRevert(InflationPool.InvalidEpochLength.selector);
+        new ERC1967Proxy(address(poolImpl), poolData);
     }
 
     function test_PoolBalance() public view {
@@ -156,6 +178,30 @@ contract InflationPoolTest is Test {
         assertEq(pool.epochLength(), 200);
     }
 
+    function test_SetEpochLength_RevertTooShort() public {
+        vm.prank(admin);
+        vm.expectRevert(InflationPool.InvalidEpochLength.selector);
+        pool.setEpochLength(59);
+    }
+
+    function test_SetEpochLength_RevertTooLong() public {
+        vm.prank(admin);
+        vm.expectRevert(InflationPool.InvalidEpochLength.selector);
+        pool.setEpochLength(365 days + 1);
+    }
+
+    function test_SetFundingPeriodSeconds_RevertZero() public {
+        vm.prank(admin);
+        vm.expectRevert(InflationPool.InvalidEpochLength.selector);
+        pool.setFundingPeriodSeconds(0);
+    }
+
+    function test_SetFundingPeriodSeconds_RevertWhenNotAdmin() public {
+        vm.prank(operator1);
+        vm.expectRevert();
+        pool.setFundingPeriodSeconds(30 days);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EPOCH DISTRIBUTION TESTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -184,7 +230,7 @@ contract InflationPoolTest is Test {
         metrics.recordPayment(customer1, 1, address(0), 10 ether);
 
         // Advance to end of epoch
-        vm.roll(block.number + EPOCH_LENGTH + 1);
+        vm.warp(block.timestamp + EPOCH_LENGTH + 1);
 
         // Distribute epoch
         uint256 poolBefore = pool.poolBalance();
@@ -215,12 +261,26 @@ contract InflationPoolTest is Test {
         vm.stopPrank();
 
         // Advance to end of epoch
-        vm.roll(block.number + EPOCH_LENGTH + 1);
+        vm.warp(block.timestamp + EPOCH_LENGTH + 1);
 
         // Distribution should succeed but distribute nothing
         emptyPool.distributeEpoch();
         assertEq(emptyPool.currentEpoch(), 2);
         assertEq(emptyPool.totalDistributed(), 0);
+    }
+
+    function test_DistributeEpoch_DoesNotAllowCatchUpSpam() public {
+        // Warp far into the future; a single call should advance only one epoch and
+        // schedule the next epoch relative to `block.timestamp`.
+        vm.warp(block.timestamp + (EPOCH_LENGTH * 100) + 1);
+        pool.distributeEpoch();
+
+        InflationPool.EpochData memory epoch2 = pool.getEpoch(2);
+        assertEq(epoch2.startTimestamp, block.timestamp);
+        assertEq(epoch2.endTimestamp, block.timestamp + pool.epochLength());
+
+        vm.expectRevert(InflationPool.EpochNotReady.selector);
+        pool.distributeEpoch();
     }
 
     function test_MultipleEpochs() public {
@@ -241,7 +301,7 @@ contract InflationPoolTest is Test {
         // Distribute 3 epochs
         for (uint256 i = 0; i < 3; i++) {
             InflationPool.EpochData memory epoch = pool.getEpoch(pool.currentEpoch());
-            vm.roll(epoch.endBlock + 1);
+            vm.warp(epoch.endTimestamp + 1);
             pool.distributeEpoch();
         }
 
@@ -265,7 +325,7 @@ contract InflationPoolTest is Test {
         metrics.recordHeartbeat(operator1, 1, uint64(block.timestamp));
 
         // Distribute epoch
-        vm.roll(block.number + EPOCH_LENGTH + 1);
+        vm.warp(block.timestamp + EPOCH_LENGTH + 1);
         pool.distributeEpoch();
 
         // Operator should have pending rewards
@@ -297,7 +357,7 @@ contract InflationPoolTest is Test {
         metrics.recordJobCompletion(operator2, 1, 0, true);
         metrics.recordJobCompletion(operator2, 1, 1, true);
 
-        vm.roll(block.number + EPOCH_LENGTH + 1);
+        vm.warp(block.timestamp + EPOCH_LENGTH + 1);
         pool.distributeEpoch();
 
         uint256 pending1 = pool.pendingOperatorRewards(operator1);
@@ -318,7 +378,7 @@ contract InflationPoolTest is Test {
         // Customer pays fees
         metrics.recordPayment(customer1, 1, address(0), 100 ether);
 
-        vm.roll(block.number + EPOCH_LENGTH + 1);
+        vm.warp(block.timestamp + EPOCH_LENGTH + 1);
         pool.distributeEpoch();
 
         uint256 pending = pool.pendingCustomerRewards(customer1);
@@ -341,7 +401,7 @@ contract InflationPoolTest is Test {
         metrics.recordPayment(customer1, 1, address(0), 300 ether);
         metrics.recordPayment(customer2, 1, address(0), 100 ether);
 
-        vm.roll(block.number + EPOCH_LENGTH + 1);
+        vm.warp(block.timestamp + EPOCH_LENGTH + 1);
         pool.distributeEpoch();
 
         uint256 pending1 = pool.pendingCustomerRewards(customer1);
@@ -371,7 +431,7 @@ contract InflationPoolTest is Test {
         // Distribute several epochs
         for (uint256 i = 0; i < 10; i++) {
             InflationPool.EpochData memory epoch = pool.getEpoch(pool.currentEpoch());
-            vm.roll(epoch.endBlock + 1);
+            vm.warp(epoch.endTimestamp + 1);
             pool.distributeEpoch();
         }
 
@@ -432,20 +492,21 @@ contract InflationPoolTest is Test {
         pool.emergencyWithdraw(treasury);
     }
 
-    function test_ResetFundingPeriodResetsBudgetAndBlocks() public {
+    function test_ResetFundingPeriodResetsBudgetAndTimestamp() public {
         _activateAllRewardStreams();
         InflationPool.EpochData memory epoch = _distributeCurrentEpoch();
         assertGt(pool.distributedThisPeriod(), 0);
         assertGt(epoch.stakingDistributed + epoch.operatorsDistributed + epoch.customersDistributed + epoch.developersDistributed, 0);
 
         uint256 balanceBefore = pool.poolBalance();
+        uint256 nowTs = block.timestamp;
 
         vm.prank(admin);
         pool.resetFundingPeriod();
 
         assertEq(pool.distributedThisPeriod(), 0);
         assertEq(pool.periodBudget(), balanceBefore);
-        assertEq(pool.fundingPeriodStartBlock(), block.number);
+        assertEq(pool.fundingPeriodStartTimestamp(), nowTs);
     }
 
     function test_ResetFundingPeriod_RevertWhenNotAdmin() public {
@@ -456,13 +517,13 @@ contract InflationPoolTest is Test {
 
     function test_DistributeEpoch_AutoFundingPeriodReset() public {
         _activateAllRewardStreams();
-        uint256 originalStart = pool.fundingPeriodStartBlock();
+        uint256 originalStart = pool.fundingPeriodStartTimestamp();
 
-        uint256 targetBlock = originalStart + pool.BLOCKS_PER_YEAR() + pool.epochLength() + 1;
-        vm.roll(targetBlock);
+        uint256 targetTs = originalStart + pool.fundingPeriodSeconds() + pool.epochLength() + 1;
+        vm.warp(targetTs);
         pool.distributeEpoch();
 
-        assertEq(pool.fundingPeriodStartBlock(), targetBlock);
+        assertEq(pool.fundingPeriodStartTimestamp(), targetTs);
         assertGt(pool.distributedThisPeriod(), 0);
     }
 
@@ -514,15 +575,24 @@ contract InflationPoolTest is Test {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_BlocksUntilNextEpoch() public view {
-        uint256 blocks = pool.blocksUntilNextEpoch();
-        assertGt(blocks, 0);
-        assertLe(blocks, EPOCH_LENGTH);
+        uint256 secondsUntil = pool.blocksUntilNextEpoch();
+        assertGt(secondsUntil, 0);
+        assertLe(secondsUntil, EPOCH_LENGTH);
+
+        assertEq(secondsUntil, pool.secondsUntilNextEpoch());
+    }
+
+    function test_SecondsUntilNextEpoch_ZeroWhenReady() public {
+        InflationPool.EpochData memory epoch = pool.getEpoch(pool.currentEpoch());
+        vm.warp(epoch.endTimestamp);
+        assertEq(pool.secondsUntilNextEpoch(), 0);
+        assertEq(pool.blocksUntilNextEpoch(), 0);
     }
 
     function test_IsEpochReady() public {
         assertFalse(pool.isEpochReady());
 
-        vm.roll(block.number + EPOCH_LENGTH + 1);
+        vm.warp(block.timestamp + EPOCH_LENGTH + 1);
         assertTrue(pool.isEpochReady());
     }
 
@@ -572,7 +642,7 @@ contract InflationPoolTest is Test {
         uint256 poolStart = pool.poolBalance();
         for (uint256 i = 0; i < 5; i++) {
             InflationPool.EpochData memory epoch = pool.getEpoch(pool.currentEpoch());
-            vm.roll(epoch.endBlock + 1);
+            vm.warp(epoch.endTimestamp + 1);
             pool.distributeEpoch();
         }
 
@@ -622,7 +692,7 @@ contract InflationPoolTest is Test {
         uint256 epochsToDistribute = 100;
         for (uint256 i = 0; i < epochsToDistribute; i++) {
             InflationPool.EpochData memory epoch = pool.getEpoch(pool.currentEpoch());
-            vm.roll(epoch.endBlock + 1);
+            vm.warp(epoch.endTimestamp + 1);
             pool.distributeEpoch();
 
             if (pool.poolBalance() == 0) break;
@@ -634,7 +704,7 @@ contract InflationPoolTest is Test {
 
     function _distributeCurrentEpoch() internal returns (InflationPool.EpochData memory) {
         InflationPool.EpochData memory epoch = pool.getEpoch(pool.currentEpoch());
-        vm.roll(epoch.endBlock + 1);
+        vm.warp(epoch.endTimestamp + 1);
         pool.distributeEpoch();
         return pool.getEpoch(pool.currentEpoch() - 1);
     }

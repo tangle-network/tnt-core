@@ -142,7 +142,7 @@
     "_todo_tnt_token": "TODO: confirm TNT token used for inflation funding",
     "tntToken": "0x0000000000000000000000000000000000000000",
     "vaultOperatorCommissionBps": 1500,
-    "epochLength": 50400,
+    "epochLength": 604800,
     "_todo_inflation": "TODO: ensure parameters align with 1% yearly issuance",
     "weights": {
       "stakingBps": 5000,

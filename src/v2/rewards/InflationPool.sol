@@ -51,7 +51,10 @@ contract InflationPool is
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant PRECISION = 1e18;
 
-    /// @notice Blocks per year (assuming ~12s blocks)
+    /// @notice Seconds per year for budgeting and funding periods.
+    uint256 public constant SECONDS_PER_YEAR = 365 days;
+
+    /// @notice Legacy constant (unused): blocks per year (assuming ~12s blocks).
     uint256 public constant BLOCKS_PER_YEAR = 2_628_000;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -69,8 +72,8 @@ contract InflationPool is
     /// @notice Epoch tracking data
     struct EpochData {
         uint256 number;
-        uint256 startBlock;
-        uint256 endBlock;
+        uint256 startTimestamp;
+        uint256 endTimestamp;
         uint256 stakingDistributed;
         uint256 operatorsDistributed;
         uint256 customersDistributed;
@@ -102,14 +105,14 @@ contract InflationPool is
     /// @notice Distribution weights
     DistributionWeights public weights;
 
-    /// @notice Blocks per epoch (e.g., 50400 = ~1 week)
+    /// @notice Epoch duration in seconds (e.g., 604800 = 7 days)
     uint256 public epochLength;
 
     /// @notice Current epoch number
     uint256 public currentEpoch;
 
-    /// @notice Block when current funding period started
-    uint256 public fundingPeriodStartBlock;
+    /// @notice Timestamp when current funding period started
+    uint256 public fundingPeriodStartTimestamp;
 
     /// @notice Total distributed this funding period
     uint256 public distributedThisPeriod;
@@ -153,6 +156,12 @@ contract InflationPool is
     /// @notice Total ever distributed from this pool
     uint256 public totalDistributed;
 
+    /// @notice Deprecated: legacy blocks-per-year parameter (no longer used after timestamp migration).
+    uint256 public blocksPerYear;
+
+    /// @notice Funding period duration in seconds (defaults to 365 days).
+    uint256 public fundingPeriodSeconds;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -171,7 +180,8 @@ contract InflationPool is
     event CustomerRewardClaimed(address indexed customer, uint256 amount);
     event DeveloperRewardClaimed(address indexed developer, uint256 amount);
     event EmergencyWithdraw(address indexed to, uint256 amount);
-    event FundingPeriodReset(uint256 newPeriodStartBlock, uint256 previousPeriodDistributed);
+    event FundingPeriodReset(uint256 newPeriodStartTimestamp, uint256 previousPeriodDistributed);
+    event FundingPeriodSecondsUpdated(uint256 newFundingPeriodSeconds);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -200,7 +210,7 @@ contract InflationPool is
     /// @param _tntToken TNT token address
     /// @param _metrics Metrics contract address
     /// @param _vaults Reward vaults address
-    /// @param _epochLength Blocks per epoch
+    /// @param _epochLength Seconds per epoch
     function initialize(
         address admin,
         address _tntToken,
@@ -210,6 +220,8 @@ contract InflationPool is
     ) external initializer {
         if (admin == address(0)) revert ZeroAddress();
         if (_tntToken == address(0)) revert ZeroAddress();
+        // Enforce the same epoch length bounds as setEpochLength().
+        if (_epochLength < 60 || _epochLength > SECONDS_PER_YEAR) revert InvalidEpochLength();
 
         __UUPSUpgradeable_init();
         __AccessControl_init();
@@ -237,12 +249,14 @@ contract InflationPool is
 
         // Initialize first epoch
         currentEpoch = 1;
-        fundingPeriodStartBlock = block.number;
+        fundingPeriodStartTimestamp = block.timestamp;
+        fundingPeriodSeconds = SECONDS_PER_YEAR;
+        blocksPerYear = BLOCKS_PER_YEAR; // legacy
 
         epochs[1] = EpochData({
             number: 1,
-            startBlock: block.number,
-            endBlock: block.number + _epochLength,
+            startTimestamp: block.timestamp,
+            endTimestamp: block.timestamp + _epochLength,
             stakingDistributed: 0,
             operatorsDistributed: 0,
             customersDistributed: 0,
@@ -282,11 +296,19 @@ contract InflationPool is
     /// @notice Start a new funding period (resets distribution tracking)
     /// @dev Called when governance funds for a new year/period
     function resetFundingPeriod() external onlyRole(ADMIN_ROLE) {
-        emit FundingPeriodReset(block.number, distributedThisPeriod);
+        emit FundingPeriodReset(block.timestamp, distributedThisPeriod);
 
-        fundingPeriodStartBlock = block.number;
+        fundingPeriodStartTimestamp = block.timestamp;
         distributedThisPeriod = 0;
         periodBudget = poolBalance(); // Remaining balance becomes new period budget
+    }
+
+    /// @notice Set funding period duration in seconds (defaults to 365 days).
+    /// @dev This affects epoch budget smoothing and the automatic funding-period reset.
+    function setFundingPeriodSeconds(uint256 newFundingPeriodSeconds) external onlyRole(ADMIN_ROLE) {
+        if (newFundingPeriodSeconds == 0) revert InvalidEpochLength();
+        fundingPeriodSeconds = newFundingPeriodSeconds;
+        emit FundingPeriodSecondsUpdated(newFundingPeriodSeconds);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -298,11 +320,12 @@ contract InflationPool is
     function distributeEpoch() external nonReentrant {
         EpochData storage epoch = epochs[currentEpoch];
 
-        if (block.number < epoch.endBlock) revert EpochNotReady();
+        if (block.timestamp < epoch.endTimestamp) revert EpochNotReady();
         if (epoch.distributed) revert EpochAlreadyDistributed();
 
-        // Check if we need to reset funding period (yearly)
-        if (block.number >= fundingPeriodStartBlock + BLOCKS_PER_YEAR) {
+        // Check if we need to reset funding period (time-based)
+        uint256 periodSeconds = fundingPeriodSeconds == 0 ? SECONDS_PER_YEAR : fundingPeriodSeconds;
+        if (block.timestamp >= fundingPeriodStartTimestamp + periodSeconds) {
             _resetFundingPeriod();
         }
 
@@ -388,8 +411,8 @@ contract InflationPool is
         currentEpoch++;
         epochs[currentEpoch] = EpochData({
             number: currentEpoch,
-            startBlock: block.number,
-            endBlock: block.number + epochLength,
+            startTimestamp: block.timestamp,
+            endTimestamp: block.timestamp + epochLength,
             stakingDistributed: 0,
             operatorsDistributed: 0,
             customersDistributed: 0,
@@ -400,8 +423,8 @@ contract InflationPool is
 
     /// @notice Reset funding period tracking
     function _resetFundingPeriod() internal {
-        emit FundingPeriodReset(block.number, distributedThisPeriod);
-        fundingPeriodStartBlock = block.number;
+        emit FundingPeriodReset(block.timestamp, distributedThisPeriod);
+        fundingPeriodStartTimestamp = block.timestamp;
         distributedThisPeriod = 0;
         periodBudget = poolBalance();
     }
@@ -754,7 +777,8 @@ contract InflationPool is
 
     /// @notice Update epoch length
     function setEpochLength(uint256 newLength) external onlyRole(ADMIN_ROLE) {
-        if (newLength < 100 || newLength > BLOCKS_PER_YEAR) revert InvalidEpochLength();
+        // Minimum 60 seconds to avoid spam; maximum 365 days for sanity.
+        if (newLength < 60 || newLength > SECONDS_PER_YEAR) revert InvalidEpochLength();
         epochLength = newLength;
         emit EpochLengthUpdated(newLength);
     }
@@ -795,15 +819,11 @@ contract InflationPool is
         uint256 balance = poolBalance();
         if (balance == 0) return 0;
 
-        // Calculate remaining epochs in the funding period
-        uint256 blocksElapsed = block.number > fundingPeriodStartBlock
-            ? block.number - fundingPeriodStartBlock
-            : 0;
-        uint256 blocksRemaining = BLOCKS_PER_YEAR > blocksElapsed
-            ? BLOCKS_PER_YEAR - blocksElapsed
-            : epochLength;
-
-        uint256 epochsRemaining = blocksRemaining / epochLength;
+        // Calculate remaining epochs in the funding period (time-based)
+        uint256 periodSeconds = fundingPeriodSeconds == 0 ? SECONDS_PER_YEAR : fundingPeriodSeconds;
+        uint256 elapsed = block.timestamp > fundingPeriodStartTimestamp ? (block.timestamp - fundingPeriodStartTimestamp) : 0;
+        uint256 remaining = periodSeconds > elapsed ? (periodSeconds - elapsed) : epochLength;
+        uint256 epochsRemaining = remaining / epochLength;
         if (epochsRemaining == 0) epochsRemaining = 1;
 
         // Distribute remaining balance over remaining epochs
@@ -815,16 +835,21 @@ contract InflationPool is
         return periodBudget > distributedThisPeriod ? periodBudget - distributedThisPeriod : 0;
     }
 
-    /// @notice Get blocks until next epoch distribution
+    /// @notice Get seconds until next epoch distribution
     function blocksUntilNextEpoch() external view returns (uint256) {
+        return secondsUntilNextEpoch();
+    }
+
+    /// @notice Get seconds until next epoch distribution
+    function secondsUntilNextEpoch() public view returns (uint256) {
         EpochData storage epoch = epochs[currentEpoch];
-        if (block.number >= epoch.endBlock) return 0;
-        return epoch.endBlock - block.number;
+        if (block.timestamp >= epoch.endTimestamp) return 0;
+        return epoch.endTimestamp - block.timestamp;
     }
 
     /// @notice Check if epoch is ready for distribution
     function isEpochReady() external view returns (bool) {
-        return block.number >= epochs[currentEpoch].endBlock &&
+        return block.timestamp >= epochs[currentEpoch].endTimestamp &&
                !epochs[currentEpoch].distributed;
     }
 

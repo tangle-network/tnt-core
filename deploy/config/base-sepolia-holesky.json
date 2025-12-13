@@ -138,7 +138,7 @@
     "tntToken": "0x0000000000000000000000000000000000000000",
     "vaultOperatorCommissionBps": 1500,
     "_todo_epoch_length": "TODO: adjust epoch length if Base Sepolia cadence differs",
-    "epochLength": 50400,
+    "epochLength": 604800,
     "_todo_inflation_weights": "TODO: confirm 1% yearly allocation split before go-live",
     "weights": {
       "stakingBps": 5500,

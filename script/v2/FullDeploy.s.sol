@@ -162,7 +162,7 @@ contract FullDeploy is DeployV2 {
 
         vm.startBroadcast(deployerKey);
         _configureRestaking(restaking, cfg.restakeAssets);
-        _applyRewardsManager(restaking, rewardVaults);
+        _applyRewardsManager(restaking, rewardVaults, inflationPool);
         _configureRewardVaults(rewardVaults, cfg.incentives.vaults);
         _configureInflationPool(inflationPool, cfg.incentives, metrics, rewardVaults);
         _wireTangleModules(tangle, statusRegistry, metrics, cfg.guards);
@@ -320,7 +320,8 @@ contract FullDeploy is DeployV2 {
 
         if (inc.deployInflationPool) {
             if (tntToken == address(0)) revert("Missing TNT token for InflationPool");
-            uint256 epoch = inc.epochLength == 0 ? 50_400 : inc.epochLength;
+            // Epoch length is expressed in seconds (timestamp-based rewards).
+            uint256 epoch = inc.epochLength == 0 ? 604_800 : inc.epochLength; // 7 days
             inflationPool = _deployInflationPoolProxy(admin, tntToken, metrics, rewardVaults, epoch);
             epochLength = epoch;
         } else {
@@ -413,11 +414,26 @@ contract FullDeploy is DeployV2 {
         }
     }
 
-    function _applyRewardsManager(address restakingAddr, address rewardVaultsAddr) internal {
+    function _applyRewardsManager(address restakingAddr, address rewardVaultsAddr, address inflationPoolAddr) internal {
         if (restakingAddr == address(0) || rewardVaultsAddr == address(0)) return;
         MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingAddr));
         restaking.setRewardsManager(rewardVaultsAddr);
         console2.log("Set RewardVaults manager on restaking");
+
+        // RewardVaults is called by:
+        // - MultiAssetDelegation (stake tracking + service rewards)
+        // - InflationPool (epoch reward fan-out)
+        RewardVaults vaultsContract = RewardVaults(rewardVaultsAddr);
+        bytes32 role = vaultsContract.REWARDS_MANAGER_ROLE();
+
+        if (!vaultsContract.hasRole(role, restakingAddr)) {
+            vaultsContract.grantRole(role, restakingAddr);
+            console2.log("Granted RewardVaults manager role to restaking");
+        }
+        if (inflationPoolAddr != address(0) && !vaultsContract.hasRole(role, inflationPoolAddr)) {
+            vaultsContract.grantRole(role, inflationPoolAddr);
+            console2.log("Granted RewardVaults manager role to InflationPool");
+        }
     }
 
     function _configureRewardVaults(address rewardVaultsAddr, RewardVaultConfig[] memory vaults) internal {
