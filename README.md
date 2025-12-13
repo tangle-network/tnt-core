@@ -41,6 +41,7 @@ Every deployment must register at least one Master Blueprint Service Manager (MB
   - `deploy/config/base-sepolia-holesky.json` – Base Sepolia ↔ Holesky bridge rehearsal (placeholders + TODOs for every address).
   - `deploy/config/base-mainnet.json` – Base mainnet deployment (with placeholder TNT/restake asset data).
 - Local developers can bootstrap Anvil with `scripts/local-env/start-local-env.sh`, which wraps the same entrypoint using `deploy/config/local.anvil.json`.
+- Set `TNT_TOKEN` (alias for `OPERATOR_BOND_TOKEN`) when reusing an existing TNT deployment. The deployment scripts, migration helpers, inflation setup, and governance deployer all reuse that single address instead of spinning up duplicate tokens; leave it unset to auto-deploy a fresh `TangleToken`.
 
 Operator onboarding also requires a TNT bond. The deployment script enforces this automatically:
 

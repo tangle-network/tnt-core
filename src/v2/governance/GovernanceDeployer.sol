@@ -2,7 +2,9 @@
 pragma solidity ^0.8.26;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TimelockControllerUpgradeable } from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
+import {
+    TimelockControllerUpgradeable
+} from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import { IVotes } from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
@@ -34,16 +36,9 @@ contract GovernanceDeployer {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event GovernanceDeployed(
-        address indexed token,
-        address indexed timelock,
-        address indexed governor
-    );
+    event GovernanceDeployed(address indexed token, address indexed timelock, address indexed governor);
 
-    event ProtocolRolesConfigured(
-        address indexed timelock,
-        address indexed protocolContract
-    );
+    event ProtocolRolesConfigured(address indexed timelock, address indexed protocolContract);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STRUCTS
@@ -54,6 +49,7 @@ contract GovernanceDeployer {
         // Token params
         address tokenAdmin;
         uint256 initialTokenSupply;
+        address existingToken;   // optional override to skip new TNT deployment
         // Timelock params
         uint256 timelockDelay;
         // Governor params
@@ -77,28 +73,26 @@ contract GovernanceDeployer {
     /// @notice Deploy complete governance system
     /// @param params Deployment parameters
     /// @return contracts The deployed contract addresses
-    function deployGovernance(DeployParams calldata params)
-        external
-        returns (DeployedContracts memory contracts)
-    {
-        // Deploy implementations
-        TangleToken tokenImpl = new TangleToken();
+    function deployGovernance(DeployParams calldata params) external returns (DeployedContracts memory contracts) {
+        // Deploy implementations / reuse existing TNT
         TangleTimelock timelockImpl = new TangleTimelock();
         TangleGovernor governorImpl = new TangleGovernor();
 
-        // Deploy token proxy
-        bytes memory tokenData = abi.encodeCall(
-            TangleToken.initialize,
-            (params.tokenAdmin, params.initialTokenSupply)
-        );
-        ERC1967Proxy tokenProxy = new ERC1967Proxy(address(tokenImpl), tokenData);
-        contracts.token = TangleToken(address(tokenProxy));
+        if (params.existingToken != address(0)) {
+            require(params.initialTokenSupply == 0, "Initial supply handled externally");
+            contracts.token = TangleToken(params.existingToken);
+        } else {
+            TangleToken tokenImpl = new TangleToken();
+            bytes memory tokenData =
+                abi.encodeCall(TangleToken.initialize, (params.tokenAdmin, params.initialTokenSupply));
+            ERC1967Proxy tokenProxy = new ERC1967Proxy(address(tokenImpl), tokenData);
+            contracts.token = TangleToken(address(tokenProxy));
+        }
 
         // Deploy timelock proxy (with empty proposers/executors initially)
         address[] memory emptyAddresses = new address[](0);
         bytes memory timelockData = abi.encodeCall(
-            TangleTimelock.initialize,
-            (params.timelockDelay, emptyAddresses, emptyAddresses, address(this))
+            TangleTimelock.initialize, (params.timelockDelay, emptyAddresses, emptyAddresses, address(this))
         );
         ERC1967Proxy timelockProxy = new ERC1967Proxy(address(timelockImpl), timelockData);
         contracts.timelock = TangleTimelock(payable(address(timelockProxy)));
@@ -121,11 +115,7 @@ contract GovernanceDeployer {
         // Configure timelock roles for governor
         _configureTimelockRoles(contracts.timelock, address(contracts.governor));
 
-        emit GovernanceDeployed(
-            address(contracts.token),
-            address(contracts.timelock),
-            address(contracts.governor)
-        );
+        emit GovernanceDeployed(address(contracts.token), address(contracts.timelock), address(contracts.governor));
     }
 
     /// @notice Configure timelock roles to grant governor proposer/executor/canceller
@@ -149,11 +139,7 @@ contract GovernanceDeployer {
     /// @param protocolContract The protocol contract (Tangle, MultiAssetDelegation, etc.)
     /// @param roles The role identifiers to grant to timelock
     /// @dev Caller must have DEFAULT_ADMIN_ROLE on protocolContract
-    function configureProtocolRoles(
-        address timelock,
-        address protocolContract,
-        bytes32[] calldata roles
-    ) external {
+    function configureProtocolRoles(address timelock, address protocolContract, bytes32[] calldata roles) external {
         IAccessControl protocol = IAccessControl(protocolContract);
 
         for (uint256 i = 0; i < roles.length; i++) {
@@ -189,7 +175,9 @@ contract GovernanceDeployer {
         address protocolContract,
         bytes32[] calldata roles,
         address originalAdmin
-    ) external {
+    )
+        external
+    {
         IAccessControl protocol = IAccessControl(protocolContract);
 
         // Grant all roles to timelock
@@ -201,7 +189,7 @@ contract GovernanceDeployer {
         if (originalAdmin != address(0)) {
             for (uint256 i = 0; i < roles.length; i++) {
                 // Only revoke if caller has permission (must be original admin or have admin role)
-                try protocol.revokeRole(roles[i], originalAdmin) {} catch {}
+                try protocol.revokeRole(roles[i], originalAdmin) { } catch { }
             }
         }
 
@@ -268,36 +256,30 @@ contract GovernanceDeployer {
     }
 
     /// @notice Get default governance parameters for mainnet
-    function getDefaultMainnetParams(address admin)
-        external
-        pure
-        returns (DeployParams memory)
-    {
+    function getDefaultMainnetParams(address admin) external pure returns (DeployParams memory) {
         return DeployParams({
             tokenAdmin: admin,
             initialTokenSupply: 50_000_000 * 1e18, // 50M initial supply
+            existingToken: address(0),
             timelockDelay: 2 days,
-            votingDelay: 7200,      // ~1 day (assuming 12s blocks)
-            votingPeriod: 50400,    // ~1 week
+            votingDelay: 7200, // ~1 day (assuming 12s blocks)
+            votingPeriod: 50_400, // ~1 week
             proposalThreshold: 100_000 * 1e18, // 100k TNT to propose
-            quorumPercent: 4        // 4% quorum
+            quorumPercent: 4 // 4% quorum
         });
     }
 
     /// @notice Get governance parameters for testnet (faster)
-    function getDefaultTestnetParams(address admin)
-        external
-        pure
-        returns (DeployParams memory)
-    {
+    function getDefaultTestnetParams(address admin) external pure returns (DeployParams memory) {
         return DeployParams({
             tokenAdmin: admin,
             initialTokenSupply: 50_000_000 * 1e18,
-            timelockDelay: 1 days,   // Shorter for testing
-            votingDelay: 100,        // ~20 minutes
-            votingPeriod: 1000,      // ~3 hours
+            existingToken: address(0),
+            timelockDelay: 1 days, // Shorter for testing
+            votingDelay: 100, // ~20 minutes
+            votingPeriod: 1000, // ~3 hours
             proposalThreshold: 1000 * 1e18, // 1k TNT to propose
-            quorumPercent: 1         // 1% quorum for easier testing
+            quorumPercent: 1 // 1% quorum for easier testing
         });
     }
 }

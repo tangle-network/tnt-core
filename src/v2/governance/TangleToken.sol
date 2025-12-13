@@ -19,7 +19,7 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 ///      - UUPS: Upgradeable proxy pattern
 ///
 /// Token Economics & Security Model:
-/// - MAX_SUPPLY: 100 million TNT (hard cap)
+/// - MAX_SUPPLY: Snapshot max supply (hard cap)
 /// - MINTER_ROLE: Should ONLY be held by governance (TangleTimelock)
 /// - Protocol contracts (InflationPool, RewardVaults) CANNOT mint
 /// - Inflation is distributed via pre-funded InflationPool, not minting
@@ -51,8 +51,9 @@ contract TangleToken is
     // STORAGE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Maximum total supply (100 million TNT with 18 decimals)
-    uint256 public constant MAX_SUPPLY = 100_000_000 * 1e18;
+    /// @notice Maximum total supply (hard cap).
+    /// @dev This is set to the current migration snapshot total supply (in wei).
+    uint256 public constant MAX_SUPPLY = 109_255_636_919_212_927_885_610_910;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {

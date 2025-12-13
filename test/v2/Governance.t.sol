@@ -3,7 +3,9 @@ pragma solidity ^0.8.26;
 
 import { Test } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TimelockControllerUpgradeable } from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
+import {
+    TimelockControllerUpgradeable
+} from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import { IVotes } from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import { IGovernor } from "@openzeppelin/contracts/governance/IGovernor.sol";
 
@@ -42,6 +44,7 @@ contract GovernanceTest is Test {
         GovernanceDeployer.DeployParams memory params = GovernanceDeployer.DeployParams({
             tokenAdmin: admin,
             initialTokenSupply: INITIAL_SUPPLY,
+            existingToken: address(0),
             timelockDelay: TIMELOCK_DELAY,
             votingDelay: VOTING_DELAY,
             votingPeriod: VOTING_PERIOD,
@@ -251,10 +254,7 @@ contract GovernanceTest is Test {
         bytes[] memory calldatas = new bytes[](1);
         targets[0] = address(token);
         values[0] = 0;
-        calldatas[0] = abi.encodeCall(
-            token.grantRole,
-            (token.MINTER_ROLE(), address(timelock))
-        );
+        calldatas[0] = abi.encodeCall(token.grantRole, (token.MINTER_ROLE(), address(timelock)));
 
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, "Grant minter to timelock");
@@ -439,9 +439,7 @@ contract GovernanceTest is Test {
         bytes32 readyState = bytes32(uint256(1) << uint8(TimelockControllerUpgradeable.OperationState.Ready));
         vm.expectRevert(
             abi.encodeWithSelector(
-                TimelockControllerUpgradeable.TimelockUnexpectedOperationState.selector,
-                opId,
-                readyState
+                TimelockControllerUpgradeable.TimelockUnexpectedOperationState.selector, opId, readyState
             )
         );
         governor.execute(targets, values, calldatas, descriptionHash);
@@ -503,7 +501,7 @@ contract GovernanceTest is Test {
         GovernanceDeployer.DeployParams memory mainnetParams = deployer.getDefaultMainnetParams(admin);
         assertEq(mainnetParams.timelockDelay, 2 days);
         assertEq(mainnetParams.votingDelay, 7200);
-        assertEq(mainnetParams.votingPeriod, 50400);
+        assertEq(mainnetParams.votingPeriod, 50_400);
         assertEq(mainnetParams.quorumPercent, 4);
 
         GovernanceDeployer.DeployParams memory testnetParams = deployer.getDefaultTestnetParams(admin);
@@ -595,6 +593,7 @@ contract GovernanceUpgradeTest is Test {
         GovernanceDeployer.DeployParams memory params = GovernanceDeployer.DeployParams({
             tokenAdmin: admin,
             initialTokenSupply: 10_000_000 * 1e18,
+            existingToken: address(0),
             timelockDelay: 1 days,
             votingDelay: 10,
             votingPeriod: 100,

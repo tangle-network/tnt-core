@@ -28,7 +28,7 @@ Tangle.sol / MultiAssetDelegation.sol
 | Parameter | Value |
 |-----------|-------|
 | Initial Supply | 50M TNT |
-| Max Supply | 100M TNT |
+| Max Supply | ~109.26M TNT (snapshot cap) |
 | Timelock Delay | 2 days |
 | Voting Delay | 7200 blocks (~1 day) |
 | Voting Period | 50400 blocks (~1 week) |
@@ -93,6 +93,10 @@ GovernanceDeployer.DeployParams memory params = deployer.getDefaultMainnetParams
 
 GovernanceDeployer.DeployedContracts memory c = deployer.deployGovernance(params);
 // c.token, c.timelock, c.governor
+
+// To reuse an existing TNT deployment, set:
+// params.existingToken = 0xYourTNT;
+// params.initialTokenSupply = 0;
 ```
 
 ## Role Transfer to Governance
@@ -388,13 +392,15 @@ pool.fund(yearlyInflation);
 ### Configuration
 
 ```solidity
-pool.setWeights(
+ pool.setWeights(
     6000,   // 60% to stakers
     2500,   // 25% to operators
-    1500    // 15% to customers
-);
+    1000,   // 10% to customers
+    500     // 5% to developers
+ );
 
-pool.setEpochDuration(50400);  // ~1 week distribution cycles
+ // Epoch length is in seconds (timestamp-based)
+ pool.setEpochLength(7 days);
 ```
 
 ### Distribution Categories
@@ -409,9 +415,9 @@ pool.setEpochDuration(50400);  // ~1 week distribution cycles
 
 ```solidity
 // Anyone can trigger when epoch is ready
-if (block.number >= pool.epochEndBlock()) {
+ if (pool.isEpochReady()) {
     pool.distributeEpoch();
-}
+ }
 
 // Claim rewards
 pool.claimOperatorRewards();
@@ -433,7 +439,7 @@ pool.emergencyWithdraw(newPoolAddress);
 |----------|------|---------|
 | `fund()` | FUNDER_ROLE | Add tokens to pool budget |
 | `setWeights()` | ADMIN_ROLE | Adjust distribution weights |
-| `setEpochDuration()` | ADMIN_ROLE | Change distribution frequency |
+| `setEpochLength()` | ADMIN_ROLE | Change distribution frequency (seconds) |
 | `emergencyWithdraw()` | DEFAULT_ADMIN_ROLE | Migrate to new pool |
 
 ## Security Considerations
