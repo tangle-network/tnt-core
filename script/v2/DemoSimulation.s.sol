@@ -274,7 +274,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         // Deploy TNT token
         TangleToken tntImpl = new TangleToken();
         ERC1967Proxy tntProxy =
-            new ERC1967Proxy(address(tntImpl), abi.encodeCall(TangleToken.initialize, (admin, 100_000_000 ether)));
+            new ERC1967Proxy(address(tntImpl), abi.encodeCall(TangleToken.initialize, (admin, tntImpl.MAX_SUPPLY())));
         tnt = TangleToken(address(tntProxy));
         console2.log("  TangleToken:", address(tnt));
 

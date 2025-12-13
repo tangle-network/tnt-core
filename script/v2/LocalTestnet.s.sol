@@ -20,9 +20,9 @@ import { LiquidDelegationVault } from "../../src/v2/restaking/LiquidDelegationVa
 
 /// @title LocalTestnetSetup
 /// @notice Deploy and setup a complete local testnet environment for integration testing
-/// @dev Run with: forge script script/v2/LocalTestnet.s.sol:LocalTestnetSetup --rpc-url http://localhost:8545 --broadcast
+/// @dev Run with: forge script script/v2/LocalTestnet.s.sol:LocalTestnetSetup --rpc-url http://localhost:8545
+/// --broadcast
 contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
-
     // Anvil default accounts
     uint256 constant DEPLOYER_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
     uint256 constant OPERATOR1_KEY = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
@@ -148,10 +148,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         // Deploy Tangle
         Tangle tangleImpl = new Tangle();
-        bytes memory tangleInit = abi.encodeCall(
-            Tangle.initialize,
-            (deployer, restakingProxy, payable(deployer))
-        );
+        bytes memory tangleInit = abi.encodeCall(Tangle.initialize, (deployer, restakingProxy, payable(deployer)));
         tangleProxy = address(new ERC1967Proxy(address(tangleImpl), tangleInit));
         console2.log("Tangle:", tangleProxy);
 
@@ -159,27 +156,26 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         statusRegistry = address(new OperatorStatusRegistry(tangleProxy));
         console2.log("OperatorStatusRegistry:", statusRegistry);
 
-        // Deploy TNT bond token via proxy and mint to deployer
-        TangleToken tokenImpl = new TangleToken();
-        ERC1967Proxy tokenProxy = new ERC1967Proxy(
-            address(tokenImpl),
-            abi.encodeCall(TangleToken.initialize, (deployer, 1_000_000 ether))
-        );
-        bondToken = TangleToken(address(tokenProxy));
-        console2.log("TangleToken (bond asset):", address(bondToken));
+        bool deployedNewTNT;
+        address configuredTNT = _envAddressOrZero("TNT_TOKEN");
+        if (configuredTNT == address(0)) {
+            configuredTNT = _envAddressOrZero("LOCAL_TNT_TOKEN");
+        }
 
-        // Distribute TNT to all dev accounts so they can bond
-        bondToken.transfer(operator1, 10_000 ether);
-        bondToken.transfer(operator2, 10_000 ether);
-        bondToken.transfer(delegator, 10_000 ether);
-        // Distribute to remaining Anvil accounts (4-9)
-        bondToken.transfer(vm.addr(0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a), 10_000 ether);
-        bondToken.transfer(vm.addr(0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba), 10_000 ether);
-        bondToken.transfer(vm.addr(0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e), 10_000 ether);
-        bondToken.transfer(vm.addr(0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356), 10_000 ether);
-        bondToken.transfer(vm.addr(0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97), 10_000 ether);
-        bondToken.transfer(vm.addr(0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6), 10_000 ether);
-        console2.log("TNT tokens distributed to all dev accounts (10,000 TNT each)");
+        if (configuredTNT == address(0)) {
+            TangleToken tokenImpl = new TangleToken();
+            ERC1967Proxy tokenProxy = new ERC1967Proxy(
+                address(tokenImpl), abi.encodeCall(TangleToken.initialize, (deployer, 1_000_000 ether))
+            );
+            bondToken = TangleToken(address(tokenProxy));
+            deployedNewTNT = true;
+            console2.log("TangleToken (bond asset):", address(bondToken));
+        } else {
+            bondToken = TangleToken(configuredTNT);
+            console2.log("Using existing TangleToken (bond asset):", address(bondToken));
+        }
+
+        _distributeBondToken(deployer, deployedNewTNT);
 
         // Configure cross-references
         MultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
@@ -191,10 +187,8 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         // Deploy master blueprint service manager + registry
         MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(deployer, tangleProxy);
         MBSMRegistry registryImpl = new MBSMRegistry();
-        ERC1967Proxy registryProxy = new ERC1967Proxy(
-            address(registryImpl),
-            abi.encodeCall(MBSMRegistry.initialize, (deployer))
-        );
+        ERC1967Proxy registryProxy =
+            new ERC1967Proxy(address(registryImpl), abi.encodeCall(MBSMRegistry.initialize, (deployer)));
         MBSMRegistry registry = MBSMRegistry(address(registryProxy));
         registry.grantRole(registry.MANAGER_ROLE(), tangleProxy);
         registry.addVersion(address(masterManager));
@@ -263,12 +257,12 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         accounts[9] = vm.addr(0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6); // Account 10
 
         for (uint256 i = 0; i < accounts.length; i++) {
-            usdc.mint(accounts[i], 1_000_000 * 10**6); // 1M USDC
-            usdt.mint(accounts[i], 1_000_000 * 10**6); // 1M USDT
+            usdc.mint(accounts[i], 1_000_000 * 10 ** 6); // 1M USDC
+            usdt.mint(accounts[i], 1_000_000 * 10 ** 6); // 1M USDT
             dai.mint(accounts[i], 1_000_000 ether); // 1M DAI
-            weth.mint(accounts[i], 1_000 ether); // 1000 WETH
-            stETH.mint(accounts[i], 1_000 ether); // 1000 stETH
-            wstETH.mint(accounts[i], 1_000 ether); // 1000 wstETH
+            weth.mint(accounts[i], 1000 ether); // 1000 WETH
+            stETH.mint(accounts[i], 1000 ether); // 1000 stETH
+            wstETH.mint(accounts[i], 1000 ether); // 1000 wstETH
             eigen.mint(accounts[i], 10_000 ether); // 10000 EIGEN
         }
         console2.log("\n=== Funded Development Accounts ===");
@@ -353,8 +347,10 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         uint256 bond = tangle.operatorBlueprintBond();
         address bondAsset = tangle.operatorBondToken();
 
-        bytes memory operator1Key = hex"040102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40";
-        bytes memory operator2Key = hex"044142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80";
+        bytes memory operator1Key =
+            hex"040102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40";
+        bytes memory operator2Key =
+            hex"044142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80";
 
         // Operator 1 registers for blueprint
         if (useBroadcastKeys) {
@@ -433,44 +429,58 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         // Deposit and delegate USDC
         usdc.approve(restakingProxy, type(uint256).max);
-        restaking.depositERC20(address(usdc), 10_000 * 10**6); // 10k USDC
-        restaking.delegateWithOptions(operator1, address(usdc), 5_000 * 10**6, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        restaking.depositERC20(address(usdc), 10_000 * 10 ** 6); // 10k USDC
+        restaking.delegateWithOptions(
+            operator1, address(usdc), 5000 * 10 ** 6, Types.BlueprintSelectionMode.All, emptyBlueprints
+        );
         console2.log("Deposited 10k USDC, delegated 5k to Operator1");
 
         // Deposit and delegate USDT
         usdt.approve(restakingProxy, type(uint256).max);
-        restaking.depositERC20(address(usdt), 10_000 * 10**6); // 10k USDT
-        restaking.delegateWithOptions(operator2, address(usdt), 5_000 * 10**6, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        restaking.depositERC20(address(usdt), 10_000 * 10 ** 6); // 10k USDT
+        restaking.delegateWithOptions(
+            operator2, address(usdt), 5000 * 10 ** 6, Types.BlueprintSelectionMode.All, emptyBlueprints
+        );
         console2.log("Deposited 10k USDT, delegated 5k to Operator2");
 
         // Deposit and delegate DAI
         dai.approve(restakingProxy, type(uint256).max);
         restaking.depositERC20(address(dai), 10_000 ether); // 10k DAI
-        restaking.delegateWithOptions(operator1, address(dai), 5_000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        restaking.delegateWithOptions(
+            operator1, address(dai), 5000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+        );
         console2.log("Deposited 10k DAI, delegated 5k to Operator1");
 
         // Deposit and delegate WETH
         weth.approve(restakingProxy, type(uint256).max);
         restaking.depositERC20(address(weth), 10 ether); // 10 WETH
-        restaking.delegateWithOptions(operator2, address(weth), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        restaking.delegateWithOptions(
+            operator2, address(weth), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+        );
         console2.log("Deposited 10 WETH, delegated 5 to Operator2");
 
         // Deposit and delegate stETH
         stETH.approve(restakingProxy, type(uint256).max);
         restaking.depositERC20(address(stETH), 10 ether); // 10 stETH
-        restaking.delegateWithOptions(operator1, address(stETH), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        restaking.delegateWithOptions(
+            operator1, address(stETH), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+        );
         console2.log("Deposited 10 stETH, delegated 5 to Operator1");
 
         // Deposit and delegate wstETH
         wstETH.approve(restakingProxy, type(uint256).max);
         restaking.depositERC20(address(wstETH), 10 ether); // 10 wstETH
-        restaking.delegateWithOptions(operator2, address(wstETH), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        restaking.delegateWithOptions(
+            operator2, address(wstETH), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+        );
         console2.log("Deposited 10 wstETH, delegated 5 to Operator2");
 
         // Deposit and delegate EIGEN
         eigen.approve(restakingProxy, type(uint256).max);
         restaking.depositERC20(address(eigen), 100 ether); // 100 EIGEN
-        restaking.delegateWithOptions(operator1, address(eigen), 50 ether, Types.BlueprintSelectionMode.All, emptyBlueprints);
+        restaking.delegateWithOptions(
+            operator1, address(eigen), 50 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+        );
         console2.log("Deposited 100 EIGEN, delegated 50 to Operator1");
 
         if (useBroadcastKeys) {
@@ -671,7 +681,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         // Approve and deposit USDC into liquid USDC vault
         usdc.approve(liquidVaultUSDC, type(uint256).max);
-        LiquidDelegationVault(liquidVaultUSDC).deposit(1000 * 10**6, delegator);
+        LiquidDelegationVault(liquidVaultUSDC).deposit(1000 * 10 ** 6, delegator);
         console2.log("Delegator deposited 1000 USDC to liquid vault");
 
         if (useBroadcastKeys) {
@@ -679,6 +689,46 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         } else {
             vm.stopPrank();
         }
+    }
+
+    function _envAddressOrZero(string memory key) internal view returns (address) {
+        try vm.envAddress(key) returns (address raw) {
+            return raw;
+        } catch {
+            return address(0);
+        }
+    }
+
+    function _distributeBondToken(address source, bool deployedNewTNT) internal {
+        address[9] memory recipients = [
+            operator1,
+            operator2,
+            delegator,
+            vm.addr(0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a),
+            vm.addr(0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba),
+            vm.addr(0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e),
+            vm.addr(0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356),
+            vm.addr(0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97),
+            vm.addr(0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6)
+        ];
+
+        uint256 required = recipients.length * 10_000 ether;
+        uint256 balance = bondToken.balanceOf(source);
+        if (balance < required) {
+            if (deployedNewTNT) {
+                console2.log("Skipping TNT airdrop due to insufficient admin balance");
+            } else {
+                console2.log("Skipping TNT airdrop - provided TNT token lacks balance for distribution");
+            }
+            console2.log("Required balance:", required);
+            console2.log("Current balance:", balance);
+            return;
+        }
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            bondToken.transfer(recipients[i], 10_000 ether);
+        }
+        console2.log("TNT tokens distributed to all dev accounts (10,000 TNT each)");
     }
 }
 
@@ -709,11 +759,7 @@ contract TestServiceFlow is Script {
 
         // Submit result (as operator)
         vm.startBroadcast(OPERATOR1_KEY);
-        tangle.submitResult(
-            serviceId,
-            callId,
-            abi.encode("test result")
-        );
+        tangle.submitResult(serviceId, callId, abi.encode("test result"));
         console2.log("Job result submitted");
         vm.stopBroadcast();
 
@@ -741,9 +787,7 @@ contract TestHeartbeat is Script {
         bytes memory metrics = "";
         bytes32 messageHash = keccak256(abi.encodePacked(serviceId, blueprintId, metrics));
         // Add Ethereum signed message prefix
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
-        );
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(OPERATOR1_KEY, ethSignedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 

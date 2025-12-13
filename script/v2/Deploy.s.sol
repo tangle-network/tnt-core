@@ -53,6 +53,14 @@ abstract contract DeployScriptBase is Script {
         }
     }
 
+    function _envAddressIfSet(string memory key) internal view returns (address) {
+        try vm.envAddress(key) returns (address raw) {
+            return raw;
+        } catch {
+            return address(0);
+        }
+    }
+
     function _requireNonZero(address value, string memory field) internal pure returns (address) {
         if (value == address(0)) {
             revert InvalidAddress(field);
@@ -65,7 +73,7 @@ abstract contract DeployScriptBase is Script {
             if (allowed != address(0) && candidate != allowed) {
                 revert AddressNotAllowlisted(field, candidate, allowed);
             }
-        } catch {}
+        } catch { }
     }
 
     /// @notice Verify UUPS proxy deployment was successful
@@ -133,7 +141,11 @@ contract DeployV2 is DeployScriptBase {
     }
 
     /// @notice Dry-run deployment for testing/CI without env or broadcast
-    function dryRun(address deployer, address admin, address treasury)
+    function dryRun(
+        address deployer,
+        address admin,
+        address treasury
+    )
         external
         returns (address restakingProxy, address tangleProxy, address statusRegistry)
     {
@@ -142,13 +154,7 @@ contract DeployV2 is DeployScriptBase {
         treasury = _requireNonZero(treasury == address(0) ? deployerAddr : treasury, "TREASURY");
         _enforceAllowlist("ADMIN_ALLOWLIST", "ADMIN", admin);
         _enforceAllowlist("TREASURY_ALLOWLIST", "TREASURY", treasury);
-        (
-            restakingProxy,
-            ,
-            tangleProxy,
-            ,
-            statusRegistry
-        ) = _deployCore(0, deployerAddr, admin, treasury, false);
+        (restakingProxy,, tangleProxy,, statusRegistry) = _deployCore(0, deployerAddr, admin, treasury, false);
     }
 
     function _deployCore(
@@ -194,10 +200,8 @@ contract DeployV2 is DeployScriptBase {
 
         MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(admin, tangleProxy);
         MBSMRegistry registryImpl = new MBSMRegistry();
-        ERC1967Proxy registryProxy = new ERC1967Proxy(
-            address(registryImpl),
-            abi.encodeCall(MBSMRegistry.initialize, (admin))
-        );
+        ERC1967Proxy registryProxy =
+            new ERC1967Proxy(address(registryImpl), abi.encodeCall(MBSMRegistry.initialize, (admin)));
         MBSMRegistry mbsmRegistry = MBSMRegistry(address(registryProxy));
         mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), tangleProxy);
         mbsmRegistry.addVersion(address(masterManager));
@@ -232,12 +236,19 @@ contract DeployV2 is DeployScriptBase {
             return;
         }
 
-        try vm.envAddress("OPERATOR_BOND_TOKEN") returns (address tokenFromEnv) {
-            operatorBondToken = _requireNonZero(tokenFromEnv, "OPERATOR_BOND_TOKEN");
+        string memory tokenField = "OPERATOR_BOND_TOKEN";
+        address tokenFromEnv = _envAddressIfSet(tokenField);
+        if (tokenFromEnv == address(0)) {
+            tokenField = "TNT_TOKEN";
+            tokenFromEnv = _envAddressIfSet(tokenField);
+        }
+
+        if (tokenFromEnv != address(0)) {
+            operatorBondToken = _requireNonZero(tokenFromEnv, tokenField);
             operatorBondAmount = _envUintOrDefault("OPERATOR_BOND_AMOUNT", operatorBondAmount);
-            console2.log("Using existing TNT token:", operatorBondToken);
+            console2.log("Using existing TNT token from env:", operatorBondToken);
             return;
-        } catch {}
+        }
 
         operatorBondToken = _deployTNTToken(admin);
         operatorBondAmount = _envUintOrDefault("OPERATOR_BOND_AMOUNT", operatorBondAmount);
@@ -246,10 +257,8 @@ contract DeployV2 is DeployScriptBase {
     function _deployTNTToken(address admin) internal returns (address) {
         uint256 initialSupply = _envUintOrDefault("TNT_INITIAL_SUPPLY", 1_000_000 ether);
         TangleToken tokenImpl = new TangleToken();
-        ERC1967Proxy tokenProxy = new ERC1967Proxy(
-            address(tokenImpl),
-            abi.encodeCall(TangleToken.initialize, (admin, initialSupply))
-        );
+        ERC1967Proxy tokenProxy =
+            new ERC1967Proxy(address(tokenImpl), abi.encodeCall(TangleToken.initialize, (admin, initialSupply)));
         console2.log("Deployed TangleToken proxy:", address(tokenProxy));
         console2.log("Initial TNT supply minted to admin:", initialSupply);
         return address(tokenProxy);
@@ -262,8 +271,7 @@ contract DeployV2 is DeployScriptBase {
 
         // Deploy proxy
         bytes memory initData = abi.encodeCall(
-            MultiAssetDelegation.initialize,
-            (admin, minOperatorStake, minDelegation, operatorCommissionBps)
+            MultiAssetDelegation.initialize, (admin, minOperatorStake, minDelegation, operatorCommissionBps)
         );
 
         ERC1967Proxy proxyContract = new ERC1967Proxy(impl, initData);
@@ -274,16 +282,16 @@ contract DeployV2 is DeployScriptBase {
         address admin,
         address restaking,
         address treasury
-    ) internal returns (address proxy, address impl) {
+    )
+        internal
+        returns (address proxy, address impl)
+    {
         // Deploy implementation
         Tangle implementation = new Tangle();
         impl = address(implementation);
 
         // Deploy proxy
-        bytes memory initData = abi.encodeCall(
-            Tangle.initialize,
-            (admin, restaking, payable(treasury))
-        );
+        bytes memory initData = abi.encodeCall(Tangle.initialize, (admin, restaking, payable(treasury)));
 
         ERC1967Proxy proxyContract = new ERC1967Proxy(impl, initData);
         proxy = address(proxyContract);
