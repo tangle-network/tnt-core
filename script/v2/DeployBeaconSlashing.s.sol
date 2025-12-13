@@ -5,6 +5,7 @@ import {Script, console2} from "forge-std/Script.sol";
 
 import {ValidatorPodManager} from "../../src/v2/beacon/ValidatorPodManager.sol";
 import {MockBeaconOracle} from "../../src/v2/beacon/BeaconRootReceiver.sol";
+import {EIP4788Oracle} from "../../src/v2/beacon/l1/EIP4788Oracle.sol";
 import {L2SlashingConnector} from "../../src/v2/beacon/L2SlashingConnector.sol";
 import {HyperlaneCrossChainMessenger} from "../../src/v2/beacon/bridges/HyperlaneCrossChainMessenger.sol";
 import {LayerZeroCrossChainMessenger} from "../../src/v2/beacon/bridges/LayerZeroCrossChainMessenger.sol";
@@ -39,18 +40,28 @@ contract DeployBeaconSlashingL1 is Script {
         address admin = _envAddressOrDefault("ADMIN", deployer);
         address oracle = _envAddressOrDefault("SLASHING_ORACLE", deployer);
         uint256 tangleChainId = vm.envOr("TANGLE_CHAIN_ID", TANGLE_TESTNET);
-        address l2Receiver = _requireEnvAddress("L2_RECEIVER");
+        bool skipChainConfig = vm.envOr("SKIP_CHAIN_CONFIG", false);
+        address l2Receiver = vm.envOr("L2_RECEIVER", address(0));
+        if (!skipChainConfig && l2Receiver == address(0)) {
+            revert MissingEnv("L2_RECEIVER");
+        }
         address beaconOracleOverride = vm.envOr("BEACON_ORACLE", address(0));
+        bool useMockBeaconOracle = vm.envOr("USE_MOCK_BEACON_ORACLE", false);
 
         _enforceAllowlist("ADMIN_ALLOWLIST", admin);
         _enforceAllowlist("SLASHING_ORACLE_ALLOWLIST", oracle);
-        _enforceAllowlist("L2_RECEIVER_ALLOWLIST", l2Receiver);
+        if (l2Receiver != address(0)) {
+            _enforceAllowlist("L2_RECEIVER_ALLOWLIST", l2Receiver);
+        }
 
         console2.log("=== L1 Beacon Slashing Deployment ===");
         console2.log("Deployer:", deployer);
         console2.log("Admin:", admin);
         console2.log("Oracle:", oracle);
         console2.log("Target Tangle Chain ID:", tangleChainId);
+        if (skipChainConfig) {
+            console2.log("Skipping L2 chain config (set later via ConfigureL2SlashingConnector)");
+        }
 
         (
             address beaconOracle,
@@ -66,8 +77,11 @@ contract DeployBeaconSlashingL1 is Script {
             tangleChainId,
             l2Receiver,
             beaconOracleOverride,
+            useMockBeaconOracle,
             true
         );
+
+        _writeManifest(_envStringOrEmpty("BEACON_SLASHING_MANIFEST"), bridge, admin, oracle, tangleChainId, l2Receiver, beaconOracle, podManager, connector, messenger);
 
         // Log deployment summary
         console2.log("\n=== L1 Deployment Summary ===");
@@ -76,7 +90,9 @@ contract DeployBeaconSlashingL1 is Script {
         console2.log("L2SlashingConnector:", connector);
         console2.log("CrossChainMessenger:", messenger);
         console2.log("Target L2 Chain:", tangleChainId);
-        console2.log("L2 Receiver:", l2Receiver);
+        if (l2Receiver != address(0)) {
+            console2.log("L2 Receiver:", l2Receiver);
+        }
     }
 
     /// @notice Dry-run deployment for testing/CI
@@ -101,6 +117,7 @@ contract DeployBeaconSlashingL1 is Script {
             tangleChainId,
             l2Receiver,
             beaconOracle,
+            true,
             false
         );
     }
@@ -114,6 +131,7 @@ contract DeployBeaconSlashingL1 is Script {
         uint256 tangleChainId,
         address l2Receiver,
         address beaconOracleOverride,
+        bool useMockBeaconOracle,
         bool broadcast
     )
         internal
@@ -132,8 +150,13 @@ contract DeployBeaconSlashingL1 is Script {
 
         beaconOracle = beaconOracleOverride;
         if (beaconOracle == address(0)) {
-            beaconOracle = address(new MockBeaconOracle());
-            console2.log("MockBeaconOracle:", beaconOracle);
+            if (useMockBeaconOracle) {
+                beaconOracle = address(new MockBeaconOracle());
+                console2.log("MockBeaconOracle:", beaconOracle);
+            } else {
+                beaconOracle = address(new EIP4788Oracle());
+                console2.log("EIP4788Oracle:", beaconOracle);
+            }
         } else {
             _enforceAllowlist("BEACON_ORACLE_ALLOWLIST", beaconOracle);
             console2.log("Using existing BeaconOracle:", beaconOracle);
@@ -159,9 +182,13 @@ contract DeployBeaconSlashingL1 is Script {
         }
 
         connectorContract.setMessenger(messenger);
-        connectorContract.setDefaultDestinationChain(tangleChainId);
-        connectorContract.setChainConfig(tangleChainId, l2Receiver, 200_000, true);
-        console2.log("Connector configured for chain:", tangleChainId);
+        if (l2Receiver != address(0)) {
+            connectorContract.setDefaultDestinationChain(tangleChainId);
+            connectorContract.setChainConfig(tangleChainId, l2Receiver, 200_000, true);
+            console2.log("Connector configured for chain:", tangleChainId);
+        } else {
+            console2.log("Connector messenger set (chain config deferred)");
+        }
 
         if (broadcast) {
             vm.stopBroadcast();
@@ -174,31 +201,38 @@ contract DeployBeaconSlashingL1 is Script {
         // Hyperlane Mailbox addresses by chain
         // See: https://docs.hyperlane.xyz/docs/reference/addresses/deployments/mailbox
         // See: https://github.com/hyperlane-xyz/hyperlane-registry/tree/main/chains
-        address mailbox;
-        address igp;
+        // NOTE: L2 slashing deploy scripts also use `HYPERLANE_MAILBOX`; to avoid env collisions, L1 uses L1_* vars.
+        address mailbox = vm.envOr("L1_HYPERLANE_MAILBOX", address(0));
+        address igp = vm.envOr("L1_HYPERLANE_IGP", address(0));
+        if (mailbox != address(0) || igp != address(0)) {
+            if (mailbox == address(0)) revert MissingEnv("L1_HYPERLANE_MAILBOX");
+            if (igp == address(0)) revert MissingEnv("L1_HYPERLANE_IGP");
+        }
 
-        if (block.chainid == 1) {
+        if (mailbox == address(0) && igp == address(0) && block.chainid == 1) {
             // Ethereum mainnet
             mailbox = 0xc005dc82818d67AF737725bD4bf75435d065D239;
             igp = 0x6cA0B6D22da47f091B7613223cD4BB03a2d77918;
-        } else if (block.chainid == 11155111) {
+        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 11155111) {
             // Sepolia testnet
             mailbox = 0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766;
             igp = 0x6f2756380FD49228ae25Aa7F2817993cB74Ecc56;
-        } else if (block.chainid == 17000) {
+        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 17000) {
             // Holesky testnet
             mailbox = 0x5b6CFf85442B851A8e6eaBd2A4E4507B5135B3B0;
             igp = 0x6f2756380FD49228ae25Aa7F2817993cB74Ecc56; // Same as Sepolia - verify before mainnet
-        } else if (block.chainid == 8453) {
+        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 8453) {
             // Base mainnet
             mailbox = 0xeA87ae93Fa0019a82A727bfd3eBd1cFCa8f64f1D;
             igp = 0xc3F23848Ed2e04C0c6d41bd7804fa8f89F940B94;
-        } else if (block.chainid == 84532) {
+        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 84532) {
             // Base Sepolia testnet
             mailbox = 0x6966b0E55883d49BFB24539356a2f8A673E02039;
             igp = 0x28B02B97a850872C4D33C3E024fab6499ad96564;
-        } else {
-            revert("Unsupported chain for Hyperlane");
+        }
+
+        if (mailbox == address(0) || igp == address(0)) {
+            revert("Unsupported chain for Hyperlane (set L1_HYPERLANE_MAILBOX and L1_HYPERLANE_IGP to override)");
         }
 
         HyperlaneCrossChainMessenger messenger = new HyperlaneCrossChainMessenger(
@@ -212,25 +246,28 @@ contract DeployBeaconSlashingL1 is Script {
     function deployLayerZeroMessenger() internal returns (address) {
         // LayerZero V2 Endpoint addresses by chain
         // See: https://docs.layerzero.network/v2/deployments/deployed-contracts
-        address endpoint;
+        // NOTE: L2 slashing deploy scripts use `LAYERZERO_ENDPOINT`; to avoid env collisions, L1 uses L1_* vars.
+        address endpoint = vm.envOr("L1_LAYERZERO_ENDPOINT", address(0));
 
-        if (block.chainid == 1) {
+        if (endpoint == address(0) && block.chainid == 1) {
             // Ethereum mainnet
             endpoint = 0x1a44076050125825900e736c501f859c50fE728c;
-        } else if (block.chainid == 11155111) {
+        } else if (endpoint == address(0) && block.chainid == 11155111) {
             // Sepolia testnet
             endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        } else if (block.chainid == 17000) {
+        } else if (endpoint == address(0) && block.chainid == 17000) {
             // Holesky testnet
             endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        } else if (block.chainid == 8453) {
+        } else if (endpoint == address(0) && block.chainid == 8453) {
             // Base mainnet
             endpoint = 0x1a44076050125825900e736c501f859c50fE728c;
-        } else if (block.chainid == 84532) {
+        } else if (endpoint == address(0) && block.chainid == 84532) {
             // Base Sepolia testnet
             endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        } else {
-            revert("Unsupported chain for LayerZero");
+        }
+
+        if (endpoint == address(0)) {
+            revert("Unsupported chain for LayerZero (set L1_LAYERZERO_ENDPOINT to override)");
         }
 
         LayerZeroCrossChainMessenger messenger = new LayerZeroCrossChainMessenger(endpoint);
@@ -244,6 +281,69 @@ contract DeployBeaconSlashingL1 is Script {
         } catch {
             revert MissingEnv(key);
         }
+    }
+
+    function _envStringOrEmpty(string memory key) internal view returns (string memory value) {
+        try vm.envString(key) returns (string memory raw) {
+            return raw;
+        } catch {
+            return "";
+        }
+    }
+
+    function _writeManifest(
+        string memory path,
+        BridgeProtocol bridge,
+        address admin,
+        address oracle,
+        uint256 destinationChainId,
+        address l2Receiver,
+        address beaconOracle,
+        address podManager,
+        address connector,
+        address messenger
+    ) internal {
+        if (bytes(path).length == 0) return;
+        _ensureParentDir(path);
+
+        string memory root = "beaconSlashing";
+        vm.serializeString(root, "kind", "beacon-slashing-l1");
+        vm.serializeString(root, "bridge", bridge == BridgeProtocol.Hyperlane ? "hyperlane" : "layerzero");
+        vm.serializeUint(root, "chainId", block.chainid);
+        vm.serializeAddress(root, "admin", admin);
+        vm.serializeAddress(root, "oracle", oracle);
+        vm.serializeUint(root, "destinationChainId", destinationChainId);
+        vm.serializeAddress(root, "l2Receiver", l2Receiver);
+        vm.serializeAddress(root, "beaconOracle", beaconOracle);
+        vm.serializeAddress(root, "podManager", podManager);
+        vm.serializeAddress(root, "connector", connector);
+        string memory json = vm.serializeAddress(root, "messenger", messenger);
+        vm.writeJson(json, path);
+
+        console2.log("Wrote beacon slashing manifest:", path);
+    }
+
+    function _ensureParentDir(string memory filePath) internal {
+        string memory dir = _parentDir(filePath);
+        if (bytes(dir).length == 0) return;
+        vm.createDir(dir, true);
+    }
+
+    function _parentDir(string memory filePath) internal pure returns (string memory dir) {
+        bytes memory pathBytes = bytes(filePath);
+        if (pathBytes.length == 0) return "";
+
+        for (uint256 i = pathBytes.length; i > 0; i--) {
+            if (pathBytes[i - 1] == "/") {
+                if (i <= 1) return "";
+                bytes memory dirBytes = new bytes(i - 1);
+                for (uint256 j = 0; j < i - 1; j++) {
+                    dirBytes[j] = pathBytes[j];
+                }
+                return string(dirBytes);
+            }
+        }
+        return "";
     }
 
     function _requireEnvAddress(string memory key) internal returns (address value) {
@@ -293,6 +393,15 @@ contract DeployBeaconSlashingL1Holesky is Script {
     }
 }
 
+/// @title DeployBeaconSlashingL1HoleskyLayerZero
+/// @notice Convenience script for Holesky testnet deployment using LayerZero.
+contract DeployBeaconSlashingL1HoleskyLayerZero is Script {
+    function run() external {
+        DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
+        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.LayerZero);
+    }
+}
+
 /// @title DeployBeaconSlashingBase
 /// @notice Convenience script for Base mainnet deployment
 /// @dev Run with: forge script script/v2/DeployBeaconSlashing.s.sol:DeployBeaconSlashingBase --rpc-url $BASE_RPC --broadcast
@@ -310,6 +419,15 @@ contract DeployBeaconSlashingBaseSepolia is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
         deploy.run(DeployBeaconSlashingL1.BridgeProtocol.Hyperlane);
+    }
+}
+
+/// @title DeployBeaconSlashingL1LayerZero
+/// @notice Generic convenience script for LayerZero deployments on any supported L1 chain.
+contract DeployBeaconSlashingL1LayerZero is Script {
+    function run() external {
+        DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
+        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.LayerZero);
     }
 }
 

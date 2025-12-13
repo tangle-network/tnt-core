@@ -87,6 +87,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         _setDomainMapping(56, 56);         // BSC
         // Testnets
         _setDomainMapping(11155111, 11155111); // Sepolia
+        _setDomainMapping(17000, 17000);       // Holesky
         _setDomainMapping(421614, 421614);     // Arbitrum Sepolia
         _setDomainMapping(84532, 84532);       // Base Sepolia
     }
@@ -249,6 +250,7 @@ contract HyperlaneReceiver {
         domainToChainId[42161] = 42161;     // Arbitrum
         domainToChainId[8453] = 8453;       // Base
         domainToChainId[11155111] = 11155111; // Sepolia
+        domainToChainId[17000] = 17000;     // Holesky
         domainToChainId[421614] = 421614;   // Arbitrum Sepolia
         domainToChainId[84532] = 84532;     // Base Sepolia
     }

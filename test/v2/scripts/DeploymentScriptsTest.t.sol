@@ -9,6 +9,8 @@ import {DeployL2Slashing} from "../../../script/v2/DeployL2Slashing.s.sol";
 import {LocalTestnetSetup} from "../../../script/v2/LocalTestnet.s.sol";
 import {L2SlashingReceiver} from "../../../src/v2/beacon/L2SlashingReceiver.sol";
 import {TangleL2Slasher} from "../../../src/v2/beacon/TangleL2Slasher.sol";
+import {HyperlaneReceiver} from "../../../src/v2/beacon/bridges/HyperlaneCrossChainMessenger.sol";
+import {LayerZeroReceiver} from "../../../src/v2/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 import { IRestaking } from "../../../src/v2/interfaces/IRestaking.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
@@ -133,6 +135,7 @@ contract DeployBeaconSlashingHarness is DeployBeaconSlashingL1 {
             tangleChainId,
             l2Receiver,
             beaconOracle,
+            true,
             false
         );
     }
@@ -159,6 +162,7 @@ contract DeployL2SlashingHarness is DeployL2Slashing {
             sourceChainId,
             l1Connector,
             messengerOverride,
+            vm.envOr("L1_MESSENGER", address(0)),
             false
         );
     }
@@ -289,6 +293,7 @@ contract DeploymentScriptsTest is Test {
         // Provide Hyperlane mailbox via env
         address mailbox = makeAddr("hyperlaneMailbox");
         vm.setEnv("HYPERLANE_MAILBOX", vm.toString(mailbox));
+        vm.setEnv("L1_MESSENGER", vm.toString(makeAddr("hyperlaneL1Messenger")));
 
         DeployL2SlashingHarness script = new DeployL2SlashingHarness();
         address admin = deployer;
@@ -305,7 +310,9 @@ contract DeploymentScriptsTest is Test {
 
         assertTrue(slasher != address(0), "slasher deployed");
         assertTrue(receiver != address(0), "receiver deployed");
-        assertEq(L2SlashingReceiver(receiver).messenger(), mailbox, "hyperlane mailbox used");
+        address adapter = L2SlashingReceiver(receiver).messenger();
+        assertTrue(adapter != address(0) && adapter.code.length > 0, "hyperlane adapter deployed");
+        assertEq(HyperlaneReceiver(adapter).mailbox(), mailbox, "hyperlane mailbox wired");
     }
 
     function testDeployL2SlashingScriptRunsLayerZero() public {
@@ -319,6 +326,9 @@ contract DeploymentScriptsTest is Test {
         // Provide LayerZero endpoint via env
         address endpoint = makeAddr("layerzeroEndpoint");
         vm.setEnv("LAYERZERO_ENDPOINT", vm.toString(endpoint));
+        vm.setEnv("L1_MESSENGER", vm.toString(makeAddr("layerzeroL1Messenger")));
+        // Provide the source EID explicitly for the harness (chainId 1 => 30101).
+        vm.setEnv("LAYERZERO_SOURCE_EID", vm.toString(uint256(30101)));
 
         DeployL2SlashingHarness script = new DeployL2SlashingHarness();
         address admin = deployer;
@@ -335,7 +345,9 @@ contract DeploymentScriptsTest is Test {
 
         assertTrue(slasher != address(0), "slasher deployed");
         assertTrue(receiver != address(0), "receiver deployed");
-        assertEq(L2SlashingReceiver(receiver).messenger(), endpoint, "layerzero endpoint used");
+        address adapter = L2SlashingReceiver(receiver).messenger();
+        assertTrue(adapter != address(0) && adapter.code.length > 0, "layerzero adapter deployed");
+        assertEq(LayerZeroReceiver(adapter).endpoint(), endpoint, "layerzero endpoint wired");
     }
 
     function testLocalTestnetSetupRuns() public {

@@ -5,6 +5,8 @@ import {Script, console2} from "forge-std/Script.sol";
 
 import {L2SlashingReceiver} from "../../src/v2/beacon/L2SlashingReceiver.sol";
 import {TangleL2Slasher} from "../../src/v2/beacon/TangleL2Slasher.sol";
+import {HyperlaneReceiver} from "../../src/v2/beacon/bridges/HyperlaneCrossChainMessenger.sol";
+import {LayerZeroReceiver} from "../../src/v2/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 
 error MissingEnv(string key);
 error AddressNotAllowlisted(string key, address provided, address expected);
@@ -78,19 +80,27 @@ contract DeployL2Slashing is EnvUtils {
         address l1Connector = vm.envOr("L1_CONNECTOR", address(0));
         address messengerOverride = vm.envOr("MOCK_MESSENGER", deployer);
         if (messengerOverride == address(0)) revert MissingEnv("MOCK_MESSENGER");
+        address l1Messenger = vm.envOr("L1_MESSENGER", address(0));
 
         _enforceAllowlist("ADMIN_ALLOWLIST", admin);
         _enforceAllowlist("RESTAKING_ALLOWLIST", restaking);
         if (l1Connector != address(0)) {
             _enforceAllowlist("L1_CONNECTOR_ALLOWLIST", l1Connector);
         }
-        _enforceAllowlist("MESSENGER_ALLOWLIST", messengerOverride);
+        if (bridge == BridgeProtocol.DirectMessenger) {
+            _enforceAllowlist("MESSENGER_ALLOWLIST", messengerOverride);
+        } else if (l1Messenger != address(0)) {
+            _enforceAllowlist("L1_MESSENGER_ALLOWLIST", l1Messenger);
+        }
 
         console2.log("=== L2 Slashing Receiver Deployment ===");
         console2.log("Deployer:", deployer);
         console2.log("Admin:", admin);
         console2.log("Restaking:", restaking);
         console2.log("Source Chain ID:", sourceChainId);
+        if (bridge != BridgeProtocol.DirectMessenger) {
+            console2.log("L1 Messenger:", l1Messenger);
+        }
 
         (
             address slasher,
@@ -105,7 +115,21 @@ contract DeployL2Slashing is EnvUtils {
             sourceChainId,
             l1Connector,
             messengerOverride,
+            l1Messenger,
             true
+        );
+
+        _writeManifest(
+            _envStringOrEmpty("L2_SLASHING_MANIFEST"),
+            bridge,
+            admin,
+            restaking,
+            sourceChainId,
+            l1Connector,
+            l1Messenger,
+            slasher,
+            receiver,
+            bridgeReceiver
         );
 
         // Log deployment summary
@@ -143,6 +167,7 @@ contract DeployL2Slashing is EnvUtils {
         if (messengerOverride != address(0)) {
             _enforceAllowlist("MESSENGER_ALLOWLIST", messengerOverride);
         }
+        address l1Messenger = vm.envOr("L1_MESSENGER", address(0));
         (slasher, receiver,) = _deploy(
             bridge,
             0,
@@ -152,6 +177,7 @@ contract DeployL2Slashing is EnvUtils {
             sourceChainId,
             l1Connector,
             messengerOverride,
+            l1Messenger,
             false
         );
     }
@@ -165,6 +191,7 @@ contract DeployL2Slashing is EnvUtils {
         uint256 sourceChainId,
         address l1Connector,
         address messengerOverride,
+        address l1Messenger,
         bool broadcast
     )
         internal
@@ -180,28 +207,35 @@ contract DeployL2Slashing is EnvUtils {
         slasher = address(slasherContract);
         console2.log("TangleL2Slasher:", slasher);
 
-        address messengerAddr;
-        if (bridge == BridgeProtocol.Hyperlane) {
-            bridgeReceiver = deployHyperlaneReceiver(sourceChainId, l1Connector);
-            messengerAddr = bridgeReceiver;
-        } else if (bridge == BridgeProtocol.LayerZero) {
-            bridgeReceiver = deployLayerZeroReceiver(sourceChainId, l1Connector);
-            messengerAddr = bridgeReceiver;
-        } else {
-            messengerAddr = messengerOverride != address(0) ? messengerOverride : deployer;
-            bridgeReceiver = address(0);
-        }
-
-        L2SlashingReceiver receiverContract = new L2SlashingReceiver(slasher, messengerAddr);
+        address initialMessenger = messengerOverride != address(0) ? messengerOverride : deployer;
+        L2SlashingReceiver receiverContract = new L2SlashingReceiver(slasher, initialMessenger);
         receiver = address(receiverContract);
         console2.log("L2SlashingReceiver:", receiver);
 
         slasherContract.setAuthorizedCaller(receiver, true);
         console2.log("Authorized receiver as slasher caller");
 
+        if (bridge == BridgeProtocol.Hyperlane) {
+            if (l1Messenger == address(0)) revert MissingEnv("L1_MESSENGER");
+            bridgeReceiver = _deployAndConfigureHyperlaneReceiver(receiverContract, admin, sourceChainId, l1Messenger);
+            receiverContract.setMessenger(bridgeReceiver);
+        } else if (bridge == BridgeProtocol.LayerZero) {
+            if (l1Messenger == address(0)) revert MissingEnv("L1_MESSENGER");
+            bridgeReceiver = _deployAndConfigureLayerZeroReceiver(receiverContract, admin, sourceChainId, l1Messenger);
+            receiverContract.setMessenger(bridgeReceiver);
+        } else {
+            bridgeReceiver = address(0);
+            receiverContract.setMessenger(initialMessenger);
+        }
+
         if (l1Connector != address(0)) {
             receiverContract.setAuthorizedSender(sourceChainId, l1Connector, true);
             console2.log("Authorized L1 connector:", l1Connector);
+        }
+
+        if (receiverContract.owner() != admin) {
+            receiverContract.transferOwnership(admin);
+            console2.log("Transferred L2SlashingReceiver ownership to admin");
         }
 
         if (broadcast) {
@@ -211,49 +245,171 @@ contract DeployL2Slashing is EnvUtils {
         }
     }
 
-    /// @dev Deploy and configure HyperlaneReceiver
-    /// Note: The receiver will be set as messenger for L2SlashingReceiver
-    /// This is a placeholder that returns deployer for now - configure after L2SlashingReceiver is deployed
-    function deployHyperlaneReceiver(
+    function _deployAndConfigureHyperlaneReceiver(
+        L2SlashingReceiver receiverContract,
+        address admin,
         uint256 sourceChainId,
-        address l1Connector
-    ) internal view returns (address) {
-        // Hyperlane Mailbox on Tangle (placeholder - update with actual address)
-        address mailbox = vm.envAddress("HYPERLANE_MAILBOX");
+        address l1Messenger
+    ) internal returns (address) {
+        address mailbox = vm.envOr("HYPERLANE_MAILBOX", _defaultHyperlaneMailbox(block.chainid));
+        if (mailbox == address(0)) revert MissingEnv("HYPERLANE_MAILBOX");
 
-        // Note: HyperlaneReceiver needs the L2SlashingReceiver address
-        // For now we return a placeholder, actual deployment should be done in two steps
-        // or the HyperlaneReceiver should be deployed with a placeholder and updated later
+        HyperlaneReceiver hyperlaneReceiver = new HyperlaneReceiver(mailbox, address(receiverContract));
 
-        // Return the mailbox for now as placeholder - actual integration
-        // requires configuring HyperlaneReceiver after L2SlashingReceiver deployment
-        console2.log("Note: Configure HyperlaneReceiver manually after deployment");
-        console2.log("Source Chain ID:", sourceChainId);
-        if (l1Connector != address(0)) {
-            console2.log("L1 Connector to trust:", l1Connector);
+        // HyperlaneReceiver expects the "sender" to be the origin contract that dispatched the message (the messenger).
+        hyperlaneReceiver.setTrustedSender(uint32(sourceChainId), l1Messenger, true);
+        if (hyperlaneReceiver.owner() != admin) {
+            hyperlaneReceiver.transferOwnership(admin);
         }
 
-        return mailbox;  // Placeholder
+        console2.log("HyperlaneReceiver:", address(hyperlaneReceiver));
+        console2.log("Hyperlane mailbox:", mailbox);
+        console2.log("Trusted L1 messenger:", l1Messenger);
+        return address(hyperlaneReceiver);
     }
 
-    /// @dev Deploy and configure LayerZeroReceiver
-    /// Note: The receiver will be set as messenger for L2SlashingReceiver
-    function deployLayerZeroReceiver(
+    function _deployAndConfigureLayerZeroReceiver(
+        L2SlashingReceiver receiverContract,
+        address admin,
         uint256 sourceChainId,
-        address l1Connector
-    ) internal view returns (address) {
-        // LayerZero Endpoint on Tangle (placeholder - update with actual address)
-        address endpoint = vm.envAddress("LAYERZERO_ENDPOINT");
+        address l1Messenger
+    ) internal returns (address) {
+        address endpoint = vm.envOr("LAYERZERO_ENDPOINT", _defaultLayerZeroEndpoint(block.chainid));
+        if (endpoint == address(0)) revert MissingEnv("LAYERZERO_ENDPOINT");
 
-        // Note: LayerZeroReceiver needs the L2SlashingReceiver address
-        // Return endpoint as placeholder
-        console2.log("Note: Configure LayerZeroReceiver manually after deployment");
-        console2.log("Source Chain ID:", sourceChainId);
-        if (l1Connector != address(0)) {
-            console2.log("L1 Connector to trust:", l1Connector);
+        LayerZeroReceiver lzReceiver = new LayerZeroReceiver(endpoint, address(receiverContract));
+
+        uint32 sourceEid = uint32(vm.envOr("LAYERZERO_SOURCE_EID", uint256(_defaultLayerZeroEid(sourceChainId))));
+        if (sourceEid == 0) revert MissingEnv("LAYERZERO_SOURCE_EID");
+
+        lzReceiver.setChainMapping(sourceEid, sourceChainId);
+        lzReceiver.setPeer(sourceEid, bytes32(uint256(uint160(l1Messenger))));
+        if (lzReceiver.owner() != admin) {
+            lzReceiver.transferOwnership(admin);
         }
 
-        return endpoint;  // Placeholder
+        console2.log("LayerZeroReceiver:", address(lzReceiver));
+        console2.log("LayerZero endpoint:", endpoint);
+        console2.log("Source EID:", sourceEid);
+        console2.log("Trusted L1 messenger:", l1Messenger);
+        return address(lzReceiver);
+    }
+
+    function _defaultHyperlaneMailbox(uint256 chainId) internal pure returns (address mailbox) {
+        if (chainId == 1) {
+            return 0xc005dc82818d67AF737725bD4bf75435d065D239;
+        }
+        if (chainId == 11155111) {
+            return 0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766;
+        }
+        if (chainId == 17000) {
+            return 0x5b6CFf85442B851A8e6eaBd2A4E4507B5135B3B0;
+        }
+        if (chainId == 8453) {
+            return 0xeA87ae93Fa0019a82A727bfd3eBd1cFCa8f64f1D;
+        }
+        if (chainId == 84532) {
+            return 0x6966b0E55883d49BFB24539356a2f8A673E02039;
+        }
+        return address(0);
+    }
+
+    function _defaultLayerZeroEndpoint(uint256 chainId) internal pure returns (address endpoint) {
+        if (chainId == 1) {
+            return 0x1a44076050125825900e736c501f859c50fE728c;
+        }
+        if (chainId == 11155111) {
+            return 0x6EDCE65403992e310A62460808c4b910D972f10f;
+        }
+        if (chainId == 17000) {
+            return 0x6EDCE65403992e310A62460808c4b910D972f10f;
+        }
+        if (chainId == 8453) {
+            return 0x1a44076050125825900e736c501f859c50fE728c;
+        }
+        if (chainId == 84532) {
+            return 0x6EDCE65403992e310A62460808c4b910D972f10f;
+        }
+        return address(0);
+    }
+
+    function _defaultLayerZeroEid(uint256 chainId) internal pure returns (uint32) {
+        if (chainId == 1) return 30101;
+        if (chainId == 42161) return 30110;
+        if (chainId == 8453) return 30184;
+        if (chainId == 11155111) return 40161;
+        if (chainId == 421614) return 40231;
+        if (chainId == 84532) return 40245;
+        return 0;
+    }
+
+    function _envStringOrEmpty(string memory key) internal view returns (string memory value) {
+        try vm.envString(key) returns (string memory raw) {
+            return raw;
+        } catch {
+            return "";
+        }
+    }
+
+    function _writeManifest(
+        string memory path,
+        BridgeProtocol bridge,
+        address admin,
+        address restaking,
+        uint256 sourceChainId,
+        address l1Connector,
+        address l1Messenger,
+        address slasher,
+        address receiver,
+        address messenger
+    ) internal {
+        if (bytes(path).length == 0) return;
+        _ensureParentDir(path);
+
+        string memory root = "l2Slashing";
+        vm.serializeString(root, "kind", "l2-slashing");
+        if (bridge == BridgeProtocol.Hyperlane) {
+            vm.serializeString(root, "bridge", "hyperlane");
+        } else if (bridge == BridgeProtocol.LayerZero) {
+            vm.serializeString(root, "bridge", "layerzero");
+        } else {
+            vm.serializeString(root, "bridge", "direct");
+        }
+        vm.serializeUint(root, "chainId", block.chainid);
+        vm.serializeAddress(root, "admin", admin);
+        vm.serializeAddress(root, "restaking", restaking);
+        vm.serializeUint(root, "sourceChainId", sourceChainId);
+        vm.serializeAddress(root, "l1Connector", l1Connector);
+        vm.serializeAddress(root, "l1Messenger", l1Messenger);
+        vm.serializeAddress(root, "slasher", slasher);
+        vm.serializeAddress(root, "receiver", receiver);
+        string memory json = vm.serializeAddress(root, "messenger", messenger);
+        vm.writeJson(json, path);
+
+        console2.log("Wrote L2 slashing manifest:", path);
+    }
+
+    function _ensureParentDir(string memory filePath) internal {
+        string memory dir = _parentDir(filePath);
+        if (bytes(dir).length == 0) return;
+        vm.createDir(dir, true);
+    }
+
+    function _parentDir(string memory filePath) internal pure returns (string memory dir) {
+        bytes memory pathBytes = bytes(filePath);
+        if (pathBytes.length == 0) return "";
+
+        for (uint256 i = pathBytes.length; i > 0; i--) {
+            if (pathBytes[i - 1] == "/") {
+                if (i <= 1) return "";
+                bytes memory dirBytes = new bytes(i - 1);
+                for (uint256 j = 0; j < i - 1; j++) {
+                    dirBytes[j] = pathBytes[j];
+                }
+                return string(dirBytes);
+            }
+        }
+        return "";
     }
 }
 
@@ -263,6 +419,24 @@ contract DeployL2SlashingTestnet is EnvUtils {
     function run() external {
         DeployL2Slashing deploy = new DeployL2Slashing();
         deploy.run(DeployL2Slashing.BridgeProtocol.DirectMessenger);
+    }
+}
+
+/// @title DeployL2SlashingHyperlane
+/// @notice Convenience script for Hyperlane receiver deployments.
+contract DeployL2SlashingHyperlane is EnvUtils {
+    function run() external {
+        DeployL2Slashing deploy = new DeployL2Slashing();
+        deploy.run(DeployL2Slashing.BridgeProtocol.Hyperlane);
+    }
+}
+
+/// @title DeployL2SlashingLayerZero
+/// @notice Convenience script for LayerZero receiver deployments.
+contract DeployL2SlashingLayerZero is EnvUtils {
+    function run() external {
+        DeployL2Slashing deploy = new DeployL2Slashing();
+        deploy.run(DeployL2Slashing.BridgeProtocol.LayerZero);
     }
 }
 
