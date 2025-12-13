@@ -42,6 +42,10 @@ depth = 120
 arbitrum_goerli = "${ARBITRUM_GOERLI_RPC}"
 arbitrum = "${ARBITRUM_RPC}"
 mainnet = "${MAINNET_RPC}"
+sepolia = "${SEPOLIA_RPC}"
+holesky = "${HOLESKY_RPC}"
+base = "${BASE_RPC}"
+base-sepolia = "${BASE_SEPOLIA_RPC}"
 tangle_local = "${TANGLE_LOCAL_RPC}"
 tangle_testnet = "${TANGLE_TESTNET_RPC}"
 tangle_mainnet = "${TANGLE_MAINNET_RPC}"
@@ -50,6 +54,8 @@ tempo_mainnet = "${TEMPO_MAINNET_RPC}"
 
 [etherscan]
 sepolia = { key = "${SEPOLIA_KEY}" }
+holesky = { key = "${HOLESKY_KEY}" }
+base = { key = "${BASE_KEY}" }
 base-sepolia = { key = "${BASE_SEPOLIA_KEY}" }
 tangle_testnet = { key = "${TANGLE_TESTNET_KEY}", url = "https://testnet-explorer.tangle.tools" }
 tangle_mainnet = { key = "${TANGLE_MAINNET_KEY}", url = "https://explorer.tangle.tools" }

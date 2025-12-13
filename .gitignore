@@ -18,10 +18,12 @@ docs/
 **/out
 **/generated
 **/build
+**/dist
 
 # files
 *.env
 *.env.*
+!.env.example
 *.html
 *.log
 .DS_Store
@@ -30,6 +32,7 @@ lcov.info
 yarn-debug.log*
 yarn-error.log*
 deployments.json
+deployments/**/evm-airdrop/
 
 # Ignores development broadcast logs
 !/broadcast
@@ -40,3 +43,9 @@ deployments.json
 # Soldeer
 /dependencies
 script/tanglepod-cli/tanglepod-cli
+
+# Migration / SP1 artifacts (generated)
+**/sp1/program/elf/
+**/merkle-tree-test.json
+**/migration-proofs.json
+**/proof.json
