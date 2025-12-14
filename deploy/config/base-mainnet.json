@@ -1,6 +1,9 @@
 {
   "_todo_network": "TODO: confirm naming for Base mainnet deployment",
   "network": "base-mainnet",
+  "_chainId": 8453,
+  "_l1ChainId": 1,
+  "_todo_tnt_sentinel": "TODO: 0x0000000000000000000000000000000000000001 is a sentinel meaning 'use the deployed/reused TNT token' (FullDeploy replaces it at runtime)",
   "_todo_roles": "TODO: set multisig / safe addresses for admin and treasury",
   "roles": {
     "admin": "0x0000000000000000000000000000000000000000",
@@ -17,6 +20,7 @@
     "operatorCommissionBps": 1000,
     "_todo_tnt_token": "TODO: point to canonical TNT token on Base",
     "operatorBondToken": "0x0000000000000000000000000000000000000000",
+    "_todo_operator_bond_amount": "TODO: policy placeholder - 100 TNT operator bond",
     "operatorBondAmount": 100000000000000000000,
     "maxBlueprintsPerOperator": 0
   },
@@ -25,7 +29,7 @@
   "restakeAssets": [
     {
       "symbol": "TNT",
-      "token": "0x0000000000000000000000000000000000000000",
+      "token": "0x0000000000000000000000000000000000000001",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 2000000000000000000,
       "minDelegation": 200000000000000000,
@@ -34,7 +38,7 @@
     },
     {
       "symbol": "WETH",
-      "token": "0x0000000000000000000000000000000000000000",
+      "token": "0x4200000000000000000000000000000000000006",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 1000000000000000000,
       "minDelegation": 100000000000000000,
@@ -70,7 +74,7 @@
     },
     {
       "symbol": "USDC",
-      "token": "0x0000000000000000000000000000000000000000",
+      "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 0,
       "minDelegation": 0,
@@ -79,7 +83,7 @@
     },
     {
       "symbol": "USDT",
-      "token": "0x0000000000000000000000000000000000000000",
+      "token": "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 0,
       "minDelegation": 0,
@@ -88,7 +92,7 @@
     },
     {
       "symbol": "DAI",
-      "token": "0x0000000000000000000000000000000000000000",
+      "token": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 0,
       "minDelegation": 0,
@@ -143,7 +147,7 @@
     "tntToken": "0x0000000000000000000000000000000000000000",
     "vaultOperatorCommissionBps": 1500,
     "epochLength": 604800,
-    "_todo_inflation": "TODO: ensure parameters align with 1% yearly issuance",
+    "_todo_inflation": "TODO: target ~1% yearly inflation budget (pre-fund InflationPool; it does not mint)",
     "weights": {
       "stakingBps": 5000,
       "operatorsBps": 2500,
@@ -152,7 +156,7 @@
     },
     "vaults": [
       {
-        "asset": "0x0000000000000000000000000000000000000000",
+        "asset": "0x0000000000000000000000000000000000000001",
         "apyBps": 750,
         "depositCap": 1000000000000000000000000,
         "incentiveCap": 200000000000000000000000,
@@ -160,7 +164,7 @@
         "active": true
       },
       {
-        "asset": "0x0000000000000000000000000000000000000000",
+        "asset": "0x4200000000000000000000000000000000000006",
         "apyBps": 850,
         "depositCap": 50000000000000000000000,
         "incentiveCap": 10000000000000000000000,
@@ -168,31 +172,7 @@
         "active": true
       },
       {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 900,
-        "depositCap": 30000000000000000000000,
-        "incentiveCap": 6000000000000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 900,
-        "depositCap": 30000000000000000000000,
-        "incentiveCap": 6000000000000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 850,
-        "depositCap": 1000000000000000000000000,
-        "incentiveCap": 200000000000000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         "apyBps": 650,
         "depositCap": 20000000000000,
         "incentiveCap": 4000000000000,
@@ -200,7 +180,7 @@
         "active": true
       },
       {
-        "asset": "0x0000000000000000000000000000000000000000",
+        "asset": "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
         "apyBps": 650,
         "depositCap": 20000000000000,
         "incentiveCap": 4000000000000,
@@ -208,40 +188,8 @@
         "active": true
       },
       {
-        "asset": "0x0000000000000000000000000000000000000000",
+        "asset": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",
         "apyBps": 700,
-        "depositCap": 15000000000000,
-        "incentiveCap": 3000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 800,
-        "depositCap": 500000000000,
-        "incentiveCap": 100000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 850,
-        "depositCap": 250000000000,
-        "incentiveCap": 50000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 850,
-        "depositCap": 150000000000,
-        "incentiveCap": 30000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 680,
         "depositCap": 15000000000000,
         "incentiveCap": 3000000000000,
         "boostMultiplierBps": 0,
@@ -253,7 +201,8 @@
   "guards": {
     "pauseRestaking": false,
     "pauseTangle": false,
-    "requireAdapters": true,
+    "_todo_require_adapters": "TODO: set true only once adapters exist for every ERC20 asset (otherwise ERC20 deposits revert)",
+    "requireAdapters": false,
     "delegatorDelay": 0,
     "operatorDelay": 0,
     "bondLessDelay": 0,

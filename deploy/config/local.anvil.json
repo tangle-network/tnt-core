@@ -6,16 +6,25 @@
   },
   "core": {
     "deploy": true,
+    "tangle": "0x0000000000000000000000000000000000000000",
+    "restaking": "0x0000000000000000000000000000000000000000",
+    "statusRegistry": "0x0000000000000000000000000000000000000000",
     "minOperatorStake": 1000000000000000000,
     "minDelegation": 100000000000000000,
     "operatorCommissionBps": 1000,
-    "operatorBondAmount": 100000000000000000000
+    "operatorBondToken": "0x0000000000000000000000000000000000000000",
+    "operatorBondAmount": 100000000000000000000,
+    "maxBlueprintsPerOperator": 0
   },
   "restakeAssets": [],
   "incentives": {
     "deployMetrics": true,
+    "metrics": "0x0000000000000000000000000000000000000000",
     "deployRewardVaults": true,
+    "rewardVaults": "0x0000000000000000000000000000000000000000",
     "deployInflationPool": true,
+    "inflationPool": "0x0000000000000000000000000000000000000000",
+    "tntToken": "0x0000000000000000000000000000000000000000",
     "vaultOperatorCommissionBps": 1500,
     "epochLength": 3600,
     "weights": {

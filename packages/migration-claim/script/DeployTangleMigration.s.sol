@@ -6,6 +6,7 @@ import {TNT} from "../src/TNT.sol";
 import {TangleMigration} from "../src/TangleMigration.sol";
 import {SP1ZKVerifier, MockZKVerifier} from "../src/SP1ZKVerifier.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title DeployTangleMigration
@@ -18,6 +19,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *
  * Environment Variables (Optional):
  *   PRIVATE_KEY          - Deployer private key (default: Anvil account 0)
+ *   TNT_TOKEN            - Existing TNT token address to reuse (recommended)
+ *   ALLOW_STANDALONE_TOKEN - Set to "true" to deploy a test-only TNT token when TNT_TOKEN is not provided
  *   SP1_VERIFIER         - SP1 Verifier Gateway address (default: Base gateway)
  *   PROGRAM_VKEY         - SP1 program verification key
  *   USE_MOCK_VERIFIER    - Set to "true" for testing without real ZK proofs
@@ -35,6 +38,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *     --rpc-url http://localhost:8545 --broadcast
  */
 contract DeployTangleMigration is Script {
+    using SafeERC20 for IERC20;
+
     // SP1 Verifier Gateway on Base
     address constant SP1_VERIFIER_BASE = 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B;
 
@@ -87,6 +92,7 @@ contract DeployTangleMigration is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
+        bool allowStandaloneToken = vm.envOr("ALLOW_STANDALONE_TOKEN", false);
         address configuredTnt = _envAddressOrZero("TNT_TOKEN");
         if (configuredTnt == address(0)) {
             configuredTnt = _envAddressOrZero("TNT_TOKEN_ADDRESS");
@@ -94,6 +100,10 @@ contract DeployTangleMigration is Script {
 
         IERC20 tntToken;
         if (configuredTnt == address(0)) {
+            require(
+                allowStandaloneToken,
+                "Missing TNT token address. Set TNT_TOKEN (preferred) or set ALLOW_STANDALONE_TOKEN=true to deploy a test-only token."
+            );
             TNT fresh = new TNT(deployer);
             configuredTnt = address(fresh);
             console.log("\n1. TNT Token deployed:", configuredTnt);
@@ -143,7 +153,7 @@ contract DeployTangleMigration is Script {
         migration.setClaimDeadline(deadline);
         console.log("   Claim deadline:", deadline);
 
-        // 7. EVM allocation remains in deployer for batchMint airdrop
+        // 7. EVM allocation remains in deployer for transfer-based airdrop
         console.log("\n4. EVM Airdrop:");
         console.log("   Remaining in deployer:", evmAllocation / 1e18, "TNT");
         console.log("   Run ExecuteEVMAirdrop to distribute to", "EVM holders");
@@ -242,22 +252,21 @@ contract DeployTangleMigration is Script {
 
 /**
  * @title ExecuteEVMAirdrop
- * @notice Executes the direct EVM airdrop using batchMint
+ * @notice Executes the EVM airdrop via direct ERC20 transfers
  *
- * This script reads arrays of addresses and amounts and calls TNT.batchMint()
- * The arrays should be generated from evm-airdrop.json by the wrapper script
+ * This script reads arrays of addresses and amounts and calls ERC20.transfer().
+ * The arrays should be generated from evm-airdrop.json by an external wrapper/tool.
  *
  * Environment Variables:
- *   TNT_ADDRESS          - Deployed TNT token address
- *   PRIVATE_KEY          - Deployer private key (must be TNT owner)
- *   AIRDROP_RECIPIENTS   - Comma-separated list of addresses
- *   AIRDROP_AMOUNTS      - Comma-separated list of amounts (in wei)
+ *   TNT_ADDRESS          - TNT token address
+ *   PRIVATE_KEY          - Deployer private key (must hold sufficient TNT balance)
  *
  * Usage:
- *   # Use the deploy-migration.sh wrapper which handles parsing:
- *   ./scripts/local-env/deploy-migration.sh --airdrop
+ *   # Use an external wrapper which parses JSON and calls runBatch() in chunks.
  */
 contract ExecuteEVMAirdrop is Script {
+    using SafeERC20 for IERC20;
+
     function run() external {
         uint256 deployerPrivateKey = vm.envOr(
             "PRIVATE_KEY",
@@ -265,28 +274,13 @@ contract ExecuteEVMAirdrop is Script {
         );
         address tntAddress = vm.envAddress("TNT_ADDRESS");
 
-        // Parse recipients and amounts from env
-        // These are set by the wrapper script from evm-airdrop.json
-        string memory recipientsStr = vm.envString("AIRDROP_RECIPIENTS");
-        string memory amountsStr = vm.envString("AIRDROP_AMOUNTS");
-
         console.log("=== EVM Airdrop Execution ===");
         console.log("TNT Token:", tntAddress);
 
-        // For local testing, use direct transfers
-        // For production, use a proper batch transfer solution
-        TNT tnt = TNT(tntAddress);
-
         vm.startBroadcast(deployerPrivateKey);
 
-        // Note: Forge's string parsing is limited
-        // The wrapper script should call this in batches with proper arrays
-        // For now, log instructions
-        console.log("\nAirdrop execution requires the wrapper script to parse JSON");
-        console.log("and call TNT.batchMint() with proper arrays.");
-        console.log("");
-        console.log("Recipients:", recipientsStr);
-        console.log("Amounts:", amountsStr);
+        console.log("\nUse runBatch(tntAddress, recipients[], amounts[]) for a batched transfer-based airdrop.");
+        console.log("NOTE: Deployer must already hold the TNT being distributed (no minting performed).");
 
         vm.stopBroadcast();
     }
@@ -306,10 +300,14 @@ contract ExecuteEVMAirdrop is Script {
         console.log("TNT Token:", tntAddress);
         console.log("Recipients:", recipients.length);
 
-        TNT tnt = TNT(tntAddress);
+        IERC20 tnt = IERC20(tntAddress);
 
         vm.startBroadcast(deployerPrivateKey);
-        tnt.batchMint(recipients, amounts);
+        require(recipients.length == amounts.length, "Length mismatch");
+        for (uint256 i = 0; i < recipients.length; i++) {
+            if (recipients[i] == address(0) || amounts[i] == 0) continue;
+            tnt.safeTransfer(recipients[i], amounts[i]);
+        }
         vm.stopBroadcast();
 
         console.log("Airdrop complete!");

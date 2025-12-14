@@ -23,6 +23,7 @@ contract FullDeploy is DeployV2 {
     using Strings for uint256;
 
     string internal constant CONFIG_ENV = "FULL_DEPLOY_CONFIG";
+    address internal constant TNT_ADDRESS_SENTINEL = address(1);
 
     struct RolesConfig {
         address admin;
@@ -152,6 +153,13 @@ contract FullDeploy is DeployV2 {
         console2.log("Admin:", admin);
         console2.log("Treasury:", treasury);
 
+        if (cfg.incentives.tntToken != address(0) && cfg.core.operatorBondToken != address(0)) {
+            require(cfg.incentives.tntToken == cfg.core.operatorBondToken, "TNT token mismatch");
+        }
+        if (cfg.core.operatorBondToken == address(0) && cfg.incentives.tntToken != address(0)) {
+            cfg.core.operatorBondToken = cfg.incentives.tntToken;
+        }
+
         _applyCoreOverrides(cfg.core);
 
         (address restaking, address tangle, address statusRegistry) =
@@ -159,6 +167,8 @@ contract FullDeploy is DeployV2 {
 
         (address metrics, address rewardVaults, address inflationPool, address tntToken, uint256 epochLength) =
             _prepareIncentives(cfg.incentives, admin);
+
+        _substituteTntSentinel(cfg.restakeAssets, cfg.incentives.vaults, tntToken);
 
         vm.startBroadcast(deployerKey);
         _configureRestaking(restaking, cfg.restakeAssets);
@@ -222,34 +232,145 @@ contract FullDeploy is DeployV2 {
     }
 
     function _loadConfig(string memory path) internal view returns (FullDeployConfig memory cfg) {
-        string memory json = vm.readFile(path);
-        if (bytes(json).length == 0) {
+        string memory jsonBlob = vm.readFile(path);
+        if (bytes(jsonBlob).length == 0) {
             revert("Empty config file");
         }
 
-        if (json.keyExists(".network")) {
-            cfg.network = json.readString(".network");
+        if (jsonBlob.keyExists(".network")) cfg.network = jsonBlob.readString(".network");
+
+        if (jsonBlob.keyExists(".roles.admin")) cfg.roles.admin = jsonBlob.readAddress(".roles.admin");
+        if (jsonBlob.keyExists(".roles.treasury")) cfg.roles.treasury = jsonBlob.readAddress(".roles.treasury");
+
+        if (jsonBlob.keyExists(".core.deploy")) cfg.core.deploy = jsonBlob.readBool(".core.deploy");
+        if (jsonBlob.keyExists(".core.tangle")) cfg.core.tangle = jsonBlob.readAddress(".core.tangle");
+        if (jsonBlob.keyExists(".core.restaking")) cfg.core.restaking = jsonBlob.readAddress(".core.restaking");
+        if (jsonBlob.keyExists(".core.statusRegistry")) cfg.core.statusRegistry = jsonBlob.readAddress(".core.statusRegistry");
+        if (jsonBlob.keyExists(".core.minOperatorStake")) {
+            cfg.core.minOperatorStake = jsonBlob.readUint(".core.minOperatorStake");
         }
-        if (json.keyExists(".roles")) {
-            cfg.roles = abi.decode(json.parseRaw(".roles"), (RolesConfig));
+        if (jsonBlob.keyExists(".core.minDelegation")) cfg.core.minDelegation = jsonBlob.readUint(".core.minDelegation");
+        if (jsonBlob.keyExists(".core.operatorCommissionBps")) {
+            cfg.core.operatorCommissionBps = uint16(jsonBlob.readUint(".core.operatorCommissionBps"));
         }
-        if (json.keyExists(".core")) {
-            cfg.core = abi.decode(json.parseRaw(".core"), (CoreConfig));
+        if (jsonBlob.keyExists(".core.operatorBondToken")) {
+            cfg.core.operatorBondToken = jsonBlob.readAddress(".core.operatorBondToken");
         }
-        if (json.keyExists(".restakeAssets")) {
-            cfg.restakeAssets = abi.decode(json.parseRaw(".restakeAssets"), (RestakeAssetConfig[]));
+        if (jsonBlob.keyExists(".core.operatorBondAmount")) cfg.core.operatorBondAmount = jsonBlob.readUint(".core.operatorBondAmount");
+        if (jsonBlob.keyExists(".core.maxBlueprintsPerOperator")) {
+            cfg.core.maxBlueprintsPerOperator = uint32(jsonBlob.readUint(".core.maxBlueprintsPerOperator"));
         }
-        if (json.keyExists(".incentives")) {
-            cfg.incentives = abi.decode(json.parseRaw(".incentives"), (IncentiveConfig));
+
+        cfg.restakeAssets = _loadRestakeAssets(jsonBlob);
+
+        if (jsonBlob.keyExists(".incentives.deployMetrics")) {
+            cfg.incentives.deployMetrics = jsonBlob.readBool(".incentives.deployMetrics");
         }
-        if (json.keyExists(".guards")) {
-            cfg.guards = abi.decode(json.parseRaw(".guards"), (GuardsConfig));
+        if (jsonBlob.keyExists(".incentives.deployRewardVaults")) {
+            cfg.incentives.deployRewardVaults = jsonBlob.readBool(".incentives.deployRewardVaults");
         }
-        if (json.keyExists(".manifest")) {
-            cfg.manifest = abi.decode(json.parseRaw(".manifest"), (ManifestConfig));
+        if (jsonBlob.keyExists(".incentives.deployInflationPool")) {
+            cfg.incentives.deployInflationPool = jsonBlob.readBool(".incentives.deployInflationPool");
         }
-        if (json.keyExists(".migration")) {
-            cfg.migration = abi.decode(json.parseRaw(".migration"), (MigrationConfig));
+        if (jsonBlob.keyExists(".incentives.metrics")) cfg.incentives.metrics = jsonBlob.readAddress(".incentives.metrics");
+        if (jsonBlob.keyExists(".incentives.rewardVaults")) {
+            cfg.incentives.rewardVaults = jsonBlob.readAddress(".incentives.rewardVaults");
+        }
+        if (jsonBlob.keyExists(".incentives.inflationPool")) {
+            cfg.incentives.inflationPool = jsonBlob.readAddress(".incentives.inflationPool");
+        }
+        if (jsonBlob.keyExists(".incentives.tntToken")) cfg.incentives.tntToken = jsonBlob.readAddress(".incentives.tntToken");
+        if (jsonBlob.keyExists(".incentives.vaultOperatorCommissionBps")) {
+            cfg.incentives.vaultOperatorCommissionBps = uint16(jsonBlob.readUint(".incentives.vaultOperatorCommissionBps"));
+        }
+        if (jsonBlob.keyExists(".incentives.epochLength")) cfg.incentives.epochLength = jsonBlob.readUint(".incentives.epochLength");
+
+        if (jsonBlob.keyExists(".incentives.weights.stakingBps")) {
+            cfg.incentives.weights.stakingBps = uint16(jsonBlob.readUint(".incentives.weights.stakingBps"));
+        }
+        if (jsonBlob.keyExists(".incentives.weights.operatorsBps")) {
+            cfg.incentives.weights.operatorsBps = uint16(jsonBlob.readUint(".incentives.weights.operatorsBps"));
+        }
+        if (jsonBlob.keyExists(".incentives.weights.customersBps")) {
+            cfg.incentives.weights.customersBps = uint16(jsonBlob.readUint(".incentives.weights.customersBps"));
+        }
+        if (jsonBlob.keyExists(".incentives.weights.developersBps")) {
+            cfg.incentives.weights.developersBps = uint16(jsonBlob.readUint(".incentives.weights.developersBps"));
+        }
+
+        cfg.incentives.vaults = _loadVaults(jsonBlob);
+
+        if (jsonBlob.keyExists(".guards.pauseRestaking")) cfg.guards.pauseRestaking = jsonBlob.readBool(".guards.pauseRestaking");
+        if (jsonBlob.keyExists(".guards.pauseTangle")) cfg.guards.pauseTangle = jsonBlob.readBool(".guards.pauseTangle");
+        if (jsonBlob.keyExists(".guards.requireAdapters")) cfg.guards.requireAdapters = jsonBlob.readBool(".guards.requireAdapters");
+        if (jsonBlob.keyExists(".guards.delegatorDelay")) cfg.guards.delegatorDelay = uint64(jsonBlob.readUint(".guards.delegatorDelay"));
+        if (jsonBlob.keyExists(".guards.operatorDelay")) cfg.guards.operatorDelay = uint64(jsonBlob.readUint(".guards.operatorDelay"));
+        if (jsonBlob.keyExists(".guards.bondLessDelay")) cfg.guards.bondLessDelay = uint64(jsonBlob.readUint(".guards.bondLessDelay"));
+        if (jsonBlob.keyExists(".guards.maxBlueprintsPerOperator")) {
+            cfg.guards.maxBlueprintsPerOperator = uint32(jsonBlob.readUint(".guards.maxBlueprintsPerOperator"));
+        }
+
+        if (jsonBlob.keyExists(".manifest.path")) cfg.manifest.path = jsonBlob.readString(".manifest.path");
+        if (jsonBlob.keyExists(".manifest.logSummary")) cfg.manifest.logSummary = jsonBlob.readBool(".manifest.logSummary");
+
+        if (jsonBlob.keyExists(".migration.emitArtifacts")) cfg.migration.emitArtifacts = jsonBlob.readBool(".migration.emitArtifacts");
+        if (jsonBlob.keyExists(".migration.artifactsPath")) cfg.migration.artifactsPath = jsonBlob.readString(".migration.artifactsPath");
+        if (jsonBlob.keyExists(".migration.merklePath")) cfg.migration.merklePath = jsonBlob.readString(".migration.merklePath");
+        if (jsonBlob.keyExists(".migration.notes")) cfg.migration.notes = jsonBlob.readString(".migration.notes");
+    }
+
+    function _loadRestakeAssets(string memory jsonBlob) internal view returns (RestakeAssetConfig[] memory assets) {
+        uint256 count;
+        while (jsonBlob.keyExists(string.concat(".restakeAssets[", count.toString(), "].symbol"))) {
+            count++;
+        }
+        assets = new RestakeAssetConfig[](count);
+        for (uint256 i = 0; i < count; i++) {
+            string memory base = string.concat(".restakeAssets[", i.toString(), "]");
+            assets[i].symbol = jsonBlob.readString(string.concat(base, ".symbol"));
+            assets[i].token = jsonBlob.readAddress(string.concat(base, ".token"));
+            if (jsonBlob.keyExists(string.concat(base, ".adapter"))) {
+                assets[i].adapter = jsonBlob.readAddress(string.concat(base, ".adapter"));
+            }
+            if (jsonBlob.keyExists(string.concat(base, ".minOperatorStake"))) {
+                assets[i].minOperatorStake = jsonBlob.readUint(string.concat(base, ".minOperatorStake"));
+            }
+            if (jsonBlob.keyExists(string.concat(base, ".minDelegation"))) {
+                assets[i].minDelegation = jsonBlob.readUint(string.concat(base, ".minDelegation"));
+            }
+            if (jsonBlob.keyExists(string.concat(base, ".depositCap"))) {
+                assets[i].depositCap = jsonBlob.readUint(string.concat(base, ".depositCap"));
+            }
+            if (jsonBlob.keyExists(string.concat(base, ".rewardMultiplierBps"))) {
+                assets[i].rewardMultiplierBps = uint16(jsonBlob.readUint(string.concat(base, ".rewardMultiplierBps")));
+            }
+        }
+    }
+
+    function _loadVaults(string memory jsonBlob) internal view returns (RewardVaultConfig[] memory vaults) {
+        uint256 count;
+        while (jsonBlob.keyExists(string.concat(".incentives.vaults[", count.toString(), "].asset"))) {
+            count++;
+        }
+        vaults = new RewardVaultConfig[](count);
+        for (uint256 i = 0; i < count; i++) {
+            string memory base = string.concat(".incentives.vaults[", i.toString(), "]");
+            vaults[i].asset = jsonBlob.readAddress(string.concat(base, ".asset"));
+            if (jsonBlob.keyExists(string.concat(base, ".apyBps"))) {
+                vaults[i].apyBps = jsonBlob.readUint(string.concat(base, ".apyBps"));
+            }
+            if (jsonBlob.keyExists(string.concat(base, ".depositCap"))) {
+                vaults[i].depositCap = jsonBlob.readUint(string.concat(base, ".depositCap"));
+            }
+            if (jsonBlob.keyExists(string.concat(base, ".incentiveCap"))) {
+                vaults[i].incentiveCap = jsonBlob.readUint(string.concat(base, ".incentiveCap"));
+            }
+            if (jsonBlob.keyExists(string.concat(base, ".boostMultiplierBps"))) {
+                vaults[i].boostMultiplierBps = jsonBlob.readUint(string.concat(base, ".boostMultiplierBps"));
+            }
+            if (jsonBlob.keyExists(string.concat(base, ".active"))) {
+                vaults[i].active = jsonBlob.readBool(string.concat(base, ".active"));
+            }
         }
     }
 
@@ -268,6 +389,28 @@ contract FullDeploy is DeployV2 {
         }
         if (core.operatorBondToken != address(0)) {
             operatorBondToken = core.operatorBondToken;
+        }
+    }
+
+    function _substituteTntSentinel(
+        RestakeAssetConfig[] memory assets,
+        RewardVaultConfig[] memory vaults,
+        address tntToken
+    )
+        internal
+        pure
+    {
+        if (tntToken == address(0)) return;
+
+        for (uint256 i = 0; i < assets.length; i++) {
+            if (assets[i].token == TNT_ADDRESS_SENTINEL) {
+                assets[i].token = tntToken;
+            }
+        }
+        for (uint256 i = 0; i < vaults.length; i++) {
+            if (vaults[i].asset == TNT_ADDRESS_SENTINEL) {
+                vaults[i].asset = tntToken;
+            }
         }
     }
 

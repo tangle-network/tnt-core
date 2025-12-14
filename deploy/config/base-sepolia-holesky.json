@@ -1,6 +1,9 @@
 {
   "_todo_network": "TODO: confirm naming for the Base Sepolia <> Holesky environment",
   "network": "base-sepolia-holesky",
+  "_chainId": 84532,
+  "_l1ChainId": 17000,
+  "_todo_tnt_sentinel": "TODO: 0x0000000000000000000000000000000000000001 is a sentinel meaning 'use the deployed/reused TNT token' (FullDeploy replaces it at runtime)",
   "_todo_roles": "TODO: set the production admin/treasury EOAs before deployment",
   "roles": {
     "admin": "0x0000000000000000000000000000000000000000",
@@ -26,7 +29,7 @@
   "restakeAssets": [
     {
       "symbol": "TNT",
-      "token": "0x0000000000000000000000000000000000000000",
+      "token": "0x0000000000000000000000000000000000000001",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 1000000000000000000,
       "minDelegation": 100000000000000000,
@@ -35,7 +38,7 @@
     },
     {
       "symbol": "WETH",
-      "token": "0x0000000000000000000000000000000000000000",
+      "token": "0x4200000000000000000000000000000000000006",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 500000000000000000,
       "minDelegation": 50000000000000000,
@@ -149,7 +152,7 @@
     "_todo_vault_rewards": "TODO: adjust per-asset vault incentives before enabling payouts",
     "vaults": [
       {
-        "asset": "0x0000000000000000000000000000000000000000",
+        "asset": "0x0000000000000000000000000000000000000001",
         "apyBps": 800,
         "depositCap": 250000000000000000000000,
         "incentiveCap": 50000000000000000000000,
@@ -157,82 +160,10 @@
         "active": true
       },
       {
-        "asset": "0x0000000000000000000000000000000000000000",
+        "asset": "0x4200000000000000000000000000000000000006",
         "apyBps": 900,
         "depositCap": 10000000000000000000000,
         "incentiveCap": 2000000000000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 950,
-        "depositCap": 7500000000000000000000,
-        "incentiveCap": 1500000000000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 950,
-        "depositCap": 7500000000000000000000,
-        "incentiveCap": 1500000000000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 900,
-        "depositCap": 500000000000000000000000,
-        "incentiveCap": 100000000000000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 700,
-        "depositCap": 5000000000000,
-        "incentiveCap": 1000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 700,
-        "depositCap": 5000000000000,
-        "incentiveCap": 1000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 700,
-        "depositCap": 5000000000000,
-        "incentiveCap": 1000000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 850,
-        "depositCap": 100000000000,
-        "incentiveCap": 20000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 900,
-        "depositCap": 50000000000,
-        "incentiveCap": 10000000000,
-        "boostMultiplierBps": 0,
-        "active": true
-      },
-      {
-        "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 900,
-        "depositCap": 25000000000,
-        "incentiveCap": 5000000000,
         "boostMultiplierBps": 0,
         "active": true
       }
@@ -242,7 +173,8 @@
   "guards": {
     "pauseRestaking": false,
     "pauseTangle": false,
-    "requireAdapters": true,
+    "_todo_require_adapters": "TODO: set true only once adapters exist for every ERC20 asset (otherwise ERC20 deposits revert)",
+    "requireAdapters": false,
     "delegatorDelay": 0,
     "operatorDelay": 0,
     "bondLessDelay": 0,
