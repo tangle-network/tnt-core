@@ -39,6 +39,7 @@ contract OperatorStatusRegistryTest is Test {
     bytes32 internal constant SLASHING_SIG = keccak256("SlashingTriggered(uint64,address,string)");
 
     address internal tangle = makeAddr("tangle");
+    address internal governance = makeAddr("governance");
     address internal serviceOwner = makeAddr("serviceOwner");
     address internal slashingOracle = makeAddr("oracle");
 
@@ -49,7 +50,7 @@ contract OperatorStatusRegistryTest is Test {
     address internal operatorAddr;
 
     function setUp() public {
-        registry = new OperatorStatusRegistry(tangle);
+        registry = new OperatorStatusRegistry(tangle, governance);
         metrics = new MockMetricsRecorder();
         operatorAddr = vm.addr(operatorKey);
 
@@ -155,6 +156,7 @@ contract OperatorStatusRegistryTest is Test {
     }
 
     function test_metricsRecorderHookInvoked() public {
+        vm.prank(governance);
         registry.setMetricsRecorder(address(metrics));
 
         bytes memory signature = _signHeartbeat("");
@@ -167,6 +169,7 @@ contract OperatorStatusRegistryTest is Test {
     }
 
     function test_setSlashingOracleAndReport() public {
+        vm.prank(governance);
         registry.setSlashingOracle(slashingOracle);
 
         vm.prank(operatorAddr);
@@ -223,6 +226,7 @@ contract OperatorStatusRegistryTest is Test {
     }
 
     function test_goOffline_RevertWhenSlashed() public {
+        vm.prank(governance);
         registry.setSlashingOracle(slashingOracle);
 
         vm.prank(operatorAddr);

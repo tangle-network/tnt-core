@@ -268,7 +268,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         console2.log("  Tangle:", tangleProxy);
 
         // Deploy OperatorStatusRegistry
-        statusRegistry = new OperatorStatusRegistry(tangleProxy);
+        statusRegistry = new OperatorStatusRegistry(tangleProxy, admin);
         console2.log("  OperatorStatusRegistry:", address(statusRegistry));
 
         // Deploy TNT token

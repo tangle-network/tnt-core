@@ -153,7 +153,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("Tangle:", tangleProxy);
 
         // Deploy OperatorStatusRegistry
-        statusRegistry = address(new OperatorStatusRegistry(tangleProxy));
+        statusRegistry = address(new OperatorStatusRegistry(tangleProxy, deployer));
         console2.log("OperatorStatusRegistry:", statusRegistry);
 
         bool deployedNewTNT;

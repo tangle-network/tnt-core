@@ -189,7 +189,7 @@ contract DeployV2 is DeployScriptBase {
         console2.log("Tangle implementation:", tangleImpl);
         console2.log("Tangle proxy:", tangleProxy);
 
-        statusRegistry = deployOperatorStatusRegistry(tangleProxy);
+        statusRegistry = deployOperatorStatusRegistry(tangleProxy, admin);
         console2.log("OperatorStatusRegistry:", statusRegistry);
 
         // Verify proxy deployments
@@ -302,9 +302,9 @@ contract DeployV2 is DeployScriptBase {
         operatorBondAmount = amount;
     }
 
-    function deployOperatorStatusRegistry(address tangleCore) internal returns (address) {
+    function deployOperatorStatusRegistry(address tangleCore, address owner) internal returns (address) {
         // OperatorStatusRegistry is not upgradeable - uses immutable tangleCore
-        OperatorStatusRegistry registry = new OperatorStatusRegistry(tangleCore);
+        OperatorStatusRegistry registry = new OperatorStatusRegistry(tangleCore, owner);
         return address(registry);
     }
 }

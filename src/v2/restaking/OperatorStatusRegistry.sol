@@ -3,6 +3,8 @@ pragma solidity ^0.8.26;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IMetricsRecorder } from "../interfaces/IMetricsRecorder.sol";
 
 /// @title IOperatorStatusRegistry
@@ -53,7 +55,7 @@ interface IOperatorStatusRegistry {
 /// @title OperatorStatusRegistry
 /// @notice Tracks operator online/offline status via heartbeats
 /// @dev Integrates with Blueprint SDK QoS metrics system
-contract OperatorStatusRegistry is IOperatorStatusRegistry {
+contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     using ECDSA for bytes32;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -192,11 +194,17 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
     /// @notice Last critical alert timestamp (serviceId => operator => timestamp)
     mapping(uint64 => mapping(address => uint64)) private _lastCriticalAlert;
 
+    /// @notice Metric payload pair used for ABI-encoded metrics submissions.
+    struct MetricPair {
+        string name;
+        uint256 value;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════════
 
-    constructor(address _tangleCore) {
+    constructor(address _tangleCore, address initialOwner) Ownable(initialOwner) {
         tangleCore = _tangleCore;
 
         DOMAIN_SEPARATOR = keccak256(
@@ -324,25 +332,26 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
         address operator,
         bytes calldata metrics
     ) internal {
-        // Decode metrics as (string name, uint256 value) pairs
-        // Format: abi.encode([(name, value), ...])
-        if (metrics.length < 64) return; // Minimum size for one metric
+        if (metrics.length == 0) return;
 
-        uint256 offset = 0;
-        while (offset + 64 <= metrics.length) {
-            // Simplified parsing - in production, use proper ABI decoding
-            string memory name;
-            uint256 value;
+        MetricPair[] memory pairs;
 
-            // Try to decode a metric pair
-            (name, value) = abi.decode(metrics[offset:], (string, uint256));
+        // Prefer decoding as an array (supports multiple metrics).
+        try this.decodeMetricPairs(metrics) returns (MetricPair[] memory decoded) {
+            pairs = decoded;
+        } catch {
+            // Backwards-compatible: support a single (string,uint256) tuple encoded via abi.encode("name", value).
+            try this.decodeMetricPair(metrics) returns (MetricPair memory single) {
+                pairs = new MetricPair[](1);
+                pairs[0] = single;
+            } catch {
+                return;
+            }
+        }
 
-            metricValues[serviceId][operator][name] = value;
-            emit MetricReported(serviceId, operator, name, value);
-
-            // Move to next pair (simplified - actual size depends on string length)
-            offset += 64 + bytes(name).length;
-            if (offset > metrics.length) break;
+        for (uint256 i = 0; i < pairs.length; i++) {
+            metricValues[serviceId][operator][pairs[i].name] = pairs[i].value;
+            emit MetricReported(serviceId, operator, pairs[i].name, pairs[i].value);
         }
     }
 
@@ -519,15 +528,27 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry {
     }
 
     /// @notice Set slashing oracle address
-    function setSlashingOracle(address oracle) external {
-        // In production, should be access controlled
+    function setSlashingOracle(address oracle) external onlyOwner {
+        // Governance-controlled (e.g., a timelock) should manage this address.
         slashingOracle = oracle;
     }
 
     /// @notice Set metrics recorder address for reward tracking
-    function setMetricsRecorder(address recorder) external {
-        // In production, should be access controlled
+    function setMetricsRecorder(address recorder) external onlyOwner {
+        // Governance-controlled (e.g., a timelock) should manage this address.
         metricsRecorder = recorder;
+    }
+
+    /// @notice Decode metric pairs from ABI-encoded payload.
+    /// @dev External + try/catch wrapper target so malformed payloads don't brick heartbeats.
+    function decodeMetricPairs(bytes calldata payload) external pure returns (MetricPair[] memory pairs) {
+        return abi.decode(payload, (MetricPair[]));
+    }
+
+    /// @notice Decode a single metric pair from ABI-encoded payload.
+    /// @dev Supports legacy encoding via abi.encode("name", value).
+    function decodeMetricPair(bytes calldata payload) external pure returns (MetricPair memory pair) {
+        (pair.name, pair.value) = abi.decode(payload, (string, uint256));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

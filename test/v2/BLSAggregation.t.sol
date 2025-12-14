@@ -601,17 +601,32 @@ contract BLSAggregationTest is BaseTest {
         vm.prank(user1);
         uint64 callId = tangle.submitJob(serviceId, 0, "test");
 
-        // TODO: Deactivate operator2 here once we have the mechanism
-        // For now, this test documents the expected behavior
+        // Deactivate operator2 at the restaking layer (e.g., starts leaving),
+        // so it should no longer be counted towards the aggregation threshold.
+        vm.prank(operator2);
+        restaking.startLeaving();
 
         // Bitmap includes operator2 (bit 1) but if inactive, shouldn't count
         uint256 twoSigners = 0x3; // bits 0 and 1
         uint256[2] memory sig = [uint256(1), uint256(2)];
         uint256[4] memory pubkey = [uint256(1), uint256(2), uint256(3), uint256(4)];
 
-        // With all active: should pass threshold but fail BLS
+        // With operator2 inactive: threshold should be computed from eligible operators only, then fail BLS
         vm.expectRevert(); // BLS verification fails
         tangle.submitAggregatedResult(serviceId, callId, "result", twoSigners, sig, pubkey);
+    }
+
+    function test_submitResult_RevertsWhenOperatorNotActiveInRestaking() public {
+        // Default: aggregation not required for job 0
+        vm.prank(user1);
+        uint64 callId = tangle.submitJob(serviceId, 0, "test input");
+
+        vm.prank(operator1);
+        restaking.startLeaving();
+
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotActive.selector, operator1));
+        tangle.submitResult(serviceId, callId, "result");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
