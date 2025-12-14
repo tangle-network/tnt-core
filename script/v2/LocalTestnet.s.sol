@@ -17,6 +17,9 @@ import { ValidatorPodManager } from "../../src/v2/beacon/ValidatorPodManager.sol
 import { MockBeaconOracle } from "../../src/v2/beacon/BeaconRootReceiver.sol";
 import { LiquidDelegationFactory } from "../../src/v2/restaking/LiquidDelegationFactory.sol";
 import { LiquidDelegationVault } from "../../src/v2/restaking/LiquidDelegationVault.sol";
+import { TangleMetrics } from "../../src/v2/rewards/TangleMetrics.sol";
+import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
+import { InflationPool } from "../../src/v2/rewards/InflationPool.sol";
 
 /// @title LocalTestnetSetup
 /// @notice Deploy and setup a complete local testnet environment for integration testing
@@ -41,6 +44,11 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     address public restakingProxy;
     address public statusRegistry;
     TangleToken public bondToken;
+
+    // Incentives
+    address public metrics;
+    address public rewardVaults;
+    address public inflationPool;
 
     // Mock ERC20 tokens for restaking
     MockToken public usdc;
@@ -83,6 +91,14 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         operator2 = vm.addr(OPERATOR2_KEY);
         delegator = vm.addr(DELEGATOR_KEY);
 
+        // Dry runs don't have funded accounts by default.
+        if (!useBroadcastKeys) {
+            vm.deal(deployer, 10_000 ether);
+            vm.deal(operator1, 10_000 ether);
+            vm.deal(operator2, 10_000 ether);
+            vm.deal(delegator, 10_000 ether);
+        }
+
         console2.log("=== Accounts ===");
         console2.log("Deployer:", deployer);
         console2.log("Operator1:", operator1);
@@ -90,7 +106,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("Delegator:", delegator);
 
         _deployContracts();
+        _deployIncentives();
         _deployMockTokens();
+        _configureRewardVaults();
         _deployPodManager();
         _registerOperatorsRestaking();
         _deployLiquidDelegation();
@@ -99,6 +117,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         _operatorsRegisterForBlueprint();
         _delegatorStake();
         _delegatorStakeERC20();
+        _seedRewardVaults();
         _createAndApproveService();
 
         console2.log("\n=== Local Testnet Ready ===");
@@ -118,6 +137,10 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("\n=== Beacon / Pod Manager ===");
         console2.log("MockBeaconOracle:", address(beaconOracle));
         console2.log("ValidatorPodManager:", address(podManager));
+        console2.log("\n=== Incentives ===");
+        console2.log("TangleMetrics:", metrics);
+        console2.log("RewardVaults:", rewardVaults);
+        console2.log("InflationPool:", inflationPool);
         console2.log("\n=== Liquid Delegation ===");
         console2.log("LiquidDelegationFactory:", address(liquidFactory));
         console2.log("LiquidVault WETH (operator1):", liquidVaultETH);
@@ -193,6 +216,124 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         registry.grantRole(registry.MANAGER_ROLE(), tangleProxy);
         registry.addVersion(address(masterManager));
         tangle.setMBSMRegistry(address(registry));
+
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+    }
+
+    function _deployIncentives() internal {
+        console2.log("\n=== Deploying Incentives (Metrics / RewardVaults / InflationPool) ===");
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DEPLOYER_KEY);
+        } else {
+            vm.startPrank(deployer);
+        }
+
+        // Deploy TangleMetrics
+        TangleMetrics metricsImpl = new TangleMetrics();
+        metrics = address(new ERC1967Proxy(address(metricsImpl), abi.encodeCall(TangleMetrics.initialize, (deployer))));
+        console2.log("TangleMetrics:", metrics);
+
+        // Deploy RewardVaults
+        RewardVaults vaultsImpl = new RewardVaults();
+        rewardVaults = address(
+            new ERC1967Proxy(
+                address(vaultsImpl),
+                abi.encodeCall(RewardVaults.initialize, (deployer, address(bondToken), uint16(1500)))
+            )
+        );
+        console2.log("RewardVaults:", rewardVaults);
+
+        // Deploy InflationPool (short epoch length for local testing)
+        InflationPool poolImpl = new InflationPool();
+        inflationPool = address(
+            new ERC1967Proxy(
+                address(poolImpl),
+                abi.encodeCall(InflationPool.initialize, (deployer, address(bondToken), metrics, rewardVaults, 3600))
+            )
+        );
+        console2.log("InflationPool:", inflationPool);
+
+        // Wire metrics recorder into core contracts
+        Tangle(payable(tangleProxy)).setMetricsRecorder(metrics);
+        OperatorStatusRegistry(statusRegistry).setMetricsRecorder(metrics);
+
+        // Grant recorder role to protocol contracts
+        TangleMetrics(metrics).grantRecorderRole(tangleProxy);
+        TangleMetrics(metrics).grantRecorderRole(restakingProxy);
+        TangleMetrics(metrics).grantRecorderRole(statusRegistry);
+
+        // Wire RewardVaults into restaking + grant manager roles
+        MultiAssetDelegation(payable(restakingProxy)).setRewardsManager(rewardVaults);
+        RewardVaults vaults = RewardVaults(rewardVaults);
+        bytes32 rmRole = vaults.REWARDS_MANAGER_ROLE();
+        if (!vaults.hasRole(rmRole, restakingProxy)) vaults.grantRole(rmRole, restakingProxy);
+        if (!vaults.hasRole(rmRole, inflationPool)) vaults.grantRole(rmRole, inflationPool);
+
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+    }
+
+    function _configureRewardVaults() internal {
+        console2.log("\n=== Configuring RewardVaults ===");
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DEPLOYER_KEY);
+        } else {
+            vm.startPrank(deployer);
+        }
+
+        RewardVaults vaults = RewardVaults(rewardVaults);
+
+        // Use conservative caps to avoid overflow in RewardVaults math.
+        uint256 depositCap = 1_000_000 ether;
+        uint256 incentiveCap = 1_000_000 ether;
+        uint256 apyBps = 500; // 5% (unused for seeded epoch rewards, but kept sane)
+        uint256 boostMultiplierBps = 0;
+
+        // Native (address(0)) + all configured restaking assets
+        vaults.createVault(address(0), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+        vaults.createVault(address(bondToken), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+        vaults.createVault(address(usdc), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+        vaults.createVault(address(usdt), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+        vaults.createVault(address(dai), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+        vaults.createVault(address(weth), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+        vaults.createVault(address(stETH), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+        vaults.createVault(address(wstETH), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+        vaults.createVault(address(eigen), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+
+        console2.log("RewardVaults configured for: native, TNT, USDC, USDT, DAI, WETH, stETH, wstETH, EIGEN");
+
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+    }
+
+    function _seedRewardVaults() internal {
+        console2.log("\n=== Seeding RewardVaults (local-only rewards) ===");
+        if (useBroadcastKeys) {
+            vm.startBroadcast(DEPLOYER_KEY);
+        } else {
+            vm.startPrank(deployer);
+        }
+
+        RewardVaults vaults = RewardVaults(rewardVaults);
+
+        // Ensure vault has TNT balance to cover claims.
+        bondToken.transfer(rewardVaults, 100_000 ether);
+
+        // Seed some rewards so the dApp can test pending/claim flows immediately.
+        vaults.distributeRewards(address(0), operator1, 100 ether);
+        vaults.distributeRewards(address(0), operator2, 100 ether);
+        vaults.distributeRewards(address(usdc), operator1, 50 ether);
+        vaults.distributeRewards(address(usdt), operator2, 50 ether);
 
         if (useBroadcastKeys) {
             vm.stopBroadcast();
