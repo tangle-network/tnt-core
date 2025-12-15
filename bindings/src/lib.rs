@@ -27,8 +27,6 @@ pub mod abi {
     pub const ITANGLE: &str = include_str!("../abi/ITangle.json");
     pub const IBLUEPRINT_SERVICE_MANAGER: &str =
         include_str!("../abi/IBlueprintServiceManager.json");
-    pub const IOPERATOR_STATUS_REGISTRY: &str =
-        include_str!("../abi/IOperatorStatusRegistry.json");
-    pub const MULTI_ASSET_DELEGATION: &str =
-        include_str!("../abi/MultiAssetDelegation.json");
+    pub const IOPERATOR_STATUS_REGISTRY: &str = include_str!("../abi/IOperatorStatusRegistry.json");
+    pub const MULTI_ASSET_DELEGATION: &str = include_str!("../abi/MultiAssetDelegation.json");
 }
