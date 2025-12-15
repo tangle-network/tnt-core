@@ -44,7 +44,11 @@ fn gen_bindings() -> Result<()> {
     print_done();
 
     // Step 2: Build contracts
-    print_step(2, 5, "Building Solidity contracts (this may take a while)...");
+    print_step(
+        2,
+        5,
+        "Building Solidity contracts (this may take a while)...",
+    );
     let build_start = Instant::now();
     run_with_progress(
         Command::new("forge")
@@ -55,7 +59,10 @@ fn gen_bindings() -> Result<()> {
             .arg("test"),
         "forge build",
     )?;
-    println!("   ✓ Compiled in {:.1}s", build_start.elapsed().as_secs_f64());
+    println!(
+        "   ✓ Compiled in {:.1}s",
+        build_start.elapsed().as_secs_f64()
+    );
 
     // Step 3: Generate bindings
     print_step(3, 5, "Generating Alloy Rust bindings...");
@@ -91,7 +98,10 @@ fn gen_bindings() -> Result<()> {
             ]),
         "forge bind",
     )?;
-    println!("   ✓ Generated bindings in {:.1}s", bind_start.elapsed().as_secs_f64());
+    println!(
+        "   ✓ Generated bindings in {:.1}s",
+        bind_start.elapsed().as_secs_f64()
+    );
 
     // Step 4: Copy ABIs
     print_step(4, 5, "Copying ABI files...");
@@ -159,7 +169,10 @@ fn gen_bindings() -> Result<()> {
     println!("   📁 Bindings: {}", generated_dir.display());
     println!("   📁 ABIs:     {}", abi_dir.display());
     println!("   🔖 Commit:   {}", &version[..12]);
-    println!("   ⏱️  Total:    {:.1}s", total_start.elapsed().as_secs_f64());
+    println!(
+        "   ⏱️  Total:    {:.1}s",
+        total_start.elapsed().as_secs_f64()
+    );
     println!();
 
     Ok(())
@@ -167,9 +180,9 @@ fn gen_bindings() -> Result<()> {
 
 fn run_with_progress(cmd: &mut Command, description: &str) -> Result<()> {
     use std::process::Stdio;
-    use std::thread;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::thread;
 
     let running = Arc::new(AtomicBool::new(true));
     let running_clone = running.clone();
@@ -196,7 +209,9 @@ fn run_with_progress(cmd: &mut Command, description: &str) -> Result<()> {
         .with_context(|| format!("failed to spawn {}", description))?;
 
     // Wait for completion
-    let output = child.wait_with_output().with_context(|| format!("failed to wait for {}", description))?;
+    let output = child
+        .wait_with_output()
+        .with_context(|| format!("failed to wait for {}", description))?;
 
     // Stop spinner
     running.store(false, Ordering::Relaxed);
@@ -260,6 +275,7 @@ fn bump_version(version: &str) -> Result<()> {
 
     let repo_root = workspace_root()?;
     let bindings_crate = repo_root.join("bindings");
+    let old_version = read_binding_version(&bindings_crate)?;
 
     println!("╔════════════════════════════════════════════════════════════╗");
     println!("║           TNT-CORE VERSION BUMP                            ║");
@@ -301,8 +317,7 @@ fn bump_version(version: &str) -> Result<()> {
     // Step 2: Update CHANGELOG.md
     print_step(2, 3, "Updating CHANGELOG.md...");
     let changelog_path = bindings_crate.join("CHANGELOG.md");
-    let changelog =
-        fs::read_to_string(&changelog_path).context("failed to read CHANGELOG.md")?;
+    let changelog = fs::read_to_string(&changelog_path).context("failed to read CHANGELOG.md")?;
 
     let today = chrono_lite_today();
     let new_entry = format!(
@@ -315,18 +330,26 @@ fn bump_version(version: &str) -> Result<()> {
         &format!("## [Unreleased]\n\n{}", new_entry),
     );
 
-    // Update the links at the bottom
-    let old_version = read_binding_version(&bindings_crate)?;
-    let updated_changelog = updated_changelog.replace(
-        &format!(
-            "[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v{}...HEAD",
-            old_version
-        ),
-        &format!(
-            "[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v{}...HEAD\n[{}]: https://github.com/tangle-network/tnt-core/compare/bindings-v{}...bindings-v{}",
-            version, version, old_version, version
-        ),
-    );
+    // Update the links at the bottom.
+    // - Always set Unreleased to compare from the new tag.
+    // - Ensure the new version link exists, comparing old -> new.
+    let mut lines: Vec<String> = updated_changelog.lines().map(|l| l.to_string()).collect();
+    for line in &mut lines {
+        if line.starts_with("[Unreleased]: ") {
+            *line = format!(
+                "[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v{}...HEAD",
+                version
+            );
+        }
+    }
+    let release_link_prefix = format!("[{}]: ", version);
+    if !lines.iter().any(|l| l.starts_with(&release_link_prefix)) {
+        lines.push(format!(
+            "[{}]: https://github.com/tangle-network/tnt-core/compare/bindings-v{}...bindings-v{}",
+            version, old_version, version
+        ));
+    }
+    let updated_changelog = format!("{}\n", lines.join("\n"));
 
     fs::write(&changelog_path, updated_changelog).context("failed to write CHANGELOG.md")?;
     print_done();
@@ -344,9 +367,12 @@ fn bump_version(version: &str) -> Result<()> {
     println!();
     println!("   Next steps:");
     println!("   1. Review changes: git diff bindings/");
-    println!("   2. Commit: git commit -am \"chore(bindings): release v{}\"", version);
+    println!(
+        "   2. Commit: git commit -am \"chore(bindings): release v{}\"",
+        version
+    );
     println!("   3. Tag: git tag bindings-v{}", version);
-    println!("   4. Push: git push origin main --tags");
+    println!("   4. Push: git push origin v2 --tags");
     println!("   5. Publish: cargo xtask publish");
     println!();
 

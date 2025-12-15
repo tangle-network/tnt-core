@@ -49,3 +49,6 @@ script/tanglepod-cli/tanglepod-cli
 **/merkle-tree-test.json
 **/migration-proofs.json
 **/proof.json
+
+# Local developer scratch
+.local/

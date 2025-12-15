@@ -102,10 +102,9 @@ networks:
           - event: HeartbeatConfigUpdated(uint64 indexed serviceId, uint64 interval, uint8 maxMissed)
           - event: MetricReported(uint64 indexed serviceId, address indexed operator, string metricName, uint256 value)
           - event: SlashingTriggered(uint64 indexed serviceId, address indexed operator, string reason)
-      # === NOT DEPLOYED - placeholder addresses (won't receive events) ===
       - name: ValidatorPodManager
         address:
-          - "0x0000000000000000000000851234512121212888"
+          - "0xa85233c63b9ee964add6f2cffe00fd84eb32338f"
         handler: src/EventHandlers.ts
         events:
           - event: PodCreated(address indexed owner, address indexed pod)
@@ -119,7 +118,7 @@ networks:
           - event: WithdrawalCompleted(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
       - name: LiquidDelegationFactory
         address:
-          - "0x0000000000000000000000000000000000000101"
+          - "0x4a679253410272dd5232b3ff7cf5dbb88f295319"
         handler: src/EventHandlers.ts
         events:
           - event: VaultCreated(address indexed vault, address indexed operator, address indexed asset, uint64[] blueprintIds, string name, string symbol)
@@ -135,7 +134,7 @@ networks:
           - event: Transfer(address indexed from, address indexed to, uint256 value)
       - name: RewardVaults
         address:
-          - "0x0000000000000000000000451234512121212444"
+          - "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82"
         handler: src/EventHandlers.ts
         events:
           - event: VaultCreated(address indexed asset, uint256 apyBps, uint256 depositCap, uint256 incentiveCap)
@@ -151,7 +150,7 @@ networks:
           - event: LockDurationsUpdated(uint256 oneMonth, uint256 twoMonths, uint256 threeMonths, uint256 sixMonths)
       - name: InflationPool
         address:
-          - "0x0000000000000000000000551234512345123555"
+          - "0x0b306bf915c4d645ff596e518faf3f9669b97016"
         handler: src/EventHandlers.ts
         events:
           - event: OperatorRewardClaimed(address indexed operator, uint256 amount)
