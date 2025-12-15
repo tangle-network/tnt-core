@@ -86,6 +86,21 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         assertEq(delegated, 5 ether, "All mode delegation amount incorrect");
     }
 
+    function test_AllModeDisallowsBlueprintList() public {
+        uint64[] memory blueprints = new uint64[](1);
+        blueprints[0] = BLUEPRINT_1;
+
+        vm.prank(delegator1);
+        vm.expectRevert(DelegationErrors.AllModeDisallowsBlueprints.selector);
+        delegation.depositAndDelegateWithOptions{value: 5 ether}(
+            operator1,
+            address(0), // native
+            5 ether,
+            Types.BlueprintSelectionMode.All,
+            blueprints
+        );
+    }
+
     /// @notice Test that Fixed mode delegation with blueprints works correctly
     function test_FixedModeDelegation() public {
         uint64[] memory blueprints = new uint64[](2);
@@ -97,6 +112,18 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         // Verify delegation
         uint256 delegated = delegation.getDelegation(delegator1, operator1);
         assertEq(delegated, 5 ether, "Fixed mode delegation amount incorrect");
+    }
+
+    function test_FixedModeRequiresNonEmptyBlueprintList() public {
+        vm.prank(delegator1);
+        vm.expectRevert(DelegationErrors.FixedModeRequiresBlueprints.selector);
+        delegation.depositAndDelegateWithOptions{value: 5 ether}(
+            operator1,
+            address(0), // native
+            5 ether,
+            Types.BlueprintSelectionMode.Fixed,
+            new uint64[](0)
+        );
     }
 
     /// @notice Test mixed mode delegations to same operator

@@ -137,6 +137,15 @@ abstract contract DelegationManagerLib is OperatorManager {
     ) internal {
         if (amount == 0) revert DelegationErrors.ZeroAmount();
 
+        // Enforce invariant: "All blueprints" is a distinct mode from "Fixed".
+        // - All mode must not provide a blueprint list (future blueprints included).
+        // - Fixed mode must provide at least one blueprint (empty would mean "none").
+        if (selectionMode == Types.BlueprintSelectionMode.All) {
+            if (blueprintIds.length != 0) revert DelegationErrors.AllModeDisallowsBlueprints();
+        } else {
+            if (blueprintIds.length == 0) revert DelegationErrors.FixedModeRequiresBlueprints();
+        }
+
         // Must be registered operator
         if (!_operators.contains(operator)) {
             revert DelegationErrors.OperatorNotRegistered(operator);

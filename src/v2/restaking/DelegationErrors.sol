@@ -67,6 +67,8 @@ library DelegationErrors {
 
     error InvalidDelegationIndex(uint256 index);
     error NotFixedMode();
+    error FixedModeRequiresBlueprints();
+    error AllModeDisallowsBlueprints();
     error BlueprintAlreadySelected(uint64 blueprintId);
     error BlueprintNotSelected(uint64 blueprintId);
     error CannotRemoveLastBlueprint();
