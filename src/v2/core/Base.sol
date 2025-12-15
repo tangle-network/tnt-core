@@ -89,6 +89,9 @@ abstract contract Base is
         _maxBlueprintsPerOperator = ProtocolConfig.MAX_BLUEPRINTS_PER_OPERATOR;
         _defaultOperatorBond = ProtocolConfig.DEFAULT_OPERATOR_BOND;
         _operatorBondToken = ProtocolConfig.DEFAULT_OPERATOR_BOND_TOKEN;
+        _defaultTntMinExposureBps = 1000; // 10%
+        _tntRestakerFeeBps = 0;
+        _tntPaymentDiscountBps = 0;
 
         // Initialize payment split
         _paymentSplit = Types.PaymentSplit({
@@ -188,6 +191,85 @@ abstract contract Base is
     /// @notice Set the asset used for operator bonds (address(0) = native)
     function setOperatorBondAsset(address token) external onlyRole(ADMIN_ROLE) {
         _operatorBondToken = token;
+    }
+
+    /// @notice TNT token used for default security requirements + TNT restaker incentives
+    function tntToken() external view returns (address) {
+        return _tntToken;
+    }
+
+    /// @notice Configure TNT token address (set to address(0) to disable TNT defaults)
+    function setTntToken(address token) external onlyRole(ADMIN_ROLE) {
+        _tntToken = token;
+    }
+
+    /// @notice RewardVaults contract used to distribute TNT restaker rewards
+    function rewardVaults() external view returns (address) {
+        return _rewardVaults;
+    }
+
+    /// @notice Configure RewardVaults address (set to address(0) to disable TNT restaker payouts)
+    function setRewardVaults(address vaults) external onlyRole(ADMIN_ROLE) {
+        _rewardVaults = vaults;
+    }
+
+    /// @notice Default minimum TNT exposure (bps) required for all service requests
+    function defaultTntMinExposureBps() external view returns (uint16) {
+        return _defaultTntMinExposureBps;
+    }
+
+    /// @notice Configure default minimum TNT exposure (bps) required for all service requests
+    function setDefaultTntMinExposureBps(uint16 minExposureBps) external onlyRole(ADMIN_ROLE) {
+        if (minExposureBps == 0 || minExposureBps > BPS_DENOMINATOR) revert Errors.InvalidSecurityRequirement();
+        _defaultTntMinExposureBps = minExposureBps;
+    }
+
+    /// @notice Portion of service payments reserved for TNT restakers (bps)
+    function tntRestakerFeeBps() external view returns (uint16) {
+        return _tntRestakerFeeBps;
+    }
+
+    /// @notice Configure portion of service payments reserved for TNT restakers (bps)
+    function setTntRestakerFeeBps(uint16 feeBps) external onlyRole(ADMIN_ROLE) {
+        if (feeBps > BPS_DENOMINATOR) revert Errors.InvalidState();
+        _tntRestakerFeeBps = feeBps;
+    }
+
+    /// @notice Discount applied to service payments made in TNT (bps of the payment amount; capped to protocol share)
+    function tntPaymentDiscountBps() external view returns (uint16) {
+        return _tntPaymentDiscountBps;
+    }
+
+    /// @notice Configure discount applied to service payments made in TNT (bps of the payment amount; capped to protocol share)
+    function setTntPaymentDiscountBps(uint16 discountBps) external onlyRole(ADMIN_ROLE) {
+        if (discountBps > BPS_DENOMINATOR) revert Errors.InvalidState();
+        _tntPaymentDiscountBps = discountBps;
+    }
+
+    /// @notice Get stored security requirements for a service request
+    function getServiceRequestSecurityRequirements(uint64 requestId)
+        external
+        view
+        returns (Types.AssetSecurityRequirement[] memory requirements)
+    {
+        Types.AssetSecurityRequirement[] storage stored = _requestSecurityRequirements[requestId];
+        requirements = new Types.AssetSecurityRequirement[](stored.length);
+        for (uint256 i = 0; i < stored.length; i++) {
+            requirements[i] = stored[i];
+        }
+    }
+
+    /// @notice Get stored security commitments for a service request by operator
+    function getServiceRequestSecurityCommitments(uint64 requestId, address operator)
+        external
+        view
+        returns (Types.AssetSecurityCommitment[] memory commitments)
+    {
+        Types.AssetSecurityCommitment[] storage stored = _requestSecurityCommitments[requestId][operator];
+        commitments = new Types.AssetSecurityCommitment[](stored.length);
+        for (uint256 i = 0; i < stored.length; i++) {
+            commitments[i] = stored[i];
+        }
     }
 
     /// @notice Get number of blueprints registered by an operator

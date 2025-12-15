@@ -157,6 +157,9 @@ library Errors {
     /// @notice Security commitments don't match requirements
     error SecurityCommitmentMismatch();
 
+    /// @notice Security commitments required for approval
+    error SecurityCommitmentsRequired(uint64 requestId);
+
     /// @notice Commitment exposure below minimum requirement
     error CommitmentBelowMinimum(address asset, uint16 committed, uint16 minimum);
 

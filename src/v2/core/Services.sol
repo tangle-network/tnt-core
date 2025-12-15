@@ -63,9 +63,11 @@ abstract contract Services is Base {
         uint256 paymentAmount
     ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
         _validateRequestConfig(blueprintId, config);
-        return _requestServiceWithDefaultExposure(
+        requestId = _requestServiceWithDefaultExposure(
             blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount
         );
+        _storeDefaultTntRequirement(requestId);
+        return requestId;
     }
 
     /// @notice Request service with custom operator exposures
@@ -81,9 +83,11 @@ abstract contract Services is Base {
     ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
         if (operators.length != exposures.length) revert Errors.LengthMismatch();
         _validateRequestConfig(blueprintId, config);
-        return _requestServiceInternal(
+        requestId = _requestServiceInternal(
             blueprintId, operators, exposures, config, permittedCallers, ttl, paymentToken, paymentAmount
         );
+        _storeDefaultTntRequirement(requestId);
+        return requestId;
     }
 
     /// @notice Request a service with multi-asset security requirements
@@ -103,9 +107,35 @@ abstract contract Services is Base {
             blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount
         );
 
-        _storeSecurityRequirements(requestId, securityRequirements);
+        _storeSecurityRequirementsWithDefaultTnt(requestId, securityRequirements);
 
-        emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, operators, securityRequirements);
+        if (_tntToken == address(0)) {
+            emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, operators, securityRequirements);
+        } else {
+            bool hasTnt = false;
+            for (uint256 i = 0; i < securityRequirements.length; i++) {
+                if (securityRequirements[i].asset.kind == Types.AssetKind.ERC20 &&
+                    securityRequirements[i].asset.token == _tntToken) {
+                    hasTnt = true;
+                    break;
+                }
+            }
+
+            if (hasTnt) {
+                emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, operators, securityRequirements);
+            } else {
+                Types.AssetSecurityRequirement[] memory emitted = new Types.AssetSecurityRequirement[](securityRequirements.length + 1);
+                for (uint256 i = 0; i < securityRequirements.length; i++) {
+                    emitted[i] = securityRequirements[i];
+                }
+                emitted[securityRequirements.length] = Types.AssetSecurityRequirement({
+                    asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: _tntToken }),
+                    minExposureBps: _defaultTntMinExposureBps,
+                    maxExposureBps: BPS_DENOMINATOR
+                });
+                emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, operators, emitted);
+            }
+        }
     }
 
     function _requestServiceWithDefaultExposure(
@@ -287,6 +317,61 @@ abstract contract Services is Base {
         }
     }
 
+    function _storeDefaultTntRequirement(uint64 requestId) private {
+        if (_tntToken == address(0)) return;
+
+        _requestSecurityRequirements[requestId].push(Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: _tntToken }),
+            minExposureBps: _defaultTntMinExposureBps,
+            maxExposureBps: BPS_DENOMINATOR
+        }));
+    }
+
+    function _storeSecurityRequirementsWithDefaultTnt(
+        uint64 requestId,
+        Types.AssetSecurityRequirement[] calldata requirements
+    ) private {
+        if (_tntToken == address(0)) {
+            _storeSecurityRequirements(requestId, requirements);
+            return;
+        }
+
+        bool hasTnt = false;
+        for (uint256 i = 0; i < requirements.length; i++) {
+            Types.AssetSecurityRequirement calldata req = requirements[i];
+            if (req.asset.kind == Types.AssetKind.ERC20 && req.asset.token == _tntToken) {
+                hasTnt = true;
+                if (req.minExposureBps < _defaultTntMinExposureBps) revert Errors.InvalidSecurityRequirement();
+            }
+            _requestSecurityRequirements[requestId].push(req);
+        }
+
+        if (!hasTnt) {
+            _storeDefaultTntRequirement(requestId);
+        }
+    }
+
+    function _isOnlyDefaultTntRequirement(uint64 requestId) private view returns (bool) {
+        if (_tntToken == address(0)) return false;
+
+        Types.AssetSecurityRequirement[] storage requirements = _requestSecurityRequirements[requestId];
+        if (requirements.length != 1) return false;
+
+        Types.AssetSecurityRequirement storage req = requirements[0];
+        if (req.asset.kind != Types.AssetKind.ERC20) return false;
+        if (req.asset.token != _tntToken) return false;
+        if (req.maxExposureBps != BPS_DENOMINATOR) return false;
+        return req.minExposureBps == _defaultTntMinExposureBps;
+    }
+
+    function _storeDefaultTntCommitment(uint64 requestId, address operator) private {
+        Types.AssetSecurityCommitment[] storage existing = _requestSecurityCommitments[requestId][operator];
+        if (existing.length > 0) return;
+
+        Types.AssetSecurityRequirement storage req = _requestSecurityRequirements[requestId][0];
+        existing.push(Types.AssetSecurityCommitment({ asset: req.asset, exposureBps: req.minExposureBps }));
+    }
+
     function _loadBlueprintRequestData(uint64 blueprintId)
         private
         view
@@ -358,6 +443,13 @@ abstract contract Services is Base {
 
         if (_requestApprovals[requestId][msg.sender]) {
             revert Errors.AlreadyApproved(requestId, msg.sender);
+        }
+
+        if (_requestSecurityRequirements[requestId].length > 0) {
+            if (!_isOnlyDefaultTntRequirement(requestId)) {
+                revert Errors.SecurityCommitmentsRequired(requestId);
+            }
+            _storeDefaultTntCommitment(requestId, msg.sender);
         }
 
         _requestApprovals[requestId][msg.sender] = true;

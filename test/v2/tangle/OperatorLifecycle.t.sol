@@ -319,6 +319,72 @@ contract OperatorLifecycleTest is BaseTest {
         assertEq(opInfo.exposureBps, 10000); // 100%
     }
 
+    function test_RequestService_AddsDefaultTntSecurityRequirement() public {
+        _registerForBlueprint(operator1, blueprintId);
+
+        MockERC20 tnt = new MockERC20();
+        vm.prank(admin);
+        tangle.setTntToken(address(tnt));
+
+        uint64 requestId = _requestService(user1, blueprintId, operator1);
+
+        Types.AssetSecurityRequirement[] memory reqs = tangle.getServiceRequestSecurityRequirements(requestId);
+        assertEq(reqs.length, 1);
+        assertEq(uint8(reqs[0].asset.kind), uint8(Types.AssetKind.ERC20));
+        assertEq(reqs[0].asset.token, address(tnt));
+        assertEq(reqs[0].minExposureBps, 1000); // 10%
+        assertEq(reqs[0].maxExposureBps, 10000);
+    }
+
+    function test_ApproveService_AutoCommitsDefaultTntExposure() public {
+        _registerForBlueprint(operator1, blueprintId);
+
+        MockERC20 tnt = new MockERC20();
+        vm.prank(admin);
+        tangle.setTntToken(address(tnt));
+
+        uint64 requestId = _requestService(user1, blueprintId, operator1);
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        Types.AssetSecurityCommitment[] memory commits =
+            tangle.getServiceRequestSecurityCommitments(requestId, operator1);
+        assertEq(commits.length, 1);
+        assertEq(uint8(commits[0].asset.kind), uint8(Types.AssetKind.ERC20));
+        assertEq(commits[0].asset.token, address(tnt));
+        assertEq(commits[0].exposureBps, 1000); // 10%
+    }
+
+    function test_ApproveService_RevertsWhenExtraSecurityRequirementsPresent() public {
+        _registerForBlueprint(operator1, blueprintId);
+
+        MockERC20 tnt = new MockERC20();
+        vm.prank(admin);
+        tangle.setTntToken(address(tnt));
+
+        // Add an extra security requirement (native)
+        Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
+        requirements[0] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            minExposureBps: 5000,
+            maxExposureBps: 10000
+        });
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0
+        );
+
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.SecurityCommitmentsRequired.selector, requestId));
+        tangle.approveService(requestId, 0);
+    }
+
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DYNAMIC SERVICE MEMBERSHIP

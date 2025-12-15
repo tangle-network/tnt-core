@@ -246,10 +246,29 @@ abstract contract TangleStorage {
     mapping(uint64 => bool) internal _hasCustomExitConfig;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // INCENTIVES STORAGE (Slot 111-120)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice TNT token used for default security requirements + TNT restaker incentives
+    address internal _tntToken;
+
+    /// @notice Reward vaults contract that tracks TNT delegations and distributes TNT rewards
+    address internal _rewardVaults;
+
+    /// @notice Default minimum TNT exposure for all service requests (bps)
+    uint16 internal _defaultTntMinExposureBps;
+
+    /// @notice Portion of service payment reserved for TNT restakers (bps)
+    uint16 internal _tntRestakerFeeBps;
+
+    /// @notice Discount applied to service payments made in TNT (bps of the payment amount; capped to protocol share)
+    uint16 internal _tntPaymentDiscountBps;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev When adding new storage, decrease this gap accordingly
-    uint256[45] private _gap;
+    uint256[42] private _gap;
 }

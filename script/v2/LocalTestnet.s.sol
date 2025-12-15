@@ -206,6 +206,12 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         Tangle tangle = Tangle(payable(tangleProxy));
         tangle.setOperatorStatusRegistry(statusRegistry);
         tangle.setOperatorBondAsset(address(bondToken));
+        tangle.setTntToken(address(bondToken));
+        uint256 minExposure = _envUintOrZero("DEFAULT_TNT_MIN_EXPOSURE_BPS");
+        if (minExposure > 0) {
+            require(minExposure <= 10_000, "DEFAULT_TNT_MIN_EXPOSURE_BPS too high");
+            tangle.setDefaultTntMinExposureBps(uint16(minExposure));
+        }
 
         // Deploy master blueprint service manager + registry
         MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(deployer, tangleProxy);
@@ -272,6 +278,19 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         bytes32 rmRole = vaults.REWARDS_MANAGER_ROLE();
         if (!vaults.hasRole(rmRole, restakingProxy)) vaults.grantRole(rmRole, restakingProxy);
         if (!vaults.hasRole(rmRole, inflationPool)) vaults.grantRole(rmRole, inflationPool);
+
+        // Wire RewardVaults into Tangle for TNT-specific incentives
+        Tangle(payable(tangleProxy)).setRewardVaults(rewardVaults);
+        uint256 feeBps = _envUintOrZero("TNT_RESTAKER_FEE_BPS");
+        if (feeBps > 0) {
+            require(feeBps <= 10_000, "TNT_RESTAKER_FEE_BPS too high");
+            Tangle(payable(tangleProxy)).setTntRestakerFeeBps(uint16(feeBps));
+        }
+        uint256 discountBps = _envUintOrZero("TNT_PAYMENT_DISCOUNT_BPS");
+        if (discountBps > 0) {
+            require(discountBps <= 10_000, "TNT_PAYMENT_DISCOUNT_BPS too high");
+            Tangle(payable(tangleProxy)).setTntPaymentDiscountBps(uint16(discountBps));
+        }
 
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -576,6 +595,22 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         );
         console2.log("Deposited 10k USDC, delegated 5k to Operator1");
 
+        // Deposit and delegate TNT (bond token) to enable TNT restaker incentive testing.
+        uint256 tntBalance = bondToken.balanceOf(delegator);
+        if (tntBalance >= 2000 ether) {
+            bondToken.approve(restakingProxy, type(uint256).max);
+            restaking.depositERC20(address(bondToken), 2000 ether);
+            restaking.delegateWithOptions(
+                operator1, address(bondToken), 1000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+            );
+            restaking.delegateWithOptions(
+                operator2, address(bondToken), 1000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+            );
+            console2.log("Deposited 2000 TNT, delegated 1000 to each operator");
+        } else {
+            console2.log("Skipping TNT delegation - insufficient TNT balance for delegator:", tntBalance);
+        }
+
         // Deposit and delegate USDT
         usdt.approve(restakingProxy, type(uint256).max);
         restaking.depositERC20(address(usdt), 10_000 * 10 ** 6); // 10k USDT
@@ -837,6 +872,14 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             return raw;
         } catch {
             return address(0);
+        }
+    }
+
+    function _envUintOrZero(string memory key) internal view returns (uint256) {
+        try vm.envUint(key) returns (uint256 raw) {
+            return raw;
+        } catch {
+            return 0;
         }
     }
 

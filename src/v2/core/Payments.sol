@@ -22,6 +22,7 @@ abstract contract Payments is Base {
     event EscrowFunded(uint64 indexed serviceId, address indexed token, uint256 amount);
     event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
     event RewardsClaimed(address indexed account, address indexed token, uint256 amount);
+    event TntPaymentDiscountApplied(uint64 indexed serviceId, address indexed recipient, address indexed token, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ESCROW MANAGEMENT
@@ -272,8 +273,29 @@ abstract contract Payments is Base {
         if (amount == 0) return;
 
         Types.Blueprint storage bp = _blueprints[blueprintId];
+        Types.Service storage svc = _services[serviceId];
 
-        PaymentLib.PaymentAmounts memory amounts = PaymentLib.calculateSplit(amount, _paymentSplit);
+        uint256 tntRestakerReserve = 0;
+        uint256 eligibleExposure = 0;
+        if (
+            token != address(0) &&
+            token == _tntToken &&
+            _rewardVaults != address(0) &&
+            _tntRestakerFeeBps > 0 &&
+            totalExposure > 0
+        ) {
+            for (uint256 i = 0; i < operators.length; i++) {
+                (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, operators[i]);
+                if (totalStaked == 0) continue;
+                eligibleExposure += exposures[i];
+            }
+            if (eligibleExposure > 0) {
+                tntRestakerReserve = (amount * _tntRestakerFeeBps) / BPS_DENOMINATOR;
+            }
+        }
+
+        uint256 amountAfterReserve = amount - tntRestakerReserve;
+        PaymentLib.PaymentAmounts memory amounts = PaymentLib.calculateSplit(amountAfterReserve, _paymentSplit);
 
         // Developer payment
         address developerAddr = bp.owner;
@@ -284,8 +306,46 @@ abstract contract Payments is Base {
         }
         PaymentLib.transferPayment(developerAddr, token, amounts.developerAmount);
 
+        // TNT payment discount (funded from protocol share; sent to service owner)
+        if (
+            token != address(0) &&
+            token == _tntToken &&
+            _tntPaymentDiscountBps > 0 &&
+            amounts.protocolAmount > 0 &&
+            svc.owner != address(0)
+        ) {
+            uint256 desiredDiscount = (amountAfterReserve * _tntPaymentDiscountBps) / BPS_DENOMINATOR;
+            uint256 discount = desiredDiscount > amounts.protocolAmount ? amounts.protocolAmount : desiredDiscount;
+            if (discount > 0) {
+                amounts.protocolAmount -= discount;
+                PaymentLib.transferPayment(svc.owner, token, discount);
+                emit TntPaymentDiscountApplied(serviceId, svc.owner, token, discount);
+            }
+        }
+
         // Protocol payment
         PaymentLib.transferPayment(_treasury, token, amounts.protocolAmount);
+
+        // TNT restaker reserve (distributed to TNT restakers per operator)
+        if (tntRestakerReserve > 0) {
+            PaymentLib.transferPayment(_rewardVaults, token, tntRestakerReserve);
+
+            uint256 reserveRemaining = tntRestakerReserve;
+            uint256 exposureRemaining = eligibleExposure;
+            for (uint256 i = 0; i < operators.length && reserveRemaining > 0; i++) {
+                uint256 exposure = exposures[i];
+                if (exposure == 0) continue;
+                (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, operators[i]);
+                if (totalStaked == 0) continue;
+
+                uint256 share = (reserveRemaining * exposure) / exposureRemaining;
+                reserveRemaining -= share;
+                exposureRemaining -= exposure;
+                if (share == 0) continue;
+
+                IRewardVaults(_rewardVaults).distributeServiceFeeRewards(token, operators[i], share);
+            }
+        }
 
         // Operator and restaker payments
         if (totalExposure > 0) {
@@ -306,14 +366,37 @@ abstract contract Payments is Base {
                 );
 
                 if (opPayments[i].restakerShare > 0) {
-                    PaymentLib.transferPayment(address(_restaking), token, opPayments[i].restakerShare);
-                    _restaking.notifyReward(
-                        opPayments[i].operator,
-                        serviceId,
-                        opPayments[i].restakerShare
-                    );
+                    // Default behavior: forward native-token restaker share into the restaking module.
+                    // TNT-specific routing is handled separately via the `tntRestakerReserve` path above.
+                    if (token == address(0)) {
+                        PaymentLib.transferPayment(address(_restaking), token, opPayments[i].restakerShare);
+                        _restaking.notifyReward(
+                            opPayments[i].operator,
+                            serviceId,
+                            opPayments[i].restakerShare
+                        );
+                    } else if (token == _tntToken && _rewardVaults != address(0)) {
+                        (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, opPayments[i].operator);
+                        if (totalStaked > 0) {
+                            PaymentLib.transferPayment(_rewardVaults, token, opPayments[i].restakerShare);
+                            IRewardVaults(_rewardVaults).distributeServiceFeeRewards(
+                                token,
+                                opPayments[i].operator,
+                                opPayments[i].restakerShare
+                            );
+                        } else {
+                            PaymentLib.transferPayment(_treasury, token, opPayments[i].restakerShare);
+                        }
+                    } else {
+                        PaymentLib.transferPayment(_treasury, token, opPayments[i].restakerShare);
+                    }
                 }
             }
         }
     }
+}
+
+interface IRewardVaults {
+    function distributeServiceFeeRewards(address asset, address operator, uint256 amount) external;
+    function operatorPools(address asset, address operator) external view returns (uint256, uint256, uint256, uint256);
 }

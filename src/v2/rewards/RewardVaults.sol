@@ -180,6 +180,7 @@ contract RewardVaults is
     event UnstakeRecorded(address indexed asset, address indexed delegator, address indexed operator, uint256 amount);
 
     event RewardsDistributed(address indexed asset, address indexed operator, uint256 poolReward, uint256 commission);
+    event ServiceFeeRewardsDistributed(address indexed asset, address indexed operator, uint256 amount);
     event DelegatorRewardsClaimed(address indexed asset, address indexed delegator, address indexed operator, uint256 amount);
     event OperatorCommissionClaimed(address indexed asset, address indexed operator, uint256 amount);
 
@@ -727,6 +728,33 @@ contract RewardVaults is
         _updateOperatorPool(asset, operator);
 
         _distributeToOperatorPool(asset, operator, amount);
+    }
+
+    /// @notice Distribute TNT service-fee rewards to restakers (no operator commission)
+    /// @dev Intended for routing a portion of service payments (in TNT) directly to TNT restakers.
+    function distributeServiceFeeRewards(
+        address asset,
+        address operator,
+        uint256 amount
+    ) external onlyRole(REWARDS_MANAGER_ROLE) {
+        if (amount == 0) return;
+        if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
+
+        _trackOperator(asset, operator);
+        _updateVaultRewards(asset);
+        _updateOperatorPool(asset, operator);
+
+        OperatorPool storage pool = operatorPools[asset][operator];
+        if (pool.totalStaked > 0) {
+            pool.accumulatedPerShare += (amount * PRECISION) / pool.totalStaked;
+        } else {
+            // Avoid trapping rewards when no delegators are staked yet for this operator.
+            // In this edge case, route the funds to the operator's claimable commission bucket.
+            pool.pendingCommission += amount;
+        }
+
+        vaultStates[asset].rewardsDistributed += amount;
+        emit ServiceFeeRewardsDistributed(asset, operator, amount);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

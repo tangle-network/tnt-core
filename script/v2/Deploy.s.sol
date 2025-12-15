@@ -212,6 +212,7 @@ contract DeployV2 is DeployScriptBase {
         console2.log("Set OperatorStatusRegistry on Tangle");
 
         _configureOperatorBonds(tangleProxy);
+        _configureTntDefaults(tangleProxy);
 
         if (broadcast) {
             vm.stopBroadcast();
@@ -229,6 +230,45 @@ contract DeployV2 is DeployScriptBase {
         tangle.setOperatorBlueprintBond(operatorBondAmount);
         console2.log("Configured operator bond asset:", operatorBondToken);
         console2.log("Configured operator bond amount:", operatorBondAmount);
+    }
+
+    function _configureTntDefaults(address tangleProxy) internal {
+        Tangle tangle = Tangle(payable(tangleProxy));
+
+        address tnt = _envAddressIfSet("TNT_TOKEN");
+        if (tnt == address(0)) {
+            tnt = operatorBondToken;
+        }
+
+        tangle.setTntToken(tnt);
+        console2.log("Configured TNT token:", tnt);
+
+        address vaults = _envAddressIfSet("REWARD_VAULTS");
+        if (vaults != address(0)) {
+            tangle.setRewardVaults(vaults);
+            console2.log("Configured RewardVaults:", vaults);
+        }
+
+        uint256 minExposure = _envUintOrDefault("DEFAULT_TNT_MIN_EXPOSURE_BPS", 0);
+        if (minExposure > 0) {
+            require(minExposure <= 10_000, "DEFAULT_TNT_MIN_EXPOSURE_BPS too high");
+            tangle.setDefaultTntMinExposureBps(uint16(minExposure));
+            console2.log("Configured default TNT min exposure bps:", minExposure);
+        }
+
+        uint256 feeBps = _envUintOrDefault("TNT_RESTAKER_FEE_BPS", 0);
+        if (feeBps > 0) {
+            require(feeBps <= 10_000, "TNT_RESTAKER_FEE_BPS too high");
+            tangle.setTntRestakerFeeBps(uint16(feeBps));
+            console2.log("Configured TNT restaker fee bps:", feeBps);
+        }
+
+        uint256 discountBps = _envUintOrDefault("TNT_PAYMENT_DISCOUNT_BPS", 0);
+        if (discountBps > 0) {
+            require(discountBps <= 10_000, "TNT_PAYMENT_DISCOUNT_BPS too high");
+            tangle.setTntPaymentDiscountBps(uint16(discountBps));
+            console2.log("Configured TNT payment discount bps:", discountBps);
+        }
     }
 
     function _ensureOperatorBondToken(address admin) internal {

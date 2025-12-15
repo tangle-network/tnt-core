@@ -77,6 +77,9 @@ contract FullDeploy is DeployV2 {
         address rewardVaults;
         address inflationPool;
         address tntToken;
+        uint16 defaultTntMinExposureBps;
+        uint16 tntRestakerFeeBps;
+        uint16 tntPaymentDiscountBps;
         uint16 vaultOperatorCommissionBps;
         uint256 epochLength;
         InflationWeights weights;
@@ -175,7 +178,7 @@ contract FullDeploy is DeployV2 {
         _applyRewardsManager(restaking, rewardVaults, inflationPool);
         _configureRewardVaults(rewardVaults, cfg.incentives.vaults);
         _configureInflationPool(inflationPool, cfg.incentives, metrics, rewardVaults);
-        _wireTangleModules(tangle, statusRegistry, metrics, cfg.guards);
+        _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
         _applyGuards(restaking, tangle, cfg.guards);
         vm.stopBroadcast();
 
@@ -280,6 +283,15 @@ contract FullDeploy is DeployV2 {
             cfg.incentives.inflationPool = jsonBlob.readAddress(".incentives.inflationPool");
         }
         if (jsonBlob.keyExists(".incentives.tntToken")) cfg.incentives.tntToken = jsonBlob.readAddress(".incentives.tntToken");
+        if (jsonBlob.keyExists(".incentives.defaultTntMinExposureBps")) {
+            cfg.incentives.defaultTntMinExposureBps = uint16(jsonBlob.readUint(".incentives.defaultTntMinExposureBps"));
+        }
+        if (jsonBlob.keyExists(".incentives.tntRestakerFeeBps")) {
+            cfg.incentives.tntRestakerFeeBps = uint16(jsonBlob.readUint(".incentives.tntRestakerFeeBps"));
+        }
+        if (jsonBlob.keyExists(".incentives.tntPaymentDiscountBps")) {
+            cfg.incentives.tntPaymentDiscountBps = uint16(jsonBlob.readUint(".incentives.tntPaymentDiscountBps"));
+        }
         if (jsonBlob.keyExists(".incentives.vaultOperatorCommissionBps")) {
             cfg.incentives.vaultOperatorCommissionBps = uint16(jsonBlob.readUint(".incentives.vaultOperatorCommissionBps"));
         }
@@ -634,6 +646,9 @@ contract FullDeploy is DeployV2 {
         address tangleAddr,
         address statusRegistry,
         address metrics,
+        address rewardVaults,
+        address tntToken,
+        IncentiveConfig memory inc,
         GuardsConfig memory guards
     )
         internal
@@ -645,6 +660,21 @@ contract FullDeploy is DeployV2 {
         }
         if (metrics != address(0)) {
             tangleContract.setMetricsRecorder(metrics);
+        }
+        if (tntToken != address(0)) {
+            tangleContract.setTntToken(tntToken);
+            if (inc.defaultTntMinExposureBps != 0) {
+                tangleContract.setDefaultTntMinExposureBps(inc.defaultTntMinExposureBps);
+            }
+        }
+        if (rewardVaults != address(0)) {
+            tangleContract.setRewardVaults(rewardVaults);
+        }
+        if (inc.tntRestakerFeeBps != 0) {
+            tangleContract.setTntRestakerFeeBps(inc.tntRestakerFeeBps);
+        }
+        if (inc.tntPaymentDiscountBps != 0) {
+            tangleContract.setTntPaymentDiscountBps(inc.tntPaymentDiscountBps);
         }
         if (guards.maxBlueprintsPerOperator != 0) {
             tangleContract.setMaxBlueprintsPerOperator(guards.maxBlueprintsPerOperator);
