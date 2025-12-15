@@ -87,6 +87,46 @@ contract LiquidDelegationTest is Test {
         assertEq(address(v.asset()), address(token), "Vault asset should match");
     }
 
+    function test_AllBlueprintsVault_IsDynamicAndReceivesFutureBlueprintRewards() public {
+        address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
+        LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
+
+        vm.startPrank(user1);
+        token.approve(address(vault), 10 ether);
+        vault.deposit(10 ether, user1);
+        vm.stopPrank();
+
+        assertEq(
+            uint8(vault.selectionMode()),
+            uint8(Types.BlueprintSelectionMode.All),
+            "Vault should be All mode"
+        );
+        assertEq(vault.blueprintIds().length, 0, "All mode: no stored blueprint IDs");
+
+        Types.BondInfoDelegator[] memory delegations = restaking.getDelegations(vaultAddr);
+        assertEq(delegations.length, 1, "Vault should have 1 delegation");
+        assertEq(delegations[0].operator, operator1, "Delegation operator mismatch");
+        assertEq(
+            uint8(delegations[0].selectionMode),
+            uint8(Types.BlueprintSelectionMode.All),
+            "Restaking delegation should be All mode"
+        );
+
+        uint64[] memory delegationBlueprints = restaking.getDelegationBlueprints(vaultAddr, 0);
+        assertEq(delegationBlueprints.length, 0, "All mode: restaking stores no blueprint IDs");
+
+        uint64 futureBlueprintId = 999;
+        vm.prank(operator1);
+        restaking.addBlueprint(futureBlueprintId);
+
+        restaking.notifyRewardForBlueprint(operator1, futureBlueprintId, 0, 1 ether);
+        assertGt(
+            restaking.getPendingDelegatorRewards(vaultAddr),
+            0,
+            "All mode should receive rewards from future blueprints"
+        );
+    }
+
     function test_Factory_CreateVault_FixedBlueprints() public {
         uint64[] memory bps = new uint64[](2);
         bps[0] = 1;
