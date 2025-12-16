@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import "src/Permissions.sol";
-import "src/IBlueprintServiceManager.sol";
+import "./Permissions.sol";
+import "./IBlueprintServiceManager.sol";
 
 /// @title BlueprintServiceManagerBase
 /// @author Tangle Network Team

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import "src/BlueprintServiceManagerBase.sol";
-import "src/IBlueprintServiceManager.sol";
+import"../src/BlueprintServiceManagerBase.sol";
+import"../src/IBlueprintServiceManager.sol";
 
 contract MockBlueprintServiceManager is BlueprintServiceManagerBase {
     // Expose internal functions for testing

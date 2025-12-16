@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
-import "src/BlueprintServiceManagerBase.sol";
-import "src/IBlueprintServiceManager.sol";
+import"../src/BlueprintServiceManagerBase.sol";
+import"../src/IBlueprintServiceManager.sol";
 import "./MockERC20.sol";
 import "./MockBlueprintServiceManager.sol";
 

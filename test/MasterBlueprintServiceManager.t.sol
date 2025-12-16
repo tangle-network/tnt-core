@@ -4,11 +4,11 @@ pragma solidity ^0.8.20;
 import { Test } from "forge-std/Test.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import { MasterBlueprintServiceManager } from "src/MasterBlueprintServiceManager.sol";
+import { MasterBlueprintServiceManager } from"../src/MasterBlueprintServiceManager.sol";
 import "./MockERC20.sol";
-import "src/IBlueprintServiceManager.sol";
-import "src/AssetsLib.sol";
-import "src/ServiceOperatorsLib.sol";
+import"../src/IBlueprintServiceManager.sol";
+import"../src/AssetsLib.sol";
+import"../src/ServiceOperatorsLib.sol";
 import "./MockBlueprintServiceManager.sol";
 
 contract MasterBlueprintServiceManagerTest is Test {
