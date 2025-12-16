@@ -174,11 +174,16 @@ abstract contract DelegationManagerLib is OperatorManager {
 
         // Find existing delegation or create new
         bool found = false;
+        uint256 foundIndex = 0;
         for (uint256 i = 0; i < _delegations[msg.sender].length; i++) {
             Types.BondInfoDelegator storage d = _delegations[msg.sender][i];
             if (d.operator == operator && _assetHash(d.asset) == assetHash) {
+                if (d.selectionMode != selectionMode) {
+                    revert DelegationErrors.SelectionModeMismatch();
+                }
                 d.shares += shares;  // Add shares, not amount
                 found = true;
+                foundIndex = i;
                 break;
             }
         }
@@ -208,17 +213,12 @@ abstract contract DelegationManagerLib is OperatorManager {
             _operatorDelegators[operator].add(msg.sender);
         } else {
             // Existing delegation - update blueprint shares for Fixed mode
-            for (uint256 i = 0; i < _delegations[msg.sender].length; i++) {
-                Types.BondInfoDelegator storage d = _delegations[msg.sender][i];
-                if (d.operator == operator && _assetHash(d.asset) == assetHash) {
-                    if (d.selectionMode == Types.BlueprintSelectionMode.Fixed) {
-                        uint64[] storage bps = _delegationBlueprints[msg.sender][i];
-                        uint256 sharesPerBlueprint = bps.length > 0 ? shares / bps.length : 0;
-                        for (uint256 j = 0; j < bps.length; j++) {
-                            _delegatorBlueprintShares[msg.sender][operator][bps[j]] += sharesPerBlueprint;
-                        }
-                    }
-                    break;
+            Types.BondInfoDelegator storage dExisting = _delegations[msg.sender][foundIndex];
+            if (dExisting.selectionMode == Types.BlueprintSelectionMode.Fixed) {
+                uint64[] storage bpsExisting = _delegationBlueprints[msg.sender][foundIndex];
+                uint256 sharesPerBlueprint = bpsExisting.length > 0 ? shares / bpsExisting.length : 0;
+                for (uint256 j = 0; j < bpsExisting.length; j++) {
+                    _delegatorBlueprintShares[msg.sender][operator][bpsExisting[j]] += sharesPerBlueprint;
                 }
             }
         }

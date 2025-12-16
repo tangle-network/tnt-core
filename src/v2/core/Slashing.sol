@@ -8,6 +8,7 @@ import { SlashingLib } from "../libraries/SlashingLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title Slashing
 /// @notice Slashing with dispute window support
@@ -86,12 +87,27 @@ abstract contract Slashing is Base {
     ) internal view returns (uint16 exposureBps) {
         Types.AssetSecurityRequirement[] storage reqs = _serviceSecurityRequirements[serviceId];
         if (reqs.length == 0) return BPS_DENOMINATOR;
-        if (_serviceFeeDistributor == address(0)) return BPS_DENOMINATOR;
+        if (_serviceFeeDistributor == address(0)) {
+            uint256 sum;
+            uint256 count;
+            for (uint256 i = 0; i < reqs.length; i++) {
+                Types.Asset memory asset = reqs[i].asset;
+                // forge-lint: disable-next-line(asm-keccak256)
+                bytes32 assetHash = keccak256(abi.encode(asset.kind, asset.token));
+                uint16 committed = _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
+                sum += committed;
+                count++;
+            }
+            if (count == 0) return BPS_DENOMINATOR;
+            exposureBps = uint16(sum / count);
+            if (exposureBps > BPS_DENOMINATOR) exposureBps = BPS_DENOMINATOR;
+            return exposureBps;
+        }
 
         IPriceOracle oracle = IPriceOracle(_priceOracle);
         bool useOracle = _priceOracle != address(0);
 
-        uint256 weightedSum;
+        uint256 weightedCommitted; // scaled down by BPS_DENOMINATOR to avoid overflow
         uint256 totalWeight;
         for (uint256 i = 0; i < reqs.length; i++) {
             Types.Asset memory asset = reqs[i].asset;
@@ -112,12 +128,12 @@ abstract contract Slashing is Base {
             }
             if (weight == 0) continue;
 
-            weightedSum += weight * committed;
+            weightedCommitted += Math.mulDiv(weight, committed, BPS_DENOMINATOR);
             totalWeight += weight;
         }
 
         if (totalWeight == 0) return BPS_DENOMINATOR;
-        exposureBps = uint16(weightedSum / totalWeight);
+        exposureBps = uint16(Math.mulDiv(weightedCommitted, BPS_DENOMINATOR, totalWeight));
         if (exposureBps > BPS_DENOMINATOR) exposureBps = BPS_DENOMINATOR;
     }
 

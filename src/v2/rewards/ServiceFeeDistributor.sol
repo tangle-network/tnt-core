@@ -11,6 +11,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 
 import { Types } from "../libraries/Types.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
+import { ITangleSecurityView } from "../interfaces/ITangleSecurityView.sol";
 import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
 
 /// @title ServiceFeeDistributor
@@ -25,6 +26,7 @@ contract ServiceFeeDistributor is
 {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet for EnumerableSet.Bytes32Set;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
@@ -43,6 +45,13 @@ contract ServiceFeeDistributor is
 
     // operator => rewardToken set (payment tokens ever distributed for this operator)
     mapping(address => EnumerableSet.AddressSet) private _operatorRewardTokens;
+
+    // operator => asset set (staking assets ever seen for this operator)
+    mapping(address => EnumerableSet.Bytes32Set) private _operatorAssetHashes;
+
+    // assetHash => canonical asset metadata for USD pricing
+    mapping(bytes32 => Types.Asset) private _assetByHash;
+    mapping(bytes32 => bool) private _assetKnown;
 
     // Totals (score units are amount * lockMultiplierBps / 10_000).
     mapping(address => mapping(bytes32 => uint256)) public totalAllScore; // operator => assetHash => totalScore
@@ -156,6 +165,11 @@ contract ServiceFeeDistributor is
         if (msg.sender != restaking) revert NotRestaking();
 
         bytes32 assetHash = _assetHash(asset);
+        if (!_assetKnown[assetHash]) {
+            _assetKnown[assetHash] = true;
+            _assetByHash[assetHash] = Types.Asset({ kind: asset.kind, token: asset.token });
+        }
+        _operatorAssetHashes[operator].add(assetHash);
         uint8 newMode = selectionMode == Types.BlueprintSelectionMode.All ? 1 : 2;
         uint8 existingMode = _positionMode[delegator][operator][assetHash];
         if (existingMode != 0 && existingMode != newMode) revert InvalidModeChange();
@@ -291,8 +305,8 @@ contract ServiceFeeDistributor is
         Types.AssetSecurityRequirement[] memory reqs =
             ITangleSecurityView(tangle).getServiceSecurityRequirements(serviceId);
         if (reqs.length == 0) {
-            // No per-asset commitments: route to treasury (no reliable scoring basis).
-            _transferPayment(ITangleSecurityView(tangle).treasury(), paymentToken, amount);
+            _distributeWithoutRequirements(serviceId, blueprintId, operator, paymentToken, amount);
+            emit ServiceFeeDistributed(serviceId, blueprintId, operator, paymentToken, amount);
             return;
         }
 
@@ -351,6 +365,88 @@ contract ServiceFeeDistributor is
         }
 
         emit ServiceFeeDistributed(serviceId, blueprintId, operator, paymentToken, amount);
+    }
+
+    function _distributeWithoutRequirements(
+        uint64 serviceId,
+        uint64 blueprintId,
+        address operator,
+        address paymentToken,
+        uint256 amount
+    ) internal {
+        serviceId; // silence unused warning (reserved for future policy gating)
+
+        EnumerableSet.Bytes32Set storage set = _operatorAssetHashes[operator];
+        uint256 assetCount = set.length();
+        if (assetCount == 0) {
+            _transferPayment(ITangleSecurityView(tangle).treasury(), paymentToken, amount);
+            return;
+        }
+
+        uint256 allUsdTotal;
+        uint256 fixedUsdTotal;
+        bytes32[] memory assetHashes = new bytes32[](assetCount);
+        uint256[] memory allUsd = new uint256[](assetCount);
+        uint256[] memory fixedUsd = new uint256[](assetCount);
+
+        for (uint256 i = 0; i < assetCount; i++) {
+            bytes32 assetHash = set.at(i);
+            assetHashes[i] = assetHash;
+            Types.Asset memory asset = _assetByHash[assetHash];
+
+            uint256 allScore = totalAllScore[operator][assetHash];
+            uint256 fixedScore = totalFixedScore[operator][blueprintId][assetHash];
+
+            uint256 allVal = _toUsd(asset, allScore);
+            uint256 fixedVal = _toUsd(asset, fixedScore);
+            allUsd[i] = allVal;
+            fixedUsd[i] = fixedVal;
+            allUsdTotal += allVal;
+            fixedUsdTotal += fixedVal;
+        }
+
+        uint256 totalUsd = allUsdTotal + fixedUsdTotal;
+        if (totalUsd == 0) {
+            _transferPayment(ITangleSecurityView(tangle).treasury(), paymentToken, amount);
+            return;
+        }
+
+        uint256 allAmount = (amount * allUsdTotal) / totalUsd;
+        uint256 fixedAmount = amount - allAmount;
+
+        if (allAmount > 0 && allUsdTotal > 0) {
+            uint256 remaining = allAmount;
+            uint256 remainingUsd = allUsdTotal;
+            for (uint256 i = 0; i < assetCount && remaining > 0; i++) {
+                uint256 usd = allUsd[i];
+                if (usd == 0) continue;
+                bytes32 assetHash = assetHashes[i];
+                uint256 denom = totalAllScore[operator][assetHash];
+                if (denom == 0) continue;
+                uint256 share = (remaining * usd) / remainingUsd;
+                remaining -= share;
+                remainingUsd -= usd;
+                if (share == 0) continue;
+                accAllPerScore[operator][assetHash][paymentToken] += (share * PRECISION) / denom;
+            }
+        }
+
+        if (fixedAmount > 0 && fixedUsdTotal > 0) {
+            uint256 remaining = fixedAmount;
+            uint256 remainingUsd = fixedUsdTotal;
+            for (uint256 i = 0; i < assetCount && remaining > 0; i++) {
+                uint256 usd = fixedUsd[i];
+                if (usd == 0) continue;
+                bytes32 assetHash = assetHashes[i];
+                uint256 denom = totalFixedScore[operator][blueprintId][assetHash];
+                if (denom == 0) continue;
+                uint256 share = (remaining * usd) / remainingUsd;
+                remaining -= share;
+                remainingUsd -= usd;
+                if (share == 0) continue;
+                accFixedPerScore[operator][blueprintId][assetHash][paymentToken] += (share * PRECISION) / denom;
+            }
+        }
     }
 
     function _distributePoolAll(
@@ -589,10 +685,4 @@ contract ServiceFeeDistributor is
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) {}
-}
-
-interface ITangleSecurityView {
-    function getServiceSecurityRequirements(uint64 serviceId) external view returns (Types.AssetSecurityRequirement[] memory);
-    function getServiceSecurityCommitmentBps(uint64 serviceId, address operator, Types.AssetKind kind, address token) external view returns (uint16);
-    function treasury() external view returns (address payable);
 }

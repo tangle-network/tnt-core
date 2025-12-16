@@ -35,6 +35,7 @@ library DelegationErrors {
 
     error InsufficientDeposit(uint256 available, uint256 requested);
     error DelegationNotFound(address delegator, address operator);
+    error SelectionModeMismatch();
     error InsufficientDelegation(uint256 available, uint256 requested);
     error InsufficientAvailableBalance(uint256 available, uint256 requested);
     error AmountLocked(uint256 locked, uint256 requested);

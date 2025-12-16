@@ -43,6 +43,8 @@ abstract contract Services is Base {
     // ServiceActivated defined in Base.sol
     event ServiceTerminated(uint64 indexed serviceId);
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
+    event OperatorSecurityCommitmentsStored(uint64 indexed serviceId, address indexed operator, uint256 count);
+    event OperatorSecurityCommitment(uint64 indexed serviceId, address indexed operator, uint8 assetKind, address asset, uint16 exposureBps);
     event OperatorLeftService(uint64 indexed serviceId, address indexed operator);
     event ExitScheduled(uint64 indexed serviceId, address indexed operator, uint64 executeAfter);
     event ExitCanceled(uint64 indexed serviceId, address indexed operator);
@@ -731,7 +733,15 @@ abstract contract Services is Base {
             // forge-lint: disable-next-line(asm-keccak256)
             bytes32 assetHash = keccak256(abi.encode(commitments[i].asset.kind, commitments[i].asset.token));
             _serviceSecurityCommitmentBps[serviceId][msg.sender][assetHash] = commitments[i].exposureBps;
+            emit OperatorSecurityCommitment(
+                serviceId,
+                msg.sender,
+                uint8(commitments[i].asset.kind),
+                commitments[i].asset.token,
+                commitments[i].exposureBps
+            );
         }
+        emit OperatorSecurityCommitmentsStored(serviceId, msg.sender, commitments.length);
 
         // Validate minimum stake requirement (re-check in case operator withdrew after registration)
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
