@@ -148,6 +148,13 @@ interface ITangleServices {
     /// @notice Join an active service (Dynamic membership only)
     function joinService(uint64 serviceId, uint16 exposureBps) external;
 
+    /// @notice Join an active service with per-asset security commitments (Dynamic membership only)
+    function joinServiceWithCommitments(
+        uint64 serviceId,
+        uint16 exposureBps,
+        Types.AssetSecurityCommitment[] calldata commitments
+    ) external;
+
     /// @notice Leave an active service (Dynamic membership only)
     function leaveService(uint64 serviceId) external;
 
@@ -182,6 +189,18 @@ interface ITangleServices {
 
     /// @notice Get the list of operators for a service
     function getServiceOperators(uint64 serviceId) external view returns (address[] memory);
+
+    /// @notice Get persisted security requirements for an active service
+    function getServiceSecurityRequirements(uint64 serviceId)
+        external
+        view
+        returns (Types.AssetSecurityRequirement[] memory);
+
+    /// @notice Get persisted security commitments for an active service by operator
+    function getServiceSecurityCommitments(uint64 serviceId, address operator)
+        external
+        view
+        returns (Types.AssetSecurityCommitment[] memory);
 
     /// @notice Get total exposure for a service
     function getServiceTotalExposure(uint64 serviceId) external view returns (uint256);

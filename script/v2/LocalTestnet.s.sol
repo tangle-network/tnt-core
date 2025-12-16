@@ -20,6 +20,7 @@ import { LiquidDelegationVault } from "../../src/v2/restaking/LiquidDelegationVa
 import { TangleMetrics } from "../../src/v2/rewards/TangleMetrics.sol";
 import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
 import { InflationPool } from "../../src/v2/rewards/InflationPool.sol";
+import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributor.sol";
 
 /// @title LocalTestnetSetup
 /// @notice Deploy and setup a complete local testnet environment for integration testing
@@ -49,6 +50,8 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     address public metrics;
     address public rewardVaults;
     address public inflationPool;
+    address public serviceFeeDistributor;
+    address public priceOracle;
 
     // Mock ERC20 tokens for restaking
     MockToken public usdc;
@@ -263,6 +266,20 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         );
         console2.log("InflationPool:", inflationPool);
 
+        // Optional price oracle for USD-normalized scoring (0 disables USD weighting)
+        priceOracle = _envAddressOrZero("PRICE_ORACLE");
+        console2.log("PriceOracle:", priceOracle);
+
+        // Deploy ServiceFeeDistributor (for multi-token restaker fee payouts)
+        ServiceFeeDistributor distImpl = new ServiceFeeDistributor();
+        serviceFeeDistributor = address(
+            new ERC1967Proxy(
+                address(distImpl),
+                abi.encodeCall(ServiceFeeDistributor.initialize, (deployer, restakingProxy, tangleProxy, priceOracle))
+            )
+        );
+        console2.log("ServiceFeeDistributor:", serviceFeeDistributor);
+
         // Wire metrics recorder into core contracts
         Tangle(payable(tangleProxy)).setMetricsRecorder(metrics);
         OperatorStatusRegistry(statusRegistry).setMetricsRecorder(metrics);
@@ -278,6 +295,13 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         bytes32 rmRole = vaults.REWARDS_MANAGER_ROLE();
         if (!vaults.hasRole(rmRole, restakingProxy)) vaults.grantRole(rmRole, restakingProxy);
         if (!vaults.hasRole(rmRole, inflationPool)) vaults.grantRole(rmRole, inflationPool);
+
+        // Wire fee distributor into Tangle + restaking
+        Tangle(payable(tangleProxy)).setServiceFeeDistributor(serviceFeeDistributor);
+        if (priceOracle != address(0)) {
+            Tangle(payable(tangleProxy)).setPriceOracle(priceOracle);
+        }
+        MultiAssetDelegation(payable(restakingProxy)).setServiceFeeDistributor(serviceFeeDistributor);
 
         // Wire RewardVaults into Tangle for TNT-specific incentives
         Tangle(payable(tangleProxy)).setRewardVaults(rewardVaults);

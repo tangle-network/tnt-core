@@ -6,6 +6,8 @@ import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { SlashingLib } from "../libraries/SlashingLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
+import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
+import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
 
 /// @title Slashing
 /// @notice Slashing with dispute window support
@@ -38,6 +40,12 @@ abstract contract Slashing is Base {
             revert Errors.OperatorNotInService(serviceId, operator);
         }
 
+        uint16 effectiveExposureBps = opData.exposureBps;
+        if (_serviceSecurityRequirements[serviceId].length > 0) {
+            uint16 commitmentBps = _computeServiceCommitmentExposureBps(serviceId, operator, svc.blueprintId);
+            effectiveExposureBps = uint16((uint256(effectiveExposureBps) * commitmentBps) / BPS_DENOMINATOR);
+        }
+
         slashId = SlashingLib.proposeSlash(
             _slashState,
             _slashProposals,
@@ -45,7 +53,7 @@ abstract contract Slashing is Base {
             operator,
             msg.sender,
             amount,
-            opData.exposureBps,
+            effectiveExposureBps,
             evidence,
             false
         );
@@ -69,6 +77,48 @@ abstract contract Slashing is Base {
                 abi.encodeCall(IBlueprintServiceManager.onUnappliedSlash, (serviceId, abi.encodePacked(operator), slashPercent))
             );
         }
+    }
+
+    function _computeServiceCommitmentExposureBps(
+        uint64 serviceId,
+        address operator,
+        uint64 blueprintId
+    ) internal view returns (uint16 exposureBps) {
+        Types.AssetSecurityRequirement[] storage reqs = _serviceSecurityRequirements[serviceId];
+        if (reqs.length == 0) return BPS_DENOMINATOR;
+        if (_serviceFeeDistributor == address(0)) return BPS_DENOMINATOR;
+
+        IPriceOracle oracle = IPriceOracle(_priceOracle);
+        bool useOracle = _priceOracle != address(0);
+
+        uint256 weightedSum;
+        uint256 totalWeight;
+        for (uint256 i = 0; i < reqs.length; i++) {
+            Types.Asset memory asset = reqs[i].asset;
+            // forge-lint: disable-next-line(asm-keccak256)
+            bytes32 assetHash = keccak256(abi.encode(asset.kind, asset.token));
+            uint16 committed = _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
+            if (committed == 0) continue;
+
+            (uint256 allScore, uint256 fixedScore) =
+                IServiceFeeDistributor(_serviceFeeDistributor).getPoolScore(operator, blueprintId, asset);
+            uint256 totalScore = allScore + fixedScore;
+            if (totalScore == 0) continue;
+
+            uint256 weight = totalScore;
+            if (useOracle) {
+                address token = asset.kind == Types.AssetKind.Native ? address(0) : asset.token;
+                weight = oracle.toUSD(token, totalScore);
+            }
+            if (weight == 0) continue;
+
+            weightedSum += weight * committed;
+            totalWeight += weight;
+        }
+
+        if (totalWeight == 0) return BPS_DENOMINATOR;
+        exposureBps = uint16(weightedSum / totalWeight);
+        if (exposureBps > BPS_DENOMINATOR) exposureBps = BPS_DENOMINATOR;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

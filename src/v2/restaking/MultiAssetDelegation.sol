@@ -692,6 +692,17 @@ contract MultiAssetDelegation is
         return _rewardsManager;
     }
 
+    /// @notice Set external service-fee distributor for multi-token fee accrual
+    /// @param distributor Address of IServiceFeeDistributor, or address(0) to disable
+    function setServiceFeeDistributor(address distributor) external onlyRole(ADMIN_ROLE) {
+        _serviceFeeDistributor = distributor;
+    }
+
+    /// @notice Get the service-fee distributor address
+    function serviceFeeDistributor() external view returns (address) {
+        return _serviceFeeDistributor;
+    }
+
     /// @notice Pause the contract
     function pause() external onlyRole(ADMIN_ROLE) {
         _pause();

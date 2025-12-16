@@ -7,6 +7,7 @@ import { DelegationErrors } from "./DelegationErrors.sol";
 import { OperatorManager } from "./OperatorManager.sol";
 import { Types } from "../libraries/Types.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 
 /// @title DelegationManagerLib
 /// @notice Manages delegation of deposits to operators using share-based accounting
@@ -672,6 +673,15 @@ abstract contract DelegationManagerLib is OperatorManager {
         blueprints.push(blueprintId);
 
         emit BlueprintAddedToDelegation(msg.sender, delegationIndex, blueprintId);
+
+        if (_serviceFeeDistributor != address(0)) {
+            try IServiceFeeDistributor(_serviceFeeDistributor).onBlueprintAdded(
+                msg.sender,
+                d.operator,
+                d.asset,
+                blueprintId
+            ) {} catch {}
+        }
     }
 
     /// @notice Remove a blueprint from a Fixed mode delegation
@@ -731,5 +741,14 @@ abstract contract DelegationManagerLib is OperatorManager {
         }
 
         emit BlueprintRemovedFromDelegation(msg.sender, delegationIndex, blueprintId);
+
+        if (_serviceFeeDistributor != address(0)) {
+            try IServiceFeeDistributor(_serviceFeeDistributor).onBlueprintRemoved(
+                msg.sender,
+                d.operator,
+                d.asset,
+                blueprintId
+            ) {} catch {}
+        }
     }
 }

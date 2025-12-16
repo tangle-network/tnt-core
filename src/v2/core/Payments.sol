@@ -8,6 +8,7 @@ import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
+import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 
 /// @title Payments
 /// @notice Payment distribution, escrow, and rewards
@@ -243,6 +244,10 @@ abstract contract Payments is Base {
         return (_paymentSplit.developerBps, _paymentSplit.protocolBps, _paymentSplit.operatorBps, _paymentSplit.restakerBps);
     }
 
+    function treasury() external view returns (address payable) {
+        return _treasury;
+    }
+
     function getServiceEscrow(uint64 serviceId) external view returns (PaymentLib.ServiceEscrow memory) {
         return _serviceEscrows[serviceId];
     }
@@ -366,27 +371,29 @@ abstract contract Payments is Base {
                 );
 
                 if (opPayments[i].restakerShare > 0) {
-                    // Default behavior: forward native-token restaker share into the restaking module.
-                    // TNT-specific routing is handled separately via the `tntRestakerReserve` path above.
-                    if (token == address(0)) {
-                        PaymentLib.transferPayment(address(_restaking), token, opPayments[i].restakerShare);
-                        _restaking.notifyReward(
-                            opPayments[i].operator,
-                            serviceId,
-                            opPayments[i].restakerShare
-                        );
-                    } else if (token == _tntToken && _rewardVaults != address(0)) {
-                        (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, opPayments[i].operator);
-                        if (totalStaked > 0) {
-                            PaymentLib.transferPayment(_rewardVaults, token, opPayments[i].restakerShare);
-                            IRewardVaults(_rewardVaults).distributeServiceFeeRewards(
-                                token,
+                    if (_serviceFeeDistributor != address(0)) {
+                        if (token == address(0)) {
+                            IServiceFeeDistributor(_serviceFeeDistributor).distributeServiceFee{ value: opPayments[i].restakerShare }(
+                                serviceId,
+                                blueprintId,
                                 opPayments[i].operator,
+                                token,
                                 opPayments[i].restakerShare
                             );
                         } else {
-                            PaymentLib.transferPayment(_treasury, token, opPayments[i].restakerShare);
+                            PaymentLib.transferPayment(_serviceFeeDistributor, token, opPayments[i].restakerShare);
+                            IServiceFeeDistributor(_serviceFeeDistributor).distributeServiceFee(
+                                serviceId,
+                                blueprintId,
+                                opPayments[i].operator,
+                                token,
+                                opPayments[i].restakerShare
+                            );
                         }
+                    } else if (token == address(0)) {
+                        // Backward-compatible behavior when distributor is unset.
+                        PaymentLib.transferPayment(address(_restaking), token, opPayments[i].restakerShare);
+                        _restaking.notifyReward(opPayments[i].operator, serviceId, opPayments[i].restakerShare);
                     } else {
                         PaymentLib.transferPayment(_treasury, token, opPayments[i].restakerShare);
                     }

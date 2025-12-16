@@ -169,6 +169,16 @@ abstract contract TangleStorage {
     /// @notice Service ID => Escrow account (for subscriptions)
     mapping(uint64 => PaymentLib.ServiceEscrow) internal _serviceEscrows;
 
+    /// @notice Service ID => Security requirements (persisted on activation)
+    mapping(uint64 => Types.AssetSecurityRequirement[]) internal _serviceSecurityRequirements;
+
+    /// @notice Service ID => Operator => Security commitments (persisted on activation)
+    mapping(uint64 => mapping(address => Types.AssetSecurityCommitment[])) internal _serviceSecurityCommitments;
+
+    /// @notice Service ID => Operator => Asset hash => Commitment exposure bps (persisted on activation)
+    /// @dev Asset hash = keccak256(abi.encode(asset.kind, asset.token))
+    mapping(uint64 => mapping(address => mapping(bytes32 => uint16))) internal _serviceSecurityCommitmentBps;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // JOB STORAGE (Slot 51-60)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -264,11 +274,17 @@ abstract contract TangleStorage {
     /// @notice Discount applied to service payments made in TNT (bps of the payment amount; capped to protocol share)
     uint16 internal _tntPaymentDiscountBps;
 
+    /// @notice Distributor for service-fee payouts to restakers (multi-asset, per-asset commitments)
+    address internal _serviceFeeDistributor;
+
+    /// @notice Price oracle for USD-normalized scoring (optional, but required for USD-weighted splits)
+    address internal _priceOracle;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev When adding new storage, decrease this gap accordingly
-    uint256[42] private _gap;
+    uint256[40] private _gap;
 }

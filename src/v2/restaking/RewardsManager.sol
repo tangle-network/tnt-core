@@ -5,6 +5,7 @@ import { DelegationManagerLib } from "./DelegationManagerLib.sol";
 import { DelegationErrors } from "./DelegationErrors.sol";
 import { Types } from "../libraries/Types.sol";
 import { IRewardsManager } from "../interfaces/IRewardsManager.sol";
+import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 
 /// @title RewardsManager
 /// @notice Manages Masterchef-style reward distribution with share-based accounting
@@ -202,6 +203,9 @@ abstract contract RewardsManager is DelegationManagerLib {
 
         // Notify external rewards manager for TNT incentives (if configured)
         _notifyExternalRewardsManager(delegator, operator, asset, amount, isIncrease, lockMultiplierBps);
+
+        // Notify external service-fee distributor for multi-token fee accrual (if configured)
+        _notifyServiceFeeDistributor(delegator, operator, asset, amount, isIncrease, selectionMode, blueprintIds, lockMultiplierBps);
     }
 
     /// @notice Update reward pool for All mode delegations
@@ -343,6 +347,29 @@ abstract contract RewardsManager is DelegationManagerLib {
                 amount
             ) {} catch {}
         }
+    }
+
+    function _notifyServiceFeeDistributor(
+        address delegator,
+        address operator,
+        Types.Asset memory asset,
+        uint256 amount,
+        bool isIncrease,
+        Types.BlueprintSelectionMode selectionMode,
+        uint64[] memory blueprintIds,
+        uint16 lockMultiplierBps
+    ) internal {
+        if (_serviceFeeDistributor == address(0)) return;
+        try IServiceFeeDistributor(_serviceFeeDistributor).onDelegationChanged(
+            delegator,
+            operator,
+            asset,
+            amount,
+            isIncrease,
+            selectionMode,
+            blueprintIds,
+            lockMultiplierBps
+        ) {} catch {}
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

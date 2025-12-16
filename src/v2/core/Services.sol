@@ -641,6 +641,10 @@ abstract contract Services is Base {
         if (svc.membership != Types.MembershipModel.Dynamic) {
             revert Errors.InvalidState();
         }
+        if (_serviceSecurityRequirements[serviceId].length > 0) {
+            // Enforce explicit per-asset security commitments when the service requires them.
+            revert Errors.SecurityCommitmentsRequired(serviceId);
+        }
         if (svc.maxOperators > 0 && svc.operatorCount >= svc.maxOperators) {
             revert Errors.InvalidState();
         }
@@ -649,6 +653,84 @@ abstract contract Services is Base {
         }
         if (_serviceOperators[serviceId][msg.sender].active) {
             revert Errors.InvalidState();
+        }
+
+        // Validate minimum stake requirement (re-check in case operator withdrew after registration)
+        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
+        uint256 minStake = _restaking.minOperatorStake();
+        if (bp.manager != address(0)) {
+            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
+                if (!useDefault && customMin > 0) {
+                    minStake = customMin;
+                }
+            } catch {}
+        }
+        if (!_restaking.meetsStakeRequirement(msg.sender, minStake)) {
+            revert Errors.InsufficientStake(msg.sender, minStake, _restaking.getOperatorStake(msg.sender));
+        }
+
+        // Check if manager allows this operator to join
+        if (bp.manager != address(0)) {
+            try IBlueprintServiceManager(bp.manager).canJoin(serviceId, msg.sender) returns (bool allowed) {
+                if (!allowed) {
+                    revert Errors.Unauthorized();
+                }
+            } catch {}
+        }
+
+        _serviceOperators[serviceId][msg.sender] = Types.ServiceOperator({
+            exposureBps: exposureBps,
+            joinedAt: uint64(block.timestamp),
+            leftAt: 0,
+            active: true
+        });
+        _serviceOperatorSet[serviceId].add(msg.sender);
+        svc.operatorCount++;
+
+        emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
+
+        // Notify manager of successful join
+        if (bp.manager != address(0)) {
+            _tryCallManager(
+                bp.manager,
+                abi.encodeCall(IBlueprintServiceManager.onOperatorJoined, (serviceId, msg.sender, exposureBps))
+            );
+        }
+    }
+
+    /// @notice Join a dynamic service with per-asset security commitments
+    function joinServiceWithCommitments(
+        uint64 serviceId,
+        uint16 exposureBps,
+        Types.AssetSecurityCommitment[] calldata commitments
+    ) external whenNotPaused nonReentrant {
+        Types.Service storage svc = _getService(serviceId);
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
+        if (svc.membership != Types.MembershipModel.Dynamic) {
+            revert Errors.InvalidState();
+        }
+        if (svc.maxOperators > 0 && svc.operatorCount >= svc.maxOperators) {
+            revert Errors.InvalidState();
+        }
+        if (_operatorRegistrations[svc.blueprintId][msg.sender].registeredAt == 0) {
+            revert Errors.OperatorNotRegistered(svc.blueprintId, msg.sender);
+        }
+        if (_serviceOperators[serviceId][msg.sender].active) {
+            revert Errors.InvalidState();
+        }
+
+        Types.AssetSecurityRequirement[] storage requirements = _serviceSecurityRequirements[serviceId];
+        if (requirements.length > 0) {
+            _validateSecurityCommitments(requirements, commitments);
+        }
+
+        for (uint256 i = 0; i < commitments.length; i++) {
+            _serviceSecurityCommitments[serviceId][msg.sender].push(commitments[i]);
+            // forge-lint: disable-next-line(asm-keccak256)
+            bytes32 assetHash = keccak256(abi.encode(commitments[i].asset.kind, commitments[i].asset.token));
+            _serviceSecurityCommitmentBps[serviceId][msg.sender][assetHash] = commitments[i].exposureBps;
         }
 
         // Validate minimum stake requirement (re-check in case operator withdrew after registration)

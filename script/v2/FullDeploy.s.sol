@@ -15,6 +15,7 @@ import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegatio
 import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
 import { TangleMetrics } from "../../src/v2/rewards/TangleMetrics.sol";
 import { InflationPool } from "../../src/v2/rewards/InflationPool.sol";
+import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributor.sol";
 
 /// @title FullDeploy
 /// @notice Production-grade deployment orchestrator that composes all protocol modules
@@ -73,10 +74,13 @@ contract FullDeploy is DeployV2 {
         bool deployMetrics;
         bool deployRewardVaults;
         bool deployInflationPool;
+        bool deployServiceFeeDistributor;
         address metrics;
         address rewardVaults;
         address inflationPool;
+        address serviceFeeDistributor;
         address tntToken;
+        address priceOracle;
         uint16 defaultTntMinExposureBps;
         uint16 tntRestakerFeeBps;
         uint16 tntPaymentDiscountBps;
@@ -171,11 +175,18 @@ contract FullDeploy is DeployV2 {
         (address metrics, address rewardVaults, address inflationPool, address tntToken, uint256 epochLength) =
             _prepareIncentives(cfg.incentives, admin);
 
+        address priceOracle = cfg.incentives.priceOracle;
+        address serviceFeeDistributor = cfg.incentives.serviceFeeDistributor;
+        if (cfg.incentives.deployServiceFeeDistributor) {
+            serviceFeeDistributor = _deployServiceFeeDistributorProxy(admin, restaking, tangle, priceOracle);
+        }
+
         _substituteTntSentinel(cfg.restakeAssets, cfg.incentives.vaults, tntToken);
 
         vm.startBroadcast(deployerKey);
         _configureRestaking(restaking, cfg.restakeAssets);
         _applyRewardsManager(restaking, rewardVaults, inflationPool);
+        _wireServiceFeeDistributor(restaking, tangle, serviceFeeDistributor, priceOracle);
         _configureRewardVaults(rewardVaults, cfg.incentives.vaults);
         _configureInflationPool(inflationPool, cfg.incentives, metrics, rewardVaults);
         _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
@@ -275,6 +286,9 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".incentives.deployInflationPool")) {
             cfg.incentives.deployInflationPool = jsonBlob.readBool(".incentives.deployInflationPool");
         }
+        if (jsonBlob.keyExists(".incentives.deployServiceFeeDistributor")) {
+            cfg.incentives.deployServiceFeeDistributor = jsonBlob.readBool(".incentives.deployServiceFeeDistributor");
+        }
         if (jsonBlob.keyExists(".incentives.metrics")) cfg.incentives.metrics = jsonBlob.readAddress(".incentives.metrics");
         if (jsonBlob.keyExists(".incentives.rewardVaults")) {
             cfg.incentives.rewardVaults = jsonBlob.readAddress(".incentives.rewardVaults");
@@ -282,7 +296,13 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".incentives.inflationPool")) {
             cfg.incentives.inflationPool = jsonBlob.readAddress(".incentives.inflationPool");
         }
+        if (jsonBlob.keyExists(".incentives.serviceFeeDistributor")) {
+            cfg.incentives.serviceFeeDistributor = jsonBlob.readAddress(".incentives.serviceFeeDistributor");
+        }
         if (jsonBlob.keyExists(".incentives.tntToken")) cfg.incentives.tntToken = jsonBlob.readAddress(".incentives.tntToken");
+        if (jsonBlob.keyExists(".incentives.priceOracle")) {
+            cfg.incentives.priceOracle = jsonBlob.readAddress(".incentives.priceOracle");
+        }
         if (jsonBlob.keyExists(".incentives.defaultTntMinExposureBps")) {
             cfg.incentives.defaultTntMinExposureBps = uint16(jsonBlob.readUint(".incentives.defaultTntMinExposureBps"));
         }
@@ -528,6 +548,22 @@ contract FullDeploy is DeployV2 {
         console2.log("Deployed InflationPool:", proxy);
     }
 
+    function _deployServiceFeeDistributorProxy(
+        address admin,
+        address restaking,
+        address tangle,
+        address oracle
+    ) internal returns (address proxy) {
+        ServiceFeeDistributor impl = new ServiceFeeDistributor();
+        proxy = address(
+            new ERC1967Proxy(
+                address(impl),
+                abi.encodeCall(ServiceFeeDistributor.initialize, (admin, restaking, tangle, oracle))
+            )
+        );
+        console2.log("Deployed ServiceFeeDistributor:", proxy);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // CONFIGURATION TASKS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -678,6 +714,24 @@ contract FullDeploy is DeployV2 {
         }
         if (guards.maxBlueprintsPerOperator != 0) {
             tangleContract.setMaxBlueprintsPerOperator(guards.maxBlueprintsPerOperator);
+        }
+    }
+
+    function _wireServiceFeeDistributor(
+        address restakingAddr,
+        address tangleAddr,
+        address distributor,
+        address oracle
+    ) internal {
+        if (distributor == address(0)) return;
+        if (tangleAddr != address(0)) {
+            Tangle(payable(tangleAddr)).setServiceFeeDistributor(distributor);
+            if (oracle != address(0)) {
+                Tangle(payable(tangleAddr)).setPriceOracle(oracle);
+            }
+        }
+        if (restakingAddr != address(0)) {
+            MultiAssetDelegation(payable(restakingAddr)).setServiceFeeDistributor(distributor);
         }
     }
 

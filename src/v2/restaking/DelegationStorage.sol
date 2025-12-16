@@ -198,6 +198,10 @@ abstract contract DelegationStorage {
     /// @dev If set, delegation changes are reported for reward tracking
     address internal _rewardsManager;
 
+    /// @notice External distributor for service-fee payouts (multi-token, per-asset commitments)
+    /// @dev If set, delegation and blueprint-selection changes are reported for fee accrual.
+    address internal _serviceFeeDistributor;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // INTERNAL HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -241,5 +245,5 @@ abstract contract DelegationStorage {
     }
 
     /// @notice Reserved storage gap for future upgrades
-    uint256[49] private _gap;
+    uint256[48] private _gap;
 }

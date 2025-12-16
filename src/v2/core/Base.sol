@@ -151,6 +151,27 @@ abstract contract Base is
         return _operatorStatusRegistry;
     }
 
+    /// @notice Configure the service-fee distributor for restaker payouts
+    /// @dev This contract is expected to be called by `Payments` during fee distribution.
+    function setServiceFeeDistributor(address distributor) external onlyRole(ADMIN_ROLE) {
+        _serviceFeeDistributor = distributor;
+    }
+
+    /// @notice Get configured service-fee distributor
+    function serviceFeeDistributor() external view returns (address) {
+        return _serviceFeeDistributor;
+    }
+
+    /// @notice Configure the price oracle used for USD-normalized scoring (optional)
+    function setPriceOracle(address oracle) external onlyRole(ADMIN_ROLE) {
+        _priceOracle = oracle;
+    }
+
+    /// @notice Get configured price oracle
+    function priceOracle() external view returns (address) {
+        return _priceOracle;
+    }
+
     /// @notice Configure the Master Blueprint Service Manager registry
     function setMBSMRegistry(address registry) external onlyRole(ADMIN_ROLE) {
         if (registry == address(0)) revert Errors.ZeroAddress();
@@ -270,6 +291,44 @@ abstract contract Base is
         for (uint256 i = 0; i < stored.length; i++) {
             commitments[i] = stored[i];
         }
+    }
+
+    /// @notice Get stored security requirements for an active service
+    function getServiceSecurityRequirements(uint64 serviceId)
+        external
+        view
+        returns (Types.AssetSecurityRequirement[] memory requirements)
+    {
+        Types.AssetSecurityRequirement[] storage stored = _serviceSecurityRequirements[serviceId];
+        requirements = new Types.AssetSecurityRequirement[](stored.length);
+        for (uint256 i = 0; i < stored.length; i++) {
+            requirements[i] = stored[i];
+        }
+    }
+
+    /// @notice Get stored security commitments for an active service by operator
+    function getServiceSecurityCommitments(uint64 serviceId, address operator)
+        external
+        view
+        returns (Types.AssetSecurityCommitment[] memory commitments)
+    {
+        Types.AssetSecurityCommitment[] storage stored = _serviceSecurityCommitments[serviceId][operator];
+        commitments = new Types.AssetSecurityCommitment[](stored.length);
+        for (uint256 i = 0; i < stored.length; i++) {
+            commitments[i] = stored[i];
+        }
+    }
+
+    /// @notice Get committed exposure bps for an operator's asset on a service (0 if unset)
+    function getServiceSecurityCommitmentBps(
+        uint64 serviceId,
+        address operator,
+        Types.AssetKind kind,
+        address token
+    ) external view returns (uint16) {
+        // forge-lint: disable-next-line(asm-keccak256)
+        bytes32 assetHash = keccak256(abi.encode(kind, token));
+        return _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
     }
 
     /// @notice Get number of blueprints registered by an operator

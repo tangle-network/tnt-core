@@ -51,6 +51,7 @@ contract Tangle is
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
 
         _createServiceRecord(serviceId, req, bp);
+        _persistServiceSecurity(serviceId, requestId);
 
         (uint16[] memory exposures, uint256 totalExposure) = _assignOperatorsFromRequest(serviceId, requestId);
 
@@ -75,6 +76,26 @@ contract Tangle is
             req.ttl,
             bp.manager
         );
+    }
+
+    function _persistServiceSecurity(uint64 serviceId, uint64 requestId) private {
+        Types.AssetSecurityRequirement[] storage reqs = _requestSecurityRequirements[requestId];
+        if (reqs.length == 0) return;
+
+        for (uint256 i = 0; i < reqs.length; i++) {
+            _serviceSecurityRequirements[serviceId].push(reqs[i]);
+        }
+
+        address[] storage operators = _requestOperators[requestId];
+        for (uint256 i = 0; i < operators.length; i++) {
+            Types.AssetSecurityCommitment[] storage commits = _requestSecurityCommitments[requestId][operators[i]];
+            for (uint256 j = 0; j < commits.length; j++) {
+                _serviceSecurityCommitments[serviceId][operators[i]].push(commits[j]);
+                // forge-lint: disable-next-line(asm-keccak256)
+                bytes32 assetHash = keccak256(abi.encode(commits[j].asset.kind, commits[j].asset.token));
+                _serviceSecurityCommitmentBps[serviceId][operators[i]][assetHash] = commits[j].exposureBps;
+            }
+        }
     }
 
     function _createServiceRecord(
