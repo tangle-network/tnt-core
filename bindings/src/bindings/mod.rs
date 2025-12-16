@@ -14,6 +14,7 @@ pub mod r#i_tangle_token;
 pub mod r#i_tangle_jobs;
 pub mod r#i_tangle_operators;
 pub mod r#i_tangle_rewards;
+pub mod r#i_tangle_security_view;
 pub mod r#i_tangle_services;
 pub mod r#i_tangle_slashing;
 pub mod r#multi_asset_delegation;

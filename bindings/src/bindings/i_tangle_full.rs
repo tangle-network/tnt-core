@@ -8589,12 +8589,15 @@ interface ITangleFull {
     function getServiceOperator(uint64 serviceId, address operator) external view returns (Types.ServiceOperator memory);
     function getServiceOperators(uint64 serviceId) external view returns (address[] memory);
     function getServiceRequest(uint64 requestId) external view returns (Types.ServiceRequest memory);
+    function getServiceSecurityCommitments(uint64 serviceId, address operator) external view returns (Types.AssetSecurityCommitment[] memory);
+    function getServiceSecurityRequirements(uint64 serviceId) external view returns (Types.AssetSecurityRequirement[] memory);
     function getServiceTotalExposure(uint64 serviceId) external view returns (uint256);
     function isOperatorRegistered(uint64 blueprintId, address operator) external view returns (bool);
     function isPermittedCaller(uint64 serviceId, address caller) external view returns (bool);
     function isServiceActive(uint64 serviceId) external view returns (bool);
     function isServiceOperator(uint64 serviceId, address operator) external view returns (bool);
     function joinService(uint64 serviceId, uint16 exposureBps) external;
+    function joinServiceWithCommitments(uint64 serviceId, uint16 exposureBps, Types.AssetSecurityCommitment[] memory commitments) external;
     function leaveService(uint64 serviceId) external;
     function pause() external;
     function pendingRewards(address account) external view returns (uint256);
@@ -10039,6 +10042,102 @@ interface ITangleFull {
   },
   {
     "type": "function",
+    "name": "getServiceSecurityCommitments",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct Types.AssetSecurityCommitment[]",
+        "components": [
+          {
+            "name": "asset",
+            "type": "tuple",
+            "internalType": "struct Types.Asset",
+            "components": [
+              {
+                "name": "kind",
+                "type": "uint8",
+                "internalType": "enum Types.AssetKind"
+              },
+              {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "exposureBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getServiceSecurityRequirements",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct Types.AssetSecurityRequirement[]",
+        "components": [
+          {
+            "name": "asset",
+            "type": "tuple",
+            "internalType": "struct Types.Asset",
+            "components": [
+              {
+                "name": "kind",
+                "type": "uint8",
+                "internalType": "enum Types.AssetKind"
+              },
+              {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "minExposureBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maxExposureBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getServiceTotalExposure",
     "inputs": [
       {
@@ -10160,6 +10259,53 @@ interface ITangleFull {
         "name": "exposureBps",
         "type": "uint16",
         "internalType": "uint16"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "joinServiceWithCommitments",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "exposureBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "commitments",
+        "type": "tuple[]",
+        "internalType": "struct Types.AssetSecurityCommitment[]",
+        "components": [
+          {
+            "name": "asset",
+            "type": "tuple",
+            "internalType": "struct Types.Asset",
+            "components": [
+              {
+                "name": "kind",
+                "type": "uint8",
+                "internalType": "enum Types.AssetKind"
+              },
+              {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "exposureBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
       }
     ],
     "outputs": [],
@@ -18222,6 +18368,356 @@ function getServiceRequest(uint64 requestId) external view returns (Types.Servic
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getServiceSecurityCommitments(uint64,address)` and selector `0xa0b0c62a`.
+```solidity
+function getServiceSecurityCommitments(uint64 serviceId, address operator) external view returns (Types.AssetSecurityCommitment[] memory);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getServiceSecurityCommitmentsCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
+    ///Container type for the return parameters of the [`getServiceSecurityCommitments(uint64,address)`](getServiceSecurityCommitmentsCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getServiceSecurityCommitmentsReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::Vec<
+            <Types::AssetSecurityCommitment as alloy::sol_types::SolType>::RustType,
+        >,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64, alloy::sol_types::private::Address);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getServiceSecurityCommitmentsCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getServiceSecurityCommitmentsCall) -> Self {
+                    (value.serviceId, value.operator)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getServiceSecurityCommitmentsCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        serviceId: tuple.0,
+                        operator: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Array<Types::AssetSecurityCommitment>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Vec<
+                    <Types::AssetSecurityCommitment as alloy::sol_types::SolType>::RustType,
+                >,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getServiceSecurityCommitmentsReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getServiceSecurityCommitmentsReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getServiceSecurityCommitmentsReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getServiceSecurityCommitmentsCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::Vec<
+                <Types::AssetSecurityCommitment as alloy::sol_types::SolType>::RustType,
+            >;
+            type ReturnTuple<'a> = (
+                alloy::sol_types::sol_data::Array<Types::AssetSecurityCommitment>,
+            );
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getServiceSecurityCommitments(uint64,address)";
+            const SELECTOR: [u8; 4] = [160u8, 176u8, 198u8, 42u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Array<
+                        Types::AssetSecurityCommitment,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getServiceSecurityCommitmentsReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getServiceSecurityCommitmentsReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getServiceSecurityRequirements(uint64)` and selector `0xd8644e52`.
+```solidity
+function getServiceSecurityRequirements(uint64 serviceId) external view returns (Types.AssetSecurityRequirement[] memory);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getServiceSecurityRequirementsCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
+    ///Container type for the return parameters of the [`getServiceSecurityRequirements(uint64)`](getServiceSecurityRequirementsCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getServiceSecurityRequirementsReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::Vec<
+            <Types::AssetSecurityRequirement as alloy::sol_types::SolType>::RustType,
+        >,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getServiceSecurityRequirementsCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getServiceSecurityRequirementsCall) -> Self {
+                    (value.serviceId,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getServiceSecurityRequirementsCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { serviceId: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Array<Types::AssetSecurityRequirement>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Vec<
+                    <Types::AssetSecurityRequirement as alloy::sol_types::SolType>::RustType,
+                >,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getServiceSecurityRequirementsReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getServiceSecurityRequirementsReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getServiceSecurityRequirementsReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getServiceSecurityRequirementsCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::Vec<
+                <Types::AssetSecurityRequirement as alloy::sol_types::SolType>::RustType,
+            >;
+            type ReturnTuple<'a> = (
+                alloy::sol_types::sol_data::Array<Types::AssetSecurityRequirement>,
+            );
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getServiceSecurityRequirements(uint64)";
+            const SELECTOR: [u8; 4] = [216u8, 100u8, 78u8, 82u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Array<
+                        Types::AssetSecurityRequirement,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getServiceSecurityRequirementsReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getServiceSecurityRequirementsReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getServiceTotalExposure(uint64)` and selector `0x3e354514`.
 ```solidity
 function getServiceTotalExposure(uint64 serviceId) external view returns (uint256);
@@ -19181,6 +19677,186 @@ function joinService(uint64 serviceId, uint16 exposureBps) external;
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 joinServiceReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
+    /**Function with signature `joinServiceWithCommitments(uint64,uint16,((uint8,address),uint16)[])` and selector `0xd563701f`.
+```solidity
+function joinServiceWithCommitments(uint64 serviceId, uint16 exposureBps, Types.AssetSecurityCommitment[] memory commitments) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct joinServiceWithCommitmentsCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub exposureBps: u16,
+        #[allow(missing_docs)]
+        pub commitments: alloy::sol_types::private::Vec<
+            <Types::AssetSecurityCommitment as alloy::sol_types::SolType>::RustType,
+        >,
+    }
+    ///Container type for the return parameters of the [`joinServiceWithCommitments(uint64,uint16,((uint8,address),uint16)[])`](joinServiceWithCommitmentsCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct joinServiceWithCommitmentsReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<16>,
+                alloy::sol_types::sol_data::Array<Types::AssetSecurityCommitment>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                u64,
+                u16,
+                alloy::sol_types::private::Vec<
+                    <Types::AssetSecurityCommitment as alloy::sol_types::SolType>::RustType,
+                >,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<joinServiceWithCommitmentsCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: joinServiceWithCommitmentsCall) -> Self {
+                    (value.serviceId, value.exposureBps, value.commitments)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for joinServiceWithCommitmentsCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        serviceId: tuple.0,
+                        exposureBps: tuple.1,
+                        commitments: tuple.2,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<joinServiceWithCommitmentsReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: joinServiceWithCommitmentsReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for joinServiceWithCommitmentsReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl joinServiceWithCommitmentsReturn {
+            fn _tokenize(
+                &self,
+            ) -> <joinServiceWithCommitmentsCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for joinServiceWithCommitmentsCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<16>,
+                alloy::sol_types::sol_data::Array<Types::AssetSecurityCommitment>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = joinServiceWithCommitmentsReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "joinServiceWithCommitments(uint64,uint16,((uint8,address),uint16)[])";
+            const SELECTOR: [u8; 4] = [213u8, 99u8, 112u8, 31u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.exposureBps),
+                    <alloy::sol_types::sol_data::Array<
+                        Types::AssetSecurityCommitment,
+                    > as alloy_sol_types::SolType>::tokenize(&self.commitments),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                joinServiceWithCommitmentsReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -23844,6 +24520,10 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         getServiceRequest(getServiceRequestCall),
         #[allow(missing_docs)]
+        getServiceSecurityCommitments(getServiceSecurityCommitmentsCall),
+        #[allow(missing_docs)]
+        getServiceSecurityRequirements(getServiceSecurityRequirementsCall),
+        #[allow(missing_docs)]
         getServiceTotalExposure(getServiceTotalExposureCall),
         #[allow(missing_docs)]
         isOperatorRegistered(isOperatorRegisteredCall),
@@ -23855,6 +24535,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         isServiceOperator(isServiceOperatorCall),
         #[allow(missing_docs)]
         joinService(joinServiceCall),
+        #[allow(missing_docs)]
+        joinServiceWithCommitments(joinServiceWithCommitmentsCall),
         #[allow(missing_docs)]
         leaveService(leaveServiceCall),
         #[allow(missing_docs)]
@@ -23956,6 +24638,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [141u8, 63u8, 101u8, 190u8],
             [144u8, 158u8, 172u8, 36u8],
             [153u8, 255u8, 54u8, 84u8],
+            [160u8, 176u8, 198u8, 42u8],
             [163u8, 123u8, 146u8, 134u8],
             [165u8, 149u8, 178u8, 30u8],
             [166u8, 114u8, 188u8, 10u8],
@@ -23967,6 +24650,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [198u8, 2u8, 212u8, 250u8],
             [207u8, 56u8, 6u8, 198u8],
             [212u8, 225u8, 171u8, 124u8],
+            [213u8, 99u8, 112u8, 31u8],
+            [216u8, 100u8, 78u8, 82u8],
             [229u8, 56u8, 218u8, 102u8],
             [236u8, 159u8, 15u8, 221u8],
             [240u8, 65u8, 26u8, 243u8],
@@ -24013,6 +24698,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(blueprintOperatorCount),
             ::core::stringify!(updateOperatorPreferences),
             ::core::stringify!(setRestaking),
+            ::core::stringify!(getServiceSecurityCommitments),
             ::core::stringify!(requestService),
             ::core::stringify!(isServiceOperator),
             ::core::stringify!(getJobCall),
@@ -24024,6 +24710,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(blueprintCount),
             ::core::stringify!(billSubscription),
             ::core::stringify!(registerOperator_1),
+            ::core::stringify!(joinServiceWithCommitments),
+            ::core::stringify!(getServiceSecurityRequirements),
             ::core::stringify!(updateBlueprint),
             ::core::stringify!(requestServiceWithSecurity),
             ::core::stringify!(createServiceFromQuotes),
@@ -24070,6 +24758,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <blueprintOperatorCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <updateOperatorPreferencesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setRestakingCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getServiceSecurityCommitmentsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <requestServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isServiceOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getJobCallCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -24081,6 +24770,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <blueprintCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <billSubscriptionCall as alloy_sol_types::SolCall>::SIGNATURE,
             <registerOperator_1Call as alloy_sol_types::SolCall>::SIGNATURE,
+            <joinServiceWithCommitmentsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getServiceSecurityRequirementsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <updateBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <requestServiceWithSecurityCall as alloy_sol_types::SolCall>::SIGNATURE,
             <createServiceFromQuotesCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -24112,7 +24803,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
     impl alloy_sol_types::SolInterface for ITangleFullCalls {
         const NAME: &'static str = "ITangleFullCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 54usize;
+        const COUNT: usize = 57usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -24179,6 +24870,12 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 Self::getServiceRequest(_) => {
                     <getServiceRequestCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::getServiceSecurityCommitments(_) => {
+                    <getServiceSecurityCommitmentsCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getServiceSecurityRequirements(_) => {
+                    <getServiceSecurityRequirementsCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::getServiceTotalExposure(_) => {
                     <getServiceTotalExposureCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -24196,6 +24893,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::joinService(_) => {
                     <joinServiceCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::joinServiceWithCommitments(_) => {
+                    <joinServiceWithCommitmentsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::leaveService(_) => {
                     <leaveServiceCall as alloy_sol_types::SolCall>::SELECTOR
@@ -24704,6 +25404,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     setRestaking
                 },
                 {
+                    fn getServiceSecurityCommitments(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getServiceSecurityCommitmentsCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getServiceSecurityCommitments)
+                    }
+                    getServiceSecurityCommitments
+                },
+                {
                     fn requestService(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -24823,6 +25534,28 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::registerOperator_1)
                     }
                     registerOperator_1
+                },
+                {
+                    fn joinServiceWithCommitments(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <joinServiceWithCommitmentsCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::joinServiceWithCommitments)
+                    }
+                    joinServiceWithCommitments
+                },
+                {
+                    fn getServiceSecurityRequirements(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getServiceSecurityRequirementsCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getServiceSecurityRequirements)
+                    }
+                    getServiceSecurityRequirements
                 },
                 {
                     fn updateBlueprint(
@@ -25316,6 +26049,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     setRestaking
                 },
                 {
+                    fn getServiceSecurityCommitments(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getServiceSecurityCommitmentsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getServiceSecurityCommitments)
+                    }
+                    getServiceSecurityCommitments
+                },
+                {
                     fn requestService(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -25435,6 +26179,28 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::registerOperator_1)
                     }
                     registerOperator_1
+                },
+                {
+                    fn joinServiceWithCommitments(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <joinServiceWithCommitmentsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::joinServiceWithCommitments)
+                    }
+                    joinServiceWithCommitments
+                },
+                {
+                    fn getServiceSecurityRequirements(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getServiceSecurityRequirementsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getServiceSecurityRequirements)
+                    }
+                    getServiceSecurityRequirements
                 },
                 {
                     fn updateBlueprint(
@@ -25606,6 +26372,16 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         inner,
                     )
                 }
+                Self::getServiceSecurityCommitments(inner) => {
+                    <getServiceSecurityCommitmentsCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::getServiceSecurityRequirements(inner) => {
+                    <getServiceSecurityRequirementsCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::getServiceTotalExposure(inner) => {
                     <getServiceTotalExposureCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -25633,6 +26409,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::joinService(inner) => {
                     <joinServiceCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::joinServiceWithCommitments(inner) => {
+                    <joinServiceWithCommitmentsCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -25894,6 +26675,18 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         out,
                     )
                 }
+                Self::getServiceSecurityCommitments(inner) => {
+                    <getServiceSecurityCommitmentsCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getServiceSecurityRequirements(inner) => {
+                    <getServiceSecurityRequirementsCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::getServiceTotalExposure(inner) => {
                     <getServiceTotalExposureCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -25926,6 +26719,12 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::joinService(inner) => {
                     <joinServiceCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::joinServiceWithCommitments(inner) => {
+                    <joinServiceWithCommitmentsCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -27132,6 +27931,30 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, getServiceRequestCall, N> {
             self.call_builder(&getServiceRequestCall { requestId })
         }
+        ///Creates a new call builder for the [`getServiceSecurityCommitments`] function.
+        pub fn getServiceSecurityCommitments(
+            &self,
+            serviceId: u64,
+            operator: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, getServiceSecurityCommitmentsCall, N> {
+            self.call_builder(
+                &getServiceSecurityCommitmentsCall {
+                    serviceId,
+                    operator,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`getServiceSecurityRequirements`] function.
+        pub fn getServiceSecurityRequirements(
+            &self,
+            serviceId: u64,
+        ) -> alloy_contract::SolCallBuilder<&P, getServiceSecurityRequirementsCall, N> {
+            self.call_builder(
+                &getServiceSecurityRequirementsCall {
+                    serviceId,
+                },
+            )
+        }
         ///Creates a new call builder for the [`getServiceTotalExposure`] function.
         pub fn getServiceTotalExposure(
             &self,
@@ -27199,6 +28022,23 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 &joinServiceCall {
                     serviceId,
                     exposureBps,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`joinServiceWithCommitments`] function.
+        pub fn joinServiceWithCommitments(
+            &self,
+            serviceId: u64,
+            exposureBps: u16,
+            commitments: alloy::sol_types::private::Vec<
+                <Types::AssetSecurityCommitment as alloy::sol_types::SolType>::RustType,
+            >,
+        ) -> alloy_contract::SolCallBuilder<&P, joinServiceWithCommitmentsCall, N> {
+            self.call_builder(
+                &joinServiceWithCommitmentsCall {
+                    serviceId,
+                    exposureBps,
+                    commitments,
                 },
             )
         }
