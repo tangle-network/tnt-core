@@ -10,6 +10,7 @@ import { MockPriceOracle } from "../exposure/MockPriceOracle.sol";
 import { ServiceFeeDistributor } from "../../../src/v2/rewards/ServiceFeeDistributor.sol";
 import { Errors } from "../../../src/v2/libraries/Errors.sol";
 import { DelegationErrors } from "../../../src/v2/restaking/DelegationErrors.sol";
+import { IPriceOracle } from "../../../src/v2/oracles/interfaces/IPriceOracle.sol";
 
 contract ServiceFeeDistributorTest is BaseTest {
     MockERC20 internal stakeToken;
@@ -185,5 +186,278 @@ contract ServiceFeeDistributorTest is BaseTest {
         restaking.delegateWithOptions(operator1, address(0), 1 ether, Types.BlueprintSelectionMode.Fixed, bps);
         vm.stopPrank();
     }
-}
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EDGE CASES & ABUSE SCENARIOS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_EdgeCase_ZeroOraclePrice_RevertsPriceNotAvailable() public {
+        oracle.setPrice(address(stakeToken), 0);
+
+        Types.AssetSecurityRequirement[] memory reqs = new Types.AssetSecurityRequirement[](2);
+        reqs[0] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            minExposureBps: 1,
+            maxExposureBps: 10000
+        });
+        reqs[1] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) }),
+            minExposureBps: 1,
+            maxExposureBps: 10000
+        });
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+
+        uint256 paymentAmount = 100 ether;
+        vm.startPrank(user1);
+        payTokenA.approve(address(tangle), paymentAmount);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId,
+            ops,
+            reqs,
+            "",
+            new address[](0),
+            0,
+            address(payTokenA),
+            paymentAmount
+        );
+        vm.stopPrank();
+
+        Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](2);
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
+        commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 10000 });
+
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(IPriceOracle.PriceNotAvailable.selector, address(stakeToken)));
+        tangle.approveServiceWithCommitments(requestId, commits);
+    }
+
+    function test_EdgeCase_NoDelegators_DistributionDoesNotRevert() public {
+        // Register operator2 with no delegators
+        _registerOperator(operator2, 5 ether);
+        _registerForBlueprint(operator2, blueprintId);
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator2;
+
+        // Create service with operator2 (who has no delegators)
+        vm.startPrank(user1);
+        payTokenA.approve(address(tangle), 100 ether);
+        uint64 requestId = tangle.requestService(
+            blueprintId, ops, "", new address[](0), 0, address(payTokenA), 100 ether
+        );
+        vm.stopPrank();
+
+        // Should not revert even though operator has no delegators
+        vm.prank(operator2);
+        tangle.approveService(requestId, 0);
+
+        // Treasury should receive the restaker share since no delegators
+        // (or it stays in distributor - depends on implementation)
+    }
+
+    function test_EdgeCase_AsymmetricCommitments_CorrectWeighting() public {
+        // Native: 100% commitment (10000 bps)
+        // ERC20: 10% commitment (1000 bps)
+        _requestAndApproveWithCommitments(10000, 1000, address(payTokenA), 110 ether);
+
+        Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
+        Types.Asset memory ercAsset = Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) });
+
+        uint256 d1Before = payTokenA.balanceOf(delegator1);
+        uint256 d2Before = payTokenA.balanceOf(delegator2);
+
+        vm.prank(delegator1);
+        distributor.claimFor(address(payTokenA), operator1, nativeAsset);
+        vm.prank(delegator2);
+        distributor.claimFor(address(payTokenA), operator1, ercAsset);
+
+        // Restaker share = 22 ether
+        // Native exposed = 10 ETH * 100% = 10 ETH USD
+        // ERC20 exposed = 10 tokens * 10% = 1 token USD
+        // Total USD = 11
+        // Native share = 22 * 10/11 = 20
+        // ERC20 share = 22 * 1/11 = 2
+        assertEq(payTokenA.balanceOf(delegator1) - d1Before, 20 ether, "Native delegator should get 20 ether");
+        assertEq(payTokenA.balanceOf(delegator2) - d2Before, 2 ether, "ERC20 delegator should get 2 ether");
+    }
+
+    function test_EdgeCase_ClaimTwice_SecondClaimReturnsZero() public {
+        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+
+        Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
+
+        // First claim
+        vm.prank(delegator1);
+        uint256 firstClaim = distributor.claimFor(address(payTokenA), operator1, nativeAsset);
+        assertGt(firstClaim, 0, "First claim should be non-zero");
+
+        // Second claim should return 0 (no new rewards)
+        vm.prank(delegator1);
+        uint256 secondClaim = distributor.claimFor(address(payTokenA), operator1, nativeAsset);
+        assertEq(secondClaim, 0, "Second claim should be zero");
+    }
+
+    function test_EdgeCase_ClaimAfterUndelegation_GetsPreviousRewards() public {
+        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+
+        Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
+
+        // Undelegate before claiming
+        vm.prank(delegator1);
+        restaking.scheduleDelegatorUnstake(operator1, address(0), 5 ether);
+
+        // Should still be able to claim rewards accumulated before undelegation
+        uint256 d1Before = payTokenA.balanceOf(delegator1);
+        vm.prank(delegator1);
+        distributor.claimFor(address(payTokenA), operator1, nativeAsset);
+        assertGt(payTokenA.balanceOf(delegator1) - d1Before, 0, "Should claim rewards from before undelegation");
+    }
+
+    function test_EdgeCase_MultipleServicesAccumulate() public {
+        // Create two services with same operator
+        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+
+        Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
+
+        uint256 d1Before = payTokenA.balanceOf(delegator1);
+        vm.prank(delegator1);
+        distributor.claimFor(address(payTokenA), operator1, nativeAsset);
+
+        // Should receive rewards from both services
+        // Each service: 20 ether restaker share, half to native = 10 ether
+        // Two services = 20 ether total
+        assertEq(payTokenA.balanceOf(delegator1) - d1Before, 20 ether, "Should accumulate from multiple services");
+    }
+
+    function test_EdgeCase_DifferentPrices_CorrectUSDWeighting() public {
+        // Set different prices: Native = $2000, ERC20 = $1
+        oracle.setPrice(address(0), 2000e18);
+        oracle.setPrice(address(stakeToken), 1e18);
+
+        // Both delegators have 10 units each
+        // Native: 10 ETH * $2000 = $20,000
+        // ERC20: 10 tokens * $1 = $10
+        // Native should get ~99.95% of rewards
+
+        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+
+        Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
+        Types.Asset memory ercAsset = Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) });
+
+        uint256 d1Before = payTokenA.balanceOf(delegator1);
+        uint256 d2Before = payTokenA.balanceOf(delegator2);
+
+        vm.prank(delegator1);
+        distributor.claimFor(address(payTokenA), operator1, nativeAsset);
+        vm.prank(delegator2);
+        distributor.claimFor(address(payTokenA), operator1, ercAsset);
+
+        uint256 d1Reward = payTokenA.balanceOf(delegator1) - d1Before;
+        uint256 d2Reward = payTokenA.balanceOf(delegator2) - d2Before;
+
+        // Native should get vastly more due to higher USD value
+        assertGt(d1Reward, d2Reward * 100, "Native should get >100x more due to price difference");
+    }
+
+    function test_EdgeCase_CommitmentBelowMin_Reverts() public {
+        Types.AssetSecurityRequirement[] memory reqs = new Types.AssetSecurityRequirement[](2);
+        reqs[0] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            minExposureBps: 1,
+            maxExposureBps: 10000
+        });
+        reqs[1] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) }),
+            minExposureBps: 1,
+            maxExposureBps: 10000
+        });
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+
+        vm.startPrank(user1);
+        payTokenA.approve(address(tangle), 100 ether);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), 100 ether
+        );
+        vm.stopPrank();
+
+        // Commit 100% native, 0% ERC20
+        Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](2);
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
+        commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 0 });
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(Errors.CommitmentBelowMinimum.selector, address(stakeToken), uint16(0), uint16(1))
+        );
+        tangle.approveServiceWithCommitments(requestId, commits);
+    }
+
+    function test_EdgeCase_VerySmallAmounts_NoDustLoss() public {
+        // Test with very small payment amounts
+        payTokenA.mint(user1, 1000);
+
+        Types.AssetSecurityRequirement[] memory reqs = new Types.AssetSecurityRequirement[](1);
+        reqs[0] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            minExposureBps: 1,
+            maxExposureBps: 10000
+        });
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+
+        vm.startPrank(user1);
+        payTokenA.approve(address(tangle), 1000);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), 1000
+        );
+        vm.stopPrank();
+
+        Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](1);
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
+
+        vm.prank(operator1);
+        tangle.approveServiceWithCommitments(requestId, commits);
+
+        // Restaker share = 200 (20% of 1000)
+        Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
+
+        uint256 d1Before = payTokenA.balanceOf(delegator1);
+        vm.prank(delegator1);
+        distributor.claimFor(address(payTokenA), operator1, nativeAsset);
+
+        // Should get the full restaker share (200)
+        assertEq(payTokenA.balanceOf(delegator1) - d1Before, 200, "Should receive full small amount without dust loss");
+    }
+
+    function test_View_PendingRewards_MatchesActualClaim() public {
+        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+
+        Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
+
+        // Check pending rewards view function
+        uint256 pending = distributor.pendingRewards(delegator1, address(payTokenA));
+
+        // Claim and verify matches
+        uint256 d1Before = payTokenA.balanceOf(delegator1);
+        vm.prank(delegator1);
+        distributor.claimFor(address(payTokenA), operator1, nativeAsset);
+        uint256 actualClaimed = payTokenA.balanceOf(delegator1) - d1Before;
+
+        assertEq(pending, actualClaimed, "Pending rewards view should match actual claim");
+    }
+
+    function test_View_DelegatorOperators_TracksPositions() public {
+        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+
+        // Check delegator1 has operator1 tracked
+        address[] memory ops = distributor.delegatorOperators(delegator1);
+        assertEq(ops.length, 1, "Should track 1 operator");
+        assertEq(ops[0], operator1, "Should be operator1");
+    }
+}
