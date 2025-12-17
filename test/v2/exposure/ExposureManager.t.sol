@@ -73,6 +73,17 @@ contract MockRestaking is IRestaking {
         return amount;
     }
 
+    function slashForService(
+        address,
+        uint64,
+        uint64,
+        Types.AssetSecurityCommitment[] calldata,
+        uint256 amount,
+        bytes32
+    ) external pure returns (uint256) {
+        return amount;
+    }
+
     function slash(
         address,
         uint64,

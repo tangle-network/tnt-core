@@ -29,6 +29,7 @@ contract MockRestakingEdge is IRestaking {
     function minOperatorStake() external pure returns (uint256) { return 0; }
     function meetsStakeRequirement(address, uint256) external pure returns (bool) { return true; }
     function slashForBlueprint(address, uint64, uint64, uint256 amount, bytes32) external pure returns (uint256) { return amount; }
+    function slashForService(address, uint64, uint64, Types.AssetSecurityCommitment[] calldata, uint256 amount, bytes32) external pure returns (uint256) { return amount; }
     function slash(address, uint64, uint256 amount, bytes32) external pure returns (uint256) { return amount; }
     function isSlasher(address) external pure returns (bool) { return false; }
     function notifyRewardForBlueprint(address, uint64, uint64, uint256) external {}

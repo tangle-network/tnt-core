@@ -158,6 +158,11 @@ interface ITangleServices {
     /// @notice Leave an active service (Dynamic membership only)
     function leaveService(uint64 serviceId) external;
 
+    /// @notice Force remove an operator from a service (blueprint manager only)
+    /// @param serviceId The service ID
+    /// @param operator The operator to remove
+    function forceRemoveOperator(uint64 serviceId, address operator) external;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // BILLING FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════

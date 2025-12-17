@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { IBeaconOracle } from "./IBeaconOracle.sol";
 import { ValidatorPod } from "./ValidatorPod.sol";
 import { IRestaking } from "../interfaces/IRestaking.sol";
+import { Types } from "../libraries/Types.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
@@ -644,6 +645,22 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         address operator,
         uint64 /*blueprintId*/,
         uint64 serviceId,
+        uint256 amount,
+        bytes32 evidence
+    ) external override returns (uint256 actualSlashed) {
+        if (!_slashers[msg.sender]) revert NotAuthorizedSlasher();
+
+        actualSlashed = _slash(operator, amount);
+
+        emit OperatorSlashed(operator, serviceId, actualSlashed, evidence);
+    }
+
+    /// @inheritdoc IRestaking
+    function slashForService(
+        address operator,
+        uint64 /*blueprintId*/,
+        uint64 serviceId,
+        Types.AssetSecurityCommitment[] calldata /*commitments*/,
         uint256 amount,
         bytes32 evidence
     ) external override returns (uint256 actualSlashed) {

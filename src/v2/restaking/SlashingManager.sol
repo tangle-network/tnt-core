@@ -35,6 +35,20 @@ abstract contract SlashingManager is RewardsManager {
         uint256 newExchangeRate
     );
 
+    /// @notice Emitted when an operator is slashed for a specific service with per-asset commitments
+    /// @param operator The slashed operator
+    /// @param serviceId The service where violation occurred
+    /// @param blueprintId The blueprint ID
+    /// @param totalSlashed Total amount slashed across all committed assets
+    /// @param commitmentCount Number of asset commitments that were slashed
+    event SlashedForService(
+        address indexed operator,
+        uint64 indexed serviceId,
+        uint64 indexed blueprintId,
+        uint256 totalSlashed,
+        uint256 commitmentCount
+    );
+
     /// @notice Emitted when slash is recorded (for off-chain indexing of per-delegator impact)
     /// @dev Individual delegator amounts can be computed: shares * (oldRate - newRate) / PRECISION
     event SlashRecorded(
@@ -52,6 +66,8 @@ abstract contract SlashingManager is RewardsManager {
     /// @notice Slash event record for historical tracking
     struct SlashRecord {
         uint64 round;
+        uint64 serviceId;
+        uint64 blueprintId;
         uint256 totalSlashed;
         uint256 exchangeRateBefore;
         uint256 exchangeRateAfter;
@@ -63,6 +79,12 @@ abstract contract SlashingManager is RewardsManager {
 
     /// @notice Next slash ID per operator
     mapping(address => uint64) public nextSlashId;
+
+    /// @notice Slash count per service: serviceId => operator => count
+    mapping(uint64 => mapping(address => uint64)) public serviceSlashCount;
+
+    /// @notice Slash count per blueprint: blueprintId => operator => count
+    mapping(uint64 => mapping(address => uint64)) public blueprintSlashCount;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // O(1) SLASHING
@@ -142,13 +164,173 @@ abstract contract SlashingManager is RewardsManager {
         uint64 slashId = nextSlashId[operator]++;
         slashHistory[operator][slashId] = SlashRecord({
             round: currentRound,
+            serviceId: serviceId,
+            blueprintId: blueprintId,
             totalSlashed: actualSlashed,
             exchangeRateBefore: allExchangeRateBefore,
             exchangeRateAfter: allExchangeRateAfter,
             evidence: evidence
         });
 
+        // Increment per-service and per-blueprint slash counts
+        serviceSlashCount[serviceId][operator]++;
+        blueprintSlashCount[blueprintId][operator]++;
+
+        // Update slash factor for lazy slashing of pending unstakes
+        if (totalExposedStake > 0) {
+            uint256 slashBps = (actualSlashed * BPS_DENOMINATOR) / totalExposedStake;
+            _updateSlashFactor(operator, slashBps);
+        }
+
         emit Slashed(operator, serviceId, actualOperatorSlash, actualAllModeSlash + actualFixedModeSlash, allExchangeRateAfter);
+        emit SlashRecorded(operator, slashId, actualSlashed, allExchangeRateBefore, allExchangeRateAfter);
+    }
+
+    /// @notice Slash an operator for a specific service - only slashing committed assets
+    /// @dev Slashes proportionally based on the operator's asset commitments for the service.
+    ///      For each committed asset, calculates exposed value = stake * exposureBps / 10000
+    ///      Then slashes that proportion from the appropriate pools.
+    /// @param operator Operator to slash
+    /// @param blueprintId Blueprint where violation occurred
+    /// @param serviceId Service where violation occurred
+    /// @param commitments The operator's security commitments for this service
+    /// @param amount Total amount to slash
+    /// @param evidence Evidence hash for the violation
+    /// @return actualSlashed Total amount actually slashed
+    function _slashForService(
+        address operator,
+        uint64 blueprintId,
+        uint64 serviceId,
+        Types.AssetSecurityCommitment[] calldata commitments,
+        uint256 amount,
+        bytes32 evidence
+    ) internal returns (uint256 actualSlashed) {
+        Types.OperatorMetadata storage meta = _operatorMetadata[operator];
+        if (!_operators.contains(operator)) {
+            revert DelegationErrors.OperatorNotRegistered(operator);
+        }
+
+        // If no commitments provided, fall back to blueprint-level slashing
+        if (commitments.length == 0) {
+            return _slashForBlueprint(operator, blueprintId, serviceId, amount, evidence);
+        }
+
+        // Get pools that are exposed to this blueprint
+        Types.OperatorRewardPool storage allPool = _rewardPools[operator];
+        Types.OperatorRewardPool storage bpPool = _blueprintPools[operator][blueprintId];
+
+        // Calculate total committed value across all assets
+        // For each commitment, the exposed value is: asset_stake * exposureBps / BPS_DENOMINATOR
+        uint256 totalCommittedValue = 0;
+        uint256 operatorStake = meta.stake;
+        uint256 allModeStake = allPool.totalAssets;
+        uint256 fixedModeStake = bpPool.totalAssets;
+
+        // Calculate exposed value for each commitment
+        // Native assets use operator stake + delegator pools
+        // ERC20 assets would use their respective pools (future enhancement)
+        for (uint256 i = 0; i < commitments.length; i++) {
+            Types.AssetSecurityCommitment calldata commitment = commitments[i];
+
+            if (commitment.asset.kind == Types.AssetKind.Native) {
+                // Native asset: use operator stake + delegated native tokens
+                uint256 nativeStake = operatorStake + allModeStake + fixedModeStake;
+                uint256 exposedValue = (nativeStake * commitment.exposureBps) / BPS_DENOMINATOR;
+                totalCommittedValue += exposedValue;
+            } else {
+                // ERC20 assets: for now, we track them but they contribute to total
+                // Full per-asset pool support would require additional storage
+                // For now, ERC20 commitments are tracked but slashed from native pools
+                // proportionally to maintain fairness
+                uint256 erc20Stake = operatorStake + allModeStake + fixedModeStake;
+                uint256 exposedValue = (erc20Stake * commitment.exposureBps) / BPS_DENOMINATOR;
+                totalCommittedValue += exposedValue;
+            }
+        }
+
+        if (totalCommittedValue == 0) {
+            return 0;
+        }
+
+        // Cap slash to total committed value
+        if (amount > totalCommittedValue) {
+            amount = totalCommittedValue;
+        }
+
+        // Record exchange rates before slash
+        uint256 allExchangeRateBefore = _getExchangeRate(operator);
+
+        // Calculate slash distribution proportionally
+        // Operator's share: operator stake proportion of committed value
+        uint256 totalNativeStake = operatorStake + allModeStake + fixedModeStake;
+        if (totalNativeStake == 0) {
+            return 0;
+        }
+
+        // Calculate how much of the total committed value each pool represents
+        uint256 operatorCommittedValue = 0;
+        uint256 allModeCommittedValue = 0;
+        uint256 fixedModeCommittedValue = 0;
+
+        for (uint256 i = 0; i < commitments.length; i++) {
+            Types.AssetSecurityCommitment calldata commitment = commitments[i];
+            // For simplicity, distribute based on stake ratios
+            // More sophisticated: track per-asset pools
+            uint256 exposureFactor = commitment.exposureBps;
+            operatorCommittedValue += (operatorStake * exposureFactor) / BPS_DENOMINATOR;
+            allModeCommittedValue += (allModeStake * exposureFactor) / BPS_DENOMINATOR;
+            fixedModeCommittedValue += (fixedModeStake * exposureFactor) / BPS_DENOMINATOR;
+        }
+
+        // Now slash each pool proportionally based on committed value
+        uint256 operatorSlashAmount = (amount * operatorCommittedValue) / totalCommittedValue;
+        uint256 allModeSlashAmount = (amount * allModeCommittedValue) / totalCommittedValue;
+        uint256 fixedModeSlashAmount = amount - operatorSlashAmount - allModeSlashAmount;
+
+        // Slash operator's self-stake
+        uint256 actualOperatorSlash = _slashOperatorStake(operator, operatorSlashAmount);
+
+        // Slash All mode delegators
+        uint256 actualAllModeSlash = _slashAllModePool(operator, allModeSlashAmount);
+
+        // Slash Fixed mode delegators who selected this blueprint
+        uint256 actualFixedModeSlash = _slashBlueprintPool(operator, blueprintId, fixedModeSlashAmount);
+
+        actualSlashed = actualOperatorSlash + actualAllModeSlash + actualFixedModeSlash;
+
+        // Record exchange rate after slash
+        uint256 allExchangeRateAfter = _getExchangeRate(operator);
+
+        // Deactivate operator if below minimum
+        bytes32 nativeHash = _assetHash(Types.Asset(Types.AssetKind.Native, address(0)));
+        uint256 minStake = _assetConfigs[nativeHash].minOperatorStake;
+        if (meta.stake < minStake) {
+            meta.status = Types.OperatorStatus.Inactive;
+        }
+
+        // Record slash for historical queries
+        uint64 slashId = nextSlashId[operator]++;
+        slashHistory[operator][slashId] = SlashRecord({
+            round: currentRound,
+            serviceId: serviceId,
+            blueprintId: blueprintId,
+            totalSlashed: actualSlashed,
+            exchangeRateBefore: allExchangeRateBefore,
+            exchangeRateAfter: allExchangeRateAfter,
+            evidence: evidence
+        });
+
+        // Increment per-service and per-blueprint slash counts
+        serviceSlashCount[serviceId][operator]++;
+        blueprintSlashCount[blueprintId][operator]++;
+
+        // Update slash factor for lazy slashing of pending unstakes
+        if (totalCommittedValue > 0) {
+            uint256 slashBps = (actualSlashed * BPS_DENOMINATOR) / totalCommittedValue;
+            _updateSlashFactor(operator, slashBps);
+        }
+
+        emit SlashedForService(operator, serviceId, blueprintId, actualSlashed, commitments.length);
         emit SlashRecorded(operator, slashId, actualSlashed, allExchangeRateBefore, allExchangeRateAfter);
     }
 
@@ -216,14 +398,26 @@ abstract contract SlashingManager is RewardsManager {
         }
 
         // Record slash for historical queries
+        // Note: Legacy slash doesn't have blueprintId, so we use 0
         uint64 slashId = nextSlashId[operator]++;
         slashHistory[operator][slashId] = SlashRecord({
             round: currentRound,
+            serviceId: serviceId,
+            blueprintId: 0, // Legacy slash - blueprint unknown
             totalSlashed: actualSlashed,
             exchangeRateBefore: exchangeRateBefore,
             exchangeRateAfter: exchangeRateAfter,
             evidence: evidence
         });
+
+        // Increment per-service slash count (no blueprint for legacy slash)
+        serviceSlashCount[serviceId][operator]++;
+
+        // Update slash factor for lazy slashing of pending unstakes
+        if (totalStake > 0) {
+            uint256 slashBps = (actualSlashed * BPS_DENOMINATOR) / totalStake;
+            _updateSlashFactor(operator, slashBps);
+        }
 
         emit Slashed(operator, serviceId, actualOperatorSlash, actualDelegatorSlash, exchangeRateAfter);
         emit SlashRecorded(operator, slashId, actualSlashed, exchangeRateBefore, exchangeRateAfter);
@@ -408,6 +602,22 @@ abstract contract SlashingManager is RewardsManager {
         return slashHistory[operator][slashId];
     }
 
+    /// @notice Get slash count for an operator in a specific service
+    /// @param serviceId The service ID
+    /// @param operator The operator address
+    /// @return count Number of times operator was slashed in this service
+    function getSlashCountForService(uint64 serviceId, address operator) external view returns (uint64) {
+        return serviceSlashCount[serviceId][operator];
+    }
+
+    /// @notice Get slash count for an operator in a specific blueprint
+    /// @param blueprintId The blueprint ID
+    /// @param operator The operator address
+    /// @return count Number of times operator was slashed in services of this blueprint
+    function getSlashCountForBlueprint(uint64 blueprintId, address operator) external view returns (uint64) {
+        return blueprintSlashCount[blueprintId][operator];
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ROUND SNAPSHOTS (for historical slashing)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -436,8 +646,34 @@ abstract contract SlashingManager is RewardsManager {
     // ROUND MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Advance to next round
+    /// @notice Advance to next round with time-based rate limiting
+    /// @dev Prevents rapid round advancement that could bypass time-based delays
     function _advanceRound() internal {
+        uint64 nextAllowedTime = lastRoundAdvance + roundDuration;
+
+        // Allow first advance if lastRoundAdvance is 0 (not yet initialized in upgraded contracts)
+        if (lastRoundAdvance != 0 && block.timestamp < nextAllowedTime) {
+            revert DelegationErrors.RoundAdvanceTooSoon(nextAllowedTime, uint64(block.timestamp));
+        }
+
+        lastRoundAdvance = uint64(block.timestamp);
         currentRound++;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAZY SLASHING FOR PENDING UNSTAKES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Update slash factor after a slash - O(1) operation
+    /// @dev Called internally after slashing to update factor for pending unstakes
+    /// @param operator Operator whose factor to update
+    /// @param slashBps Slash percentage in basis points
+    function _updateSlashFactor(address operator, uint256 slashBps) internal {
+        if (slashBps == 0 || slashBps > BPS_DENOMINATOR) return;
+
+        uint256 currentFactor = getOperatorSlashFactor(operator);
+        // New factor = current * (1 - slashBps/10000)
+        uint256 newFactor = (currentFactor * (BPS_DENOMINATOR - slashBps)) / BPS_DENOMINATOR;
+        _operatorSlashFactor[operator] = newFactor;
     }
 }

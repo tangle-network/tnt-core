@@ -42,6 +42,16 @@ contract MultiAssetDelegationTest is Test {
     uint256 public constant MIN_OPERATOR_STAKE = 1 ether;
     uint256 public constant MIN_DELEGATION = 0.1 ether;
     uint16 public constant OPERATOR_COMMISSION_BPS = 1000; // 10%
+    uint256 public constant ROUND_DURATION_SECONDS = 21_600; // 6 hours (matches ProtocolConfig)
+
+    /// @notice Helper to advance rounds with proper time warping
+    function _advanceRounds(uint256 rounds) internal {
+        uint256 startTime = block.timestamp;
+        for (uint256 i = 0; i < rounds; i++) {
+            vm.warp(startTime + (i + 1) * ROUND_DURATION_SECONDS);
+            delegation.advanceRound();
+        }
+    }
 
     function setUp() public {
         // Deploy mock token
@@ -146,10 +156,8 @@ contract MultiAssetDelegationTest is Test {
         vm.prank(operator1);
         delegation.startLeaving();
 
-        // Advance rounds
-        for (uint256 i = 0; i < 7; i++) {
-            delegation.advanceRound();
-        }
+        // Advance rounds with proper time warping (56 rounds for operator exit = 2 epochs)
+        _advanceRounds(56);
 
         uint256 balanceBefore = operator1.balance;
 
@@ -209,10 +217,8 @@ contract MultiAssetDelegationTest is Test {
         vm.prank(delegator1);
         delegation.scheduleWithdraw(address(0), 0.5 ether);
 
-        // Advance rounds
-        for (uint256 i = 0; i < 7; i++) {
-            delegation.advanceRound();
-        }
+        // Advance rounds with proper time warping (28 rounds for delegator = 1 epoch)
+        _advanceRounds(28);
 
         uint256 balanceBefore = delegator1.balance;
 
@@ -331,10 +337,8 @@ contract MultiAssetDelegationTest is Test {
         delegation.scheduleDelegatorUnstake(operator1, address(0), 0.25 ether);
         vm.stopPrank();
 
-        // Advance rounds
-        for (uint256 i = 0; i < 7; i++) {
-            delegation.advanceRound();
-        }
+        // Advance rounds with proper time warping (28 rounds for delegator = 1 epoch)
+        _advanceRounds(28);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -485,6 +489,207 @@ contract MultiAssetDelegationTest is Test {
         vm.prank(delegator1);
         vm.expectRevert();
         delegation.slash(operator1, 0, 1 ether, bytes32(0));
+    }
+
+    function test_SlashForService_WithCommitments() public {
+        vm.prank(operator1);
+        delegation.registerOperator{ value: 10 ether }();
+
+        vm.prank(admin);
+        delegation.addSlasher(admin);
+
+        // Create commitment for native asset only (50% exposure)
+        Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
+        commitments[0] = Types.AssetSecurityCommitment({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            exposureBps: 5000 // 50% exposure
+        });
+
+        vm.prank(admin);
+        uint256 slashed = delegation.slashForService(
+            operator1,
+            1, // blueprintId
+            1, // serviceId
+            commitments,
+            1 ether,
+            bytes32("evidence")
+        );
+
+        assertEq(slashed, 1 ether);
+        assertEq(delegation.getOperatorSelfStake(operator1), 9 ether);
+    }
+
+    function test_SlashForService_NoCommitmentsFallsBack() public {
+        vm.prank(operator1);
+        delegation.registerOperator{ value: 10 ether }();
+
+        vm.prank(admin);
+        delegation.addSlasher(admin);
+
+        // Empty commitments should fall back to slashForBlueprint
+        Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](0);
+
+        vm.prank(admin);
+        uint256 slashed = delegation.slashForService(
+            operator1,
+            1, // blueprintId
+            1, // serviceId
+            commitments,
+            1 ether,
+            bytes32("evidence")
+        );
+
+        assertEq(slashed, 1 ether);
+        assertEq(delegation.getOperatorSelfStake(operator1), 9 ether);
+    }
+
+    function test_SlashForService_RevertNotSlasher() public {
+        vm.prank(operator1);
+        delegation.registerOperator{ value: 10 ether }();
+
+        Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
+        commitments[0] = Types.AssetSecurityCommitment({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            exposureBps: 10000
+        });
+
+        vm.prank(delegator1);
+        vm.expectRevert();
+        delegation.slashForService(operator1, 1, 1, commitments, 1 ether, bytes32(0));
+    }
+
+    function test_SlashForService_SlashesPoolDelegations() public {
+        // Setup operator
+        vm.prank(operator1);
+        delegation.registerOperator{ value: 10 ether }();
+
+        // Delegator deposits and delegates to pool (All mode)
+        vm.startPrank(delegator1);
+        delegation.deposit{ value: 10 ether }();
+        uint64[] memory empty = new uint64[](0);
+        delegation.delegateWithOptions(
+            operator1,
+            address(0),
+            10 ether,
+            Types.BlueprintSelectionMode.All,
+            empty
+        );
+        vm.stopPrank();
+
+        vm.prank(admin);
+        delegation.addSlasher(admin);
+
+        // Create commitment for native asset (100% exposure)
+        Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
+        commitments[0] = Types.AssetSecurityCommitment({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            exposureBps: 10000 // 100% exposure
+        });
+
+        // Total slashable: 10 operator + 10 delegator = 20 ether
+        // Slash 2 ether (10% of total)
+        vm.prank(admin);
+        uint256 slashed = delegation.slashForService(
+            operator1,
+            1,
+            1,
+            commitments,
+            2 ether,
+            bytes32("evidence")
+        );
+
+        assertEq(slashed, 2 ether);
+        // Operator should lose 1 ether (10% of 10 ether)
+        assertEq(delegation.getOperatorSelfStake(operator1), 9 ether);
+        // Delegator pool should also be slashed (10% of 10 ether)
+        assertEq(delegation.getOperatorDelegatedStake(operator1), 9 ether);
+    }
+
+    function test_SlashForService_MultipleAssetCommitments() public {
+        // Setup operator
+        vm.prank(operator1);
+        delegation.registerOperator{ value: 10 ether }();
+
+        // Delegator deposits native and ERC20
+        vm.startPrank(delegator1);
+        delegation.deposit{ value: 5 ether }();
+        token.approve(address(delegation), 5 ether);
+        delegation.depositERC20(address(token), 5 ether);
+
+        // Delegate both to operator (All mode)
+        uint64[] memory empty = new uint64[](0);
+        delegation.delegateWithOptions(
+            operator1,
+            address(0),
+            5 ether,
+            Types.BlueprintSelectionMode.All,
+            empty
+        );
+        delegation.delegateWithOptions(
+            operator1,
+            address(token),
+            5 ether,
+            Types.BlueprintSelectionMode.All,
+            empty
+        );
+        vm.stopPrank();
+
+        vm.prank(admin);
+        delegation.addSlasher(admin);
+
+        // Create commitments for both assets with different exposure
+        Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](2);
+        commitments[0] = Types.AssetSecurityCommitment({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            exposureBps: 10000 // 100% exposure for native
+        });
+        commitments[1] = Types.AssetSecurityCommitment({
+            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(token) }),
+            exposureBps: 5000 // 50% exposure for ERC20
+        });
+
+        vm.prank(admin);
+        uint256 slashed = delegation.slashForService(
+            operator1,
+            1,
+            1,
+            commitments,
+            1 ether,
+            bytes32("evidence")
+        );
+
+        // Should slash proportionally from committed assets
+        assertTrue(slashed > 0);
+        assertTrue(slashed <= 1 ether);
+    }
+
+    function test_SlashForService_SlashExceedingStake() public {
+        vm.prank(operator1);
+        delegation.registerOperator{ value: 5 ether }();
+
+        vm.prank(admin);
+        delegation.addSlasher(admin);
+
+        Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
+        commitments[0] = Types.AssetSecurityCommitment({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            exposureBps: 10000
+        });
+
+        // Try to slash more than available
+        vm.prank(admin);
+        uint256 slashed = delegation.slashForService(
+            operator1,
+            1,
+            1,
+            commitments,
+            10 ether, // More than operator's 5 ether stake
+            bytes32("evidence")
+        );
+
+        // Should only slash up to available amount
+        assertEq(slashed, 5 ether);
+        assertEq(delegation.getOperatorSelfStake(operator1), 0);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

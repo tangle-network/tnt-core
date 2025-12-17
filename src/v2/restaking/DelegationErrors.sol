@@ -47,6 +47,7 @@ library DelegationErrors {
     error LeavingTooEarly(uint64 currentRound, uint64 requiredRound);
     error UnstakeTooEarly(uint64 currentRound, uint64 requiredRound);
     error WithdrawTooEarly(uint64 currentRound, uint64 requiredRound);
+    error RoundAdvanceTooSoon(uint64 nextAllowedTime, uint64 currentTime);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // REWARD ERRORS

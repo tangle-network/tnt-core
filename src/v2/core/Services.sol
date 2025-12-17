@@ -987,6 +987,49 @@ abstract contract Services is Base {
         }
     }
 
+    /// @notice Force remove an operator from a service
+    /// @dev Only callable by the blueprint manager. Useful for removing misbehaving operators.
+    /// @param serviceId The service ID
+    /// @param operator The operator to remove
+    function forceRemoveOperator(uint64 serviceId, address operator) external nonReentrant {
+        Types.Service storage svc = _getService(serviceId);
+        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
+
+        // Only blueprint manager can force remove
+        if (msg.sender != bp.manager) {
+            revert Errors.Unauthorized();
+        }
+
+        Types.ServiceOperator storage opData = _serviceOperators[serviceId][operator];
+        if (!opData.active) {
+            revert Errors.OperatorNotInService(serviceId, operator);
+        }
+
+        // Don't check min operators - force removal is an emergency action
+        // Don't check exit queue - this bypasses normal exit process
+
+        // Drip streaming payments before removal
+        if (_serviceFeeDistributor != address(0)) {
+            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) {} catch {}
+        }
+
+        opData.active = false;
+        opData.leftAt = uint64(block.timestamp);
+        _serviceOperatorSet[serviceId].remove(operator);
+        svc.operatorCount--;
+
+        // Clear any pending exit request
+        delete _exitRequests[serviceId][operator];
+
+        emit OperatorLeftService(serviceId, operator);
+
+        // Notify manager (it called us, but we still notify for consistency)
+        _tryCallManager(
+            bp.manager,
+            abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator))
+        );
+    }
+
     /// @notice Get exit configuration for a service
     /// @dev Checks manager hook first, falls back to protocol defaults
     function _getExitConfig(uint64 blueprintId, uint64 serviceId) internal view returns (Types.ExitConfig memory config) {

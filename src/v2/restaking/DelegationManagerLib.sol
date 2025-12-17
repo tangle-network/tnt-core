@@ -298,7 +298,8 @@ abstract contract DelegationManagerLib is OperatorManager {
                     asset: asset,
                     shares: sharesToUnstake,  // Store shares, not amount
                     requestedRound: currentRound,
-                    selectionMode: d.selectionMode
+                    selectionMode: d.selectionMode,
+                    slashFactorSnapshot: getOperatorSlashFactor(operator)
                 }));
 
                 found = true;
@@ -333,6 +334,13 @@ abstract contract DelegationManagerLib is OperatorManager {
 
                 // Convert shares to amount at CURRENT exchange rate (may differ from request time)
                 uint256 amountToReturn = _sharesToAmount(req.operator, req.shares);
+
+                // Apply lazy slashing: reduce amount if slashes occurred since request
+                amountToReturn = _applyLazySlash(
+                    amountToReturn,
+                    req.slashFactorSnapshot,
+                    getOperatorSlashFactor(req.operator)
+                );
 
                 // Update delegation
                 for (uint256 j = 0; j < _delegations[msg.sender].length; j++) {

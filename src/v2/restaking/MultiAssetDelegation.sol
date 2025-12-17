@@ -88,7 +88,8 @@ contract MultiAssetDelegation is
 
         operatorCommissionBps = _operatorCommissionBps;
         currentRound = 1;
-        roundDuration = ProtocolConfig.ROUND_DURATION_BLOCKS;
+        roundDuration = ProtocolConfig.ROUND_DURATION_SECONDS;
+        lastRoundAdvance = uint64(block.timestamp);
 
         delegationBondLessDelay = ProtocolConfig.DELEGATOR_DELAY_ROUNDS;
         leaveDelegatorsDelay = ProtocolConfig.DELEGATOR_DELAY_ROUNDS;
@@ -340,6 +341,24 @@ contract MultiAssetDelegation is
         returns (uint256 actualSlashed)
     {
         return _slashForBlueprint(operator, blueprintId, serviceId, amount, evidence);
+    }
+
+    /// @notice Slash operator for a specific service with per-asset commitments
+    /// @dev Only slashes assets the operator committed to this service, proportionally
+    function slashForService(
+        address operator,
+        uint64 blueprintId,
+        uint64 serviceId,
+        Types.AssetSecurityCommitment[] calldata commitments,
+        uint256 amount,
+        bytes32 evidence
+    )
+        external
+        override
+        onlyRole(SLASHER_ROLE)
+        returns (uint256 actualSlashed)
+    {
+        return _slashForService(operator, blueprintId, serviceId, commitments, amount, evidence);
     }
 
     /// @notice Slash operator and delegators proportionally (legacy - slashes all)

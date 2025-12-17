@@ -9,6 +9,7 @@ import {ICrossChainMessenger, ICrossChainReceiver} from "../../../src/v2/beacon/
 import {ValidatorPodManager} from "../../../src/v2/beacon/ValidatorPodManager.sol";
 import {MockBeaconOracle} from "../../../src/v2/beacon/BeaconRootReceiver.sol";
 import { IRestaking } from "../../../src/v2/interfaces/IRestaking.sol";
+import { Types } from "../../../src/v2/libraries/Types.sol";
 
 /// @title MockCrossChainMessenger
 /// @notice Mock messenger for testing cross-chain message flow
@@ -146,6 +147,17 @@ contract MockRestaking is IRestaking {
         address operator,
         uint64,
         uint64,
+        uint256 amount,
+        bytes32 evidence
+    ) external returns (uint256 actualSlashed) {
+        return this.slash(operator, 0, amount, evidence);
+    }
+
+    function slashForService(
+        address operator,
+        uint64,
+        uint64,
+        Types.AssetSecurityCommitment[] calldata,
         uint256 amount,
         bytes32 evidence
     ) external returns (uint256 actualSlashed) {

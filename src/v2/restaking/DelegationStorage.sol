@@ -19,11 +19,11 @@ abstract contract DelegationStorage {
     uint256 public constant PRECISION = 1e18;
     uint256 public constant BPS_DENOMINATOR = 10000;
 
-    // Lock durations in blocks (assuming ~12s blocks)
-    uint64 public constant LOCK_ONE_MONTH = 216000;
-    uint64 public constant LOCK_TWO_MONTHS = 432000;
-    uint64 public constant LOCK_THREE_MONTHS = 648000;
-    uint64 public constant LOCK_SIX_MONTHS = 1296000;
+    // Lock durations in seconds
+    uint64 public constant LOCK_ONE_MONTH = 30 days;
+    uint64 public constant LOCK_TWO_MONTHS = 60 days;
+    uint64 public constant LOCK_THREE_MONTHS = 90 days;
+    uint64 public constant LOCK_SIX_MONTHS = 180 days;
 
     // Lock multipliers in BPS (10000 = 1x)
     uint16 public constant MULTIPLIER_NONE = 10000;
@@ -47,8 +47,11 @@ abstract contract DelegationStorage {
     /// @notice Current round number
     uint64 public currentRound;
 
-    /// @notice Blocks per round
+    /// @notice Seconds per round (used for time-based rate limiting)
     uint64 public roundDuration;
+
+    /// @notice Timestamp when the last round was advanced
+    uint64 public lastRoundAdvance;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DELAYS
@@ -121,6 +124,15 @@ abstract contract DelegationStorage {
 
     /// @notice Operator snapshots at round: round => operator => snapshot
     mapping(uint64 => mapping(address => Types.OperatorSnapshot)) internal _atStake;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAZY SLASHING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Cumulative slash factor per operator (PRECISION = no slash, 0 = 100% slashed)
+    /// @dev Used for O(1) slashing of pending unstakes. Factor decreases with each slash.
+    /// Example: After 10% slash, factor = 0.9e18. After another 5%, factor = 0.855e18.
+    mapping(address => uint256) internal _operatorSlashFactor;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DELEGATOR DEPOSITS
@@ -242,6 +254,34 @@ abstract contract DelegationStorage {
         }
 
         revert DelegationErrors.InvalidLockMultiplier(uint8(multiplier));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAZY SLASHING HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Get the current slash factor for an operator
+    /// @dev Returns PRECISION (1e18) if no slashing has occurred
+    function getOperatorSlashFactor(address operator) public view returns (uint256) {
+        uint256 factor = _operatorSlashFactor[operator];
+        return factor == 0 ? PRECISION : factor;
+    }
+
+    /// @notice Calculate effective amount after applying lazy slash
+    /// @param originalAmount Original amount at time of unstake request
+    /// @param snapshotFactor Slash factor when unstake was requested
+    /// @param currentFactor Current slash factor
+    /// @return effectiveAmount Amount after slashes applied
+    function _applyLazySlash(
+        uint256 originalAmount,
+        uint256 snapshotFactor,
+        uint256 currentFactor
+    ) internal pure returns (uint256 effectiveAmount) {
+        if (snapshotFactor == 0 || currentFactor >= snapshotFactor) {
+            return originalAmount; // No slash occurred since request
+        }
+        // Proportional reduction: amount * (currentFactor / snapshotFactor)
+        return (originalAmount * currentFactor) / snapshotFactor;
     }
 
     /// @notice Reserved storage gap for future upgrades

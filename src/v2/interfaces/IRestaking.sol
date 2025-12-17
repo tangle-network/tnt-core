@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { Types } from "../libraries/Types.sol";
+
 /// @title IRestaking
 /// @notice Abstract interface for restaking/shared security protocols
 /// @dev Implement this to integrate with native staking, EigenLayer, Symbiotic, etc.
@@ -97,6 +99,24 @@ interface IRestaking {
         address operator,
         uint64 blueprintId,
         uint64 serviceId,
+        uint256 amount,
+        bytes32 evidence
+    ) external returns (uint256 actualSlashed);
+
+    /// @notice Slash an operator for a specific service, only slashing committed assets
+    /// @dev Only slashes assets the operator committed to this service, proportionally
+    /// @param operator The operator to slash
+    /// @param blueprintId The blueprint where violation occurred
+    /// @param serviceId The service where violation occurred
+    /// @param commitments The operator's asset security commitments for this service
+    /// @param amount Amount to slash
+    /// @param evidence Evidence hash (IPFS or other reference)
+    /// @return actualSlashed The actual amount slashed (may be less if insufficient committed stake)
+    function slashForService(
+        address operator,
+        uint64 blueprintId,
+        uint64 serviceId,
+        Types.AssetSecurityCommitment[] calldata commitments,
         uint256 amount,
         bytes32 evidence
     ) external returns (uint256 actualSlashed);
