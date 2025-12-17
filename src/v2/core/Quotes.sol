@@ -280,4 +280,127 @@ abstract contract Quotes is Base {
         uint16[] memory exposures,
         uint256 totalExposure
     ) internal virtual;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SERVICE EXTENSION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    event ServiceExtended(uint64 indexed serviceId, uint64 oldTtl, uint64 newTtl, uint256 payment);
+
+    /// @notice Extend an existing service's TTL with new quotes from current operators
+    /// @param serviceId The service to extend
+    /// @param quotes Signed quotes from current service operators
+    /// @param additionalTtl How much time to add to the service
+    function extendServiceFromQuotes(
+        uint64 serviceId,
+        Types.SignedQuote[] calldata quotes,
+        uint64 additionalTtl
+    ) external payable whenNotPaused nonReentrant {
+        Types.Service storage svc = _getService(serviceId);
+
+        // Only owner can extend
+        if (svc.owner != msg.sender) {
+            revert Errors.Unauthorized();
+        }
+
+        // Service must be active
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
+
+        // Must have TTL (streaming service)
+        if (svc.ttl == 0) {
+            revert Errors.InvalidState();
+        }
+
+        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
+        _requireBlueprintActive(bp, svc.blueprintId);
+
+        // Gather operators from quotes and verify they're current service operators
+        address[] memory quoteOperators = _gatherQuoteOperators(quotes);
+        _verifyQuoteOperatorsInService(serviceId, quoteOperators);
+
+        // Verify quotes and get total cost
+        uint256 totalCost = _verifyExtensionQuotes(quotes, svc.blueprintId, additionalTtl);
+
+        // Collect payment
+        _collectQuotePayment(totalCost);
+
+        // Calculate new TTL timing
+        uint64 currentEndTime = svc.createdAt + svc.ttl;
+        uint64 extensionStart = currentEndTime > uint64(block.timestamp) ? currentEndTime : uint64(block.timestamp);
+        uint64 oldTtl = svc.ttl;
+
+        // Extend TTL
+        svc.ttl = (extensionStart - svc.createdAt) + additionalTtl;
+
+        emit ServiceExtended(serviceId, oldTtl, svc.ttl, totalCost);
+
+        // Distribute payment as streaming starting from extension start
+        if (totalCost > 0) {
+            uint16[] memory exposures = _getCurrentOperatorExposures(serviceId, quoteOperators);
+            uint256 totalExposure = _sumExposures(exposures);
+            _distributeExtensionPayment(
+                serviceId,
+                svc.blueprintId,
+                totalCost,
+                quoteOperators,
+                exposures,
+                totalExposure,
+                extensionStart,
+                extensionStart + additionalTtl
+            );
+        }
+    }
+
+    function _verifyQuoteOperatorsInService(uint64 serviceId, address[] memory operators) private view {
+        for (uint256 i = 0; i < operators.length; i++) {
+            Types.ServiceOperator storage opData = _serviceOperators[serviceId][operators[i]];
+            if (!opData.active) {
+                revert Errors.OperatorNotInService(serviceId, operators[i]);
+            }
+        }
+    }
+
+    function _verifyExtensionQuotes(
+        Types.SignedQuote[] calldata quotes,
+        uint64 blueprintId,
+        uint64 ttl
+    ) private returns (uint256 totalCost) {
+        (totalCost,) = SignatureLib.verifyQuoteBatch(
+            _usedQuotes,
+            _domainSeparator,
+            quotes,
+            blueprintId,
+            ttl
+        );
+    }
+
+    function _getCurrentOperatorExposures(
+        uint64 serviceId,
+        address[] memory operators
+    ) private view returns (uint16[] memory exposures) {
+        exposures = new uint16[](operators.length);
+        for (uint256 i = 0; i < operators.length; i++) {
+            exposures[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
+        }
+    }
+
+    function _sumExposures(uint16[] memory exposures) private pure returns (uint256 total) {
+        for (uint256 i = 0; i < exposures.length; i++) {
+            total += exposures[i];
+        }
+    }
+
+    /// @notice Distribute extension payment - to be implemented in final contract
+    function _distributeExtensionPayment(
+        uint64 serviceId,
+        uint64 blueprintId,
+        uint256 amount,
+        address[] memory operators,
+        uint16[] memory exposures,
+        uint256 totalExposure,
+        uint64 startTime,
+        uint64 endTime
+    ) internal virtual;
 }

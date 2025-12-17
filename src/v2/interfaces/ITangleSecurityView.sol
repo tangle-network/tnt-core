@@ -19,5 +19,9 @@ interface ITangleSecurityView {
     ) external view returns (uint16);
 
     function treasury() external view returns (address payable);
+
+    function getService(uint64 serviceId) external view returns (Types.Service memory);
+
+    function getServiceOperators(uint64 serviceId) external view returns (address[] memory);
 }
 

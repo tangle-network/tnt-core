@@ -21,6 +21,7 @@ import { TangleMetrics } from "../../src/v2/rewards/TangleMetrics.sol";
 import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
 import { InflationPool } from "../../src/v2/rewards/InflationPool.sol";
 import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributor.sol";
+import { StreamingPaymentManager } from "../../src/v2/rewards/StreamingPaymentManager.sol";
 
 /// @title LocalTestnetSetup
 /// @notice Deploy and setup a complete local testnet environment for integration testing
@@ -51,6 +52,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     address public rewardVaults;
     address public inflationPool;
     address public serviceFeeDistributor;
+    address public streamingPaymentManager;
     address public priceOracle;
 
     // Mock ERC20 tokens for restaking
@@ -279,6 +281,19 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             )
         );
         console2.log("ServiceFeeDistributor:", serviceFeeDistributor);
+
+        // Deploy StreamingPaymentManager (handles streaming payments over service TTL)
+        StreamingPaymentManager streamingImpl = new StreamingPaymentManager();
+        streamingPaymentManager = address(
+            new ERC1967Proxy(
+                address(streamingImpl),
+                abi.encodeCall(StreamingPaymentManager.initialize, (deployer, tangleProxy, serviceFeeDistributor))
+            )
+        );
+        console2.log("StreamingPaymentManager:", streamingPaymentManager);
+
+        // Configure ServiceFeeDistributor to use StreamingPaymentManager
+        ServiceFeeDistributor(payable(serviceFeeDistributor)).setStreamingManager(streamingPaymentManager);
 
         // Wire metrics recorder into core contracts
         Tangle(payable(tangleProxy)).setMetricsRecorder(metrics);

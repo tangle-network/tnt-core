@@ -111,6 +111,28 @@ contract TangleMetrics is
         uint256 timestamp
     );
 
+    // Restaker Exposure
+    event ServiceExposureRecorded(
+        address indexed delegator,
+        address indexed operator,
+        uint64 indexed serviceId,
+        uint64 blueprintId,
+        uint256 usdExposure,
+        uint256 durationSeconds,
+        uint256 exposureScore,
+        uint256 timestamp
+    );
+
+    event OperatorServiceExposureRecorded(
+        address indexed operator,
+        uint64 indexed serviceId,
+        uint64 indexed blueprintId,
+        uint256 totalUsdExposure,
+        uint256 durationSeconds,
+        uint256 exposureScore,
+        uint256 timestamp
+    );
+
     // ═══════════════════════════════════════════════════════════════════════════
     // AGGREGATE STORAGE - Minimal state for reward calculations
     // ═══════════════════════════════════════════════════════════════════════════
@@ -181,6 +203,27 @@ contract TangleMetrics is
 
     /// @notice Service to blueprint mapping (for lookups)
     mapping(uint64 => uint64) public serviceBlueprintId;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESTAKER EXPOSURE AGGREGATES - For inflation reward scoring
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Cumulative exposure score per delegator (USD × seconds, scaled by 1e18)
+    /// @dev Score = Σ(usdExposure × durationSeconds) across all services
+    mapping(address => uint256) public delegatorExposureScore;
+
+    /// @notice Total exposure score across all delegators (for proportional distribution)
+    uint256 public totalExposureScore;
+
+    /// @notice Exposure score per operator (sum of delegator scores to that operator)
+    mapping(address => uint256) public operatorExposureScore;
+
+    /// @notice Exposure score per blueprint
+    mapping(uint64 => uint256) public blueprintExposureScore;
+
+    /// @notice Tracked delegators for iteration (those with non-zero exposure)
+    address[] public trackedDelegators;
+    mapping(address => bool) public isDelegatorTracked;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -407,6 +450,78 @@ contract TangleMetrics is
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // RESTAKER EXPOSURE RECORDING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IMetricsRecorder
+    function recordServiceExposure(
+        address delegator,
+        address operator,
+        uint64 serviceId,
+        uint64 blueprintId,
+        uint256 usdExposure,
+        uint256 durationSeconds
+    ) external onlyRole(RECORDER_ROLE) {
+        if (usdExposure == 0 || durationSeconds == 0) return;
+
+        // Calculate exposure score: USD × seconds (scaled)
+        // Using 1e18 precision for consistency
+        uint256 exposureScore = usdExposure * durationSeconds;
+
+        // Track delegator if not already tracked
+        if (!isDelegatorTracked[delegator]) {
+            trackedDelegators.push(delegator);
+            isDelegatorTracked[delegator] = true;
+        }
+
+        // Update aggregates
+        delegatorExposureScore[delegator] += exposureScore;
+        totalExposureScore += exposureScore;
+        operatorExposureScore[operator] += exposureScore;
+        blueprintExposureScore[blueprintId] += exposureScore;
+
+        emit ServiceExposureRecorded(
+            delegator,
+            operator,
+            serviceId,
+            blueprintId,
+            usdExposure,
+            durationSeconds,
+            exposureScore,
+            block.timestamp
+        );
+    }
+
+    /// @inheritdoc IMetricsRecorder
+    function recordOperatorServiceExposure(
+        address operator,
+        uint64 serviceId,
+        uint64 blueprintId,
+        uint256 totalUsdExposure,
+        uint256 durationSeconds
+    ) external onlyRole(RECORDER_ROLE) {
+        if (totalUsdExposure == 0 || durationSeconds == 0) return;
+
+        // Calculate exposure score: USD × seconds
+        uint256 exposureScore = totalUsdExposure * durationSeconds;
+
+        // Update operator-level aggregates
+        operatorExposureScore[operator] += exposureScore;
+        totalExposureScore += exposureScore;
+        blueprintExposureScore[blueprintId] += exposureScore;
+
+        emit OperatorServiceExposureRecorded(
+            operator,
+            serviceId,
+            blueprintId,
+            totalUsdExposure,
+            durationSeconds,
+            exposureScore,
+            block.timestamp
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -465,6 +580,30 @@ contract TangleMetrics is
             developerTotalJobs[developer],
             developerTotalFees[developer]
         );
+    }
+
+    /// @notice Get number of tracked delegators (for iteration)
+    function trackedDelegatorCount() external view returns (uint256) {
+        return trackedDelegators.length;
+    }
+
+    /// @notice Get delegator at index (for iteration)
+    function trackedDelegatorAt(uint256 index) external view returns (address) {
+        return trackedDelegators[index];
+    }
+
+    /// @notice Get restaker exposure stats
+    /// @param delegator The delegator address
+    /// @return exposureScore Cumulative exposure score (USD × seconds)
+    /// @return shareOfTotal Proportion of total exposure (in basis points)
+    function getRestakerStats(address delegator) external view returns (
+        uint256 exposureScore,
+        uint256 shareOfTotal
+    ) {
+        exposureScore = delegatorExposureScore[delegator];
+        if (totalExposureScore > 0) {
+            shareOfTotal = (exposureScore * 10000) / totalExposureScore;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

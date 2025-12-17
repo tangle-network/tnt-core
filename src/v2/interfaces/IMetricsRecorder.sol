@@ -148,4 +148,40 @@ interface IMetricsRecorder {
         uint64 blueprintId,
         address operator
     ) external;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESTAKER EXPOSURE METRICS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Record restaker service exposure for inflation scoring (per-delegator)
+    /// @dev Called when a delegator materializes their exposure score
+    /// @param delegator The delegator earning exposure
+    /// @param operator The operator the delegator is delegated to
+    /// @param serviceId The service the exposure is for
+    /// @param blueprintId The blueprint the service is running
+    /// @param usdExposure The USD value of exposed stake
+    /// @param durationSeconds The time period this exposure covers
+    function recordServiceExposure(
+        address delegator,
+        address operator,
+        uint64 serviceId,
+        uint64 blueprintId,
+        uint256 usdExposure,
+        uint256 durationSeconds
+    ) external;
+
+    /// @notice Record aggregate operator exposure for a service (gas-efficient)
+    /// @dev Called by ServiceFeeDistributor during drip - records total exposure, not per-delegator
+    /// @param operator The operator
+    /// @param serviceId The service the exposure is for
+    /// @param blueprintId The blueprint the service is running
+    /// @param totalUsdExposure Total USD value of all exposed stake (All + Fixed modes)
+    /// @param durationSeconds The time period this exposure covers
+    function recordOperatorServiceExposure(
+        address operator,
+        uint64 serviceId,
+        uint64 blueprintId,
+        uint256 totalUsdExposure,
+        uint256 durationSeconds
+    ) external;
 }

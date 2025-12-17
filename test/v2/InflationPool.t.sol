@@ -86,11 +86,12 @@ contract InflationPoolTest is Test {
         assertEq(pool.currentEpoch(), 1);
         assertEq(pool.poolBalance(), POOL_FUNDING);
 
-        (uint16 staking, uint16 operators, uint16 customers, uint16 developers) = pool.getWeights();
-        assertEq(staking, 5000);
-        assertEq(operators, 2500);
+        (uint16 staking, uint16 operators, uint16 customers, uint16 developers, uint16 restakers) = pool.getWeights();
+        assertEq(staking, 4000);
+        assertEq(operators, 2000);
         assertEq(customers, 1000);
         assertEq(developers, 1500);
+        assertEq(restakers, 1500);
     }
 
     function test_Initialize_RevertEpochTooShort() public {
@@ -156,19 +157,20 @@ contract InflationPoolTest is Test {
 
     function test_SetWeights() public {
         vm.prank(admin);
-        pool.setWeights(4000, 3000, 2000, 1000);
+        pool.setWeights(3500, 2500, 1500, 1500, 1000);
 
-        (uint16 staking, uint16 operators, uint16 customers, uint16 developers) = pool.getWeights();
-        assertEq(staking, 4000);
-        assertEq(operators, 3000);
-        assertEq(customers, 2000);
-        assertEq(developers, 1000);
+        (uint16 staking, uint16 operators, uint16 customers, uint16 developers, uint16 restakers) = pool.getWeights();
+        assertEq(staking, 3500);
+        assertEq(operators, 2500);
+        assertEq(customers, 1500);
+        assertEq(developers, 1500);
+        assertEq(restakers, 1000);
     }
 
     function test_SetWeights_RevertInvalid() public {
         vm.prank(admin);
         vm.expectRevert(InflationPool.InvalidWeights.selector);
-        pool.setWeights(5000, 3000, 1000, 500); // Doesn't sum to 10000
+        pool.setWeights(5000, 3000, 1000, 500, 400); // Doesn't sum to 10000
     }
 
     function test_SetEpochLength() public {
@@ -549,15 +551,15 @@ contract InflationPoolTest is Test {
         _activateAllRewardStreams();
 
         vm.prank(admin);
-        pool.setWeights(7000, 1000, 1000, 1000);
+        pool.setWeights(6000, 1000, 1000, 1000, 1000); // 60/10/10/10/10
         InflationPool.EpochData memory epochOne = _distributeCurrentEpoch();
 
         vm.prank(admin);
-        pool.setWeights(1000, 7000, 1000, 1000);
+        pool.setWeights(1000, 6000, 1000, 1000, 1000); // 10/60/10/10/10
         InflationPool.EpochData memory epochTwo = _distributeCurrentEpoch();
 
-        uint256 totalOne = epochOne.stakingDistributed + epochOne.operatorsDistributed + epochOne.customersDistributed + epochOne.developersDistributed;
-        uint256 totalTwo = epochTwo.stakingDistributed + epochTwo.operatorsDistributed + epochTwo.customersDistributed + epochTwo.developersDistributed;
+        uint256 totalOne = epochOne.stakingDistributed + epochOne.operatorsDistributed + epochOne.customersDistributed + epochOne.developersDistributed + epochOne.restakersDistributed;
+        uint256 totalTwo = epochTwo.stakingDistributed + epochTwo.operatorsDistributed + epochTwo.customersDistributed + epochTwo.developersDistributed + epochTwo.restakersDistributed;
 
         assertGt(epochOne.operatorsDistributed, 0);
         assertGt(epochTwo.operatorsDistributed, 0);
@@ -700,6 +702,97 @@ contract InflationPoolTest is Test {
 
         // Total distributed should never exceed what was funded
         assertLe(pool.totalDistributed(), POOL_FUNDING);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESTAKER REWARDS TESTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_RestakerRewards_DistributedOnEpoch() public {
+        _activateAllRewardStreams();
+
+        // Record exposure score for delegator1
+        metrics.recordServiceExposure(delegator1, operator1, 1, 1, 1000e18, 86400);
+
+        // Distribute epoch
+        InflationPool.EpochData memory epoch = _distributeCurrentEpoch();
+
+        // Should have distributed restakers rewards
+        assertGt(epoch.restakersDistributed, 0, "Restakers should receive distribution");
+
+        // Delegator should have pending rewards
+        uint256 pending = pool.pendingRestakerRewards(delegator1);
+        assertGt(pending, 0, "Delegator should have pending restaker rewards");
+    }
+
+    function test_RestakerRewards_ClaimRewards() public {
+        _activateAllRewardStreams();
+
+        // Record exposure score
+        metrics.recordServiceExposure(delegator1, operator1, 1, 1, 1000e18, 86400);
+
+        _distributeCurrentEpoch();
+
+        uint256 pending = pool.pendingRestakerRewards(delegator1);
+        assertGt(pending, 0);
+
+        // Claim rewards
+        uint256 balBefore = tnt.balanceOf(delegator1);
+        vm.prank(delegator1);
+        uint256 claimed = pool.claimRestakerRewards();
+        uint256 balAfter = tnt.balanceOf(delegator1);
+
+        assertEq(claimed, pending, "Should claim full pending amount");
+        assertEq(balAfter - balBefore, claimed, "Balance should increase by claimed amount");
+        assertEq(pool.pendingRestakerRewards(delegator1), 0, "Pending should be zero after claim");
+    }
+
+    function test_RestakerRewards_ProportionalToExposure() public {
+        _activateAllRewardStreams();
+
+        // Delegator1 has 3x the exposure of delegator2
+        // Note: delegator1 is address(0x6) in this file, so use different addresses
+        address testDelegator1 = address(0x100);
+        address testDelegator2 = address(0x101);
+
+        metrics.recordServiceExposure(testDelegator1, operator1, 1, 1, 3000e18, 86400);
+        metrics.recordServiceExposure(testDelegator2, operator1, 1, 1, 1000e18, 86400);
+
+        _distributeCurrentEpoch();
+
+        uint256 pending1 = pool.pendingRestakerRewards(testDelegator1);
+        uint256 pending2 = pool.pendingRestakerRewards(testDelegator2);
+
+        // testDelegator1 should have ~3x the rewards
+        assertApproxEqRel(pending1, pending2 * 3, 0.01e18, "Should be proportional to exposure");
+    }
+
+    function test_RestakerRewards_NoExposure_NoRewards() public {
+        _activateAllRewardStreams();
+
+        // Don't record any exposure for delegator1
+        _distributeCurrentEpoch();
+
+        uint256 pending = pool.pendingRestakerRewards(delegator1);
+        assertEq(pending, 0, "No rewards without exposure");
+    }
+
+    function test_RestakerRewards_MultipleEpochsAccumulate() public {
+        _activateAllRewardStreams();
+
+        // Record exposure
+        metrics.recordServiceExposure(delegator1, operator1, 1, 1, 1000e18, 86400);
+
+        // Distribute multiple epochs without claiming
+        _distributeCurrentEpoch();
+        uint256 afterFirst = pool.pendingRestakerRewards(delegator1);
+
+        // Add more exposure
+        metrics.recordServiceExposure(delegator1, operator1, 1, 1, 1000e18, 86400);
+        _distributeCurrentEpoch();
+        uint256 afterSecond = pool.pendingRestakerRewards(delegator1);
+
+        assertGt(afterSecond, afterFirst, "Rewards should accumulate across epochs");
     }
 
     function _distributeCurrentEpoch() internal returns (InflationPool.EpochData memory) {

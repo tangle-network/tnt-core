@@ -45,5 +45,15 @@ interface IServiceFeeDistributor {
         uint64 blueprintId,
         Types.Asset calldata asset
     ) external view returns (uint256 allScore, uint256 fixedScore);
+
+    /// @notice Called when an operator is about to leave a service
+    /// @dev Drips all active streams for the operator BEFORE they're removed
+    function onOperatorLeaving(uint64 serviceId, address operator) external;
+
+    /// @notice Called when a service is terminated early
+    /// @dev Cancels streaming payments and refunds remaining amounts to the service owner
+    /// @param serviceId The terminated service ID
+    /// @param refundRecipient Where to send the remaining payment (typically service owner)
+    function onServiceTerminated(uint64 serviceId, address refundRecipient) external;
 }
 

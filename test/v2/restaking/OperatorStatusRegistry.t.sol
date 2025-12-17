@@ -31,6 +31,8 @@ contract MockMetricsRecorder is IMetricsRecorder {
     function recordPayment(address, uint64, address, uint256) external {}
     function recordBlueprintCreated(uint64, address) external {}
     function recordBlueprintRegistration(uint64, address) external {}
+    function recordServiceExposure(address, address, uint64, uint64, uint256, uint256) external {}
+    function recordOperatorServiceExposure(address, uint64, uint64, uint256, uint256) external {}
 }
 
 contract OperatorStatusRegistryTest is Test {

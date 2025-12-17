@@ -16,6 +16,7 @@ import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
 import { TangleMetrics } from "../../src/v2/rewards/TangleMetrics.sol";
 import { InflationPool } from "../../src/v2/rewards/InflationPool.sol";
 import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributor.sol";
+import { StreamingPaymentManager } from "../../src/v2/rewards/StreamingPaymentManager.sol";
 
 /// @title FullDeploy
 /// @notice Production-grade deployment orchestrator that composes all protocol modules
@@ -68,6 +69,7 @@ contract FullDeploy is DeployV2 {
         uint16 operatorsBps;
         uint16 customersBps;
         uint16 developersBps;
+        uint16 restakersBps;
     }
 
     struct IncentiveConfig {
@@ -75,10 +77,12 @@ contract FullDeploy is DeployV2 {
         bool deployRewardVaults;
         bool deployInflationPool;
         bool deployServiceFeeDistributor;
+        bool deployStreamingPaymentManager;
         address metrics;
         address rewardVaults;
         address inflationPool;
         address serviceFeeDistributor;
+        address streamingPaymentManager;
         address tntToken;
         address priceOracle;
         uint16 defaultTntMinExposureBps;
@@ -181,12 +185,17 @@ contract FullDeploy is DeployV2 {
             serviceFeeDistributor = _deployServiceFeeDistributorProxy(admin, restaking, tangle, priceOracle);
         }
 
+        address streamingPaymentManager = cfg.incentives.streamingPaymentManager;
+        if (cfg.incentives.deployStreamingPaymentManager) {
+            streamingPaymentManager = _deployStreamingPaymentManagerProxy(admin, tangle, serviceFeeDistributor);
+        }
+
         _substituteTntSentinel(cfg.restakeAssets, cfg.incentives.vaults, tntToken);
 
         vm.startBroadcast(deployerKey);
         _configureRestaking(restaking, cfg.restakeAssets);
         _applyRewardsManager(restaking, rewardVaults, inflationPool);
-        _wireServiceFeeDistributor(restaking, tangle, serviceFeeDistributor, priceOracle);
+        _wireServiceFeeDistributor(restaking, tangle, serviceFeeDistributor, streamingPaymentManager, priceOracle);
         _configureRewardVaults(rewardVaults, cfg.incentives.vaults);
         _configureInflationPool(inflationPool, cfg.incentives, metrics, rewardVaults);
         _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
@@ -289,6 +298,9 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".incentives.deployServiceFeeDistributor")) {
             cfg.incentives.deployServiceFeeDistributor = jsonBlob.readBool(".incentives.deployServiceFeeDistributor");
         }
+        if (jsonBlob.keyExists(".incentives.deployStreamingPaymentManager")) {
+            cfg.incentives.deployStreamingPaymentManager = jsonBlob.readBool(".incentives.deployStreamingPaymentManager");
+        }
         if (jsonBlob.keyExists(".incentives.metrics")) cfg.incentives.metrics = jsonBlob.readAddress(".incentives.metrics");
         if (jsonBlob.keyExists(".incentives.rewardVaults")) {
             cfg.incentives.rewardVaults = jsonBlob.readAddress(".incentives.rewardVaults");
@@ -298,6 +310,9 @@ contract FullDeploy is DeployV2 {
         }
         if (jsonBlob.keyExists(".incentives.serviceFeeDistributor")) {
             cfg.incentives.serviceFeeDistributor = jsonBlob.readAddress(".incentives.serviceFeeDistributor");
+        }
+        if (jsonBlob.keyExists(".incentives.streamingPaymentManager")) {
+            cfg.incentives.streamingPaymentManager = jsonBlob.readAddress(".incentives.streamingPaymentManager");
         }
         if (jsonBlob.keyExists(".incentives.tntToken")) cfg.incentives.tntToken = jsonBlob.readAddress(".incentives.tntToken");
         if (jsonBlob.keyExists(".incentives.priceOracle")) {
@@ -564,6 +579,21 @@ contract FullDeploy is DeployV2 {
         console2.log("Deployed ServiceFeeDistributor:", proxy);
     }
 
+    function _deployStreamingPaymentManagerProxy(
+        address admin,
+        address tangle,
+        address distributorAddr
+    ) internal returns (address proxy) {
+        StreamingPaymentManager impl = new StreamingPaymentManager();
+        proxy = address(
+            new ERC1967Proxy(
+                address(impl),
+                abi.encodeCall(StreamingPaymentManager.initialize, (admin, tangle, distributorAddr))
+            )
+        );
+        console2.log("Deployed StreamingPaymentManager:", proxy);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // CONFIGURATION TASKS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -665,12 +695,12 @@ contract FullDeploy is DeployV2 {
         InflationWeights memory weights = inc.weights;
         if (
             weights.stakingBps != 0 || weights.operatorsBps != 0 || weights.customersBps != 0
-                || weights.developersBps != 0
+                || weights.developersBps != 0 || weights.restakersBps != 0
         ) {
             uint256 total = uint256(weights.stakingBps) + uint256(weights.operatorsBps) + uint256(weights.customersBps)
-                + uint256(weights.developersBps);
+                + uint256(weights.developersBps) + uint256(weights.restakersBps);
             require(total == 10_000, "Inflation weights must sum to 10_000 bps");
-            pool.setWeights(weights.stakingBps, weights.operatorsBps, weights.customersBps, weights.developersBps);
+            pool.setWeights(weights.stakingBps, weights.operatorsBps, weights.customersBps, weights.developersBps, weights.restakersBps);
         }
 
         if (inc.epochLength != 0) {
@@ -721,6 +751,7 @@ contract FullDeploy is DeployV2 {
         address restakingAddr,
         address tangleAddr,
         address distributor,
+        address streamingMgr,
         address oracle
     ) internal {
         if (distributor == address(0)) return;
@@ -732,6 +763,10 @@ contract FullDeploy is DeployV2 {
         }
         if (restakingAddr != address(0)) {
             MultiAssetDelegation(payable(restakingAddr)).setServiceFeeDistributor(distributor);
+        }
+        if (streamingMgr != address(0)) {
+            ServiceFeeDistributor(payable(distributor)).setStreamingManager(streamingMgr);
+            console2.log("Configured StreamingPaymentManager on ServiceFeeDistributor");
         }
     }
 

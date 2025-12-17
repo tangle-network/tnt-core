@@ -63,10 +63,11 @@ contract InflationPool is
 
     /// @notice Distribution weights for inflation allocation
     struct DistributionWeights {
-        uint16 stakingBps;      // Stakers/delegators (e.g., 5000 = 50%)
-        uint16 operatorsBps;    // Operator performance (e.g., 2500 = 25%)
+        uint16 stakingBps;      // Stakers/delegators (e.g., 4000 = 40%)
+        uint16 operatorsBps;    // Operator performance (e.g., 2000 = 20%)
         uint16 customersBps;    // Service usage (e.g., 1000 = 10%)
         uint16 developersBps;   // Blueprint developers (e.g., 1500 = 15%)
+        uint16 restakersBps;    // Service exposure rewards (e.g., 1500 = 15%)
     }
 
     /// @notice Epoch tracking data
@@ -78,6 +79,7 @@ contract InflationPool is
         uint256 operatorsDistributed;
         uint256 customersDistributed;
         uint256 developersDistributed;
+        uint256 restakersDistributed;
         bool distributed;
     }
 
@@ -147,6 +149,9 @@ contract InflationPool is
     address[] public trackedDevelopers;
     mapping(address => bool) public isTrackedDeveloper;
 
+    /// @notice Pending rewards per restaker (for service exposure)
+    mapping(address => uint256) public pendingRestakerRewards;
+
     /// @notice Funding history
     FundingRecord[] public fundingHistory;
 
@@ -172,13 +177,15 @@ contract InflationPool is
         uint256 stakingAmount,
         uint256 operatorsAmount,
         uint256 customersAmount,
+        uint256 restakersAmount,
         uint256 totalDistributed
     );
-    event WeightsUpdated(uint16 stakingBps, uint16 operatorsBps, uint16 customersBps, uint16 developersBps);
+    event WeightsUpdated(uint16 stakingBps, uint16 operatorsBps, uint16 customersBps, uint16 developersBps, uint16 restakersBps);
     event EpochLengthUpdated(uint256 newLength);
     event OperatorRewardClaimed(address indexed operator, uint256 amount);
     event CustomerRewardClaimed(address indexed customer, uint256 amount);
     event DeveloperRewardClaimed(address indexed developer, uint256 amount);
+    event RestakerRewardClaimed(address indexed restaker, uint256 amount);
     event EmergencyWithdraw(address indexed to, uint256 amount);
     event FundingPeriodReset(uint256 newPeriodStartTimestamp, uint256 previousPeriodDistributed);
     event FundingPeriodSecondsUpdated(uint256 newFundingPeriodSeconds);
@@ -239,12 +246,13 @@ contract InflationPool is
 
         epochLength = _epochLength;
 
-        // Default weights: 50% staking, 25% operators, 10% customers, 15% developers
+        // Default weights: 40% staking, 20% operators, 10% customers, 15% developers, 15% restakers
         weights = DistributionWeights({
-            stakingBps: 5000,
-            operatorsBps: 2500,
+            stakingBps: 4000,
+            operatorsBps: 2000,
             customersBps: 1000,
-            developersBps: 1500
+            developersBps: 1500,
+            restakersBps: 1500
         });
 
         // Initialize first epoch
@@ -261,6 +269,7 @@ contract InflationPool is
             operatorsDistributed: 0,
             customersDistributed: 0,
             developersDistributed: 0,
+            restakersDistributed: 0,
             distributed: false
         });
     }
@@ -340,7 +349,7 @@ contract InflationPool is
 
         if (epochBudget == 0) {
             // No funds available, just advance epoch
-            _advanceEpoch(0, 0, 0, 0);
+            _advanceEpoch(0, 0, 0, 0, 0);
             return;
         }
 
@@ -348,49 +357,55 @@ contract InflationPool is
         uint256 stakingTarget = (epochBudget * weights.stakingBps) / BPS_DENOMINATOR;
         uint256 operatorsTarget = (epochBudget * weights.operatorsBps) / BPS_DENOMINATOR;
         uint256 customersTarget = (epochBudget * weights.customersBps) / BPS_DENOMINATOR;
-        uint256 developersTarget = epochBudget - stakingTarget - operatorsTarget - customersTarget;
+        uint256 developersTarget = (epochBudget * weights.developersBps) / BPS_DENOMINATOR;
+        uint256 restakersTarget = epochBudget - stakingTarget - operatorsTarget - customersTarget - developersTarget;
 
         // Distribute to each category
         uint256 stakingActual = _distributeStakingRewards(stakingTarget);
         uint256 operatorsActual = _distributeOperatorRewards(operatorsTarget);
         uint256 customersActual = _distributeCustomerRewards(customersTarget);
         uint256 developersActual = _distributeDeveloperRewards(developersTarget);
+        uint256 restakersActual = _distributeRestakerRewards(restakersTarget);
 
         // Handle undistributed amounts
         uint256 undistributed = (stakingTarget - stakingActual) +
                                 (operatorsTarget - operatorsActual) +
                                 (customersTarget - customersActual) +
-                                (developersTarget - developersActual);
+                                (developersTarget - developersActual) +
+                                (restakersTarget - restakersActual);
 
         if (undistributed > 0) {
             bool hasStaking = stakingActual > 0;
             bool hasOperators = operatorsActual > 0;
             bool hasCustomers = customersActual > 0;
             bool hasDevelopers = developersActual > 0;
+            bool hasRestakers = restakersActual > 0;
 
-            if (hasStaking || hasOperators || hasCustomers || hasDevelopers) {
-                (uint256 stakingExtra, uint256 operatorsExtra, uint256 customersExtra, uint256 developersExtra) =
-                    _redistributeUndistributed(undistributed, hasStaking, hasOperators, hasCustomers, hasDevelopers);
+            if (hasStaking || hasOperators || hasCustomers || hasDevelopers || hasRestakers) {
+                (uint256 stakingExtra, uint256 operatorsExtra, uint256 customersExtra, uint256 developersExtra, uint256 restakersExtra) =
+                    _redistributeUndistributed(undistributed, hasStaking, hasOperators, hasCustomers, hasDevelopers, hasRestakers);
                 stakingActual += stakingExtra;
                 operatorsActual += operatorsExtra;
                 customersActual += customersExtra;
                 developersActual += developersExtra;
+                restakersActual += restakersExtra;
             }
         }
 
         // Track distributed amount
-        uint256 totalEpochDistributed = stakingActual + operatorsActual + customersActual + developersActual;
+        uint256 totalEpochDistributed = stakingActual + operatorsActual + customersActual + developersActual + restakersActual;
         distributedThisPeriod += totalEpochDistributed;
         totalDistributed += totalEpochDistributed;
 
         // Advance to next epoch
-        _advanceEpoch(stakingActual, operatorsActual, customersActual, developersActual);
+        _advanceEpoch(stakingActual, operatorsActual, customersActual, developersActual, restakersActual);
 
         emit EpochDistributed(
             currentEpoch - 1,
             stakingActual,
             operatorsActual,
             customersActual,
+            restakersActual,
             totalEpochDistributed
         );
     }
@@ -400,13 +415,15 @@ contract InflationPool is
         uint256 stakingDistributed,
         uint256 operatorsDistributed,
         uint256 customersDistributed,
-        uint256 developersDistributed
+        uint256 developersDistributed,
+        uint256 restakersDistributed
     ) internal {
         epochs[currentEpoch].distributed = true;
         epochs[currentEpoch].stakingDistributed = stakingDistributed;
         epochs[currentEpoch].operatorsDistributed = operatorsDistributed;
         epochs[currentEpoch].customersDistributed = customersDistributed;
         epochs[currentEpoch].developersDistributed = developersDistributed;
+        epochs[currentEpoch].restakersDistributed = restakersDistributed;
 
         currentEpoch++;
         epochs[currentEpoch] = EpochData({
@@ -417,6 +434,7 @@ contract InflationPool is
             operatorsDistributed: 0,
             customersDistributed: 0,
             developersDistributed: 0,
+            restakersDistributed: 0,
             distributed: false
         });
     }
@@ -621,21 +639,56 @@ contract InflationPool is
         score = blueprintScore + serviceScore + jobScore + feeScore;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESTAKER REWARDS DISTRIBUTION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Distribute restaker rewards based on service exposure scores
+    /// @dev Uses exposure scores from TangleMetrics (USD × time from service participation)
+    /// @param amount Total amount to distribute
+    /// @return distributed Actual amount distributed
+    function _distributeRestakerRewards(uint256 amount) internal returns (uint256 distributed) {
+        if (amount == 0 || address(metrics) == address(0)) return 0;
+
+        uint256 totalScore = metrics.totalExposureScore();
+        if (totalScore == 0) return 0;
+
+        uint256 delegatorCount = metrics.trackedDelegatorCount();
+        if (delegatorCount == 0) return 0;
+
+        // Distribute proportionally to exposure scores
+        for (uint256 i = 0; i < delegatorCount; i++) {
+            address delegator = metrics.trackedDelegatorAt(i);
+            uint256 score = metrics.delegatorExposureScore(delegator);
+            if (score == 0) continue;
+
+            uint256 reward = (amount * score) / totalScore;
+            if (reward > 0) {
+                pendingRestakerRewards[delegator] += reward;
+                distributed += reward;
+            }
+        }
+
+        // Note: Tokens stay in this contract until claimed
+    }
+
     /// @notice Redistribute undistributed amounts
     function _redistributeUndistributed(
         uint256 amount,
         bool hasStaking,
         bool hasOperators,
         bool hasCustomers,
-        bool hasDevelopers
-    ) internal returns (uint256 stakingExtra, uint256 operatorsExtra, uint256 customersExtra, uint256 developersExtra) {
+        bool hasDevelopers,
+        bool hasRestakers
+    ) internal returns (uint256 stakingExtra, uint256 operatorsExtra, uint256 customersExtra, uint256 developersExtra, uint256 restakersExtra) {
         uint256 activeCount = 0;
         if (hasStaking) activeCount++;
         if (hasOperators) activeCount++;
         if (hasCustomers) activeCount++;
         if (hasDevelopers) activeCount++;
+        if (hasRestakers) activeCount++;
 
-        if (activeCount == 0) return (0, 0, 0, 0);
+        if (activeCount == 0) return (0, 0, 0, 0, 0);
 
         uint256 sharePerCategory = amount / activeCount;
         uint256 remainder = amount - (sharePerCategory * activeCount);
@@ -647,7 +700,10 @@ contract InflationPool is
             customersExtra = _distributeCustomerRewards(sharePerCategory);
         }
         if (hasDevelopers) {
-            developersExtra = _distributeDeveloperRewards(sharePerCategory + remainder);
+            developersExtra = _distributeDeveloperRewards(sharePerCategory);
+        }
+        if (hasRestakers) {
+            restakersExtra = _distributeRestakerRewards(sharePerCategory + remainder);
             remainder = 0;
         }
         if (hasStaking) {
@@ -690,6 +746,17 @@ contract InflationPool is
         tntToken.safeTransfer(msg.sender, amount);
 
         emit DeveloperRewardClaimed(msg.sender, amount);
+    }
+
+    /// @notice Claim pending restaker rewards (from service exposure)
+    function claimRestakerRewards() external nonReentrant returns (uint256 amount) {
+        amount = pendingRestakerRewards[msg.sender];
+        if (amount == 0) revert NoRewardsToClaim();
+
+        pendingRestakerRewards[msg.sender] = 0;
+        tntToken.safeTransfer(msg.sender, amount);
+
+        emit RestakerRewardClaimed(msg.sender, amount);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -759,9 +826,10 @@ contract InflationPool is
         uint16 stakingBps,
         uint16 operatorsBps,
         uint16 customersBps,
-        uint16 developersBps
+        uint16 developersBps,
+        uint16 restakersBps
     ) external onlyRole(ADMIN_ROLE) {
-        if (stakingBps + operatorsBps + customersBps + developersBps != BPS_DENOMINATOR) {
+        if (stakingBps + operatorsBps + customersBps + developersBps + restakersBps != BPS_DENOMINATOR) {
             revert InvalidWeights();
         }
 
@@ -769,10 +837,11 @@ contract InflationPool is
             stakingBps: stakingBps,
             operatorsBps: operatorsBps,
             customersBps: customersBps,
-            developersBps: developersBps
+            developersBps: developersBps,
+            restakersBps: restakersBps
         });
 
-        emit WeightsUpdated(stakingBps, operatorsBps, customersBps, developersBps);
+        emit WeightsUpdated(stakingBps, operatorsBps, customersBps, developersBps, restakersBps);
     }
 
     /// @notice Update epoch length
@@ -858,9 +927,10 @@ contract InflationPool is
         uint16 stakingBps,
         uint16 operatorsBps,
         uint16 customersBps,
-        uint16 developersBps
+        uint16 developersBps,
+        uint16 restakersBps
     ) {
-        return (weights.stakingBps, weights.operatorsBps, weights.customersBps, weights.developersBps);
+        return (weights.stakingBps, weights.operatorsBps, weights.customersBps, weights.developersBps, weights.restakersBps);
     }
 
     /// @notice Get tracked operator count

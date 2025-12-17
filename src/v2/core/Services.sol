@@ -9,6 +9,7 @@ import { Errors } from "../libraries/Errors.sol";
 import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { SchemaLib } from "../libraries/SchemaLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
+import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 
 /// @title Services
 /// @notice Service request, approval, and lifecycle management
@@ -607,6 +608,11 @@ abstract contract Services is Base {
 
         emit ServiceTerminated(serviceId);
 
+        // Refund remaining streamed payments to the service owner
+        if (_serviceFeeDistributor != address(0)) {
+            try IServiceFeeDistributor(_serviceFeeDistributor).onServiceTerminated(serviceId, svc.owner) {} catch {}
+        }
+
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
@@ -958,6 +964,11 @@ abstract contract Services is Base {
                     revert Errors.Unauthorized();
                 }
             } catch {}
+        }
+
+        // Drip streaming payments BEFORE removing operator (ensures fair distribution)
+        if (_serviceFeeDistributor != address(0)) {
+            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) {} catch {}
         }
 
         opData.active = false;

@@ -255,6 +255,25 @@ contract Tangle is
         _distributePayment(serviceId, blueprintId, address(0), amount, operators, exposures, totalExposure);
     }
 
+    /// @notice Distribute extension payment as streaming (called from Quotes mixin)
+    /// @dev Creates streaming payments starting from extensionStart
+    function _distributeExtensionPayment(
+        uint64 serviceId,
+        uint64 blueprintId,
+        uint256 amount,
+        address[] memory operators,
+        uint16[] memory exposures,
+        uint256 totalExposure,
+        uint64 startTime,
+        uint64 endTime
+    ) internal override {
+        if (amount == 0 || totalExposure == 0) return;
+
+        // Extension payments go through the standard distribution which handles streaming
+        // The service TTL has already been updated, so _distributePayment will stream correctly
+        _distributePayment(serviceId, blueprintId, address(0), amount, operators, exposures, totalExposure);
+    }
+
     /// @notice Get the list of operators for a service (called from Jobs mixin for aggregation)
     function _getServiceOperatorList(uint64 serviceId) internal view override returns (address[] memory) {
         return _serviceOperatorSet[serviceId].values();
