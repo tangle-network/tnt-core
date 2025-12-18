@@ -660,6 +660,19 @@ abstract contract SlashingManager is RewardsManager {
         currentRound++;
     }
 
+    /// @notice Try to advance round if enough time has passed (silent no-op if too early)
+    /// @dev Called from high-traffic functions to opportunistically advance rounds
+    /// @return advanced True if the round was advanced, false if too early
+    function _tryAdvanceRound() internal returns (bool advanced) {
+        // Allow first advance if lastRoundAdvance is 0 (not yet initialized)
+        if (lastRoundAdvance == 0 || block.timestamp >= lastRoundAdvance + roundDuration) {
+            lastRoundAdvance = uint64(block.timestamp);
+            currentRound++;
+            return true;
+        }
+        return false;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // LAZY SLASHING FOR PENDING UNSTAKES
     // ═══════════════════════════════════════════════════════════════════════════

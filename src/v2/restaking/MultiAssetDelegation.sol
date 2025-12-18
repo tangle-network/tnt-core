@@ -152,16 +152,19 @@ contract MultiAssetDelegation is
 
     /// @notice Deposit native token
     function deposit() external payable whenNotPaused nonReentrant {
+        _tryAdvanceRound();
         _depositNative();
     }
 
     /// @notice Deposit native token with lock
     function depositWithLock(Types.LockMultiplier lockMultiplier) external payable whenNotPaused nonReentrant {
+        _tryAdvanceRound();
         _depositNativeWithLock(lockMultiplier);
     }
 
     /// @notice Deposit ERC20 token
     function depositERC20(address token, uint256 amount) external whenNotPaused nonReentrant {
+        _tryAdvanceRound();
         _depositErc20(token, amount);
     }
 
@@ -175,6 +178,7 @@ contract MultiAssetDelegation is
         whenNotPaused
         nonReentrant
     {
+        _tryAdvanceRound();
         _depositErc20WithLock(token, amount, lockMultiplier);
     }
 
@@ -185,6 +189,7 @@ contract MultiAssetDelegation is
 
     /// @notice Execute pending withdrawals
     function executeWithdraw() external nonReentrant {
+        _tryAdvanceRound();
         _executeWithdraw();
     }
 
@@ -195,6 +200,7 @@ contract MultiAssetDelegation is
     /// @notice Deposit and delegate native tokens in one transaction
     /// @param operator Operator to delegate to
     function depositAndDelegate(address operator) external payable whenNotPaused nonReentrant {
+        _tryAdvanceRound();
         _depositNative();
         _delegateNative(operator, msg.value);
     }
@@ -217,6 +223,7 @@ contract MultiAssetDelegation is
         whenNotPaused
         nonReentrant
     {
+        _tryAdvanceRound();
         if (token == address(0)) {
             _depositNative();
         } else {
@@ -227,6 +234,7 @@ contract MultiAssetDelegation is
 
     /// @notice Delegate to an operator (from existing deposit)
     function delegate(address operator, uint256 amount) external whenNotPaused nonReentrant {
+        _tryAdvanceRound();
         _delegateNative(operator, amount);
     }
 
@@ -242,6 +250,7 @@ contract MultiAssetDelegation is
         whenNotPaused
         nonReentrant
     {
+        _tryAdvanceRound();
         _delegateWithOptions(operator, token, amount, selectionMode, blueprintIds);
     }
 
@@ -257,6 +266,7 @@ contract MultiAssetDelegation is
 
     /// @notice Execute pending unstakes
     function executeDelegatorUnstake() external nonReentrant {
+        _tryAdvanceRound();
         _executeDelegatorUnstake();
     }
 
@@ -309,6 +319,7 @@ contract MultiAssetDelegation is
 
     /// @notice Claim delegator rewards
     function claimDelegatorRewards() external nonReentrant returns (uint256 totalRewards) {
+        _tryAdvanceRound();
         totalRewards = _claimDelegatorRewards();
     }
 

@@ -3209,6 +3209,7 @@ interface ITangleServices {
     function approveServiceWithCommitments(uint64 requestId, Types.AssetSecurityCommitment[] memory commitments) external;
     function billSubscription(uint64 serviceId) external;
     function createServiceFromQuotes(uint64 blueprintId, Types.SignedQuote[] memory quotes, bytes memory config, address[] memory permittedCallers, uint64 ttl) external payable returns (uint64 serviceId);
+    function forceRemoveOperator(uint64 serviceId, address operator) external;
     function getService(uint64 serviceId) external view returns (Types.Service memory);
     function getServiceOperator(uint64 serviceId, address operator) external view returns (Types.ServiceOperator memory);
     function getServiceOperators(uint64 serviceId) external view returns (address[] memory);
@@ -3437,6 +3438,24 @@ interface ITangleServices {
       }
     ],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "forceRemoveOperator",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -6697,6 +6716,168 @@ function createServiceFromQuotes(uint64 blueprintId, Types.SignedQuote[] memory 
                         let r: createServiceFromQuotesReturn = r.into();
                         r.serviceId
                     })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `forceRemoveOperator(uint64,address)` and selector `0x684d89f5`.
+```solidity
+function forceRemoveOperator(uint64 serviceId, address operator) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct forceRemoveOperatorCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+    }
+    ///Container type for the return parameters of the [`forceRemoveOperator(uint64,address)`](forceRemoveOperatorCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct forceRemoveOperatorReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64, alloy::sol_types::private::Address);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<forceRemoveOperatorCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: forceRemoveOperatorCall) -> Self {
+                    (value.serviceId, value.operator)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for forceRemoveOperatorCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        serviceId: tuple.0,
+                        operator: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<forceRemoveOperatorReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: forceRemoveOperatorReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for forceRemoveOperatorReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl forceRemoveOperatorReturn {
+            fn _tokenize(
+                &self,
+            ) -> <forceRemoveOperatorCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for forceRemoveOperatorCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = forceRemoveOperatorReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "forceRemoveOperator(uint64,address)";
+            const SELECTOR: [u8; 4] = [104u8, 77u8, 137u8, 245u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                forceRemoveOperatorReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
@@ -10149,6 +10330,8 @@ function terminateService(uint64 serviceId) external;
         #[allow(missing_docs)]
         createServiceFromQuotes(createServiceFromQuotesCall),
         #[allow(missing_docs)]
+        forceRemoveOperator(forceRemoveOperatorCall),
+        #[allow(missing_docs)]
         getService(getServiceCall),
         #[allow(missing_docs)]
         getServiceOperator(getServiceOperatorCall),
@@ -10210,6 +10393,7 @@ function terminateService(uint64 serviceId) external;
             [95u8, 155u8, 77u8, 250u8],
             [97u8, 72u8, 35u8, 178u8],
             [103u8, 120u8, 175u8, 188u8],
+            [104u8, 77u8, 137u8, 245u8],
             [109u8, 139u8, 136u8, 195u8],
             [129u8, 93u8, 106u8, 38u8],
             [132u8, 37u8, 36u8, 187u8],
@@ -10238,6 +10422,7 @@ function terminateService(uint64 serviceId) external;
             ::core::stringify!(getServiceRequest),
             ::core::stringify!(approveService),
             ::core::stringify!(leaveService),
+            ::core::stringify!(forceRemoveOperator),
             ::core::stringify!(rejectService),
             ::core::stringify!(addPermittedCaller),
             ::core::stringify!(getServiceOperator),
@@ -10266,6 +10451,7 @@ function terminateService(uint64 serviceId) external;
             <getServiceRequestCall as alloy_sol_types::SolCall>::SIGNATURE,
             <approveServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <leaveServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <forceRemoveOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <rejectServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <addPermittedCallerCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -10304,7 +10490,7 @@ function terminateService(uint64 serviceId) external;
     impl alloy_sol_types::SolInterface for ITangleServicesCalls {
         const NAME: &'static str = "ITangleServicesCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 25usize;
+        const COUNT: usize = 26usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -10322,6 +10508,9 @@ function terminateService(uint64 serviceId) external;
                 }
                 Self::createServiceFromQuotes(_) => {
                     <createServiceFromQuotesCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::forceRemoveOperator(_) => {
+                    <forceRemoveOperatorCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::getService(_) => {
                     <getServiceCall as alloy_sol_types::SolCall>::SELECTOR
@@ -10544,6 +10733,17 @@ function terminateService(uint64 serviceId) external;
                             .map(ITangleServicesCalls::leaveService)
                     }
                     leaveService
+                },
+                {
+                    fn forceRemoveOperator(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleServicesCalls> {
+                        <forceRemoveOperatorCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleServicesCalls::forceRemoveOperator)
+                    }
+                    forceRemoveOperator
                 },
                 {
                     fn rejectService(
@@ -10841,6 +11041,17 @@ function terminateService(uint64 serviceId) external;
                     leaveService
                 },
                 {
+                    fn forceRemoveOperator(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleServicesCalls> {
+                        <forceRemoveOperatorCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleServicesCalls::forceRemoveOperator)
+                    }
+                    forceRemoveOperator
+                },
+                {
                     fn rejectService(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleServicesCalls> {
@@ -11011,6 +11222,11 @@ function terminateService(uint64 serviceId) external;
                         inner,
                     )
                 }
+                Self::forceRemoveOperator(inner) => {
+                    <forceRemoveOperatorCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::getService(inner) => {
                     <getServiceCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
@@ -11140,6 +11356,12 @@ function terminateService(uint64 serviceId) external;
                 }
                 Self::createServiceFromQuotes(inner) => {
                     <createServiceFromQuotesCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::forceRemoveOperator(inner) => {
+                    <forceRemoveOperatorCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -11800,6 +12022,19 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     config,
                     permittedCallers,
                     ttl,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`forceRemoveOperator`] function.
+        pub fn forceRemoveOperator(
+            &self,
+            serviceId: u64,
+            operator: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, forceRemoveOperatorCall, N> {
+            self.call_builder(
+                &forceRemoveOperatorCall {
+                    serviceId,
+                    operator,
                 },
             )
         }
