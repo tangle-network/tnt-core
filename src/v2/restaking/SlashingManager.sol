@@ -661,11 +661,13 @@ abstract contract SlashingManager is RewardsManager {
     }
 
     /// @notice Try to advance round if enough time has passed (silent no-op if too early)
-    /// @dev Called from high-traffic functions to opportunistically advance rounds
+    /// @dev Called from high-traffic functions to opportunistically advance rounds.
+    ///      Does NOT advance on first call when lastRoundAdvance is 0 - use advanceRound() for that.
     /// @return advanced True if the round was advanced, false if too early
     function _tryAdvanceRound() internal returns (bool advanced) {
-        // Allow first advance if lastRoundAdvance is 0 (not yet initialized)
-        if (lastRoundAdvance == 0 || block.timestamp >= lastRoundAdvance + roundDuration) {
+        // Only advance if lastRoundAdvance is set AND enough time has passed
+        // First round advancement should be done via explicit advanceRound() call
+        if (lastRoundAdvance != 0 && block.timestamp >= lastRoundAdvance + roundDuration) {
             lastRoundAdvance = uint64(block.timestamp);
             currentRound++;
             return true;

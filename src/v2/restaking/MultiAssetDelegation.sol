@@ -89,7 +89,7 @@ contract MultiAssetDelegation is
         operatorCommissionBps = _operatorCommissionBps;
         currentRound = 1;
         roundDuration = ProtocolConfig.ROUND_DURATION_SECONDS;
-        lastRoundAdvance = uint64(block.timestamp);
+        // Note: lastRoundAdvance left at 0 to allow first advanceRound() call immediately
 
         delegationBondLessDelay = ProtocolConfig.DELEGATOR_DELAY_ROUNDS;
         leaveDelegatorsDelay = ProtocolConfig.DELEGATOR_DELAY_ROUNDS;
