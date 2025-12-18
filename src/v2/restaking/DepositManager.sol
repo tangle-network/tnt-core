@@ -32,6 +32,7 @@ abstract contract DepositManager is DelegationStorage {
         uint64 readyRound
     );
     event Withdrawn(address indexed delegator, address indexed token, uint256 amount);
+    event ExpiredLocksHarvested(address indexed delegator, address indexed token, uint256 count, uint256 totalAmount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DEPOSITS
@@ -224,8 +225,12 @@ abstract contract DepositManager is DelegationStorage {
             }
         }
 
-        // Second pass: perform all transfers (INTERACTIONS - after all state changes)
+        // Second pass: perform all transfers and harvest expired locks
+        // (INTERACTIONS - after all state changes)
         for (uint256 i = 0; i < readyCount; i++) {
+            // Opportunistically harvest expired locks for this asset
+            _harvestExpiredLocks(msg.sender, readyAssets[i]);
+
             _transferAsset(readyAssets[i], msg.sender, readyAmounts[i]);
             emit Withdrawn(msg.sender, readyAssets[i].token, readyAmounts[i]);
         }
@@ -316,6 +321,37 @@ abstract contract DepositManager is DelegationStorage {
             return IAssetAdapter(adapter).sharesToAssets(shares);
         }
         return shares; // 1:1 for non-adapter tokens
+    }
+
+    /// @notice Harvest expired locks for a delegator and asset
+    /// @dev Removes expired lock entries from storage to save gas on future operations
+    /// @param delegator Delegator address
+    /// @param asset Asset to harvest locks for
+    /// @return count Number of locks harvested
+    /// @return totalAmount Total amount that was locked (now unlocked)
+    function _harvestExpiredLocks(
+        address delegator,
+        Types.Asset memory asset
+    ) internal returns (uint256 count, uint256 totalAmount) {
+        bytes32 assetHash = _assetHash(asset);
+        Types.LockInfo[] storage locks = _depositLocks[delegator][assetHash];
+
+        // Iterate in reverse to safely remove elements
+        uint256 i = locks.length;
+        while (i > 0) {
+            i--;
+            if (locks[i].expiryBlock <= block.number) {
+                totalAmount += locks[i].amount;
+                count++;
+                // Swap with last and pop
+                locks[i] = locks[locks.length - 1];
+                locks.pop();
+            }
+        }
+
+        if (count > 0) {
+            emit ExpiredLocksHarvested(delegator, asset.token, count, totalAmount);
+        }
     }
 
     /// @notice Get adapter for a token

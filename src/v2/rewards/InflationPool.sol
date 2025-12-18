@@ -190,6 +190,13 @@ contract InflationPool is
     event FundingPeriodReset(uint256 newPeriodStartTimestamp, uint256 previousPeriodDistributed);
     event FundingPeriodSecondsUpdated(uint256 newFundingPeriodSeconds);
 
+    /// @notice Emitted when a new epoch starts, signaling keepers when to call distributeEpoch()
+    /// @dev Blueprint managers should listen for this and schedule a call at distributionReadyAt
+    /// @param epoch The epoch number that was just created
+    /// @param distributionReadyAt Timestamp when distributeEpoch() can be called
+    /// @param estimatedBudget Estimated budget for this epoch (may change based on pool balance)
+    event EpochStarted(uint256 indexed epoch, uint256 distributionReadyAt, uint256 estimatedBudget);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -261,10 +268,11 @@ contract InflationPool is
         fundingPeriodSeconds = SECONDS_PER_YEAR;
         blocksPerYear = BLOCKS_PER_YEAR; // legacy
 
+        uint256 firstEpochEnd = block.timestamp + _epochLength;
         epochs[1] = EpochData({
             number: 1,
             startTimestamp: block.timestamp,
-            endTimestamp: block.timestamp + _epochLength,
+            endTimestamp: firstEpochEnd,
             stakingDistributed: 0,
             operatorsDistributed: 0,
             customersDistributed: 0,
@@ -272,6 +280,9 @@ contract InflationPool is
             restakersDistributed: 0,
             distributed: false
         });
+
+        // Emit event for keepers to schedule first distribution
+        emit EpochStarted(1, firstEpochEnd, 0);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -426,10 +437,11 @@ contract InflationPool is
         epochs[currentEpoch].restakersDistributed = restakersDistributed;
 
         currentEpoch++;
+        uint256 newEndTimestamp = block.timestamp + epochLength;
         epochs[currentEpoch] = EpochData({
             number: currentEpoch,
             startTimestamp: block.timestamp,
-            endTimestamp: block.timestamp + epochLength,
+            endTimestamp: newEndTimestamp,
             stakingDistributed: 0,
             operatorsDistributed: 0,
             customersDistributed: 0,
@@ -437,6 +449,9 @@ contract InflationPool is
             restakersDistributed: 0,
             distributed: false
         });
+
+        // Emit event for keepers to schedule next distribution
+        emit EpochStarted(currentEpoch, newEndTimestamp, calculateEpochBudget());
     }
 
     /// @notice Reset funding period tracking

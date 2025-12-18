@@ -86,6 +86,13 @@ contract StreamingPaymentManager is
     event TangleConfigured(address indexed tangle);
     event DistributorConfigured(address indexed distributor);
 
+    /// @notice Emitted when a stream has drippable funds available
+    /// @dev Blueprint managers should listen for this to trigger drip operations
+    /// @param operator The operator with pending drips
+    /// @param pendingAmount Approximate amount available to drip
+    /// @param streamCount Number of active streams for this operator
+    event StreamDripAvailable(address indexed operator, uint256 pendingAmount, uint256 streamCount);
+
     error NotTangle();
     error NotDistributor();
     error NotAuthorized();
@@ -179,6 +186,9 @@ contract StreamingPaymentManager is
         }
 
         emit StreamingPaymentCreated(serviceId, operator, paymentToken, amount, startTime, endTime);
+
+        // Signal to keepers that this operator will have drippable funds
+        emit StreamDripAvailable(operator, amount, _operatorActiveStreams[operator].length);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -395,6 +405,41 @@ contract StreamingPaymentManager is
         }
 
         return chunk;
+    }
+
+    /// @notice Get total pending drip amount across all streams for an operator
+    /// @dev Useful for keepers to check if drip operations are worthwhile
+    /// @param operator The operator to check
+    /// @return totalPending Total drippable amount, streamCount Number of active streams
+    function pendingDripForOperator(address operator) external view returns (uint256 totalPending, uint256 streamCount) {
+        uint64[] storage streams = _operatorActiveStreams[operator];
+        streamCount = streams.length;
+
+        for (uint256 i = 0; i < streamCount; i++) {
+            StreamingPayment storage p = streamingPayments[streams[i]][operator];
+
+            if (p.totalAmount == 0) continue;
+            if (p.distributed >= p.totalAmount) continue;
+            if (block.timestamp <= p.startTime) continue;
+
+            uint64 currentTime = uint64(block.timestamp);
+            if (currentTime > p.endTime) {
+                currentTime = p.endTime;
+            }
+
+            if (currentTime <= p.lastDripTime) continue;
+
+            uint256 elapsed = currentTime - p.lastDripTime;
+            uint256 duration = p.endTime - p.startTime;
+            uint256 remaining = p.totalAmount - p.distributed;
+
+            uint256 chunk = (p.totalAmount * elapsed) / duration;
+            if (chunk > remaining) {
+                chunk = remaining;
+            }
+
+            totalPending += chunk;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
