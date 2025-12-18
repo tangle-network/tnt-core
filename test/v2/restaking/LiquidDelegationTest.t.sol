@@ -37,6 +37,16 @@ contract LiquidDelegationTest is Test {
     // Constants
     uint256 constant MIN_OPERATOR_STAKE = 1 ether;
 
+    /// @notice Helper to advance rounds with proper time warping
+    function _advanceRounds(uint64 count) internal {
+        uint256 roundDuration = restaking.roundDuration();
+        uint256 startTime = block.timestamp;
+        for (uint64 i = 0; i < count; i++) {
+            vm.warp(startTime + (i + 1) * roundDuration);
+            restaking.advanceRound();
+        }
+    }
+
     function setUp() public {
         // Deploy mock token
         token = new MockERC20();
@@ -307,9 +317,7 @@ contract LiquidDelegationTest is Test {
 
         // Advance rounds
         uint64 delay = uint64(restaking.delegationBondLessDelay());
-        for (uint64 i = 0; i <= delay; i++) {
-            restaking.advanceRound();
-        }
+        _advanceRounds(delay + 1);
 
         // Now should be claimable
         claimable = vault.claimableRedeemRequest(requestId, user1);
@@ -425,9 +433,7 @@ contract LiquidDelegationTest is Test {
 
         // Wait out the bond-less delay
         uint64 delay = uint64(restaking.delegationBondLessDelay());
-        for (uint64 i = 0; i <= delay; i++) {
-            restaking.advanceRound();
-        }
+        _advanceRounds(delay + 1);
 
         assertEq(vault.claimableRedeemRequest(requestId, user1), sharesToRedeem, "Entire request becomes claimable");
 

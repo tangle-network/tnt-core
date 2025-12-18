@@ -63,7 +63,17 @@ contract DelegationEdgeCasesTest is Test {
     address public delegator3 = makeAddr("delegator3");
 
     uint256 constant MIN_OPERATOR_STAKE = 1 ether;
-    uint64 constant DELAY = 7;
+    uint64 constant DELAY = 28; // Match ProtocolConfig.DELEGATOR_DELAY_ROUNDS
+
+    /// @notice Helper to advance rounds with proper time warping
+    function _advanceRounds(uint64 count) internal {
+        uint256 roundDuration = delegation.roundDuration();
+        uint256 startTime = block.timestamp;
+        for (uint64 i = 0; i < count; i++) {
+            vm.warp(startTime + (i + 1) * roundDuration);
+            delegation.advanceRound();
+        }
+    }
 
     function setUp() public {
         MultiAssetDelegation impl = new MultiAssetDelegation();
@@ -115,9 +125,7 @@ contract DelegationEdgeCasesTest is Test {
         delegation.scheduleDelegatorUnstake(operator1, address(0), delegationAfterSlash);
 
         // Advance and execute
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -153,9 +161,7 @@ contract DelegationEdgeCasesTest is Test {
         delegation.slash(operator1, 0, 10 ether, keccak256("evidence"));
 
         // Advance and execute
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -201,9 +207,7 @@ contract DelegationEdgeCasesTest is Test {
         vm.prank(delegator1);
         delegation.scheduleDelegatorUnstake(operator1, address(0), remaining);
 
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -223,9 +227,7 @@ contract DelegationEdgeCasesTest is Test {
         vm.prank(delegator1);
         delegation.scheduleDelegatorUnstake(operator1, address(0), 10 ether);
 
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -245,16 +247,14 @@ contract DelegationEdgeCasesTest is Test {
         delegation.scheduleDelegatorUnstake(operator1, address(0), 5 ether);
 
         // Advance exactly DELAY - 1 rounds (should NOT be executable)
-        for (uint64 i = 0; i < DELAY - 1; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY - 1);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
         assertEq(delegation.getDelegation(delegator1, operator1), 5 ether, "Should not execute before delay");
 
         // Advance one more (now at exactly requestRound + DELAY)
-        delegation.advanceRound();
+        _advanceRounds(1);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -270,9 +270,7 @@ contract DelegationEdgeCasesTest is Test {
         vm.prank(delegator1);
         delegation.scheduleDelegatorUnstake(operator1, address(0), 1 wei);
 
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -348,9 +346,7 @@ contract DelegationEdgeCasesTest is Test {
         vm.prank(delegator3);
         delegation.scheduleDelegatorUnstake(operator1, address(0), 15 ether);
 
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         // All execute
         vm.prank(delegator1);
@@ -381,9 +377,7 @@ contract DelegationEdgeCasesTest is Test {
         vm.prank(slasher);
         delegation.slash(operator1, 0, 20 ether, keccak256("evidence"));
 
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         // Both should be able to execute (with reduced amounts)
         vm.prank(delegator1);
@@ -424,9 +418,7 @@ contract DelegationEdgeCasesTest is Test {
         vm.prank(delegator1);
         delegation.scheduleDelegatorUnstake(operator1, address(0), 5 ether);
 
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         vm.prank(admin);
         delegation.pause();
@@ -443,9 +435,7 @@ contract DelegationEdgeCasesTest is Test {
         vm.prank(delegator1);
         delegation.scheduleWithdraw(address(0), 5 ether);
 
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         vm.prank(admin);
         delegation.pause();
@@ -496,9 +486,7 @@ contract DelegationEdgeCasesTest is Test {
         delegation.scheduleWithdraw(address(evilToken), 10 ether);
         vm.stopPrank();
 
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         // Enable attack
         evilToken.setAttacking(true);
@@ -541,9 +529,7 @@ contract DelegationEdgeCasesTest is Test {
         vm.prank(delegator1);
         delegation.scheduleDelegatorUnstake(operator1, address(0), 10 ether);
 
-        for (uint64 i = 0; i < DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELAY);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();

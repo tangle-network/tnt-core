@@ -164,7 +164,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         vm.prank(operator1);
         delegation.startLeaving();
 
-        _advanceRounds(DEFAULT_DELAY);
+        _advanceRounds(OPERATOR_DELAY); // Operators use 56 round delay
 
         // Operator completes leaving
         uint256 balanceBefore = operator1.balance;
@@ -196,7 +196,8 @@ contract DelegationCriticalTest is DelegationTestHarness {
         vm.prank(operator1);
         delegation.startLeaving();
 
-        _advanceRounds(DEFAULT_DELAY - 1);
+        // Advance just under operator delay (56 - 1 = 55 rounds)
+        _advanceRounds(OPERATOR_DELAY - 1);
 
         uint64 currentRound = uint64(delegation.currentRound());
         vm.prank(operator1);
@@ -300,7 +301,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         // Slash again while leaving to ensure completion returns remaining stake
         _slash(operator1, 1 ether);
 
-        _advanceRounds(DEFAULT_DELAY);
+        _advanceRounds(OPERATOR_DELAY); // Operators use 56 round delay
 
         balanceBefore = operator1.balance;
         uint256 remainingStake = delegation.getOperatorSelfStake(operator1);
@@ -569,8 +570,11 @@ contract DelegationCriticalTest is DelegationTestHarness {
     function test_CanWithdrawAfterLockExpires() public {
         _depositNativeWithLock(delegator1, 10 ether, Types.LockMultiplier.OneMonth);
 
-        // Advance blocks past lock (1 month = 216000 blocks)
-        vm.roll(block.number + 216001);
+        // Lock duration is LOCK_ONE_MONTH = 30 days (stored as block offset)
+        // So we need to roll past 30 days worth of blocks
+        uint256 lockBlocks = uint256(30 days); // 2,592,000
+        vm.roll(block.number + lockBlocks + 1);
+        vm.warp(block.timestamp + 30 days + 1);
 
         // Should now be able to schedule
         _scheduleWithdraw(delegator1, address(0), 10 ether);

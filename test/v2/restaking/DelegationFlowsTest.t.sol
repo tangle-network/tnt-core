@@ -28,8 +28,8 @@ contract DelegationFlowsTest is Test {
     address public delegator1 = makeAddr("delegator1");
 
     uint256 constant MIN_OPERATOR_STAKE = 1 ether;
-    uint64 constant DELEGATION_DELAY = 7;
-    uint64 constant WITHDRAW_DELAY = 7;
+    uint64 constant DELEGATION_DELAY = 28; // Match ProtocolConfig.DELEGATOR_DELAY_ROUNDS
+    uint64 constant WITHDRAW_DELAY = 28; // Match ProtocolConfig.DELEGATOR_DELAY_ROUNDS
 
     function setUp() public {
         // Deploy
@@ -56,6 +56,16 @@ contract DelegationFlowsTest is Test {
         delegation.registerOperator{ value: 10 ether }();
     }
 
+    /// @notice Helper to advance rounds with proper time warping
+    function _advanceRounds(uint64 count) internal {
+        uint256 roundDuration = delegation.roundDuration();
+        uint256 startTime = block.timestamp;
+        for (uint64 i = 0; i < count; i++) {
+            vm.warp(startTime + (i + 1) * roundDuration);
+            delegation.advanceRound();
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // HAPPY PATH TESTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -75,9 +85,7 @@ contract DelegationFlowsTest is Test {
         assertEq(delegation.getDelegation(delegator1, operator1), 5 ether);
 
         // 3. Advance past delay
-        for (uint64 i = 0; i < DELEGATION_DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELEGATION_DELAY);
 
         // 4. Execute unstake
         vm.prank(delegator1);
@@ -90,9 +98,7 @@ contract DelegationFlowsTest is Test {
         delegation.scheduleWithdraw(address(0), 5 ether);
 
         // 6. Advance past withdraw delay
-        for (uint64 i = 0; i < WITHDRAW_DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(WITHDRAW_DELAY);
 
         // 7. Execute withdraw
         uint256 balanceBefore = delegator1.balance;
@@ -122,9 +128,7 @@ contract DelegationFlowsTest is Test {
         delegation.scheduleDelegatorUnstake(operator1, address(token), 5 ether);
 
         // 3. Advance past delay and execute
-        for (uint64 i = 0; i < DELEGATION_DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELEGATION_DELAY);
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
 
@@ -132,9 +136,7 @@ contract DelegationFlowsTest is Test {
         vm.prank(delegator1);
         delegation.scheduleWithdraw(address(token), 5 ether);
 
-        for (uint64 i = 0; i < WITHDRAW_DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(WITHDRAW_DELAY);
 
         uint256 balanceBefore = token.balanceOf(delegator1);
         vm.prank(delegator1);
@@ -151,9 +153,7 @@ contract DelegationFlowsTest is Test {
         vm.prank(delegator1);
         delegation.scheduleDelegatorUnstake(operator1, address(0), 5 ether);
 
-        for (uint64 i = 0; i < DELEGATION_DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELEGATION_DELAY);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -172,9 +172,7 @@ contract DelegationFlowsTest is Test {
         delegation.scheduleDelegatorUnstake(operator1, address(0), 2 ether);
         vm.stopPrank();
 
-        for (uint64 i = 0; i < DELEGATION_DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELEGATION_DELAY);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -189,10 +187,10 @@ contract DelegationFlowsTest is Test {
 
         vm.prank(delegator1);
         delegation.scheduleWithdraw(address(0), 3 ether);
-        delegation.advanceRound();
+        _advanceRounds(1);
         vm.prank(delegator1);
         delegation.scheduleWithdraw(address(0), 4 ether);
-        delegation.advanceRound();
+        _advanceRounds(1);
         vm.prank(delegator1);
         delegation.scheduleWithdraw(address(0), 5 ether);
 
@@ -204,8 +202,9 @@ contract DelegationFlowsTest is Test {
 
         uint64 delay = delegation.leaveDelegatorsDelay();
         uint64 targetRound = pending[0].requestedRound + delay;
-        while (delegation.currentRound() < targetRound) {
-            delegation.advanceRound();
+        uint64 currentRound = uint64(delegation.currentRound());
+        if (targetRound > currentRound) {
+            _advanceRounds(targetRound - currentRound);
         }
 
         uint256 balanceBefore = delegator1.balance;
@@ -267,23 +266,22 @@ contract DelegationFlowsTest is Test {
         vm.prank(delegator1);
         delegation.depositAndDelegate{ value: 10 ether }(operator1);
 
-        // First request
+        // First request at round 1
         vm.prank(delegator1);
         delegation.scheduleDelegatorUnstake(operator1, address(0), 3 ether);
 
-        // Advance 3 rounds
-        for (uint64 i = 0; i < 3; i++) {
-            delegation.advanceRound();
-        }
+        // Advance 3 rounds (now at round 4)
+        _advanceRounds(3);
 
-        // Second request
+        // Second request at round 4
         vm.prank(delegator1);
         delegation.scheduleDelegatorUnstake(operator1, address(0), 2 ether);
 
         // Advance to make first ready but not second
-        for (uint64 i = 0; i < 4; i++) {
-            delegation.advanceRound();
-        }
+        // First request needs: round 1 + 28 = 29
+        // Second request needs: round 4 + 28 = 32
+        // Advance 25 more rounds to reach round 29 (4 + 25 = 29)
+        _advanceRounds(25);
 
         // Execute - only first should process
         vm.prank(delegator1);
@@ -292,10 +290,8 @@ contract DelegationFlowsTest is Test {
         // First (3 ether) unstaked, second (2 ether) still pending
         assertEq(delegation.getDelegation(delegator1, operator1), 7 ether);
 
-        // Advance more to make second ready
-        for (uint64 i = 0; i < 3; i++) {
-            delegation.advanceRound();
-        }
+        // Advance more to make second ready (need 3 more to reach round 32)
+        _advanceRounds(3);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -448,9 +444,7 @@ contract DelegationFlowsTest is Test {
         vm.prank(delegator1);
         delegation.scheduleDelegatorUnstake(operator1, address(0), 5 ether);
 
-        for (uint64 i = 0; i < DELEGATION_DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(DELEGATION_DELAY);
 
         vm.prank(delegator1);
         delegation.executeDelegatorUnstake();
@@ -472,9 +466,7 @@ contract DelegationFlowsTest is Test {
         delegation.scheduleWithdraw(address(0), 5 ether);
         vm.stopPrank();
 
-        for (uint64 i = 0; i < WITHDRAW_DELAY; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(WITHDRAW_DELAY);
 
         vm.prank(delegator1);
         delegation.executeWithdraw();
@@ -492,9 +484,9 @@ contract DelegationFlowsTest is Test {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_DelaysAreConfigured() public view {
-        assertEq(delegation.delegationBondLessDelay(), 7);
-        assertEq(delegation.leaveDelegatorsDelay(), 7);
-        assertEq(delegation.leaveOperatorsDelay(), 7);
+        assertEq(delegation.delegationBondLessDelay(), 28); // DELEGATOR_DELAY_ROUNDS
+        assertEq(delegation.leaveDelegatorsDelay(), 28); // DELEGATOR_DELAY_ROUNDS
+        assertEq(delegation.leaveOperatorsDelay(), 56); // OPERATOR_DELAY_ROUNDS
     }
 
     function test_AdminCanChangeDelays() public {
@@ -518,9 +510,7 @@ contract DelegationFlowsTest is Test {
         delegation.setDelays(14, 7, 7);
 
         // Advance original delay (7 rounds)
-        for (uint64 i = 0; i < 7; i++) {
-            delegation.advanceRound();
-        }
+        _advanceRounds(7);
 
         // Try to execute - should still process (request was made before delay change)
         vm.prank(delegator1);

@@ -169,7 +169,8 @@ abstract contract DelegationTestHarness is Test {
     // Default configuration
     uint256 public constant MIN_OPERATOR_STAKE = 1 ether;
     uint256 public constant MIN_DELEGATION = 0.1 ether;
-    uint64 public constant DEFAULT_DELAY = 7;
+    uint64 public constant DEFAULT_DELAY = 28; // Match ProtocolConfig.DELEGATOR_DELAY_ROUNDS
+    uint64 public constant OPERATOR_DELAY = 56; // Match ProtocolConfig.OPERATOR_DELAY_ROUNDS
     uint16 public constant OPERATOR_COMMISSION_BPS = 1000; // 10%
 
     // Precision
@@ -328,9 +329,12 @@ abstract contract DelegationTestHarness is Test {
         delegation.executeWithdraw();
     }
 
-    /// @notice Advance rounds
+    /// @notice Advance rounds with proper time warping
     function _advanceRounds(uint64 count) internal {
+        uint256 roundDuration = delegation.roundDuration();
+        uint256 startTime = block.timestamp;
         for (uint64 i = 0; i < count; i++) {
+            vm.warp(startTime + (i + 1) * roundDuration);
             delegation.advanceRound();
         }
     }
