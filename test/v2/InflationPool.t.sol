@@ -87,11 +87,11 @@ contract InflationPoolTest is Test {
         assertEq(pool.poolBalance(), POOL_FUNDING);
 
         (uint16 staking, uint16 operators, uint16 customers, uint16 developers, uint16 restakers) = pool.getWeights();
-        assertEq(staking, 4000);
-        assertEq(operators, 2000);
+        assertEq(staking, 1000);
+        assertEq(operators, 2500);
         assertEq(customers, 1000);
-        assertEq(developers, 1500);
-        assertEq(restakers, 1500);
+        assertEq(developers, 2500);
+        assertEq(restakers, 3000);
     }
 
     function test_Initialize_RevertEpochTooShort() public {
