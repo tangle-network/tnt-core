@@ -383,7 +383,7 @@ async function main() {
       foundationPath,
       JSON.stringify(
         {
-          label: 'substrate-foundation',
+          label: 'tangle-foundation',
           ss58: carvedFoundation.ss58Address,
           pubkey: carvedFoundation.pubkey.toLowerCase(),
           amount: carvedFoundation.balance.toString(),

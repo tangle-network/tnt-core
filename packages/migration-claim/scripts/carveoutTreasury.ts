@@ -168,18 +168,18 @@ function main() {
     ),
   );
 
-  if (foundationCarveout) {
-    const foundationPath = resolve(output, '..', 'foundation-carveout.json');
-    writeFileSync(
-      foundationPath,
-      JSON.stringify(
-        {
-          label: 'substrate-foundation',
-          ss58: foundationCarveout.ss58,
-          pubkey: foundationCarveout.pubkey,
-          amount: foundationCarveout.amount,
-        },
-        null,
+	  if (foundationCarveout) {
+	    const foundationPath = resolve(output, '..', 'foundation-carveout.json');
+	    writeFileSync(
+	      foundationPath,
+	      JSON.stringify(
+	        {
+	          label: 'tangle-foundation',
+	          ss58: foundationCarveout.ss58,
+	          pubkey: foundationCarveout.pubkey,
+	          amount: foundationCarveout.amount,
+	        },
+	        null,
         2,
       ),
     );
