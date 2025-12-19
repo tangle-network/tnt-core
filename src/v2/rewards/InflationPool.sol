@@ -253,13 +253,15 @@ contract InflationPool is
 
         epochLength = _epochLength;
 
-        // Default weights: 40% staking, 20% operators, 10% customers, 15% developers, 15% restakers
+        // Default weights: 10% staking, 25% operators, 10% customers, 25% developers, 30% restakers
+        // Rationale: Passive staking (10%) is less valuable than active participation.
+        // Restakers (30%) take real slashing risk. Operators/Developers (25% each) do the work.
         weights = DistributionWeights({
-            stakingBps: 4000,
-            operatorsBps: 2000,
+            stakingBps: 1000,
+            operatorsBps: 2500,
             customersBps: 1000,
-            developersBps: 1500,
-            restakersBps: 1500
+            developersBps: 2500,
+            restakersBps: 3000
         });
 
         // Initialize first epoch
@@ -545,6 +547,8 @@ contract InflationPool is
     }
 
     /// @notice Calculate operator score based on metrics
+    /// @dev Uses LINEAR stake weight to prevent Sybil advantage from stake splitting.
+    ///      With √stake, splitting 100 into 2×50 gives 41% more score. Linear is Sybil-neutral.
     function _calculateOperatorScore(address operator) internal view returns (uint256 score) {
         uint256 jobs = metrics.operatorJobsCompleted(operator);
         uint256 successfulJobs = metrics.operatorJobsSuccessful(operator);
@@ -552,7 +556,8 @@ contract InflationPool is
         uint256 heartbeats = metrics.operatorHeartbeats(operator);
 
         uint256 successRate = jobs > 0 ? (successfulJobs * BPS_DENOMINATOR) / jobs : 0;
-        uint256 stakeWeight = _sqrt(stake / 1e18) * 1e9;
+        // Linear stake weight - prevents Sybil advantage from splitting stake across accounts
+        uint256 stakeWeight = stake / 1e9;
 
         uint256 jobScore = (jobs * successRate * stakeWeight) / BPS_DENOMINATOR;
         uint256 heartbeatBonus = heartbeats * stakeWeight / 100;
