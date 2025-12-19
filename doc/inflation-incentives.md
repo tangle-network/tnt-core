@@ -6,22 +6,29 @@ Pre-funded reward pool that distributes TNT to ecosystem participants based on a
 
 ## Distribution Weights
 
-| Category | Weight | Contract Field |
-|----------|--------|----------------|
-| Staking | 50% | `weights.stakingBps = 5000` |
-| Operators | 25% | `weights.operatorsBps = 2500` |
-| Customers | 10% | `weights.customersBps = 1000` |
-| Developers | 15% | `weights.developersBps = 1500` |
+| Category | Weight | Rationale |
+|----------|--------|-----------|
+| Staking | 10% | Passive capital provision - lowest value |
+| Operators | 25% | Active work running services |
+| Customers | 10% | Fee rebates for service usage |
+| Developers | 25% | Blueprint creation and ecosystem growth |
+| Restakers | 30% | Real slashing risk from service exposure |
 
-**Verify:** `InflationPool.getWeights()` returns `(5000, 2500, 1000, 1500)`
+**Verify:** `InflationPool.getWeights()` returns `(1000, 2500, 1000, 2500, 3000)`
+
+### Design Rationale
+
+- **Staking (10%)**: Passive deposits that aren't delegated to services provide minimal security value
+- **Restakers (30%)**: Delegators whose stake secures active services take real slashing risk and deserve the largest share
+- **Operators/Developers (25% each)**: Active participants who build and run the ecosystem
+- **Customers (10%)**: Rebate for service usage to encourage adoption
 
 ## Epoch Configuration
 
 | Parameter | Value | Contract Field |
 |-----------|-------|----------------|
 | Seconds per year | 365 days | `SECONDS_PER_YEAR` |
-| Legacy blocks per year (unused) | 2,628,000 | `BLOCKS_PER_YEAR` |
-| Default epoch | 7 days | `epochLength` (configurable, in seconds) |
+| Default epoch | 7 days | `epochLength` (configurable) |
 
 **Verify:** `InflationPool.epochLength()`
 
@@ -32,9 +39,12 @@ score = jobScore + heartbeatBonus
 
 jobScore = (jobsCompleted × successRate × stakeWeight) / 10000
 heartbeatBonus = (heartbeats × stakeWeight) / 100
-stakeWeight = sqrt(operatorTotalStake / 1e18) × 1e9
+stakeWeight = operatorTotalStake / 1e9
 successRate = (successfulJobs × 10000) / jobsCompleted
 ```
+
+**Note:** Uses LINEAR stake weight (not sqrt) to prevent Sybil advantage from stake splitting.
+With sqrt, splitting 100 stake into 2×50 gives +41% more score. Linear is Sybil-neutral.
 
 **Verify via TangleMetrics:**
 - `operatorJobsCompleted(operator)`
@@ -59,11 +69,27 @@ feeScore = sqrt(totalFees / 1e18) × 1e9
 - `developerTotalJobs(developer)`
 - `developerTotalFees(developer)`
 
+## Restaker Score Formula
+
+```
+score = exposureScore
+exposureScore = USD_exposure × duration_seconds
+```
+
+Rewards delegators proportionally to their risk exposure - higher USD value staked for longer durations = higher score.
+
+**Verify via TangleMetrics:**
+- `delegatorExposureScore(delegator)`
+- `totalExposureScore()`
+- `getRestakerStats(delegator)` returns `(exposureScore, shareOfTotal)`
+
 ## Customer Score Formula
 
 ```
 score = totalFeesPaid
 ```
+
+Simple proportional rebate based on fees paid.
 
 **Verify:** `TangleMetrics.totalFeesPaid(customer)`
 
@@ -91,10 +117,9 @@ Operator receives commission, remainder goes to delegator pool.
 When a category has no eligible participants, its allocation redistributes to active categories **equally** (not by weight).
 
 Example scenarios:
-- **Only stakers**: 100% to staking (ops/customers/devs portions redistribute)
-- **Stakers + operators**: ~62.5% staking, ~37.5% operators
-- **Stakers + operators + devs**: ~53.3% staking, ~28.3% operators, ~18.3% developers
-- **All active**: Uses configured weights (50/25/10/15)
+- **Only stakers**: 100% to staking
+- **Stakers + restakers**: 50% each
+- **All active**: Uses configured weights (10/25/10/25/30)
 
 ## Admin Configuration
 
@@ -102,12 +127,13 @@ Example scenarios:
 
 ```solidity
 // Requires ADMIN_ROLE
-// All four must sum to 10000 (100%)
-InflationPool.setWeights(
-    5000,  // stakingBps (50%)
+// All five must sum to 10000 (100%)
+InflationPool.setDistributionWeights(
+    1000,  // stakingBps (10%)
     2500,  // operatorsBps (25%)
     1000,  // customersBps (10%)
-    1500   // developersBps (15%)
+    2500,  // developersBps (25%)
+    3000   // restakersBps (30%)
 )
 ```
 
@@ -128,19 +154,30 @@ TNT.approve(inflationPool, amount)
 InflationPool.fund(amount)
 ```
 
-## Key Contract Addresses
+## Key Contracts
 
 | Contract | Purpose |
 |----------|---------|
-| `InflationPool` | Epoch distribution, claiming |
-| `TangleMetrics` | Activity recording |
-| `RewardVaults` | Staking reward distribution |
+| `InflationPool` | Epoch distribution, claiming, weight configuration |
+| `TangleMetrics` | Activity recording (jobs, heartbeats, exposure, fees) |
+| `RewardVaults` | Staking reward distribution to delegators |
+| `ServiceFeeDistributor` | Service fee distribution and exposure tracking |
+
+## Governance
+
+The InflationPool is modular and upgradeable:
+
+1. **Upgrade existing**: Governance can upgrade via `UPGRADER_ROLE`
+2. **Deploy new**: Deploy a new incentive contract pointing to same TangleMetrics
+3. **Change weights**: Call `setDistributionWeights()` via governance
+
+New incentive contracts can read from TangleMetrics (public view functions) and apply completely different formulas without touching core protocol.
 
 ## Verification Commands
 
 ```solidity
 // Check current weights
-InflationPool.getWeights() // (staking, operators, customers, developers)
+InflationPool.getWeights() // (staking, operators, customers, developers, restakers)
 
 // Check epoch status
 InflationPool.currentEpoch()
@@ -156,19 +193,16 @@ InflationPool.pendingDeveloperRewards(developer)
 TangleMetrics.getOperatorSuccessRate(operator) // basis points
 TangleMetrics.getBlueprintStats(blueprintId)
 TangleMetrics.getDeveloperStats(developer)
+TangleMetrics.getRestakerStats(delegator)
 ```
 
 ## Vault UI + Claiming Helpers
 
-To make the on-chain experience parity with the Substrate pallet while preserving our pre-funded guarantees, `RewardVaults` now exposes the following helpers:
-
 | Function | Purpose |
 |----------|---------|
-| `getVaultSummary(asset)` | Returns config+state+derived utilization so UIs can render vault tables without extra RPC calls |
-| `getAllVaultSummaries()` | Convenience helper to fetch every vault snapshot in one call |
-| `getDelegatorPositions(asset, delegator)` | Lists every operator the delegator is staked with, including boosted score, lock metadata, and pending TNT |
-| `pendingDelegatorRewardsAll(asset, delegator)` | Batch view of claimable rewards + total, used to drive “Claim All” buttons |
-| `claimDelegatorRewardsBatch(asset, operators[])` | Single transaction to claim multiple operator pools; reduces UX friction and gas |
-| `claimDelegatorRewardsFor(asset, operator, delegator)` | Lets helper services trigger claims on behalf of a delegator (funds always sent to delegator) |
-
-These helpers mirror the capabilities of the Substrate rewards pallet (vault metadata, other-account claims, pooled accounting) while keeping TNT distribution limited to whatever funds governance pre-loads into `RewardVaults`.
+| `getVaultSummary(asset)` | Config+state+utilization for vault tables |
+| `getAllVaultSummaries()` | Fetch every vault snapshot in one call |
+| `getDelegatorPositions(asset, delegator)` | Operator positions with scores and pending TNT |
+| `pendingDelegatorRewardsAll(asset, delegator)` | Batch view for "Claim All" buttons |
+| `claimDelegatorRewardsBatch(asset, operators[])` | Single tx to claim multiple pools |
+| `claimDelegatorRewardsFor(asset, operator, delegator)` | Third-party claim trigger |
