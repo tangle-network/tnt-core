@@ -97,6 +97,7 @@ contract TangleMigration is Ownable, ReentrancyGuard {
     error LockConfigLocked();
     error AdminClaimWindowClosed();
     error InvalidAdminClaimDeadline();
+    error EmergencyWithdrawNotAllowed();
 
     // ═══════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -323,6 +324,9 @@ contract TangleMigration is Ownable, ReentrancyGuard {
     /// @param _token Token to withdraw (use address(0) for native)
     /// @param _amount Amount to withdraw
     function emergencyWithdraw(address _token, uint256 _amount) external onlyOwner {
+        bool deadlinePassed = claimDeadline != 0 && block.timestamp > claimDeadline;
+        if (!paused && !deadlinePassed) revert EmergencyWithdrawNotAllowed();
+
         if (_token == address(0)) {
             payable(owner()).transfer(_amount);
         } else {

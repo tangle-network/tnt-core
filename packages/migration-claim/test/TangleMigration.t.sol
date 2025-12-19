@@ -569,6 +569,8 @@ contract TangleMigrationTest is Test {
     // ═══════════════════════════════════════════════════════════════════════
 
     function test_EmergencyWithdraw() public {
+        migration.setPaused(true);
+
         uint256 balance = tnt.balanceOf(address(migration));
         uint256 ownerBalanceBefore = tnt.balanceOf(owner);
 
@@ -576,6 +578,12 @@ contract TangleMigrationTest is Test {
 
         assertEq(tnt.balanceOf(address(migration)), 0);
         assertEq(tnt.balanceOf(owner), ownerBalanceBefore + balance);
+    }
+
+    function test_EmergencyWithdraw_RevertIfNotPausedOrDeadlinePassed() public {
+        uint256 balance = tnt.balanceOf(address(migration));
+        vm.expectRevert(TangleMigration.EmergencyWithdrawNotAllowed.selector);
+        migration.emergencyWithdraw(address(tnt), balance);
     }
 
     function test_EmergencyWithdraw_OnlyOwner() public {

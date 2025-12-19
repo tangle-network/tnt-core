@@ -24,6 +24,7 @@ fi
 MERKLE_TREE_FILE="${MERKLE_TREE_FILE:-$ROOT_DIR/packages/migration-claim/merkle-tree.json}"
 EVM_CLAIMS_FILE="${EVM_CLAIMS_FILE:-$ROOT_DIR/packages/migration-claim/evm-claims.json}"
 TREASURY_CARVEOUT_FILE="${TREASURY_CARVEOUT_FILE:-$ROOT_DIR/packages/migration-claim/treasury-carveout.json}"
+FOUNDATION_CARVEOUT_FILE="${FOUNDATION_CARVEOUT_FILE:-$ROOT_DIR/packages/migration-claim/foundation-carveout.json}"
 
 for f in "$MERKLE_TREE_FILE" "$EVM_CLAIMS_FILE"; do
   if [[ ! -f "$f" ]]; then
@@ -57,10 +58,19 @@ read_treasury_amount() {
   node -e "const d=require('fs').readFileSync(process.argv[1],'utf8');const j=JSON.parse(d);process.stdout.write(String(j.amount||'0'));" "$TREASURY_CARVEOUT_FILE"
 }
 
+read_foundation_amount() {
+  if [[ ! -f "$FOUNDATION_CARVEOUT_FILE" ]]; then
+    echo "0"
+    return
+  fi
+  node -e "const d=require('fs').readFileSync(process.argv[1],'utf8');const j=JSON.parse(d);process.stdout.write(String(j.amount||'0'));" "$FOUNDATION_CARVEOUT_FILE"
+}
+
 MERKLE_ROOT="$(read_merkle_root)"
 TOTAL_SUBSTRATE="$(read_substrate_total)"
 TOTAL_EVM="$(read_evm_total)"
 TREASURY_AMOUNT="$(read_treasury_amount)"
+FOUNDATION_AMOUNT="$(read_foundation_amount)"
 
 if [[ -z "$MERKLE_ROOT" || "$MERKLE_ROOT" == "null" || "$MERKLE_ROOT" == "0x" ]]; then
   echo "Failed to read Merkle root from $MERKLE_TREE_FILE" >&2
@@ -69,6 +79,10 @@ fi
 
 if [[ "$TREASURY_AMOUNT" != "0" ]]; then
   : "${TREASURY_RECIPIENT:?Missing TREASURY_RECIPIENT (required when treasury carveout exists)}"
+fi
+
+if [[ "$FOUNDATION_AMOUNT" != "0" ]]; then
+  : "${FOUNDATION_RECIPIENT:?Missing FOUNDATION_RECIPIENT (required when foundation carveout exists)}"
 fi
 
 MIGRATION_OWNER="${MIGRATION_OWNER:-}"
@@ -98,6 +112,7 @@ echo "Merkle root:       $MERKLE_ROOT"
 echo "TOTAL_SUBSTRATE:   $TOTAL_SUBSTRATE"
 echo "TOTAL_EVM:         $TOTAL_EVM"
 echo "TREASURY_AMOUNT:   $TREASURY_AMOUNT"
+echo "FOUNDATION_AMOUNT: $FOUNDATION_AMOUNT"
 echo "TNT token:         ${TNT_TOKEN_ADDRESS:-<deploy-standalone>}"
 echo "Migration owner:   ${MIGRATION_OWNER:-<deployer>}"
 echo "Manifest path:     $MIGRATION_MANIFEST_PATH"
@@ -110,6 +125,8 @@ TOTAL_SUBSTRATE="$TOTAL_SUBSTRATE" \
 TOTAL_EVM="$TOTAL_EVM" \
 TREASURY_AMOUNT="$TREASURY_AMOUNT" \
 TREASURY_RECIPIENT="${TREASURY_RECIPIENT:-}" \
+FOUNDATION_AMOUNT="$FOUNDATION_AMOUNT" \
+FOUNDATION_RECIPIENT="${FOUNDATION_RECIPIENT:-}" \
 MIGRATION_OWNER="${MIGRATION_OWNER:-}" \
 MIGRATION_MANIFEST_PATH="$MIGRATION_MANIFEST_PATH" \
 USE_MOCK_VERIFIER="$USE_MOCK_VERIFIER" \
@@ -197,4 +214,3 @@ done
 
 echo ""
 echo "Done."
-

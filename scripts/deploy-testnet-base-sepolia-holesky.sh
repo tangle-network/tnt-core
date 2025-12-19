@@ -46,7 +46,7 @@ L2_SLASHING_MANIFEST_PATH="${L2_SLASHING_MANIFEST_PATH:-deployments/base-sepolia
 if [[ "$DEPLOY_MIGRATION" == "true" && -z "${TNT_INITIAL_SUPPLY:-}" ]]; then
   # If we plan to deploy the migration system on Base Sepolia, ensure the default TNT supply
   # is large enough to fund Substrate claims + EVM airdrop + treasury carveout.
-  TNT_INITIAL_SUPPLY="$(node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('packages/migration-claim/merkle-tree.json','utf8'));const e=JSON.parse(fs.readFileSync('packages/migration-claim/evm-claims.json','utf8'));let t=0n;try{t=BigInt(JSON.parse(fs.readFileSync('packages/migration-claim/treasury-carveout.json','utf8')).amount||'0');}catch{};process.stdout.write((BigInt(m.totalValue)+BigInt(e.totalAmount)+t).toString());")"
+  TNT_INITIAL_SUPPLY="$(node -e \"const fs=require('fs');const m=JSON.parse(fs.readFileSync('packages/migration-claim/merkle-tree.json','utf8'));const e=JSON.parse(fs.readFileSync('packages/migration-claim/evm-claims.json','utf8'));let t=0n;let f=0n;try{t=BigInt(JSON.parse(fs.readFileSync('packages/migration-claim/treasury-carveout.json','utf8')).amount||'0');}catch{};try{f=BigInt(JSON.parse(fs.readFileSync('packages/migration-claim/foundation-carveout.json','utf8')).amount||'0');}catch{};process.stdout.write((BigInt(m.totalValue)+BigInt(e.totalAmount)+t+f).toString());\")"
   export TNT_INITIAL_SUPPLY
   echo "DEPLOY_MIGRATION=true: defaulting TNT_INITIAL_SUPPLY=$TNT_INITIAL_SUPPLY"
 fi

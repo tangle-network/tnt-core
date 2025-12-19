@@ -67,8 +67,10 @@ contract DeployTangleMigration is Script {
 
         address treasuryRecipient = _envAddressOrZero("TREASURY_RECIPIENT");
         uint256 treasuryAmount = vm.envOr("TREASURY_AMOUNT", uint256(0));
+        address foundationRecipient = _envAddressOrZero("FOUNDATION_RECIPIENT");
+        uint256 foundationAmount = vm.envOr("FOUNDATION_AMOUNT", uint256(0));
 
-        uint256 totalSupply = substrateAllocation + evmAllocation + treasuryAmount;
+        uint256 totalSupply = substrateAllocation + evmAllocation + treasuryAmount + foundationAmount;
 
         bool useMockVerifier = vm.envOr("USE_MOCK_VERIFIER", false);
         address sp1VerifierAddr = vm.envOr("SP1_VERIFIER", SP1_VERIFIER_BASE);
@@ -86,6 +88,11 @@ contract DeployTangleMigration is Script {
             console.log("Treasury Allocation (wei):", treasuryAmount);
             console.log("Treasury Allocation (TNT):", treasuryAmount / 1e18);
             console.log("Treasury Recipient:", treasuryRecipient);
+        }
+        if (foundationAmount > 0) {
+            console.log("Foundation Allocation (wei):", foundationAmount);
+            console.log("Foundation Allocation (TNT):", foundationAmount / 1e18);
+            console.log("Foundation Recipient:", foundationRecipient);
         }
         console.log("Total Supply (TNT):", totalSupply / 1e18);
         console.log("Use Mock Verifier:", useMockVerifier);
@@ -164,6 +171,14 @@ contract DeployTangleMigration is Script {
             require(tntToken.transfer(treasuryRecipient, treasuryAmount), "Treasury transfer failed");
             console.log("\n5. Treasury Allocation:");
             console.log("   Sent:", treasuryAmount / 1e18, "TNT to", treasuryRecipient);
+        }
+
+        // 9. Optional: transfer carved-out foundation allocation to the configured recipient (fully liquid).
+        if (foundationAmount > 0) {
+            require(foundationRecipient != address(0), "FOUNDATION_RECIPIENT required when FOUNDATION_AMOUNT > 0");
+            require(tntToken.transfer(foundationRecipient, foundationAmount), "Foundation transfer failed");
+            console.log("\n6. Foundation Allocation:");
+            console.log("   Sent:", foundationAmount / 1e18, "TNT to", foundationRecipient);
         }
 
         vm.stopBroadcast();

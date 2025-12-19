@@ -13,6 +13,8 @@ This subpackage (`packages/migration-claim`) contains the SP1/ZK-based migration
 **Real snapshot outputs (kept in-repo for reproducible testing)**
 - `packages/migration-claim/merkle-tree.json`: Merkle root + per-SS58 proofs.
 - `packages/migration-claim/evm-claims.json`: EVM recipient list + amounts.
+- `packages/migration-claim/treasury-carveout.json`: Sum of non-claimable Substrate module accounts (sent to the EVM treasury at deploy).
+- `packages/migration-claim/foundation-carveout.json`: Optional carveout for the foundation allocation (sent fully liquid at deploy).
 
 ## Lockups (default)
 

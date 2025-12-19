@@ -4,19 +4,18 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 /**
  * @title TNT - Tangle Network Token
  * @notice ERC20 token for the Tangle Network migration
  * @dev Test-only token used by local deployment scripts in this package.
  */
-contract TNT is ERC20, ERC20Burnable, Ownable, ERC20Permit {
+contract TNT is ERC20, ERC20Burnable, Ownable {
     error ZeroAddress();
 
     constructor(
         address initialOwner
-    ) ERC20("Tangle Network Token", "TNT") Ownable(initialOwner) ERC20Permit("Tangle Network Token") {}
+    ) ERC20("Tangle Network Token", "TNT") Ownable(initialOwner) {}
 
     /**
      * @notice Mint initial supply to owner (for treasury allocation, etc.)

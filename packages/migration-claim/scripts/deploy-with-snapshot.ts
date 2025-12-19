@@ -100,8 +100,7 @@ interface TangleSnapshot {
   };
 }
 
-const SUBSTRATE_TREASURY_PUBKEY =
-  '0x6d6f646c70792f74727372790000000000000000000000000000000000000000';
+const SUBSTRATE_MODULE_PREFIX = '0x6d6f646c'; // "modl"
 
 function ss58ToHex(ss58Address: string): string {
   const pubkeyBytes = decodeAddress(ss58Address);
@@ -119,6 +118,9 @@ async function main() {
   const rpcIndex = args.indexOf('--rpc');
   const keyIndex = args.indexOf('--private-key');
   const dryRunIndex = args.indexOf('--dry-run');
+  const foundationSs58Index = args.indexOf('--foundation-ss58');
+  const treasuryRecipientIndex = args.indexOf('--treasury-recipient');
+  const foundationRecipientIndex = args.indexOf('--foundation-recipient');
 
   if (snapshotIndex === -1) {
     console.error('Usage: npx ts-node deploy-with-snapshot.ts --snapshot <path> [--rpc <url>] [--private-key <key>] [--dry-run]');
@@ -131,6 +133,11 @@ async function main() {
     ? args[keyIndex + 1]
     : '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // Anvil default
   const dryRun = dryRunIndex !== -1;
+  const foundationSs58 = foundationSs58Index !== -1 ? args[foundationSs58Index + 1] : undefined;
+  const treasuryRecipient =
+    treasuryRecipientIndex !== -1 ? (args[treasuryRecipientIndex + 1] as `0x${string}`) : undefined;
+  const foundationRecipient =
+    foundationRecipientIndex !== -1 ? (args[foundationRecipientIndex + 1] as `0x${string}`) : undefined;
 
   if (!existsSync(snapshotPath)) {
     console.error(`Snapshot not found: ${snapshotPath}`);
@@ -241,13 +248,42 @@ async function main() {
     }
   }
 
-  // Carve out the non-claimable Substrate "module treasury" account (modlpy/trsry).
-  const treasuryEntry = combinedMap.get(SUBSTRATE_TREASURY_PUBKEY);
-  if (treasuryEntry && treasuryEntry.balance > 0n) {
+  // Carve out non-claimable Substrate module accounts ("modl*") so they're not stuck in the claim contract.
+  const carvedModuleAccounts: Array<{ ss58Address: string; pubkey: string; balance: bigint }> = [];
+  for (const [pubkey, entry] of combinedMap.entries()) {
+    if (pubkey.startsWith(SUBSTRATE_MODULE_PREFIX)) {
+      carvedModuleAccounts.push({ ss58Address: entry.ss58Address, pubkey: entry.pubkey, balance: entry.balance });
+    }
+  }
+  let carvedFoundation: { ss58Address: string; pubkey: string; balance: bigint } | undefined;
+  if (foundationSs58) {
+    for (const entry of combinedMap.values()) {
+      if (entry.ss58Address === foundationSs58) {
+        carvedFoundation = { ss58Address: entry.ss58Address, pubkey: entry.pubkey, balance: entry.balance };
+        break;
+      }
+    }
+    if (!carvedFoundation) {
+      throw new Error(`--foundation-ss58 not found in snapshot accounts/claims: ${foundationSs58}`);
+    }
+    if (carvedFoundation.pubkey.toLowerCase().startsWith(SUBSTRATE_MODULE_PREFIX)) {
+      throw new Error(`--foundation-ss58 resolves to a module account (unexpected): ${foundationSs58}`);
+    }
+  }
+  if (carvedModuleAccounts.length > 0) {
+    const moduleTotal = carvedModuleAccounts.reduce((sum, e) => sum + e.balance, 0n);
     console.log(
-      `\nCarving out Substrate module treasury (non-claimable): ${formatUnits(treasuryEntry.balance, 18)} TNT`,
+      `\nCarving out Substrate module accounts (non-claimable): ${carvedModuleAccounts.length} accounts, ${formatUnits(moduleTotal, 18)} TNT`,
     );
-    combinedMap.delete(SUBSTRATE_TREASURY_PUBKEY);
+    for (const e of carvedModuleAccounts) {
+      combinedMap.delete(e.pubkey.toLowerCase());
+    }
+  }
+  if (carvedFoundation) {
+    console.log(
+      `\nCarving out foundation allocation (fully liquid): ${formatUnits(carvedFoundation.balance, 18)} TNT (${carvedFoundation.ss58Address})`,
+    );
+    combinedMap.delete(carvedFoundation.pubkey.toLowerCase());
   }
 
   const merkleEntries = Array.from(combinedMap.values()).map(e => ({
@@ -265,12 +301,18 @@ async function main() {
   console.log(`  Merkle tree total: ${formatUnits(merkleTotal, 18)} TNT`);
 
   // Calculate totals
-  const grandTotal = merkleTotal + evmTotal;
+  const moduleTotal = carvedModuleAccounts.reduce((sum, e) => sum + e.balance, 0n);
+  const foundationTotal = carvedFoundation?.balance ?? 0n;
+  const grandTotal = merkleTotal + evmTotal + moduleTotal + foundationTotal;
   console.log('\n=== Totals ===');
   console.log(`Substrate accounts: ${formatUnits(accountsTotal, 18)} TNT`);
   console.log(`Native claims:      ${formatUnits(nativeClaimsTotal, 18)} TNT`);
   console.log(`Merkle tree total:  ${formatUnits(merkleTotal, 18)} TNT (accounts + native)`);
   console.log(`EVM claims:         ${formatUnits(evmTotal, 18)} TNT`);
+  console.log(`Module carveout:    ${formatUnits(moduleTotal, 18)} TNT (to EVM treasury)`);
+  if (foundationTotal > 0n) {
+    console.log(`Foundation carveout:${formatUnits(foundationTotal, 18)} TNT`);
+  }
   console.log(`Grand total:        ${formatUnits(grandTotal, 18)} TNT`);
 
   // Generate merkle tree for combined entries (accounts + native claims)
@@ -317,22 +359,41 @@ async function main() {
   }, null, 2));
   console.log(`  Saved: ${merkleTreePath}`);
 
-  // Save the carved-out Substrate module treasury allocation for separate EVM treasury minting.
+  // Save the carved-out Substrate module allocations for separate EVM treasury minting.
   const treasuryCarveoutPath = resolve(CONTRACT_DIR, 'treasury-carveout.json');
   writeFileSync(
     treasuryCarveoutPath,
     JSON.stringify(
       {
-        label: 'substrate-module-treasury',
-        ss58: treasuryEntry?.ss58Address ?? null,
-        pubkey: SUBSTRATE_TREASURY_PUBKEY,
-        amount: (treasuryEntry?.balance ?? 0n).toString(),
+        label: 'substrate-module-accounts',
+        amount: moduleTotal.toString(),
+        accounts: carvedModuleAccounts
+          .map((e) => ({ ss58: e.ss58Address, pubkey: e.pubkey.toLowerCase(), amount: e.balance.toString() }))
+          .sort((a, b) => (BigInt(a.amount) > BigInt(b.amount) ? -1 : BigInt(a.amount) < BigInt(b.amount) ? 1 : 0)),
       },
       null,
       2,
     ),
   );
   console.log(`  Saved: ${treasuryCarveoutPath}`);
+
+  if (carvedFoundation) {
+    const foundationPath = resolve(CONTRACT_DIR, 'foundation-carveout.json');
+    writeFileSync(
+      foundationPath,
+      JSON.stringify(
+        {
+          label: 'substrate-foundation',
+          ss58: carvedFoundation.ss58Address,
+          pubkey: carvedFoundation.pubkey.toLowerCase(),
+          amount: carvedFoundation.balance.toString(),
+        },
+        null,
+        2,
+      ),
+    );
+    console.log(`  Saved: ${foundationPath}`);
+  }
 
   // Save EVM claims for reference
   const evmClaimsPath = resolve(CONTRACT_DIR, 'evm-claims.json');
@@ -416,6 +477,32 @@ async function main() {
   });
   await publicClient.waitForTransactionReceipt({ hash: mintToMigrationTx });
   console.log(`  Minted ${formatUnits(merkleTotal, 18)} TNT to TangleMigration`);
+
+  if (moduleTotal > 0n) {
+    const to = treasuryRecipient ?? account.address;
+    console.log(`\nMinting module carveout to treasury recipient: ${to}`);
+    const tx = await walletClient.writeContract({
+      address: tntAddress,
+      abi: TNT_ABI,
+      functionName: 'mintInitialSupply',
+      args: [to, moduleTotal],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: tx });
+    console.log(`  Minted ${formatUnits(moduleTotal, 18)} TNT to ${to}`);
+  }
+
+  if (foundationTotal > 0n) {
+    const to = foundationRecipient ?? account.address;
+    console.log(`\nMinting foundation carveout to foundation recipient: ${to}`);
+    const tx = await walletClient.writeContract({
+      address: tntAddress,
+      abi: TNT_ABI,
+      functionName: 'mintInitialSupply',
+      args: [to, foundationTotal],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: tx });
+    console.log(`  Minted ${formatUnits(foundationTotal, 18)} TNT to ${to}`);
+  }
 
   // Batch mint EVM claims (in chunks to avoid gas limits)
   if (evmClaims.length > 0) {
