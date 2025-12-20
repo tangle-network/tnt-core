@@ -5,6 +5,8 @@ import {Script, console2} from "forge-std/Script.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {Tangle} from "../../src/v2/Tangle.sol";
+import { ITangleFull } from "../../src/v2/interfaces/ITangle.sol";
+import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
 import {MultiAssetDelegation} from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import {OperatorStatusRegistry} from "../../src/v2/restaking/OperatorStatusRegistry.sol";
 import {TangleToken} from "../../src/v2/governance/TangleToken.sol";
@@ -12,6 +14,21 @@ import {MasterBlueprintServiceManager} from "../../src/v2/MasterBlueprintService
 import {MBSMRegistry} from "../../src/v2/MBSMRegistry.sol";
 import {Types} from "../../src/v2/libraries/Types.sol";
 import {BlueprintDefinitionHelper} from "../../test/support/BlueprintDefinitionHelper.sol";
+import { TangleBlueprintsFacet } from "../../src/v2/facets/tangle/TangleBlueprintsFacet.sol";
+import { TangleOperatorsFacet } from "../../src/v2/facets/tangle/TangleOperatorsFacet.sol";
+import { TangleServicesFacet } from "../../src/v2/facets/tangle/TangleServicesFacet.sol";
+import { TangleJobsFacet } from "../../src/v2/facets/tangle/TangleJobsFacet.sol";
+import { TangleQuotesFacet } from "../../src/v2/facets/tangle/TangleQuotesFacet.sol";
+import { TanglePaymentsFacet } from "../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
+import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFacet.sol";
+import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
+import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
+import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
+import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
+import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
+import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
+import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
+import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
 
 /// @title DemoERC20
 /// @notice Simple ERC20 for demo purposes
@@ -120,8 +137,8 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
     // ═══════════════════════════════════════════════════════════════════════════
 
     // Deployed contracts
-    Tangle public tangle;
-    MultiAssetDelegation public restaking;
+    ITangleFull public tangle;
+    IMultiAssetDelegation public restaking;
     OperatorStatusRegistry public statusRegistry;
     TangleToken public tnt;
     DemoERC20 public usdc;
@@ -147,6 +164,29 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
     uint256 public totalDelegations;
     uint256 public totalHeartbeats;
     uint256 public totalSlashes;
+
+    function _registerTangleFacets(address tangleProxy) internal {
+        Tangle router = Tangle(payable(tangleProxy));
+        router.registerFacet(address(new TangleBlueprintsFacet()));
+        router.registerFacet(address(new TangleOperatorsFacet()));
+        router.registerFacet(address(new TangleServicesFacet()));
+        router.registerFacet(address(new TangleJobsFacet()));
+        router.registerFacet(address(new TangleQuotesFacet()));
+        router.registerFacet(address(new TanglePaymentsFacet()));
+        router.registerFacet(address(new TangleSlashingFacet()));
+    }
+
+    function _registerRestakingFacets(address restakingProxy) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(restakingProxy));
+        router.registerFacet(address(new RestakingOperatorsFacet()));
+        router.registerFacet(address(new RestakingDepositsFacet()));
+        router.registerFacet(address(new RestakingDelegationsFacet()));
+        router.registerFacet(address(new RestakingRewardsFacet()));
+        router.registerFacet(address(new RestakingSlashingFacet()));
+        router.registerFacet(address(new RestakingAssetsFacet()));
+        router.registerFacet(address(new RestakingViewsFacet()));
+        router.registerFacet(address(new RestakingAdminFacet()));
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MAIN ENTRY POINT
@@ -257,15 +297,18 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
             (admin, 1 ether, 7, 1000) // minOpStake, roundDelay, commissionBps
         );
         address restakingProxy = address(new ERC1967Proxy(address(restakingImpl), restakingInit));
-        restaking = MultiAssetDelegation(payable(restakingProxy));
+        restaking = IMultiAssetDelegation(payable(restakingProxy));
         console2.log("  MultiAssetDelegation:", restakingProxy);
 
         // Deploy Tangle
         Tangle tangleImpl = new Tangle();
         bytes memory tangleInit = abi.encodeCall(Tangle.initialize, (admin, restakingProxy, payable(admin)));
         address tangleProxy = address(new ERC1967Proxy(address(tangleImpl), tangleInit));
-        tangle = Tangle(payable(tangleProxy));
+        tangle = ITangleFull(payable(tangleProxy));
         console2.log("  Tangle:", tangleProxy);
+
+        _registerRestakingFacets(restakingProxy);
+        _registerTangleFacets(tangleProxy);
 
         // Deploy OperatorStatusRegistry
         statusRegistry = new OperatorStatusRegistry(tangleProxy, admin);
@@ -287,9 +330,9 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         // Configure cross-references
         restaking.addSlasher(tangleProxy);
         restaking.addSlasher(slasher);
-        tangle.setOperatorStatusRegistry(address(statusRegistry));
-        tangle.setOperatorBondAsset(address(tnt));
-        tangle.setOperatorBlueprintBond(100 ether);
+        Tangle(payable(tangleProxy)).setOperatorStatusRegistry(address(statusRegistry));
+        Tangle(payable(tangleProxy)).setOperatorBondAsset(address(tnt));
+        Tangle(payable(tangleProxy)).setOperatorBlueprintBond(100 ether);
 
         // Deploy and configure MBSM
         MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(admin, tangleProxy);
@@ -299,7 +342,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         MBSMRegistry registry = MBSMRegistry(address(registryProxy));
         registry.grantRole(registry.MANAGER_ROLE(), tangleProxy);
         registry.addVersion(address(masterManager));
-        tangle.setMBSMRegistry(address(registry));
+        Tangle(payable(address(tangle))).setMBSMRegistry(address(registry));
 
         vm.stopBroadcast();
 
@@ -369,7 +412,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
     function _registerOperatorsForBlueprints() internal {
         console2.log("[Setup] Registering operators for blueprints...");
 
-        uint256 bondAmount = tangle.operatorBlueprintBond();
+        uint256 bondAmount = Tangle(payable(address(tangle))).operatorBlueprintBond();
 
         for (uint256 i = 0; i < operators.length; i++) {
             vm.startBroadcast(operatorKeys[i]);

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { Types } from "../libraries/Types.sol";
+import { PaymentLib } from "../libraries/PaymentLib.sol";
 
 /// @title ITangleServices
 /// @notice Service lifecycle management interface
@@ -128,6 +129,13 @@ interface ITangleServices {
         uint64 ttl
     ) external payable returns (uint64 serviceId);
 
+    /// @notice Extend a service using pre-signed operator quotes
+    function extendServiceFromQuotes(
+        uint64 serviceId,
+        Types.SignedQuote[] calldata quotes,
+        uint64 extensionDuration
+    ) external payable;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE MANAGEMENT FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -158,6 +166,18 @@ interface ITangleServices {
     /// @notice Leave an active service (Dynamic membership only)
     function leaveService(uint64 serviceId) external;
 
+    /// @notice Schedule exit from an active service when exit queues are enabled
+    function scheduleExit(uint64 serviceId) external;
+
+    /// @notice Execute a scheduled exit after the queue delay
+    function executeExit(uint64 serviceId) external;
+
+    /// @notice Cancel a scheduled exit before execution
+    function cancelExit(uint64 serviceId) external;
+
+    /// @notice Force exit an operator from a service (if permitted by config)
+    function forceExit(uint64 serviceId, address operator) external;
+
     /// @notice Force remove an operator from a service (blueprint manager only)
     /// @param serviceId The service ID
     /// @param operator The operator to remove
@@ -170,12 +190,35 @@ interface ITangleServices {
     /// @notice Bill a subscription service for the current period
     function billSubscription(uint64 serviceId) external;
 
+    /// @notice Bill multiple subscription services in one call
+    function billSubscriptionBatch(uint64[] calldata serviceIds)
+        external
+        returns (uint256 totalBilled, uint256 billedCount);
+
+    /// @notice Get billable services from a list of candidates
+    function getBillableServices(uint64[] calldata serviceIds) external view returns (uint64[] memory billable);
+
+    /// @notice Fund a service escrow balance
+    function fundService(uint64 serviceId, uint256 amount) external payable;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get service request
     function getServiceRequest(uint64 requestId) external view returns (Types.ServiceRequest memory);
+
+    /// @notice Get security requirements for a service request
+    function getServiceRequestSecurityRequirements(uint64 requestId)
+        external
+        view
+        returns (Types.AssetSecurityRequirement[] memory);
+
+    /// @notice Get security commitments for a service request by operator
+    function getServiceRequestSecurityCommitments(uint64 requestId, address operator)
+        external
+        view
+        returns (Types.AssetSecurityCommitment[] memory);
 
     /// @notice Get service info
     function getService(uint64 serviceId) external view returns (Types.Service memory);
@@ -200,6 +243,21 @@ interface ITangleServices {
         external
         view
         returns (Types.AssetSecurityRequirement[] memory);
+
+    /// @notice Get service escrow details
+    function getServiceEscrow(uint64 serviceId) external view returns (PaymentLib.ServiceEscrow memory);
+
+    /// @notice Get exit request for an operator
+    function getExitRequest(uint64 serviceId, address operator) external view returns (Types.ExitRequest memory);
+
+    /// @notice Get exit status for an operator
+    function getExitStatus(uint64 serviceId, address operator) external view returns (Types.ExitStatus);
+
+    /// @notice Get exit configuration for a service
+    function getExitConfig(uint64 serviceId) external view returns (Types.ExitConfig memory);
+
+    /// @notice Check if operator can schedule exit now
+    function canScheduleExit(uint64 serviceId, address operator) external view returns (bool canExit, string memory reason);
 
     /// @notice Get persisted security commitments for an active service by operator
     function getServiceSecurityCommitments(uint64 serviceId, address operator)

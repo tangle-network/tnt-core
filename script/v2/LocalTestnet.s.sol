@@ -5,6 +5,8 @@ import { Script, console2 } from "forge-std/Script.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { Tangle } from "../../src/v2/Tangle.sol";
+import { ITangleFull } from "../../src/v2/interfaces/ITangle.sol";
+import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { OperatorStatusRegistry } from "../../src/v2/restaking/OperatorStatusRegistry.sol";
 import { TangleToken } from "../../src/v2/governance/TangleToken.sol";
@@ -22,6 +24,21 @@ import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
 import { InflationPool } from "../../src/v2/rewards/InflationPool.sol";
 import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributor.sol";
 import { StreamingPaymentManager } from "../../src/v2/rewards/StreamingPaymentManager.sol";
+import { TangleBlueprintsFacet } from "../../src/v2/facets/tangle/TangleBlueprintsFacet.sol";
+import { TangleOperatorsFacet } from "../../src/v2/facets/tangle/TangleOperatorsFacet.sol";
+import { TangleServicesFacet } from "../../src/v2/facets/tangle/TangleServicesFacet.sol";
+import { TangleJobsFacet } from "../../src/v2/facets/tangle/TangleJobsFacet.sol";
+import { TangleQuotesFacet } from "../../src/v2/facets/tangle/TangleQuotesFacet.sol";
+import { TanglePaymentsFacet } from "../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
+import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFacet.sol";
+import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
+import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
+import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
+import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
+import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
+import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
+import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
+import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
 
 /// @title LocalTestnetSetup
 /// @notice Deploy and setup a complete local testnet environment for integration testing
@@ -180,6 +197,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         tangleProxy = address(new ERC1967Proxy(address(tangleImpl), tangleInit));
         console2.log("Tangle:", tangleProxy);
 
+        _registerRestakingFacets(restakingProxy);
+        _registerTangleFacets(tangleProxy);
+
         // Deploy OperatorStatusRegistry
         statusRegistry = address(new OperatorStatusRegistry(tangleProxy, deployer));
         console2.log("OperatorStatusRegistry:", statusRegistry);
@@ -206,7 +226,8 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         _distributeBondToken(deployer, deployedNewTNT);
 
         // Configure cross-references
-        MultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+        restaking.addSlasher(tangleProxy);
 
         Tangle tangle = Tangle(payable(tangleProxy));
         tangle.setOperatorStatusRegistry(statusRegistry);
@@ -305,7 +326,8 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         TangleMetrics(metrics).grantRecorderRole(statusRegistry);
 
         // Wire RewardVaults into restaking + grant manager roles
-        MultiAssetDelegation(payable(restakingProxy)).setRewardsManager(rewardVaults);
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+        restaking.setRewardsManager(rewardVaults);
         RewardVaults vaults = RewardVaults(rewardVaults);
         bytes32 rmRole = vaults.REWARDS_MANAGER_ROLE();
         if (!vaults.hasRole(rmRole, restakingProxy)) vaults.grantRole(rmRole, restakingProxy);
@@ -316,7 +338,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         if (priceOracle != address(0)) {
             Tangle(payable(tangleProxy)).setPriceOracle(priceOracle);
         }
-        MultiAssetDelegation(payable(restakingProxy)).setServiceFeeDistributor(serviceFeeDistributor);
+        restaking.setServiceFeeDistributor(serviceFeeDistributor);
 
         // Wire RewardVaults into Tangle for TNT-specific incentives
         Tangle(payable(tangleProxy)).setRewardVaults(rewardVaults);
@@ -408,7 +430,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             vm.startPrank(deployer);
         }
 
-        MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingProxy));
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
 
         // Deploy stablecoins (6 decimals for USDC/USDT)
         usdc = new MockToken("USD Coin", "USDC", 6);
@@ -480,7 +502,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     function _registerOperatorsRestaking() internal {
         console2.log("\n=== Registering Operators in Restaking ===");
-        MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingProxy));
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
 
         // Operator 1 registers with 10 ETH stake
         if (useBroadcastKeys) {
@@ -519,7 +541,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             vm.startPrank(deployer);
         }
 
-        Tangle tangle = Tangle(payable(tangleProxy));
+        ITangleFull tangle = ITangleFull(payable(tangleProxy));
 
         Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://QmTestBlueprint", address(0));
         def.config.membership = Types.MembershipModel.Dynamic;
@@ -530,7 +552,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("Blueprint configured for dynamic membership (CLI join target)");
 
         // Require a 100 TNT bond per operator registration
-        tangle.setOperatorBlueprintBond(100 ether);
+        Tangle(payable(tangleProxy)).setOperatorBlueprintBond(100 ether);
         console2.log("Operator bond set to 100 TNT");
 
         if (useBroadcastKeys) {
@@ -542,9 +564,10 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     function _operatorsRegisterForBlueprint() internal {
         console2.log("\n=== Operators Registering for Blueprint ===");
-        Tangle tangle = Tangle(payable(tangleProxy));
-        uint256 bond = tangle.operatorBlueprintBond();
-        address bondAsset = tangle.operatorBondToken();
+        Tangle tangleRouter = Tangle(payable(tangleProxy));
+        ITangleFull tangle = ITangleFull(payable(tangleProxy));
+        uint256 bond = tangleRouter.operatorBlueprintBond();
+        address bondAsset = tangleRouter.operatorBondToken();
 
         bytes memory operator1Key =
             hex"040102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40";
@@ -592,7 +615,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     function _delegatorStake() internal {
         console2.log("\n=== Delegator Staking ===");
-        MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingProxy));
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
 
         if (useBroadcastKeys) {
             vm.startBroadcast(DELEGATOR_KEY);
@@ -617,7 +640,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     function _delegatorStakeERC20() internal {
         console2.log("\n=== Delegator ERC20 Staking ===");
-        MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingProxy));
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
         uint64[] memory emptyBlueprints = new uint64[](0);
 
         if (useBroadcastKeys) {
@@ -708,7 +731,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     function _createAndApproveService() internal {
         console2.log("\n=== Creating and Approving Service ===");
 
-        Tangle tangle = Tangle(payable(tangleProxy));
+        ITangleFull tangle = ITangleFull(payable(tangleProxy));
 
         // Create service request
         address[] memory operators = new address[](2);
@@ -863,7 +886,8 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
 
         // Deploy liquid delegation factory
-        liquidFactory = new LiquidDelegationFactory(MultiAssetDelegation(payable(restakingProxy)));
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+        liquidFactory = new LiquidDelegationFactory(restaking);
         console2.log("LiquidDelegationFactory:", address(liquidFactory));
 
         if (useBroadcastKeys) {
@@ -953,6 +977,29 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
         console2.log("TNT tokens distributed to all dev accounts (10,000 TNT each)");
     }
+
+    function _registerTangleFacets(address tangleProxy_) internal {
+        Tangle router = Tangle(payable(tangleProxy_));
+        router.registerFacet(address(new TangleBlueprintsFacet()));
+        router.registerFacet(address(new TangleOperatorsFacet()));
+        router.registerFacet(address(new TangleServicesFacet()));
+        router.registerFacet(address(new TangleJobsFacet()));
+        router.registerFacet(address(new TangleQuotesFacet()));
+        router.registerFacet(address(new TanglePaymentsFacet()));
+        router.registerFacet(address(new TangleSlashingFacet()));
+    }
+
+    function _registerRestakingFacets(address restakingProxy_) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(restakingProxy_));
+        router.registerFacet(address(new RestakingOperatorsFacet()));
+        router.registerFacet(address(new RestakingDepositsFacet()));
+        router.registerFacet(address(new RestakingDelegationsFacet()));
+        router.registerFacet(address(new RestakingRewardsFacet()));
+        router.registerFacet(address(new RestakingSlashingFacet()));
+        router.registerFacet(address(new RestakingAssetsFacet()));
+        router.registerFacet(address(new RestakingViewsFacet()));
+        router.registerFacet(address(new RestakingAdminFacet()));
+    }
 }
 
 /// @title TestServiceFlow
@@ -966,7 +1013,7 @@ contract TestServiceFlow is Script {
         address tangleProxy = vm.envAddress("TANGLE_PROXY");
         uint64 serviceId = uint64(vm.envUint("SERVICE_ID"));
 
-        Tangle tangle = Tangle(payable(tangleProxy));
+        ITangleFull tangle = ITangleFull(payable(tangleProxy));
 
         console2.log("Testing service flow for service:", serviceId);
 

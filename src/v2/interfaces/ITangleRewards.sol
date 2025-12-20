@@ -25,10 +25,16 @@ interface ITangleRewards {
     /// @notice Claim accumulated rewards (native token)
     function claimRewards() external;
 
+    /// @notice Claim accumulated rewards for a specific token
+    function claimRewards(address token) external;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get pending rewards for an account (native token)
     function pendingRewards(address account) external view returns (uint256);
+
+    /// @notice Get pending rewards for an account and token
+    function pendingRewards(address account, address token) external view returns (uint256);
 }

@@ -4,8 +4,17 @@ pragma solidity ^0.8.26;
 import {Script, console2} from "forge-std/Script.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {MultiAssetDelegation} from "../../src/v2/restaking/MultiAssetDelegation.sol";
-import {Types} from "../../src/v2/libraries/Types.sol";
+import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
+import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
+import { Types } from "../../src/v2/libraries/Types.sol";
+import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
+import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
+import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
+import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
+import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
+import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
+import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
+import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
 
 contract ScenarioERC20 {
     string public name;
@@ -73,7 +82,7 @@ contract FullStackScenario is Script {
     uint256 internal constant ITERATIONS = 12;
     uint256 internal constant STEP_SECONDS = 5;
 
-    MultiAssetDelegation public delegation;
+    IMultiAssetDelegation public delegation;
     ScenarioERC20 public tokenA;
     ScenarioERC20 public tokenB;
 
@@ -141,7 +150,8 @@ contract FullStackScenario is Script {
             (vm.addr(ADMIN_KEY), 1 ether, DEFAULT_DELAY, COMMISSION_BPS)
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        delegation = MultiAssetDelegation(payable(address(proxy)));
+        _registerFacets(address(proxy));
+        delegation = IMultiAssetDelegation(payable(address(proxy)));
 
         tokenA = new ScenarioERC20("Scenario Token A", "STA");
         tokenB = new ScenarioERC20("Scenario Token B", "STB");
@@ -151,6 +161,18 @@ contract FullStackScenario is Script {
         delegation.addSlasher(vm.addr(SLASHER_KEY));
 
         vm.stopBroadcast();
+    }
+
+    function _registerFacets(address proxy) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(proxy));
+        router.registerFacet(address(new RestakingOperatorsFacet()));
+        router.registerFacet(address(new RestakingDepositsFacet()));
+        router.registerFacet(address(new RestakingDelegationsFacet()));
+        router.registerFacet(address(new RestakingRewardsFacet()));
+        router.registerFacet(address(new RestakingSlashingFacet()));
+        router.registerFacet(address(new RestakingAssetsFacet()));
+        router.registerFacet(address(new RestakingViewsFacet()));
+        router.registerFacet(address(new RestakingAdminFacet()));
     }
 
     function _seedTokens() internal {

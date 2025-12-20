@@ -284,6 +284,13 @@ abstract contract DelegationStorage {
         return (originalAmount * currentFactor) / snapshotFactor;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROUTER SELECTOR REGISTRY
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Function selector => facet address
+    mapping(bytes4 => address) internal _facetForSelector;
+
     /// @notice Reserved storage gap for future upgrades
-    uint256[48] private _gap;
+    uint256[47] private _gap;
 }

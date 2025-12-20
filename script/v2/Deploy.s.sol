@@ -5,6 +5,7 @@ import { Script, console2 } from "forge-std/Script.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { Tangle } from "../../src/v2/Tangle.sol";
+import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { OperatorStatusRegistry } from "../../src/v2/restaking/OperatorStatusRegistry.sol";
 import { TangleToken } from "../../src/v2/governance/TangleToken.sol";
@@ -12,6 +13,21 @@ import { MasterBlueprintServiceManager } from "../../src/v2/MasterBlueprintServi
 import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { TangleBlueprintsFacet } from "../../src/v2/facets/tangle/TangleBlueprintsFacet.sol";
+import { TangleOperatorsFacet } from "../../src/v2/facets/tangle/TangleOperatorsFacet.sol";
+import { TangleServicesFacet } from "../../src/v2/facets/tangle/TangleServicesFacet.sol";
+import { TangleJobsFacet } from "../../src/v2/facets/tangle/TangleJobsFacet.sol";
+import { TangleQuotesFacet } from "../../src/v2/facets/tangle/TangleQuotesFacet.sol";
+import { TanglePaymentsFacet } from "../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
+import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFacet.sol";
+import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
+import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
+import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
+import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
+import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
+import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
+import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
+import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
 
 error InvalidAddress(string field);
 error ProxyVerificationFailed(string reason);
@@ -189,6 +205,9 @@ contract DeployV2 is DeployScriptBase {
         console2.log("Tangle implementation:", tangleImpl);
         console2.log("Tangle proxy:", tangleProxy);
 
+        _registerRestakingFacets(restakingProxy);
+        _registerTangleFacets(tangleProxy);
+
         statusRegistry = deployOperatorStatusRegistry(tangleProxy, admin);
         console2.log("OperatorStatusRegistry:", statusRegistry);
 
@@ -196,7 +215,7 @@ contract DeployV2 is DeployScriptBase {
         _verifyProxy(restakingProxy, admin, "MultiAssetDelegation");
         _verifyProxy(tangleProxy, admin, "Tangle");
 
-        MultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
+        IMultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
 
         MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(admin, tangleProxy);
         MBSMRegistry registryImpl = new MBSMRegistry();
@@ -335,6 +354,29 @@ contract DeployV2 is DeployScriptBase {
 
         ERC1967Proxy proxyContract = new ERC1967Proxy(impl, initData);
         proxy = address(proxyContract);
+    }
+
+    function _registerTangleFacets(address tangleProxy) internal {
+        Tangle router = Tangle(payable(tangleProxy));
+        router.registerFacet(address(new TangleBlueprintsFacet()));
+        router.registerFacet(address(new TangleOperatorsFacet()));
+        router.registerFacet(address(new TangleServicesFacet()));
+        router.registerFacet(address(new TangleJobsFacet()));
+        router.registerFacet(address(new TangleQuotesFacet()));
+        router.registerFacet(address(new TanglePaymentsFacet()));
+        router.registerFacet(address(new TangleSlashingFacet()));
+    }
+
+    function _registerRestakingFacets(address restakingProxy) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(restakingProxy));
+        router.registerFacet(address(new RestakingOperatorsFacet()));
+        router.registerFacet(address(new RestakingDepositsFacet()));
+        router.registerFacet(address(new RestakingDelegationsFacet()));
+        router.registerFacet(address(new RestakingRewardsFacet()));
+        router.registerFacet(address(new RestakingSlashingFacet()));
+        router.registerFacet(address(new RestakingAssetsFacet()));
+        router.registerFacet(address(new RestakingViewsFacet()));
+        router.registerFacet(address(new RestakingAdminFacet()));
     }
 
     function setBondConfig(address token, uint256 amount) public {

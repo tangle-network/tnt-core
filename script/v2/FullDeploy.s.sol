@@ -11,6 +11,7 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
+import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
 import { TangleMetrics } from "../../src/v2/rewards/TangleMetrics.sol";
@@ -604,7 +605,7 @@ contract FullDeploy is DeployV2 {
     function _configureRestaking(address restakingAddr, RestakeAssetConfig[] memory assets) internal {
         if (restakingAddr == address(0)) return;
 
-        MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingAddr));
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingAddr));
         for (uint256 i = 0; i < assets.length; i++) {
             RestakeAssetConfig memory asset = assets[i];
             if (asset.token == address(0)) {
@@ -640,7 +641,7 @@ contract FullDeploy is DeployV2 {
 
     function _applyRewardsManager(address restakingAddr, address rewardVaultsAddr, address inflationPoolAddr) internal {
         if (restakingAddr == address(0) || rewardVaultsAddr == address(0)) return;
-        MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingAddr));
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingAddr));
         restaking.setRewardsManager(rewardVaultsAddr);
         console2.log("Set RewardVaults manager on restaking");
 
@@ -765,7 +766,7 @@ contract FullDeploy is DeployV2 {
             }
         }
         if (restakingAddr != address(0)) {
-            MultiAssetDelegation(payable(restakingAddr)).setServiceFeeDistributor(distributor);
+            IMultiAssetDelegation(payable(restakingAddr)).setServiceFeeDistributor(distributor);
         }
         if (streamingMgr != address(0)) {
             ServiceFeeDistributor(payable(distributor)).setStreamingManager(streamingMgr);
@@ -775,7 +776,7 @@ contract FullDeploy is DeployV2 {
 
     function _applyGuards(address restakingAddr, address tangleAddr, GuardsConfig memory guards) internal {
         if (restakingAddr != address(0)) {
-            MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingAddr));
+            IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingAddr));
             if (guards.requireAdapters) {
                 restaking.setRequireAdapters(true);
             }
@@ -807,7 +808,7 @@ contract FullDeploy is DeployV2 {
         view
     {
         if (restakingAddr != address(0)) {
-            MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingAddr));
+            IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingAddr));
             for (uint256 i = 0; i < assets.length; i++) {
                 RestakeAssetConfig memory asset = assets[i];
                 if (asset.token == address(0)) continue;

@@ -2,15 +2,24 @@
 pragma solidity ^0.8.26;
 
 import { Test, console2 } from "forge-std/Test.sol";
+import { IMultiAssetDelegation } from "../../../src/v2/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 import { DelegationErrors } from "../../../src/v2/restaking/DelegationErrors.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { RestakingOperatorsFacet } from "../../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
+import { RestakingDepositsFacet } from "../../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
+import { RestakingDelegationsFacet } from "../../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
+import { RestakingRewardsFacet } from "../../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
+import { RestakingSlashingFacet } from "../../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
+import { RestakingAssetsFacet } from "../../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
+import { RestakingViewsFacet } from "../../../src/v2/facets/restaking/RestakingViewsFacet.sol";
+import { RestakingAdminFacet } from "../../../src/v2/facets/restaking/RestakingAdminFacet.sol";
 
 /// @title ProportionalSlashingTest
 /// @notice Tests for O(1) share-based proportional slashing
 contract ProportionalSlashingTest is Test {
-    MultiAssetDelegation public restaking;
+    IMultiAssetDelegation public restaking;
 
     // Test accounts
     address public admin = makeAddr("admin");
@@ -51,7 +60,9 @@ contract ProportionalSlashingTest is Test {
             (admin, MIN_OPERATOR_STAKE, 0, 1000) // 10% commission
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        restaking = MultiAssetDelegation(payable(address(proxy)));
+        restaking = IMultiAssetDelegation(payable(address(proxy)));
+
+        _registerFacets(address(proxy));
 
         // Fund accounts
         vm.deal(operator1, 100 ether);
@@ -63,6 +74,18 @@ contract ProportionalSlashingTest is Test {
         // Grant slasher role
         vm.prank(admin);
         restaking.addSlasher(slasher);
+    }
+
+    function _registerFacets(address proxy) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(proxy));
+        router.registerFacet(address(new RestakingOperatorsFacet()));
+        router.registerFacet(address(new RestakingDepositsFacet()));
+        router.registerFacet(address(new RestakingDelegationsFacet()));
+        router.registerFacet(address(new RestakingRewardsFacet()));
+        router.registerFacet(address(new RestakingSlashingFacet()));
+        router.registerFacet(address(new RestakingAssetsFacet()));
+        router.registerFacet(address(new RestakingViewsFacet()));
+        router.registerFacet(address(new RestakingAdminFacet()));
     }
 
     /// @notice Test proportional slashing distributes correctly between operator and delegators

@@ -6,18 +6,35 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { Tangle } from "../../src/v2/Tangle.sol";
+import { ITangleFull } from "../../src/v2/interfaces/ITangle.sol";
+import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { BlueprintDefinitionHelper } from "../support/BlueprintDefinitionHelper.sol";
 import { MasterBlueprintServiceManager } from "../../src/v2/MasterBlueprintServiceManager.sol";
 import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
+import { TangleBlueprintsFacet } from "../../src/v2/facets/tangle/TangleBlueprintsFacet.sol";
+import { TangleOperatorsFacet } from "../../src/v2/facets/tangle/TangleOperatorsFacet.sol";
+import { TangleServicesFacet } from "../../src/v2/facets/tangle/TangleServicesFacet.sol";
+import { TangleJobsFacet } from "../../src/v2/facets/tangle/TangleJobsFacet.sol";
+import { TangleQuotesFacet } from "../../src/v2/facets/tangle/TangleQuotesFacet.sol";
+import { TanglePaymentsFacet } from "../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
+import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFacet.sol";
+import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
+import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
+import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
+import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
+import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
+import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
+import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
+import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
 
 /// @title BaseTest
 /// @notice Base test contract with common setup for v2 tests
 abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     // Contracts
-    Tangle public tangle;
-    MultiAssetDelegation public restaking;
+    ITangleFull public tangle;
+    IMultiAssetDelegation public restaking;
     MasterBlueprintServiceManager public masterManager;
     MBSMRegistry public mbsmRegistry;
 
@@ -55,7 +72,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
                 (admin, MIN_OPERATOR_STAKE, MIN_DELEGATION, OPERATOR_COMMISSION_BPS)
             )
         );
-        restaking = MultiAssetDelegation(payable(address(restakingProxy)));
+        restaking = IMultiAssetDelegation(payable(address(restakingProxy)));
 
         // Deploy tangle proxy
         tangleProxy = new ERC1967Proxy(
@@ -65,11 +82,16 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
                 (admin, address(restaking), payable(treasury))
             )
         );
-        tangle = Tangle(payable(address(tangleProxy)));
+        tangle = ITangleFull(payable(address(tangleProxy)));
+
+        vm.startPrank(admin);
+        _registerRestakingFacets();
+        _registerTangleFacets();
+        vm.stopPrank();
 
         // Setup: grant slasher role to tangle
         vm.prank(admin);
-        restaking.addSlasher(address(tangle));
+        restaking.addSlasher(address(tangleProxy));
 
         // Deploy master blueprint service manager and registry
         masterManager = new MasterBlueprintServiceManager(admin, address(tangle));
@@ -81,9 +103,9 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         mbsmRegistry = MBSMRegistry(address(registryProxy));
 
         vm.startPrank(admin);
-        mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), address(tangle));
+        mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), address(tangleProxy));
         mbsmRegistry.addVersion(address(masterManager));
-        tangle.setMBSMRegistry(address(mbsmRegistry));
+        Tangle(payable(address(tangleProxy))).setMBSMRegistry(address(mbsmRegistry));
         vm.stopPrank();
 
         // Fund actors
@@ -137,6 +159,29 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     ) internal returns (uint64) {
         vm.prank(owner);
         return tangle.createBlueprint(_blueprintDefinition(metadataUri, manager));
+    }
+
+    function _registerTangleFacets() internal {
+        Tangle router = Tangle(payable(address(tangleProxy)));
+        router.registerFacet(address(new TangleBlueprintsFacet()));
+        router.registerFacet(address(new TangleOperatorsFacet()));
+        router.registerFacet(address(new TangleServicesFacet()));
+        router.registerFacet(address(new TangleJobsFacet()));
+        router.registerFacet(address(new TangleQuotesFacet()));
+        router.registerFacet(address(new TanglePaymentsFacet()));
+        router.registerFacet(address(new TangleSlashingFacet()));
+    }
+
+    function _registerRestakingFacets() internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(address(restakingProxy)));
+        router.registerFacet(address(new RestakingOperatorsFacet()));
+        router.registerFacet(address(new RestakingDepositsFacet()));
+        router.registerFacet(address(new RestakingDelegationsFacet()));
+        router.registerFacet(address(new RestakingRewardsFacet()));
+        router.registerFacet(address(new RestakingSlashingFacet()));
+        router.registerFacet(address(new RestakingAssetsFacet()));
+        router.registerFacet(address(new RestakingViewsFacet()));
+        router.registerFacet(address(new RestakingAdminFacet()));
     }
 
     /// @notice Create a blueprint with explicit configuration

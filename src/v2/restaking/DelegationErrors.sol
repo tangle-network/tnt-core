@@ -80,4 +80,11 @@ library DelegationErrors {
     // ═══════════════════════════════════════════════════════════════════════════
 
     error InvalidLockMultiplier(uint8 value);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROUTER ERRORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    error NotAContract(address account);
+    error UnknownSelector(bytes4 selector);
 }

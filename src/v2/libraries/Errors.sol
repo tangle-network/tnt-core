@@ -358,4 +358,14 @@ error QuoteTTLMismatch(address operator, uint64 expectedTtl, uint64 quotedTtl);
 
     /// @notice Force exit not allowed for this service
     error ForceExitNotAllowed(uint64 serviceId);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROUTER ERRORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Facet address must be a deployed contract
+    error NotAContract(address account);
+
+    /// @notice No facet registered for a selector
+    error UnknownSelector(bytes4 selector);
 }

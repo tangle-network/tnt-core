@@ -280,27 +280,10 @@ abstract contract Payments is Base {
         Types.Blueprint storage bp = _blueprints[blueprintId];
         Types.Service storage svc = _services[serviceId];
 
-        uint256 tntRestakerReserve = 0;
-        uint256 eligibleExposure = 0;
-        if (
-            token != address(0) &&
-            token == _tntToken &&
-            _rewardVaults != address(0) &&
-            _tntRestakerFeeBps > 0 &&
-            totalExposure > 0
-        ) {
-            for (uint256 i = 0; i < operators.length; i++) {
-                (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, operators[i]);
-                if (totalStaked == 0) continue;
-                eligibleExposure += exposures[i];
-            }
-            if (eligibleExposure > 0) {
-                tntRestakerReserve = (amount * _tntRestakerFeeBps) / BPS_DENOMINATOR;
-            }
-        }
+        uint256 tntRestakerReserve = _computeTntRestakerReserve(token, amount, operators, exposures, totalExposure);
 
-        uint256 amountAfterReserve = amount - tntRestakerReserve;
-        PaymentLib.PaymentAmounts memory amounts = PaymentLib.calculateSplit(amountAfterReserve, _paymentSplit);
+        PaymentLib.PaymentAmounts memory amounts =
+            PaymentLib.calculateSplit(amount - tntRestakerReserve, _paymentSplit);
 
         // Developer payment
         address developerAddr = bp.owner;
@@ -319,7 +302,7 @@ abstract contract Payments is Base {
             amounts.protocolAmount > 0 &&
             svc.owner != address(0)
         ) {
-            uint256 desiredDiscount = (amountAfterReserve * _tntPaymentDiscountBps) / BPS_DENOMINATOR;
+            uint256 desiredDiscount = ((amount - tntRestakerReserve) * _tntPaymentDiscountBps) / BPS_DENOMINATOR;
             uint256 discount = desiredDiscount > amounts.protocolAmount ? amounts.protocolAmount : desiredDiscount;
             if (discount > 0) {
                 amounts.protocolAmount -= discount;
@@ -334,22 +317,7 @@ abstract contract Payments is Base {
         // TNT restaker reserve (distributed to TNT restakers per operator)
         if (tntRestakerReserve > 0) {
             PaymentLib.transferPayment(_rewardVaults, token, tntRestakerReserve);
-
-            uint256 reserveRemaining = tntRestakerReserve;
-            uint256 exposureRemaining = eligibleExposure;
-            for (uint256 i = 0; i < operators.length && reserveRemaining > 0; i++) {
-                uint256 exposure = exposures[i];
-                if (exposure == 0) continue;
-                (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, operators[i]);
-                if (totalStaked == 0) continue;
-
-                uint256 share = (reserveRemaining * exposure) / exposureRemaining;
-                reserveRemaining -= share;
-                exposureRemaining -= exposure;
-                if (share == 0) continue;
-
-                IRewardVaults(_rewardVaults).distributeServiceFeeRewards(token, operators[i], share);
-            }
+            _distributeTntRestakerReserve(token, tntRestakerReserve, operators, exposures);
         }
 
         // Operator and restaker payments
@@ -399,6 +367,66 @@ abstract contract Payments is Base {
                     }
                 }
             }
+        }
+    }
+
+    function _computeTntRestakerReserve(
+        address token,
+        uint256 amount,
+        address[] memory operators,
+        uint16[] memory exposures,
+        uint256 totalExposure
+    ) internal view returns (uint256 reserve) {
+        if (
+            token == address(0) ||
+            token != _tntToken ||
+            _rewardVaults == address(0) ||
+            _tntRestakerFeeBps == 0 ||
+            totalExposure == 0
+        ) {
+            return 0;
+        }
+
+        uint256 eligibleExposure = 0;
+        for (uint256 i = 0; i < operators.length; i++) {
+            (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, operators[i]);
+            if (totalStaked == 0) continue;
+            eligibleExposure += exposures[i];
+        }
+
+        if (eligibleExposure == 0) return 0;
+        return (amount * _tntRestakerFeeBps) / BPS_DENOMINATOR;
+    }
+
+    function _distributeTntRestakerReserve(
+        address token,
+        uint256 reserveAmount,
+        address[] memory operators,
+        uint16[] memory exposures
+    ) internal {
+        uint256 eligibleExposure = 0;
+        for (uint256 i = 0; i < operators.length; i++) {
+            (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, operators[i]);
+            if (totalStaked == 0) continue;
+            eligibleExposure += exposures[i];
+        }
+
+        if (eligibleExposure == 0) return;
+
+        uint256 reserveRemaining = reserveAmount;
+        uint256 exposureRemaining = eligibleExposure;
+        for (uint256 i = 0; i < operators.length && reserveRemaining > 0; i++) {
+            uint256 exposure = exposures[i];
+            if (exposure == 0) continue;
+            (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, operators[i]);
+            if (totalStaked == 0) continue;
+
+            uint256 share = (reserveRemaining * exposure) / exposureRemaining;
+            reserveRemaining -= share;
+            exposureRemaining -= exposure;
+            if (share == 0) continue;
+
+            IRewardVaults(_rewardVaults).distributeServiceFeeRewards(token, operators[i], share);
         }
     }
 }

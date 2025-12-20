@@ -4,15 +4,24 @@ pragma solidity ^0.8.26;
 import { Test, console2 } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { DelegationErrors } from "../../src/v2/restaking/DelegationErrors.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { MockERC20 } from "./mocks/MockERC20.sol";
+import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
+import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
+import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
+import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
+import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
+import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
+import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
+import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
 
 contract NonPayableOperator {
-    MultiAssetDelegation public immutable delegation;
+    IMultiAssetDelegation public immutable delegation;
 
-    constructor(MultiAssetDelegation _delegation) {
+    constructor(IMultiAssetDelegation _delegation) {
         delegation = _delegation;
     }
 
@@ -30,7 +39,7 @@ contract NonPayableOperator {
 }
 
 contract MultiAssetDelegationTest is Test {
-    MultiAssetDelegation public delegation;
+    IMultiAssetDelegation public delegation;
     MockERC20 public token;
 
     address public admin = makeAddr("admin");
@@ -66,7 +75,9 @@ contract MultiAssetDelegationTest is Test {
                 (admin, MIN_OPERATOR_STAKE, MIN_DELEGATION, OPERATOR_COMMISSION_BPS)
             )
         );
-        delegation = MultiAssetDelegation(payable(address(proxy)));
+        delegation = IMultiAssetDelegation(payable(address(proxy)));
+
+        _registerFacets(address(proxy));
 
         // Fund actors
         vm.deal(operator1, 100 ether);
@@ -79,6 +90,18 @@ contract MultiAssetDelegationTest is Test {
         // Enable ERC20 token
         vm.prank(admin);
         delegation.enableAsset(address(token), 1 ether, 0.1 ether, 0, 10000);
+    }
+
+    function _registerFacets(address proxy) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(proxy));
+        router.registerFacet(address(new RestakingOperatorsFacet()));
+        router.registerFacet(address(new RestakingDepositsFacet()));
+        router.registerFacet(address(new RestakingDelegationsFacet()));
+        router.registerFacet(address(new RestakingRewardsFacet()));
+        router.registerFacet(address(new RestakingSlashingFacet()));
+        router.registerFacet(address(new RestakingAssetsFacet()));
+        router.registerFacet(address(new RestakingViewsFacet()));
+        router.registerFacet(address(new RestakingAdminFacet()));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

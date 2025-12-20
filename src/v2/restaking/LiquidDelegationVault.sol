@@ -8,7 +8,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IERC7540Deposit, IERC7540Redeem, IERC7540Operator } from "../interfaces/IERC7540.sol";
-import { MultiAssetDelegation } from "./MultiAssetDelegation.sol";
+import { IMultiAssetDelegation } from "../interfaces/IMultiAssetDelegation.sol";
 import { Types } from "../libraries/Types.sol";
 
 /// @title LiquidDelegationVault
@@ -25,7 +25,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
     /// @notice The underlying restaking contract
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    MultiAssetDelegation public immutable restaking;
+    IMultiAssetDelegation public immutable restaking;
 
     /// @notice The operator this vault delegates to
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
@@ -93,14 +93,14 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Create a new liquid delegation vault
-    /// @param _restaking The MultiAssetDelegation contract
+    /// @param _restaking The restaking contract
     /// @param _operator The operator to delegate to
     /// @param _asset The underlying asset (WETH for native)
     /// @param _blueprints Blueprint IDs (empty for All mode)
     /// @param _name Token name
     /// @param _symbol Token symbol
     constructor(
-        MultiAssetDelegation _restaking,
+        IMultiAssetDelegation _restaking,
         address _operator,
         IERC20 _asset,
         uint64[] memory _blueprints,

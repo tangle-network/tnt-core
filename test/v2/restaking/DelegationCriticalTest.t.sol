@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import { Test, console2 } from "forge-std/Test.sol";
 import { DelegationTestHarness, MockERC20, ReentrantERC20, ReentrantReceiver, FailingERC20 } from "./DelegationTestHarness.sol";
-import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
+import { IMultiAssetDelegation } from "../../../src/v2/interfaces/IMultiAssetDelegation.sol";
 import { DelegationErrors } from "../../../src/v2/restaking/DelegationErrors.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 
@@ -333,7 +333,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         _advanceRounds(DEFAULT_DELAY);
 
         // Set up attack - try to call executeWithdraw again
-        attacker.setAttack(true, abi.encodeWithSelector(MultiAssetDelegation.executeWithdraw.selector));
+        attacker.setAttack(true, abi.encodeWithSelector(IMultiAssetDelegation.executeWithdraw.selector));
 
         // Execute - should not double withdraw due to reentrancy guard
         attacker.executeWithdraw();
@@ -356,7 +356,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         _advanceRounds(DEFAULT_DELAY);
 
         // Set up attack
-        attacker.setAttack(true, abi.encodeWithSelector(MultiAssetDelegation.executeDelegatorUnstake.selector));
+        attacker.setAttack(true, abi.encodeWithSelector(IMultiAssetDelegation.executeDelegatorUnstake.selector));
 
         // Execute
         attacker.executeDelegatorUnstake();
@@ -384,7 +384,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         _advanceRounds(DEFAULT_DELAY);
 
         // Set up attack
-        evilToken.setAttack(true, abi.encodeWithSelector(MultiAssetDelegation.executeWithdraw.selector));
+        evilToken.setAttack(true, abi.encodeWithSelector(IMultiAssetDelegation.executeWithdraw.selector));
 
         // Execute
         vm.prank(delegator1);
@@ -405,7 +405,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         evilToken.mint(delegator1, 20 ether);
 
         // Try to reenter during deposit - should fail due to reentrancy guard
-        evilToken.setAttack(true, abi.encodeWithSelector(MultiAssetDelegation.deposit.selector));
+        evilToken.setAttack(true, abi.encodeWithSelector(IMultiAssetDelegation.deposit.selector));
 
         vm.startPrank(delegator1);
         evilToken.approve(address(delegation), 20 ether);

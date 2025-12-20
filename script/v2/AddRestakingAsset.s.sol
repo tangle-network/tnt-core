@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import { Script, console2 } from "forge-std/Script.sol";
 
-import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
+import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
 
 interface EnvReader {
     function vm_envUint(string calldata) external returns (uint256);
@@ -74,7 +74,7 @@ contract AddRestakingAsset is BasicEnv {
         console2.log("Reward Multiplier (bps):", rewardMultiplierBps);
 
         vm.startBroadcast(deployerPk);
-        MultiAssetDelegation(restaking)
+        IMultiAssetDelegation(restaking)
             .enableAsset(asset, minOperatorStake, minDelegation, depositCap, rewardMultiplierBps);
         vm.stopBroadcast();
 

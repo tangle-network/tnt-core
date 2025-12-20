@@ -281,10 +281,17 @@ abstract contract TangleStorage {
     address internal _priceOracle;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ROUTER SELECTOR REGISTRY
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Function selector => facet address
+    mapping(bytes4 => address) internal _facetForSelector;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev When adding new storage, decrease this gap accordingly
-    uint256[40] private _gap;
+    uint256[39] private _gap;
 }

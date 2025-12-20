@@ -42,6 +42,9 @@ interface ITangleOperators {
     // FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice Signal intent to register for a blueprint
+    function preRegister(uint64 blueprintId) external;
+
     /// @notice Register as operator for a blueprint
     /// @param blueprintId The blueprint to register for
     /// @param ecdsaPublicKey The ECDSA public key for gossip network identity

@@ -1,35 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-
-import { Blueprints } from "./core/Blueprints.sol";
-import { Operators } from "./core/Operators.sol";
-import { Services } from "./core/Services.sol";
-import { Jobs } from "./core/Jobs.sol";
-import { Payments } from "./core/Payments.sol";
-import { Slashing } from "./core/Slashing.sol";
-import { Quotes } from "./core/Quotes.sol";
-import { Types } from "./libraries/Types.sol";
-import { IBlueprintServiceManager } from "./interfaces/IBlueprintServiceManager.sol";
+import { Base } from "./core/Base.sol";
+import { Errors } from "./libraries/Errors.sol";
+import { IFacetSelectors } from "./interfaces/IFacetSelectors.sol";
 
 /// @title Tangle
-/// @notice Core Tangle Protocol v2 contract
-/// @dev Composes all protocol functionality from modular mixins
-contract Tangle is
-    Blueprints,
-    Operators,
-    Services,
-    Jobs,
-    Payments,
-    Slashing,
-    Quotes
-{
-    using EnumerableSet for EnumerableSet.AddressSet;
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // INITIALIZATION
-    // ═══════════════════════════════════════════════════════════════════════════
+/// @notice Router contract that dispatches calls to protocol facets
+contract Tangle is Base {
+    event FacetRegistered(address indexed facet);
+    event FacetSelectorSet(bytes4 indexed selector, address indexed facet);
+    event FacetSelectorCleared(bytes4 indexed selector);
 
     /// @notice Initialize the contract
     function initialize(
@@ -40,242 +21,54 @@ contract Tangle is
         __Base_init(admin, restaking_, treasury_);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // CROSS-MIXIN IMPLEMENTATIONS
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Activate a fully approved service (called from Services mixin)
-    function _activateService(uint64 requestId) internal override {
-        Types.ServiceRequest storage req = _serviceRequests[requestId];
-        uint64 serviceId = _serviceCount++;
-        Types.Blueprint storage bp = _blueprints[req.blueprintId];
-
-        _createServiceRecord(serviceId, req, bp);
-        _persistServiceSecurity(serviceId, requestId);
-
-        (uint16[] memory exposures, uint256 totalExposure) = _assignOperatorsFromRequest(serviceId, requestId);
-
-        _grantPermittedCallers(serviceId, requestId, req.requester);
-
-        _handleInitialPayments(
-            serviceId,
-            req.blueprintId,
-            bp.pricing,
-            req.paymentToken,
-            req.paymentAmount,
-            exposures,
-            totalExposure,
-            requestId
-        );
-
-        _triggerManagerOnActivation(
-            requestId,
-            serviceId,
-            req.blueprintId,
-            req.requester,
-            req.ttl,
-            bp.manager
-        );
+    /// @notice Register selectors exposed by a facet
+    function registerFacet(address facet) external onlyRole(UPGRADER_ROLE) {
+        bytes4[] memory selectors = IFacetSelectors(facet).selectors();
+        _setFacetSelectors(facet, selectors);
+        emit FacetRegistered(facet);
     }
 
-    function _persistServiceSecurity(uint64 serviceId, uint64 requestId) private {
-        Types.AssetSecurityRequirement[] storage reqs = _requestSecurityRequirements[requestId];
-        if (reqs.length == 0) return;
+    /// @notice Register specific selectors for a facet
+    function registerFacetSelectors(address facet, bytes4[] calldata selectors) external onlyRole(UPGRADER_ROLE) {
+        _setFacetSelectors(facet, selectors);
+    }
 
-        for (uint256 i = 0; i < reqs.length; i++) {
-            _serviceSecurityRequirements[serviceId].push(reqs[i]);
-        }
-
-        address[] storage operators = _requestOperators[requestId];
-        for (uint256 i = 0; i < operators.length; i++) {
-            Types.AssetSecurityCommitment[] storage commits = _requestSecurityCommitments[requestId][operators[i]];
-            for (uint256 j = 0; j < commits.length; j++) {
-                _serviceSecurityCommitments[serviceId][operators[i]].push(commits[j]);
-                // forge-lint: disable-next-line(asm-keccak256)
-                bytes32 assetHash = keccak256(abi.encode(commits[j].asset.kind, commits[j].asset.token));
-                _serviceSecurityCommitmentBps[serviceId][operators[i]][assetHash] = commits[j].exposureBps;
-            }
+    /// @notice Remove selectors from the router
+    function clearFacetSelectors(bytes4[] calldata selectors) external onlyRole(UPGRADER_ROLE) {
+        for (uint256 i = 0; i < selectors.length; i++) {
+            delete _facetForSelector[selectors[i]];
+            emit FacetSelectorCleared(selectors[i]);
         }
     }
 
-    function _createServiceRecord(
-        uint64 serviceId,
-        Types.ServiceRequest storage req,
-        Types.Blueprint storage bp
-    ) private {
-        _services[serviceId] = Types.Service({
-            blueprintId: req.blueprintId,
-            owner: req.requester,
-            createdAt: uint64(block.timestamp),
-            ttl: req.ttl,
-            terminatedAt: 0,
-            lastPaymentAt: uint64(block.timestamp),
-            operatorCount: req.operatorCount,
-            minOperators: req.minOperators,
-            maxOperators: req.maxOperators,
-            membership: req.membership,
-            pricing: bp.pricing,
-            status: Types.ServiceStatus.Active
-        });
+    /// @notice Resolve the facet for a selector
+    function facetForSelector(bytes4 selector) external view returns (address) {
+        return _facetForSelector[selector];
     }
 
-    function _assignOperatorsFromRequest(
-        uint64 serviceId,
-        uint64 requestId
-    ) private returns (uint16[] memory exposures, uint256 totalExposure) {
-        address[] storage requestOperators = _requestOperators[requestId];
-        exposures = new uint16[](requestOperators.length);
-
-        for (uint256 i = 0; i < requestOperators.length; i++) {
-            address op = requestOperators[i];
-            uint16 exposure = _requestExposures[requestId][op];
-            exposures[i] = exposure;
-
-            _serviceOperators[serviceId][op] = Types.ServiceOperator({
-                exposureBps: exposure,
-                joinedAt: uint64(block.timestamp),
-                leftAt: 0,
-                active: true
-            });
-            _serviceOperatorSet[serviceId].add(op);
-            totalExposure += exposure;
+    function _setFacetSelectors(address facet, bytes4[] memory selectors) internal {
+        if (facet == address(0)) revert Errors.ZeroAddress();
+        if (facet.code.length == 0) revert Errors.NotAContract(facet);
+        for (uint256 i = 0; i < selectors.length; i++) {
+            _facetForSelector[selectors[i]] = facet;
+            emit FacetSelectorSet(selectors[i], facet);
         }
     }
 
-    function _grantPermittedCallers(
-        uint64 serviceId,
-        uint64 requestId,
-        address requester
-    ) private {
-        _permittedCallers[serviceId].add(requester);
-        address[] storage requestCallers = _requestCallers[requestId];
-        for (uint256 i = 0; i < requestCallers.length; i++) {
-            _permittedCallers[serviceId].add(requestCallers[i]);
+    fallback() external payable {
+        address facet = _facetForSelector[msg.sig];
+        if (facet == address(0)) revert Errors.UnknownSelector(msg.sig);
+        _delegateTo(facet);
+    }
+
+    function _delegateTo(address target) private {
+        assembly {
+            calldatacopy(0, 0, calldatasize())
+            let result := delegatecall(gas(), target, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            switch result
+            case 0 { revert(0, returndatasize()) }
+            default { return(0, returndatasize()) }
         }
-    }
-
-    function _handleInitialPayments(
-        uint64 serviceId,
-        uint64 blueprintId,
-        Types.PricingModel pricing,
-        address paymentToken,
-        uint256 paymentAmount,
-        uint16[] memory exposures,
-        uint256 totalExposure,
-        uint64 requestId
-    ) private {
-        if (paymentAmount == 0) {
-            return;
-        }
-        if (pricing == Types.PricingModel.PayOnce) {
-            address[] memory operators = _copyRequestOperators(requestId);
-            _distributePayment(
-                serviceId,
-                blueprintId,
-                paymentToken,
-                paymentAmount,
-                operators,
-                exposures,
-                totalExposure
-            );
-        } else if (pricing == Types.PricingModel.Subscription) {
-            _depositToEscrow(serviceId, paymentToken, paymentAmount);
-        }
-    }
-
-    function _triggerManagerOnActivation(
-        uint64 requestId,
-        uint64 serviceId,
-        uint64 blueprintId,
-        address requester,
-        uint64 ttl,
-        address manager
-    ) private {
-        emit ServiceActivated(serviceId, requestId, blueprintId);
-
-        _configureHeartbeat(serviceId, manager, requester);
-
-        if (manager == address(0)) {
-            return;
-        }
-
-        address[] memory callers = _buildCallerList(requestId, requester);
-
-        _tryCallManager(
-            manager,
-            abi.encodeCall(
-                IBlueprintServiceManager.onServiceInitialized,
-                (blueprintId, requestId, serviceId, requester, callers, ttl)
-            )
-        );
-    }
-
-    function _buildCallerList(uint64 requestId, address requester) private view returns (address[] memory callers) {
-        address[] storage requestCallers = _requestCallers[requestId];
-        callers = new address[](requestCallers.length + 1);
-        callers[0] = requester;
-        for (uint256 i = 0; i < requestCallers.length; i++) {
-            callers[i + 1] = requestCallers[i];
-        }
-    }
-
-    function _copyRequestOperators(uint64 requestId) private view returns (address[] memory operators) {
-        address[] storage requestOperators = _requestOperators[requestId];
-        operators = new address[](requestOperators.length);
-        for (uint256 i = 0; i < requestOperators.length; i++) {
-            operators[i] = requestOperators[i];
-        }
-    }
-
-    /// @notice Distribute job payment (called from Jobs mixin)
-    function _distributeJobPayment(uint64 serviceId, uint256 payment) internal override {
-        Types.Service storage svc = _services[serviceId];
-
-        address[] memory operators = _serviceOperatorSet[serviceId].values();
-        uint16[] memory exposures = new uint16[](operators.length);
-        uint256 totalExposure = 0;
-
-        for (uint256 i = 0; i < operators.length; i++) {
-            exposures[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
-            totalExposure += exposures[i];
-        }
-
-        _distributePayment(serviceId, svc.blueprintId, address(0), payment, operators, exposures, totalExposure);
-    }
-
-    /// @notice Distribute quote payment (called from Quotes mixin)
-    function _distributeQuotePayment(
-        uint64 serviceId,
-        uint64 blueprintId,
-        uint256 amount,
-        address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure
-    ) internal override {
-        _distributePayment(serviceId, blueprintId, address(0), amount, operators, exposures, totalExposure);
-    }
-
-    /// @notice Distribute extension payment as streaming (called from Quotes mixin)
-    /// @dev Creates streaming payments starting from extensionStart
-    function _distributeExtensionPayment(
-        uint64 serviceId,
-        uint64 blueprintId,
-        uint256 amount,
-        address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure,
-        uint64 startTime,
-        uint64 endTime
-    ) internal override {
-        if (amount == 0 || totalExposure == 0) return;
-
-        // Extension payments go through the standard distribution which handles streaming
-        // The service TTL has already been updated, so _distributePayment will stream correctly
-        _distributePayment(serviceId, blueprintId, address(0), amount, operators, exposures, totalExposure);
-    }
-
-    /// @notice Get the list of operators for a service (called from Jobs mixin for aggregation)
-    function _getServiceOperatorList(uint64 serviceId) internal view override returns (address[] memory) {
-        return _serviceOperatorSet[serviceId].values();
     }
 }

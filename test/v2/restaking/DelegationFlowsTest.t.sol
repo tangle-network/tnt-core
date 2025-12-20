@@ -5,9 +5,18 @@ import { Test, console2 } from "forge-std/Test.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+import { IMultiAssetDelegation } from "../../../src/v2/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
 import { DelegationErrors } from "../../../src/v2/restaking/DelegationErrors.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
+import { RestakingOperatorsFacet } from "../../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
+import { RestakingDepositsFacet } from "../../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
+import { RestakingDelegationsFacet } from "../../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
+import { RestakingRewardsFacet } from "../../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
+import { RestakingSlashingFacet } from "../../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
+import { RestakingAssetsFacet } from "../../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
+import { RestakingViewsFacet } from "../../../src/v2/facets/restaking/RestakingViewsFacet.sol";
+import { RestakingAdminFacet } from "../../../src/v2/facets/restaking/RestakingAdminFacet.sol";
 
 /// @notice Mock ERC20 for testing
 contract MockToken is ERC20 {
@@ -20,7 +29,7 @@ contract MockToken is ERC20 {
 /// @title DelegationFlowsTest
 /// @notice Comprehensive tests for deposit/delegate/undelegate/withdraw flows
 contract DelegationFlowsTest is Test {
-    MultiAssetDelegation public delegation;
+    IMultiAssetDelegation public delegation;
     MockToken public token;
 
     address public admin = makeAddr("admin");
@@ -39,7 +48,9 @@ contract DelegationFlowsTest is Test {
             (admin, MIN_OPERATOR_STAKE, 0, 1000)
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        delegation = MultiAssetDelegation(payable(address(proxy)));
+        delegation = IMultiAssetDelegation(payable(address(proxy)));
+
+        _registerFacets(address(proxy));
 
         // Deploy mock token and enable it
         token = new MockToken();
@@ -54,6 +65,18 @@ contract DelegationFlowsTest is Test {
         // Register operator
         vm.prank(operator1);
         delegation.registerOperator{ value: 10 ether }();
+    }
+
+    function _registerFacets(address proxy) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(proxy));
+        router.registerFacet(address(new RestakingOperatorsFacet()));
+        router.registerFacet(address(new RestakingDepositsFacet()));
+        router.registerFacet(address(new RestakingDelegationsFacet()));
+        router.registerFacet(address(new RestakingRewardsFacet()));
+        router.registerFacet(address(new RestakingSlashingFacet()));
+        router.registerFacet(address(new RestakingAssetsFacet()));
+        router.registerFacet(address(new RestakingViewsFacet()));
+        router.registerFacet(address(new RestakingAdminFacet()));
     }
 
     /// @notice Helper to advance rounds with proper time warping

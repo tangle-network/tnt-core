@@ -6,7 +6,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import { LiquidDelegationVault } from "./LiquidDelegationVault.sol";
-import { MultiAssetDelegation } from "./MultiAssetDelegation.sol";
+import { IMultiAssetDelegation } from "../interfaces/IMultiAssetDelegation.sol";
 
 /// @title LiquidDelegationFactory
 /// @notice Factory for deploying ERC7540 liquid delegation vaults
@@ -20,7 +20,7 @@ contract LiquidDelegationFactory is Ownable {
 
     /// @notice The underlying restaking contract
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    MultiAssetDelegation public immutable restaking;
+    IMultiAssetDelegation public immutable restaking;
 
     /// @notice Mapping: vaultKey => vault address
     /// @dev vaultKey = keccak256(operator, asset, blueprintIds)
@@ -60,7 +60,7 @@ contract LiquidDelegationFactory is Ownable {
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════════
 
-    constructor(MultiAssetDelegation _restaking) Ownable(msg.sender) {
+    constructor(IMultiAssetDelegation _restaking) Ownable(msg.sender) {
         restaking = _restaking;
     }
 

@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { BaseTest } from "./BaseTest.sol";
 
-import { Tangle } from "../../src/v2/Tangle.sol";
 import { BlueprintServiceManagerBase } from "../../src/v2/BlueprintServiceManagerBase.sol";
 import { IBlueprintServiceManager } from "../../src/v2/interfaces/IBlueprintServiceManager.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
