@@ -11,6 +11,7 @@
  * Usage:
  *   npx ts-node scripts/carveoutTreasury.ts
  *   npx ts-node scripts/carveoutTreasury.ts --foundation-ss58 <tg...>   # also carve out foundation allocation
+ *   npx ts-node scripts/carveoutTreasury.ts --treasury-pubkey 0x...     # also carve out extra non-claimable pubkeys
  *   npx ts-node scripts/carveoutTreasury.ts --in ../merkle-tree.json --out ../merkle-tree.json
  */
 
@@ -42,10 +43,19 @@ function parseArgs(argv: string[]) {
   const inIdx = args.indexOf('--in');
   const outIdx = args.indexOf('--out');
   const foundationSs58Idx = args.indexOf('--foundation-ss58');
+  const extraPubkeys: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--treasury-pubkey') {
+      const v = args[i + 1];
+      if (!v) throw new Error('--treasury-pubkey requires a value');
+      extraPubkeys.push(v.toLowerCase());
+      i++;
+    }
+  }
   const input = inIdx !== -1 ? args[inIdx + 1] : resolve(__dirname, '..', 'merkle-tree.json');
   const output = outIdx !== -1 ? args[outIdx + 1] : input;
   const foundationSs58 = foundationSs58Idx !== -1 ? args[foundationSs58Idx + 1] : undefined;
-  return { input, output, foundationSs58 };
+  return { input, output, foundationSs58, extraPubkeys };
 }
 
 function readExistingTreasuryCarveout(path: string): CarveoutAccount[] {
@@ -75,8 +85,16 @@ function readExistingTreasuryCarveout(path: string): CarveoutAccount[] {
   return [];
 }
 
+function normalizePubkey(pubkey: string): string {
+  return pubkey.toLowerCase();
+}
+
+function isValidPubkey(pubkey: string): boolean {
+  return /^0x[0-9a-f]{64}$/.test(pubkey);
+}
+
 function main() {
-  const { input, output, foundationSs58 } = parseArgs(process.argv);
+  const { input, output, foundationSs58, extraPubkeys } = parseArgs(process.argv);
 
   const parsed = JSON.parse(readFileSync(input, 'utf-8')) as MerkleTreeOutput;
   if (!parsed.entries || typeof parsed.entries !== 'object') {
@@ -85,14 +103,24 @@ function main() {
 
   const entries = Object.entries(parsed.entries).map(([ss58, v]) => ({
     ss58,
-    pubkey: v.pubkey.toLowerCase(),
+    pubkey: normalizePubkey(v.pubkey),
     balance: v.balance,
   }));
 
-  const carved = entries.filter((e) => e.pubkey.startsWith(SUBSTRATE_MODULE_PREFIX));
   const carveoutPath = resolve(output, '..', 'treasury-carveout.json');
   const existingCarved = readExistingTreasuryCarveout(carveoutPath);
-  if (carved.length === 0 && existingCarved.length === 0) {
+  const explicitTreasuryPubkeys = new Set<string>();
+  for (const a of existingCarved) explicitTreasuryPubkeys.add(a.pubkey);
+  for (const p of extraPubkeys) explicitTreasuryPubkeys.add(p);
+
+  for (const p of explicitTreasuryPubkeys) {
+    if (!isValidPubkey(p)) throw new Error(`Invalid --treasury-pubkey (expected 32-byte hex): ${p}`);
+  }
+
+  const carved = entries.filter(
+    (e) => e.pubkey.startsWith(SUBSTRATE_MODULE_PREFIX) || explicitTreasuryPubkeys.has(e.pubkey),
+  );
+  if (carved.length === 0 && explicitTreasuryPubkeys.size === 0) {
     throw new Error(
       `No Substrate module accounts found (expected pubkey prefix: ${SUBSTRATE_MODULE_PREFIX}) and no existing treasury carveout to extend`,
     );
@@ -106,10 +134,19 @@ function main() {
       throw new Error(`Foundation ss58 is a module account (unexpected): ${foundationSs58}`);
     }
     foundationCarveout = { ss58: match.ss58, pubkey: match.pubkey, amount: match.balance };
+
+    if (explicitTreasuryPubkeys.has(foundationCarveout.pubkey)) {
+      throw new Error(
+        `Foundation pubkey is also listed for treasury carveout; carve it out via --foundation-ss58 only: ${foundationCarveout.pubkey}`,
+      );
+    }
   }
 
   const kept = entries.filter(
-    (e) => !e.pubkey.startsWith(SUBSTRATE_MODULE_PREFIX) && (!foundationSs58 || e.ss58 !== foundationSs58),
+    (e) =>
+      !e.pubkey.startsWith(SUBSTRATE_MODULE_PREFIX) &&
+      !explicitTreasuryPubkeys.has(e.pubkey) &&
+      (!foundationSs58 || e.ss58 !== foundationSs58),
   );
   const values = kept.map((e) => [e.pubkey, e.balance] as [string, string]);
 
@@ -121,7 +158,7 @@ function main() {
 
   for (const [index, [pubkey, balance]] of tree.entries()) {
     const proof = tree.getProof(index) as string[];
-    const normalizedPubkey = pubkey.toLowerCase();
+    const normalizedPubkey = normalizePubkey(pubkey);
     const ss58 = pubkeyToSs58.get(normalizedPubkey);
     if (!ss58) throw new Error(`Missing ss58 for pubkey: ${normalizedPubkey}`);
 
@@ -168,18 +205,18 @@ function main() {
     ),
   );
 
-	  if (foundationCarveout) {
-	    const foundationPath = resolve(output, '..', 'foundation-carveout.json');
-	    writeFileSync(
-	      foundationPath,
-	      JSON.stringify(
-	        {
-	          label: 'tangle-foundation',
-	          ss58: foundationCarveout.ss58,
-	          pubkey: foundationCarveout.pubkey,
-	          amount: foundationCarveout.amount,
-	        },
-	        null,
+  if (foundationCarveout) {
+    const foundationPath = resolve(output, '..', 'foundation-carveout.json');
+    writeFileSync(
+      foundationPath,
+      JSON.stringify(
+        {
+          label: 'tangle-foundation',
+          ss58: foundationCarveout.ss58,
+          pubkey: foundationCarveout.pubkey,
+          amount: foundationCarveout.amount,
+        },
+        null,
         2,
       ),
     );

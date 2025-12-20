@@ -707,8 +707,9 @@ contract QuoteVerificationTest is BaseTest {
         uint256 privateKey
     ) internal view returns (bytes memory) {
         bytes32 QUOTE_TYPEHASH = keccak256(
-            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry)"
+            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
         );
+        bytes32 commitmentsHash = _hashSecurityCommitments(details.securityCommitments);
 
         bytes32 domainSeparator = keccak256(abi.encode(
             keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -724,7 +725,8 @@ contract QuoteVerificationTest is BaseTest {
             details.ttlBlocks,
             details.totalCost,
             details.timestamp,
-            details.expiry
+            details.expiry,
+            commitmentsHash
         ));
 
         bytes32 digest = keccak256(abi.encodePacked(
@@ -735,5 +737,32 @@ contract QuoteVerificationTest is BaseTest {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         return abi.encodePacked(r, s, v);
+    }
+
+    function _hashSecurityCommitments(
+        Types.AssetSecurityCommitment[] memory commitments
+    ) internal pure returns (bytes32) {
+        bytes32[] memory hashes = new bytes32[](commitments.length);
+        for (uint256 i = 0; i < commitments.length; i++) {
+            hashes[i] = _hashSecurityCommitment(commitments[i]);
+        }
+        bytes32 out;
+        assembly ("memory-safe") {
+            out := keccak256(add(hashes, 0x20), mul(mload(hashes), 0x20))
+        }
+        return out;
+    }
+
+    function _hashSecurityCommitment(
+        Types.AssetSecurityCommitment memory commitment
+    ) internal pure returns (bytes32) {
+        bytes32 ASSET_TYPEHASH = keccak256("Asset(uint8 kind,address token)");
+        bytes32 COMMITMENT_TYPEHASH = keccak256(
+            "AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
+        );
+        bytes32 assetHash = keccak256(
+            abi.encode(ASSET_TYPEHASH, uint8(commitment.asset.kind), commitment.asset.token)
+        );
+        return keccak256(abi.encode(COMMITMENT_TYPEHASH, assetHash, commitment.exposureBps));
     }
 }

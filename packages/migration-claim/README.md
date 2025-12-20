@@ -16,6 +16,8 @@ This subpackage (`packages/migration-claim`) contains the SP1/ZK-based migration
 - `packages/migration-claim/treasury-carveout.json`: Sum of non-claimable Substrate module accounts (sent to the EVM treasury at deploy).
 - `packages/migration-claim/foundation-carveout.json`: Optional carveout for the foundation allocation (sent fully liquid at deploy).
 
+If you need to carve out additional non-claimable pubkeys (beyond `modl*` module accounts), add them to `treasury-carveout.json` and re-run `scripts/carveoutTreasury.ts` (or pass `--treasury-pubkey 0x...`).
+
 ## Lockups (default)
 
 Claims split into:

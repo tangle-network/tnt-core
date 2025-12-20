@@ -121,6 +121,15 @@ async function main() {
   const foundationSs58Index = args.indexOf('--foundation-ss58');
   const treasuryRecipientIndex = args.indexOf('--treasury-recipient');
   const foundationRecipientIndex = args.indexOf('--foundation-recipient');
+  const extraTreasuryPubkeys: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--treasury-pubkey') {
+      const v = args[i + 1];
+      if (!v) throw new Error('--treasury-pubkey requires a value');
+      extraTreasuryPubkeys.push(v.toLowerCase());
+      i++;
+    }
+  }
 
   if (snapshotIndex === -1) {
     console.error('Usage: npx ts-node deploy-with-snapshot.ts --snapshot <path> [--rpc <url>] [--private-key <key>] [--dry-run]');
@@ -138,6 +147,12 @@ async function main() {
     treasuryRecipientIndex !== -1 ? (args[treasuryRecipientIndex + 1] as `0x${string}`) : undefined;
   const foundationRecipient =
     foundationRecipientIndex !== -1 ? (args[foundationRecipientIndex + 1] as `0x${string}`) : undefined;
+
+  for (const p of extraTreasuryPubkeys) {
+    if (!/^0x[0-9a-f]{64}$/.test(p)) {
+      throw new Error(`Invalid --treasury-pubkey (expected 32-byte hex): ${p}`);
+    }
+  }
 
   if (!existsSync(snapshotPath)) {
     console.error(`Snapshot not found: ${snapshotPath}`);
@@ -249,9 +264,10 @@ async function main() {
   }
 
   // Carve out non-claimable Substrate module accounts ("modl*") so they're not stuck in the claim contract.
+  const explicitTreasuryPubkeys = new Set<string>(extraTreasuryPubkeys);
   const carvedModuleAccounts: Array<{ ss58Address: string; pubkey: string; balance: bigint }> = [];
   for (const [pubkey, entry] of combinedMap.entries()) {
-    if (pubkey.startsWith(SUBSTRATE_MODULE_PREFIX)) {
+    if (pubkey.startsWith(SUBSTRATE_MODULE_PREFIX) || explicitTreasuryPubkeys.has(pubkey)) {
       carvedModuleAccounts.push({ ss58Address: entry.ss58Address, pubkey: entry.pubkey, balance: entry.balance });
     }
   }
@@ -268,6 +284,11 @@ async function main() {
     }
     if (carvedFoundation.pubkey.toLowerCase().startsWith(SUBSTRATE_MODULE_PREFIX)) {
       throw new Error(`--foundation-ss58 resolves to a module account (unexpected): ${foundationSs58}`);
+    }
+    if (explicitTreasuryPubkeys.has(carvedFoundation.pubkey.toLowerCase())) {
+      throw new Error(
+        `Foundation pubkey is also listed for treasury carveout; carve it out via --foundation-ss58 only: ${carvedFoundation.pubkey}`,
+      );
     }
   }
   if (carvedModuleAccounts.length > 0) {

@@ -1,0 +1,156 @@
+{
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "deployer": "0x89db5277a310c473d515891cafcd4e66b8a7f06f",
+  "admin": "0x89db5277a310c473d515891cafcd4e66b8a7f06f",
+  "treasury": "0x89db5277a310c473d515891cafcd4e66b8a7f06f",
+  "tangle": "0x00b81923c24607bab9a6ad5a50d517f63b56466c",
+  "restaking": "0xdb34accb331e98eec94ba0a130aee4040559b00a",
+  "statusRegistry": "0x96e682cc18874ec6cdb1b2a7f0a5f541e1fbaeb3",
+  "tntToken": "0x5c768fc1e52f92c07d68b992baccbb111e714493",
+  "metrics": "0xf13d09ed3cbdd1c930d4de74808de1f33b6b3d4f",
+  "rewardVaults": "0x6ae5e129054a5dbfcebb9dfcb1ce1aa229fb1ddb",
+  "inflationPool": "0x961e384b66ae2bb90c9bbdd3d5105397e70a7a37",
+  "epochLength": 604800,
+  "restakeAssets": [
+    {
+      "symbol": "TNT",
+      "token": "0x5c768fc1e52f92c07d68b992baccbb111e714493",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "1000000000000000000",
+      "minDelegation": "100000000000000000",
+      "depositCap": "250000000000000000000000",
+      "rewardMultiplierBps": 10000
+    },
+    {
+      "symbol": "WETH",
+      "token": "0x4200000000000000000000000000000000000006",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "500000000000000000",
+      "minDelegation": "50000000000000000",
+      "depositCap": "10000000000000000000000",
+      "rewardMultiplierBps": 11000
+    },
+    {
+      "symbol": "stETH",
+      "token": "0x0000000000000000000000000000000000000000",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "0",
+      "minDelegation": "0",
+      "depositCap": "7500000000000000000000",
+      "rewardMultiplierBps": 12000
+    },
+    {
+      "symbol": "wstETH",
+      "token": "0x0000000000000000000000000000000000000000",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "0",
+      "minDelegation": "0",
+      "depositCap": "7500000000000000000000",
+      "rewardMultiplierBps": 12500
+    },
+    {
+      "symbol": "EIGEN",
+      "token": "0x0000000000000000000000000000000000000000",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "0",
+      "minDelegation": "0",
+      "depositCap": "500000000000000000000000",
+      "rewardMultiplierBps": 11500
+    },
+    {
+      "symbol": "USDC",
+      "token": "0x0000000000000000000000000000000000000000",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "0",
+      "minDelegation": "0",
+      "depositCap": "5000000000000",
+      "rewardMultiplierBps": 9500
+    },
+    {
+      "symbol": "USDT",
+      "token": "0x0000000000000000000000000000000000000000",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "0",
+      "minDelegation": "0",
+      "depositCap": "5000000000000",
+      "rewardMultiplierBps": 9500
+    },
+    {
+      "symbol": "DAI",
+      "token": "0x0000000000000000000000000000000000000000",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "0",
+      "minDelegation": "0",
+      "depositCap": "5000000000000",
+      "rewardMultiplierBps": 9500
+    },
+    {
+      "symbol": "WBTC",
+      "token": "0x0000000000000000000000000000000000000000",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "0",
+      "minDelegation": "0",
+      "depositCap": "100000000000",
+      "rewardMultiplierBps": 10500
+    },
+    {
+      "symbol": "tBTC",
+      "token": "0x0000000000000000000000000000000000000000",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "0",
+      "minDelegation": "0",
+      "depositCap": "50000000000",
+      "rewardMultiplierBps": 11500
+    },
+    {
+      "symbol": "lBTC",
+      "token": "0x0000000000000000000000000000000000000000",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": "0",
+      "minDelegation": "0",
+      "depositCap": "25000000000",
+      "rewardMultiplierBps": 11500
+    }
+  ],
+  "rewardVaultsConfig": [
+    {
+      "asset": "0x5c768fc1e52f92c07d68b992baccbb111e714493",
+      "apyBps": 800,
+      "depositCap": "250000000000000000000000",
+      "incentiveCap": "50000000000000000000000",
+      "boostMultiplierBps": 0,
+      "active": true
+    },
+    {
+      "asset": "0x4200000000000000000000000000000000000006",
+      "apyBps": 900,
+      "depositCap": "10000000000000000000000",
+      "incentiveCap": "2000000000000000000000",
+      "boostMultiplierBps": 0,
+      "active": true
+    }
+  ],
+  "inflationWeights": {
+    "stakingBps": 5500,
+    "operatorsBps": 2500,
+    "customersBps": 1000,
+    "developersBps": 1000,
+    "restakersBps": 0
+  },
+  "guards": {
+    "pauseRestaking": false,
+    "pauseTangle": false,
+    "requireAdapters": false,
+    "delegatorDelay": 0,
+    "operatorDelay": 0,
+    "bondLessDelay": 0,
+    "maxBlueprintsPerOperator": 0
+  },
+  "migration": {
+    "emitArtifacts": true,
+    "artifactsPath": "deployments/base-sepolia/migration.json",
+    "merklePath": "deployments/base-sepolia/merkle-tree.json",
+    "notes": "TODO: add rollout notes"
+  }
+}

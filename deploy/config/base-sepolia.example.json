@@ -44,7 +44,8 @@
       "stakingBps": 5000,
       "operatorsBps": 2500,
       "customersBps": 1000,
-      "developersBps": 1500
+      "developersBps": 1500,
+      "restakersBps": 0
     },
     "vaults": [
       {
@@ -81,7 +82,7 @@
   "migration": {
     "emitArtifacts": true,
     "artifactsPath": "deployments/base-sepolia/migration.json",
-    "merklePath": "deployments/base-sepolia/merkle.json",
+    "merklePath": "deployments/base-sepolia/merkle-tree.json",
     "notes": "Copy these files into the dApp package post-deploy."
   }
 }

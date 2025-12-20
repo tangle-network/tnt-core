@@ -152,7 +152,8 @@
       "stakingBps": 5000,
       "operatorsBps": 2500,
       "customersBps": 1000,
-      "developersBps": 1500
+      "developersBps": 1500,
+      "restakersBps": 0
     },
     "vaults": [
       {
@@ -215,7 +216,7 @@
   "migration": {
     "emitArtifacts": true,
     "artifactsPath": "deployments/base-mainnet/migration.json",
-    "merklePath": "deployments/base-mainnet/merkle.json",
+    "merklePath": "deployments/base-mainnet/merkle-tree.json",
     "notes": "TODO: add deployment notes for Base mainnet rollout"
   }
 }

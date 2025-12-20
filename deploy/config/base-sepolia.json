@@ -1,13 +1,13 @@
 {
-  "_todo_network": "TODO: confirm naming for the Base Sepolia <> Holesky environment",
-  "network": "base-sepolia-holesky",
+  "_todo_network": "TODO: confirm naming for the Base Sepolia environment",
+  "network": "base-sepolia",
   "_chainId": 84532,
-  "_l1ChainId": 17000,
+  "_l1ChainId": 11155111,
   "_todo_tnt_sentinel": "TODO: 0x0000000000000000000000000000000000000001 is a sentinel meaning 'use the deployed/reused TNT token' (FullDeploy replaces it at runtime)",
   "_todo_roles": "TODO: set the production admin/treasury EOAs before deployment",
   "roles": {
-    "admin": "0x0000000000000000000000000000000000000000",
-    "treasury": "0x0000000000000000000000000000000000000000"
+    "admin": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "treasury": "0x89db5277A310C473d515891cafCD4E66b8A7F06F"
   },
   "core": {
     "deploy": true,
@@ -182,13 +182,13 @@
     "maxBlueprintsPerOperator": 0
   },
   "manifest": {
-    "path": "deployments/base-sepolia-holesky/latest.json",
+    "path": "deployments/base-sepolia/latest.json",
     "logSummary": true
   },
   "migration": {
     "emitArtifacts": true,
-    "artifactsPath": "deployments/base-sepolia-holesky/migration.json",
-    "merklePath": "deployments/base-sepolia-holesky/merkle-tree.json",
+    "artifactsPath": "deployments/base-sepolia/migration.json",
+    "merklePath": "deployments/base-sepolia/merkle-tree.json",
     "_todo_migration_notes": "TODO: document how these artifacts feed the dashboard",
     "notes": "TODO: add rollout notes"
   }

@@ -344,6 +344,9 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".incentives.weights.developersBps")) {
             cfg.incentives.weights.developersBps = uint16(jsonBlob.readUint(".incentives.weights.developersBps"));
         }
+        if (jsonBlob.keyExists(".incentives.weights.restakersBps")) {
+            cfg.incentives.weights.restakersBps = uint16(jsonBlob.readUint(".incentives.weights.restakersBps"));
+        }
 
         cfg.incentives.vaults = _loadVaults(jsonBlob);
 
@@ -1005,6 +1008,9 @@ contract FullDeploy is DeployV2 {
                 ",",
                 '"developersBps":',
                 uint256(weights.developersBps).toString(),
+                ",",
+                '"restakersBps":',
+                uint256(weights.restakersBps).toString(),
                 "}"
             )
         );
