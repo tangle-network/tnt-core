@@ -9357,25 +9357,23 @@ interface ITangle {
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
     event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
-    event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resultCount);
+    event JobCompleted(uint64 indexed serviceId, uint64 indexed callId);
     event JobResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, address indexed operator, bytes result);
     event JobSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint8 indexed jobIndex, address caller, bytes inputs);
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
     event OperatorLeftService(uint64 indexed serviceId, address indexed operator);
-    event OperatorOnlineStatusChanged(uint64 indexed blueprintId, address indexed operator, bool online);
     event OperatorPreferencesUpdated(uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress);
     event OperatorRegistered(uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress);
     event OperatorUnregistered(uint64 indexed blueprintId, address indexed operator);
     event RewardsClaimed(address indexed account, uint256 amount);
     event RewardsDistributed(uint64 indexed serviceId, uint256 developerAmount, uint256 protocolAmount, uint256 operatorAmount, uint256 restakerAmount);
-    event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId, address owner, address[] operators);
+    event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId);
     event ServiceApproved(uint64 indexed requestId, address indexed operator);
-    event ServiceCreatedFromQuotes(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed owner, address[] operators);
     event ServiceRejected(uint64 indexed requestId, address indexed operator);
-    event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester, address[] operators, bytes config, uint64 ttl, address paymentToken, uint256 paymentAmount);
+    event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
     event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester, address[] operators, Types.AssetSecurityRequirement[] securityRequirements);
-    event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
-    event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billedAt);
+    event ServiceTerminated(uint64 indexed serviceId);
+    event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
 
     function addPermittedCaller(uint64 serviceId, address caller) external;
     function approveService(uint64 requestId, uint8 restakingPercent) external;
@@ -9420,7 +9418,6 @@ interface ITangle {
     function getServiceRequestSecurityRequirements(uint64 requestId) external view returns (Types.AssetSecurityRequirement[] memory);
     function getServiceSecurityCommitments(uint64 serviceId, address operator) external view returns (Types.AssetSecurityCommitment[] memory);
     function getServiceSecurityRequirements(uint64 serviceId) external view returns (Types.AssetSecurityRequirement[] memory);
-    function getServiceTotalExposure(uint64 serviceId) external view returns (uint256);
     function isOperatorRegistered(uint64 blueprintId, address operator) external view returns (bool);
     function isPermittedCaller(uint64 serviceId, address caller) external view returns (bool);
     function isServiceActive(uint64 serviceId) external view returns (bool);
@@ -9440,10 +9437,8 @@ interface ITangle {
     function requestServiceWithSecurity(uint64 blueprintId, address[] memory operators, Types.AssetSecurityRequirement[] memory securityRequirements, bytes memory config, address[] memory permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount) external payable returns (uint64 requestId);
     function scheduleExit(uint64 serviceId) external;
     function serviceCount() external view returns (uint64);
-    function setOperatorOnline(uint64 blueprintId, bool online) external;
     function submitAggregatedResult(uint64 serviceId, uint64 callId, bytes memory output, uint256 signerBitmap, uint256[2] memory aggregatedSignature, uint256[4] memory aggregatedPubkey) external;
     function submitJob(uint64 serviceId, uint8 jobIndex, bytes memory inputs) external payable returns (uint64 callId);
-    function submitJobs(uint64 serviceId, uint8[] memory jobIndices, bytes[] memory inputs) external payable returns (uint64[] memory callIds);
     function submitResult(uint64 serviceId, uint64 callId, bytes memory result) external;
     function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory results) external;
     function terminateService(uint64 serviceId) external;
@@ -11723,25 +11718,6 @@ interface ITangle {
   },
   {
     "type": "function",
-    "name": "getServiceTotalExposure",
-    "inputs": [
-      {
-        "name": "serviceId",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "isOperatorRegistered",
     "inputs": [
       {
@@ -12261,24 +12237,6 @@ interface ITangle {
   },
   {
     "type": "function",
-    "name": "setOperatorOnline",
-    "inputs": [
-      {
-        "name": "blueprintId",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "online",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "submitAggregatedResult",
     "inputs": [
       {
@@ -12340,35 +12298,6 @@ interface ITangle {
         "name": "callId",
         "type": "uint64",
         "internalType": "uint64"
-      }
-    ],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
-    "name": "submitJobs",
-    "inputs": [
-      {
-        "name": "serviceId",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "jobIndices",
-        "type": "uint8[]",
-        "internalType": "uint8[]"
-      },
-      {
-        "name": "inputs",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "callIds",
-        "type": "uint64[]",
-        "internalType": "uint64[]"
       }
     ],
     "stateMutability": "payable"
@@ -12607,12 +12536,6 @@ interface ITangle {
         "type": "uint64",
         "indexed": true,
         "internalType": "uint64"
-      },
-      {
-        "name": "resultCount",
-        "type": "uint32",
-        "indexed": false,
-        "internalType": "uint32"
       }
     ],
     "anonymous": false
@@ -12725,31 +12648,6 @@ interface ITangle {
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "OperatorOnlineStatusChanged",
-    "inputs": [
-      {
-        "name": "blueprintId",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "operator",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "online",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -12912,18 +12810,6 @@ interface ITangle {
         "type": "uint64",
         "indexed": true,
         "internalType": "uint64"
-      },
-      {
-        "name": "owner",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "operators",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
       }
     ],
     "anonymous": false
@@ -12943,37 +12829,6 @@ interface ITangle {
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "ServiceCreatedFromQuotes",
-    "inputs": [
-      {
-        "name": "serviceId",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "blueprintId",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "owner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "operators",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
       }
     ],
     "anonymous": false
@@ -13018,36 +12873,6 @@ interface ITangle {
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      },
-      {
-        "name": "operators",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
-      },
-      {
-        "name": "config",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
-      },
-      {
-        "name": "ttl",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      },
-      {
-        "name": "paymentToken",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "paymentAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -13127,12 +12952,6 @@ interface ITangle {
         "type": "uint64",
         "indexed": true,
         "internalType": "uint64"
-      },
-      {
-        "name": "owner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -13154,7 +12973,7 @@ interface ITangle {
         "internalType": "uint256"
       },
       {
-        "name": "billedAt",
+        "name": "period",
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
@@ -13683,9 +13502,9 @@ event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `JobCompleted(uint64,uint64,uint32)` and selector `0xb5ffe15f61c0f965634ac694da1fbea788e328225b83f9a207152cba6c5a3c63`.
+    /**Event with signature `JobCompleted(uint64,uint64)` and selector `0x60a7649f6e93e7a3ce1dc9729c20e3d95dce28c6a6bd957cde09d8a1cb37c19f`.
 ```solidity
-event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resultCount);
+event JobCompleted(uint64 indexed serviceId, uint64 indexed callId);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -13699,8 +13518,6 @@ event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resul
         pub serviceId: u64,
         #[allow(missing_docs)]
         pub callId: u64,
-        #[allow(missing_docs)]
-        pub resultCount: u32,
     }
     #[allow(
         non_camel_case_types,
@@ -13712,7 +13529,7 @@ event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resul
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for JobCompleted {
-            type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<32>,);
+            type DataTuple<'a> = ();
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -13721,11 +13538,11 @@ event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resul
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<64>,
             );
-            const SIGNATURE: &'static str = "JobCompleted(uint64,uint64,uint32)";
+            const SIGNATURE: &'static str = "JobCompleted(uint64,uint64)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                181u8, 255u8, 225u8, 95u8, 97u8, 192u8, 249u8, 101u8, 99u8, 74u8, 198u8,
-                148u8, 218u8, 31u8, 190u8, 167u8, 136u8, 227u8, 40u8, 34u8, 91u8, 131u8,
-                249u8, 162u8, 7u8, 21u8, 44u8, 186u8, 108u8, 90u8, 60u8, 99u8,
+                96u8, 167u8, 100u8, 159u8, 110u8, 147u8, 231u8, 163u8, 206u8, 29u8,
+                201u8, 114u8, 156u8, 32u8, 227u8, 217u8, 93u8, 206u8, 40u8, 198u8, 166u8,
+                189u8, 149u8, 124u8, 222u8, 9u8, 216u8, 161u8, 203u8, 55u8, 193u8, 159u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -13737,7 +13554,6 @@ event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resul
                 Self {
                     serviceId: topics.1,
                     callId: topics.2,
-                    resultCount: data.0,
                 }
             }
             #[inline]
@@ -13757,11 +13573,7 @@ event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resul
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        32,
-                    > as alloy_sol_types::SolType>::tokenize(&self.resultCount),
-                )
+                ()
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
@@ -14330,135 +14142,6 @@ event OperatorLeftService(uint64 indexed serviceId, address indexed operator);
         impl From<&OperatorLeftService> for alloy_sol_types::private::LogData {
             #[inline]
             fn from(this: &OperatorLeftService) -> alloy_sol_types::private::LogData {
-                alloy_sol_types::SolEvent::encode_log_data(this)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `OperatorOnlineStatusChanged(uint64,address,bool)` and selector `0xd40c06eeb20d219d2e33a6df52a06b3ed1fa0ddc220478ac98e00464e483495b`.
-```solidity
-event OperatorOnlineStatusChanged(uint64 indexed blueprintId, address indexed operator, bool online);
-```*/
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    #[derive(Clone)]
-    pub struct OperatorOnlineStatusChanged {
-        #[allow(missing_docs)]
-        pub blueprintId: u64,
-        #[allow(missing_docs)]
-        pub operator: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub online: bool,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[automatically_derived]
-        impl alloy_sol_types::SolEvent for OperatorOnlineStatusChanged {
-            type DataTuple<'a> = (alloy::sol_types::sol_data::Bool,);
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type TopicList = (
-                alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
-            );
-            const SIGNATURE: &'static str = "OperatorOnlineStatusChanged(uint64,address,bool)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                212u8, 12u8, 6u8, 238u8, 178u8, 13u8, 33u8, 157u8, 46u8, 51u8, 166u8,
-                223u8, 82u8, 160u8, 107u8, 62u8, 209u8, 250u8, 13u8, 220u8, 34u8, 4u8,
-                120u8, 172u8, 152u8, 224u8, 4u8, 100u8, 228u8, 131u8, 73u8, 91u8,
-            ]);
-            const ANONYMOUS: bool = false;
-            #[allow(unused_variables)]
-            #[inline]
-            fn new(
-                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
-                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                Self {
-                    blueprintId: topics.1,
-                    operator: topics.2,
-                    online: data.0,
-                }
-            }
-            #[inline]
-            fn check_signature(
-                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
-            ) -> alloy_sol_types::Result<()> {
-                if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
-                }
-                Ok(())
-            }
-            #[inline]
-            fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        &self.online,
-                    ),
-                )
-            }
-            #[inline]
-            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (
-                    Self::SIGNATURE_HASH.into(),
-                    self.blueprintId.clone(),
-                    self.operator.clone(),
-                )
-            }
-            #[inline]
-            fn encode_topics_raw(
-                &self,
-                out: &mut [alloy_sol_types::abi::token::WordToken],
-            ) -> alloy_sol_types::Result<()> {
-                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
-                    return Err(alloy_sol_types::Error::Overrun);
-                }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
-                out[1usize] = <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic(&self.blueprintId);
-                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.operator,
-                );
-                Ok(())
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::IntoLogData for OperatorOnlineStatusChanged {
-            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
-                From::from(self)
-            }
-            fn into_log_data(self) -> alloy_sol_types::private::LogData {
-                From::from(&self)
-            }
-        }
-        #[automatically_derived]
-        impl From<&OperatorOnlineStatusChanged> for alloy_sol_types::private::LogData {
-            #[inline]
-            fn from(
-                this: &OperatorOnlineStatusChanged,
-            ) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
         }
@@ -15114,9 +14797,9 @@ event RewardsDistributed(uint64 indexed serviceId, uint256 developerAmount, uint
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `ServiceActivated(uint64,uint64,uint64,address,address[])` and selector `0x93003b4812f9ce52c058cbded90d70bf175b4f77d5998eaf9f263c72fdcc87ca`.
+    /**Event with signature `ServiceActivated(uint64,uint64,uint64)` and selector `0x741e97ee1ff887c4d882f4c49ad280ea7d61d035e4e8a471e531951550275023`.
 ```solidity
-event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId, address owner, address[] operators);
+event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -15132,12 +14815,6 @@ event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint6
         pub requestId: u64,
         #[allow(missing_docs)]
         pub blueprintId: u64,
-        #[allow(missing_docs)]
-        pub owner: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub operators: alloy::sol_types::private::Vec<
-            alloy::sol_types::private::Address,
-        >,
     }
     #[allow(
         non_camel_case_types,
@@ -15149,10 +14826,7 @@ event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint6
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for ServiceActivated {
-            type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
-            );
+            type DataTuple<'a> = ();
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -15162,11 +14836,12 @@ event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint6
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<64>,
             );
-            const SIGNATURE: &'static str = "ServiceActivated(uint64,uint64,uint64,address,address[])";
+            const SIGNATURE: &'static str = "ServiceActivated(uint64,uint64,uint64)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                147u8, 0u8, 59u8, 72u8, 18u8, 249u8, 206u8, 82u8, 192u8, 88u8, 203u8,
-                222u8, 217u8, 13u8, 112u8, 191u8, 23u8, 91u8, 79u8, 119u8, 213u8, 153u8,
-                142u8, 175u8, 159u8, 38u8, 60u8, 114u8, 253u8, 204u8, 135u8, 202u8,
+                116u8, 30u8, 151u8, 238u8, 31u8, 248u8, 135u8, 196u8, 216u8, 130u8,
+                244u8, 196u8, 154u8, 210u8, 128u8, 234u8, 125u8, 97u8, 208u8, 53u8,
+                228u8, 232u8, 164u8, 113u8, 229u8, 49u8, 149u8, 21u8, 80u8, 39u8, 80u8,
+                35u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -15179,8 +14854,6 @@ event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint6
                     serviceId: topics.1,
                     requestId: topics.2,
                     blueprintId: topics.3,
-                    owner: data.0,
-                    operators: data.1,
                 }
             }
             #[inline]
@@ -15200,14 +14873,7 @@ event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint6
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.owner,
-                    ),
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Address,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operators),
-                )
+                ()
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
@@ -15380,147 +15046,6 @@ event ServiceApproved(uint64 indexed requestId, address indexed operator);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `ServiceCreatedFromQuotes(uint64,uint64,address,address[])` and selector `0x0fb6ea41be7e4b4d030ff394e280973a01fb8e2ca9da7c900ae309669a177519`.
-```solidity
-event ServiceCreatedFromQuotes(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed owner, address[] operators);
-```*/
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    #[derive(Clone)]
-    pub struct ServiceCreatedFromQuotes {
-        #[allow(missing_docs)]
-        pub serviceId: u64,
-        #[allow(missing_docs)]
-        pub blueprintId: u64,
-        #[allow(missing_docs)]
-        pub owner: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub operators: alloy::sol_types::private::Vec<
-            alloy::sol_types::private::Address,
-        >,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[automatically_derived]
-        impl alloy_sol_types::SolEvent for ServiceCreatedFromQuotes {
-            type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
-            );
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type TopicList = (
-                alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
-            );
-            const SIGNATURE: &'static str = "ServiceCreatedFromQuotes(uint64,uint64,address,address[])";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                15u8, 182u8, 234u8, 65u8, 190u8, 126u8, 75u8, 77u8, 3u8, 15u8, 243u8,
-                148u8, 226u8, 128u8, 151u8, 58u8, 1u8, 251u8, 142u8, 44u8, 169u8, 218u8,
-                124u8, 144u8, 10u8, 227u8, 9u8, 102u8, 154u8, 23u8, 117u8, 25u8,
-            ]);
-            const ANONYMOUS: bool = false;
-            #[allow(unused_variables)]
-            #[inline]
-            fn new(
-                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
-                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                Self {
-                    serviceId: topics.1,
-                    blueprintId: topics.2,
-                    owner: topics.3,
-                    operators: data.0,
-                }
-            }
-            #[inline]
-            fn check_signature(
-                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
-            ) -> alloy_sol_types::Result<()> {
-                if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
-                }
-                Ok(())
-            }
-            #[inline]
-            fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Address,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operators),
-                )
-            }
-            #[inline]
-            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (
-                    Self::SIGNATURE_HASH.into(),
-                    self.serviceId.clone(),
-                    self.blueprintId.clone(),
-                    self.owner.clone(),
-                )
-            }
-            #[inline]
-            fn encode_topics_raw(
-                &self,
-                out: &mut [alloy_sol_types::abi::token::WordToken],
-            ) -> alloy_sol_types::Result<()> {
-                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
-                    return Err(alloy_sol_types::Error::Overrun);
-                }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
-                out[1usize] = <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
-                out[2usize] = <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic(&self.blueprintId);
-                out[3usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.owner,
-                );
-                Ok(())
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::IntoLogData for ServiceCreatedFromQuotes {
-            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
-                From::from(self)
-            }
-            fn into_log_data(self) -> alloy_sol_types::private::LogData {
-                From::from(&self)
-            }
-        }
-        #[automatically_derived]
-        impl From<&ServiceCreatedFromQuotes> for alloy_sol_types::private::LogData {
-            #[inline]
-            fn from(
-                this: &ServiceCreatedFromQuotes,
-            ) -> alloy_sol_types::private::LogData {
-                alloy_sol_types::SolEvent::encode_log_data(this)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `ServiceRejected(uint64,address)` and selector `0xc63050b963ec6e2cf36df90ecacaa43212c0e74b8c3a58a0f8cce3bd5a2a7675`.
 ```solidity
 event ServiceRejected(uint64 indexed requestId, address indexed operator);
@@ -15641,9 +15166,9 @@ event ServiceRejected(uint64 indexed requestId, address indexed operator);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `ServiceRequested(uint64,uint64,address,address[],bytes,uint64,address,uint256)` and selector `0xf0d5943a10a17d85e69b14bab3db69ceff3f919bb7fcf79aafeffc39ba1a7eaf`.
+    /**Event with signature `ServiceRequested(uint64,uint64,address)` and selector `0xbd1fdda393b679e6c4f873e233b34e2c4ea8283a3f76345dbc143b86ea047679`.
 ```solidity
-event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester, address[] operators, bytes config, uint64 ttl, address paymentToken, uint256 paymentAmount);
+event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -15659,18 +15184,6 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
         pub blueprintId: u64,
         #[allow(missing_docs)]
         pub requester: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub operators: alloy::sol_types::private::Vec<
-            alloy::sol_types::private::Address,
-        >,
-        #[allow(missing_docs)]
-        pub config: alloy::sol_types::private::Bytes,
-        #[allow(missing_docs)]
-        pub ttl: u64,
-        #[allow(missing_docs)]
-        pub paymentToken: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub paymentAmount: alloy::sol_types::private::primitives::aliases::U256,
     }
     #[allow(
         non_camel_case_types,
@@ -15682,13 +15195,7 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for ServiceRequested {
-            type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
-                alloy::sol_types::sol_data::Bytes,
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Uint<256>,
-            );
+            type DataTuple<'a> = ();
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -15698,11 +15205,11 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "ServiceRequested(uint64,uint64,address,address[],bytes,uint64,address,uint256)";
+            const SIGNATURE: &'static str = "ServiceRequested(uint64,uint64,address)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                240u8, 213u8, 148u8, 58u8, 16u8, 161u8, 125u8, 133u8, 230u8, 155u8, 20u8,
-                186u8, 179u8, 219u8, 105u8, 206u8, 255u8, 63u8, 145u8, 155u8, 183u8,
-                252u8, 247u8, 154u8, 175u8, 239u8, 252u8, 57u8, 186u8, 26u8, 126u8, 175u8,
+                189u8, 31u8, 221u8, 163u8, 147u8, 182u8, 121u8, 230u8, 196u8, 248u8,
+                115u8, 226u8, 51u8, 179u8, 78u8, 44u8, 78u8, 168u8, 40u8, 58u8, 63u8,
+                118u8, 52u8, 93u8, 188u8, 20u8, 59u8, 134u8, 234u8, 4u8, 118u8, 121u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -15715,11 +15222,6 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
                     requestId: topics.1,
                     blueprintId: topics.2,
                     requester: topics.3,
-                    operators: data.0,
-                    config: data.1,
-                    ttl: data.2,
-                    paymentToken: data.3,
-                    paymentAmount: data.4,
                 }
             }
             #[inline]
@@ -15739,23 +15241,7 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Address,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operators),
-                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
-                        &self.config,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.ttl),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.paymentToken,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.paymentAmount),
-                )
+                ()
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
@@ -15958,9 +15444,9 @@ event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blue
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `ServiceTerminated(uint64,address)` and selector `0x946bc863ee08c6c14af4e70163bd1597c71122f2f0589abce60a78e01e8cfb74`.
+    /**Event with signature `ServiceTerminated(uint64)` and selector `0x3fd558a59bbce1d996d17eab7fde314bcd201ec3f17375a7f873b3162927e881`.
 ```solidity
-event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
+event ServiceTerminated(uint64 indexed serviceId);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -15972,8 +15458,6 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
     pub struct ServiceTerminated {
         #[allow(missing_docs)]
         pub serviceId: u64,
-        #[allow(missing_docs)]
-        pub owner: alloy::sol_types::private::Address,
     }
     #[allow(
         non_camel_case_types,
@@ -15992,13 +15476,12 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "ServiceTerminated(uint64,address)";
+            const SIGNATURE: &'static str = "ServiceTerminated(uint64)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                148u8, 107u8, 200u8, 99u8, 238u8, 8u8, 198u8, 193u8, 74u8, 244u8, 231u8,
-                1u8, 99u8, 189u8, 21u8, 151u8, 199u8, 17u8, 34u8, 242u8, 240u8, 88u8,
-                154u8, 188u8, 230u8, 10u8, 120u8, 224u8, 30u8, 140u8, 251u8, 116u8,
+                63u8, 213u8, 88u8, 165u8, 155u8, 188u8, 225u8, 217u8, 150u8, 209u8,
+                126u8, 171u8, 127u8, 222u8, 49u8, 75u8, 205u8, 32u8, 30u8, 195u8, 241u8,
+                115u8, 117u8, 167u8, 248u8, 115u8, 179u8, 22u8, 41u8, 39u8, 232u8, 129u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -16007,10 +15490,7 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
                 topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
                 data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
             ) -> Self {
-                Self {
-                    serviceId: topics.1,
-                    owner: topics.2,
-                }
+                Self { serviceId: topics.1 }
             }
             #[inline]
             fn check_signature(
@@ -16033,7 +15513,7 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.serviceId.clone(), self.owner.clone())
+                (Self::SIGNATURE_HASH.into(), self.serviceId.clone())
             }
             #[inline]
             fn encode_topics_raw(
@@ -16049,9 +15529,6 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
                 out[1usize] = <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
-                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.owner,
-                );
                 Ok(())
             }
         }
@@ -16076,7 +15553,7 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `SubscriptionBilled(uint64,uint256,uint64)` and selector `0x24dc485bef04b4d790d97ac10381d8d9e66c56dd6fba9931b703ca169511778a`.
 ```solidity
-event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billedAt);
+event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -16091,7 +15568,7 @@ event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billed
         #[allow(missing_docs)]
         pub amount: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
-        pub billedAt: u64,
+        pub period: u64,
     }
     #[allow(
         non_camel_case_types,
@@ -16130,7 +15607,7 @@ event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billed
                 Self {
                     serviceId: topics.1,
                     amount: data.0,
-                    billedAt: data.1,
+                    period: data.1,
                 }
             }
             #[inline]
@@ -16156,7 +15633,7 @@ event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billed
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
                     <alloy::sol_types::sol_data::Uint<
                         64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.billedAt),
+                    > as alloy_sol_types::SolType>::tokenize(&self.period),
                 )
             }
             #[inline]
@@ -23198,164 +22675,6 @@ function getServiceSecurityRequirements(uint64 serviceId) external view returns 
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `getServiceTotalExposure(uint64)` and selector `0x3e354514`.
-```solidity
-function getServiceTotalExposure(uint64 serviceId) external view returns (uint256);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct getServiceTotalExposureCall {
-        #[allow(missing_docs)]
-        pub serviceId: u64,
-    }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`getServiceTotalExposure(uint64)`](getServiceTotalExposureCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct getServiceTotalExposureReturn {
-        #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u64,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<getServiceTotalExposureCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: getServiceTotalExposureCall) -> Self {
-                    (value.serviceId,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for getServiceTotalExposureCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { serviceId: tuple.0 }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<getServiceTotalExposureReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: getServiceTotalExposureReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for getServiceTotalExposureReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for getServiceTotalExposureCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::primitives::aliases::U256;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "getServiceTotalExposure(uint64)";
-            const SELECTOR: [u8; 4] = [62u8, 53u8, 69u8, 20u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: getServiceTotalExposureReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: getServiceTotalExposureReturn = r.into();
-                        r._0
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `isOperatorRegistered(uint64,address)` and selector `0x64462595`.
 ```solidity
 function isOperatorRegistered(uint64 blueprintId, address operator) external view returns (bool);
@@ -26650,168 +25969,6 @@ function serviceCount() external view returns (uint64);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setOperatorOnline(uint64,bool)` and selector `0x7e8ac13e`.
-```solidity
-function setOperatorOnline(uint64 blueprintId, bool online) external;
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setOperatorOnlineCall {
-        #[allow(missing_docs)]
-        pub blueprintId: u64,
-        #[allow(missing_docs)]
-        pub online: bool,
-    }
-    ///Container type for the return parameters of the [`setOperatorOnline(uint64,bool)`](setOperatorOnlineCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setOperatorOnlineReturn {}
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Bool,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u64, bool);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setOperatorOnlineCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setOperatorOnlineCall) -> Self {
-                    (value.blueprintId, value.online)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorOnlineCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        blueprintId: tuple.0,
-                        online: tuple.1,
-                    }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setOperatorOnlineReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setOperatorOnlineReturn) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorOnlineReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
-                }
-            }
-        }
-        impl setOperatorOnlineReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setOperatorOnlineCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
-                ()
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for setOperatorOnlineCall {
-            type Parameters<'a> = (
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Bool,
-            );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = setOperatorOnlineReturn;
-            type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setOperatorOnline(uint64,bool)";
-            const SELECTOR: [u8; 4] = [126u8, 138u8, 193u8, 62u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        &self.online,
-                    ),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                setOperatorOnlineReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `submitAggregatedResult(uint64,uint64,bytes,uint256,uint256[2],uint256[4])` and selector `0xc325ae12`.
 ```solidity
 function submitAggregatedResult(uint64 serviceId, uint64 callId, bytes memory output, uint256 signerBitmap, uint256[2] memory aggregatedSignature, uint256[4] memory aggregatedPubkey) external;
@@ -27204,188 +26361,6 @@ function submitJob(uint64 serviceId, uint8 jobIndex, bytes memory inputs) extern
                     .map(|r| {
                         let r: submitJobReturn = r.into();
                         r.callId
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `submitJobs(uint64,uint8[],bytes[])` and selector `0x1a59f858`.
-```solidity
-function submitJobs(uint64 serviceId, uint8[] memory jobIndices, bytes[] memory inputs) external payable returns (uint64[] memory callIds);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct submitJobsCall {
-        #[allow(missing_docs)]
-        pub serviceId: u64,
-        #[allow(missing_docs)]
-        pub jobIndices: alloy::sol_types::private::Vec<u8>,
-        #[allow(missing_docs)]
-        pub inputs: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
-    }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`submitJobs(uint64,uint8[],bytes[])`](submitJobsCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct submitJobsReturn {
-        #[allow(missing_docs)]
-        pub callIds: alloy::sol_types::private::Vec<u64>,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<8>>,
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Bytes>,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                u64,
-                alloy::sol_types::private::Vec<u8>,
-                alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<submitJobsCall> for UnderlyingRustTuple<'_> {
-                fn from(value: submitJobsCall) -> Self {
-                    (value.serviceId, value.jobIndices, value.inputs)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for submitJobsCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        serviceId: tuple.0,
-                        jobIndices: tuple.1,
-                        inputs: tuple.2,
-                    }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Vec<u64>,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<submitJobsReturn> for UnderlyingRustTuple<'_> {
-                fn from(value: submitJobsReturn) -> Self {
-                    (value.callIds,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for submitJobsReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { callIds: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for submitJobsCall {
-            type Parameters<'a> = (
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<8>>,
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Bytes>,
-            );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::Vec<u64>;
-            type ReturnTuple<'a> = (
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,
-            );
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "submitJobs(uint64,uint8[],bytes[])";
-            const SELECTOR: [u8; 4] = [26u8, 89u8, 248u8, 88u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Uint<8>,
-                    > as alloy_sol_types::SolType>::tokenize(&self.jobIndices),
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Bytes,
-                    > as alloy_sol_types::SolType>::tokenize(&self.inputs),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Uint<64>,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: submitJobsReturn = r.into();
-                        r.callIds
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: submitJobsReturn = r.into();
-                        r.callIds
                     })
             }
         }
@@ -28612,8 +27587,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         getServiceSecurityRequirements(getServiceSecurityRequirementsCall),
         #[allow(missing_docs)]
-        getServiceTotalExposure(getServiceTotalExposureCall),
-        #[allow(missing_docs)]
         isOperatorRegistered(isOperatorRegisteredCall),
         #[allow(missing_docs)]
         isPermittedCaller(isPermittedCallerCall),
@@ -28652,13 +27625,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         serviceCount(serviceCountCall),
         #[allow(missing_docs)]
-        setOperatorOnline(setOperatorOnlineCall),
-        #[allow(missing_docs)]
         submitAggregatedResult(submitAggregatedResultCall),
         #[allow(missing_docs)]
         submitJob(submitJobCall),
-        #[allow(missing_docs)]
-        submitJobs(submitJobsCall),
         #[allow(missing_docs)]
         submitResult(submitResultCall),
         #[allow(missing_docs)]
@@ -28688,7 +27657,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [16u8, 138u8, 125u8, 99u8],
             [24u8, 12u8, 174u8, 103u8],
             [24u8, 198u8, 128u8, 23u8],
-            [26u8, 89u8, 248u8, 88u8],
             [35u8, 215u8, 179u8, 225u8],
             [39u8, 179u8, 117u8, 101u8],
             [43u8, 157u8, 167u8, 26u8],
@@ -28700,7 +27668,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [52u8, 19u8, 232u8, 238u8],
             [55u8, 37u8, 0u8, 171u8],
             [61u8, 192u8, 213u8, 254u8],
-            [62u8, 53u8, 69u8, 20u8],
             [63u8, 65u8, 45u8, 237u8],
             [66u8, 127u8, 253u8, 233u8],
             [67u8, 12u8, 225u8, 24u8],
@@ -28717,7 +27684,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [107u8, 218u8, 66u8, 243u8],
             [109u8, 139u8, 136u8, 195u8],
             [115u8, 36u8, 233u8, 22u8],
-            [126u8, 138u8, 193u8, 62u8],
             [128u8, 172u8, 130u8, 40u8],
             [129u8, 93u8, 106u8, 38u8],
             [132u8, 37u8, 36u8, 187u8],
@@ -28765,7 +27731,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(requestServiceWithExposure),
             ::core::stringify!(getOperatorPublicKey),
             ::core::stringify!(preRegister),
-            ::core::stringify!(submitJobs),
             ::core::stringify!(approveServiceWithCommitments),
             ::core::stringify!(canScheduleExit),
             ::core::stringify!(joinService),
@@ -28777,7 +27742,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(submitJob),
             ::core::stringify!(claimRewards_0),
             ::core::stringify!(getService),
-            ::core::stringify!(getServiceTotalExposure),
             ::core::stringify!(createBlueprint),
             ::core::stringify!(getExitStatus),
             ::core::stringify!(blueprintMetadata),
@@ -28794,7 +27758,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(getOperatorRegistration),
             ::core::stringify!(rejectService),
             ::core::stringify!(registerOperator_0),
-            ::core::stringify!(setOperatorOnline),
             ::core::stringify!(pendingRewards_1),
             ::core::stringify!(addPermittedCaller),
             ::core::stringify!(getServiceOperator),
@@ -28842,7 +27805,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <requestServiceWithExposureCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorPublicKeyCall as alloy_sol_types::SolCall>::SIGNATURE,
             <preRegisterCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <submitJobsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <approveServiceWithCommitmentsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <canScheduleExitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <joinServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -28854,7 +27816,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <submitJobCall as alloy_sol_types::SolCall>::SIGNATURE,
             <claimRewards_0Call as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <getServiceTotalExposureCall as alloy_sol_types::SolCall>::SIGNATURE,
             <createBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getExitStatusCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintMetadataCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -28871,7 +27832,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <getOperatorRegistrationCall as alloy_sol_types::SolCall>::SIGNATURE,
             <rejectServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <registerOperator_0Call as alloy_sol_types::SolCall>::SIGNATURE,
-            <setOperatorOnlineCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pendingRewards_1Call as alloy_sol_types::SolCall>::SIGNATURE,
             <addPermittedCallerCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -28936,7 +27896,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
     impl alloy_sol_types::SolInterface for ITangleCalls {
         const NAME: &'static str = "ITangleCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 74usize;
+        const COUNT: usize = 71usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -29069,9 +28029,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 Self::getServiceSecurityRequirements(_) => {
                     <getServiceSecurityRequirementsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::getServiceTotalExposure(_) => {
-                    <getServiceTotalExposureCall as alloy_sol_types::SolCall>::SELECTOR
-                }
                 Self::isOperatorRegistered(_) => {
                     <isOperatorRegisteredCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -29129,17 +28086,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 Self::serviceCount(_) => {
                     <serviceCountCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::setOperatorOnline(_) => {
-                    <setOperatorOnlineCall as alloy_sol_types::SolCall>::SELECTOR
-                }
                 Self::submitAggregatedResult(_) => {
                     <submitAggregatedResultCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::submitJob(_) => {
                     <submitJobCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::submitJobs(_) => {
-                    <submitJobsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::submitResult(_) => {
                     <submitResultCall as alloy_sol_types::SolCall>::SELECTOR
@@ -29244,15 +28195,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleCalls::preRegister)
                     }
                     preRegister
-                },
-                {
-                    fn submitJobs(data: &[u8]) -> alloy_sol_types::Result<ITangleCalls> {
-                        <submitJobsCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleCalls::submitJobs)
-                    }
-                    submitJobs
                 },
                 {
                     fn approveServiceWithCommitments(
@@ -29368,17 +28310,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleCalls::getService)
                     }
                     getService
-                },
-                {
-                    fn getServiceTotalExposure(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleCalls> {
-                        <getServiceTotalExposureCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleCalls::getServiceTotalExposure)
-                    }
-                    getServiceTotalExposure
                 },
                 {
                     fn createBlueprint(
@@ -29555,17 +28486,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleCalls::registerOperator_0)
                     }
                     registerOperator_0
-                },
-                {
-                    fn setOperatorOnline(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleCalls> {
-                        <setOperatorOnlineCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleCalls::setOperatorOnline)
-                    }
-                    setOperatorOnline
                 },
                 {
                     fn pendingRewards_1(
@@ -30064,15 +28984,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     preRegister
                 },
                 {
-                    fn submitJobs(data: &[u8]) -> alloy_sol_types::Result<ITangleCalls> {
-                        <submitJobsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleCalls::submitJobs)
-                    }
-                    submitJobs
-                },
-                {
                     fn approveServiceWithCommitments(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleCalls> {
@@ -30188,17 +29099,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleCalls::getService)
                     }
                     getService
-                },
-                {
-                    fn getServiceTotalExposure(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleCalls> {
-                        <getServiceTotalExposureCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleCalls::getServiceTotalExposure)
-                    }
-                    getServiceTotalExposure
                 },
                 {
                     fn createBlueprint(
@@ -30375,17 +29275,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleCalls::registerOperator_0)
                     }
                     registerOperator_0
-                },
-                {
-                    fn setOperatorOnline(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleCalls> {
-                        <setOperatorOnlineCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleCalls::setOperatorOnline)
-                    }
-                    setOperatorOnline
                 },
                 {
                     fn pendingRewards_1(
@@ -31020,11 +29909,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         inner,
                     )
                 }
-                Self::getServiceTotalExposure(inner) => {
-                    <getServiceTotalExposureCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::isOperatorRegistered(inner) => {
                     <isOperatorRegisteredCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -31120,11 +30004,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         inner,
                     )
                 }
-                Self::setOperatorOnline(inner) => {
-                    <setOperatorOnlineCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::submitAggregatedResult(inner) => {
                     <submitAggregatedResultCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -31132,9 +30011,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::submitJob(inner) => {
                     <submitJobCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
-                }
-                Self::submitJobs(inner) => {
-                    <submitJobsCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::submitResult(inner) => {
                     <submitResultCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -31434,12 +30310,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         out,
                     )
                 }
-                Self::getServiceTotalExposure(inner) => {
-                    <getServiceTotalExposureCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::isOperatorRegistered(inner) => {
                     <isOperatorRegisteredCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -31554,12 +30424,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         out,
                     )
                 }
-                Self::setOperatorOnline(inner) => {
-                    <setOperatorOnlineCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::submitAggregatedResult(inner) => {
                     <submitAggregatedResultCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -31568,12 +30432,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::submitJob(inner) => {
                     <submitJobCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::submitJobs(inner) => {
-                    <submitJobsCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -31647,8 +30505,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         OperatorLeftService(OperatorLeftService),
         #[allow(missing_docs)]
-        OperatorOnlineStatusChanged(OperatorOnlineStatusChanged),
-        #[allow(missing_docs)]
         OperatorPreferencesUpdated(OperatorPreferencesUpdated),
         #[allow(missing_docs)]
         OperatorRegistered(OperatorRegistered),
@@ -31662,8 +30518,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         ServiceActivated(ServiceActivated),
         #[allow(missing_docs)]
         ServiceApproved(ServiceApproved),
-        #[allow(missing_docs)]
-        ServiceCreatedFromQuotes(ServiceCreatedFromQuotes),
         #[allow(missing_docs)]
         ServiceRejected(ServiceRejected),
         #[allow(missing_docs)]
@@ -31689,11 +30543,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 44u8, 141u8, 94u8, 152u8, 92u8, 153u8, 228u8, 16u8, 65u8, 2u8,
             ],
             [
-                15u8, 182u8, 234u8, 65u8, 190u8, 126u8, 75u8, 77u8, 3u8, 15u8, 243u8,
-                148u8, 226u8, 128u8, 151u8, 58u8, 1u8, 251u8, 142u8, 44u8, 169u8, 218u8,
-                124u8, 144u8, 10u8, 227u8, 9u8, 102u8, 154u8, 23u8, 117u8, 25u8,
-            ],
-            [
                 36u8, 87u8, 145u8, 135u8, 150u8, 7u8, 132u8, 64u8, 6u8, 131u8, 133u8,
                 231u8, 62u8, 66u8, 37u8, 57u8, 200u8, 79u8, 47u8, 144u8, 69u8, 221u8,
                 68u8, 46u8, 18u8, 61u8, 66u8, 132u8, 37u8, 138u8, 226u8, 74u8,
@@ -31714,6 +30563,22 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 22u8, 71u8, 47u8, 98u8, 30u8, 252u8, 17u8, 172u8, 224u8, 16u8,
             ],
             [
+                63u8, 213u8, 88u8, 165u8, 155u8, 188u8, 225u8, 217u8, 150u8, 209u8,
+                126u8, 171u8, 127u8, 222u8, 49u8, 75u8, 205u8, 32u8, 30u8, 195u8, 241u8,
+                115u8, 117u8, 167u8, 248u8, 115u8, 179u8, 22u8, 41u8, 39u8, 232u8, 129u8,
+            ],
+            [
+                96u8, 167u8, 100u8, 159u8, 110u8, 147u8, 231u8, 163u8, 206u8, 29u8,
+                201u8, 114u8, 156u8, 32u8, 227u8, 217u8, 93u8, 206u8, 40u8, 198u8, 166u8,
+                189u8, 149u8, 124u8, 222u8, 9u8, 216u8, 161u8, 203u8, 55u8, 193u8, 159u8,
+            ],
+            [
+                116u8, 30u8, 151u8, 238u8, 31u8, 248u8, 135u8, 196u8, 216u8, 130u8,
+                244u8, 196u8, 154u8, 210u8, 128u8, 234u8, 125u8, 97u8, 208u8, 53u8,
+                228u8, 232u8, 164u8, 113u8, 229u8, 49u8, 149u8, 21u8, 80u8, 39u8, 80u8,
+                35u8,
+            ],
+            [
                 136u8, 228u8, 110u8, 149u8, 188u8, 223u8, 16u8, 32u8, 192u8, 202u8,
                 249u8, 243u8, 221u8, 95u8, 222u8, 105u8, 196u8, 29u8, 33u8, 81u8, 219u8,
                 188u8, 160u8, 167u8, 124u8, 3u8, 196u8, 226u8, 139u8, 77u8, 62u8, 193u8,
@@ -31729,24 +30594,14 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 159u8, 167u8, 209u8, 199u8, 159u8, 204u8, 195u8, 196u8, 222u8, 173u8,
             ],
             [
-                147u8, 0u8, 59u8, 72u8, 18u8, 249u8, 206u8, 82u8, 192u8, 88u8, 203u8,
-                222u8, 217u8, 13u8, 112u8, 191u8, 23u8, 91u8, 79u8, 119u8, 213u8, 153u8,
-                142u8, 175u8, 159u8, 38u8, 60u8, 114u8, 253u8, 204u8, 135u8, 202u8,
-            ],
-            [
-                148u8, 107u8, 200u8, 99u8, 238u8, 8u8, 198u8, 193u8, 74u8, 244u8, 231u8,
-                1u8, 99u8, 189u8, 21u8, 151u8, 199u8, 17u8, 34u8, 242u8, 240u8, 88u8,
-                154u8, 188u8, 230u8, 10u8, 120u8, 224u8, 30u8, 140u8, 251u8, 116u8,
-            ],
-            [
-                181u8, 255u8, 225u8, 95u8, 97u8, 192u8, 249u8, 101u8, 99u8, 74u8, 198u8,
-                148u8, 218u8, 31u8, 190u8, 167u8, 136u8, 227u8, 40u8, 34u8, 91u8, 131u8,
-                249u8, 162u8, 7u8, 21u8, 44u8, 186u8, 108u8, 90u8, 60u8, 99u8,
-            ],
-            [
                 186u8, 202u8, 70u8, 138u8, 82u8, 103u8, 11u8, 119u8, 215u8, 77u8, 4u8,
                 35u8, 179u8, 58u8, 197u8, 34u8, 122u8, 127u8, 26u8, 92u8, 84u8, 142u8,
                 7u8, 0u8, 107u8, 41u8, 198u8, 226u8, 40u8, 151u8, 121u8, 166u8,
+            ],
+            [
+                189u8, 31u8, 221u8, 163u8, 147u8, 182u8, 121u8, 230u8, 196u8, 248u8,
+                115u8, 226u8, 51u8, 179u8, 78u8, 44u8, 78u8, 168u8, 40u8, 58u8, 63u8,
+                118u8, 52u8, 93u8, 188u8, 20u8, 59u8, 134u8, 234u8, 4u8, 118u8, 121u8,
             ],
             [
                 198u8, 48u8, 80u8, 185u8, 99u8, 236u8, 110u8, 44u8, 243u8, 109u8, 249u8,
@@ -31762,11 +30617,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 210u8, 185u8, 88u8, 161u8, 176u8, 185u8, 120u8, 206u8, 222u8, 212u8,
                 152u8, 107u8, 79u8, 73u8, 200u8, 178u8, 95u8, 189u8, 110u8, 129u8, 44u8,
                 184u8, 146u8, 94u8, 19u8, 239u8, 199u8, 49u8, 234u8, 74u8, 162u8, 77u8,
-            ],
-            [
-                212u8, 12u8, 6u8, 238u8, 178u8, 13u8, 33u8, 157u8, 46u8, 51u8, 166u8,
-                223u8, 82u8, 160u8, 107u8, 62u8, 209u8, 250u8, 13u8, 220u8, 34u8, 4u8,
-                120u8, 172u8, 152u8, 224u8, 4u8, 100u8, 228u8, 131u8, 73u8, 91u8,
             ],
             [
                 222u8, 55u8, 204u8, 72u8, 210u8, 23u8, 120u8, 225u8, 201u8, 160u8, 117u8,
@@ -31789,11 +30639,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 92u8, 220u8, 56u8, 130u8, 151u8, 165u8, 65u8, 201u8, 151u8, 110u8,
             ],
             [
-                240u8, 213u8, 148u8, 58u8, 16u8, 161u8, 125u8, 133u8, 230u8, 155u8, 20u8,
-                186u8, 179u8, 219u8, 105u8, 206u8, 255u8, 63u8, 145u8, 155u8, 183u8,
-                252u8, 247u8, 154u8, 175u8, 239u8, 252u8, 57u8, 186u8, 26u8, 126u8, 175u8,
-            ],
-            [
                 252u8, 48u8, 205u8, 222u8, 163u8, 142u8, 43u8, 244u8, 214u8, 234u8,
                 125u8, 63u8, 158u8, 211u8, 182u8, 173u8, 127u8, 23u8, 100u8, 25u8, 244u8,
                 150u8, 59u8, 216u8, 19u8, 24u8, 6u8, 122u8, 74u8, 238u8, 115u8, 254u8,
@@ -31802,53 +30647,49 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
             ::core::stringify!(OperatorRegistered),
-            ::core::stringify!(ServiceCreatedFromQuotes),
             ::core::stringify!(OperatorJoinedService),
             ::core::stringify!(SubscriptionBilled),
             ::core::stringify!(BlueprintUpdated),
             ::core::stringify!(BlueprintCreated),
+            ::core::stringify!(ServiceTerminated),
+            ::core::stringify!(JobCompleted),
+            ::core::stringify!(ServiceActivated),
             ::core::stringify!(OperatorUnregistered),
             ::core::stringify!(JobResultSubmitted),
             ::core::stringify!(OperatorLeftService),
-            ::core::stringify!(ServiceActivated),
-            ::core::stringify!(ServiceTerminated),
-            ::core::stringify!(JobCompleted),
             ::core::stringify!(OperatorPreferencesUpdated),
+            ::core::stringify!(ServiceRequested),
             ::core::stringify!(ServiceRejected),
             ::core::stringify!(ServiceApproved),
             ::core::stringify!(BlueprintTransferred),
-            ::core::stringify!(OperatorOnlineStatusChanged),
             ::core::stringify!(JobSubmitted),
             ::core::stringify!(BlueprintDeactivated),
             ::core::stringify!(ServiceRequestedWithSecurity),
             ::core::stringify!(RewardsDistributed),
-            ::core::stringify!(ServiceRequested),
             ::core::stringify!(RewardsClaimed),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
             <OperatorRegistered as alloy_sol_types::SolEvent>::SIGNATURE,
-            <ServiceCreatedFromQuotes as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorJoinedService as alloy_sol_types::SolEvent>::SIGNATURE,
             <SubscriptionBilled as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintUpdated as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintCreated as alloy_sol_types::SolEvent>::SIGNATURE,
+            <ServiceTerminated as alloy_sol_types::SolEvent>::SIGNATURE,
+            <JobCompleted as alloy_sol_types::SolEvent>::SIGNATURE,
+            <ServiceActivated as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorUnregistered as alloy_sol_types::SolEvent>::SIGNATURE,
             <JobResultSubmitted as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorLeftService as alloy_sol_types::SolEvent>::SIGNATURE,
-            <ServiceActivated as alloy_sol_types::SolEvent>::SIGNATURE,
-            <ServiceTerminated as alloy_sol_types::SolEvent>::SIGNATURE,
-            <JobCompleted as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorPreferencesUpdated as alloy_sol_types::SolEvent>::SIGNATURE,
+            <ServiceRequested as alloy_sol_types::SolEvent>::SIGNATURE,
             <ServiceRejected as alloy_sol_types::SolEvent>::SIGNATURE,
             <ServiceApproved as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintTransferred as alloy_sol_types::SolEvent>::SIGNATURE,
-            <OperatorOnlineStatusChanged as alloy_sol_types::SolEvent>::SIGNATURE,
             <JobSubmitted as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintDeactivated as alloy_sol_types::SolEvent>::SIGNATURE,
             <ServiceRequestedWithSecurity as alloy_sol_types::SolEvent>::SIGNATURE,
             <RewardsDistributed as alloy_sol_types::SolEvent>::SIGNATURE,
-            <ServiceRequested as alloy_sol_types::SolEvent>::SIGNATURE,
             <RewardsClaimed as alloy_sol_types::SolEvent>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -31875,7 +30716,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for ITangleEvents {
         const NAME: &'static str = "ITangleEvents";
-        const COUNT: usize = 23usize;
+        const COUNT: usize = 21usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -31955,15 +30796,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         .map(Self::OperatorLeftService)
                 }
                 Some(
-                    <OperatorOnlineStatusChanged as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
-                ) => {
-                    <OperatorOnlineStatusChanged as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
-                        .map(Self::OperatorOnlineStatusChanged)
-                }
-                Some(
                     <OperatorPreferencesUpdated as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
                 ) => {
                     <OperatorPreferencesUpdated as alloy_sol_types::SolEvent>::decode_raw_log(
@@ -32019,15 +30851,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             data,
                         )
                         .map(Self::ServiceApproved)
-                }
-                Some(
-                    <ServiceCreatedFromQuotes as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
-                ) => {
-                    <ServiceCreatedFromQuotes as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
-                        .map(Self::ServiceCreatedFromQuotes)
                 }
                 Some(<ServiceRejected as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <ServiceRejected as alloy_sol_types::SolEvent>::decode_raw_log(
@@ -32115,9 +30938,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 Self::OperatorLeftService(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
-                Self::OperatorOnlineStatusChanged(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
                 Self::OperatorPreferencesUpdated(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -32137,9 +30957,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
                 Self::ServiceApproved(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
-                Self::ServiceCreatedFromQuotes(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
                 Self::ServiceRejected(inner) => {
@@ -32188,9 +31005,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 Self::OperatorLeftService(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
-                Self::OperatorOnlineStatusChanged(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
                 Self::OperatorPreferencesUpdated(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
@@ -32210,9 +31024,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::ServiceApproved(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
-                Self::ServiceCreatedFromQuotes(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::ServiceRejected(inner) => {
@@ -32873,17 +31684,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
-        ///Creates a new call builder for the [`getServiceTotalExposure`] function.
-        pub fn getServiceTotalExposure(
-            &self,
-            serviceId: u64,
-        ) -> alloy_contract::SolCallBuilder<&P, getServiceTotalExposureCall, N> {
-            self.call_builder(
-                &getServiceTotalExposureCall {
-                    serviceId,
-                },
-            )
-        }
         ///Creates a new call builder for the [`isOperatorRegistered`] function.
         pub fn isOperatorRegistered(
             &self,
@@ -33146,19 +31946,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, serviceCountCall, N> {
             self.call_builder(&serviceCountCall)
         }
-        ///Creates a new call builder for the [`setOperatorOnline`] function.
-        pub fn setOperatorOnline(
-            &self,
-            blueprintId: u64,
-            online: bool,
-        ) -> alloy_contract::SolCallBuilder<&P, setOperatorOnlineCall, N> {
-            self.call_builder(
-                &setOperatorOnlineCall {
-                    blueprintId,
-                    online,
-                },
-            )
-        }
         ///Creates a new call builder for the [`submitAggregatedResult`] function.
         pub fn submitAggregatedResult(
             &self,
@@ -33191,21 +31978,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 &submitJobCall {
                     serviceId,
                     jobIndex,
-                    inputs,
-                },
-            )
-        }
-        ///Creates a new call builder for the [`submitJobs`] function.
-        pub fn submitJobs(
-            &self,
-            serviceId: u64,
-            jobIndices: alloy::sol_types::private::Vec<u8>,
-            inputs: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
-        ) -> alloy_contract::SolCallBuilder<&P, submitJobsCall, N> {
-            self.call_builder(
-                &submitJobsCall {
-                    serviceId,
-                    jobIndices,
                     inputs,
                 },
             )
@@ -33364,12 +32136,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::Event<&P, OperatorLeftService, N> {
             self.event_filter::<OperatorLeftService>()
         }
-        ///Creates a new event filter for the [`OperatorOnlineStatusChanged`] event.
-        pub fn OperatorOnlineStatusChanged_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, OperatorOnlineStatusChanged, N> {
-            self.event_filter::<OperatorOnlineStatusChanged>()
-        }
         ///Creates a new event filter for the [`OperatorPreferencesUpdated`] event.
         pub fn OperatorPreferencesUpdated_filter(
             &self,
@@ -33411,12 +32177,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::Event<&P, ServiceApproved, N> {
             self.event_filter::<ServiceApproved>()
-        }
-        ///Creates a new event filter for the [`ServiceCreatedFromQuotes`] event.
-        pub fn ServiceCreatedFromQuotes_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, ServiceCreatedFromQuotes, N> {
-            self.event_filter::<ServiceCreatedFromQuotes>()
         }
         ///Creates a new event filter for the [`ServiceRejected`] event.
         pub fn ServiceRejected_filter(

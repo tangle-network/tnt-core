@@ -470,14 +470,13 @@ library Types {
 }
 
 interface ITangleJobs {
-    event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resultCount);
+    event JobCompleted(uint64 indexed serviceId, uint64 indexed callId);
     event JobResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, address indexed operator, bytes result);
     event JobSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint8 indexed jobIndex, address caller, bytes inputs);
 
     function getJobCall(uint64 serviceId, uint64 callId) external view returns (Types.JobCall memory);
     function submitAggregatedResult(uint64 serviceId, uint64 callId, bytes memory output, uint256 signerBitmap, uint256[2] memory aggregatedSignature, uint256[4] memory aggregatedPubkey) external;
     function submitJob(uint64 serviceId, uint8 jobIndex, bytes memory inputs) external payable returns (uint64 callId);
-    function submitJobs(uint64 serviceId, uint8[] memory jobIndices, bytes[] memory inputs) external payable returns (uint64[] memory callIds);
     function submitResult(uint64 serviceId, uint64 callId, bytes memory result) external;
     function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory results) external;
 }
@@ -611,35 +610,6 @@ interface ITangleJobs {
   },
   {
     "type": "function",
-    "name": "submitJobs",
-    "inputs": [
-      {
-        "name": "serviceId",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "jobIndices",
-        "type": "uint8[]",
-        "internalType": "uint8[]"
-      },
-      {
-        "name": "inputs",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "callIds",
-        "type": "uint64[]",
-        "internalType": "uint64[]"
-      }
-    ],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
     "name": "submitResult",
     "inputs": [
       {
@@ -699,12 +669,6 @@ interface ITangleJobs {
         "type": "uint64",
         "indexed": true,
         "internalType": "uint64"
-      },
-      {
-        "name": "resultCount",
-        "type": "uint32",
-        "indexed": false,
-        "internalType": "uint32"
       }
     ],
     "anonymous": false
@@ -811,9 +775,9 @@ pub mod ITangleJobs {
     );
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `JobCompleted(uint64,uint64,uint32)` and selector `0xb5ffe15f61c0f965634ac694da1fbea788e328225b83f9a207152cba6c5a3c63`.
+    /**Event with signature `JobCompleted(uint64,uint64)` and selector `0x60a7649f6e93e7a3ce1dc9729c20e3d95dce28c6a6bd957cde09d8a1cb37c19f`.
 ```solidity
-event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resultCount);
+event JobCompleted(uint64 indexed serviceId, uint64 indexed callId);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -827,8 +791,6 @@ event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resul
         pub serviceId: u64,
         #[allow(missing_docs)]
         pub callId: u64,
-        #[allow(missing_docs)]
-        pub resultCount: u32,
     }
     #[allow(
         non_camel_case_types,
@@ -840,7 +802,7 @@ event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resul
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for JobCompleted {
-            type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<32>,);
+            type DataTuple<'a> = ();
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -849,11 +811,11 @@ event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resul
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<64>,
             );
-            const SIGNATURE: &'static str = "JobCompleted(uint64,uint64,uint32)";
+            const SIGNATURE: &'static str = "JobCompleted(uint64,uint64)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                181u8, 255u8, 225u8, 95u8, 97u8, 192u8, 249u8, 101u8, 99u8, 74u8, 198u8,
-                148u8, 218u8, 31u8, 190u8, 167u8, 136u8, 227u8, 40u8, 34u8, 91u8, 131u8,
-                249u8, 162u8, 7u8, 21u8, 44u8, 186u8, 108u8, 90u8, 60u8, 99u8,
+                96u8, 167u8, 100u8, 159u8, 110u8, 147u8, 231u8, 163u8, 206u8, 29u8,
+                201u8, 114u8, 156u8, 32u8, 227u8, 217u8, 93u8, 206u8, 40u8, 198u8, 166u8,
+                189u8, 149u8, 124u8, 222u8, 9u8, 216u8, 161u8, 203u8, 55u8, 193u8, 159u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -865,7 +827,6 @@ event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resul
                 Self {
                     serviceId: topics.1,
                     callId: topics.2,
-                    resultCount: data.0,
                 }
             }
             #[inline]
@@ -885,11 +846,7 @@ event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resul
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        32,
-                    > as alloy_sol_types::SolType>::tokenize(&self.resultCount),
-                )
+                ()
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
@@ -1779,188 +1736,6 @@ function submitJob(uint64 serviceId, uint8 jobIndex, bytes memory inputs) extern
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `submitJobs(uint64,uint8[],bytes[])` and selector `0x1a59f858`.
-```solidity
-function submitJobs(uint64 serviceId, uint8[] memory jobIndices, bytes[] memory inputs) external payable returns (uint64[] memory callIds);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct submitJobsCall {
-        #[allow(missing_docs)]
-        pub serviceId: u64,
-        #[allow(missing_docs)]
-        pub jobIndices: alloy::sol_types::private::Vec<u8>,
-        #[allow(missing_docs)]
-        pub inputs: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
-    }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`submitJobs(uint64,uint8[],bytes[])`](submitJobsCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct submitJobsReturn {
-        #[allow(missing_docs)]
-        pub callIds: alloy::sol_types::private::Vec<u64>,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<8>>,
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Bytes>,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                u64,
-                alloy::sol_types::private::Vec<u8>,
-                alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<submitJobsCall> for UnderlyingRustTuple<'_> {
-                fn from(value: submitJobsCall) -> Self {
-                    (value.serviceId, value.jobIndices, value.inputs)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for submitJobsCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        serviceId: tuple.0,
-                        jobIndices: tuple.1,
-                        inputs: tuple.2,
-                    }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Vec<u64>,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<submitJobsReturn> for UnderlyingRustTuple<'_> {
-                fn from(value: submitJobsReturn) -> Self {
-                    (value.callIds,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for submitJobsReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { callIds: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for submitJobsCall {
-            type Parameters<'a> = (
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<8>>,
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Bytes>,
-            );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::Vec<u64>;
-            type ReturnTuple<'a> = (
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,
-            );
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "submitJobs(uint64,uint8[],bytes[])";
-            const SELECTOR: [u8; 4] = [26u8, 89u8, 248u8, 88u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Uint<8>,
-                    > as alloy_sol_types::SolType>::tokenize(&self.jobIndices),
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Bytes,
-                    > as alloy_sol_types::SolType>::tokenize(&self.inputs),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Uint<64>,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: submitJobsReturn = r.into();
-                        r.callIds
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: submitJobsReturn = r.into();
-                        r.callIds
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `submitResult(uint64,uint64,bytes)` and selector `0x2d07e655`.
 ```solidity
 function submitResult(uint64 serviceId, uint64 callId, bytes memory result) external;
@@ -2307,8 +2082,6 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
         #[allow(missing_docs)]
         submitJob(submitJobCall),
         #[allow(missing_docs)]
-        submitJobs(submitJobsCall),
-        #[allow(missing_docs)]
         submitResult(submitResultCall),
         #[allow(missing_docs)]
         submitResults(submitResultsCall),
@@ -2321,7 +2094,6 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
         ///
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
-            [26u8, 89u8, 248u8, 88u8],
             [45u8, 7u8, 230u8, 85u8],
             [52u8, 19u8, 232u8, 238u8],
             [166u8, 114u8, 188u8, 10u8],
@@ -2330,7 +2102,6 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
-            ::core::stringify!(submitJobs),
             ::core::stringify!(submitResult),
             ::core::stringify!(submitJob),
             ::core::stringify!(getJobCall),
@@ -2339,7 +2110,6 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
-            <submitJobsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <submitResultCall as alloy_sol_types::SolCall>::SIGNATURE,
             <submitJobCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getJobCallCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -2371,7 +2141,7 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
     impl alloy_sol_types::SolInterface for ITangleJobsCalls {
         const NAME: &'static str = "ITangleJobsCalls";
         const MIN_DATA_LENGTH: usize = 64usize;
-        const COUNT: usize = 6usize;
+        const COUNT: usize = 5usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -2383,9 +2153,6 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
                 }
                 Self::submitJob(_) => {
                     <submitJobCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::submitJobs(_) => {
-                    <submitJobsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::submitResult(_) => {
                     <submitResultCall as alloy_sol_types::SolCall>::SELECTOR
@@ -2412,17 +2179,6 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
             static DECODE_SHIMS: &[fn(
                 &[u8],
             ) -> alloy_sol_types::Result<ITangleJobsCalls>] = &[
-                {
-                    fn submitJobs(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleJobsCalls> {
-                        <submitJobsCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleJobsCalls::submitJobs)
-                    }
-                    submitJobs
-                },
                 {
                     fn submitResult(
                         data: &[u8],
@@ -2496,17 +2252,6 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
             ) -> alloy_sol_types::Result<ITangleJobsCalls>] = &[
-                {
-                    fn submitJobs(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleJobsCalls> {
-                        <submitJobsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleJobsCalls::submitJobs)
-                    }
-                    submitJobs
-                },
                 {
                     fn submitResult(
                         data: &[u8],
@@ -2587,9 +2332,6 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
                 Self::submitJob(inner) => {
                     <submitJobCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
-                Self::submitJobs(inner) => {
-                    <submitJobsCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
-                }
                 Self::submitResult(inner) => {
                     <submitResultCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -2619,12 +2361,6 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
                 }
                 Self::submitJob(inner) => {
                     <submitJobCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::submitJobs(inner) => {
-                    <submitJobsCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -2665,14 +2401,14 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
+                96u8, 167u8, 100u8, 159u8, 110u8, 147u8, 231u8, 163u8, 206u8, 29u8,
+                201u8, 114u8, 156u8, 32u8, 227u8, 217u8, 93u8, 206u8, 40u8, 198u8, 166u8,
+                189u8, 149u8, 124u8, 222u8, 9u8, 216u8, 161u8, 203u8, 55u8, 193u8, 159u8,
+            ],
+            [
                 138u8, 4u8, 249u8, 159u8, 226u8, 50u8, 132u8, 232u8, 116u8, 232u8, 221u8,
                 1u8, 115u8, 69u8, 36u8, 130u8, 121u8, 204u8, 89u8, 112u8, 22u8, 149u8,
                 231u8, 59u8, 205u8, 190u8, 182u8, 36u8, 27u8, 205u8, 42u8, 198u8,
-            ],
-            [
-                181u8, 255u8, 225u8, 95u8, 97u8, 192u8, 249u8, 101u8, 99u8, 74u8, 198u8,
-                148u8, 218u8, 31u8, 190u8, 167u8, 136u8, 227u8, 40u8, 34u8, 91u8, 131u8,
-                249u8, 162u8, 7u8, 21u8, 44u8, 186u8, 108u8, 90u8, 60u8, 99u8,
             ],
             [
                 222u8, 55u8, 204u8, 72u8, 210u8, 23u8, 120u8, 225u8, 201u8, 160u8, 117u8,
@@ -2682,14 +2418,14 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
-            ::core::stringify!(JobResultSubmitted),
             ::core::stringify!(JobCompleted),
+            ::core::stringify!(JobResultSubmitted),
             ::core::stringify!(JobSubmitted),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
-            <JobResultSubmitted as alloy_sol_types::SolEvent>::SIGNATURE,
             <JobCompleted as alloy_sol_types::SolEvent>::SIGNATURE,
+            <JobResultSubmitted as alloy_sol_types::SolEvent>::SIGNATURE,
             <JobSubmitted as alloy_sol_types::SolEvent>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -2990,21 +2726,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 &submitJobCall {
                     serviceId,
                     jobIndex,
-                    inputs,
-                },
-            )
-        }
-        ///Creates a new call builder for the [`submitJobs`] function.
-        pub fn submitJobs(
-            &self,
-            serviceId: u64,
-            jobIndices: alloy::sol_types::private::Vec<u8>,
-            inputs: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
-        ) -> alloy_contract::SolCallBuilder<&P, submitJobsCall, N> {
-            self.call_builder(
-                &submitJobsCall {
-                    serviceId,
-                    jobIndices,
                     inputs,
                 },
             )

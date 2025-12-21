@@ -4288,14 +4288,13 @@ library Types {
 interface ITangleServices {
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
     event OperatorLeftService(uint64 indexed serviceId, address indexed operator);
-    event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId, address owner, address[] operators);
+    event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId);
     event ServiceApproved(uint64 indexed requestId, address indexed operator);
-    event ServiceCreatedFromQuotes(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed owner, address[] operators);
     event ServiceRejected(uint64 indexed requestId, address indexed operator);
-    event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester, address[] operators, bytes config, uint64 ttl, address paymentToken, uint256 paymentAmount);
+    event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
     event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester, address[] operators, Types.AssetSecurityRequirement[] securityRequirements);
-    event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
-    event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billedAt);
+    event ServiceTerminated(uint64 indexed serviceId);
+    event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
 
     function addPermittedCaller(uint64 serviceId, address caller) external;
     function approveService(uint64 requestId, uint8 restakingPercent) external;
@@ -4323,7 +4322,6 @@ interface ITangleServices {
     function getServiceRequestSecurityRequirements(uint64 requestId) external view returns (Types.AssetSecurityRequirement[] memory);
     function getServiceSecurityCommitments(uint64 serviceId, address operator) external view returns (Types.AssetSecurityCommitment[] memory);
     function getServiceSecurityRequirements(uint64 serviceId) external view returns (Types.AssetSecurityRequirement[] memory);
-    function getServiceTotalExposure(uint64 serviceId) external view returns (uint256);
     function isPermittedCaller(uint64 serviceId, address caller) external view returns (bool);
     function isServiceActive(uint64 serviceId) external view returns (bool);
     function isServiceOperator(uint64 serviceId, address operator) external view returns (bool);
@@ -5363,25 +5361,6 @@ interface ITangleServices {
   },
   {
     "type": "function",
-    "name": "getServiceTotalExposure",
-    "inputs": [
-      {
-        "name": "serviceId",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "isPermittedCaller",
     "inputs": [
       {
@@ -5846,18 +5825,6 @@ interface ITangleServices {
         "type": "uint64",
         "indexed": true,
         "internalType": "uint64"
-      },
-      {
-        "name": "owner",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "operators",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
       }
     ],
     "anonymous": false
@@ -5877,37 +5844,6 @@ interface ITangleServices {
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "ServiceCreatedFromQuotes",
-    "inputs": [
-      {
-        "name": "serviceId",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "blueprintId",
-        "type": "uint64",
-        "indexed": true,
-        "internalType": "uint64"
-      },
-      {
-        "name": "owner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "operators",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
       }
     ],
     "anonymous": false
@@ -5952,36 +5888,6 @@ interface ITangleServices {
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      },
-      {
-        "name": "operators",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
-      },
-      {
-        "name": "config",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
-      },
-      {
-        "name": "ttl",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      },
-      {
-        "name": "paymentToken",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "paymentAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -6061,12 +5967,6 @@ interface ITangleServices {
         "type": "uint64",
         "indexed": true,
         "internalType": "uint64"
-      },
-      {
-        "name": "owner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -6088,7 +5988,7 @@ interface ITangleServices {
         "internalType": "uint256"
       },
       {
-        "name": "billedAt",
+        "name": "period",
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
@@ -6377,9 +6277,9 @@ event OperatorLeftService(uint64 indexed serviceId, address indexed operator);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `ServiceActivated(uint64,uint64,uint64,address,address[])` and selector `0x93003b4812f9ce52c058cbded90d70bf175b4f77d5998eaf9f263c72fdcc87ca`.
+    /**Event with signature `ServiceActivated(uint64,uint64,uint64)` and selector `0x741e97ee1ff887c4d882f4c49ad280ea7d61d035e4e8a471e531951550275023`.
 ```solidity
-event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId, address owner, address[] operators);
+event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -6395,12 +6295,6 @@ event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint6
         pub requestId: u64,
         #[allow(missing_docs)]
         pub blueprintId: u64,
-        #[allow(missing_docs)]
-        pub owner: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub operators: alloy::sol_types::private::Vec<
-            alloy::sol_types::private::Address,
-        >,
     }
     #[allow(
         non_camel_case_types,
@@ -6412,10 +6306,7 @@ event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint6
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for ServiceActivated {
-            type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
-            );
+            type DataTuple<'a> = ();
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -6425,11 +6316,12 @@ event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint6
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<64>,
             );
-            const SIGNATURE: &'static str = "ServiceActivated(uint64,uint64,uint64,address,address[])";
+            const SIGNATURE: &'static str = "ServiceActivated(uint64,uint64,uint64)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                147u8, 0u8, 59u8, 72u8, 18u8, 249u8, 206u8, 82u8, 192u8, 88u8, 203u8,
-                222u8, 217u8, 13u8, 112u8, 191u8, 23u8, 91u8, 79u8, 119u8, 213u8, 153u8,
-                142u8, 175u8, 159u8, 38u8, 60u8, 114u8, 253u8, 204u8, 135u8, 202u8,
+                116u8, 30u8, 151u8, 238u8, 31u8, 248u8, 135u8, 196u8, 216u8, 130u8,
+                244u8, 196u8, 154u8, 210u8, 128u8, 234u8, 125u8, 97u8, 208u8, 53u8,
+                228u8, 232u8, 164u8, 113u8, 229u8, 49u8, 149u8, 21u8, 80u8, 39u8, 80u8,
+                35u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -6442,8 +6334,6 @@ event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint6
                     serviceId: topics.1,
                     requestId: topics.2,
                     blueprintId: topics.3,
-                    owner: data.0,
-                    operators: data.1,
                 }
             }
             #[inline]
@@ -6463,14 +6353,7 @@ event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint6
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.owner,
-                    ),
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Address,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operators),
-                )
+                ()
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
@@ -6643,147 +6526,6 @@ event ServiceApproved(uint64 indexed requestId, address indexed operator);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `ServiceCreatedFromQuotes(uint64,uint64,address,address[])` and selector `0x0fb6ea41be7e4b4d030ff394e280973a01fb8e2ca9da7c900ae309669a177519`.
-```solidity
-event ServiceCreatedFromQuotes(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed owner, address[] operators);
-```*/
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    #[derive(Clone)]
-    pub struct ServiceCreatedFromQuotes {
-        #[allow(missing_docs)]
-        pub serviceId: u64,
-        #[allow(missing_docs)]
-        pub blueprintId: u64,
-        #[allow(missing_docs)]
-        pub owner: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub operators: alloy::sol_types::private::Vec<
-            alloy::sol_types::private::Address,
-        >,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[automatically_derived]
-        impl alloy_sol_types::SolEvent for ServiceCreatedFromQuotes {
-            type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
-            );
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type TopicList = (
-                alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
-            );
-            const SIGNATURE: &'static str = "ServiceCreatedFromQuotes(uint64,uint64,address,address[])";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                15u8, 182u8, 234u8, 65u8, 190u8, 126u8, 75u8, 77u8, 3u8, 15u8, 243u8,
-                148u8, 226u8, 128u8, 151u8, 58u8, 1u8, 251u8, 142u8, 44u8, 169u8, 218u8,
-                124u8, 144u8, 10u8, 227u8, 9u8, 102u8, 154u8, 23u8, 117u8, 25u8,
-            ]);
-            const ANONYMOUS: bool = false;
-            #[allow(unused_variables)]
-            #[inline]
-            fn new(
-                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
-                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                Self {
-                    serviceId: topics.1,
-                    blueprintId: topics.2,
-                    owner: topics.3,
-                    operators: data.0,
-                }
-            }
-            #[inline]
-            fn check_signature(
-                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
-            ) -> alloy_sol_types::Result<()> {
-                if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
-                }
-                Ok(())
-            }
-            #[inline]
-            fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Address,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operators),
-                )
-            }
-            #[inline]
-            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (
-                    Self::SIGNATURE_HASH.into(),
-                    self.serviceId.clone(),
-                    self.blueprintId.clone(),
-                    self.owner.clone(),
-                )
-            }
-            #[inline]
-            fn encode_topics_raw(
-                &self,
-                out: &mut [alloy_sol_types::abi::token::WordToken],
-            ) -> alloy_sol_types::Result<()> {
-                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
-                    return Err(alloy_sol_types::Error::Overrun);
-                }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
-                out[1usize] = <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
-                out[2usize] = <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic(&self.blueprintId);
-                out[3usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.owner,
-                );
-                Ok(())
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::IntoLogData for ServiceCreatedFromQuotes {
-            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
-                From::from(self)
-            }
-            fn into_log_data(self) -> alloy_sol_types::private::LogData {
-                From::from(&self)
-            }
-        }
-        #[automatically_derived]
-        impl From<&ServiceCreatedFromQuotes> for alloy_sol_types::private::LogData {
-            #[inline]
-            fn from(
-                this: &ServiceCreatedFromQuotes,
-            ) -> alloy_sol_types::private::LogData {
-                alloy_sol_types::SolEvent::encode_log_data(this)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `ServiceRejected(uint64,address)` and selector `0xc63050b963ec6e2cf36df90ecacaa43212c0e74b8c3a58a0f8cce3bd5a2a7675`.
 ```solidity
 event ServiceRejected(uint64 indexed requestId, address indexed operator);
@@ -6904,9 +6646,9 @@ event ServiceRejected(uint64 indexed requestId, address indexed operator);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `ServiceRequested(uint64,uint64,address,address[],bytes,uint64,address,uint256)` and selector `0xf0d5943a10a17d85e69b14bab3db69ceff3f919bb7fcf79aafeffc39ba1a7eaf`.
+    /**Event with signature `ServiceRequested(uint64,uint64,address)` and selector `0xbd1fdda393b679e6c4f873e233b34e2c4ea8283a3f76345dbc143b86ea047679`.
 ```solidity
-event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester, address[] operators, bytes config, uint64 ttl, address paymentToken, uint256 paymentAmount);
+event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -6922,18 +6664,6 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
         pub blueprintId: u64,
         #[allow(missing_docs)]
         pub requester: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub operators: alloy::sol_types::private::Vec<
-            alloy::sol_types::private::Address,
-        >,
-        #[allow(missing_docs)]
-        pub config: alloy::sol_types::private::Bytes,
-        #[allow(missing_docs)]
-        pub ttl: u64,
-        #[allow(missing_docs)]
-        pub paymentToken: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub paymentAmount: alloy::sol_types::private::primitives::aliases::U256,
     }
     #[allow(
         non_camel_case_types,
@@ -6945,13 +6675,7 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for ServiceRequested {
-            type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
-                alloy::sol_types::sol_data::Bytes,
-                alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Uint<256>,
-            );
+            type DataTuple<'a> = ();
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -6961,11 +6685,11 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "ServiceRequested(uint64,uint64,address,address[],bytes,uint64,address,uint256)";
+            const SIGNATURE: &'static str = "ServiceRequested(uint64,uint64,address)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                240u8, 213u8, 148u8, 58u8, 16u8, 161u8, 125u8, 133u8, 230u8, 155u8, 20u8,
-                186u8, 179u8, 219u8, 105u8, 206u8, 255u8, 63u8, 145u8, 155u8, 183u8,
-                252u8, 247u8, 154u8, 175u8, 239u8, 252u8, 57u8, 186u8, 26u8, 126u8, 175u8,
+                189u8, 31u8, 221u8, 163u8, 147u8, 182u8, 121u8, 230u8, 196u8, 248u8,
+                115u8, 226u8, 51u8, 179u8, 78u8, 44u8, 78u8, 168u8, 40u8, 58u8, 63u8,
+                118u8, 52u8, 93u8, 188u8, 20u8, 59u8, 134u8, 234u8, 4u8, 118u8, 121u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -6978,11 +6702,6 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
                     requestId: topics.1,
                     blueprintId: topics.2,
                     requester: topics.3,
-                    operators: data.0,
-                    config: data.1,
-                    ttl: data.2,
-                    paymentToken: data.3,
-                    paymentAmount: data.4,
                 }
             }
             #[inline]
@@ -7002,23 +6721,7 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Address,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operators),
-                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
-                        &self.config,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.ttl),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.paymentToken,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.paymentAmount),
-                )
+                ()
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
@@ -7221,9 +6924,9 @@ event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blue
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `ServiceTerminated(uint64,address)` and selector `0x946bc863ee08c6c14af4e70163bd1597c71122f2f0589abce60a78e01e8cfb74`.
+    /**Event with signature `ServiceTerminated(uint64)` and selector `0x3fd558a59bbce1d996d17eab7fde314bcd201ec3f17375a7f873b3162927e881`.
 ```solidity
-event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
+event ServiceTerminated(uint64 indexed serviceId);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -7235,8 +6938,6 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
     pub struct ServiceTerminated {
         #[allow(missing_docs)]
         pub serviceId: u64,
-        #[allow(missing_docs)]
-        pub owner: alloy::sol_types::private::Address,
     }
     #[allow(
         non_camel_case_types,
@@ -7255,13 +6956,12 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "ServiceTerminated(uint64,address)";
+            const SIGNATURE: &'static str = "ServiceTerminated(uint64)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                148u8, 107u8, 200u8, 99u8, 238u8, 8u8, 198u8, 193u8, 74u8, 244u8, 231u8,
-                1u8, 99u8, 189u8, 21u8, 151u8, 199u8, 17u8, 34u8, 242u8, 240u8, 88u8,
-                154u8, 188u8, 230u8, 10u8, 120u8, 224u8, 30u8, 140u8, 251u8, 116u8,
+                63u8, 213u8, 88u8, 165u8, 155u8, 188u8, 225u8, 217u8, 150u8, 209u8,
+                126u8, 171u8, 127u8, 222u8, 49u8, 75u8, 205u8, 32u8, 30u8, 195u8, 241u8,
+                115u8, 117u8, 167u8, 248u8, 115u8, 179u8, 22u8, 41u8, 39u8, 232u8, 129u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -7270,10 +6970,7 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
                 topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
                 data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
             ) -> Self {
-                Self {
-                    serviceId: topics.1,
-                    owner: topics.2,
-                }
+                Self { serviceId: topics.1 }
             }
             #[inline]
             fn check_signature(
@@ -7296,7 +6993,7 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.serviceId.clone(), self.owner.clone())
+                (Self::SIGNATURE_HASH.into(), self.serviceId.clone())
             }
             #[inline]
             fn encode_topics_raw(
@@ -7312,9 +7009,6 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
                 out[1usize] = <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
-                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.owner,
-                );
                 Ok(())
             }
         }
@@ -7339,7 +7033,7 @@ event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `SubscriptionBilled(uint64,uint256,uint64)` and selector `0x24dc485bef04b4d790d97ac10381d8d9e66c56dd6fba9931b703ca169511778a`.
 ```solidity
-event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billedAt);
+event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -7354,7 +7048,7 @@ event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billed
         #[allow(missing_docs)]
         pub amount: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
-        pub billedAt: u64,
+        pub period: u64,
     }
     #[allow(
         non_camel_case_types,
@@ -7393,7 +7087,7 @@ event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billed
                 Self {
                     serviceId: topics.1,
                     amount: data.0,
-                    billedAt: data.1,
+                    period: data.1,
                 }
             }
             #[inline]
@@ -7419,7 +7113,7 @@ event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billed
                     > as alloy_sol_types::SolType>::tokenize(&self.amount),
                     <alloy::sol_types::sol_data::Uint<
                         64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.billedAt),
+                    > as alloy_sol_types::SolType>::tokenize(&self.period),
                 )
             }
             #[inline]
@@ -11761,164 +11455,6 @@ function getServiceSecurityRequirements(uint64 serviceId) external view returns 
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `getServiceTotalExposure(uint64)` and selector `0x3e354514`.
-```solidity
-function getServiceTotalExposure(uint64 serviceId) external view returns (uint256);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct getServiceTotalExposureCall {
-        #[allow(missing_docs)]
-        pub serviceId: u64,
-    }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`getServiceTotalExposure(uint64)`](getServiceTotalExposureCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct getServiceTotalExposureReturn {
-        #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u64,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<getServiceTotalExposureCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: getServiceTotalExposureCall) -> Self {
-                    (value.serviceId,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for getServiceTotalExposureCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { serviceId: tuple.0 }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<getServiceTotalExposureReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: getServiceTotalExposureReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for getServiceTotalExposureReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for getServiceTotalExposureCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::primitives::aliases::U256;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "getServiceTotalExposure(uint64)";
-            const SELECTOR: [u8; 4] = [62u8, 53u8, 69u8, 20u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: getServiceTotalExposureReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: getServiceTotalExposureReturn = r.into();
-                        r._0
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `isPermittedCaller(uint64,address)` and selector `0x2ec2bd03`.
 ```solidity
 function isPermittedCaller(uint64 serviceId, address caller) external view returns (bool);
@@ -14408,8 +13944,6 @@ function terminateService(uint64 serviceId) external;
         #[allow(missing_docs)]
         getServiceSecurityRequirements(getServiceSecurityRequirementsCall),
         #[allow(missing_docs)]
-        getServiceTotalExposure(getServiceTotalExposureCall),
-        #[allow(missing_docs)]
         isPermittedCaller(isPermittedCallerCall),
         #[allow(missing_docs)]
         isServiceActive(isServiceActiveCall),
@@ -14455,7 +13989,6 @@ function terminateService(uint64 serviceId) external;
             [46u8, 194u8, 189u8, 3u8],
             [47u8, 70u8, 39u8, 159u8],
             [61u8, 192u8, 213u8, 254u8],
-            [62u8, 53u8, 69u8, 20u8],
             [66u8, 127u8, 253u8, 233u8],
             [91u8, 113u8, 201u8, 52u8],
             [95u8, 53u8, 153u8, 36u8],
@@ -14499,7 +14032,6 @@ function terminateService(uint64 serviceId) external;
             ::core::stringify!(isPermittedCaller),
             ::core::stringify!(isServiceActive),
             ::core::stringify!(getService),
-            ::core::stringify!(getServiceTotalExposure),
             ::core::stringify!(getExitStatus),
             ::core::stringify!(terminateService),
             ::core::stringify!(removePermittedCaller),
@@ -14543,7 +14075,6 @@ function terminateService(uint64 serviceId) external;
             <isPermittedCallerCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isServiceActiveCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <getServiceTotalExposureCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getExitStatusCall as alloy_sol_types::SolCall>::SIGNATURE,
             <terminateServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <removePermittedCallerCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -14601,7 +14132,7 @@ function terminateService(uint64 serviceId) external;
     impl alloy_sol_types::SolInterface for ITangleServicesCalls {
         const NAME: &'static str = "ITangleServicesCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 41usize;
+        const COUNT: usize = 40usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -14682,9 +14213,6 @@ function terminateService(uint64 serviceId) external;
                 }
                 Self::getServiceSecurityRequirements(_) => {
                     <getServiceSecurityRequirementsCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::getServiceTotalExposure(_) => {
-                    <getServiceTotalExposureCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::isPermittedCaller(_) => {
                     <isPermittedCallerCall as alloy_sol_types::SolCall>::SELECTOR
@@ -14847,17 +14375,6 @@ function terminateService(uint64 serviceId) external;
                             .map(ITangleServicesCalls::getService)
                     }
                     getService
-                },
-                {
-                    fn getServiceTotalExposure(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleServicesCalls> {
-                        <getServiceTotalExposureCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleServicesCalls::getServiceTotalExposure)
-                    }
-                    getServiceTotalExposure
                 },
                 {
                     fn getExitStatus(
@@ -15320,17 +14837,6 @@ function terminateService(uint64 serviceId) external;
                             .map(ITangleServicesCalls::getService)
                     }
                     getService
-                },
-                {
-                    fn getServiceTotalExposure(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleServicesCalls> {
-                        <getServiceTotalExposureCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleServicesCalls::getServiceTotalExposure)
-                    }
-                    getServiceTotalExposure
                 },
                 {
                     fn getExitStatus(
@@ -15813,11 +15319,6 @@ function terminateService(uint64 serviceId) external;
                         inner,
                     )
                 }
-                Self::getServiceTotalExposure(inner) => {
-                    <getServiceTotalExposureCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::isPermittedCaller(inner) => {
                     <isPermittedCallerCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -16049,12 +15550,6 @@ function terminateService(uint64 serviceId) external;
                         out,
                     )
                 }
-                Self::getServiceTotalExposure(inner) => {
-                    <getServiceTotalExposureCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::isPermittedCaller(inner) => {
                     <isPermittedCallerCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -16156,8 +15651,6 @@ function terminateService(uint64 serviceId) external;
         #[allow(missing_docs)]
         ServiceApproved(ServiceApproved),
         #[allow(missing_docs)]
-        ServiceCreatedFromQuotes(ServiceCreatedFromQuotes),
-        #[allow(missing_docs)]
         ServiceRejected(ServiceRejected),
         #[allow(missing_docs)]
         ServiceRequested(ServiceRequested),
@@ -16177,11 +15670,6 @@ function terminateService(uint64 serviceId) external;
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                15u8, 182u8, 234u8, 65u8, 190u8, 126u8, 75u8, 77u8, 3u8, 15u8, 243u8,
-                148u8, 226u8, 128u8, 151u8, 58u8, 1u8, 251u8, 142u8, 44u8, 169u8, 218u8,
-                124u8, 144u8, 10u8, 227u8, 9u8, 102u8, 154u8, 23u8, 117u8, 25u8,
-            ],
-            [
                 36u8, 87u8, 145u8, 135u8, 150u8, 7u8, 132u8, 64u8, 6u8, 131u8, 133u8,
                 231u8, 62u8, 66u8, 37u8, 57u8, 200u8, 79u8, 47u8, 144u8, 69u8, 221u8,
                 68u8, 46u8, 18u8, 61u8, 66u8, 132u8, 37u8, 138u8, 226u8, 74u8,
@@ -16192,19 +15680,25 @@ function terminateService(uint64 serviceId) external;
                 153u8, 49u8, 183u8, 3u8, 202u8, 22u8, 149u8, 17u8, 119u8, 138u8,
             ],
             [
+                63u8, 213u8, 88u8, 165u8, 155u8, 188u8, 225u8, 217u8, 150u8, 209u8,
+                126u8, 171u8, 127u8, 222u8, 49u8, 75u8, 205u8, 32u8, 30u8, 195u8, 241u8,
+                115u8, 117u8, 167u8, 248u8, 115u8, 179u8, 22u8, 41u8, 39u8, 232u8, 129u8,
+            ],
+            [
+                116u8, 30u8, 151u8, 238u8, 31u8, 248u8, 135u8, 196u8, 216u8, 130u8,
+                244u8, 196u8, 154u8, 210u8, 128u8, 234u8, 125u8, 97u8, 208u8, 53u8,
+                228u8, 232u8, 164u8, 113u8, 229u8, 49u8, 149u8, 21u8, 80u8, 39u8, 80u8,
+                35u8,
+            ],
+            [
                 140u8, 229u8, 62u8, 75u8, 96u8, 2u8, 255u8, 9u8, 14u8, 100u8, 29u8,
                 222u8, 205u8, 175u8, 126u8, 221u8, 40u8, 19u8, 169u8, 142u8, 25u8, 19u8,
                 159u8, 167u8, 209u8, 199u8, 159u8, 204u8, 195u8, 196u8, 222u8, 173u8,
             ],
             [
-                147u8, 0u8, 59u8, 72u8, 18u8, 249u8, 206u8, 82u8, 192u8, 88u8, 203u8,
-                222u8, 217u8, 13u8, 112u8, 191u8, 23u8, 91u8, 79u8, 119u8, 213u8, 153u8,
-                142u8, 175u8, 159u8, 38u8, 60u8, 114u8, 253u8, 204u8, 135u8, 202u8,
-            ],
-            [
-                148u8, 107u8, 200u8, 99u8, 238u8, 8u8, 198u8, 193u8, 74u8, 244u8, 231u8,
-                1u8, 99u8, 189u8, 21u8, 151u8, 199u8, 17u8, 34u8, 242u8, 240u8, 88u8,
-                154u8, 188u8, 230u8, 10u8, 120u8, 224u8, 30u8, 140u8, 251u8, 116u8,
+                189u8, 31u8, 221u8, 163u8, 147u8, 182u8, 121u8, 230u8, 196u8, 248u8,
+                115u8, 226u8, 51u8, 179u8, 78u8, 44u8, 78u8, 168u8, 40u8, 58u8, 63u8,
+                118u8, 52u8, 93u8, 188u8, 20u8, 59u8, 134u8, 234u8, 4u8, 118u8, 121u8,
             ],
             [
                 198u8, 48u8, 80u8, 185u8, 99u8, 236u8, 110u8, 44u8, 243u8, 109u8, 249u8,
@@ -16221,37 +15715,30 @@ function terminateService(uint64 serviceId) external;
                 0u8, 139u8, 76u8, 249u8, 94u8, 154u8, 25u8, 37u8, 92u8, 182u8, 105u8,
                 92u8, 157u8, 53u8, 33u8, 92u8, 145u8, 74u8, 126u8, 132u8, 134u8,
             ],
-            [
-                240u8, 213u8, 148u8, 58u8, 16u8, 161u8, 125u8, 133u8, 230u8, 155u8, 20u8,
-                186u8, 179u8, 219u8, 105u8, 206u8, 255u8, 63u8, 145u8, 155u8, 183u8,
-                252u8, 247u8, 154u8, 175u8, 239u8, 252u8, 57u8, 186u8, 26u8, 126u8, 175u8,
-            ],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
-            ::core::stringify!(ServiceCreatedFromQuotes),
             ::core::stringify!(OperatorJoinedService),
             ::core::stringify!(SubscriptionBilled),
-            ::core::stringify!(OperatorLeftService),
-            ::core::stringify!(ServiceActivated),
             ::core::stringify!(ServiceTerminated),
+            ::core::stringify!(ServiceActivated),
+            ::core::stringify!(OperatorLeftService),
+            ::core::stringify!(ServiceRequested),
             ::core::stringify!(ServiceRejected),
             ::core::stringify!(ServiceApproved),
             ::core::stringify!(ServiceRequestedWithSecurity),
-            ::core::stringify!(ServiceRequested),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
-            <ServiceCreatedFromQuotes as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorJoinedService as alloy_sol_types::SolEvent>::SIGNATURE,
             <SubscriptionBilled as alloy_sol_types::SolEvent>::SIGNATURE,
-            <OperatorLeftService as alloy_sol_types::SolEvent>::SIGNATURE,
-            <ServiceActivated as alloy_sol_types::SolEvent>::SIGNATURE,
             <ServiceTerminated as alloy_sol_types::SolEvent>::SIGNATURE,
+            <ServiceActivated as alloy_sol_types::SolEvent>::SIGNATURE,
+            <OperatorLeftService as alloy_sol_types::SolEvent>::SIGNATURE,
+            <ServiceRequested as alloy_sol_types::SolEvent>::SIGNATURE,
             <ServiceRejected as alloy_sol_types::SolEvent>::SIGNATURE,
             <ServiceApproved as alloy_sol_types::SolEvent>::SIGNATURE,
             <ServiceRequestedWithSecurity as alloy_sol_types::SolEvent>::SIGNATURE,
-            <ServiceRequested as alloy_sol_types::SolEvent>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
         #[inline]
@@ -16277,7 +15764,7 @@ function terminateService(uint64 serviceId) external;
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for ITangleServicesEvents {
         const NAME: &'static str = "ITangleServicesEvents";
-        const COUNT: usize = 10usize;
+        const COUNT: usize = 9usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -16314,15 +15801,6 @@ function terminateService(uint64 serviceId) external;
                             data,
                         )
                         .map(Self::ServiceApproved)
-                }
-                Some(
-                    <ServiceCreatedFromQuotes as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
-                ) => {
-                    <ServiceCreatedFromQuotes as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
-                        .map(Self::ServiceCreatedFromQuotes)
                 }
                 Some(<ServiceRejected as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <ServiceRejected as alloy_sol_types::SolEvent>::decode_raw_log(
@@ -16395,9 +15873,6 @@ function terminateService(uint64 serviceId) external;
                 Self::ServiceApproved(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
-                Self::ServiceCreatedFromQuotes(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
                 Self::ServiceRejected(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -16427,9 +15902,6 @@ function terminateService(uint64 serviceId) external;
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::ServiceApproved(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
-                Self::ServiceCreatedFromQuotes(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::ServiceRejected(inner) => {
@@ -16917,17 +16389,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
-        ///Creates a new call builder for the [`getServiceTotalExposure`] function.
-        pub fn getServiceTotalExposure(
-            &self,
-            serviceId: u64,
-        ) -> alloy_contract::SolCallBuilder<&P, getServiceTotalExposureCall, N> {
-            self.call_builder(
-                &getServiceTotalExposureCall {
-                    serviceId,
-                },
-            )
-        }
         ///Creates a new call builder for the [`isPermittedCaller`] function.
         pub fn isPermittedCaller(
             &self,
@@ -17163,12 +16624,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::Event<&P, ServiceApproved, N> {
             self.event_filter::<ServiceApproved>()
-        }
-        ///Creates a new event filter for the [`ServiceCreatedFromQuotes`] event.
-        pub fn ServiceCreatedFromQuotes_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, ServiceCreatedFromQuotes, N> {
-            self.event_filter::<ServiceCreatedFromQuotes>()
         }
         ///Creates a new event filter for the [`ServiceRejected`] event.
         pub fn ServiceRejected_filter(
