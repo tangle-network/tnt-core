@@ -5,6 +5,9 @@ import { Types } from "../libraries/Types.sol";
 
 /// @title ITangleOperators
 /// @notice Operator registration and management interface
+/// @dev Operator liveness is tracked via OperatorStatusRegistry heartbeats,
+///      not a setOperatorOnline call. Use submitHeartbeat/isOnline/getOperatorStatus
+///      on the registry for liveness signals.
 interface ITangleOperators {
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -35,8 +38,6 @@ interface ITangleOperators {
         bytes ecdsaPublicKey,
         string rpcAddress
     );
-
-    event OperatorOnlineStatusChanged(uint64 indexed blueprintId, address indexed operator, bool online);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FUNCTIONS
@@ -78,9 +79,6 @@ interface ITangleOperators {
         bytes calldata ecdsaPublicKey,
         string calldata rpcAddress
     ) external;
-
-    /// @notice Set operator online/offline status
-    function setOperatorOnline(uint64 blueprintId, bool online) external;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS

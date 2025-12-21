@@ -25,7 +25,9 @@ interface ITangleJobs {
         bytes result
     );
 
-    event JobCompleted(uint64 indexed serviceId, uint64 indexed callId, uint32 resultCount);
+    /// @notice Emitted when a job reaches its required result threshold
+    /// @dev Derive resultCount from getJobCall(serviceId, callId).resultCount
+    event JobCompleted(uint64 indexed serviceId, uint64 indexed callId);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FUNCTIONS
@@ -37,13 +39,6 @@ interface ITangleJobs {
         uint8 jobIndex,
         bytes calldata inputs
     ) external payable returns (uint64 callId);
-
-    /// @notice Submit multiple jobs in one transaction
-    function submitJobs(
-        uint64 serviceId,
-        uint8[] calldata jobIndices,
-        bytes[] calldata inputs
-    ) external payable returns (uint64[] memory callIds);
 
     /// @notice Submit a job result (as operator)
     function submitResult(uint64 serviceId, uint64 callId, bytes calldata result) external;

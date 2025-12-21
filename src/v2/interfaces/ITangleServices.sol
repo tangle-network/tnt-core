@@ -11,16 +11,7 @@ interface ITangleServices {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event ServiceRequested(
-        uint64 indexed requestId,
-        uint64 indexed blueprintId,
-        address indexed requester,
-        address[] operators,
-        bytes config,
-        uint64 ttl,
-        address paymentToken,
-        uint256 paymentAmount
-    );
+    event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
 
     event ServiceRequestedWithSecurity(
         uint64 indexed requestId,
@@ -30,32 +21,19 @@ interface ITangleServices {
         Types.AssetSecurityRequirement[] securityRequirements
     );
 
-    event ServiceCreatedFromQuotes(
-        uint64 indexed serviceId,
-        uint64 indexed blueprintId,
-        address indexed owner,
-        address[] operators
-    );
-
     event ServiceApproved(uint64 indexed requestId, address indexed operator);
 
     event ServiceRejected(uint64 indexed requestId, address indexed operator);
 
-    event ServiceActivated(
-        uint64 indexed serviceId,
-        uint64 indexed requestId,
-        uint64 indexed blueprintId,
-        address owner,
-        address[] operators
-    );
+    event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId);
 
-    event ServiceTerminated(uint64 indexed serviceId, address indexed owner);
+    event ServiceTerminated(uint64 indexed serviceId);
 
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
 
     event OperatorLeftService(uint64 indexed serviceId, address indexed operator);
 
-    event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 billedAt);
+    event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE REQUEST FUNCTIONS
@@ -266,7 +244,6 @@ interface ITangleServices {
         returns (Types.AssetSecurityCommitment[] memory);
 
     /// @notice Get total exposure for a service
-    function getServiceTotalExposure(uint64 serviceId) external view returns (uint256);
 
     /// @notice Check if address can call jobs on service
     function isPermittedCaller(uint64 serviceId, address caller) external view returns (bool);
