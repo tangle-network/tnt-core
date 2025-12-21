@@ -54,9 +54,17 @@ fn gen_bindings() -> Result<()> {
         Command::new("forge")
             .current_dir(&repo_root)
             .arg("build")
-            .arg("--force")
             .arg("--skip")
-            .arg("test"),
+            .arg("test")
+            .arg("-j")
+            .arg("0")
+            .args([
+                "src/v2/interfaces/ITangle.sol",
+                "src/v2/interfaces/ITangleBlueprints.sol",
+                "src/v2/interfaces/IBlueprintServiceManager.sol",
+                "src/v2/restaking/OperatorStatusRegistry.sol",
+                "src/v2/restaking/MultiAssetDelegation.sol",
+            ]),
         "forge build",
     )?;
     println!(
