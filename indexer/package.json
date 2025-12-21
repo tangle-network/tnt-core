@@ -14,7 +14,8 @@
     "test": "pnpm run test:unit",
     "test:unit": "vitest run",
     "check:asset-registry": "ts-node scripts/check-asset-registry.ts",
-    "backfill:points-basis": "ts-node scripts/backfill-points-basis.ts"
+    "backfill:points-basis": "ts-node scripts/backfill-points-basis.ts",
+    "sync:config-from-manifest": "ts-node scripts/sync-config-from-manifest.ts"
   },
   "engines": {
     "node": ">=18.0.0"

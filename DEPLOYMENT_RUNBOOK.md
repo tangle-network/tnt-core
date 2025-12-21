@@ -182,6 +182,7 @@ If enabled in `FULL_DEPLOY_CONFIG` under `"credits": { "deploy": true, "owner": 
 
 1) Deploy `Credits` via `FullDeploy` (or use the local E2E script).
 2) Run the indexer and ensure it includes the `Credits` address in `indexer/config.yaml` (Base Sepolia) or via `scripts/e2e-local.sh` (local).
+   - To sync `indexer/config.yaml` from a `FullDeploy` manifest: `pnpm -C indexer sync:config-from-manifest --manifest deployments/<network>/latest.json --config indexer/config.yaml`
 3) Compute a TNT-only credits epoch from the indexer and publish a Merkle root:
    - `cd packages/credits/scripts && npm i`
    - `GRAPHQL_URL=... RPC_URL=... PRIVATE_KEY=... CREDITS_ADDRESS=... npx ts-node runEpoch.ts --epoch-id 1 --tnt-token 0xYourTNT --credits-per-tnt 1 --publish`
