@@ -24,11 +24,17 @@ import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
 import { InflationPool } from "../../src/v2/rewards/InflationPool.sol";
 import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributor.sol";
 import { StreamingPaymentManager } from "../../src/v2/rewards/StreamingPaymentManager.sol";
+import { Credits } from "../../packages/credits/src/Credits.sol";
 import { TangleBlueprintsFacet } from "../../src/v2/facets/tangle/TangleBlueprintsFacet.sol";
+import { TangleBlueprintsManagementFacet } from "../../src/v2/facets/tangle/TangleBlueprintsManagementFacet.sol";
 import { TangleOperatorsFacet } from "../../src/v2/facets/tangle/TangleOperatorsFacet.sol";
+import { TangleServicesRequestsFacet } from "../../src/v2/facets/tangle/TangleServicesRequestsFacet.sol";
 import { TangleServicesFacet } from "../../src/v2/facets/tangle/TangleServicesFacet.sol";
+import { TangleServicesLifecycleFacet } from "../../src/v2/facets/tangle/TangleServicesLifecycleFacet.sol";
 import { TangleJobsFacet } from "../../src/v2/facets/tangle/TangleJobsFacet.sol";
+import { TangleJobsAggregationFacet } from "../../src/v2/facets/tangle/TangleJobsAggregationFacet.sol";
 import { TangleQuotesFacet } from "../../src/v2/facets/tangle/TangleQuotesFacet.sol";
+import { TangleQuotesExtensionFacet } from "../../src/v2/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
 import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFacet.sol";
 import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
@@ -70,6 +76,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     address public inflationPool;
     address public serviceFeeDistributor;
     address public streamingPaymentManager;
+    address public credits;
     address public priceOracle;
 
     // Mock ERC20 tokens for restaking
@@ -248,6 +255,10 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         registry.grantRole(registry.MANAGER_ROLE(), tangleProxy);
         registry.addVersion(address(masterManager));
         tangle.setMBSMRegistry(address(registry));
+
+        // Deploy Credits (standalone)
+        credits = address(new Credits(deployer));
+        console2.log("Credits:", credits);
 
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -981,10 +992,15 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     function _registerTangleFacets(address tangleProxy_) internal {
         Tangle router = Tangle(payable(tangleProxy_));
         router.registerFacet(address(new TangleBlueprintsFacet()));
+        router.registerFacet(address(new TangleBlueprintsManagementFacet()));
         router.registerFacet(address(new TangleOperatorsFacet()));
+        router.registerFacet(address(new TangleServicesRequestsFacet()));
         router.registerFacet(address(new TangleServicesFacet()));
+        router.registerFacet(address(new TangleServicesLifecycleFacet()));
         router.registerFacet(address(new TangleJobsFacet()));
+        router.registerFacet(address(new TangleJobsAggregationFacet()));
         router.registerFacet(address(new TangleQuotesFacet()));
+        router.registerFacet(address(new TangleQuotesExtensionFacet()));
         router.registerFacet(address(new TanglePaymentsFacet()));
         router.registerFacet(address(new TangleSlashingFacet()));
     }

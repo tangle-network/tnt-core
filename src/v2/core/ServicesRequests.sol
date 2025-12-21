@@ -1,0 +1,393 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
+import { Base } from "./Base.sol";
+import { Types } from "../libraries/Types.sol";
+import { Errors } from "../libraries/Errors.sol";
+import { PaymentLib } from "../libraries/PaymentLib.sol";
+import { SchemaLib } from "../libraries/SchemaLib.sol";
+import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
+
+/// @title ServicesRequests
+/// @notice Service request flows
+abstract contract ServicesRequests is Base {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
+    struct BlueprintRequestData {
+        address manager;
+        Types.MembershipModel membership;
+    }
+
+    struct RequestBounds {
+        uint32 minOperators;
+        uint32 maxOperators;
+        uint32 operatorCount;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EVENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
+    event ServiceRequestedWithSecurity(
+        uint64 indexed requestId,
+        uint64 indexed blueprintId,
+        address indexed requester,
+        address[] operators,
+        Types.AssetSecurityRequirement[] securityRequirements
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SERVICE REQUESTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Request a new service
+    function requestService(
+        uint64 blueprintId,
+        address[] calldata operators,
+        bytes calldata config,
+        address[] calldata permittedCallers,
+        uint64 ttl,
+        address paymentToken,
+        uint256 paymentAmount
+    ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
+        _validateRequestConfig(blueprintId, config);
+        requestId = _requestServiceWithDefaultExposure(
+            blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount
+        );
+        _storeDefaultTntRequirement(requestId);
+        return requestId;
+    }
+
+    /// @notice Request service with custom operator exposures
+    function requestServiceWithExposure(
+        uint64 blueprintId,
+        address[] calldata operators,
+        uint16[] calldata exposures,
+        bytes calldata config,
+        address[] calldata permittedCallers,
+        uint64 ttl,
+        address paymentToken,
+        uint256 paymentAmount
+    ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
+        if (operators.length != exposures.length) revert Errors.LengthMismatch();
+        _validateRequestConfig(blueprintId, config);
+        requestId = _requestServiceInternal(
+            blueprintId, operators, exposures, config, permittedCallers, ttl, paymentToken, paymentAmount
+        );
+        _storeDefaultTntRequirement(requestId);
+        return requestId;
+    }
+
+    /// @notice Request a service with multi-asset security requirements
+    function requestServiceWithSecurity(
+        uint64 blueprintId,
+        address[] calldata operators,
+        Types.AssetSecurityRequirement[] calldata securityRequirements,
+        bytes calldata config,
+        address[] calldata permittedCallers,
+        uint64 ttl,
+        address paymentToken,
+        uint256 paymentAmount
+    ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
+        _validateSecurityRequirements(securityRequirements);
+
+        requestId = _requestServiceWithDefaultExposure(
+            blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount
+        );
+
+        _storeSecurityRequirementsWithDefaultTnt(requestId, securityRequirements);
+
+        if (_tntToken == address(0)) {
+            emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, operators, securityRequirements);
+        } else {
+            bool hasTnt = false;
+            for (uint256 i = 0; i < securityRequirements.length; i++) {
+                if (securityRequirements[i].asset.kind == Types.AssetKind.ERC20 &&
+                    securityRequirements[i].asset.token == _tntToken) {
+                    hasTnt = true;
+                    break;
+                }
+            }
+
+            if (hasTnt) {
+                emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, operators, securityRequirements);
+            } else {
+                Types.AssetSecurityRequirement[] memory emitted =
+                    new Types.AssetSecurityRequirement[](securityRequirements.length + 1);
+                for (uint256 i = 0; i < securityRequirements.length; i++) {
+                    emitted[i] = securityRequirements[i];
+                }
+                emitted[securityRequirements.length] = Types.AssetSecurityRequirement({
+                    asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: _tntToken }),
+                    minExposureBps: _defaultTntMinExposureBps,
+                    maxExposureBps: BPS_DENOMINATOR
+                });
+                emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, operators, emitted);
+            }
+        }
+    }
+
+    function _requestServiceWithDefaultExposure(
+        uint64 blueprintId,
+        address[] calldata operators,
+        bytes calldata config,
+        address[] calldata permittedCallers,
+        uint64 ttl,
+        address paymentToken,
+        uint256 paymentAmount
+    ) private returns (uint64 requestId) {
+        uint16[] memory exposures = _defaultExposures(operators.length);
+        _validateRequestConfig(blueprintId, config);
+        return _requestServiceInternal(
+            blueprintId, operators, exposures, config, permittedCallers, ttl, paymentToken, paymentAmount
+        );
+    }
+
+    /// @notice Internal service request logic
+    function _requestServiceInternal(
+        uint64 blueprintId,
+        address[] calldata operators,
+        uint16[] memory exposures,
+        bytes calldata config,
+        address[] calldata permittedCallers,
+        uint64 ttl,
+        address paymentToken,
+        uint256 paymentAmount
+    ) internal returns (uint64 requestId) {
+        if (operators.length == 0) revert Errors.NoOperators();
+
+        BlueprintRequestData memory blueprintData = _loadBlueprintRequestData(blueprintId);
+
+        _validateRequestPaymentAsset(blueprintData.manager, paymentToken, paymentAmount);
+        _validateRequestOperators(blueprintId, operators, exposures);
+
+        PaymentLib.collectPayment(paymentToken, paymentAmount, msg.value);
+
+        RequestBounds memory bounds = _computeRequestBounds(blueprintId, uint32(operators.length));
+
+        requestId = _createServiceRequest(
+            blueprintId,
+            ttl,
+            paymentToken,
+            paymentAmount,
+            blueprintData,
+            bounds
+        );
+
+        _storeRequestOperators(requestId, operators, exposures);
+        _storePermittedCallers(requestId, permittedCallers);
+
+        emit ServiceRequested(requestId, blueprintId, msg.sender);
+
+        _notifyManagerOnRequest(blueprintData.manager, requestId, operators, config);
+    }
+
+    function _validateRequestConfig(uint64 blueprintId, bytes calldata config) private view {
+        SchemaLib.validatePayload(
+            _requestSchemas[blueprintId],
+            config,
+            Types.SchemaTarget.Request,
+            blueprintId,
+            0
+        );
+    }
+
+    function _validateRequestPaymentAsset(
+        address manager,
+        address paymentToken,
+        uint256 paymentAmount
+    ) private view {
+        if (manager == address(0) || paymentAmount == 0) {
+            return;
+        }
+        try IBlueprintServiceManager(manager).queryIsPaymentAssetAllowed(0, paymentToken) returns (bool allowed) {
+            if (!allowed) {
+                revert Errors.TokenNotAllowed(paymentToken);
+            }
+        } catch {
+            // If hook not implemented, allow any token (backwards compatible)
+        }
+    }
+
+    function _validateRequestOperators(
+        uint64 blueprintId,
+        address[] calldata operators,
+        uint16[] memory exposures
+    ) private view {
+        for (uint256 i = 0; i < operators.length; i++) {
+            if (_operatorRegistrations[blueprintId][operators[i]].registeredAt == 0) {
+                revert Errors.OperatorNotRegistered(blueprintId, operators[i]);
+            }
+            if (!_restaking.isOperatorActive(operators[i])) {
+                revert Errors.OperatorNotActive(operators[i]);
+            }
+            if (exposures[i] > BPS_DENOMINATOR) {
+                revert Errors.InvalidState();
+            }
+        }
+    }
+
+    function _resolveMinOperators(Types.BlueprintConfig storage bpConfig) private view returns (uint32) {
+        return bpConfig.minOperators > 0 ? bpConfig.minOperators : 1;
+    }
+
+    function _validateOperatorBounds(
+        uint32 maxOperators,
+        uint32 operatorCount,
+        uint32 minOps
+    ) private view {
+        if (operatorCount < minOps) {
+            revert Errors.InsufficientOperators(minOps, operatorCount);
+        }
+        if (maxOperators > 0 && operatorCount > maxOperators) {
+            revert Errors.TooManyOperators(maxOperators, operatorCount);
+        }
+    }
+
+    function _storeRequestOperators(
+        uint64 requestId,
+        address[] calldata operators,
+        uint16[] memory exposures
+    ) private {
+        for (uint256 i = 0; i < operators.length; i++) {
+            _requestOperators[requestId].push(operators[i]);
+            _requestExposures[requestId][operators[i]] = exposures[i];
+        }
+    }
+
+    function _storePermittedCallers(uint64 requestId, address[] calldata permittedCallers) private {
+        for (uint256 i = 0; i < permittedCallers.length; i++) {
+            _requestCallers[requestId].push(permittedCallers[i]);
+        }
+    }
+
+    function _notifyManagerOnRequest(
+        address manager,
+        uint64 requestId,
+        address[] calldata operators,
+        bytes calldata config
+    ) private {
+        if (manager == address(0)) {
+            return;
+        }
+        Types.ServiceRequest storage req = _serviceRequests[requestId];
+        _callManager(
+            manager,
+            abi.encodeCall(
+                IBlueprintServiceManager.onRequest,
+                (requestId, msg.sender, operators, config, req.ttl, req.paymentToken, req.paymentAmount)
+            )
+        );
+    }
+
+    function _defaultExposures(uint256 length) private pure returns (uint16[] memory exposures) {
+        exposures = new uint16[](length);
+        for (uint256 i = 0; i < length; i++) {
+            exposures[i] = BPS_DENOMINATOR;
+        }
+    }
+
+    function _validateSecurityRequirements(Types.AssetSecurityRequirement[] calldata requirements) private pure {
+        if (requirements.length == 0) revert Errors.NoSecurityRequirements();
+        for (uint256 i = 0; i < requirements.length; i++) {
+            Types.AssetSecurityRequirement calldata req = requirements[i];
+            if (req.minExposureBps == 0) revert Errors.InvalidSecurityRequirement();
+            if (req.minExposureBps > req.maxExposureBps) revert Errors.InvalidSecurityRequirement();
+            if (req.maxExposureBps > BPS_DENOMINATOR) revert Errors.InvalidSecurityRequirement();
+        }
+    }
+
+    function _storeSecurityRequirements(
+        uint64 requestId,
+        Types.AssetSecurityRequirement[] calldata requirements
+    ) private {
+        for (uint256 i = 0; i < requirements.length; i++) {
+            _requestSecurityRequirements[requestId].push(requirements[i]);
+        }
+    }
+
+    function _storeDefaultTntRequirement(uint64 requestId) private {
+        if (_tntToken == address(0)) return;
+
+        _requestSecurityRequirements[requestId].push(Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: _tntToken }),
+            minExposureBps: _defaultTntMinExposureBps,
+            maxExposureBps: BPS_DENOMINATOR
+        }));
+    }
+
+    function _storeSecurityRequirementsWithDefaultTnt(
+        uint64 requestId,
+        Types.AssetSecurityRequirement[] calldata requirements
+    ) private {
+        if (_tntToken == address(0)) {
+            _storeSecurityRequirements(requestId, requirements);
+            return;
+        }
+
+        bool hasTnt = false;
+        for (uint256 i = 0; i < requirements.length; i++) {
+            Types.AssetSecurityRequirement calldata req = requirements[i];
+            if (req.asset.kind == Types.AssetKind.ERC20 && req.asset.token == _tntToken) {
+                hasTnt = true;
+                if (req.minExposureBps < _defaultTntMinExposureBps) revert Errors.InvalidSecurityRequirement();
+            }
+            _requestSecurityRequirements[requestId].push(req);
+        }
+
+        if (!hasTnt) {
+            _storeDefaultTntRequirement(requestId);
+        }
+    }
+
+    function _loadBlueprintRequestData(uint64 blueprintId)
+        private
+        view
+        returns (BlueprintRequestData memory data)
+    {
+        Types.Blueprint storage bp = _getBlueprint(blueprintId);
+        if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
+        data.manager = bp.manager;
+        data.membership = bp.membership;
+    }
+
+    function _computeRequestBounds(uint64 blueprintId, uint32 operatorCount)
+        private
+        view
+        returns (RequestBounds memory bounds)
+    {
+        Types.BlueprintConfig storage bpConfig = _blueprintConfigs[blueprintId];
+        bounds.minOperators = _resolveMinOperators(bpConfig);
+        bounds.maxOperators = bpConfig.maxOperators;
+        bounds.operatorCount = operatorCount;
+        _validateOperatorBounds(bounds.maxOperators, operatorCount, bounds.minOperators);
+    }
+
+    function _createServiceRequest(
+        uint64 blueprintId,
+        uint64 ttl,
+        address paymentToken,
+        uint256 paymentAmount,
+        BlueprintRequestData memory blueprintData,
+        RequestBounds memory bounds
+    ) private returns (uint64 requestId) {
+        requestId = _serviceRequestCount++;
+        _serviceRequests[requestId] = Types.ServiceRequest({
+            blueprintId: blueprintId,
+            requester: msg.sender,
+            createdAt: uint64(block.timestamp),
+            ttl: ttl,
+            operatorCount: bounds.operatorCount,
+            approvalCount: 0,
+            paymentToken: paymentToken,
+            paymentAmount: paymentAmount,
+            membership: blueprintData.membership,
+            minOperators: bounds.minOperators,
+            maxOperators: bounds.maxOperators,
+            rejected: false
+        });
+    }
+}

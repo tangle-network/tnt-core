@@ -87,4 +87,5 @@ library DelegationErrors {
 
     error NotAContract(address account);
     error UnknownSelector(bytes4 selector);
+    error SelectorAlreadyRegistered(bytes4 selector, address existingFacet);
 }

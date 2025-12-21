@@ -8,7 +8,10 @@ import { console2 } from "forge-std/console2.sol";
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
@@ -18,19 +21,27 @@ import { TangleMetrics } from "../../src/v2/rewards/TangleMetrics.sol";
 import { InflationPool } from "../../src/v2/rewards/InflationPool.sol";
 import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributor.sol";
 import { StreamingPaymentManager } from "../../src/v2/rewards/StreamingPaymentManager.sol";
+import { TangleMigration } from "../../packages/migration-claim/src/TangleMigration.sol";
+import { SP1ZKVerifier } from "../../packages/migration-claim/src/SP1ZKVerifier.sol";
+import { Credits } from "../../packages/credits/src/Credits.sol";
 
 /// @title FullDeploy
 /// @notice Production-grade deployment orchestrator that composes all protocol modules
 contract FullDeploy is DeployV2 {
     using stdJson for string;
     using Strings for uint256;
+    using SafeERC20 for IERC20;
 
     string internal constant CONFIG_ENV = "FULL_DEPLOY_CONFIG";
     address internal constant TNT_ADDRESS_SENTINEL = address(1);
+    address internal constant SP1_VERIFIER_BASE = 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B;
 
     struct RolesConfig {
         address admin;
         address treasury;
+        address timelock;
+        address multisig;
+        bool revokeBootstrap;
     }
 
     struct CoreConfig {
@@ -111,10 +122,36 @@ contract FullDeploy is DeployV2 {
     }
 
     struct MigrationConfig {
+        bool deploy;
         bool emitArtifacts;
+        bool useMockVerifier;
         string artifactsPath;
         string merklePath;
+        string evmClaimsPath;
+        string treasuryCarveoutPath;
+        string foundationCarveoutPath;
         string notes;
+        address migrationOwner;
+        address sp1VerifierGateway;
+        bytes32 programVKey;
+        bytes32 merkleRoot;
+        uint256 substrateAllocation;
+        uint256 evmAllocation;
+        address treasuryRecipient;
+        uint256 treasuryAmount;
+        address foundationRecipient;
+        uint256 foundationAmount;
+        uint256 claimDeadline;
+        uint16 unlockedBps;
+        uint64 unlockTimestamp;
+        address tangleMigration;
+        address zkVerifier;
+    }
+
+    struct CreditsConfig {
+        bool deploy;
+        address owner;
+        address credits;
     }
 
     struct FullDeployConfig {
@@ -126,6 +163,7 @@ contract FullDeploy is DeployV2 {
         GuardsConfig guards;
         ManifestConfig manifest;
         MigrationConfig migration;
+        CreditsConfig credits;
     }
 
     struct DeploymentArtifacts {
@@ -134,6 +172,8 @@ contract FullDeploy is DeployV2 {
         address deployer;
         address admin;
         address treasury;
+        address timelock;
+        address multisig;
         address tangle;
         address restaking;
         address statusRegistry;
@@ -141,6 +181,7 @@ contract FullDeploy is DeployV2 {
         address metrics;
         address rewardVaults;
         address inflationPool;
+        address credits;
         RestakeAssetConfig[] assets;
         RewardVaultConfig[] vaults;
         InflationWeights weights;
@@ -157,6 +198,8 @@ contract FullDeploy is DeployV2 {
         address deployer = vm.addr(deployerKey);
         address admin = cfg.roles.admin == address(0) ? deployer : cfg.roles.admin;
         address treasury = cfg.roles.treasury == address(0) ? deployer : cfg.roles.treasury;
+        address timelock = cfg.roles.timelock == address(0) ? admin : cfg.roles.timelock;
+        address multisig = cfg.roles.multisig == address(0) ? admin : cfg.roles.multisig;
 
         console2.log("=== Full Deploy ===");
         console2.log("Network:", bytes(cfg.network).length == 0 ? "unknown" : cfg.network);
@@ -164,6 +207,19 @@ contract FullDeploy is DeployV2 {
         console2.log("Deployer:", deployer);
         console2.log("Admin:", admin);
         console2.log("Treasury:", treasury);
+        console2.log("Timelock:", timelock);
+        console2.log("Multisig:", multisig);
+
+        MigrationConfig memory migration = cfg.migration;
+        if (migration.deploy) {
+            migration = _resolveMigrationConfig(migration);
+            require(!migration.useMockVerifier, "Mock verifier disabled");
+            uint256 totalSupply =
+                migration.substrateAllocation + migration.evmAllocation + migration.treasuryAmount + migration.foundationAmount;
+            if (cfg.core.operatorBondToken == address(0) && cfg.incentives.tntToken == address(0)) {
+                tntInitialSupply = totalSupply;
+            }
+        }
 
         if (cfg.incentives.tntToken != address(0) && cfg.core.operatorBondToken != address(0)) {
             require(cfg.incentives.tntToken == cfg.core.operatorBondToken, "TNT token mismatch");
@@ -176,6 +232,8 @@ contract FullDeploy is DeployV2 {
 
         (address restaking, address tangle, address statusRegistry) =
             _resolveCore(cfg.core, deployerKey, deployer, admin, treasury);
+
+        vm.startBroadcast(deployerKey);
 
         (address metrics, address rewardVaults, address inflationPool, address tntToken, uint256 epochLength) =
             _prepareIncentives(cfg.incentives, admin);
@@ -192,8 +250,6 @@ contract FullDeploy is DeployV2 {
         }
 
         _substituteTntSentinel(cfg.restakeAssets, cfg.incentives.vaults, tntToken);
-
-        vm.startBroadcast(deployerKey);
         _configureRestaking(restaking, cfg.restakeAssets);
         _applyRewardsManager(restaking, rewardVaults, inflationPool);
         _wireServiceFeeDistributor(restaking, tangle, serviceFeeDistributor, streamingPaymentManager, priceOracle);
@@ -201,6 +257,25 @@ contract FullDeploy is DeployV2 {
         _configureInflationPool(inflationPool, cfg.incentives, metrics, rewardVaults);
         _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
         _applyGuards(restaking, tangle, cfg.guards);
+        if (migration.deploy) {
+            migration = _deployMigration(migration, tntToken, deployer, timelock, treasury);
+        }
+        address credits = _resolveCredits(cfg.credits, admin, timelock);
+        _applyRoleHandoff(
+            cfg.roles,
+            admin,
+            timelock,
+            multisig,
+            tangle,
+            restaking,
+            tntToken,
+            metrics,
+            rewardVaults,
+            inflationPool,
+            serviceFeeDistributor,
+            streamingPaymentManager,
+            treasury
+        );
         vm.stopBroadcast();
 
         _runSmokeTests(restaking, tangle, rewardVaults, cfg.restakeAssets, cfg.guards);
@@ -211,6 +286,8 @@ contract FullDeploy is DeployV2 {
             deployer: deployer,
             admin: admin,
             treasury: treasury,
+            timelock: timelock,
+            multisig: multisig,
             tangle: tangle,
             restaking: restaking,
             statusRegistry: statusRegistry,
@@ -218,16 +295,17 @@ contract FullDeploy is DeployV2 {
             metrics: metrics,
             rewardVaults: rewardVaults,
             inflationPool: inflationPool,
+            credits: credits,
             assets: cfg.restakeAssets,
             vaults: cfg.incentives.vaults,
             weights: cfg.incentives.weights,
             epochLength: epochLength,
             guards: cfg.guards,
-            migration: cfg.migration
+            migration: migration
         });
 
         _writeManifest(cfg.manifest, artifacts);
-        _emitMigrationArtifacts(cfg.migration, artifacts);
+        _emitMigrationArtifacts(migration, artifacts);
 
         console2.log("\nDeployment complete.");
         console2.log("  Tangle:", tangle);
@@ -237,6 +315,9 @@ contract FullDeploy is DeployV2 {
         }
         if (inflationPool != address(0)) {
             console2.log("  InflationPool:", inflationPool);
+        }
+        if (credits != address(0)) {
+            console2.log("  Credits:", credits);
         }
         if (cfg.manifest.logSummary && bytes(cfg.manifest.path).length != 0) {
             console2.log("  Manifest:", cfg.manifest.path);
@@ -265,6 +346,11 @@ contract FullDeploy is DeployV2 {
 
         if (jsonBlob.keyExists(".roles.admin")) cfg.roles.admin = jsonBlob.readAddress(".roles.admin");
         if (jsonBlob.keyExists(".roles.treasury")) cfg.roles.treasury = jsonBlob.readAddress(".roles.treasury");
+        if (jsonBlob.keyExists(".roles.timelock")) cfg.roles.timelock = jsonBlob.readAddress(".roles.timelock");
+        if (jsonBlob.keyExists(".roles.multisig")) cfg.roles.multisig = jsonBlob.readAddress(".roles.multisig");
+        if (jsonBlob.keyExists(".roles.revokeBootstrap")) {
+            cfg.roles.revokeBootstrap = jsonBlob.readBool(".roles.revokeBootstrap");
+        }
 
         if (jsonBlob.keyExists(".core.deploy")) cfg.core.deploy = jsonBlob.readBool(".core.deploy");
         if (jsonBlob.keyExists(".core.tangle")) cfg.core.tangle = jsonBlob.readAddress(".core.tangle");
@@ -364,10 +450,64 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".manifest.path")) cfg.manifest.path = jsonBlob.readString(".manifest.path");
         if (jsonBlob.keyExists(".manifest.logSummary")) cfg.manifest.logSummary = jsonBlob.readBool(".manifest.logSummary");
 
+        if (jsonBlob.keyExists(".migration.deploy")) cfg.migration.deploy = jsonBlob.readBool(".migration.deploy");
         if (jsonBlob.keyExists(".migration.emitArtifacts")) cfg.migration.emitArtifacts = jsonBlob.readBool(".migration.emitArtifacts");
+        if (jsonBlob.keyExists(".migration.useMockVerifier")) {
+            cfg.migration.useMockVerifier = jsonBlob.readBool(".migration.useMockVerifier");
+        }
         if (jsonBlob.keyExists(".migration.artifactsPath")) cfg.migration.artifactsPath = jsonBlob.readString(".migration.artifactsPath");
         if (jsonBlob.keyExists(".migration.merklePath")) cfg.migration.merklePath = jsonBlob.readString(".migration.merklePath");
+        if (jsonBlob.keyExists(".migration.evmClaimsPath")) cfg.migration.evmClaimsPath = jsonBlob.readString(".migration.evmClaimsPath");
+        if (jsonBlob.keyExists(".migration.treasuryCarveoutPath")) {
+            cfg.migration.treasuryCarveoutPath = jsonBlob.readString(".migration.treasuryCarveoutPath");
+        }
+        if (jsonBlob.keyExists(".migration.foundationCarveoutPath")) {
+            cfg.migration.foundationCarveoutPath = jsonBlob.readString(".migration.foundationCarveoutPath");
+        }
         if (jsonBlob.keyExists(".migration.notes")) cfg.migration.notes = jsonBlob.readString(".migration.notes");
+        if (jsonBlob.keyExists(".migration.migrationOwner")) {
+            cfg.migration.migrationOwner = jsonBlob.readAddress(".migration.migrationOwner");
+        }
+        if (jsonBlob.keyExists(".migration.sp1VerifierGateway")) {
+            cfg.migration.sp1VerifierGateway = jsonBlob.readAddress(".migration.sp1VerifierGateway");
+        }
+        if (jsonBlob.keyExists(".migration.programVKey")) {
+            cfg.migration.programVKey = _readBytes32Flexible(jsonBlob, ".migration.programVKey");
+        }
+        if (jsonBlob.keyExists(".migration.merkleRoot")) {
+            cfg.migration.merkleRoot = jsonBlob.readBytes32(".migration.merkleRoot");
+        }
+        if (jsonBlob.keyExists(".migration.substrateAllocation")) {
+            cfg.migration.substrateAllocation = _readUintFlexible(jsonBlob, ".migration.substrateAllocation");
+        }
+        if (jsonBlob.keyExists(".migration.evmAllocation")) {
+            cfg.migration.evmAllocation = _readUintFlexible(jsonBlob, ".migration.evmAllocation");
+        }
+        if (jsonBlob.keyExists(".migration.treasuryRecipient")) {
+            cfg.migration.treasuryRecipient = jsonBlob.readAddress(".migration.treasuryRecipient");
+        }
+        if (jsonBlob.keyExists(".migration.treasuryAmount")) {
+            cfg.migration.treasuryAmount = _readUintFlexible(jsonBlob, ".migration.treasuryAmount");
+        }
+        if (jsonBlob.keyExists(".migration.foundationRecipient")) {
+            cfg.migration.foundationRecipient = jsonBlob.readAddress(".migration.foundationRecipient");
+        }
+        if (jsonBlob.keyExists(".migration.foundationAmount")) {
+            cfg.migration.foundationAmount = _readUintFlexible(jsonBlob, ".migration.foundationAmount");
+        }
+        if (jsonBlob.keyExists(".migration.claimDeadline")) {
+            cfg.migration.claimDeadline = _readUintFlexible(jsonBlob, ".migration.claimDeadline");
+        }
+        if (jsonBlob.keyExists(".migration.unlockedBps")) {
+            cfg.migration.unlockedBps = uint16(_readUintFlexible(jsonBlob, ".migration.unlockedBps"));
+        }
+        if (jsonBlob.keyExists(".migration.unlockTimestamp")) {
+            cfg.migration.unlockTimestamp = uint64(_readUintFlexible(jsonBlob, ".migration.unlockTimestamp"));
+        }
+
+        if (jsonBlob.keyExists(".credits.deploy")) cfg.credits.deploy = jsonBlob.readBool(".credits.deploy");
+        if (jsonBlob.keyExists(".credits.owner")) cfg.credits.owner = jsonBlob.readAddress(".credits.owner");
+        if (jsonBlob.keyExists(".credits.credits")) cfg.credits.credits = jsonBlob.readAddress(".credits.credits");
     }
 
     function _loadRestakeAssets(string memory jsonBlob) internal view returns (RestakeAssetConfig[] memory assets) {
@@ -487,6 +627,23 @@ contract FullDeploy is DeployV2 {
                 revert("core.restaking and core.tangle must be set when deploy=false");
             }
         }
+    }
+
+    function _resolveCredits(
+        CreditsConfig memory cfg,
+        address admin,
+        address timelock
+    ) internal returns (address credits) {
+        if (!cfg.deploy) {
+            return cfg.credits;
+        }
+        address owner = cfg.owner;
+        if (owner == address(0)) {
+            owner = timelock != address(0) ? timelock : admin;
+        }
+        credits = address(new Credits(owner));
+        console2.log("Deployed Credits:", credits);
+        console2.log("Credits owner:", owner);
     }
 
     function _prepareIncentives(
@@ -793,6 +950,287 @@ contract FullDeploy is DeployV2 {
         }
     }
 
+    function _applyRoleHandoff(
+        RolesConfig memory roles,
+        address bootstrapAdmin,
+        address timelock,
+        address multisig,
+        address tangleAddr,
+        address restakingAddr,
+        address tntToken,
+        address metricsAddr,
+        address rewardVaultsAddr,
+        address inflationPoolAddr,
+        address serviceFeeDistributorAddr,
+        address streamingPaymentManagerAddr,
+        address treasury
+    )
+        internal
+    {
+        bool requested = roles.timelock != address(0) || roles.multisig != address(0) || roles.revokeBootstrap;
+        if (!requested) return;
+
+        if (tangleAddr != address(0)) {
+            Tangle tangle = Tangle(payable(tangleAddr));
+            _grantRole(tangleAddr, bytes32(0), timelock);
+            _grantRole(tangleAddr, tangle.ADMIN_ROLE(), timelock);
+            _grantRole(tangleAddr, tangle.UPGRADER_ROLE(), timelock);
+
+            _grantRole(tangleAddr, tangle.PAUSER_ROLE(), multisig);
+            _grantRole(tangleAddr, tangle.SLASH_ADMIN_ROLE(), multisig);
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _revokeRole(tangleAddr, bytes32(0), bootstrapAdmin);
+                _revokeRole(tangleAddr, tangle.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(tangleAddr, tangle.UPGRADER_ROLE(), bootstrapAdmin);
+                _revokeRole(tangleAddr, tangle.PAUSER_ROLE(), bootstrapAdmin);
+                _revokeRole(tangleAddr, tangle.SLASH_ADMIN_ROLE(), bootstrapAdmin);
+            }
+        }
+
+        if (restakingAddr != address(0)) {
+            MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingAddr));
+            _grantRole(restakingAddr, bytes32(0), timelock);
+            _grantRole(restakingAddr, restaking.ADMIN_ROLE(), timelock);
+            _grantRole(restakingAddr, restaking.ASSET_MANAGER_ROLE(), multisig);
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _revokeRole(restakingAddr, bytes32(0), bootstrapAdmin);
+                _revokeRole(restakingAddr, restaking.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(restakingAddr, restaking.ASSET_MANAGER_ROLE(), bootstrapAdmin);
+            }
+        }
+
+        if (tntToken != address(0)) {
+            _grantRole(tntToken, bytes32(0), timelock);
+            _grantRole(tntToken, keccak256("MINTER_ROLE"), timelock);
+            _grantRole(tntToken, keccak256("UPGRADER_ROLE"), timelock);
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _revokeRole(tntToken, bytes32(0), bootstrapAdmin);
+                _revokeRole(tntToken, keccak256("MINTER_ROLE"), bootstrapAdmin);
+                _revokeRole(tntToken, keccak256("UPGRADER_ROLE"), bootstrapAdmin);
+            }
+        }
+
+        if (metricsAddr != address(0)) {
+            _grantRole(metricsAddr, bytes32(0), timelock);
+            _grantRole(metricsAddr, keccak256("UPGRADER_ROLE"), timelock);
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _revokeRole(metricsAddr, bytes32(0), bootstrapAdmin);
+                _revokeRole(metricsAddr, keccak256("UPGRADER_ROLE"), bootstrapAdmin);
+            }
+        }
+
+        if (rewardVaultsAddr != address(0)) {
+            RewardVaults vaults = RewardVaults(rewardVaultsAddr);
+            _grantRole(rewardVaultsAddr, bytes32(0), timelock);
+            _grantRole(rewardVaultsAddr, vaults.ADMIN_ROLE(), timelock);
+            _grantRole(rewardVaultsAddr, vaults.UPGRADER_ROLE(), timelock);
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _revokeRole(rewardVaultsAddr, bytes32(0), bootstrapAdmin);
+                _revokeRole(rewardVaultsAddr, vaults.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(rewardVaultsAddr, vaults.UPGRADER_ROLE(), bootstrapAdmin);
+                _revokeRole(rewardVaultsAddr, vaults.REWARDS_MANAGER_ROLE(), bootstrapAdmin);
+            }
+        }
+
+        if (inflationPoolAddr != address(0)) {
+            InflationPool pool = InflationPool(payable(inflationPoolAddr));
+            _grantRole(inflationPoolAddr, bytes32(0), timelock);
+            _grantRole(inflationPoolAddr, pool.ADMIN_ROLE(), timelock);
+            _grantRole(inflationPoolAddr, pool.UPGRADER_ROLE(), timelock);
+            _grantRole(inflationPoolAddr, pool.FUNDER_ROLE(), treasury);
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _revokeRole(inflationPoolAddr, bytes32(0), bootstrapAdmin);
+                _revokeRole(inflationPoolAddr, pool.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(inflationPoolAddr, pool.UPGRADER_ROLE(), bootstrapAdmin);
+                if (bootstrapAdmin != treasury) {
+                    _revokeRole(inflationPoolAddr, pool.FUNDER_ROLE(), bootstrapAdmin);
+                }
+                _revokeRole(inflationPoolAddr, pool.DISTRIBUTOR_ROLE(), bootstrapAdmin);
+            }
+        }
+
+        if (serviceFeeDistributorAddr != address(0)) {
+            ServiceFeeDistributor distributor = ServiceFeeDistributor(payable(serviceFeeDistributorAddr));
+            _grantRole(serviceFeeDistributorAddr, bytes32(0), timelock);
+            _grantRole(serviceFeeDistributorAddr, distributor.ADMIN_ROLE(), timelock);
+            _grantRole(serviceFeeDistributorAddr, distributor.UPGRADER_ROLE(), timelock);
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _revokeRole(serviceFeeDistributorAddr, bytes32(0), bootstrapAdmin);
+                _revokeRole(serviceFeeDistributorAddr, distributor.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(serviceFeeDistributorAddr, distributor.UPGRADER_ROLE(), bootstrapAdmin);
+            }
+        }
+
+        if (streamingPaymentManagerAddr != address(0)) {
+            StreamingPaymentManager streaming = StreamingPaymentManager(payable(streamingPaymentManagerAddr));
+            _grantRole(streamingPaymentManagerAddr, bytes32(0), timelock);
+            _grantRole(streamingPaymentManagerAddr, streaming.ADMIN_ROLE(), timelock);
+            _grantRole(streamingPaymentManagerAddr, streaming.UPGRADER_ROLE(), timelock);
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _revokeRole(streamingPaymentManagerAddr, bytes32(0), bootstrapAdmin);
+                _revokeRole(streamingPaymentManagerAddr, streaming.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(streamingPaymentManagerAddr, streaming.UPGRADER_ROLE(), bootstrapAdmin);
+            }
+        }
+    }
+
+    function _shouldRevokeBootstrap(
+        address bootstrapAdmin,
+        address timelock,
+        address multisig
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        if (bootstrapAdmin == address(0)) return false;
+        return bootstrapAdmin != timelock && bootstrapAdmin != multisig;
+    }
+
+    function _grantRole(address target, bytes32 role, address account) internal {
+        if (target == address(0) || account == address(0)) return;
+        IAccessControl(target).grantRole(role, account);
+    }
+
+    function _revokeRole(address target, bytes32 role, address account) internal {
+        if (target == address(0) || account == address(0)) return;
+        if (IAccessControl(target).hasRole(role, account)) {
+            IAccessControl(target).revokeRole(role, account);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MIGRATION DEPLOY
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function _resolveMigrationConfig(MigrationConfig memory migration) internal view returns (MigrationConfig memory) {
+        if (migration.merkleRoot == bytes32(0) || migration.substrateAllocation == 0) {
+            if (bytes(migration.merklePath).length == 0) revert("Missing migration merklePath");
+            string memory merkleJson = vm.readFile(migration.merklePath);
+            bytes32 root = merkleJson.readBytes32(".root");
+            uint256 totalValue = _readUintFlexible(merkleJson, ".totalValue");
+            if (migration.merkleRoot == bytes32(0)) {
+                migration.merkleRoot = root;
+            } else if (migration.merkleRoot != root) {
+                revert("Merkle root mismatch");
+            }
+            if (migration.substrateAllocation == 0) {
+                migration.substrateAllocation = totalValue;
+            } else if (migration.substrateAllocation != totalValue) {
+                revert("Substrate allocation mismatch");
+            }
+        }
+
+        if (migration.evmAllocation == 0 && bytes(migration.evmClaimsPath).length != 0) {
+            string memory evmJson = vm.readFile(migration.evmClaimsPath);
+            migration.evmAllocation = _readUintFlexible(evmJson, ".totalAmount");
+        }
+
+        if (migration.treasuryAmount == 0 && bytes(migration.treasuryCarveoutPath).length != 0) {
+            string memory treasuryJson = vm.readFile(migration.treasuryCarveoutPath);
+            migration.treasuryAmount = _readUintFlexible(treasuryJson, ".amount");
+        }
+
+        if (migration.foundationAmount == 0 && bytes(migration.foundationCarveoutPath).length != 0) {
+            string memory foundationJson = vm.readFile(migration.foundationCarveoutPath);
+            migration.foundationAmount = _readUintFlexible(foundationJson, ".amount");
+        }
+
+        if (migration.sp1VerifierGateway == address(0)) {
+            migration.sp1VerifierGateway = SP1_VERIFIER_BASE;
+        }
+
+        return migration;
+    }
+
+    function _deployMigration(
+        MigrationConfig memory migration,
+        address tntToken,
+        address deployer,
+        address timelock,
+        address treasury
+    )
+        internal
+        returns (MigrationConfig memory)
+    {
+        if (tntToken == address(0)) revert("Missing TNT token for migration");
+        if (migration.merkleRoot == bytes32(0)) revert("Missing migration merkle root");
+        if (migration.programVKey == bytes32(0)) revert("Missing migration program vkey");
+        if (migration.sp1VerifierGateway == address(0)) revert("Missing SP1 verifier gateway");
+        if (migration.substrateAllocation == 0) revert("Missing substrate allocation");
+
+        uint256 requiredBalance = migration.substrateAllocation + migration.treasuryAmount + migration.foundationAmount;
+        IERC20 tnt = IERC20(tntToken);
+        require(tnt.balanceOf(deployer) >= requiredBalance, "Insufficient TNT balance for migration");
+
+        SP1ZKVerifier verifier = new SP1ZKVerifier(migration.sp1VerifierGateway, migration.programVKey, deployer);
+        TangleMigration claim = new TangleMigration(tntToken, migration.merkleRoot, address(verifier), deployer);
+
+        uint256 claimDeadline = migration.claimDeadline;
+        if (claimDeadline == 0) {
+            claimDeadline = block.timestamp + 365 days;
+        }
+        claim.setClaimDeadline(claimDeadline);
+
+        if (migration.unlockedBps != 0 || migration.unlockTimestamp != 0) {
+            uint16 unlockedBps = migration.unlockedBps == 0 ? claim.unlockedBps() : migration.unlockedBps;
+            uint64 unlockTimestamp = migration.unlockTimestamp == 0 ? claim.unlockTimestamp() : migration.unlockTimestamp;
+            claim.setLockConfig(address(claim.lockFactory()), unlockTimestamp, unlockedBps);
+        }
+
+        tnt.safeTransfer(address(claim), migration.substrateAllocation);
+
+        if (migration.treasuryAmount > 0) {
+            address treasuryRecipient = migration.treasuryRecipient == address(0) ? treasury : migration.treasuryRecipient;
+            require(treasuryRecipient != address(0), "Missing treasury recipient");
+            tnt.safeTransfer(treasuryRecipient, migration.treasuryAmount);
+            migration.treasuryRecipient = treasuryRecipient;
+        }
+
+        if (migration.foundationAmount > 0) {
+            address foundationRecipient = migration.foundationRecipient;
+            require(foundationRecipient != address(0), "Missing foundation recipient");
+            tnt.safeTransfer(foundationRecipient, migration.foundationAmount);
+        }
+
+        address finalOwner = migration.migrationOwner;
+        if (finalOwner == address(0)) {
+            finalOwner = timelock == address(0) ? deployer : timelock;
+        }
+        if (finalOwner != deployer) {
+            claim.transferOwnership(finalOwner);
+        }
+
+        migration.migrationOwner = finalOwner;
+        migration.tangleMigration = address(claim);
+        migration.zkVerifier = address(verifier);
+        migration.claimDeadline = claimDeadline;
+
+        console2.log("Deployed TangleMigration:", address(claim));
+        console2.log("Deployed SP1ZKVerifier:", address(verifier));
+        console2.log("Migration merkle root:", _bytes32ToString(migration.merkleRoot));
+        console2.log("Substrate allocation (TNT):", migration.substrateAllocation / 1e18);
+        if (migration.evmAllocation > 0) {
+            console2.log("EVM allocation held by deployer (TNT):", migration.evmAllocation / 1e18);
+        }
+        if (migration.treasuryAmount > 0) {
+            console2.log("Treasury carveout (TNT):", migration.treasuryAmount / 1e18);
+        }
+        if (migration.foundationAmount > 0) {
+            console2.log("Foundation carveout (TNT):", migration.foundationAmount / 1e18);
+        }
+
+        return migration;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // VALIDATION & OUTPUT
     // ═══════════════════════════════════════════════════════════════════════════
@@ -851,6 +1289,12 @@ contract FullDeploy is DeployV2 {
                 "\"treasury\":\"",
                 _addrToString(artifacts.treasury),
                 "\",",
+                "\"timelock\":\"",
+                _addrToString(artifacts.timelock),
+                "\",",
+                "\"multisig\":\"",
+                _addrToString(artifacts.multisig),
+                "\",",
                 "\"tangle\":\"",
                 _addrToString(artifacts.tangle),
                 "\",",
@@ -871,6 +1315,9 @@ contract FullDeploy is DeployV2 {
                 "\",",
                 "\"inflationPool\":\"",
                 _addrToString(artifacts.inflationPool),
+                "\",",
+                "\"credits\":\"",
+                _addrToString(artifacts.credits),
                 "\",",
                 "\"epochLength\":",
                 artifacts.epochLength.toString(),
@@ -907,11 +1354,20 @@ contract FullDeploy is DeployV2 {
                 "\"tntToken\":\"",
                 _addrToString(artifacts.tntToken),
                 "\",",
-                "\"restaking\":\"",
-                _addrToString(artifacts.restaking),
+                "\"tangleMigration\":\"",
+                _addrToString(migration.tangleMigration),
                 "\",",
-                "\"tangle\":\"",
-                _addrToString(artifacts.tangle),
+                "\"zkVerifier\":\"",
+                _addrToString(migration.zkVerifier),
+                "\",",
+                "\"sp1VerifierGateway\":\"",
+                _addrToString(migration.sp1VerifierGateway),
+                "\",",
+                "\"programVKey\":\"",
+                _bytes32ToString(migration.programVKey),
+                "\",",
+                "\"merkleRoot\":\"",
+                _bytes32ToString(migration.merkleRoot),
                 "\",",
                 "\"merklePath\":\"",
                 migration.merklePath,
@@ -1050,8 +1506,14 @@ contract FullDeploy is DeployV2 {
         return string(
             abi.encodePacked(
                 "{",
+                '"deploy":',
+                _boolToString(migration.deploy),
+                ",",
                 '"emitArtifacts":',
                 _boolToString(migration.emitArtifacts),
+                ",",
+                '"useMockVerifier":',
+                _boolToString(migration.useMockVerifier),
                 ",",
                 '"artifactsPath":"',
                 migration.artifactsPath,
@@ -1059,8 +1521,62 @@ contract FullDeploy is DeployV2 {
                 '"merklePath":"',
                 migration.merklePath,
                 '",',
+                '"evmClaimsPath":"',
+                migration.evmClaimsPath,
+                '",',
+                '"treasuryCarveoutPath":"',
+                migration.treasuryCarveoutPath,
+                '",',
+                '"foundationCarveoutPath":"',
+                migration.foundationCarveoutPath,
+                '",',
                 '"notes":"',
                 migration.notes,
+                '",',
+                '"migrationOwner":"',
+                _addrToString(migration.migrationOwner),
+                '",',
+                '"sp1VerifierGateway":"',
+                _addrToString(migration.sp1VerifierGateway),
+                '",',
+                '"programVKey":"',
+                _bytes32ToString(migration.programVKey),
+                '",',
+                '"merkleRoot":"',
+                _bytes32ToString(migration.merkleRoot),
+                '",',
+                '"substrateAllocation":"',
+                migration.substrateAllocation.toString(),
+                '",',
+                '"evmAllocation":"',
+                migration.evmAllocation.toString(),
+                '",',
+                '"treasuryRecipient":"',
+                _addrToString(migration.treasuryRecipient),
+                '",',
+                '"treasuryAmount":"',
+                migration.treasuryAmount.toString(),
+                '",',
+                '"foundationRecipient":"',
+                _addrToString(migration.foundationRecipient),
+                '",',
+                '"foundationAmount":"',
+                migration.foundationAmount.toString(),
+                '",',
+                '"claimDeadline":"',
+                migration.claimDeadline.toString(),
+                '",',
+                '"unlockedBps":',
+                uint256(migration.unlockedBps).toString(),
+                ",",
+                '"unlockTimestamp":"',
+                uint256(migration.unlockTimestamp).toString(),
+                '",',
+                '"tangleMigration":"',
+                _addrToString(migration.tangleMigration),
+                '",',
+                '"zkVerifier":"',
+                _addrToString(migration.zkVerifier),
                 '"',
                 "}"
             )
@@ -1069,6 +1585,70 @@ contract FullDeploy is DeployV2 {
 
     function _addrToString(address value) internal pure returns (string memory) {
         return Strings.toHexString(uint256(uint160(value)), 20);
+    }
+
+    function _bytes32ToString(bytes32 value) internal pure returns (string memory) {
+        return Strings.toHexString(uint256(value), 32);
+    }
+
+    function _readUintFlexible(string memory json, string memory key) internal view returns (uint256) {
+        try vm.parseJsonUint(json, key) returns (uint256 value) {
+            return value;
+        } catch {
+            string memory raw = vm.parseJsonString(json, key);
+            return vm.parseUint(raw);
+        }
+    }
+
+    function _readBytes32Flexible(string memory json, string memory key) internal view returns (bytes32) {
+        try vm.parseJsonBytes32(json, key) returns (bytes32 value) {
+            return value;
+        } catch {
+            string memory raw = vm.parseJsonString(json, key);
+            return _parseBytes32Flexible(raw);
+        }
+    }
+
+    function _parseBytes32Flexible(string memory raw) internal pure returns (bytes32) {
+        bytes memory rawBytes = bytes(raw);
+        bytes memory decoded = _hexToBytes(rawBytes);
+        if (decoded.length == 32) {
+            return bytes32(decoded);
+        }
+        if (decoded.length == 66) {
+            string memory inner = string(decoded);
+            bytes memory innerBytes = bytes(inner);
+            bytes memory innerDecoded = _hexToBytes(innerBytes);
+            if (innerDecoded.length != 32) revert("Invalid vkey length");
+            return bytes32(innerDecoded);
+        }
+        revert("Invalid vkey length");
+    }
+
+    function _hexToBytes(bytes memory data) internal pure returns (bytes memory) {
+        if (
+            data.length < 2
+                || data[0] != bytes1(uint8(48))
+                || (data[1] != bytes1(uint8(120)) && data[1] != bytes1(uint8(88)))
+        ) {
+            revert("Invalid hex prefix");
+        }
+        uint256 len = data.length - 2;
+        if (len % 2 != 0) revert("Invalid hex length");
+        bytes memory out = new bytes(len / 2);
+        for (uint256 i = 0; i < len / 2; i++) {
+            uint8 high = _fromHexChar(uint8(data[2 + i * 2]));
+            uint8 low = _fromHexChar(uint8(data[3 + i * 2]));
+            out[i] = bytes1((high << 4) | low);
+        }
+        return out;
+    }
+
+    function _fromHexChar(uint8 c) internal pure returns (uint8) {
+        if (c >= 48 && c <= 57) return c - 48;
+        if (c >= 65 && c <= 70) return c - 55;
+        if (c >= 97 && c <= 102) return c - 87;
+        revert("Invalid hex char");
     }
 
     function _uintToString(uint256 value) internal pure returns (string memory) {

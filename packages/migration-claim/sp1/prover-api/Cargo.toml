@@ -1,0 +1,23 @@
+[package]
+name = "tnt-claim-prover-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+alloy-primitives = { workspace = true }
+alloy-sol-types = { workspace = true }
+anyhow = { workspace = true }
+axum = "0.7"
+hex = { workspace = true }
+primitive-types = "0.12"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde = { workspace = true }
+serde_json = "1.0"
+sp1-sdk = { workspace = true }
+sr25519-claim-lib = { path = "../lib" }
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
+uuid = { version = "1", features = ["v4"] }

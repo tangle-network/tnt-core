@@ -1,20 +1,19 @@
 # yaml-language-server: $schema=./node_modules/envio/evm.schema.json
-# Local testnet configuration - matches addresses from LocalTestnet.s.sol
-# Deployed by Anvil's default deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-name: tangle-indexer-local
+# Base Sepolia configuration. Use config.local.yaml for Anvil/local development.
+name: tangle-indexer-base-sepolia
 field_selection:
   transaction_fields:
     - hash
     - from
 networks:
-  - id: 31337  # Anvil default chain ID for local development
+  - id: 84532
     start_block: 0
     rpc_config:
-      url: http://127.0.0.1:8545
+      url: https://sepolia.base.org
     contracts:
       - name: Tangle
         address:
-          - "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"  # nonce 3
+          - "0x62281eac026f6c6a65708157e47151b964216303"
         handler: src/EventHandlers.ts
         events:
           - event: AggregatedResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint256 signerBitmap, bytes output)
@@ -57,14 +56,13 @@ networks:
           - event: Unpaused(address account)
           - event: Upgraded(address indexed implementation)
       - name: MasterBlueprintServiceManager
-        address:
-          - "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"  # nonce 7
+        address: []
         handler: src/EventHandlers.ts
         events:
           - event: BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition)
       - name: MultiAssetDelegation
         address:
-          - "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"  # nonce 1
+          - "0x96e682cc18874ec6cdb1b2a7f0a5f541e1fbaeb3"
         handler: src/EventHandlers.ts
         events:
           - event: OperatorRegistered(address indexed operator, uint256 stake)
@@ -92,7 +90,7 @@ networks:
           - event: RewardClaimed(address indexed account, uint256 amount)
       - name: OperatorStatusRegistry
         address:
-          - "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"  # nonce 4
+          - "0x17746107e0b4cfaf4c96140f5e501bf10e740b65"
         handler: src/EventHandlers.ts
         events:
           - event: HeartbeatReceived(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed operator, uint8 statusCode, uint256 timestamp)
@@ -103,8 +101,7 @@ networks:
           - event: MetricReported(uint64 indexed serviceId, address indexed operator, string metricName, uint256 value)
           - event: SlashingTriggered(uint64 indexed serviceId, address indexed operator, string reason)
       - name: ValidatorPodManager
-        address:
-          - "0xa85233c63b9ee964add6f2cffe00fd84eb32338f"
+        address: []
         handler: src/EventHandlers.ts
         events:
           - event: PodCreated(address indexed owner, address indexed pod)
@@ -117,8 +114,7 @@ networks:
           - event: WithdrawalQueued(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
           - event: WithdrawalCompleted(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
       - name: LiquidDelegationFactory
-        address:
-          - "0x4a679253410272dd5232b3ff7cf5dbb88f295319"
+        address: []
         handler: src/EventHandlers.ts
         events:
           - event: VaultCreated(address indexed vault, address indexed operator, address indexed asset, uint64[] blueprintIds, string name, string symbol)
@@ -134,7 +130,7 @@ networks:
           - event: Transfer(address indexed from, address indexed to, uint256 value)
       - name: RewardVaults
         address:
-          - "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82"
+          - "0x37979744708141ec1541b9b70faa7da8d0cf2d23"
         handler: src/EventHandlers.ts
         events:
           - event: VaultCreated(address indexed asset, uint256 apyBps, uint256 depositCap, uint256 incentiveCap)
@@ -150,15 +146,15 @@ networks:
           - event: LockDurationsUpdated(uint256 oneMonth, uint256 twoMonths, uint256 threeMonths, uint256 sixMonths)
       - name: InflationPool
         address:
-          - "0x0b306bf915c4d645ff596e518faf3f9669b97016"
+          - "0x8152f13c37576e1a2cd74d18213105ecf816d5de"
         handler: src/EventHandlers.ts
         events:
           - event: OperatorRewardClaimed(address indexed operator, uint256 amount)
           - event: CustomerRewardClaimed(address indexed customer, uint256 amount)
           - event: DeveloperRewardClaimed(address indexed developer, uint256 amount)
       - name: Credits
-        address:
-          - "0x0000000000000000000000651234512121212666"
+        # Deploy `packages/credits/src/Credits.sol` and set its address here when credits are enabled.
+        address: []
         handler: src/EventHandlers.ts
         events:
           - event: CreditsClaimed(address indexed account, uint256 amount, bytes32 offchainAccountId)

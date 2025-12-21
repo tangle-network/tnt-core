@@ -4,10 +4,13 @@
   "_chainId": 84532,
   "_l1ChainId": 11155111,
   "_todo_tnt_sentinel": "TODO: 0x0000000000000000000000000000000000000001 is a sentinel meaning 'use the deployed/reused TNT token' (FullDeploy replaces it at runtime)",
-  "_todo_roles": "TODO: set the production admin/treasury EOAs before deployment",
+  "_todo_roles": "TODO: set the production admin/treasury/timelock/multisig addresses before deployment",
   "roles": {
     "admin": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
-    "treasury": "0x89db5277A310C473d515891cafCD4E66b8A7F06F"
+    "treasury": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "timelock": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "multisig": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "revokeBootstrap": false
   },
   "core": {
     "deploy": true,
@@ -186,10 +189,27 @@
     "logSummary": true
   },
   "migration": {
+    "deploy": true,
     "emitArtifacts": true,
+    "useMockVerifier": false,
     "artifactsPath": "deployments/base-sepolia/migration.json",
-    "merklePath": "deployments/base-sepolia/merkle-tree.json",
+    "merklePath": "packages/migration-claim/merkle-tree.json",
+    "evmClaimsPath": "packages/migration-claim/evm-claims.json",
+    "treasuryCarveoutPath": "packages/migration-claim/treasury-carveout.json",
+    "foundationCarveoutPath": "packages/migration-claim/foundation-carveout.json",
+    "migrationOwner": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "sp1VerifierGateway": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B",
+    "programVKey": "0x307830303064373434343466313664373566373235323736383761333663316264346334396536373939383136646163343938396265336263313735653836666437",
+    "treasuryRecipient": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "foundationRecipient": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
     "_todo_migration_notes": "TODO: document how these artifacts feed the dashboard",
     "notes": "TODO: add rollout notes"
+  }
+  ,
+  "credits": {
+    "deploy": true,
+    "_todo_owner": "TODO: set to timelock/multisig that should manage credits epochs",
+    "owner": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "credits": "0x0000000000000000000000000000000000000000"
   }
 }

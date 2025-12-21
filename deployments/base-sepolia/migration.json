@@ -1,7 +1,7 @@
 {
-  "tntToken": "0x5c768fc1e52f92c07d68b992baccbb111e714493",
-  "restaking": "0xdb34accb331e98eec94ba0a130aee4040559b00a",
-  "tangle": "0x00b81923c24607bab9a6ad5a50d517f63b56466c",
+  "tntToken": "0xf1fcced9c884e63f99d8be0acf5cc431d670795f",
+  "restaking": "0x96e682cc18874ec6cdb1b2a7f0a5f541e1fbaeb3",
+  "tangle": "0x62281eac026f6c6a65708157e47151b964216303",
   "merklePath": "deployments/base-sepolia/merkle-tree.json",
   "notes": "TODO: add rollout notes"
 }

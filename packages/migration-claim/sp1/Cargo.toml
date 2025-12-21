@@ -1,5 +1,5 @@
 [workspace]
-members = ["program", "script", "lib"]
+members = ["program", "script", "lib", "prover-api"]
 resolver = "2"
 
 [workspace.package]

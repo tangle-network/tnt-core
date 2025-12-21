@@ -50,6 +50,10 @@ contract Tangle is Base {
         if (facet == address(0)) revert Errors.ZeroAddress();
         if (facet.code.length == 0) revert Errors.NotAContract(facet);
         for (uint256 i = 0; i < selectors.length; i++) {
+            address existing = _facetForSelector[selectors[i]];
+            if (existing != address(0) && existing != facet) {
+                revert Errors.SelectorAlreadyRegistered(selectors[i], existing);
+            }
             _facetForSelector[selectors[i]] = facet;
             emit FacetSelectorSet(selectors[i], facet);
         }

@@ -4,10 +4,13 @@
   "_chainId": 8453,
   "_l1ChainId": 1,
   "_todo_tnt_sentinel": "TODO: 0x0000000000000000000000000000000000000001 is a sentinel meaning 'use the deployed/reused TNT token' (FullDeploy replaces it at runtime)",
-  "_todo_roles": "TODO: set multisig / safe addresses for admin and treasury",
+  "_todo_roles": "TODO: set multisig / safe addresses for admin, treasury, timelock, and multisig role holders",
   "roles": {
     "admin": "0x0000000000000000000000000000000000000000",
-    "treasury": "0x0000000000000000000000000000000000000000"
+    "treasury": "0x0000000000000000000000000000000000000000",
+    "timelock": "0x0000000000000000000000000000000000000000",
+    "multisig": "0x0000000000000000000000000000000000000000",
+    "revokeBootstrap": true
   },
   "core": {
     "deploy": true,
@@ -218,5 +221,11 @@
     "artifactsPath": "deployments/base-mainnet/migration.json",
     "merklePath": "deployments/base-mainnet/merkle-tree.json",
     "notes": "TODO: add deployment notes for Base mainnet rollout"
+  },
+  "credits": {
+    "deploy": true,
+    "_todo_owner": "TODO: set to timelock/multisig that should manage credits epochs",
+    "owner": "0x0000000000000000000000000000000000000000",
+    "credits": "0x0000000000000000000000000000000000000000"
   }
 }

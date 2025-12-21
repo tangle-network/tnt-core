@@ -78,6 +78,7 @@ contract ProportionalSlashingTest is Test {
 
     function _registerFacets(address proxy) internal {
         MultiAssetDelegation router = MultiAssetDelegation(payable(proxy));
+        vm.startPrank(admin);
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
@@ -86,6 +87,7 @@ contract ProportionalSlashingTest is Test {
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));
         router.registerFacet(address(new RestakingAdminFacet()));
+        vm.stopPrank();
     }
 
     /// @notice Test proportional slashing distributes correctly between operator and delegators

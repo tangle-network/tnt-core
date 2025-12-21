@@ -93,6 +93,7 @@ if [[ "$SKIP_DEPLOY" != "true" ]]; then
     TANGLE_ADDR="0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
     RESTAKING_ADDR="0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
     STATUS_REG_ADDR="0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
+    CREDITS_ADDR=$(grep -Eo "Credits: 0x[0-9a-fA-F]{40}" /tmp/deploy.log | awk '{print $2}' | tail -n 1 || true)
     BLUEPRINT_ID="0"
     SERVICE_ID="0"
 
@@ -100,6 +101,11 @@ if [[ "$SKIP_DEPLOY" != "true" ]]; then
     log "  Tangle: $TANGLE_ADDR"
     log "  MultiAssetDelegation: $RESTAKING_ADDR"
     log "  OperatorStatusRegistry: $STATUS_REG_ADDR"
+    if [[ -n "${CREDITS_ADDR:-}" ]]; then
+        log "  Credits: $CREDITS_ADDR"
+    else
+        warn "Credits address not found in deploy output; credits indexing will be disabled"
+    fi
     log "  Blueprint ID: $BLUEPRINT_ID"
     log "  Service ID: $SERVICE_ID"
 fi
@@ -111,6 +117,10 @@ cd "$INDEXER_DIR"
 # Use the local config
 cp config.local.yaml config.yaml.bak 2>/dev/null || true
 cp config.local.yaml config.yaml
+if [[ -n "${CREDITS_ADDR:-}" ]]; then
+    # Replace the placeholder Credits address for local indexing.
+    sed -i.bak "s/0x0000000000000000000000651234512121212666/${CREDITS_ADDR}/g" config.yaml
+fi
 
 # Run codegen
 log "Running Envio codegen..."

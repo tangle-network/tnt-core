@@ -4,10 +4,13 @@
   "_chainId": 84532,
   "_l1ChainId": 17000,
   "_todo_tnt_sentinel": "TODO: 0x0000000000000000000000000000000000000001 is a sentinel meaning 'use the deployed/reused TNT token' (FullDeploy replaces it at runtime)",
-  "_todo_roles": "TODO: set the production admin/treasury EOAs before deployment",
+  "_todo_roles": "TODO: set the production admin/treasury/timelock/multisig addresses before deployment",
   "roles": {
     "admin": "0x0000000000000000000000000000000000000000",
-    "treasury": "0x0000000000000000000000000000000000000000"
+    "treasury": "0x0000000000000000000000000000000000000000",
+    "timelock": "0x0000000000000000000000000000000000000000",
+    "multisig": "0x0000000000000000000000000000000000000000",
+    "revokeBootstrap": false
   },
   "core": {
     "deploy": true,
@@ -191,5 +194,11 @@
     "merklePath": "deployments/base-sepolia-holesky/merkle-tree.json",
     "_todo_migration_notes": "TODO: document how these artifacts feed the dashboard",
     "notes": "TODO: add rollout notes"
+  },
+  "credits": {
+    "deploy": true,
+    "_todo_owner": "TODO: set to timelock/multisig that should manage credits epochs",
+    "owner": "0x0000000000000000000000000000000000000000",
+    "credits": "0x0000000000000000000000000000000000000000"
   }
 }

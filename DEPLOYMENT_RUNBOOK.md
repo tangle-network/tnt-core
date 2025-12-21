@@ -12,6 +12,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 - `script/v2/FullDeploy.s.sol:FullDeploy`: orchestrates `DeployV2` plus:
   - Restake asset enablement (with optional adapters)
   - Optional `TangleMetrics`, `RewardVaults`, `InflationPool`
+  - Optional `Credits` (standalone Merkle-root credits claim registry; no token transfers)
   - Writes a manifest JSON (see `deploy/config/*` -> `.manifest.path`)
   - Wires permissions so `RewardVaults` can be called by `MultiAssetDelegation` and `InflationPool`
 
@@ -31,6 +32,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 **Local / E2E**
 - `script/v2/LocalTestnet.s.sol:LocalTestnetSetup`: local Anvil full stack (mock tokens, blueprints, pods).
 - `scripts/e2e-local.sh`: spins up Anvil + deploy + indexer.
+  - Also deploys `Credits` and wires its address into the local indexer config automatically.
 
 **Token distribution**
 - `script/v2/DistributeTNT.s.sol:DistributeTNT`: batch ERC20 transfers from the deployer using `DISTRIBUTION_FILE` (example: `deploy/config/tnt-distribution.example.json`).
@@ -79,7 +81,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 
 ### One-command helper
 - `scripts/deploy-testnet-base-sepolia-holesky.sh` automates the above (requires `jq`).
-- Optional: set `DEPLOY_MIGRATION=true` to run `scripts/deploy-migration-base-sepolia.sh` after core/slashing deploy (you must also set `TREASURY_RECIPIENT` and `PROGRAM_VKEY` unless you use `USE_MOCK_VERIFIER=true`).
+- Migration is part of `FullDeploy` now; set `migration.deploy=true` in the config and provide `migration.programVKey` and `migration.merklePath`.
 
 ## Recommended Deploy Order (Base mainnet + Ethereum mainnet)
 
@@ -87,8 +89,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
   - `BASE_RPC` (Base mainnet RPC)
   - `MAINNET_RPC` (Ethereum mainnet RPC)
   - `FULL_DEPLOY_CONFIG=deploy/config/base-mainnet.json`
-
-Optional: set `DEPLOY_MIGRATION=true` to deploy the full migration system on Base mainnet after core/slashing (same snapshot artifacts and lock config).
+  - Migration is handled by `FullDeploy` when `migration.deploy=true`.
 
 ## Swapping Base for another chain (Arbitrum/Tempo/any EVM)
 
@@ -114,7 +115,7 @@ Use `scripts/deploy-l1-to-evm-destination.sh` when you want to treat the destina
 - `DEST_CHAIN_ID` is the destination chainId
 - `SLASHING_BRIDGE=hyperlane|layerzero`
 
-Optional: set `DEPLOY_MIGRATION=true` to deploy the full TNT migration system on the destination chain after core/slashing.
+Migration is handled by `FullDeploy` when `migration.deploy=true` in the config.
 
 ## Migration Rollout (optional, TNT launch)
 
@@ -130,23 +131,15 @@ This deploys the full migration system on Base Sepolia using the in-repo snapsho
 - `packages/migration-claim/treasury-carveout.json` (treasury allocation you must send to a real EVM address)
 
 **Prereqs**
-- A TNT token address to distribute (recommended: the `tntToken` from your `FullDeploy` manifest so the dApp/protocol use the same token).
+- `FullDeploy` config includes `migration.deploy=true`, `migration.programVKey`, and file paths for the merkle tree + carveouts.
 - Deployer has enough TNT balance to fund:
-  - `TOTAL_SUBSTRATE` into `TangleMigration`
-  - `TOTAL_EVM` for the EVM airdrop
-  - `TREASURY_AMOUNT` sent to `TREASURY_RECIPIENT`
-- For SP1 parity, set `PROGRAM_VKEY` and ensure `SP1_VERIFIER` (gateway) is correct for Base Sepolia.
-
-**Deploy migration (no EVM airdrop yet)**
-- `BASE_SEPOLIA_RPC=... PRIVATE_KEY=... FULL_DEPLOY_MANIFEST=deployments/base-sepolia-holesky/latest.json TREASURY_RECIPIENT=0x... PROGRAM_VKEY=0x... ./scripts/deploy-migration-base-sepolia.sh`
-
-**Deploy migration + execute full EVM airdrop**
-- `BASE_SEPOLIA_RPC=... PRIVATE_KEY=... FULL_DEPLOY_MANIFEST=deployments/base-sepolia-holesky/latest.json TREASURY_RECIPIENT=0x... PROGRAM_VKEY=0x... ./scripts/deploy-migration-base-sepolia.sh --airdrop`
+  - Substrate allocation into `TangleMigration`
+  - Treasury + foundation carveouts
+  - EVM allocation for airdrop (held by deployer)
 
 Notes:
-- The script writes `deployments/base-sepolia/migration.json` (override with `MIGRATION_MANIFEST_PATH`).
-- It uses the migration contract’s `unlockTimestamp` + `unlockedBps` for the EVM lockups so both paths match.
-- `TangleMigration` includes an owner-only `adminClaim` window (default 60 days) for edge-case recovery; set `MIGRATION_OWNER` to a multisig/timelock.
+- `FullDeploy` writes `deployments/<network>/migration.json`.
+- `TangleMigration` includes an owner-only `adminClaim` window (default 60 days) for edge-case recovery; set `migration.migrationOwner` to a multisig/timelock.
 
 ## What’s “ready” vs still missing for production
 
@@ -161,7 +154,7 @@ Notes:
   - `DistributeTNTWithLockup` for direct EVM lists (batched).
   - `packages/migration-claim` for Substrate→EVM Merkle+ZK claims with the same lock split.
   But these are not yet orchestrated by `FullDeploy` (they’re run as separate rollout steps).
-- Governance deployment is present as contracts (`src/v2/governance/GovernanceDeployer.sol`) but not integrated into `FullDeploy` (role transfer / timelock hardening is still a manual step).
+- Governance deployment is present as contracts (`src/v2/governance/GovernanceDeployer.sol`) but not integrated into `FullDeploy` (governor/timelock deployment is still separate; `FullDeploy` now supports role handoff to timelock/multisig if you wire them in the config).
 - LayerZero Holesky EID is not hardcoded; you must provide `LAYERZERO_SOURCE_EID`.
 
 ## Rewards / Inflation (current model)
@@ -180,3 +173,16 @@ To start rewards (e.g. “1% yearly inflation budget”), governance/treasury sh
 If you later decide to make TNT truly inflationary (minting new supply):
 - Keep the same reward system, but mint via governance (TangleTimelock with `MINTER_ROLE`) and then `fund()` the `InflationPool`.
 - Do not give `MINTER_ROLE` to `InflationPool`/`RewardVaults` (it breaks the “risk isolation” model).
+
+## Credits (optional; off-chain accrual + on-chain Merkle claims)
+
+If enabled in `FULL_DEPLOY_CONFIG` under `"credits": { "deploy": true, "owner": ... }`, `FullDeploy` deploys a standalone `Credits` contract and writes its address to the manifest as `"credits"`.
+
+### Workflow (testnet or local)
+
+1) Deploy `Credits` via `FullDeploy` (or use the local E2E script).
+2) Run the indexer and ensure it includes the `Credits` address in `indexer/config.yaml` (Base Sepolia) or via `scripts/e2e-local.sh` (local).
+3) Compute a TNT-only credits epoch from the indexer and publish a Merkle root:
+   - `cd packages/credits/scripts && npm i`
+   - `GRAPHQL_URL=... RPC_URL=... PRIVATE_KEY=... CREDITS_ADDRESS=... npx ts-node runEpoch.ts --epoch-id 1 --tnt-token 0xYourTNT --credits-per-tnt 1 --publish`
+4) Users claim on-chain via `Credits.claim(...)` and downstream systems consume `CreditsClaimed` events.

@@ -1,43 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Allow overriding the stack size via STACK_SOFT_LIMIT (in kilobytes).
-# Accept kilobytes or the literal string "unlimited".
-STACK_SOFT_LIMIT="${STACK_SOFT_LIMIT:-unlimited}"
-# Allow overriding the Rust per-thread stack via RUST_MIN_STACK (bytes).
-RUST_MIN_STACK_VALUE="${RUST_MIN_STACK_VALUE:-268435456}" # 256 MB default
+# Foundry will eventually overflow the default macOS thread stack once the full
+# suite is executed. This script ensures we bump stack limits consistently.
 
-# Try to raise the shell soft stack size; ignore failures (e.g., limited shells).
-if command -v ulimit >/dev/null 2>&1; then
-    if [[ "${STACK_SOFT_LIMIT}" == "unlimited" ]]; then
-        # shellcheck disable=SC3045
-        ulimit -S -s unlimited 2>/dev/null || true
-    else
-        # shellcheck disable=SC3045
-        ulimit -S -s "${STACK_SOFT_LIMIT}" 2>/dev/null || true
+ulimit -S -s unlimited >/dev/null 2>&1 || true
+ulimit -s unlimited >/dev/null 2>&1 || true
+export RUST_MIN_STACK="${RUST_MIN_STACK:-268435456}"
+
+if [[ "$#" -eq 0 ]]; then
+  mapfile -t test_files < <(find test/v2 -type f -name '*.t.sol' | LC_ALL=C sort)
+  if [[ "${#test_files[@]}" -eq 0 ]]; then
+    echo "No test files found under test/v2" >&2
+    exit 1
+  fi
+
+  for f in "${test_files[@]}"; do
+    echo "==> forge test --threads 1 --match-path ${f}"
+    forge test --threads 1 --match-path "${f}"
+  done
+  exit 0
+fi
+
+if [[ "${1:-}" == "forge" && "${2:-}" == "test" ]]; then
+  for arg in "$@"; do
+    if [[ "${arg}" == "--threads" ]]; then
+      exec "$@"
     fi
+  done
+  exec "$@" --threads 1
 fi
 
-export RUST_MIN_STACK="${RUST_MIN_STACK_VALUE}"
+exec "$@"
 
-# Default to single-threaded Forge to avoid spawning extra worker stacks.
-if [[ $# -gt 0 ]]; then
-    exec "$@"
-fi
-
-# No custom command supplied: run the entire suite file-by-file so each Forge
-# invocation remains lightweight (prevents stack overflows on macOS).
-TEST_FILES=()
-while IFS= read -r file; do
-    TEST_FILES+=("$file")
-done < <(find test/v2 -type f -name '*.t.sol' | sort)
-
-run_segment() {
-    local pattern="$1"
-    echo "=== Running forge test --match-path '${pattern}' ==="
-    forge test --threads 1 --match-path "${pattern}"
-}
-
-for test_file in "${TEST_FILES[@]}"; do
-    run_segment "${test_file}" || exit 1
-done

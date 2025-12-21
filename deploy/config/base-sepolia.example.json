@@ -2,7 +2,10 @@
   "network": "base-sepolia",
   "roles": {
     "admin": "0x1111111111111111111111111111111111111111",
-    "treasury": "0x2222222222222222222222222222222222222222"
+    "treasury": "0x2222222222222222222222222222222222222222",
+    "timelock": "0x3333333333333333333333333333333333333333",
+    "multisig": "0x4444444444444444444444444444444444444444",
+    "revokeBootstrap": false
   },
   "core": {
     "deploy": true,
@@ -80,9 +83,24 @@
     "logSummary": true
   },
   "migration": {
+    "deploy": true,
     "emitArtifacts": true,
+    "useMockVerifier": false,
     "artifactsPath": "deployments/base-sepolia/migration.json",
-    "merklePath": "deployments/base-sepolia/merkle-tree.json",
+    "merklePath": "packages/migration-claim/merkle-tree.json",
+    "evmClaimsPath": "packages/migration-claim/evm-claims.json",
+    "treasuryCarveoutPath": "packages/migration-claim/treasury-carveout.json",
+    "foundationCarveoutPath": "packages/migration-claim/foundation-carveout.json",
+    "migrationOwner": "0x3333333333333333333333333333333333333333",
+    "sp1VerifierGateway": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B",
+    "programVKey": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "treasuryRecipient": "0x2222222222222222222222222222222222222222",
+    "foundationRecipient": "0x5555555555555555555555555555555555555555",
     "notes": "Copy these files into the dApp package post-deploy."
+  },
+  "credits": {
+    "deploy": true,
+    "owner": "0x3333333333333333333333333333333333333333",
+    "credits": "0x0000000000000000000000000000000000000000"
   }
 }

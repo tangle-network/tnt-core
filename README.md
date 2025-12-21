@@ -57,6 +57,11 @@ A starter `deploy.env.example` file is included—copy it to `.env`, fill in the
 
 Operators must approve the TNT bond token before calling `registerOperator`, and `unregisterOperator` refunds the same asset automatically.
 
+### Integrator notes
+
+- Operator liveness is tracked via `OperatorStatusRegistry` heartbeats submitted by the operator runtime/CLI. Use `submitHeartbeat` for liveness proofs and read `isOnline`, `getOperatorStatus`, or `getLastHeartbeat` for status. There is no `setOperatorOnline` call in core.
+- `JobCompleted` emits only `(serviceId, callId)`. Derive `resultCount` from `getJobCall(serviceId, callId)`. Indexers must match the minimal event signatures configured in `indexer/config.yaml`.
+
 ### Envio indexer
 
 An Envio indexer is included under `indexer/` to track on-chain protocol data. The handler stack is now modular:

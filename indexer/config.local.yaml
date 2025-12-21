@@ -158,6 +158,7 @@ networks:
           - event: DeveloperRewardClaimed(address indexed developer, uint256 amount)
       - name: Credits
         address:
+          # Deploy `packages/credits/src/Credits.sol` and set its address here when indexing credits locally.
           - "0x0000000000000000000000651234512121212666"
         handler: src/EventHandlers.ts
         events:

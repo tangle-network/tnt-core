@@ -16,10 +16,15 @@ import { MasterBlueprintServiceManager } from "../../../src/v2/MasterBlueprintSe
 import { MBSMRegistry } from "../../../src/v2/MBSMRegistry.sol";
 import { BlueprintDefinitionHelper } from "../../support/BlueprintDefinitionHelper.sol";
 import { TangleBlueprintsFacet } from "../../../src/v2/facets/tangle/TangleBlueprintsFacet.sol";
+import { TangleBlueprintsManagementFacet } from "../../../src/v2/facets/tangle/TangleBlueprintsManagementFacet.sol";
 import { TangleOperatorsFacet } from "../../../src/v2/facets/tangle/TangleOperatorsFacet.sol";
+import { TangleServicesRequestsFacet } from "../../../src/v2/facets/tangle/TangleServicesRequestsFacet.sol";
 import { TangleServicesFacet } from "../../../src/v2/facets/tangle/TangleServicesFacet.sol";
+import { TangleServicesLifecycleFacet } from "../../../src/v2/facets/tangle/TangleServicesLifecycleFacet.sol";
 import { TangleJobsFacet } from "../../../src/v2/facets/tangle/TangleJobsFacet.sol";
+import { TangleJobsAggregationFacet } from "../../../src/v2/facets/tangle/TangleJobsAggregationFacet.sol";
 import { TangleQuotesFacet } from "../../../src/v2/facets/tangle/TangleQuotesFacet.sol";
+import { TangleQuotesExtensionFacet } from "../../../src/v2/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
 import { TangleSlashingFacet } from "../../../src/v2/facets/tangle/TangleSlashingFacet.sol";
 import { RestakingOperatorsFacet } from "../../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
@@ -550,10 +555,15 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     function _registerTangleFacets(address tangleProxy) internal {
         Tangle router = Tangle(payable(tangleProxy));
         router.registerFacet(address(new TangleBlueprintsFacet()));
+        router.registerFacet(address(new TangleBlueprintsManagementFacet()));
         router.registerFacet(address(new TangleOperatorsFacet()));
+        router.registerFacet(address(new TangleServicesRequestsFacet()));
         router.registerFacet(address(new TangleServicesFacet()));
+        router.registerFacet(address(new TangleServicesLifecycleFacet()));
         router.registerFacet(address(new TangleJobsFacet()));
+        router.registerFacet(address(new TangleJobsAggregationFacet()));
         router.registerFacet(address(new TangleQuotesFacet()));
+        router.registerFacet(address(new TangleQuotesExtensionFacet()));
         router.registerFacet(address(new TanglePaymentsFacet()));
         router.registerFacet(address(new TangleSlashingFacet()));
     }

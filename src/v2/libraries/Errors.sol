@@ -368,4 +368,7 @@ error QuoteTTLMismatch(address operator, uint64 expectedTtl, uint64 quotedTtl);
 
     /// @notice No facet registered for a selector
     error UnknownSelector(bytes4 selector);
+
+    /// @notice Selector already registered to a different facet
+    error SelectorAlreadyRegistered(bytes4 selector, address existingFacet);
 }

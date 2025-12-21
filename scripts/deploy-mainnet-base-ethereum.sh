@@ -117,12 +117,7 @@ forge script script/v2/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector \
   --non-interactive
 
 if [[ "$DEPLOY_MIGRATION" == "true" ]]; then
-  echo "==> 5/5 Deploy TNT migration on Base mainnet"
-  FULL_DEPLOY_MANIFEST="$MANIFEST_PATH" \
-  RPC_URL="$BASE_RPC" \
-  MIGRATION_MANIFEST_PATH="$ROOT_DIR/deployments/base-mainnet/migration.json" \
-  OUT_DIR="$ROOT_DIR/deployments/base-mainnet/evm-airdrop" \
-  ./scripts/deploy-migration-base-sepolia.sh
+  echo "==> Migration is handled by FullDeploy (migration.deploy=true); skipping standalone deploy."
 fi
 
 echo ""
@@ -130,4 +125,3 @@ echo "Done."
 echo "Base mainnet core manifest: $MANIFEST_PATH"
 echo "Ethereum mainnet slashing manifest:  $L1_MANIFEST_PATH"
 echo "Base mainnet slashing manifest: $L2_SLASHING_MANIFEST_PATH"
-

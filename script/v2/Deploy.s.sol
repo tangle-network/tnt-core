@@ -14,10 +14,15 @@ import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { TangleBlueprintsFacet } from "../../src/v2/facets/tangle/TangleBlueprintsFacet.sol";
+import { TangleBlueprintsManagementFacet } from "../../src/v2/facets/tangle/TangleBlueprintsManagementFacet.sol";
 import { TangleOperatorsFacet } from "../../src/v2/facets/tangle/TangleOperatorsFacet.sol";
+import { TangleServicesRequestsFacet } from "../../src/v2/facets/tangle/TangleServicesRequestsFacet.sol";
 import { TangleServicesFacet } from "../../src/v2/facets/tangle/TangleServicesFacet.sol";
+import { TangleServicesLifecycleFacet } from "../../src/v2/facets/tangle/TangleServicesLifecycleFacet.sol";
 import { TangleJobsFacet } from "../../src/v2/facets/tangle/TangleJobsFacet.sol";
+import { TangleJobsAggregationFacet } from "../../src/v2/facets/tangle/TangleJobsAggregationFacet.sol";
 import { TangleQuotesFacet } from "../../src/v2/facets/tangle/TangleQuotesFacet.sol";
+import { TangleQuotesExtensionFacet } from "../../src/v2/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
 import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFacet.sol";
 import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
@@ -127,6 +132,7 @@ contract DeployV2 is DeployScriptBase {
     uint16 public operatorCommissionBps = 1000; // 10%
     address public operatorBondToken;
     uint256 public operatorBondAmount = 100 ether;
+    uint256 public tntInitialSupply;
 
     function run() external virtual {
         uint256 deployerPrivateKey = _requireEnvUint("PRIVATE_KEY");
@@ -314,7 +320,10 @@ contract DeployV2 is DeployScriptBase {
     }
 
     function _deployTNTToken(address admin) internal returns (address) {
-        uint256 initialSupply = _envUintOrDefault("TNT_INITIAL_SUPPLY", 1_000_000 ether);
+        uint256 initialSupply = tntInitialSupply;
+        if (initialSupply == 0) {
+            initialSupply = _envUintOrDefault("TNT_INITIAL_SUPPLY", 1_000_000 ether);
+        }
         TangleToken tokenImpl = new TangleToken();
         ERC1967Proxy tokenProxy =
             new ERC1967Proxy(address(tokenImpl), abi.encodeCall(TangleToken.initialize, (admin, initialSupply)));
@@ -359,10 +368,15 @@ contract DeployV2 is DeployScriptBase {
     function _registerTangleFacets(address tangleProxy) internal {
         Tangle router = Tangle(payable(tangleProxy));
         router.registerFacet(address(new TangleBlueprintsFacet()));
+        router.registerFacet(address(new TangleBlueprintsManagementFacet()));
         router.registerFacet(address(new TangleOperatorsFacet()));
+        router.registerFacet(address(new TangleServicesRequestsFacet()));
         router.registerFacet(address(new TangleServicesFacet()));
+        router.registerFacet(address(new TangleServicesLifecycleFacet()));
         router.registerFacet(address(new TangleJobsFacet()));
+        router.registerFacet(address(new TangleJobsAggregationFacet()));
         router.registerFacet(address(new TangleQuotesFacet()));
+        router.registerFacet(address(new TangleQuotesExtensionFacet()));
         router.registerFacet(address(new TanglePaymentsFacet()));
         router.registerFacet(address(new TangleSlashingFacet()));
     }

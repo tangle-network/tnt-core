@@ -1,11 +1,13 @@
 import { onBlock } from "generated";
 import { PointsManager } from "../points";
-import { HOURLY_BLOCK_INTERVAL } from "../lib/handlerUtils";
+import { CHAIN_ID, HOURLY_BLOCK_INTERVAL } from "../lib/handlerUtils";
 import { HOURLY_PROGRAMS, pointsContext, processParticipation } from "../points/participation";
 import { refreshRegisteredAssetPrices } from "../points/prices";
 
-// Local chain ID for onBlock handlers - must match config.local.yaml
-const LOCAL_CHAIN_ID = 31337 as const;
+// `generated` is compiled from whatever `config*.yaml` was used during `envio codegen`.
+// The chain ID is validated at runtime; we cast here to avoid coupling builds to a single chain literal.
+import type { chain as GeneratedChain } from "generated/src/Types.gen";
+const INDEXER_CHAIN = CHAIN_ID as unknown as GeneratedChain;
 
 const extractBlockMeta = (block: { number?: number | string; timestamp?: number | string; hash?: string }) => {
   const blockNumber = typeof block.number === "string" ? BigInt(block.number) : BigInt(block.number ?? 0);
@@ -20,12 +22,12 @@ const extractBlockMeta = (block: { number?: number | string; timestamp?: number 
 };
 
 export function registerHourlyHandlers() {
-  onBlock({ name: "asset-price-refresh", chain: LOCAL_CHAIN_ID, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
+  onBlock({ name: "asset-price-refresh", chain: INDEXER_CHAIN, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
     const { blockNumber, timestamp } = extractBlockMeta(block);
     await refreshRegisteredAssetPrices(context, blockNumber, timestamp);
   });
 
-  onBlock({ name: "hourly-participation", chain: LOCAL_CHAIN_ID, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
+  onBlock({ name: "hourly-participation", chain: INDEXER_CHAIN, interval: HOURLY_BLOCK_INTERVAL }, async ({ block, context }) => {
     const { blockNumber, timestamp, hash } = extractBlockMeta(block);
     const points = new PointsManager(pointsContext(context), blockNumber, timestamp, hash);
     for (const program of HOURLY_PROGRAMS) {

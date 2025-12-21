@@ -109,6 +109,10 @@ contract MultiAssetDelegation is
         if (facet == address(0)) revert DelegationErrors.ZeroAddress();
         if (facet.code.length == 0) revert DelegationErrors.NotAContract(facet);
         for (uint256 i = 0; i < selectors.length; i++) {
+            address existing = _facetForSelector[selectors[i]];
+            if (existing != address(0) && existing != facet) {
+                revert DelegationErrors.SelectorAlreadyRegistered(selectors[i], existing);
+            }
             _facetForSelector[selectors[i]] = facet;
             emit FacetSelectorSet(selectors[i], facet);
         }

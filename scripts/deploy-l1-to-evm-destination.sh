@@ -135,12 +135,7 @@ forge script script/v2/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector \
   --non-interactive
 
 if [[ "$DEPLOY_MIGRATION" == "true" ]]; then
-  echo "==> 5/5 Deploy TNT migration on destination (optional)"
-  RPC_URL="$DEST_RPC" \
-  FULL_DEPLOY_MANIFEST="$MANIFEST_PATH" \
-  MIGRATION_MANIFEST_PATH="$MANIFEST_DIR/migration.json" \
-  OUT_DIR="$MANIFEST_DIR/evm-airdrop" \
-  ./scripts/deploy-migration-base-sepolia.sh
+  echo "==> Migration is handled by FullDeploy (migration.deploy=true); skipping standalone deploy."
 fi
 
 echo ""
@@ -148,4 +143,3 @@ echo "Done."
 echo "Core manifest:      $MANIFEST_PATH"
 echo "L1 slashing:        $L1_MANIFEST_PATH"
 echo "Destination slashing: $L2_SLASHING_MANIFEST_PATH"
-

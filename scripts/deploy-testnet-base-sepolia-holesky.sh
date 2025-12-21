@@ -128,10 +128,7 @@ forge script script/v2/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector \
   --non-interactive
 
 if [[ "$DEPLOY_MIGRATION" == "true" ]]; then
-  echo "==> 5/5 Deploy TNT migration on Base Sepolia"
-  FULL_DEPLOY_MANIFEST="$MANIFEST_PATH" \
-  BASE_SEPOLIA_RPC="$BASE_SEPOLIA_RPC" \
-  ./scripts/deploy-migration-base-sepolia.sh
+  echo "==> Migration is handled by FullDeploy (migration.deploy=true); skipping standalone deploy."
 fi
 
 echo ""

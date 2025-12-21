@@ -3,40 +3,22 @@ pragma solidity ^0.8.26;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import { Services } from "../../core/Services.sol";
-import { Payments } from "../../core/Payments.sol";
+import { ServicesApprovals } from "../../core/ServicesApprovals.sol";
 import { Types } from "../../libraries/Types.sol";
 import { IBlueprintServiceManager } from "../../interfaces/IBlueprintServiceManager.sol";
+import { ITanglePaymentsInternal } from "../../interfaces/ITanglePaymentsInternal.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 
 /// @title TangleServicesFacet
-/// @notice Facet for service lifecycle management
-contract TangleServicesFacet is Services, Payments, IFacetSelectors {
+/// @notice Facet for service approvals and activation
+contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](21);
-        selectorList[0] = bytes4(keccak256("requestService(uint64,address[],bytes,address[],uint64,address,uint256)"));
-        selectorList[1] = bytes4(keccak256("requestServiceWithExposure(uint64,address[],uint16[],bytes,address[],uint64,address,uint256)"));
-        selectorList[2] = bytes4(keccak256("requestServiceWithSecurity(uint64,address[],((uint8,address),uint16,uint16)[],bytes,address[],uint64,address,uint256)"));
-        selectorList[3] = this.approveService.selector;
-        selectorList[4] = bytes4(keccak256("approveServiceWithCommitments(uint64,((uint8,address),uint16)[])"));
-        selectorList[5] = this.rejectService.selector;
-        selectorList[6] = this.terminateService.selector;
-        selectorList[7] = this.addPermittedCaller.selector;
-        selectorList[8] = this.removePermittedCaller.selector;
-        selectorList[9] = this.joinService.selector;
-        selectorList[10] = bytes4(keccak256("joinServiceWithCommitments(uint64,uint16,((uint8,address),uint16)[])"));
-        selectorList[11] = this.scheduleExit.selector;
-        selectorList[12] = this.executeExit.selector;
-        selectorList[13] = this.cancelExit.selector;
-        selectorList[14] = this.forceExit.selector;
-        selectorList[15] = this.leaveService.selector;
-        selectorList[16] = this.forceRemoveOperator.selector;
-        selectorList[17] = this.getExitRequest.selector;
-        selectorList[18] = this.getExitStatus.selector;
-        selectorList[19] = this.getExitConfig.selector;
-        selectorList[20] = this.canScheduleExit.selector;
+        selectorList = new bytes4[](3);
+        selectorList[0] = this.approveService.selector;
+        selectorList[1] = bytes4(keccak256("approveServiceWithCommitments(uint64,((uint8,address),uint16)[])"));
+        selectorList[2] = this.rejectService.selector;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -168,7 +150,7 @@ contract TangleServicesFacet is Services, Payments, IFacetSelectors {
         }
         if (pricing == Types.PricingModel.PayOnce) {
             address[] memory operators = _copyRequestOperators(requestId);
-            _distributePayment(
+            ITanglePaymentsInternal(address(this)).distributePayment(
                 serviceId,
                 blueprintId,
                 paymentToken,
@@ -178,7 +160,7 @@ contract TangleServicesFacet is Services, Payments, IFacetSelectors {
                 totalExposure
             );
         } else if (pricing == Types.PricingModel.Subscription) {
-            _depositToEscrow(serviceId, paymentToken, paymentAmount);
+            ITanglePaymentsInternal(address(this)).depositToEscrow(serviceId, paymentToken, paymentAmount);
         }
     }
 

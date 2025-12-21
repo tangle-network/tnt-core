@@ -94,6 +94,7 @@ contract MultiAssetDelegationTest is Test {
 
     function _registerFacets(address proxy) internal {
         MultiAssetDelegation router = MultiAssetDelegation(payable(proxy));
+        vm.startPrank(admin);
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
@@ -102,6 +103,7 @@ contract MultiAssetDelegationTest is Test {
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));
         router.registerFacet(address(new RestakingAdminFacet()));
+        vm.stopPrank();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

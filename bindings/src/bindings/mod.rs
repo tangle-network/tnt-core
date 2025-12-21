@@ -5,6 +5,7 @@
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#upgrade_multi_asset_delegation;
 pub mod r#i_blueprint_service_manager;
+pub mod r#i_multi_asset_delegation;
 pub mod r#i_tangle;
 pub mod r#i_tangle_admin;
 pub mod r#i_tangle_full;
@@ -13,6 +14,7 @@ pub mod r#i_tangle_governance;
 pub mod r#i_tangle_token;
 pub mod r#i_tangle_jobs;
 pub mod r#i_tangle_operators;
+pub mod r#i_tangle_payments_internal;
 pub mod r#i_tangle_rewards;
 pub mod r#i_tangle_security_view;
 pub mod r#i_tangle_services;
