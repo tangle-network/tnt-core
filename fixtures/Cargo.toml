@@ -1,0 +1,23 @@
+[package]
+name = "tnt-core-fixtures"
+version = "0.4.7"
+edition = "2021"
+rust-version = "1.81"
+description = "Local testnet fixture data for TNT Core"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/tangle-network/tnt-core"
+homepage = "https://tangle.tools"
+documentation = "https://docs.rs/tnt-core-fixtures"
+readme = "README.md"
+keywords = ["tangle", "restaking", "fixtures", "anvil", "ethereum"]
+categories = ["cryptography::cryptocurrencies", "development-tools::testing"]
+include = [
+    "src/**/*",
+    "fixtures/**/*",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE-*",
+]
+
+[lib]
+path = "src/lib.rs"

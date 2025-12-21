@@ -1,5 +1,5 @@
 [workspace]
-members = ["bindings", "xtask"]
+members = ["bindings", "fixtures", "xtask"]
 resolver = "2"
 
 [profile.dev]
