@@ -6,18 +6,19 @@
   "treasury": "0x89db5277a310c473d515891cafcd4e66b8a7f06f",
   "timelock": "0x89db5277a310c473d515891cafcd4e66b8a7f06f",
   "multisig": "0x89db5277a310c473d515891cafcd4e66b8a7f06f",
-  "tangle": "0x62281eac026f6c6a65708157e47151b964216303",
-  "restaking": "0x96e682cc18874ec6cdb1b2a7f0a5f541e1fbaeb3",
-  "statusRegistry": "0x17746107e0b4cfaf4c96140f5e501bf10e740b65",
-  "tntToken": "0xf1fcced9c884e63f99d8be0acf5cc431d670795f",
-  "metrics": "0x2a9a91a1b546caa08b5d9aadf029aec35e00c36a",
-  "rewardVaults": "0x37979744708141ec1541b9b70faa7da8d0cf2d23",
-  "inflationPool": "0x8152f13c37576e1a2cd74d18213105ecf816d5de",
+  "tangle": "0x1be58d12620ecc8ba9d780feec2596510d75a933",
+  "restaking": "0x787dd1de4099ff8c68bfac11b82e4aed52c7f1e1",
+  "statusRegistry": "0x20258c5e4cba66d4819a06045ff00d15775e64fb",
+  "tntToken": "0xa9ffe787eea7f385dac8481cd8bdc3d9194aeb5a",
+  "metrics": "0x2057f94d04e4d667c4d5e60d23d2963358c00970",
+  "rewardVaults": "0x2963a51fec3e2cf51b19b848942d91296448a353",
+  "inflationPool": "0xe620f87540724a0cebdee9796dd8580e02dd4911",
+  "credits": "0x758226e04478541fcdac605e1f235e2956259a10",
   "epochLength": 604800,
   "restakeAssets": [
     {
       "symbol": "TNT",
-      "token": "0xf1fcced9c884e63f99d8be0acf5cc431d670795f",
+      "token": "0xa9ffe787eea7f385dac8481cd8bdc3d9194aeb5a",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": "1000000000000000000",
       "minDelegation": "100000000000000000",
@@ -117,7 +118,7 @@
   ],
   "rewardVaultsConfig": [
     {
-      "asset": "0xf1fcced9c884e63f99d8be0acf5cc431d670795f",
+      "asset": "0xa9ffe787eea7f385dac8481cd8bdc3d9194aeb5a",
       "apyBps": 800,
       "depositCap": "250000000000000000000000",
       "incentiveCap": "50000000000000000000000",
@@ -150,9 +151,29 @@
     "maxBlueprintsPerOperator": 0
   },
   "migration": {
+    "deploy": true,
     "emitArtifacts": true,
+    "useMockVerifier": false,
     "artifactsPath": "deployments/base-sepolia/migration.json",
-    "merklePath": "deployments/base-sepolia/merkle-tree.json",
-    "notes": "TODO: add rollout notes"
+    "merklePath": "packages/migration-claim/merkle-tree.json",
+    "evmClaimsPath": "packages/migration-claim/evm-claims.json",
+    "treasuryCarveoutPath": "packages/migration-claim/treasury-carveout.json",
+    "foundationCarveoutPath": "packages/migration-claim/foundation-carveout.json",
+    "notes": "TODO: add rollout notes",
+    "migrationOwner": "0x89db5277a310c473d515891cafcd4e66b8a7f06f",
+    "sp1VerifierGateway": "0x397a5f7f3dbd538f23de225b51f532c34448da9b",
+    "programVKey": "0x000d74444f16d75f72527687a36c1bd4c49e6799816dac4989be3bc175e86fd7",
+    "merkleRoot": "0x54ec5497e0a2f43ec721c1ec5392cb224cf710b1210b579dcaefea002bb51adb",
+    "substrateAllocation": "51244581812207794935986305",
+    "evmAllocation": "1125776519168932451653760",
+    "treasuryRecipient": "0x89db5277a310c473d515891cafcd4e66b8a7f06f",
+    "treasuryAmount": "41844468761091374585756819",
+    "foundationRecipient": "0x89db5277a310c473d515891cafcd4e66b8a7f06f",
+    "foundationAmount": "15040809826744825912214026",
+    "claimDeadline": "1797973358",
+    "unlockedBps": 0,
+    "unlockTimestamp": "0",
+    "tangleMigration": "0xd378d4ce9ed8ce23183cc3afe4d7991548e10c7b",
+    "zkVerifier": "0xc611ea4518206b90f215ff7594bbdace2552bb8e"
   }
 }
