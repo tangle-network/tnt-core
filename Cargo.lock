@@ -3351,13 +3351,17 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tnt-core-bindings"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "alloy",
  "alloy-contract",
  "alloy-sol-types",
  "serde",
 ]
+
+[[package]]
+name = "tnt-core-fixtures"
+version = "0.4.8"
 
 [[package]]
 name = "tokio"
