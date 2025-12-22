@@ -1,6 +1,8 @@
 import { MultiAssetDelegation, OperatorStatusRegistry } from "generated";
 import type {
   DelegationPosition,
+  DelegationBalance,
+  DelegationBalanceDelta,
   DelegationUnstakeRequest,
   Delegator,
   DelegatorAssetPosition,
@@ -55,6 +57,52 @@ export function registerRestakingHandlers() {
 
   const latestRound = async (context: { RestakingRound: { get: (id: string) => Promise<RestakingRound | undefined> } }) =>
     (await context.RestakingRound.get("latest"))?.round ?? 0n;
+
+  const ensureDelegationBalance = async (
+    context: { DelegationBalance: { get: (id: string) => Promise<DelegationBalance | undefined>; set: (entity: DelegationBalance) => void } },
+    delegator: string,
+    token: string,
+    timestamp: bigint
+  ) => {
+    const id = `${delegator}-${token}`;
+    let balance = await context.DelegationBalance.get(id);
+    if (!balance) {
+      balance = { id, delegator, token, amount: 0n, lastUpdatedAt: timestamp } as DelegationBalance;
+    }
+    context.DelegationBalance.set({ ...balance, lastUpdatedAt: timestamp } as DelegationBalance);
+    return balance;
+  };
+
+  const recordDelegationBalanceDelta = async (
+    context: {
+      DelegationBalance: { get: (id: string) => Promise<DelegationBalance | undefined>; set: (entity: DelegationBalance) => void };
+      DelegationBalanceDelta: { set: (entity: DelegationBalanceDelta) => void };
+    },
+    delegator: string,
+    token: string,
+    delta: bigint,
+    kind: DelegationBalanceDelta["kind"],
+    event: { block: { timestamp: number; hash: string; number: number | string }; logIndex: number; transaction?: { hash?: string } }
+  ) => {
+    const timestamp = getTimestamp(event);
+    const existing = await ensureDelegationBalance(context, delegator, token, timestamp);
+    const next = (existing.amount ?? 0n) + delta;
+    const amountAfter = next < 0n ? 0n : next;
+    context.DelegationBalance.set({ ...existing, amount: amountAfter, lastUpdatedAt: timestamp } as DelegationBalance);
+    const entity: DelegationBalanceDelta = {
+      id: `delegation-delta-${getEventId(event)}`,
+      balance_id: existing.id,
+      delegator,
+      token,
+      kind,
+      delta,
+      amountAfter,
+      blockNumber: getBlockNumber(event),
+      timestamp,
+      txHash: getTxHash(event),
+    } as DelegationBalanceDelta;
+    context.DelegationBalanceDelta.set(entity);
+  };
 
   MultiAssetDelegation.OperatorRegistered.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
@@ -238,7 +286,8 @@ export function registerRestakingHandlers() {
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const round = await latestRound(context);
     const mode = mapBlueprintSelection(event.params.selectionMode as any);
-    const position = await ensureDelegationPosition(context, delegator, operator, event.params.token, mode, round, timestamp);
+    const token = normalizeAddress(event.params.token ?? ZERO_ADDRESS);
+    const position = await ensureDelegationPosition(context, delegator, operator, token, mode, round, timestamp);
     const wasZero = (position.shares ?? 0n) === 0n;
     const updatedPosition: DelegationPosition = {
       ...position,
@@ -264,6 +313,7 @@ export function registerRestakingHandlers() {
     await getPointsManager(pointsContext(context), event).award(delegator.id, "delegation", toPointsValue(amount), "delegated");
     await activateParticipation(context, "delegator-hourly", delegator.id, "DELEGATOR", timestamp);
     await activateParticipation(context, "operator-hourly", operator.id, "OPERATOR", timestamp);
+    await recordDelegationBalanceDelta(context, delegator.id, token, amount, "DELEGATE", event);
   });
 
   MultiAssetDelegation.DelegatorUnstakeScheduled.handler(async ({ event, context }) => {
@@ -316,6 +366,7 @@ export function registerRestakingHandlers() {
     } as Delegator;
     context.Delegator.set(updatedDelegator);
     await maybeDeactivateDelegatorParticipation(context, updatedDelegator, timestamp);
+    await recordDelegationBalanceDelta(context, delegator.id, token, -amount, "UNSTAKE_EXECUTED", event);
     if (resultingShares === 0n) {
       const operator = await context.Operator.get(operatorId);
       if (operator) {

@@ -47,6 +47,11 @@ enum RequestStatus {
   CANCELLED
 }
 
+enum DelegationBalanceDeltaKind {
+  DELEGATE
+  UNSTAKE_EXECUTED
+}
+
 enum OperatorStakeChangeKind {
   REGISTERED
   STAKE_INCREASED
@@ -527,6 +532,37 @@ type DelegationUnstakeRequest {
   readyAtRound: BigInt!
   status: RequestStatus!
   executedAt: BigInt
+}
+
+"""
+Per-delegator, per-token running delegated amount derived from MultiAssetDelegation delegation events.
+
+This is designed to support stake×time style calculations off-chain (e.g., credits programs),
+without coupling those programs to core protocol contracts.
+"""
+type DelegationBalance {
+  id: ID!
+  delegator: String!
+  token: String!
+  amount: BigInt!
+  lastUpdatedAt: BigInt!
+  deltas: [DelegationBalanceDelta!]! @derivedFrom(field: "balance")
+}
+
+"""
+Historical delegation amount deltas. Negative `delta` values represent delegated stake reductions.
+"""
+type DelegationBalanceDelta {
+  id: ID!
+  balance: DelegationBalance!
+  delegator: String!
+  token: String!
+  kind: DelegationBalanceDeltaKind!
+  delta: BigInt!
+  amountAfter: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
 }
 
 type RestakingSlash {
