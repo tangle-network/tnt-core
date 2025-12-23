@@ -351,9 +351,31 @@ contract LiquidDelegationTest is Test {
         // Pending should be 0 (moved to claimable)
         uint256 pending = vault.pendingRedeemRequest(requestId, user1);
         assertEq(pending, 0, "Should not be pending anymore");
+    }
 
-        // Note: Full redeem claim requires additional withdrawal flow
-        // which is out of scope for this MVP test
+    function test_Vault_Redeem_ReturnsUnderlyingAfterDelay() public {
+        address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
+        LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
+
+        vm.startPrank(user1);
+        token.approve(address(vault), 10 ether);
+        vault.deposit(10 ether, user1);
+
+        uint256 sharesToRedeem = vault.balanceOf(user1);
+        uint256 requestId = vault.requestRedeem(sharesToRedeem, user1, user1);
+        vm.stopPrank();
+
+        uint64 delay = uint64(restaking.delegationBondLessDelay());
+        _advanceRounds(delay + 1);
+        assertEq(vault.claimableRedeemRequest(requestId, user1), sharesToRedeem, "Redeem should be claimable");
+
+        uint256 balanceBefore = token.balanceOf(user1);
+        vm.prank(user1);
+        uint256 assetsOut = vault.redeem(sharesToRedeem, user1, user1);
+
+        assertEq(token.balanceOf(user1), balanceBefore + assetsOut, "Assets returned should be transferred");
+        assertEq(restaking.getDelegation(vaultAddr, operator1), 0, "Vault delegation should be exited");
+        assertEq(vault.totalAssets(), 0, "Vault totalAssets should be 0 after redeem");
     }
 
     function test_Vault_SyncWithdrawReverts() public {

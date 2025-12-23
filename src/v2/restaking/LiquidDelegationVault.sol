@@ -53,6 +53,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     /// @notice Redeem request state
     struct RedeemRequestData {
         uint256 shares; // Shares to redeem
+        uint256 unstakeShares; // Shares scheduled in restaking bond-less request
         uint64 requestedRound; // Round when requested
         bool claimed; // Whether claimed
     }
@@ -260,6 +261,17 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Calculate assets at current exchange rate (for scheduling)
         uint256 assets = convertToAssets(shares);
 
+        // Mirror restaking's shares rounding-up rule so we can execute the exact bond-less request later.
+        Types.OperatorRewardPool memory pool = restaking.getOperatorRewardPool(operator);
+        uint256 unstakeShares;
+        if (pool.totalAssets == 0 || pool.totalShares == 0) {
+            unstakeShares = assets;
+        } else {
+            unstakeShares = (assets * pool.totalShares + pool.totalAssets - 1) / pool.totalAssets;
+        }
+
+        uint64 requestRound = uint64(restaking.currentRound());
+
         // Burn shares from owner
         _burn(owner, shares);
 
@@ -268,8 +280,12 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
         // Create request record
         requestId = _nextRequestId[controller]++;
-        _redeemRequests[controller][requestId] =
-            RedeemRequestData({ shares: shares, requestedRound: uint64(restaking.currentRound()), claimed: false });
+        _redeemRequests[controller][requestId] = RedeemRequestData({
+            shares: shares,
+            unstakeShares: unstakeShares,
+            requestedRound: requestRound,
+            claimed: false
+        });
 
         emit RedeemRequest(controller, owner, requestId, msg.sender, shares);
     }
@@ -282,6 +298,8 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
         uint64 currentRound = uint64(restaking.currentRound());
         uint64 delay = uint64(restaking.delegationBondLessDelay());
+        uint64 withdrawDelay = uint64(restaking.leaveDelegatorsDelay());
+        if (withdrawDelay > delay) delay = withdrawDelay;
 
         // If not yet claimable, it's still pending
         if (currentRound < req.requestedRound + delay) {
@@ -298,6 +316,8 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
         uint64 currentRound = uint64(restaking.currentRound());
         uint64 delay = uint64(restaking.delegationBondLessDelay());
+        uint64 withdrawDelay = uint64(restaking.leaveDelegatorsDelay());
+        if (withdrawDelay > delay) delay = withdrawDelay;
 
         // If past delay, it's claimable
         if (currentRound >= req.requestedRound + delay) {
@@ -335,6 +355,8 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
         uint64 currentRound = uint64(restaking.currentRound());
         uint64 delay = uint64(restaking.delegationBondLessDelay());
+        uint64 withdrawDelay = uint64(restaking.leaveDelegatorsDelay());
+        if (withdrawDelay > delay) delay = withdrawDelay;
 
         if (currentRound < req.requestedRound + delay) {
             revert NotClaimable();
@@ -343,17 +365,14 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Mark as claimed
         req.claimed = true;
 
-        // Track balance before executing unstake
-        uint256 balanceBefore = asset.balanceOf(address(this));
-
-        // Execute the unstake in underlying contract
-        restaking.executeDelegatorUnstake();
-
-        // Calculate assets received
-        assets = asset.balanceOf(address(this)) - balanceBefore;
-
-        // Transfer assets to receiver
-        asset.safeTransfer(receiver, assets);
+        // Execute the exact bond-less request and withdraw the resulting assets directly to the receiver.
+        assets = restaking.executeDelegatorUnstakeAndWithdraw(
+            operator,
+            address(asset),
+            req.unstakeShares,
+            req.requestedRound,
+            receiver
+        );
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }
@@ -363,6 +382,8 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         uint256 nextId = _nextRequestId[controller];
         uint64 currentRound = uint64(restaking.currentRound());
         uint64 delay = uint64(restaking.delegationBondLessDelay());
+        uint64 withdrawDelay = uint64(restaking.leaveDelegatorsDelay());
+        if (withdrawDelay > delay) delay = withdrawDelay;
 
         for (uint256 i = 0; i < nextId; i++) {
             RedeemRequestData memory req = _redeemRequests[controller][i];

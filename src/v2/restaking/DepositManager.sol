@@ -232,6 +232,15 @@ abstract contract DepositManager is DelegationStorage {
             _harvestExpiredLocks(msg.sender, readyAssets[i]);
 
             _transferAsset(readyAssets[i], msg.sender, readyAmounts[i]);
+            // Update deposit cap accounting on actual transfer (TVL decreases here).
+            bytes32 assetHash = _assetHash(readyAssets[i]);
+            Types.AssetConfig storage config = _assetConfigs[assetHash];
+            if (config.currentDeposits >= readyAmounts[i]) {
+                config.currentDeposits -= readyAmounts[i];
+            } else {
+                // Clamp for upgrade safety (in case currentDeposits was previously incorrect).
+                config.currentDeposits = 0;
+            }
             emit Withdrawn(msg.sender, readyAssets[i].token, readyAmounts[i]);
         }
     }

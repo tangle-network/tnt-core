@@ -91,6 +91,9 @@ fn gen_bindings() -> Result<()> {
                 &bindings_version,
                 "--alloy-version",
                 "1.0.0",
+                // Avoid a full rebuild here: we already built in step 2, and `forge bind` can be
+                // extremely verbose (which risks blocking on large stdout/stderr buffers).
+                "--skip-build",
             ])
             .args([
                 "--select",

@@ -3943,6 +3943,7 @@ interface IMultiAssetDelegation {
     function enableAsset(address token, uint256 minOperatorStake, uint256 minDelegation, uint256 depositCap, uint16 rewardMultiplierBps) external;
     function enableAssetWithAdapter(address token, address adapter, uint256 minOperatorStake, uint256 minDelegation, uint256 depositCap, uint16 rewardMultiplierBps) external;
     function executeDelegatorUnstake() external;
+    function executeDelegatorUnstakeAndWithdraw(address operator, address token, uint256 shares, uint64 requestedRound, address receiver) external returns (uint256 amount);
     function executeOperatorUnstake() external;
     function executeWithdraw() external;
     function getAssetConfig(address token) external view returns (Types.AssetConfig memory);
@@ -4496,6 +4497,45 @@ interface IMultiAssetDelegation {
     "name": "executeDelegatorUnstake",
     "inputs": [],
     "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "executeDelegatorUnstakeAndWithdraw",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "requestedRound",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -15009,6 +15049,214 @@ function executeDelegatorUnstake() external;
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `executeDelegatorUnstakeAndWithdraw(address,address,uint256,uint64,address)` and selector `0xbf690206`.
+```solidity
+function executeDelegatorUnstakeAndWithdraw(address operator, address token, uint256 shares, uint64 requestedRound, address receiver) external returns (uint256 amount);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct executeDelegatorUnstakeAndWithdrawCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub token: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub shares: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub requestedRound: u64,
+        #[allow(missing_docs)]
+        pub receiver: alloy::sol_types::private::Address,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`executeDelegatorUnstakeAndWithdraw(address,address,uint256,uint64,address)`](executeDelegatorUnstakeAndWithdrawCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct executeDelegatorUnstakeAndWithdrawReturn {
+        #[allow(missing_docs)]
+        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::primitives::aliases::U256,
+                u64,
+                alloy::sol_types::private::Address,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<executeDelegatorUnstakeAndWithdrawCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: executeDelegatorUnstakeAndWithdrawCall) -> Self {
+                    (
+                        value.operator,
+                        value.token,
+                        value.shares,
+                        value.requestedRound,
+                        value.receiver,
+                    )
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for executeDelegatorUnstakeAndWithdrawCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        operator: tuple.0,
+                        token: tuple.1,
+                        shares: tuple.2,
+                        requestedRound: tuple.3,
+                        receiver: tuple.4,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<executeDelegatorUnstakeAndWithdrawReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: executeDelegatorUnstakeAndWithdrawReturn) -> Self {
+                    (value.amount,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for executeDelegatorUnstakeAndWithdrawReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { amount: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for executeDelegatorUnstakeAndWithdrawCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "executeDelegatorUnstakeAndWithdraw(address,address,uint256,uint64,address)";
+            const SELECTOR: [u8; 4] = [191u8, 105u8, 2u8, 6u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.token,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.shares),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.requestedRound),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.receiver,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: executeDelegatorUnstakeAndWithdrawReturn = r.into();
+                        r.amount
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: executeDelegatorUnstakeAndWithdrawReturn = r.into();
+                        r.amount
+                    })
             }
         }
     };
@@ -25605,6 +25853,8 @@ function unpause() external;
         #[allow(missing_docs)]
         executeDelegatorUnstake(executeDelegatorUnstakeCall),
         #[allow(missing_docs)]
+        executeDelegatorUnstakeAndWithdraw(executeDelegatorUnstakeAndWithdrawCall),
+        #[allow(missing_docs)]
         executeOperatorUnstake(executeOperatorUnstakeCall),
         #[allow(missing_docs)]
         executeWithdraw(executeWithdrawCall),
@@ -25809,6 +26059,7 @@ function unpause() external;
             [170u8, 198u8, 170u8, 156u8],
             [176u8, 223u8, 206u8, 6u8],
             [186u8, 5u8, 187u8, 245u8],
+            [191u8, 105u8, 2u8, 6u8],
             [195u8, 80u8, 130u8, 169u8],
             [197u8, 80u8, 217u8, 56u8],
             [199u8, 53u8, 48u8, 37u8],
@@ -25909,6 +26160,7 @@ function unpause() external;
             ::core::stringify!(removeSlasher),
             ::core::stringify!(executeOperatorUnstake),
             ::core::stringify!(delegationBondLessDelay),
+            ::core::stringify!(executeDelegatorUnstakeAndWithdraw),
             ::core::stringify!(getDeposit),
             ::core::stringify!(getSlashCountForBlueprint),
             ::core::stringify!(addBlueprint),
@@ -26009,6 +26261,7 @@ function unpause() external;
             <removeSlasherCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeOperatorUnstakeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <delegationBondLessDelayCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <executeDelegatorUnstakeAndWithdrawCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getDepositCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashCountForBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <addBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -26068,7 +26321,7 @@ function unpause() external;
     impl alloy_sol_types::SolInterface for IMultiAssetDelegationCalls {
         const NAME: &'static str = "IMultiAssetDelegationCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 97usize;
+        const COUNT: usize = 98usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -26160,6 +26413,9 @@ function unpause() external;
                 }
                 Self::executeDelegatorUnstake(_) => {
                     <executeDelegatorUnstakeCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::executeDelegatorUnstakeAndWithdraw(_) => {
+                    <executeDelegatorUnstakeAndWithdrawCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::executeOperatorUnstake(_) => {
                     <executeOperatorUnstakeCall as alloy_sol_types::SolCall>::SELECTOR
@@ -27061,6 +27317,19 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::delegationBondLessDelay)
                     }
                     delegationBondLessDelay
+                },
+                {
+                    fn executeDelegatorUnstakeAndWithdraw(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <executeDelegatorUnstakeAndWithdrawCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(
+                                IMultiAssetDelegationCalls::executeDelegatorUnstakeAndWithdraw,
+                            )
+                    }
+                    executeDelegatorUnstakeAndWithdraw
                 },
                 {
                     fn getDeposit(
@@ -28152,6 +28421,19 @@ function unpause() external;
                     delegationBondLessDelay
                 },
                 {
+                    fn executeDelegatorUnstakeAndWithdraw(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <executeDelegatorUnstakeAndWithdrawCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(
+                                IMultiAssetDelegationCalls::executeDelegatorUnstakeAndWithdraw,
+                            )
+                    }
+                    executeDelegatorUnstakeAndWithdraw
+                },
+                {
                     fn getDeposit(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -28679,6 +28961,11 @@ function unpause() external;
                         inner,
                     )
                 }
+                Self::executeDelegatorUnstakeAndWithdraw(inner) => {
+                    <executeDelegatorUnstakeAndWithdrawCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::executeOperatorUnstake(inner) => {
                     <executeOperatorUnstakeCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -29173,6 +29460,12 @@ function unpause() external;
                 }
                 Self::executeDelegatorUnstake(inner) => {
                     <executeDelegatorUnstakeCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::executeDelegatorUnstakeAndWithdraw(inner) => {
+                    <executeDelegatorUnstakeAndWithdrawCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -30718,6 +31011,29 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::SolCallBuilder<&P, executeDelegatorUnstakeCall, N> {
             self.call_builder(&executeDelegatorUnstakeCall)
+        }
+        ///Creates a new call builder for the [`executeDelegatorUnstakeAndWithdraw`] function.
+        pub fn executeDelegatorUnstakeAndWithdraw(
+            &self,
+            operator: alloy::sol_types::private::Address,
+            token: alloy::sol_types::private::Address,
+            shares: alloy::sol_types::private::primitives::aliases::U256,
+            requestedRound: u64,
+            receiver: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<
+            &P,
+            executeDelegatorUnstakeAndWithdrawCall,
+            N,
+        > {
+            self.call_builder(
+                &executeDelegatorUnstakeAndWithdrawCall {
+                    operator,
+                    token,
+                    shares,
+                    requestedRound,
+                    receiver,
+                },
+            )
         }
         ///Creates a new call builder for the [`executeOperatorUnstake`] function.
         pub fn executeOperatorUnstake(

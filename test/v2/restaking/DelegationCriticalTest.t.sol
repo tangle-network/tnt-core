@@ -1032,6 +1032,38 @@ contract DelegationCriticalTest is DelegationTestHarness {
         vm.stopPrank();
     }
 
+    function test_DepositCapDecreasesOnWithdrawExecution() public {
+        vm.prank(admin);
+        delegation.enableAsset(address(token), 0, 0, 10 ether, 10000); // 10 ETH cap
+
+        token.mint(delegator1, 20 ether);
+
+        vm.startPrank(delegator1);
+        token.approve(address(delegation), 20 ether);
+
+        // Fill the cap.
+        delegation.depositERC20(address(token), 10 ether);
+
+        // Schedule full withdrawal.
+        delegation.scheduleWithdraw(address(token), 10 ether);
+
+        // Attempting to deposit again should fail until withdrawal executes.
+        vm.expectRevert(
+            abi.encodeWithSelector(DelegationErrors.DepositCapExceeded.selector, 10 ether, 10 ether, 1 ether)
+        );
+        delegation.depositERC20(address(token), 1 ether);
+
+        // Advance rounds to make withdrawal executable and execute it.
+        uint64 withdrawDelay = uint64(delegation.leaveDelegatorsDelay());
+        _advanceRounds(withdrawDelay + 1);
+        delegation.executeWithdraw();
+
+        // Cap should be freed now.
+        delegation.depositERC20(address(token), 10 ether);
+
+        vm.stopPrank();
+    }
+
     /// @notice Test precision in share calculations
     function test_ShareCalculationPrecision() public {
         // First delegator deposits

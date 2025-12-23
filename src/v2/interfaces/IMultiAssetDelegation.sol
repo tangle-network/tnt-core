@@ -132,6 +132,22 @@ interface IMultiAssetDelegation {
     function scheduleDelegatorUnstake(address operator, address token, uint256 amount) external;
     function undelegate(address operator, uint256 amount) external;
     function executeDelegatorUnstake() external;
+    /// @notice Execute a specific matured unstake request and withdraw the resulting assets to `receiver`.
+    /// @dev Convenience helper for integrations (e.g. ERC7540 liquid delegation vaults) to avoid a separate
+    ///      scheduleWithdraw/executeWithdraw flow after bond-less delay has already elapsed.
+    /// @param operator Operator to unstake from
+    /// @param token Token address (address(0) for native)
+    /// @param shares Shares to unstake (as stored in the underlying bond-less request)
+    /// @param requestedRound Round in which the unstake was scheduled
+    /// @param receiver Recipient of the withdrawn assets
+    /// @return amount Actual amount returned (after exchange-rate + lazy-slash adjustments)
+    function executeDelegatorUnstakeAndWithdraw(
+        address operator,
+        address token,
+        uint256 shares,
+        uint64 requestedRound,
+        address receiver
+    ) external returns (uint256 amount);
     function addBlueprintToDelegation(uint256 delegationIndex, uint64 blueprintId) external;
     function removeBlueprintFromDelegation(uint256 delegationIndex, uint64 blueprintId) external;
 
