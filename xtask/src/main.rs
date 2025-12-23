@@ -96,9 +96,15 @@ fn gen_bindings() -> Result<()> {
                 "--select",
                 "ITangle",
                 "--select",
+                "ITangleFull",
+                "--select",
+                "ITangleSlashing",
+                "--select",
                 "ITangleBlueprints",
                 "--select",
                 "IBlueprintServiceManager",
+                "--select",
+                "IMultiAssetDelegation",
                 "--select",
                 "MultiAssetDelegation",
                 "--select",
@@ -123,6 +129,8 @@ fn gen_bindings() -> Result<()> {
 
     let abi_files = [
         ("ITangle.json", "out/ITangle.sol/ITangle.json"),
+        ("ITangleFull.json", "out/ITangle.sol/ITangleFull.json"),
+        ("ITangleSlashing.json", "out/ITangleSlashing.sol/ITangleSlashing.json"),
         (
             "IBlueprintServiceManager.json",
             "out/IBlueprintServiceManager.sol/IBlueprintServiceManager.json",
@@ -130,6 +138,10 @@ fn gen_bindings() -> Result<()> {
         (
             "IOperatorStatusRegistry.json",
             "out/OperatorStatusRegistry.sol/OperatorStatusRegistry.json",
+        ),
+        (
+            "IMultiAssetDelegation.json",
+            "out/IMultiAssetDelegation.sol/IMultiAssetDelegation.json",
         ),
         (
             "MultiAssetDelegation.json",

@@ -16,8 +16,8 @@ pub use bindings::r#i_tangle_rewards::ITangleRewards;
 pub use bindings::r#i_tangle_services::ITangleServices;
 pub use bindings::r#i_tangle_slashing::ITangleSlashing;
 pub use bindings::r#i_tangle_token::ITangleToken;
+pub use bindings::r#i_multi_asset_delegation::IMultiAssetDelegation;
 pub use bindings::r#multi_asset_delegation::MultiAssetDelegation;
-pub use bindings::r#multi_asset_delegation::MultiAssetDelegation as IMultiAssetDelegation;
 
 /// Git commit that was used to generate the bindings.
 pub const TNT_CORE_VERSION: &str = include_str!("../TNT_CORE_VERSION");
@@ -25,8 +25,12 @@ pub const TNT_CORE_VERSION: &str = include_str!("../TNT_CORE_VERSION");
 /// Flattened contract ABIs that downstream tooling can consume.
 pub mod abi {
     pub const ITANGLE: &str = include_str!("../abi/ITangle.json");
+    pub const ITANGLE_FULL: &str = include_str!("../abi/ITangleFull.json");
+    pub const ITANGLE_SLASHING: &str = include_str!("../abi/ITangleSlashing.json");
     pub const IBLUEPRINT_SERVICE_MANAGER: &str =
         include_str!("../abi/IBlueprintServiceManager.json");
     pub const IOPERATOR_STATUS_REGISTRY: &str = include_str!("../abi/IOperatorStatusRegistry.json");
+    pub const IMULTI_ASSET_DELEGATION: &str =
+        include_str!("../abi/IMultiAssetDelegation.json");
     pub const MULTI_ASSET_DELEGATION: &str = include_str!("../abi/MultiAssetDelegation.json");
 }

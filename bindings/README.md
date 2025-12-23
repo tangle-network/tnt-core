@@ -13,7 +13,7 @@ tnt-core-bindings = "0.1"
 
 ```rust
 use alloy::providers::ProviderBuilder;
-use tnt_core_bindings::{ITangle, MultiAssetDelegation};
+use tnt_core_bindings::{ITangle, IMultiAssetDelegation};
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -26,8 +26,8 @@ async fn main() -> eyre::Result<()> {
     let blueprint = tangle.getBlueprint(0.into()).call().await?;
     println!("Blueprint owner: {:?}", blueprint.owner);
 
-    // Interact with MultiAssetDelegation
-    let mad = MultiAssetDelegation::new(mad_address, &provider);
+    // Interact with MultiAssetDelegation interface (facet ABI)
+    let mad = IMultiAssetDelegation::new(mad_address, &provider);
     let operator = mad.operators(operator_address).call().await?;
     println!("Operator stake: {:?}", operator.stake);
 
@@ -40,13 +40,15 @@ async fn main() -> eyre::Result<()> {
 | Contract | Description |
 |----------|-------------|
 | `ITangle` | Main Tangle protocol interface (blueprints, services, jobs) |
+| `ITangleFull` | Full Tangle surface (includes slashing + admin) |
 | `ITangleBlueprints` | Blueprint registration and management |
 | `ITangleServices` | Service lifecycle management |
 | `ITangleJobs` | Job submission and results |
 | `ITangleOperators` | Operator registration and status |
 | `ITangleSlashing` | Slashing mechanism |
 | `ITangleRewards` | Reward distribution |
-| `MultiAssetDelegation` | Multi-asset restaking and delegation |
+| `IMultiAssetDelegation` | Multi-asset restaking and delegation (facet ABI) |
+| `MultiAssetDelegation` | Router/diamond management ABI |
 | `IBlueprintServiceManager` | Blueprint service manager interface |
 | `IOperatorStatusRegistry` | Operator status tracking |
 
@@ -59,7 +61,8 @@ use tnt_core_bindings::abi;
 
 // Access raw ABI JSON strings
 let tangle_abi = abi::ITANGLE;
-let mad_abi = abi::MULTI_ASSET_DELEGATION;
+let tangle_full_abi = abi::ITANGLE_FULL;
+let mad_abi = abi::IMULTI_ASSET_DELEGATION;
 ```
 
 ## Version Tracking
