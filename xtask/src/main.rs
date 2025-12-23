@@ -287,28 +287,9 @@ fn read_binding_version(bindings_crate: &Path) -> Result<String> {
     Err(anyhow!("failed to parse bindings version"))
 }
 
-fn bump_version(version: &str) -> Result<()> {
-    // Validate semver format
-    let parts: Vec<&str> = version.split('.').collect();
-    if parts.len() != 3 || !parts.iter().all(|p| p.parse::<u32>().is_ok()) {
-        return Err(anyhow!(
-            "invalid version format: expected MAJOR.MINOR.PATCH (e.g., 0.2.0)"
-        ));
-    }
-
-    let repo_root = workspace_root()?;
-    let bindings_crate = repo_root.join("bindings");
-    let old_version = read_binding_version(&bindings_crate)?;
-
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║           TNT-CORE VERSION BUMP                            ║");
-    println!("╚════════════════════════════════════════════════════════════╝");
-    println!();
-
-    // Step 1: Update Cargo.toml version
-    print_step(1, 3, "Updating Cargo.toml version...");
-    let cargo_toml_path = bindings_crate.join("Cargo.toml");
-    let cargo_toml = fs::read_to_string(&cargo_toml_path).context("failed to read Cargo.toml")?;
+fn update_cargo_version(cargo_toml_path: &Path, version: &str) -> Result<()> {
+    let cargo_toml =
+        fs::read_to_string(cargo_toml_path).context("failed to read Cargo.toml")?;
 
     let mut updated_toml = String::new();
     let mut in_package = false;
@@ -334,11 +315,41 @@ fn bump_version(version: &str) -> Result<()> {
         return Err(anyhow!("failed to find version field in Cargo.toml"));
     }
 
-    fs::write(&cargo_toml_path, updated_toml).context("failed to write Cargo.toml")?;
+    fs::write(cargo_toml_path, updated_toml).context("failed to write Cargo.toml")?;
+    Ok(())
+}
+
+fn bump_version(version: &str) -> Result<()> {
+    // Validate semver format
+    let parts: Vec<&str> = version.split('.').collect();
+    if parts.len() != 3 || !parts.iter().all(|p| p.parse::<u32>().is_ok()) {
+        return Err(anyhow!(
+            "invalid version format: expected MAJOR.MINOR.PATCH (e.g., 0.2.0)"
+        ));
+    }
+
+    let repo_root = workspace_root()?;
+    let bindings_crate = repo_root.join("bindings");
+    let fixtures_crate = repo_root.join("fixtures");
+    let old_version = read_binding_version(&bindings_crate)?;
+
+    println!("╔════════════════════════════════════════════════════════════╗");
+    println!("║           TNT-CORE VERSION BUMP                            ║");
+    println!("╚════════════════════════════════════════════════════════════╝");
+    println!();
+
+    // Step 1: Update bindings Cargo.toml version
+    print_step(1, 4, "Updating bindings Cargo.toml version...");
+    update_cargo_version(&bindings_crate.join("Cargo.toml"), version)?;
     print_done();
 
-    // Step 2: Update CHANGELOG.md
-    print_step(2, 3, "Updating CHANGELOG.md...");
+    // Step 2: Update fixtures Cargo.toml version
+    print_step(2, 4, "Updating fixtures Cargo.toml version...");
+    update_cargo_version(&fixtures_crate.join("Cargo.toml"), version)?;
+    print_done();
+
+    // Step 3: Update bindings CHANGELOG.md
+    print_step(3, 4, "Updating CHANGELOG.md...");
     let changelog_path = bindings_crate.join("CHANGELOG.md");
     let changelog = fs::read_to_string(&changelog_path).context("failed to read CHANGELOG.md")?;
 
@@ -377,8 +388,8 @@ fn bump_version(version: &str) -> Result<()> {
     fs::write(&changelog_path, updated_changelog).context("failed to write CHANGELOG.md")?;
     print_done();
 
-    // Step 3: Create git tag suggestion
-    print_step(3, 3, "Preparing release...");
+    // Step 4: Create git tag suggestion
+    print_step(4, 4, "Preparing release...");
     print_done();
 
     println!();
@@ -389,7 +400,7 @@ fn bump_version(version: &str) -> Result<()> {
     println!("   📦 New version: {}", version);
     println!();
     println!("   Next steps:");
-    println!("   1. Review changes: git diff bindings/");
+    println!("   1. Review changes: git diff bindings/ fixtures/");
     println!(
         "   2. Commit: git commit -am \"chore(bindings): release v{}\"",
         version
