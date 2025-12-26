@@ -901,13 +901,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         liquidFactory = new LiquidDelegationFactory(restaking);
         console2.log("LiquidDelegationFactory:", address(liquidFactory));
 
-        if (useBroadcastKeys) {
-            vm.stopBroadcast();
-        } else {
-            vm.stopPrank();
-        }
-
-        // Create vaults (anyone can create vaults)
+        // Create vaults (anyone can create vaults, keeping within deployer broadcast)
         // Note: LiquidDelegationVault uses ERC20 safeTransferFrom, so we use WETH instead of native ETH
         uint64[] memory emptyBlueprints = new uint64[](0);
         liquidVaultETH = payable(liquidFactory.createVault(operator1, address(weth), emptyBlueprints));
@@ -916,6 +910,12 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         // Create USDC vault for operator2
         liquidVaultUSDC = payable(liquidFactory.createVault(operator2, address(usdc), emptyBlueprints));
         console2.log("LiquidVault USDC (operator2):", liquidVaultUSDC);
+
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
 
         // Delegator deposits into liquid vaults
         if (useBroadcastKeys) {

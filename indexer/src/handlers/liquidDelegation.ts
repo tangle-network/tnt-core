@@ -149,9 +149,14 @@ export function registerLiquidDelegationHandlers() {
       isNative: assetAddress === ZERO_ADDRESS,
     } as LiquidVaultEntity;
     saveVaultEntity(context, entity);
-    const registrar = (context as any).contracts;
-    if (registrar?.addLiquidDelegationVault) {
-      registrar.addLiquidDelegationVault(vaultAddress);
+    // Dynamic contract registration is optional and may not be available in all Envio versions
+    try {
+      const registrar = (context as any).contracts;
+      if (registrar?.addLiquidDelegationVault) {
+        registrar.addLiquidDelegationVault(vaultAddress);
+      }
+    } catch {
+      // Dynamic registration not supported - vault addresses should be in config.yaml
     }
   });
 
