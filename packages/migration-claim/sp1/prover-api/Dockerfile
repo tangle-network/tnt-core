@@ -1,8 +1,8 @@
-FROM rust:1.79-slim AS builder
+FROM rust:1.85-slim AS builder
 
 WORKDIR /repo
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates \
+    && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates g++ \
     && rm -rf /var/lib/apt/lists/*
 
 COPY packages/migration-claim/sp1 ./packages/migration-claim/sp1

@@ -263,7 +263,8 @@ app.post("/claim", async (req, res) => {
     );
 
     // Submit the claim transaction
-    const simulation = await publicClient.simulateContract({
+    // First simulate to catch contract reverts early
+    await publicClient.simulateContract({
       address: MIGRATION_CONTRACT,
       abi: migrationAbi,
       functionName: "claimWithZKProof",
@@ -274,10 +275,22 @@ app.post("/claim", async (req, res) => {
         zkProof as Hex,
         recipient as Address,
       ],
-      account: account.address,
+      account,
     });
 
-    const hash = await walletClient.writeContract(simulation.request);
+    // Write using wallet client with attached account (signs locally)
+    const hash = await walletClient.writeContract({
+      address: MIGRATION_CONTRACT,
+      abi: migrationAbi,
+      functionName: "claimWithZKProof",
+      args: [
+        pubkey as Hex,
+        amountWei,
+        merkleProof as Hex[],
+        zkProof as Hex,
+        recipient as Address,
+      ],
+    });
 
     console.log(`[CLAIM] Transaction submitted: ${hash}`);
 

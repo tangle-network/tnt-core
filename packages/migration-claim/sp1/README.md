@@ -46,17 +46,21 @@ This allows Substrate account holders to claim TNT tokens on Base/Ethereum witho
 ### Build the ZK Program
 
 ```bash
-cd packages/migration-claim/sp1
+cd packages/migration-claim/sp1/program
 cargo prove build
 ```
 
-This compiles the guest program to RISC-V ELF at `program/elf/riscv32im-succinct-zkvm-elf`.
+This compiles the guest program to RISC-V ELF at `elf/riscv32im-succinct-zkvm-elf`.
+
+> **Note:** You must run `cargo prove build` from the `program/` directory (not the workspace root) because the workspace contains host packages (script, prover-api) with networking dependencies that don't support the zkVM target.
 
 ### Build the Host Scripts
 
 ```bash
 cargo +succinct build --release -p sr25519-claim-script
 ```
+
+> **macOS Note:** If you encounter C++ header errors, see the [Troubleshooting](#cassert-file-not-found-on-macos) section.
 
 ## Usage
 
@@ -134,8 +138,8 @@ cargo test -p sr25519-claim-lib
 ### Run Integration Tests (requires built ELF)
 
 ```bash
-# First build the program
-cargo prove build
+# First build the program (from program/ directory)
+cd program && cargo prove build && cd ..
 
 # Then run integration tests with mock prover
 SP1_PROVER=mock cargo +succinct test -p sr25519-claim-script -- --ignored
@@ -275,6 +279,17 @@ Then run:
 ```bash
 cargo update -p serde
 ```
+
+### "'cassert' file not found" on macOS
+
+If you see C++ header errors like `fatal error: 'cassert' file not found` when building `sp1-core-machine`, set the SDK paths:
+
+```bash
+export SDKROOT=$(xcrun --show-sdk-path)
+export CXXFLAGS="-isysroot $(xcrun --show-sdk-path) -I$(xcrun --show-sdk-path)/usr/include/c++/v1 -stdlib=libc++"
+```
+
+Then run your build command. This is common on macOS beta versions where C++ headers may not be in the default search path.
 
 ### "no method named 'bytes32' found"
 
