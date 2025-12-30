@@ -27,7 +27,9 @@ const MIGRATION_CONTRACT = process.env.MIGRATION_CONTRACT as Address;
 // Rate limiting
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 10;
+const MAX_REQUESTS_PER_PUBKEY = 5; // Stricter limit per pubkey
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const pubkeyRateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 // ============================================================================
 // VALIDATION
@@ -96,9 +98,14 @@ app.use(express.json());
 
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, entry] of rateLimitMap.entries()) {
+  for (const [key, entry] of rateLimitMap.entries()) {
     if (now >= entry.resetTime) {
-      rateLimitMap.delete(ip);
+      rateLimitMap.delete(key);
+    }
+  }
+  for (const [key, entry] of pubkeyRateLimitMap.entries()) {
+    if (now >= entry.resetTime) {
+      pubkeyRateLimitMap.delete(key);
     }
   }
 }, RATE_LIMIT_WINDOW_MS);
@@ -177,6 +184,24 @@ app.post("/claim", async (req, res) => {
       return res.status(400).json({
         error: "Invalid pubkey",
         message: "Pubkey must be a 32-byte hex string (0x + 64 chars)",
+      });
+    }
+
+    // Rate limit by pubkey (prevents abuse via proxy rotation)
+    const pubkeyLower = pubkey.toLowerCase();
+    const pubkeyRateLimit = pubkeyRateLimitMap.get(pubkeyLower);
+    if (pubkeyRateLimit && now < pubkeyRateLimit.resetTime) {
+      if (pubkeyRateLimit.count >= MAX_REQUESTS_PER_PUBKEY) {
+        return res.status(429).json({
+          error: "Too many requests",
+          message: "Too many claim attempts for this pubkey. Please wait.",
+        });
+      }
+      pubkeyRateLimit.count++;
+    } else {
+      pubkeyRateLimitMap.set(pubkeyLower, {
+        count: 1,
+        resetTime: now + RATE_LIMIT_WINDOW_MS,
       });
     }
 
