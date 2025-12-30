@@ -171,15 +171,27 @@ async fn main() {
                 .split(',')
                 .filter_map(|s| s.trim().parse().ok())
                 .collect();
+            if origins.is_empty() {
+                error!("CORS_ALLOWED_ORIGINS contains no valid origins");
+                std::process::exit(1);
+            }
             CorsLayer::new()
                 .allow_origin(origins)
                 .allow_methods(Any)
                 .allow_headers(Any)
         }
-        _ => CorsLayer::new()
-            .allow_origin(Any)
-            .allow_methods(Any)
-            .allow_headers(Any),
+        _ if prover_mode == "network" => {
+            // Fail-safe: require explicit CORS configuration in production
+            error!("CORS_ALLOWED_ORIGINS is required when SP1_PROVER=network");
+            std::process::exit(1);
+        }
+        _ => {
+            // Allow all origins only for local/mock testing
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any)
+        }
     };
 
     let app = Router::new()
