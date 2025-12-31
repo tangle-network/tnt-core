@@ -131,8 +131,7 @@ contract ServicesExitFlowTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);

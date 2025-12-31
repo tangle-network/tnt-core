@@ -88,23 +88,11 @@ interface ITangleAdmin {
     /// @notice Get Master Blueprint Service Manager registry
     function mbsmRegistry() external view returns (address);
 
-    /// @notice Get operator bond token
-    function operatorBondToken() external view returns (address);
-
     /// @notice Get max blueprints per operator
     function maxBlueprintsPerOperator() external view returns (uint32);
 
     /// @notice Set max blueprints per operator
     function setMaxBlueprintsPerOperator(uint32 newMax) external;
-
-    /// @notice Get operator bond amount
-    function operatorBlueprintBond() external view returns (uint256);
-
-    /// @notice Set operator bond amount
-    function setOperatorBlueprintBond(uint256 newBond) external;
-
-    /// @notice Set operator bond asset
-    function setOperatorBondAsset(address token) external;
 
     /// @notice Get TNT token address
     function tntToken() external view returns (address);

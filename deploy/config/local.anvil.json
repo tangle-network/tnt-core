@@ -12,8 +12,6 @@
     "minOperatorStake": 1000000000000000000,
     "minDelegation": 100000000000000000,
     "operatorCommissionBps": 1000,
-    "operatorBondToken": "0x0000000000000000000000000000000000000000",
-    "operatorBondAmount": 100000000000000000000,
     "maxBlueprintsPerOperator": 0
   },
   "restakeAssets": [],

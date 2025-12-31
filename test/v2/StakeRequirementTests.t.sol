@@ -165,8 +165,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(mockBsm), config));
 
@@ -211,8 +210,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(mockBsm), config));
 
@@ -267,8 +265,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 5,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(0), config));
 
@@ -301,8 +298,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(0), config));
 
@@ -338,8 +334,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 2,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(0), config));
 
@@ -377,8 +372,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 0, // No limit
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(0), config));
 
@@ -411,8 +405,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(0), config));
 
@@ -444,8 +437,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
@@ -494,8 +486,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
@@ -543,8 +534,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
@@ -590,8 +580,7 @@ contract StakeRequirementTests is BaseTest {
             maxOperators: 2, // Exactly 2 required
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(0), config));
 

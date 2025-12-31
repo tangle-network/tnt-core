@@ -426,8 +426,7 @@ contract PaymentsTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -530,8 +529,7 @@ contract PaymentsTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 10 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -599,8 +597,7 @@ contract PaymentsTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 1 ether, // High rate
             subscriptionInterval: 1 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -655,8 +652,7 @@ contract PaymentsTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -865,8 +861,7 @@ contract PaymentsTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);

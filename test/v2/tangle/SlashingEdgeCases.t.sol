@@ -229,8 +229,7 @@ contract SlashingEdgeCasesTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         uint64 dynamicBpId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 

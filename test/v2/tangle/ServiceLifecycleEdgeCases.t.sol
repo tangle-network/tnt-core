@@ -118,8 +118,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -177,8 +176,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -267,8 +265,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
             maxOperators: 2,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -307,8 +304,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         LifecycleMockBSM localBsm = new LifecycleMockBSM();

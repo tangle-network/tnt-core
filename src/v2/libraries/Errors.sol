@@ -99,12 +99,6 @@ library Errors {
     /// @notice Gossip key already registered for blueprint
     error DuplicateOperatorKey(uint64 blueprintId, bytes32 keyHash);
 
-    /// @notice Incorrect bond amount supplied during registration
-    error OperatorBondMismatch(uint64 blueprintId, uint256 required, uint256 sent);
-
-    /// @notice Failed to refund operator bond on unregister
-    error OperatorBondRefundFailed(address operator, uint256 amount);
-
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE
     // ═══════════════════════════════════════════════════════════════════════════

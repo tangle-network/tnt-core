@@ -45,12 +45,6 @@ abstract contract TangleStorage {
     /// @notice Configurable maximum number of blueprints per operator
     uint32 internal _maxBlueprintsPerOperator;
 
-    /// @notice Default operator bond amount (denominated in configured bond asset)
-    uint256 internal _defaultOperatorBond;
-
-    /// @notice Asset used for operator bonds (address(0) = native)
-    address internal _operatorBondToken;
-
     /// @notice Payment split configuration
     Types.PaymentSplit internal _paymentSplit;
 

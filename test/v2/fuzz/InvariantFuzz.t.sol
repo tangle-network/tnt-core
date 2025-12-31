@@ -232,8 +232,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
             maxOperators: maxOps,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -430,8 +429,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 1 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);

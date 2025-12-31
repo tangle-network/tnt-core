@@ -427,8 +427,6 @@ interface ITangleAdmin {
     function maxBlueprintsPerOperator() external view returns (uint32);
     function mbsmRegistry() external view returns (address);
     function metricsRecorder() external view returns (address);
-    function operatorBlueprintBond() external view returns (uint256);
-    function operatorBondToken() external view returns (address);
     function operatorStatusRegistry() external view returns (address);
     function pause() external;
     function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 restakerBps);
@@ -439,8 +437,6 @@ interface ITangleAdmin {
     function setMBSMRegistry(address registry) external;
     function setMaxBlueprintsPerOperator(uint32 newMax) external;
     function setMetricsRecorder(address recorder) external;
-    function setOperatorBlueprintBond(uint256 newBond) external;
-    function setOperatorBondAsset(address token) external;
     function setOperatorStatusRegistry(address registry) external;
     function setPaymentSplit(Types.PaymentSplit memory split) external;
     function setPriceOracle(address oracle) external;
@@ -504,32 +500,6 @@ interface ITangleAdmin {
   {
     "type": "function",
     "name": "metricsRecorder",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "operatorBlueprintBond",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "operatorBondToken",
     "inputs": [],
     "outputs": [
       {
@@ -672,32 +642,6 @@ interface ITangleAdmin {
     "inputs": [
       {
         "name": "recorder",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setOperatorBlueprintBond",
-    "inputs": [
-      {
-        "name": "newBond",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setOperatorBondAsset",
-    "inputs": [
-      {
-        "name": "token",
         "type": "address",
         "internalType": "address"
       }
@@ -1533,306 +1477,6 @@ function metricsRecorder() external view returns (address);
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(|r| {
                         let r: metricsRecorderReturn = r.into();
-                        r._0
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `operatorBlueprintBond()` and selector `0xb05b8bb9`.
-```solidity
-function operatorBlueprintBond() external view returns (uint256);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct operatorBlueprintBondCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`operatorBlueprintBond()`](operatorBlueprintBondCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct operatorBlueprintBondReturn {
-        #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<operatorBlueprintBondCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: operatorBlueprintBondCall) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for operatorBlueprintBondCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<operatorBlueprintBondReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: operatorBlueprintBondReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for operatorBlueprintBondReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for operatorBlueprintBondCall {
-            type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::primitives::aliases::U256;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "operatorBlueprintBond()";
-            const SELECTOR: [u8; 4] = [176u8, 91u8, 139u8, 185u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: operatorBlueprintBondReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: operatorBlueprintBondReturn = r.into();
-                        r._0
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `operatorBondToken()` and selector `0x0f157fb9`.
-```solidity
-function operatorBondToken() external view returns (address);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct operatorBondTokenCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`operatorBondToken()`](operatorBondTokenCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct operatorBondTokenReturn {
-        #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::Address,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<operatorBondTokenCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: operatorBondTokenCall) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for operatorBondTokenCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<operatorBondTokenReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: operatorBondTokenReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for operatorBondTokenReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for operatorBondTokenCall {
-            type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::Address;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "operatorBondToken()";
-            const SELECTOR: [u8; 4] = [15u8, 21u8, 127u8, 185u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: operatorBondTokenReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: operatorBondTokenReturn = r.into();
                         r._0
                     })
             }
@@ -3319,308 +2963,6 @@ function setMetricsRecorder(address recorder) external;
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 setMetricsRecorderReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setOperatorBlueprintBond(uint256)` and selector `0xfdb2fb5a`.
-```solidity
-function setOperatorBlueprintBond(uint256 newBond) external;
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setOperatorBlueprintBondCall {
-        #[allow(missing_docs)]
-        pub newBond: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    ///Container type for the return parameters of the [`setOperatorBlueprintBond(uint256)`](setOperatorBlueprintBondCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setOperatorBlueprintBondReturn {}
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setOperatorBlueprintBondCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setOperatorBlueprintBondCall) -> Self {
-                    (value.newBond,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorBlueprintBondCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { newBond: tuple.0 }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setOperatorBlueprintBondReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setOperatorBlueprintBondReturn) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorBlueprintBondReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
-                }
-            }
-        }
-        impl setOperatorBlueprintBondReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
-                ()
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for setOperatorBlueprintBondCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = setOperatorBlueprintBondReturn;
-            type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setOperatorBlueprintBond(uint256)";
-            const SELECTOR: [u8; 4] = [253u8, 178u8, 251u8, 90u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.newBond),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                setOperatorBlueprintBondReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setOperatorBondAsset(address)` and selector `0xd12b32f4`.
-```solidity
-function setOperatorBondAsset(address token) external;
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setOperatorBondAssetCall {
-        #[allow(missing_docs)]
-        pub token: alloy::sol_types::private::Address,
-    }
-    ///Container type for the return parameters of the [`setOperatorBondAsset(address)`](setOperatorBondAssetCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setOperatorBondAssetReturn {}
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setOperatorBondAssetCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setOperatorBondAssetCall) -> Self {
-                    (value.token,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorBondAssetCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { token: tuple.0 }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setOperatorBondAssetReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setOperatorBondAssetReturn) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorBondAssetReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
-                }
-            }
-        }
-        impl setOperatorBondAssetReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setOperatorBondAssetCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
-                ()
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for setOperatorBondAssetCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = setOperatorBondAssetReturn;
-            type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setOperatorBondAsset(address)";
-            const SELECTOR: [u8; 4] = [209u8, 43u8, 50u8, 244u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.token,
-                    ),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                setOperatorBondAssetReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -5851,10 +5193,6 @@ function unpause() external;
         #[allow(missing_docs)]
         metricsRecorder(metricsRecorderCall),
         #[allow(missing_docs)]
-        operatorBlueprintBond(operatorBlueprintBondCall),
-        #[allow(missing_docs)]
-        operatorBondToken(operatorBondTokenCall),
-        #[allow(missing_docs)]
         operatorStatusRegistry(operatorStatusRegistryCall),
         #[allow(missing_docs)]
         pause(pauseCall),
@@ -5874,10 +5212,6 @@ function unpause() external;
         setMaxBlueprintsPerOperator(setMaxBlueprintsPerOperatorCall),
         #[allow(missing_docs)]
         setMetricsRecorder(setMetricsRecorderCall),
-        #[allow(missing_docs)]
-        setOperatorBlueprintBond(setOperatorBlueprintBondCall),
-        #[allow(missing_docs)]
-        setOperatorBondAsset(setOperatorBondAssetCall),
         #[allow(missing_docs)]
         setOperatorStatusRegistry(setOperatorStatusRegistryCall),
         #[allow(missing_docs)]
@@ -5918,7 +5252,6 @@ function unpause() external;
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
             [6u8, 67u8, 140u8, 151u8],
-            [15u8, 21u8, 127u8, 185u8],
             [29u8, 119u8, 53u8, 27u8],
             [32u8, 129u8, 41u8, 86u8],
             [38u8, 48u8, 193u8, 47u8],
@@ -5940,21 +5273,17 @@ function unpause() external;
             [158u8, 189u8, 101u8, 173u8],
             [159u8, 180u8, 61u8, 76u8],
             [170u8, 199u8, 65u8, 107u8],
-            [176u8, 91u8, 139u8, 185u8],
             [184u8, 23u8, 65u8, 172u8],
             [205u8, 211u8, 213u8, 186u8],
             [206u8, 109u8, 208u8, 111u8],
-            [209u8, 43u8, 50u8, 244u8],
             [211u8, 144u8, 187u8, 187u8],
             [227u8, 150u8, 150u8, 23u8],
             [240u8, 244u8, 66u8, 96u8],
             [251u8, 204u8, 123u8, 61u8],
-            [253u8, 178u8, 251u8, 90u8],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
             ::core::stringify!(tntRestakerFeeBps),
-            ::core::stringify!(operatorBondToken),
             ::core::stringify!(setMaxBlueprintsPerOperator),
             ::core::stringify!(setMetricsRecorder),
             ::core::stringify!(priceOracle),
@@ -5976,21 +5305,17 @@ function unpause() external;
             ::core::stringify!(rewardVaults),
             ::core::stringify!(setTntToken),
             ::core::stringify!(paymentSplit),
-            ::core::stringify!(operatorBlueprintBond),
             ::core::stringify!(setPaymentSplit),
             ::core::stringify!(tntPaymentDiscountBps),
             ::core::stringify!(setTntRestakerFeeBps),
-            ::core::stringify!(setOperatorBondAsset),
             ::core::stringify!(operatorStatusRegistry),
             ::core::stringify!(tntToken),
             ::core::stringify!(setTreasury),
             ::core::stringify!(setServiceFeeDistributor),
-            ::core::stringify!(setOperatorBlueprintBond),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
             <tntRestakerFeeBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <operatorBondTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setMaxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setMetricsRecorderCall as alloy_sol_types::SolCall>::SIGNATURE,
             <priceOracleCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -6012,16 +5337,13 @@ function unpause() external;
             <rewardVaultsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTntTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <paymentSplitCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <operatorBlueprintBondCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setPaymentSplitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTntRestakerFeeBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <setOperatorBondAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <operatorStatusRegistryCall as alloy_sol_types::SolCall>::SIGNATURE,
             <tntTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTreasuryCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
         #[inline]
@@ -6048,7 +5370,7 @@ function unpause() external;
     impl alloy_sol_types::SolInterface for ITangleAdminCalls {
         const NAME: &'static str = "ITangleAdminCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 33usize;
+        const COUNT: usize = 29usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -6063,12 +5385,6 @@ function unpause() external;
                 }
                 Self::metricsRecorder(_) => {
                     <metricsRecorderCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::operatorBlueprintBond(_) => {
-                    <operatorBlueprintBondCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::operatorBondToken(_) => {
-                    <operatorBondTokenCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::operatorStatusRegistry(_) => {
                     <operatorStatusRegistryCall as alloy_sol_types::SolCall>::SELECTOR
@@ -6097,12 +5413,6 @@ function unpause() external;
                 }
                 Self::setMetricsRecorder(_) => {
                     <setMetricsRecorderCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::setOperatorBlueprintBond(_) => {
-                    <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::setOperatorBondAsset(_) => {
-                    <setOperatorBondAssetCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::setOperatorStatusRegistry(_) => {
                     <setOperatorStatusRegistryCall as alloy_sol_types::SolCall>::SELECTOR
@@ -6172,17 +5482,6 @@ function unpause() external;
                             .map(ITangleAdminCalls::tntRestakerFeeBps)
                     }
                     tntRestakerFeeBps
-                },
-                {
-                    fn operatorBondToken(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::operatorBondToken)
-                    }
-                    operatorBondToken
                 },
                 {
                     fn setMaxBlueprintsPerOperator(
@@ -6408,17 +5707,6 @@ function unpause() external;
                     paymentSplit
                 },
                 {
-                    fn operatorBlueprintBond(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <operatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::operatorBlueprintBond)
-                    }
-                    operatorBlueprintBond
-                },
-                {
                     fn setPaymentSplit(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
@@ -6450,17 +5738,6 @@ function unpause() external;
                             .map(ITangleAdminCalls::setTntRestakerFeeBps)
                     }
                     setTntRestakerFeeBps
-                },
-                {
-                    fn setOperatorBondAsset(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setOperatorBondAssetCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setOperatorBondAsset)
-                    }
-                    setOperatorBondAsset
                 },
                 {
                     fn operatorStatusRegistry(
@@ -6504,17 +5781,6 @@ function unpause() external;
                     }
                     setServiceFeeDistributor
                 },
-                {
-                    fn setOperatorBlueprintBond(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setOperatorBlueprintBond)
-                    }
-                    setOperatorBlueprintBond
-                },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
                 return Err(
@@ -6545,17 +5811,6 @@ function unpause() external;
                             .map(ITangleAdminCalls::tntRestakerFeeBps)
                     }
                     tntRestakerFeeBps
-                },
-                {
-                    fn operatorBondToken(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::operatorBondToken)
-                    }
-                    operatorBondToken
                 },
                 {
                     fn setMaxBlueprintsPerOperator(
@@ -6787,17 +6042,6 @@ function unpause() external;
                     paymentSplit
                 },
                 {
-                    fn operatorBlueprintBond(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <operatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::operatorBlueprintBond)
-                    }
-                    operatorBlueprintBond
-                },
-                {
                     fn setPaymentSplit(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
@@ -6829,17 +6073,6 @@ function unpause() external;
                             .map(ITangleAdminCalls::setTntRestakerFeeBps)
                     }
                     setTntRestakerFeeBps
-                },
-                {
-                    fn setOperatorBondAsset(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setOperatorBondAssetCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setOperatorBondAsset)
-                    }
-                    setOperatorBondAsset
                 },
                 {
                     fn operatorStatusRegistry(
@@ -6885,17 +6118,6 @@ function unpause() external;
                     }
                     setServiceFeeDistributor
                 },
-                {
-                    fn setOperatorBlueprintBond(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setOperatorBlueprintBond)
-                    }
-                    setOperatorBlueprintBond
-                },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
                 return Err(
@@ -6927,16 +6149,6 @@ function unpause() external;
                 }
                 Self::metricsRecorder(inner) => {
                     <metricsRecorderCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::operatorBlueprintBond(inner) => {
-                    <operatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::operatorBondToken(inner) => {
-                    <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -6985,16 +6197,6 @@ function unpause() external;
                 }
                 Self::setMetricsRecorder(inner) => {
                     <setMetricsRecorderCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::setOperatorBlueprintBond(inner) => {
-                    <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::setOperatorBondAsset(inner) => {
-                    <setOperatorBondAssetCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -7096,18 +6298,6 @@ function unpause() external;
                         out,
                     )
                 }
-                Self::operatorBlueprintBond(inner) => {
-                    <operatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::operatorBondToken(inner) => {
-                    <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::operatorStatusRegistry(inner) => {
                     <operatorStatusRegistryCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -7161,18 +6351,6 @@ function unpause() external;
                 }
                 Self::setMetricsRecorder(inner) => {
                     <setMetricsRecorderCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::setOperatorBlueprintBond(inner) => {
-                    <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::setOperatorBondAsset(inner) => {
-                    <setOperatorBondAssetCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -7448,18 +6626,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, metricsRecorderCall, N> {
             self.call_builder(&metricsRecorderCall)
         }
-        ///Creates a new call builder for the [`operatorBlueprintBond`] function.
-        pub fn operatorBlueprintBond(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, operatorBlueprintBondCall, N> {
-            self.call_builder(&operatorBlueprintBondCall)
-        }
-        ///Creates a new call builder for the [`operatorBondToken`] function.
-        pub fn operatorBondToken(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, operatorBondTokenCall, N> {
-            self.call_builder(&operatorBondTokenCall)
-        }
         ///Creates a new call builder for the [`operatorStatusRegistry`] function.
         pub fn operatorStatusRegistry(
             &self,
@@ -7529,24 +6695,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             recorder: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, setMetricsRecorderCall, N> {
             self.call_builder(&setMetricsRecorderCall { recorder })
-        }
-        ///Creates a new call builder for the [`setOperatorBlueprintBond`] function.
-        pub fn setOperatorBlueprintBond(
-            &self,
-            newBond: alloy::sol_types::private::primitives::aliases::U256,
-        ) -> alloy_contract::SolCallBuilder<&P, setOperatorBlueprintBondCall, N> {
-            self.call_builder(
-                &setOperatorBlueprintBondCall {
-                    newBond,
-                },
-            )
-        }
-        ///Creates a new call builder for the [`setOperatorBondAsset`] function.
-        pub fn setOperatorBondAsset(
-            &self,
-            token: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<&P, setOperatorBondAssetCall, N> {
-            self.call_builder(&setOperatorBondAssetCall { token })
         }
         ///Creates a new call builder for the [`setOperatorStatusRegistry`] function.
         pub fn setOperatorStatusRegistry(

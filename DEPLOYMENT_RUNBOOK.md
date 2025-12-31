@@ -50,7 +50,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 - Decide `ADMIN` and `TREASURY` (EOA vs multisig) and fund the deployer on both chains.
 - Prepare `FULL_DEPLOY_CONFIG` (start from `deploy/config/base-sepolia-holesky.json` and replace zero addresses / TODOs).
 - Decide the TNT token plan:
-  - If you want a stable, pre-announced TNT address, deploy TNT first and set `OPERATOR_BOND_TOKEN` / `TNT_TOKEN` when running `FullDeploy` so it doesn’t auto-deploy a token.
+  - If you want a stable, pre-announced TNT address, deploy TNT first and set `TNT_TOKEN` when running `FullDeploy` so it doesn’t auto-deploy a token.
   - If you are running Substrate→EVM migration, also decide the Merkle root source (`packages/migration-claim/merkle-tree.json` vs regenerated from snapshot) and the lock cliff date.
 
 ### 1) Deploy protocol core on Base Sepolia

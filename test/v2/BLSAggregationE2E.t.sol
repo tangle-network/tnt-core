@@ -284,8 +284,7 @@ contract BLSAggregationE2ETest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -355,8 +354,7 @@ contract BLSAggregationE2ETest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);

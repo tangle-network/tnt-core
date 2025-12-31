@@ -93,8 +93,7 @@ contract EndToEndSubscriptionTest is BaseTest {
             maxOperators: 5,
             subscriptionRate: SUBSCRIPTION_RATE,
             subscriptionInterval: SUBSCRIPTION_INTERVAL,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -149,8 +148,7 @@ contract EndToEndSubscriptionTest is BaseTest {
             maxOperators: 5,
             subscriptionRate: SUBSCRIPTION_RATE,
             subscriptionInterval: SUBSCRIPTION_INTERVAL,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -243,8 +241,7 @@ contract EndToEndSubscriptionTest is BaseTest {
             maxOperators: 5,
             subscriptionRate: 10 ether, // Higher rate for easier math
             subscriptionInterval: SUBSCRIPTION_INTERVAL,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -320,8 +317,7 @@ contract EndToEndSubscriptionTest is BaseTest {
             maxOperators: 5,
             subscriptionRate: SUBSCRIPTION_RATE,
             subscriptionInterval: SUBSCRIPTION_INTERVAL,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);

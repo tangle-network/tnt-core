@@ -22,9 +22,6 @@
     "minDelegation": 100000000000000000,
     "operatorCommissionBps": 1000,
     "_todo_tnt_token": "TODO: point to the Base Sepolia TNT deployment once available",
-    "operatorBondToken": "0x0000000000000000000000000000000000000000",
-    "_todo_operator_bond": "TODO: adjust if TNT bond policy changes",
-    "operatorBondAmount": 100000000000000000000,
     "maxBlueprintsPerOperator": 0
   },
   "_todo_restake_assets": "TODO: replace placeholder token/adapter addresses with live deployments",

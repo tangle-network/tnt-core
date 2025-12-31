@@ -26,8 +26,7 @@ abstract contract BlueprintDefinitionHelper {
             maxOperators: 0,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
         def.metadata = Types.BlueprintMetadata({
             name: "Test Blueprint",

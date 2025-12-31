@@ -178,8 +178,7 @@ contract PaymentFuzzTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: rate,
             subscriptionInterval: 1 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);

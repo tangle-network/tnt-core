@@ -33,8 +33,6 @@ contract OperatorLifecycleTest is BaseTest {
         Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
         assertEq(reg.registeredAt, block.timestamp);
         assertTrue(reg.active);
-        assertEq(reg.bondToken, address(0));
-        assertEq(reg.bondAmount, 0);
     }
 
     function test_RegisterOperator_RevertNotStaked() public {
@@ -94,49 +92,16 @@ contract OperatorLifecycleTest is BaseTest {
         tangle.registerOperator(bp2, _operatorGossipKey(operator1, 1), "");
     }
 
-    function test_RegisterOperator_RequiresBondWhenConfigured() public {
-        uint256 bond = 1 ether;
-        vm.prank(admin);
-        tangle.setOperatorBlueprintBond(bond);
-
+    function test_RegisterOperator_RevertUnexpectedValue() public {
         bytes memory key = _operatorGossipKey(operator1, 0);
-        vm.prank(operator1);
-        vm.expectRevert(abi.encodeWithSelector(Errors.OperatorBondMismatch.selector, blueprintId, bond, 0));
-        tangle.registerOperator(blueprintId, key, "");
 
-        uint256 contractBalanceBefore = address(tangle).balance;
-        vm.prank(operator1);
-        tangle.registerOperator{ value: bond }(blueprintId, key, "");
-        assertEq(address(tangle).balance, contractBalanceBefore + bond);
+        bytes4 selector = bytes4(keccak256("registerOperator(uint64,bytes,string)"));
 
         vm.prank(operator1);
-        tangle.unregisterOperator(blueprintId);
-        assertEq(address(tangle).balance, contractBalanceBefore);
-    }
-
-    function test_RegisterOperator_WithERC20Bond() public {
-        MockERC20 token = new MockERC20();
-        token.mint(operator1, 500 ether);
-
-        vm.prank(admin);
-        tangle.setOperatorBondAsset(address(token));
-        vm.prank(admin);
-        tangle.setOperatorBlueprintBond(100 ether);
-        assertEq(tangle.operatorBondToken(), address(token));
-
-        vm.prank(operator1);
-        token.approve(address(tangle), type(uint256).max);
-
-        vm.prank(operator1);
-        tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 4), "");
-
-        Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
-        assertEq(reg.bondAmount, 100 ether);
-        assertEq(reg.bondToken, address(token));
-
-        vm.prank(operator1);
-        tangle.unregisterOperator(blueprintId);
-        assertEq(token.balanceOf(operator1), 500 ether);
+        (bool ok,) = address(tangle).call{ value: 1 ether }(
+            abi.encodeWithSelector(selector, blueprintId, key, "")
+        );
+        assertFalse(ok);
     }
 
     function test_UnregisterOperator_Success() public {
@@ -399,8 +364,7 @@ contract OperatorLifecycleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -455,8 +419,7 @@ contract OperatorLifecycleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);

@@ -39,6 +39,4 @@ library ProtocolConfig {
     // ═══════════════════════════════════════════════════════════════════════════
 
     uint32 internal constant MAX_BLUEPRINTS_PER_OPERATOR = 1_024;
-    uint256 internal constant DEFAULT_OPERATOR_BOND = 0;
-    address internal constant DEFAULT_OPERATOR_BOND_TOKEN = address(0);
 }

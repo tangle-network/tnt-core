@@ -400,8 +400,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
@@ -430,8 +429,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
@@ -600,8 +598,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
@@ -628,8 +625,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
@@ -659,8 +655,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);
@@ -689,8 +684,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         (uint64 blueprintId, address manager) = deployBlueprintWithConfig(3, blueprintOwner, config);

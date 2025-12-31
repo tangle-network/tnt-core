@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import { Base } from "./Base.sol";
@@ -15,8 +13,6 @@ import { SchemaLib } from "../libraries/SchemaLib.sol";
 /// @notice Operator registration and management for blueprints
 abstract contract Operators is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
-    using SafeERC20 for IERC20;
-
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -78,7 +74,7 @@ abstract contract Operators is Base {
         uint64 blueprintId,
         bytes calldata ecdsaPublicKey,
         string calldata rpcAddress
-    ) external payable whenNotPaused {
+    ) external whenNotPaused {
         _registerOperator(blueprintId, ecdsaPublicKey, rpcAddress, bytes(""));
     }
 
@@ -88,7 +84,7 @@ abstract contract Operators is Base {
         bytes calldata ecdsaPublicKey,
         string calldata rpcAddress,
         bytes calldata registrationInputs
-    ) external payable whenNotPaused {
+    ) external whenNotPaused {
         _registerOperator(blueprintId, ecdsaPublicKey, rpcAddress, registrationInputs);
     }
 
@@ -141,9 +137,6 @@ abstract contract Operators is Base {
             revert Errors.InsufficientStake(msg.sender, minStake, _restaking.getOperatorStake(msg.sender));
         }
 
-        uint256 requiredBond = _getOperatorBondRequirement(blueprintId);
-        address bondAsset = _collectOperatorBond(blueprintId, requiredBond);
-
         SchemaLib.validatePayload(
             _registrationSchemas[blueprintId],
             registrationInputs,
@@ -181,9 +174,7 @@ abstract contract Operators is Base {
             registeredAt: uint64(block.timestamp),
             updatedAt: uint64(block.timestamp),
             active: true,
-            online: true,
-            bondAmount: requiredBond,
-            bondToken: bondAsset
+            online: true
         });
 
         _blueprintOperatorKeys[blueprintId][keyHash] = msg.sender;
@@ -213,8 +204,6 @@ abstract contract Operators is Base {
             );
         }
 
-        uint256 bondAmount = reg.bondAmount;
-        address bondToken = reg.bondToken;
         bytes32 keyHash;
         if (prefs.ecdsaPublicKey.length != 0) {
             keyHash = keccak256(prefs.ecdsaPublicKey);
@@ -233,17 +222,6 @@ abstract contract Operators is Base {
         }
 
         emit OperatorUnregistered(blueprintId, msg.sender);
-
-        if (bondAmount > 0) {
-            if (bondToken == address(0)) {
-                (bool sent,) = payable(msg.sender).call{ value: bondAmount }("");
-                if (!sent) {
-                    revert Errors.OperatorBondRefundFailed(msg.sender, bondAmount);
-                }
-            } else {
-                IERC20(bondToken).safeTransfer(msg.sender, bondAmount);
-            }
-        }
     }
 
     /// @notice Update operator preferences for a blueprint
@@ -302,24 +280,4 @@ abstract contract Operators is Base {
         emit OperatorPreferencesUpdated(blueprintId, msg.sender, prefs.ecdsaPublicKey, prefs.rpcAddress);
     }
 
-    function _collectOperatorBond(uint64 blueprintId, uint256 requiredBond) private returns (address bondAsset) {
-        bondAsset = _operatorBondToken;
-        if (requiredBond == 0) {
-            if (msg.value != 0) {
-                revert Errors.OperatorBondMismatch(blueprintId, 0, msg.value);
-            }
-            return bondAsset;
-        }
-
-        if (bondAsset == address(0)) {
-            if (msg.value != requiredBond) {
-                revert Errors.OperatorBondMismatch(blueprintId, requiredBond, msg.value);
-            }
-        } else {
-            if (msg.value != 0) {
-                revert Errors.OperatorBondMismatch(blueprintId, requiredBond, msg.value);
-            }
-            IERC20(bondAsset).safeTransferFrom(msg.sender, address(this), requiredBond);
-        }
-    }
 }

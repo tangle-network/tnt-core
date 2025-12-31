@@ -341,8 +341,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         restaking.addSlasher(tangleProxy);
         restaking.addSlasher(slasher);
         Tangle(payable(tangleProxy)).setOperatorStatusRegistry(address(statusRegistry));
-        Tangle(payable(tangleProxy)).setOperatorBondAsset(address(tnt));
-        Tangle(payable(tangleProxy)).setOperatorBlueprintBond(100 ether);
+        Tangle(payable(tangleProxy)).setTntToken(address(tnt));
 
         // Deploy and configure MBSM
         MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(admin, tangleProxy);
@@ -366,7 +365,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         restaking.enableAsset(address(usdc), 100e18, 10e18, 0, 10000);
         restaking.enableAsset(address(weth), 0.1 ether, 0.01 ether, 0, 10000);
 
-        // Distribute TNT to operators for bonding
+        // Distribute TNT to operators for incentives
         for (uint256 i = 0; i < operators.length; i++) {
             tnt.transfer(operators[i], 10_000 ether);
         }
@@ -422,8 +421,6 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
     function _registerOperatorsForBlueprints() internal {
         console2.log("[Setup] Registering operators for blueprints...");
 
-        uint256 bondAmount = Tangle(payable(address(tangle))).operatorBlueprintBond();
-
         for (uint256 i = 0; i < operators.length; i++) {
             vm.startBroadcast(operatorKeys[i]);
 
@@ -434,7 +431,6 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
                 bytes memory ecdsaKey = _generateOperatorKey(i, j);
                 string memory rpcUrl = string(abi.encodePacked("http://operator", vm.toString(i), ".local:854", vm.toString(j)));
 
-                tnt.approve(address(tangle), bondAmount);
                 tangle.registerOperator(blueprintIds[j], ecdsaKey, rpcUrl);
                 console2.log("  Operator", i, "registered for blueprint", blueprintIds[j]);
             }

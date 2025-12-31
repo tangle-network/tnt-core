@@ -87,8 +87,6 @@ abstract contract Base is
         _treasury = treasury_;
 
         _maxBlueprintsPerOperator = ProtocolConfig.MAX_BLUEPRINTS_PER_OPERATOR;
-        _defaultOperatorBond = ProtocolConfig.DEFAULT_OPERATOR_BOND;
-        _operatorBondToken = ProtocolConfig.DEFAULT_OPERATOR_BOND_TOKEN;
         _defaultTntMinExposureBps = 1000; // 10%
         _tntRestakerFeeBps = 0;
         _tntPaymentDiscountBps = 0;
@@ -184,11 +182,6 @@ abstract contract Base is
         return address(_mbsmRegistry);
     }
 
-    /// @notice Get current bond asset used for operator registration (address(0) = native)
-    function operatorBondToken() external view returns (address) {
-        return _operatorBondToken;
-    }
-
     /// @notice Get maximum registered blueprints allowed per operator
     function maxBlueprintsPerOperator() external view returns (uint32) {
         return _maxBlueprintsPerOperator;
@@ -197,21 +190,6 @@ abstract contract Base is
     /// @notice Update maximum blueprints per operator (0 disables the limit)
     function setMaxBlueprintsPerOperator(uint32 newMax) external onlyRole(ADMIN_ROLE) {
         _maxBlueprintsPerOperator = newMax;
-    }
-
-    /// @notice Get the default operator bond required for registration
-    function operatorBlueprintBond() external view returns (uint256) {
-        return _defaultOperatorBond;
-    }
-
-    /// @notice Set the default operator bond (overridden per blueprint via config)
-    function setOperatorBlueprintBond(uint256 newBond) external onlyRole(ADMIN_ROLE) {
-        _defaultOperatorBond = newBond;
-    }
-
-    /// @notice Set the asset used for operator bonds (address(0) = native)
-    function setOperatorBondAsset(address token) external onlyRole(ADMIN_ROLE) {
-        _operatorBondToken = token;
     }
 
     /// @notice TNT token used for default security requirements + TNT restaker incentives
@@ -424,15 +402,6 @@ abstract contract Base is
         if (_metricsRecorder != address(0)) {
             try IMetricsRecorder(_metricsRecorder).recordSlash(operator, serviceId, amount) {} catch {}
         }
-    }
-
-    /// @notice Resolve the required operator bond for a blueprint
-    function _getOperatorBondRequirement(uint64 blueprintId) internal view returns (uint256) {
-        uint256 custom = _blueprintConfigs[blueprintId].operatorBond;
-        if (custom > 0) {
-            return custom;
-        }
-        return _defaultOperatorBond;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

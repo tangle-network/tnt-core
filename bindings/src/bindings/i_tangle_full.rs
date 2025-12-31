@@ -1115,7 +1115,7 @@ library Types {
     struct AssetSecurityRequirement { Asset asset; uint16 minExposureBps; uint16 maxExposureBps; }
     struct Blueprint { address owner; address manager; uint64 createdAt; uint32 operatorCount; MembershipModel membership; PricingModel pricing; bool active; }
     struct BlueprintBinary { BlueprintArchitecture arch; BlueprintOperatingSystem os; string name; bytes32 sha256; }
-    struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint32 minOperators; uint32 maxOperators; uint256 subscriptionRate; uint64 subscriptionInterval; uint256 eventRate; uint256 operatorBond; }
+    struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint32 minOperators; uint32 maxOperators; uint256 subscriptionRate; uint64 subscriptionInterval; uint256 eventRate; }
     struct BlueprintDefinition { string metadataUri; address manager; uint32 masterManagerRevision; bool hasConfig; BlueprintConfig config; BlueprintMetadata metadata; JobDefinition[] jobs; bytes registrationSchema; bytes requestSchema; BlueprintSource[] sources; MembershipModel[] supportedMemberships; }
     struct BlueprintMetadata { string name; string description; string author; string category; string codeRepository; string logo; string website; string license; string profilingData; }
     struct BlueprintSource { BlueprintSourceKind kind; ImageRegistrySource container; WasmSource wasm; NativeSource native; TestingSource testing; BlueprintBinary[] binaries; }
@@ -1126,7 +1126,7 @@ library Types {
     struct JobDefinition { string name; string description; string metadataUri; bytes paramsSchema; bytes resultSchema; }
     struct NativeSource { BlueprintFetcherKind fetcher; string artifactUri; string entrypoint; }
     struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
-    struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; uint256 bondAmount; address bondToken; }
+    struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
     struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 restakerBps; }
     struct QuoteDetails { uint64 blueprintId; uint64 ttlBlocks; uint256 totalCost; uint64 timestamp; uint64 expiry; AssetSecurityCommitment[] securityCommitments; }
     struct Service { uint64 blueprintId; address owner; uint64 createdAt; uint64 ttl; uint64 terminatedAt; uint64 lastPaymentAt; uint32 operatorCount; uint32 minOperators; uint32 maxOperators; MembershipModel membership; PricingModel pricing; ServiceStatus status; }
@@ -3795,7 +3795,7 @@ struct BlueprintBinary { BlueprintArchitecture arch; BlueprintOperatingSystem os
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint32 minOperators; uint32 maxOperators; uint256 subscriptionRate; uint64 subscriptionInterval; uint256 eventRate; uint256 operatorBond; }
+struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint32 minOperators; uint32 maxOperators; uint256 subscriptionRate; uint64 subscriptionInterval; uint256 eventRate; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -3814,8 +3814,6 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
         pub subscriptionInterval: u64,
         #[allow(missing_docs)]
         pub eventRate: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
-        pub operatorBond: alloy::sol_types::private::primitives::aliases::U256,
     }
     #[allow(
         non_camel_case_types,
@@ -3835,7 +3833,6 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<256>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
@@ -3845,7 +3842,6 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
             u32,
             alloy::sol_types::private::primitives::aliases::U256,
             u64,
-            alloy::sol_types::private::primitives::aliases::U256,
             alloy::sol_types::private::primitives::aliases::U256,
         );
         #[cfg(test)]
@@ -3871,7 +3867,6 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
                     value.subscriptionRate,
                     value.subscriptionInterval,
                     value.eventRate,
-                    value.operatorBond,
                 )
             }
         }
@@ -3887,7 +3882,6 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
                     subscriptionRate: tuple.4,
                     subscriptionInterval: tuple.5,
                     eventRate: tuple.6,
-                    operatorBond: tuple.7,
                 }
             }
         }
@@ -3919,9 +3913,6 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.eventRate),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operatorBond),
                 )
             }
             #[inline]
@@ -3996,7 +3987,7 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "BlueprintConfig(uint8 membership,uint8 pricing,uint32 minOperators,uint32 maxOperators,uint256 subscriptionRate,uint64 subscriptionInterval,uint256 eventRate,uint256 operatorBond)",
+                    "BlueprintConfig(uint8 membership,uint8 pricing,uint32 minOperators,uint32 maxOperators,uint256 subscriptionRate,uint64 subscriptionInterval,uint256 eventRate)",
                 )
             }
             #[inline]
@@ -4044,10 +4035,6 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
                         256,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.eventRate)
                         .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.operatorBond)
-                        .0,
                 ]
                     .concat()
             }
@@ -4087,11 +4074,6 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
                         256,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.eventRate,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.operatorBond,
                     )
             }
             #[inline]
@@ -4138,12 +4120,6 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
                     256,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.eventRate,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.operatorBond,
                     out,
                 );
             }
@@ -7162,7 +7138,7 @@ struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; uint256 bondAmount; address bondToken; }
+struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -7175,10 +7151,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
         pub active: bool,
         #[allow(missing_docs)]
         pub online: bool,
-        #[allow(missing_docs)]
-        pub bondAmount: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
-        pub bondToken: alloy::sol_types::private::Address,
     }
     #[allow(
         non_camel_case_types,
@@ -7195,18 +7167,9 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Bool,
             alloy::sol_types::sol_data::Bool,
-            alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Address,
         );
         #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = (
-            u64,
-            u64,
-            bool,
-            bool,
-            alloy::sol_types::private::primitives::aliases::U256,
-            alloy::sol_types::private::Address,
-        );
+        type UnderlyingRustTuple<'a> = (u64, u64, bool, bool);
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
         fn _type_assertion(
@@ -7222,14 +7185,7 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
         #[doc(hidden)]
         impl ::core::convert::From<OperatorRegistration> for UnderlyingRustTuple<'_> {
             fn from(value: OperatorRegistration) -> Self {
-                (
-                    value.registeredAt,
-                    value.updatedAt,
-                    value.active,
-                    value.online,
-                    value.bondAmount,
-                    value.bondToken,
-                )
+                (value.registeredAt, value.updatedAt, value.active, value.online)
             }
         }
         #[automatically_derived]
@@ -7241,8 +7197,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                     updatedAt: tuple.1,
                     active: tuple.2,
                     online: tuple.3,
-                    bondAmount: tuple.4,
-                    bondToken: tuple.5,
                 }
             }
         }
@@ -7266,12 +7220,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                     ),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.online,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.bondAmount),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.bondToken,
                     ),
                 )
             }
@@ -7347,7 +7295,7 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "OperatorRegistration(uint64 registeredAt,uint64 updatedAt,bool active,bool online,uint256 bondAmount,address bondToken)",
+                    "OperatorRegistration(uint64 registeredAt,uint64 updatedAt,bool active,bool online)",
                 )
             }
             #[inline]
@@ -7379,14 +7327,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                             &self.online,
                         )
                         .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.bondAmount)
-                        .0,
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.bondToken,
-                        )
-                        .0,
                 ]
                     .concat()
             }
@@ -7411,14 +7351,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                     )
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.online,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.bondAmount,
-                    )
-                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.bondToken,
                     )
             }
             #[inline]
@@ -7447,16 +7379,6 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
                 );
                 <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.online,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.bondAmount,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.bondToken,
                     out,
                 );
             }
@@ -10187,7 +10109,6 @@ library Types {
         uint256 subscriptionRate;
         uint64 subscriptionInterval;
         uint256 eventRate;
-        uint256 operatorBond;
     }
     struct BlueprintDefinition {
         string metadataUri;
@@ -10266,8 +10187,6 @@ library Types {
         uint64 updatedAt;
         bool active;
         bool online;
-        uint256 bondAmount;
-        address bondToken;
     }
     struct PaymentSplit {
         uint16 developerBps;
@@ -10420,8 +10339,6 @@ interface ITangleFull {
     function maxBlueprintsPerOperator() external view returns (uint32);
     function mbsmRegistry() external view returns (address);
     function metricsRecorder() external view returns (address);
-    function operatorBlueprintBond() external view returns (uint256);
-    function operatorBondToken() external view returns (address);
     function operatorStatusRegistry() external view returns (address);
     function pause() external;
     function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 restakerBps);
@@ -10430,8 +10347,8 @@ interface ITangleFull {
     function preRegister(uint64 blueprintId) external;
     function priceOracle() external view returns (address);
     function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes32 evidence) external returns (uint64 slashId);
-    function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external payable;
-    function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external payable;
+    function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external;
+    function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external;
     function rejectService(uint64 requestId) external;
     function removePermittedCaller(uint64 serviceId, address caller) external;
     function requestService(uint64 blueprintId, address[] memory operators, bytes memory config, address[] memory permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount) external payable returns (uint64 requestId);
@@ -10445,8 +10362,6 @@ interface ITangleFull {
     function setMBSMRegistry(address registry) external;
     function setMaxBlueprintsPerOperator(uint32 newMax) external;
     function setMetricsRecorder(address recorder) external;
-    function setOperatorBlueprintBond(uint256 newBond) external;
-    function setOperatorBondAsset(address token) external;
     function setOperatorStatusRegistry(address registry) external;
     function setPaymentSplit(Types.PaymentSplit memory split) external;
     function setPriceOracle(address oracle) external;
@@ -11026,11 +10941,6 @@ interface ITangleFull {
               },
               {
                 "name": "eventRate",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "operatorBond",
                 "type": "uint256",
                 "internalType": "uint256"
               }
@@ -11766,11 +11676,6 @@ interface ITangleFull {
             "name": "eventRate",
             "type": "uint256",
             "internalType": "uint256"
-          },
-          {
-            "name": "operatorBond",
-            "type": "uint256",
-            "internalType": "uint256"
           }
         ]
       }
@@ -11850,11 +11755,6 @@ interface ITangleFull {
               },
               {
                 "name": "eventRate",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "operatorBond",
                 "type": "uint256",
                 "internalType": "uint256"
               }
@@ -12382,16 +12282,6 @@ interface ITangleFull {
             "name": "online",
             "type": "bool",
             "internalType": "bool"
-          },
-          {
-            "name": "bondAmount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "bondToken",
-            "type": "address",
-            "internalType": "address"
           }
         ]
       }
@@ -13139,32 +13029,6 @@ interface ITangleFull {
   },
   {
     "type": "function",
-    "name": "operatorBlueprintBond",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "operatorBondToken",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "operatorStatusRegistry",
     "inputs": [],
     "outputs": [
@@ -13340,7 +13204,7 @@ interface ITangleFull {
       }
     ],
     "outputs": [],
-    "stateMutability": "payable"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -13363,7 +13227,7 @@ interface ITangleFull {
       }
     ],
     "outputs": [],
-    "stateMutability": "payable"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -13679,32 +13543,6 @@ interface ITangleFull {
     "inputs": [
       {
         "name": "recorder",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setOperatorBlueprintBond",
-    "inputs": [
-      {
-        "name": "newBond",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setOperatorBondAsset",
-    "inputs": [
-      {
-        "name": "token",
         "type": "address",
         "internalType": "address"
       }
@@ -20269,7 +20107,7 @@ function claimRewards(address token) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `createBlueprint((string,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))` and selector `0x3f412ded`.
+    /**Function with signature `createBlueprint((string,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))` and selector `0xf84868db`.
 ```solidity
 function createBlueprint(Types.BlueprintDefinition memory definition) external returns (uint64 blueprintId);
 ```*/
@@ -20281,7 +20119,7 @@ function createBlueprint(Types.BlueprintDefinition memory definition) external r
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`createBlueprint((string,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))`](createBlueprintCall) function.
+    ///Container type for the return parameters of the [`createBlueprint((string,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))`](createBlueprintCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct createBlueprintReturn {
@@ -20375,8 +20213,8 @@ function createBlueprint(Types.BlueprintDefinition memory definition) external r
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "createBlueprint((string,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))";
-            const SELECTOR: [u8; 4] = [63u8, 65u8, 45u8, 237u8];
+            const SIGNATURE: &'static str = "createBlueprint((string,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))";
+            const SELECTOR: [u8; 4] = [248u8, 72u8, 104u8, 219u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -27422,306 +27260,6 @@ function metricsRecorder() external view returns (address);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `operatorBlueprintBond()` and selector `0xb05b8bb9`.
-```solidity
-function operatorBlueprintBond() external view returns (uint256);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct operatorBlueprintBondCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`operatorBlueprintBond()`](operatorBlueprintBondCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct operatorBlueprintBondReturn {
-        #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<operatorBlueprintBondCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: operatorBlueprintBondCall) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for operatorBlueprintBondCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<operatorBlueprintBondReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: operatorBlueprintBondReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for operatorBlueprintBondReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for operatorBlueprintBondCall {
-            type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::primitives::aliases::U256;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "operatorBlueprintBond()";
-            const SELECTOR: [u8; 4] = [176u8, 91u8, 139u8, 185u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: operatorBlueprintBondReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: operatorBlueprintBondReturn = r.into();
-                        r._0
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `operatorBondToken()` and selector `0x0f157fb9`.
-```solidity
-function operatorBondToken() external view returns (address);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct operatorBondTokenCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`operatorBondToken()`](operatorBondTokenCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct operatorBondTokenReturn {
-        #[allow(missing_docs)]
-        pub _0: alloy::sol_types::private::Address,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<operatorBondTokenCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: operatorBondTokenCall) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for operatorBondTokenCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<operatorBondTokenReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: operatorBondTokenReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for operatorBondTokenReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for operatorBondTokenCall {
-            type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::Address;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "operatorBondToken()";
-            const SELECTOR: [u8; 4] = [15u8, 21u8, 127u8, 185u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: operatorBondTokenReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: operatorBondTokenReturn = r.into();
-                        r._0
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `operatorStatusRegistry()` and selector `0xd390bbbb`.
 ```solidity
 function operatorStatusRegistry() external view returns (address);
@@ -29000,7 +28538,7 @@ function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes3
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `registerOperator(uint64,bytes,string,bytes)` and selector `0x7324e916`.
 ```solidity
-function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external payable;
+function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -29188,7 +28726,7 @@ function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, strin
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `registerOperator(uint64,bytes,string)` and selector `0xd4e1ab7c`.
 ```solidity
-function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external payable;
+function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -31536,308 +31074,6 @@ function setMetricsRecorder(address recorder) external;
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 setMetricsRecorderReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setOperatorBlueprintBond(uint256)` and selector `0xfdb2fb5a`.
-```solidity
-function setOperatorBlueprintBond(uint256 newBond) external;
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setOperatorBlueprintBondCall {
-        #[allow(missing_docs)]
-        pub newBond: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    ///Container type for the return parameters of the [`setOperatorBlueprintBond(uint256)`](setOperatorBlueprintBondCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setOperatorBlueprintBondReturn {}
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U256,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setOperatorBlueprintBondCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setOperatorBlueprintBondCall) -> Self {
-                    (value.newBond,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorBlueprintBondCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { newBond: tuple.0 }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setOperatorBlueprintBondReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setOperatorBlueprintBondReturn) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorBlueprintBondReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
-                }
-            }
-        }
-        impl setOperatorBlueprintBondReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
-                ()
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for setOperatorBlueprintBondCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = setOperatorBlueprintBondReturn;
-            type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setOperatorBlueprintBond(uint256)";
-            const SELECTOR: [u8; 4] = [253u8, 178u8, 251u8, 90u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.newBond),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                setOperatorBlueprintBondReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setOperatorBondAsset(address)` and selector `0xd12b32f4`.
-```solidity
-function setOperatorBondAsset(address token) external;
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setOperatorBondAssetCall {
-        #[allow(missing_docs)]
-        pub token: alloy::sol_types::private::Address,
-    }
-    ///Container type for the return parameters of the [`setOperatorBondAsset(address)`](setOperatorBondAssetCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setOperatorBondAssetReturn {}
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setOperatorBondAssetCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setOperatorBondAssetCall) -> Self {
-                    (value.token,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorBondAssetCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { token: tuple.0 }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setOperatorBondAssetReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setOperatorBondAssetReturn) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorBondAssetReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
-                }
-            }
-        }
-        impl setOperatorBondAssetReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setOperatorBondAssetCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
-                ()
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for setOperatorBondAssetCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = setOperatorBondAssetReturn;
-            type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setOperatorBondAsset(address)";
-            const SELECTOR: [u8; 4] = [209u8, 43u8, 50u8, 244u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.token,
-                    ),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                setOperatorBondAssetReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -35876,10 +35112,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         metricsRecorder(metricsRecorderCall),
         #[allow(missing_docs)]
-        operatorBlueprintBond(operatorBlueprintBondCall),
-        #[allow(missing_docs)]
-        operatorBondToken(operatorBondTokenCall),
-        #[allow(missing_docs)]
         operatorStatusRegistry(operatorStatusRegistryCall),
         #[allow(missing_docs)]
         pause(pauseCall),
@@ -35925,10 +35157,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         setMaxBlueprintsPerOperator(setMaxBlueprintsPerOperatorCall),
         #[allow(missing_docs)]
         setMetricsRecorder(setMetricsRecorderCall),
-        #[allow(missing_docs)]
-        setOperatorBlueprintBond(setOperatorBlueprintBondCall),
-        #[allow(missing_docs)]
-        setOperatorBondAsset(setOperatorBondAssetCall),
         #[allow(missing_docs)]
         setOperatorStatusRegistry(setOperatorStatusRegistryCall),
         #[allow(missing_docs)]
@@ -35993,7 +35221,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [6u8, 35u8, 117u8, 38u8],
             [6u8, 67u8, 140u8, 151u8],
             [10u8, 253u8, 55u8, 56u8],
-            [15u8, 21u8, 127u8, 185u8],
             [16u8, 138u8, 125u8, 99u8],
             [17u8, 15u8, 130u8, 155u8],
             [24u8, 12u8, 174u8, 103u8],
@@ -36016,7 +35243,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [52u8, 19u8, 232u8, 238u8],
             [55u8, 37u8, 0u8, 171u8],
             [61u8, 192u8, 213u8, 254u8],
-            [63u8, 65u8, 45u8, 237u8],
             [63u8, 75u8, 168u8, 58u8],
             [66u8, 127u8, 253u8, 233u8],
             [67u8, 12u8, 225u8, 24u8],
@@ -36066,7 +35292,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [170u8, 205u8, 186u8, 159u8],
             [174u8, 166u8, 89u8, 37u8],
             [176u8, 85u8, 68u8, 155u8],
-            [176u8, 91u8, 139u8, 185u8],
             [182u8, 7u8, 186u8, 89u8],
             [183u8, 105u8, 109u8, 187u8],
             [183u8, 193u8, 130u8, 7u8],
@@ -36079,7 +35304,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [205u8, 211u8, 213u8, 186u8],
             [206u8, 109u8, 208u8, 111u8],
             [207u8, 56u8, 6u8, 198u8],
-            [209u8, 43u8, 50u8, 244u8],
             [210u8, 103u8, 46u8, 212u8],
             [211u8, 144u8, 187u8, 187u8],
             [212u8, 225u8, 171u8, 124u8],
@@ -36097,8 +35321,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [240u8, 65u8, 26u8, 243u8],
             [240u8, 244u8, 66u8, 96u8],
             [243u8, 47u8, 150u8, 115u8],
+            [248u8, 72u8, 104u8, 219u8],
             [251u8, 204u8, 123u8, 61u8],
-            [253u8, 178u8, 251u8, 90u8],
             [255u8, 20u8, 169u8, 64u8],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
@@ -36108,7 +35332,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(serviceCount),
             ::core::stringify!(tntRestakerFeeBps),
             ::core::stringify!(unregisterOperator),
-            ::core::stringify!(operatorBondToken),
             ::core::stringify!(requestServiceWithExposure),
             ::core::stringify!(getExecutableSlashes),
             ::core::stringify!(getOperatorPublicKey),
@@ -36131,7 +35354,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(submitJob),
             ::core::stringify!(claimRewards_0),
             ::core::stringify!(getService),
-            ::core::stringify!(createBlueprint),
             ::core::stringify!(unpause),
             ::core::stringify!(getExitStatus),
             ::core::stringify!(blueprintMetadata),
@@ -36181,7 +35403,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(submitResults),
             ::core::stringify!(forceExit),
             ::core::stringify!(executeSlashBatch),
-            ::core::stringify!(operatorBlueprintBond),
             ::core::stringify!(scheduleExit),
             ::core::stringify!(getBlueprint),
             ::core::stringify!(executeExit),
@@ -36194,7 +35415,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(tntPaymentDiscountBps),
             ::core::stringify!(setTntRestakerFeeBps),
             ::core::stringify!(billSubscription),
-            ::core::stringify!(setOperatorBondAsset),
             ::core::stringify!(getExitConfig),
             ::core::stringify!(operatorStatusRegistry),
             ::core::stringify!(registerOperator_1),
@@ -36212,8 +35432,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(createServiceFromQuotes),
             ::core::stringify!(setTreasury),
             ::core::stringify!(getOperatorPreferences),
+            ::core::stringify!(createBlueprint),
             ::core::stringify!(setServiceFeeDistributor),
-            ::core::stringify!(setOperatorBlueprintBond),
             ::core::stringify!(blueprintMasterRevision),
         ];
         /// The signatures in the same order as `SELECTORS`.
@@ -36223,7 +35443,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <serviceCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <tntRestakerFeeBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <unregisterOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <operatorBondTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <requestServiceWithExposureCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getExecutableSlashesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorPublicKeyCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -36246,7 +35465,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <submitJobCall as alloy_sol_types::SolCall>::SIGNATURE,
             <claimRewards_0Call as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <createBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <unpauseCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getExitStatusCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintMetadataCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -36296,7 +35514,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <submitResultsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <forceExitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeSlashBatchCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <operatorBlueprintBondCall as alloy_sol_types::SolCall>::SIGNATURE,
             <scheduleExitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeExitCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -36309,7 +35526,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTntRestakerFeeBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <billSubscriptionCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <setOperatorBondAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getExitConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <operatorStatusRegistryCall as alloy_sol_types::SolCall>::SIGNATURE,
             <registerOperator_1Call as alloy_sol_types::SolCall>::SIGNATURE,
@@ -36327,8 +35543,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <createServiceFromQuotesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTreasuryCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorPreferencesCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <createBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintMasterRevisionCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -36356,7 +35572,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
     impl alloy_sol_types::SolInterface for ITangleFullCalls {
         const NAME: &'static str = "ITangleFullCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 112usize;
+        const COUNT: usize = 108usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -36540,12 +35756,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 Self::metricsRecorder(_) => {
                     <metricsRecorderCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::operatorBlueprintBond(_) => {
-                    <operatorBlueprintBondCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::operatorBondToken(_) => {
-                    <operatorBondTokenCall as alloy_sol_types::SolCall>::SELECTOR
-                }
                 Self::operatorStatusRegistry(_) => {
                     <operatorStatusRegistryCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -36612,12 +35822,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::setMetricsRecorder(_) => {
                     <setMetricsRecorderCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::setOperatorBlueprintBond(_) => {
-                    <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::setOperatorBondAsset(_) => {
-                    <setOperatorBondAssetCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::setOperatorStatusRegistry(_) => {
                     <setOperatorStatusRegistryCall as alloy_sol_types::SolCall>::SELECTOR
@@ -36761,17 +35965,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::unregisterOperator)
                     }
                     unregisterOperator
-                },
-                {
-                    fn operatorBondToken(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleFullCalls::operatorBondToken)
-                    }
-                    operatorBondToken
                 },
                 {
                     fn requestServiceWithExposure(
@@ -37012,17 +36205,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::getService)
                     }
                     getService
-                },
-                {
-                    fn createBlueprint(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <createBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleFullCalls::createBlueprint)
-                    }
-                    createBlueprint
                 },
                 {
                     fn unpause(
@@ -37554,17 +36736,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     executeSlashBatch
                 },
                 {
-                    fn operatorBlueprintBond(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <operatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleFullCalls::operatorBlueprintBond)
-                    }
-                    operatorBlueprintBond
-                },
-                {
                     fn scheduleExit(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -37695,17 +36866,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::billSubscription)
                     }
                     billSubscription
-                },
-                {
-                    fn setOperatorBondAsset(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <setOperatorBondAssetCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleFullCalls::setOperatorBondAsset)
-                    }
-                    setOperatorBondAsset
                 },
                 {
                     fn getExitConfig(
@@ -37893,6 +37053,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     getOperatorPreferences
                 },
                 {
+                    fn createBlueprint(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <createBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::createBlueprint)
+                    }
+                    createBlueprint
+                },
+                {
                     fn setServiceFeeDistributor(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -37902,17 +37073,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::setServiceFeeDistributor)
                     }
                     setServiceFeeDistributor
-                },
-                {
-                    fn setOperatorBlueprintBond(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleFullCalls::setOperatorBlueprintBond)
-                    }
-                    setOperatorBlueprintBond
                 },
                 {
                     fn blueprintMasterRevision(
@@ -37999,17 +37159,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::unregisterOperator)
                     }
                     unregisterOperator
-                },
-                {
-                    fn operatorBondToken(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleFullCalls::operatorBondToken)
-                    }
-                    operatorBondToken
                 },
                 {
                     fn requestServiceWithExposure(
@@ -38252,17 +37401,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::getService)
                     }
                     getService
-                },
-                {
-                    fn createBlueprint(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <createBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleFullCalls::createBlueprint)
-                    }
-                    createBlueprint
                 },
                 {
                     fn unpause(
@@ -38802,17 +37940,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     executeSlashBatch
                 },
                 {
-                    fn operatorBlueprintBond(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <operatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleFullCalls::operatorBlueprintBond)
-                    }
-                    operatorBlueprintBond
-                },
-                {
                     fn scheduleExit(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -38943,17 +38070,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::billSubscription)
                     }
                     billSubscription
-                },
-                {
-                    fn setOperatorBondAsset(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <setOperatorBondAssetCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleFullCalls::setOperatorBondAsset)
-                    }
-                    setOperatorBondAsset
                 },
                 {
                     fn getExitConfig(
@@ -39143,6 +38259,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     getOperatorPreferences
                 },
                 {
+                    fn createBlueprint(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <createBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::createBlueprint)
+                    }
+                    createBlueprint
+                },
+                {
                     fn setServiceFeeDistributor(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -39152,17 +38279,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::setServiceFeeDistributor)
                     }
                     setServiceFeeDistributor
-                },
-                {
-                    fn setOperatorBlueprintBond(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleFullCalls::setOperatorBlueprintBond)
-                    }
-                    setOperatorBlueprintBond
                 },
                 {
                     fn blueprintMasterRevision(
@@ -39481,16 +38597,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         inner,
                     )
                 }
-                Self::operatorBlueprintBond(inner) => {
-                    <operatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::operatorBondToken(inner) => {
-                    <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::operatorStatusRegistry(inner) => {
                     <operatorStatusRegistryCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -39601,16 +38707,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::setMetricsRecorder(inner) => {
                     <setMetricsRecorderCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::setOperatorBlueprintBond(inner) => {
-                    <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::setOperatorBondAsset(inner) => {
-                    <setOperatorBondAssetCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -40096,18 +39192,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         out,
                     )
                 }
-                Self::operatorBlueprintBond(inner) => {
-                    <operatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::operatorBondToken(inner) => {
-                    <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::operatorStatusRegistry(inner) => {
                     <operatorStatusRegistryCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -40239,18 +39323,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::setMetricsRecorder(inner) => {
                     <setMetricsRecorderCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::setOperatorBlueprintBond(inner) => {
-                    <setOperatorBlueprintBondCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::setOperatorBondAsset(inner) => {
-                    <setOperatorBondAssetCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -41815,18 +40887,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, metricsRecorderCall, N> {
             self.call_builder(&metricsRecorderCall)
         }
-        ///Creates a new call builder for the [`operatorBlueprintBond`] function.
-        pub fn operatorBlueprintBond(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, operatorBlueprintBondCall, N> {
-            self.call_builder(&operatorBlueprintBondCall)
-        }
-        ///Creates a new call builder for the [`operatorBondToken`] function.
-        pub fn operatorBondToken(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, operatorBondTokenCall, N> {
-            self.call_builder(&operatorBondTokenCall)
-        }
         ///Creates a new call builder for the [`operatorStatusRegistry`] function.
         pub fn operatorStatusRegistry(
             &self,
@@ -42092,24 +41152,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             recorder: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, setMetricsRecorderCall, N> {
             self.call_builder(&setMetricsRecorderCall { recorder })
-        }
-        ///Creates a new call builder for the [`setOperatorBlueprintBond`] function.
-        pub fn setOperatorBlueprintBond(
-            &self,
-            newBond: alloy::sol_types::private::primitives::aliases::U256,
-        ) -> alloy_contract::SolCallBuilder<&P, setOperatorBlueprintBondCall, N> {
-            self.call_builder(
-                &setOperatorBlueprintBondCall {
-                    newBond,
-                },
-            )
-        }
-        ///Creates a new call builder for the [`setOperatorBondAsset`] function.
-        pub fn setOperatorBondAsset(
-            &self,
-            token: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<&P, setOperatorBondAssetCall, N> {
-            self.call_builder(&setOperatorBondAssetCall { token })
         }
         ///Creates a new call builder for the [`setOperatorStatusRegistry`] function.
         pub fn setOperatorStatusRegistry(

@@ -41,7 +41,6 @@ library Types {
         uint256 subscriptionRate;   // Rate per interval (for Subscription model)
         uint64 subscriptionInterval; // Interval in seconds
         uint256 eventRate;          // Rate per event (for EventDriven model)
-        uint256 operatorBond;       // Native bond required when registering (0 = use global default)
     }
 
     /// @notice Metadata describing a blueprint for explorers and off-chain tooling
@@ -231,8 +230,6 @@ library Types {
         uint64 updatedAt;     // Last preference update
         bool active;          // Can be deactivated
         bool online;          // Available for new services
-        uint256 bondAmount;   // Bond locked for this blueprint
-        address bondToken;    // Token used for bond (address(0) = native)
     }
 
     /// @notice Operator preferences including gossip network identity

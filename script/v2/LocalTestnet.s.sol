@@ -68,7 +68,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     address public tangleProxy;
     address public restakingProxy;
     address public statusRegistry;
-    TangleToken public bondToken;
+    TangleToken public tntToken;
 
     // Incentives
     address public metrics;
@@ -222,15 +222,15 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             ERC1967Proxy tokenProxy = new ERC1967Proxy(
                 address(tokenImpl), abi.encodeCall(TangleToken.initialize, (deployer, 1_000_000 ether))
             );
-            bondToken = TangleToken(address(tokenProxy));
+            tntToken = TangleToken(address(tokenProxy));
             deployedNewTNT = true;
-            console2.log("TangleToken (bond asset):", address(bondToken));
+            console2.log("TangleToken:", address(tntToken));
         } else {
-            bondToken = TangleToken(configuredTNT);
-            console2.log("Using existing TangleToken (bond asset):", address(bondToken));
+            tntToken = TangleToken(configuredTNT);
+            console2.log("Using existing TangleToken:", address(tntToken));
         }
 
-        _distributeBondToken(deployer, deployedNewTNT);
+        _distributeTntToken(deployer, deployedNewTNT);
 
         // Configure cross-references
         IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
@@ -238,8 +238,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         Tangle tangle = Tangle(payable(tangleProxy));
         tangle.setOperatorStatusRegistry(statusRegistry);
-        tangle.setOperatorBondAsset(address(bondToken));
-        tangle.setTntToken(address(bondToken));
+        tangle.setTntToken(address(tntToken));
         uint256 minExposure = _envUintOrZero("DEFAULT_TNT_MIN_EXPOSURE_BPS");
         if (minExposure > 0) {
             require(minExposure <= 10_000, "DEFAULT_TNT_MIN_EXPOSURE_BPS too high");
@@ -285,7 +284,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         rewardVaults = address(
             new ERC1967Proxy(
                 address(vaultsImpl),
-                abi.encodeCall(RewardVaults.initialize, (deployer, address(bondToken), uint16(1500)))
+                abi.encodeCall(RewardVaults.initialize, (deployer, address(tntToken), uint16(1500)))
             )
         );
         console2.log("RewardVaults:", rewardVaults);
@@ -295,7 +294,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         inflationPool = address(
             new ERC1967Proxy(
                 address(poolImpl),
-                abi.encodeCall(InflationPool.initialize, (deployer, address(bondToken), metrics, rewardVaults, 3600))
+                abi.encodeCall(InflationPool.initialize, (deployer, address(tntToken), metrics, rewardVaults, 3600))
             )
         );
         console2.log("InflationPool:", inflationPool);
@@ -389,7 +388,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         // Native (address(0)) + all configured restaking assets
         vaults.createVault(address(0), apyBps, depositCap, incentiveCap, boostMultiplierBps);
-        vaults.createVault(address(bondToken), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+        vaults.createVault(address(tntToken), apyBps, depositCap, incentiveCap, boostMultiplierBps);
         vaults.createVault(address(usdc), apyBps, depositCap, incentiveCap, boostMultiplierBps);
         vaults.createVault(address(usdt), apyBps, depositCap, incentiveCap, boostMultiplierBps);
         vaults.createVault(address(dai), apyBps, depositCap, incentiveCap, boostMultiplierBps);
@@ -418,7 +417,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         RewardVaults vaults = RewardVaults(rewardVaults);
 
         // Ensure vault has TNT balance to cover claims.
-        bondToken.transfer(rewardVaults, 100_000 ether);
+        tntToken.transfer(rewardVaults, 100_000 ether);
 
         // Seed some rewards so the dApp can test pending/claim flows immediately.
         vaults.distributeRewards(address(0), operator1, 100 ether);
@@ -472,7 +471,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         restaking.enableAsset(address(stETH), 0, 0, 0, 15_000); // 1.5x multiplier for stETH
         restaking.enableAsset(address(wstETH), 0, 0, 0, 15_000); // 1.5x multiplier for wstETH
         restaking.enableAsset(address(eigen), 0, 0, 0, 20_000); // 2x multiplier for EIGEN
-        restaking.enableAsset(address(bondToken), 0, 0, 0, 10_000); // TNT native token
+        restaking.enableAsset(address(tntToken), 0, 0, 0, 10_000); // TNT native token
         console2.log("All tokens enabled as restaking assets");
 
         // Mint tokens to test accounts (use large amounts for testing)
@@ -562,10 +561,6 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("Blueprint created:", blueprintId);
         console2.log("Blueprint configured for dynamic membership (CLI join target)");
 
-        // Require a 100 TNT bond per operator registration
-        Tangle(payable(tangleProxy)).setOperatorBlueprintBond(100 ether);
-        console2.log("Operator bond set to 100 TNT");
-
         if (useBroadcastKeys) {
             vm.stopBroadcast();
         } else {
@@ -575,10 +570,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     function _operatorsRegisterForBlueprint() internal {
         console2.log("\n=== Operators Registering for Blueprint ===");
-        Tangle tangleRouter = Tangle(payable(tangleProxy));
         ITangleFull tangle = ITangleFull(payable(tangleProxy));
-        uint256 bond = tangleRouter.operatorBlueprintBond();
-        address bondAsset = tangleRouter.operatorBondToken();
 
         bytes memory operator1Key =
             hex"040102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40";
@@ -591,12 +583,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         } else {
             vm.startPrank(operator1);
         }
-        if (bondAsset != address(0)) {
-            bondToken.approve(tangleProxy, bond);
-            tangle.registerOperator(blueprintId, operator1Key, "http://operator1.local:8545");
-        } else {
-            tangle.registerOperator{ value: bond }(blueprintId, operator1Key, "http://operator1.local:8545");
-        }
+        tangle.registerOperator(blueprintId, operator1Key, "http://operator1.local:8545");
         console2.log("Operator1 registered for blueprint");
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -610,12 +597,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         } else {
             vm.startPrank(operator2);
         }
-        if (bondAsset != address(0)) {
-            bondToken.approve(tangleProxy, bond);
-            tangle.registerOperator(blueprintId, operator2Key, "http://operator2.local:8545");
-        } else {
-            tangle.registerOperator{ value: bond }(blueprintId, operator2Key, "http://operator2.local:8545");
-        }
+        tangle.registerOperator(blueprintId, operator2Key, "http://operator2.local:8545");
         console2.log("Operator2 registered for blueprint");
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -668,16 +650,16 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         );
         console2.log("Deposited 10k USDC, delegated 5k to Operator1");
 
-        // Deposit and delegate TNT (bond token) to enable TNT restaker incentive testing.
-        uint256 tntBalance = bondToken.balanceOf(delegator);
+        // Deposit and delegate TNT to enable TNT restaker incentive testing.
+        uint256 tntBalance = tntToken.balanceOf(delegator);
         if (tntBalance >= 2000 ether) {
-            bondToken.approve(restakingProxy, type(uint256).max);
-            restaking.depositERC20(address(bondToken), 2000 ether);
+            tntToken.approve(restakingProxy, type(uint256).max);
+            restaking.depositERC20(address(tntToken), 2000 ether);
             restaking.delegateWithOptions(
-                operator1, address(bondToken), 1000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+                operator1, address(tntToken), 1000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
             );
             restaking.delegateWithOptions(
-                operator2, address(bondToken), 1000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+                operator2, address(tntToken), 1000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
             );
             console2.log("Deposited 2000 TNT, delegated 1000 to each operator");
         } else {
@@ -957,7 +939,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
     }
 
-    function _distributeBondToken(address source, bool deployedNewTNT) internal {
+    function _distributeTntToken(address source, bool deployedNewTNT) internal {
         address[9] memory recipients = [
             operator1,
             operator2,
@@ -971,7 +953,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         ];
 
         uint256 required = recipients.length * 10_000 ether;
-        uint256 balance = bondToken.balanceOf(source);
+        uint256 balance = tntToken.balanceOf(source);
         if (balance < required) {
             if (deployedNewTNT) {
                 console2.log("Skipping TNT airdrop due to insufficient admin balance");
@@ -984,7 +966,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
 
         for (uint256 i = 0; i < recipients.length; i++) {
-            bondToken.transfer(recipients[i], 10_000 ether);
+            tntToken.transfer(recipients[i], 10_000 ether);
         }
         console2.log("TNT tokens distributed to all dev accounts (10,000 TNT each)");
     }

@@ -581,8 +581,7 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -602,8 +601,7 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -675,8 +673,7 @@ contract TangleTest is BaseTest {
             maxOperators: 1, // Only 1 allowed
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -715,8 +712,7 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -776,8 +772,7 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0,
             subscriptionInterval: 0,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         // Use mock BSM with zero exit delays to test min operators check directly
@@ -896,8 +891,7 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -916,8 +910,7 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);
@@ -972,8 +965,7 @@ contract TangleTest is BaseTest {
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
             subscriptionInterval: 30 days,
-            eventRate: 0,
-            operatorBond: 0
+            eventRate: 0
         });
 
         vm.prank(developer);

@@ -171,13 +171,9 @@ contract TangleCore is
     // OPERATOR OPERATIONS
     // ═══════════════════════════════════════════════════════════════════════
 
-    // Operator bonding
-    // -----------------
-    // - All operator registrations are collateralized with TNT.
-    // - `setOperatorBondAsset(address token)` selects the ERC20 used for bonding (address(0) keeps native).
-    // - `setOperatorBlueprintBond(uint256 amount)` defines the default amount (overridable per blueprint config).
-    // - Registering transfers the TNT bond into Tangle and stores both amount + token on the OperatorRegistration.
-    // - Unregistering refunds that token back to the operator.
+    // Operator registration
+    // ---------------------
+    // - Operators must meet the restaking self-stake minimum before registering.
 
     /// @notice Register operator to a blueprint
     /// @param blueprintId The blueprint to register for

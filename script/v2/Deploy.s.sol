@@ -40,8 +40,6 @@ error AddressNotAllowlisted(string field, address provided, address expected);
 error MissingEnv(string key);
 
 abstract contract DeployScriptBase is Script {
-    error MissingOperatorBondToken();
-
     function _requireEnvUint(string memory key) internal view returns (uint256 value) {
         try vm.envUint(key) returns (uint256 raw) {
             return raw;
@@ -130,8 +128,7 @@ contract DeployV2 is DeployScriptBase {
     uint256 public minOperatorStake = 1 ether;
     uint256 public minDelegation = 0.1 ether;
     uint16 public operatorCommissionBps = 1000; // 10%
-    address public operatorBondToken;
-    uint256 public operatorBondAmount = 100 ether;
+    address public tntToken;
     uint256 public tntInitialSupply;
 
     function run() external virtual {
@@ -201,8 +198,6 @@ contract DeployV2 is DeployScriptBase {
             vm.startPrank(deployer);
         }
 
-        _ensureOperatorBondToken(admin);
-
         (restakingProxy, restakingImpl) = deployMultiAssetDelegation(admin);
         console2.log("MultiAssetDelegation implementation:", restakingImpl);
         console2.log("MultiAssetDelegation proxy:", restakingProxy);
@@ -236,7 +231,7 @@ contract DeployV2 is DeployScriptBase {
         Tangle(payable(tangleProxy)).setOperatorStatusRegistry(statusRegistry);
         console2.log("Set OperatorStatusRegistry on Tangle");
 
-        _configureOperatorBonds(tangleProxy);
+        _ensureTntToken(admin);
         _configureTntDefaults(tangleProxy);
 
         if (broadcast) {
@@ -246,23 +241,12 @@ contract DeployV2 is DeployScriptBase {
         }
     }
 
-    function _configureOperatorBonds(address tangleProxy) internal {
-        if (operatorBondToken == address(0)) {
-            revert MissingOperatorBondToken();
-        }
-        Tangle tangle = Tangle(payable(tangleProxy));
-        tangle.setOperatorBondAsset(operatorBondToken);
-        tangle.setOperatorBlueprintBond(operatorBondAmount);
-        console2.log("Configured operator bond asset:", operatorBondToken);
-        console2.log("Configured operator bond amount:", operatorBondAmount);
-    }
-
     function _configureTntDefaults(address tangleProxy) internal {
         Tangle tangle = Tangle(payable(tangleProxy));
 
         address tnt = _envAddressIfSet("TNT_TOKEN");
         if (tnt == address(0)) {
-            tnt = operatorBondToken;
+            tnt = tntToken;
         }
 
         tangle.setTntToken(tnt);
@@ -296,27 +280,19 @@ contract DeployV2 is DeployScriptBase {
         }
     }
 
-    function _ensureOperatorBondToken(address admin) internal {
-        if (operatorBondToken != address(0)) {
+    function _ensureTntToken(address admin) internal {
+        if (tntToken != address(0)) {
             return;
         }
 
-        string memory tokenField = "OPERATOR_BOND_TOKEN";
-        address tokenFromEnv = _envAddressIfSet(tokenField);
-        if (tokenFromEnv == address(0)) {
-            tokenField = "TNT_TOKEN";
-            tokenFromEnv = _envAddressIfSet(tokenField);
-        }
-
+        address tokenFromEnv = _envAddressIfSet("TNT_TOKEN");
         if (tokenFromEnv != address(0)) {
-            operatorBondToken = _requireNonZero(tokenFromEnv, tokenField);
-            operatorBondAmount = _envUintOrDefault("OPERATOR_BOND_AMOUNT", operatorBondAmount);
-            console2.log("Using existing TNT token from env:", operatorBondToken);
+            tntToken = _requireNonZero(tokenFromEnv, "TNT_TOKEN");
+            console2.log("Using existing TNT token from env:", tntToken);
             return;
         }
 
-        operatorBondToken = _deployTNTToken(admin);
-        operatorBondAmount = _envUintOrDefault("OPERATOR_BOND_AMOUNT", operatorBondAmount);
+        tntToken = _deployTNTToken(admin);
     }
 
     function _deployTNTToken(address admin) internal returns (address) {
@@ -391,11 +367,6 @@ contract DeployV2 is DeployScriptBase {
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));
         router.registerFacet(address(new RestakingAdminFacet()));
-    }
-
-    function setBondConfig(address token, uint256 amount) public {
-        operatorBondToken = token;
-        operatorBondAmount = amount;
     }
 
     function deployOperatorStatusRegistry(address tangleCore, address owner) internal returns (address) {

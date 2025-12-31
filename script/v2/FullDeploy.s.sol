@@ -52,8 +52,6 @@ contract FullDeploy is DeployV2 {
         uint256 minOperatorStake;
         uint256 minDelegation;
         uint16 operatorCommissionBps;
-        address operatorBondToken;
-        uint256 operatorBondAmount;
         uint32 maxBlueprintsPerOperator;
     }
 
@@ -216,16 +214,9 @@ contract FullDeploy is DeployV2 {
             require(!migration.useMockVerifier, "Mock verifier disabled");
             uint256 totalSupply =
                 migration.substrateAllocation + migration.evmAllocation + migration.treasuryAmount + migration.foundationAmount;
-            if (cfg.core.operatorBondToken == address(0) && cfg.incentives.tntToken == address(0)) {
+            if (cfg.incentives.tntToken == address(0)) {
                 tntInitialSupply = totalSupply;
             }
-        }
-
-        if (cfg.incentives.tntToken != address(0) && cfg.core.operatorBondToken != address(0)) {
-            require(cfg.incentives.tntToken == cfg.core.operatorBondToken, "TNT token mismatch");
-        }
-        if (cfg.core.operatorBondToken == address(0) && cfg.incentives.tntToken != address(0)) {
-            cfg.core.operatorBondToken = cfg.incentives.tntToken;
         }
 
         _applyCoreOverrides(cfg.core);
@@ -363,10 +354,6 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".core.operatorCommissionBps")) {
             cfg.core.operatorCommissionBps = uint16(jsonBlob.readUint(".core.operatorCommissionBps"));
         }
-        if (jsonBlob.keyExists(".core.operatorBondToken")) {
-            cfg.core.operatorBondToken = jsonBlob.readAddress(".core.operatorBondToken");
-        }
-        if (jsonBlob.keyExists(".core.operatorBondAmount")) cfg.core.operatorBondAmount = jsonBlob.readUint(".core.operatorBondAmount");
         if (jsonBlob.keyExists(".core.maxBlueprintsPerOperator")) {
             cfg.core.maxBlueprintsPerOperator = uint32(jsonBlob.readUint(".core.maxBlueprintsPerOperator"));
         }
@@ -575,12 +562,6 @@ contract FullDeploy is DeployV2 {
         if (core.operatorCommissionBps != 0) {
             operatorCommissionBps = core.operatorCommissionBps;
         }
-        if (core.operatorBondAmount != 0) {
-            operatorBondAmount = core.operatorBondAmount;
-        }
-        if (core.operatorBondToken != address(0)) {
-            operatorBondToken = core.operatorBondToken;
-        }
     }
 
     function _substituteTntSentinel(
@@ -651,9 +632,9 @@ contract FullDeploy is DeployV2 {
         address admin
     )
         internal
-        returns (address metrics, address rewardVaults, address inflationPool, address tntToken, uint256 epochLength)
+        returns (address metrics, address rewardVaults, address inflationPool, address tntTokenOut, uint256 epochLength)
     {
-        tntToken = inc.tntToken != address(0) ? inc.tntToken : operatorBondToken;
+        tntTokenOut = inc.tntToken != address(0) ? inc.tntToken : tntToken;
 
         if (inc.deployMetrics) {
             metrics = _deployMetricsProxy(admin);
@@ -662,18 +643,18 @@ contract FullDeploy is DeployV2 {
         }
 
         if (inc.deployRewardVaults) {
-            if (tntToken == address(0)) revert("Missing TNT token for RewardVaults");
+            if (tntTokenOut == address(0)) revert("Missing TNT token for RewardVaults");
             uint16 commission = inc.vaultOperatorCommissionBps == 0 ? 1500 : inc.vaultOperatorCommissionBps;
-            rewardVaults = _deployRewardVaultsProxy(admin, tntToken, commission);
+            rewardVaults = _deployRewardVaultsProxy(admin, tntTokenOut, commission);
         } else {
             rewardVaults = inc.rewardVaults;
         }
 
         if (inc.deployInflationPool) {
-            if (tntToken == address(0)) revert("Missing TNT token for InflationPool");
+            if (tntTokenOut == address(0)) revert("Missing TNT token for InflationPool");
             // Epoch length is expressed in seconds (timestamp-based rewards).
             uint256 epoch = inc.epochLength == 0 ? 604_800 : inc.epochLength; // 7 days
-            inflationPool = _deployInflationPoolProxy(admin, tntToken, metrics, rewardVaults, epoch);
+            inflationPool = _deployInflationPoolProxy(admin, tntTokenOut, metrics, rewardVaults, epoch);
             epochLength = epoch;
         } else {
             inflationPool = inc.inflationPool;

@@ -205,7 +205,7 @@ contract DeploymentScriptsTest is Test {
         bytes32 slasherRole = restaking.SLASHER_ROLE();
         assertTrue(restaking.hasRole(slasherRole, tangleProxy), "tangle should be slasher");
         assertEq(Tangle(payable(tangleProxy)).operatorStatusRegistry(), statusRegistry, "registry wired");
-        assertTrue(Tangle(payable(tangleProxy)).operatorBondToken() != address(0), "bond token configured");
+        assertTrue(Tangle(payable(tangleProxy)).tntToken() != address(0), "tnt token configured");
     }
 
     function testDeployBeaconSlashingScriptRunsHyperlane() public {

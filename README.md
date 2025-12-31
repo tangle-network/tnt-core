@@ -41,21 +41,11 @@ Every deployment must register at least one Master Blueprint Service Manager (MB
   - `deploy/config/base-sepolia-holesky.json` – Base Sepolia ↔ Holesky bridge rehearsal (placeholders + TODOs for every address).
   - `deploy/config/base-mainnet.json` – Base mainnet deployment (with placeholder TNT/restake asset data).
 - Local developers can bootstrap Anvil with `scripts/local-env/start-local-env.sh`, which wraps the same entrypoint using `deploy/config/local.anvil.json`.
-- Set `TNT_TOKEN` (alias for `OPERATOR_BOND_TOKEN`) when reusing an existing TNT deployment. The deployment scripts, migration helpers, inflation setup, and governance deployer all reuse that single address instead of spinning up duplicate tokens; leave it unset to auto-deploy a fresh `TangleToken`.
+- Set `TNT_TOKEN` when reusing an existing TNT deployment. The deployment scripts, migration helpers, inflation setup, and governance deployer reuse that single address instead of spinning up duplicate tokens; leave it unset to auto-deploy a fresh `TangleToken`.
 
-Operator onboarding also requires a TNT bond. The deployment script enforces this automatically:
+Operator onboarding requires only the restaking self-stake minimum.
 
-1. Provide the TNT ERC20 address (and optional bond amount) via environment variables:
-   ```bash
-   export OPERATOR_BOND_TOKEN=0xYourTNTAddress
-   export OPERATOR_BOND_AMOUNT=100000000000000000000   # 100 TNT (18 decimals)
-   ```
-   If `OPERATOR_BOND_TOKEN` is omitted, the script deploys a fresh `TangleToken` proxy and uses it for bonding.
-2. After deployment you can modify the defaults with `setOperatorBondAsset` / `setOperatorBlueprintBond`; per-blueprint overrides still set the amount but stay denominated in the selected TNT token.
-
-A starter `deploy.env.example` file is included—copy it to `.env`, fill in the TNT token address (and other fields), then run the deploy script so every operator bond is captured in TNT out of the box.
-
-Operators must approve the TNT bond token before calling `registerOperator`, and `unregisterOperator` refunds the same asset automatically.
+A starter `deploy.env.example` file is included—copy it to `.env`, fill in the TNT token address (and other fields), then run the deploy script.
 
 ### Integrator notes
 
