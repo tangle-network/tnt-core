@@ -9,7 +9,6 @@
 # Prerequisites:
 # - Foundry installed
 # - Local testnet running (or Base Sepolia RPC URL)
-# - Migration output files in /Users/drew/webb/tangle/types/migration_output/
 #
 # Usage:
 #   ./scripts/deploy-tangle-migration.sh              # Local testnet with mock verifier
@@ -18,8 +17,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONTRACT_DIR="$(dirname "$SCRIPT_DIR")"
-MIGRATION_OUTPUT="/Users/drew/webb/tangle/types/migration_output"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Check for production flag
 PRODUCTION=false
@@ -45,12 +43,23 @@ else
     echo "Mode: LOCAL TESTING (Mock Verifier)"
 fi
 
-PRIVATE_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
+# PRIVATE_KEY is required
+if [ -z "$PRIVATE_KEY" ]; then
+    echo "Error: PRIVATE_KEY environment variable is required"
+    echo "Usage: PRIVATE_KEY=0x... $0 [--production]"
+    exit 1
+fi
+
+# PROGRAM_VKEY is required in production mode
+if [ "$PRODUCTION" = true ] && [ -z "$PROGRAM_VKEY" ]; then
+    echo "Error: PROGRAM_VKEY environment variable is required in production mode"
+    echo "Usage: PRIVATE_KEY=0x... PROGRAM_VKEY=0x... $0 --production"
+    exit 1
+fi
 
 echo ""
 echo "Configuration:"
 echo "  RPC URL: $RPC_URL"
-echo "  Migration Output: $MIGRATION_OUTPUT"
 echo ""
 
 # Check RPC connection
@@ -59,24 +68,36 @@ if ! cast block-number --rpc-url "$RPC_URL" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Read merkle root from the generated tree
-if [ -f "$MIGRATION_OUTPUT/merkle-tree.json" ]; then
-    MERKLE_ROOT=$(grep -o '"0x[a-fA-F0-9]\{64\}"' "$MIGRATION_OUTPUT/merkle-tree.json" | head -1 | tr -d '"')
+# Read merkle root and total substrate allocation from the generated tree
+if [ -f "$ROOT_DIR/merkle-tree.json" ]; then
+    MERKLE_ROOT=$(grep -o '"root": "0x[a-fA-F0-9]\{64\}"' "$ROOT_DIR/merkle-tree.json" | grep -o '0x[a-fA-F0-9]\{64\}')
+    TOTAL_SUBSTRATE=$(grep -o '"totalValue": "[0-9]*"' "$ROOT_DIR/merkle-tree.json" | grep -o '[0-9]*')
     echo "Merkle Root: $MERKLE_ROOT"
+    echo "Total Substrate: $TOTAL_SUBSTRATE"
 else
-    echo "Error: merkle-tree.json not found at $MIGRATION_OUTPUT"
+    echo "Error: merkle-tree.json not found at $ROOT_DIR"
     echo "Please run the migration snapshot generator first."
     exit 1
 fi
 
-cd "$CONTRACT_DIR"
+# Read total EVM allocation from evm-claims.json
+if [ -f "$ROOT_DIR/evm-claims.json" ]; then
+    TOTAL_EVM=$(grep -o '"totalAmount": "[0-9]*"' "$ROOT_DIR/evm-claims.json" | grep -o '[0-9]*')
+    echo "Total EVM: $TOTAL_EVM"
+else
+    echo "Error: evm-claims.json not found at $ROOT_DIR"
+    echo "Please run the migration snapshot generator first."
+    exit 1
+fi
 
-# Install dependencies if needed
-if [ ! -d "lib/forge-std" ]; then
-    echo ""
-    echo "Installing Foundry dependencies..."
-    forge install foundry-rs/forge-std --no-commit
-    forge install OpenZeppelin/openzeppelin-contracts@v5.0.0 --no-commit
+cd "$ROOT_DIR"
+
+# Check dependencies exist (managed at repo root level)
+DEPS_DIR="$ROOT_DIR/../../dependencies"
+if [ ! -d "$DEPS_DIR/forge-std" ]; then
+    echo "Error: forge-std not found in $DEPS_DIR"
+    echo "Run 'forge soldeer update' from the repository root first."
+    exit 1
 fi
 
 # Build contracts
@@ -89,8 +110,12 @@ echo ""
 echo "Deploying contracts..."
 
 MERKLE_ROOT="$MERKLE_ROOT" \
+TOTAL_SUBSTRATE="$TOTAL_SUBSTRATE" \
+TOTAL_EVM="$TOTAL_EVM" \
 USE_MOCK_VERIFIER="$USE_MOCK_VERIFIER" \
+ALLOW_STANDALONE_TOKEN="true" \
 PRIVATE_KEY="$PRIVATE_KEY" \
+PROGRAM_VKEY="${PROGRAM_VKEY:-0x0043b75837095121e5cfc178612414bddea823bad5aa08f3061b15b49c63a99f}" \
 forge script script/DeployTangleMigration.s.sol:DeployTangleMigration \
     --rpc-url "$RPC_URL" \
     --broadcast \
@@ -124,8 +149,8 @@ echo "  VITE_ZK_VERIFIER_ADDRESS=$VERIFIER_ADDRESS"
 echo "  VITE_MIGRATION_MERKLE_ROOT=$MERKLE_ROOT"
 echo ""
 echo "Next Steps:"
-echo "  1. Copy proofs.json to frontend: "
-echo "     jq '.entries' $CONTRACT_DIR/merkle-tree.json > ../../apps/tangle-dapp/public/data/migration-proofs.json"
+echo "  1. Copy entries from merkle-tree.json to frontend (note: just entries field): "
+echo "     jq '.entries' $ROOT_DIR/merkle-tree.json > <path to frontend repo>/apps/tangle-dapp/public/data/migration-proofs.json"
 echo ""
 echo "  2. Execute EVM airdrop (separate step):"
 echo "     The evm-airdrop.json contains 7,124 accounts totaling ~1.13M TNT"

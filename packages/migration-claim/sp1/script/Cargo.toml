@@ -33,6 +33,9 @@ anyhow = { workspace = true }
 tokio = { version = "1", features = ["full"] }
 dotenv = "0.15"
 
+# TLS for network client
+rustls = { version = "0.23", features = ["ring"] }
+
 # Numeric types
 primitive-types = "0.12"
 

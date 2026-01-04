@@ -1,15 +1,15 @@
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderValue, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
 use alloy_primitives::{Bytes, FixedBytes};
-use alloy_sol_types::sol;
-use primitive_types::U256;
+use alloy_sol_types::{sol, SolCall};
+use alloy_primitives::U256;
 use serde::{Deserialize, Serialize};
-use sp1_sdk::{ProverClient, SP1Stdin};
+use sp1_sdk::{network::NetworkMode, Prover, ProverClient, SP1Stdin};
 use sr25519_claim_lib::{ss58_decode, ProgramInput, PublicValues};
 use std::{
     collections::HashMap,
@@ -49,7 +49,7 @@ struct JobEntry {
 enum JobStatus {
     Pending,
     Running,
-    Completed { zk_proof: String },
+    Completed { zk_proof: String, public_values: String },
     Failed { error: String },
 }
 
@@ -75,6 +75,8 @@ struct StatusResponse {
     status: String,
     #[serde(rename = "zkProof", skip_serializing_if = "Option::is_none")]
     zk_proof: Option<String>,
+    #[serde(rename = "publicValues", skip_serializing_if = "Option::is_none")]
+    public_values: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
 }
@@ -94,6 +96,11 @@ sol! {
 
 #[tokio::main]
 async fn main() {
+    // Install the default crypto provider for rustls (required for TLS with SP1 SDK)
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     tracing_subscriber::fmt::init();
 
     let port: u16 = env::var("PORT")
@@ -111,6 +118,7 @@ async fn main() {
     let verify_onchain = env::var("VERIFY_ONCHAIN")
         .map(|value| value == "true")
         .unwrap_or(false);
+    let cors_origins = env::var("CORS_ALLOWED_ORIGINS").ok();
 
     if prover_mode == "mock" && !allow_mock {
         error!("SP1_PROVER=mock is disabled. Set ALLOW_MOCK=true to enable.");
@@ -157,16 +165,46 @@ async fn main() {
         prover_mode: prover_mode.clone(),
     };
 
+    let cors = match &cors_origins {
+        Some(origins) if !origins.is_empty() => {
+            let origins: Vec<HeaderValue> = origins
+                .split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect();
+            if origins.is_empty() {
+                error!("CORS_ALLOWED_ORIGINS contains no valid origins");
+                std::process::exit(1);
+            }
+            CorsLayer::new()
+                .allow_origin(origins)
+                .allow_methods(Any)
+                .allow_headers(Any)
+        }
+        _ if prover_mode == "network" => {
+            // Fail-safe: require explicit CORS configuration in production
+            error!("CORS_ALLOWED_ORIGINS is required when SP1_PROVER=network");
+            std::process::exit(1);
+        }
+        _ => {
+            // Allow all origins only for local/mock testing
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any)
+        }
+    };
+
     let app = Router::new()
         .route("/", post(submit_job))
         .route("/status/:job_id", get(job_status))
         .route("/health", get(health))
-        .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any))
+        .layer(cors)
         .with_state(state);
 
+    let cors_display = cors_origins.as_deref().unwrap_or("*");
     info!("SP1 prover API listening on 0.0.0.0:{port}");
     info!(
-        "SP1_PROVER={prover_mode} VERIFY_PROOF={verify_proof} VERIFY_ONCHAIN={verify_onchain}"
+        "SP1_PROVER={prover_mode} VERIFY_PROOF={verify_proof} VERIFY_ONCHAIN={verify_onchain} CORS_ALLOWED_ORIGINS={cors_display}"
     );
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
@@ -209,6 +247,7 @@ async fn submit_job(
     let jobs = Arc::clone(&state.jobs);
     let verify_proof = state.verify_proof;
     let verify_onchain = state.verify_onchain.clone();
+    let job_id_for_response = job_id.clone();
     tokio::spawn(async move {
         update_job(&jobs, &job_id, JobStatus::Running).await;
         let result = tokio::task::spawn_blocking(move || {
@@ -216,7 +255,7 @@ async fn submit_job(
         })
         .await;
         match result {
-            Ok(Ok(zk_proof)) => update_job(&jobs, &job_id, JobStatus::Completed { zk_proof }).await,
+            Ok(Ok((zk_proof, public_values))) => update_job(&jobs, &job_id, JobStatus::Completed { zk_proof, public_values }).await,
             Ok(Err(err)) => {
                 update_job(&jobs, &job_id, JobStatus::Failed { error: err }).await
             }
@@ -231,7 +270,7 @@ async fn submit_job(
         }
     });
 
-    Ok(Json(JobResponse { job_id }))
+    Ok(Json(JobResponse { job_id: job_id_for_response }))
 }
 
 async fn job_status(
@@ -245,6 +284,7 @@ async fn job_status(
         None => Err((StatusCode::NOT_FOUND, Json(StatusResponse {
             status: "not_found".to_string(),
             zk_proof: None,
+            public_values: None,
             error: Some("Job not found".to_string()),
         }))),
     }
@@ -266,21 +306,26 @@ fn generate_proof(
     request: ProveRequest,
     verify_proof: bool,
     verify_onchain: Option<VerifyOnchainConfig>,
-) -> Result<String, String> {
+) -> Result<(String, String), String> {
     let signature = parse_hex_bytes::<64>(&request.signature).map_err(err_to_string)?;
     let evm_address = parse_hex_bytes::<20>(&request.evm_address).map_err(err_to_string)?;
     let challenge = parse_hex_bytes::<32>(&request.challenge).map_err(err_to_string)?;
     let amount = parse_amount(&request.amount).map_err(err_to_string)?;
+    let ss58_address = request.ss58_address;
 
     let input = ProgramInput {
-        substrate_address: request.ss58_address,
+        substrate_address: ss58_address.clone(),
         signature,
         evm_address,
         amount,
         challenge,
     };
 
-    let client = ProverClient::from_env();
+    // Explicitly use Mainnet mode instead of relying on default (Reserved)
+    // This ensures we use the correct domain for the mainnet network
+    let client = ProverClient::builder()
+        .network_for(NetworkMode::Mainnet)
+        .build();
     let (pk, vk) = client.setup(ELF);
 
     let mut stdin = SP1Stdin::new();
@@ -296,9 +341,24 @@ fn generate_proof(
         client.verify(&proof, &vk).map_err(err_to_string)?;
     }
 
+    // Log the committed public values for debugging
+    let committed_public_values = proof.public_values.to_vec();
+    info!("Committed public values (hex): 0x{}", hex::encode(&committed_public_values));
+    info!("Committed public values length: {} bytes", committed_public_values.len());
+
+    // Decode and log the individual fields
+    if let Ok(decoded) = PublicValues::abi_decode(&committed_public_values) {
+        info!("Decoded pubkey: 0x{}", hex::encode(&decoded.pubkey));
+        info!("Decoded evm_address: 0x{}", hex::encode(&decoded.evm_address));
+        info!("Decoded amount: 0x{}", hex::encode(&decoded.amount));
+        info!("Decoded challenge: 0x{}", hex::encode(&decoded.challenge));
+    }
+
     let proof_bytes = proof.bytes();
+    let committed_public_values = committed_public_values.clone();
+
     if let Some(config) = verify_onchain {
-        let pubkey = ss58_decode(&request.ss58_address).map_err(err_to_string)?;
+        let pubkey = ss58_decode(&ss58_address).map_err(err_to_string)?;
         let public_values = PublicValues {
             pubkey,
             evm_address,
@@ -309,7 +369,10 @@ fn generate_proof(
             .map_err(|err| format!("On-chain verify failed: {err}"))?;
     }
 
-    Ok(format!("0x{}", hex::encode(proof_bytes)))
+    // Return both proof and public values
+    let proof_hex = format!("0x{}", hex::encode(proof_bytes));
+    let public_values_hex = format!("0x{}", hex::encode(&committed_public_values));
+    Ok((proof_hex, public_values_hex))
 }
 
 fn verify_onchain_proof(
@@ -376,21 +439,25 @@ fn status_response(status: &JobStatus) -> StatusResponse {
         JobStatus::Pending => StatusResponse {
             status: "pending".to_string(),
             zk_proof: None,
+            public_values: None,
             error: None,
         },
         JobStatus::Running => StatusResponse {
             status: "running".to_string(),
             zk_proof: None,
+            public_values: None,
             error: None,
         },
-        JobStatus::Completed { zk_proof } => StatusResponse {
+        JobStatus::Completed { zk_proof, public_values } => StatusResponse {
             status: "completed".to_string(),
             zk_proof: Some(zk_proof.clone()),
+            public_values: Some(public_values.clone()),
             error: None,
         },
         JobStatus::Failed { error } => StatusResponse {
             status: "failed".to_string(),
             zk_proof: None,
+            public_values: None,
             error: Some(error.clone()),
         },
     }
@@ -402,6 +469,7 @@ fn bad_request(message: &str) -> (StatusCode, Json<StatusResponse>) {
         Json(StatusResponse {
             status: "failed".to_string(),
             zk_proof: None,
+            public_values: None,
             error: Some(message.to_string()),
         }),
     )
@@ -419,10 +487,8 @@ fn parse_hex_bytes<const N: usize>(value: &str) -> anyhow::Result<[u8; N]> {
 }
 
 fn parse_amount(value: &str) -> anyhow::Result<[u8; 32]> {
-    let amount: U256 = value.parse()?;
-    let mut out = [0u8; 32];
-    amount.to_big_endian(&mut out);
-    Ok(out)
+    let amount: U256 = value.parse().map_err(|_| anyhow::anyhow!("Invalid amount"))?;
+    Ok(amount.to_be_bytes())
 }
 
 fn err_to_string(err: impl std::fmt::Display) -> String {

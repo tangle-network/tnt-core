@@ -14,10 +14,10 @@ fn main() -> Result<()> {
     let client = ProverClient::from_env();
     let (_pk, vk) = client.setup(ELF);
 
-    let vkey_bytes = vk.bytes32();
+    let vkey_hex = vk.bytes32();
 
     println!("\nVerification Key (bytes32):");
-    println!("0x{}", hex::encode(&vkey_bytes));
+    println!("{}", vkey_hex);
 
     println!("\nUse this value as the `sr25519Vkey` constructor parameter");
     println!("when deploying the SP1ZKVerifier contract.");

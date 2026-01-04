@@ -67,7 +67,7 @@ impl PublicValues {
     pub fn abi_decode(data: &[u8]) -> Result<Self, &'static str> {
         use alloy_primitives::FixedBytes;
 
-        let decoded = <(FixedBytes<32>, Address, U256, FixedBytes<32>)>::abi_decode(data, true)
+        let decoded = <(FixedBytes<32>, Address, U256, FixedBytes<32>)>::abi_decode(data)
             .map_err(|_| "Failed to ABI decode public values")?;
 
         let (pubkey, evm_address, amount, challenge) = decoded;

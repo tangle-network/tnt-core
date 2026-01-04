@@ -27,6 +27,11 @@ use sr25519_claim_lib::{ss58_decode, ProgramInput, PublicValues};
 /// This must match what the polkadot.js extension uses
 const SUBSTRATE_CONTEXT: &[u8] = b"substrate";
 
+/// Substrate wallet extensions wraps messages with <Bytes>...</Bytes> when signing
+/// with signRaw({ type: 'bytes' }). We must wrap the challenge the same way.
+const WRAP_PREFIX: &[u8] = b"<Bytes>";
+const WRAP_POSTFIX: &[u8] = b"</Bytes>";
+
 pub fn main() {
     // Read the program inputs from the host
     let input: ProgramInput = sp1_zkvm::io::read();
@@ -48,11 +53,20 @@ pub fn main() {
     // Create the signing context (must match what was used to sign)
     let ctx = signing_context(SUBSTRATE_CONTEXT);
 
-    // Verify the signature over the challenge
+    // Wrap the challenge with <Bytes>...</Bytes> as Substrate Wallet extensions does
+    // when using signRaw with type: 'bytes'
+    let mut wrapped_challenge = Vec::with_capacity(
+        WRAP_PREFIX.len() + input.challenge.len() + WRAP_POSTFIX.len()
+    );
+    wrapped_challenge.extend_from_slice(WRAP_PREFIX);
+    wrapped_challenge.extend_from_slice(&input.challenge);
+    wrapped_challenge.extend_from_slice(WRAP_POSTFIX);
+
+    // Verify the signature over the WRAPPED challenge
     // This is the core ZK computation - proving knowledge of the private key
     // that corresponds to the SS58 address
     public_key
-        .verify(ctx.bytes(&input.challenge), &signature)
+        .verify(ctx.bytes(&wrapped_challenge), &signature)
         .expect("SR25519 signature verification failed");
 
     // Create the public values to commit on-chain
