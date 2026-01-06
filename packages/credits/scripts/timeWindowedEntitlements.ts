@@ -53,7 +53,7 @@ async function* fetchDeltas(url: string, table: string, tokenLower: string, wher
   const query = `
     query FetchDeltas($limit: Int!, $offset: Int!, $token: String!, ${Object.keys(variables)
       .filter((k) => k !== "token")
-      .map((k) => `$${k}: BigInt!`)
+      .map((k) => `$${k}: numeric!`)
       .join(", ")}) {
       ${table}(
         limit: $limit,
