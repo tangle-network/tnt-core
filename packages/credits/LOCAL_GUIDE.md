@@ -113,8 +113,7 @@ const db = drizzle(sql);
   try {
     const service = createTntCreditSyncService(db, graphqlEndpoint);
     const result = await service.syncCredits();
-    console.log('
-=== Results ===');
+    console.log('\\n=== Results ===');
     console.log('Fetched:', result.totalFetched, 'operations');
     console.log('Processed:', result.totalProcessed, 'users');
     console.log('Users with credits:', result.userIdsWithCredits.join(', ') || 'none');
