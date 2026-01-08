@@ -2,11 +2,13 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, Mutex, OwnedSemaphorePermit};
 use tracing::{error, info, warn};
 
 use crate::prover::generate_proof;
-use crate::types::{error_codes, AppConfig, CachedProof, JobEntry, JobMessage, JobStatus, ProofMetrics};
+use crate::types::{
+    error_codes, AppConfig, CachedProof, JobEntry, JobMessage, JobStatus, ProofMetrics,
+};
 use crate::validation::cache_key;
 
 /// Job queue for managing proof generation work
@@ -62,6 +64,19 @@ impl JobQueue {
     pub fn size_counter(&self) -> Arc<AtomicUsize> {
         self.queue_size.clone()
     }
+
+    /// Create a queue wrapper from an existing sender and shared size counter
+    pub fn from_sender(
+        sender: mpsc::Sender<JobMessage>,
+        capacity: usize,
+        queue_size: Arc<AtomicUsize>,
+    ) -> Self {
+        Self {
+            sender,
+            queue_size,
+            capacity,
+        }
+    }
 }
 
 /// Worker pool for processing jobs
@@ -97,29 +112,32 @@ impl WorkerPool {
             info!("Starting {} workers for job processing", worker_count);
 
             // Use a semaphore to limit concurrent proof generation
+            // IMPORTANT: Permits are held until the underlying task completes,
+            // even after timeout. This prevents unbounded concurrency.
             let semaphore = Arc::new(tokio::sync::Semaphore::new(worker_count));
 
             while let Some(message) = receiver.recv().await {
                 queue_size.fetch_sub(1, Ordering::SeqCst);
 
+                // Acquire an owned permit that can be moved into the spawned task
+                // The permit will be held until process_job completes (including
+                // waiting for timed-out blocking tasks to finish)
+                let permit = match semaphore.clone().acquire_owned().await {
+                    Ok(p) => p,
+                    Err(_) => {
+                        error!("Semaphore closed");
+                        continue;
+                    }
+                };
+
                 let jobs = jobs_clone.clone();
                 let cache = cache_clone.clone();
                 let config = config_clone.clone();
                 let metrics = metrics_clone.clone();
-                let sem = semaphore.clone();
                 let timeout = proof_timeout;
 
                 tokio::spawn(async move {
-                    // Acquire semaphore permit
-                    let _permit = match sem.acquire().await {
-                        Ok(p) => p,
-                        Err(_) => {
-                            error!("Semaphore closed");
-                            return;
-                        }
-                    };
-
-                    process_job(message, jobs, cache, config, timeout, metrics).await;
+                    process_job(message, jobs, cache, config, timeout, metrics, permit).await;
                 });
             }
 
@@ -129,6 +147,10 @@ impl WorkerPool {
 }
 
 /// Process a single job
+///
+/// The `_permit` parameter holds the semaphore permit for the duration of this function.
+/// This is critical: the permit is NOT released until the underlying blocking task
+/// completes, even if a timeout occurs. This prevents unbounded concurrency.
 async fn process_job(
     message: JobMessage,
     jobs: Arc<Mutex<HashMap<String, JobEntry>>>,
@@ -136,6 +158,7 @@ async fn process_job(
     config: Arc<AppConfig>,
     timeout: Duration,
     metrics: Arc<ProofMetrics>,
+    _permit: OwnedSemaphorePermit, // Held until function returns (after task completes)
 ) {
     let job_id = message.job_id.clone();
     let cache_key = cache_key(&message.request);
@@ -154,11 +177,19 @@ async fn process_job(
         generate_proof(request, verify_proof, verify_onchain, &prover_mode)
     });
 
-    // Wait with timeout
-    let result = tokio::time::timeout(timeout, handle).await;
+    // Pin the handle so we can use it with select! and still access it after timeout
+    tokio::pin!(handle);
+
+    // Race timeout vs completion using select!
+    // biased ensures we check completion first to avoid spurious timeouts
+    let result = tokio::select! {
+        biased;
+        res = &mut handle => Some(res),
+        _ = tokio::time::sleep(timeout) => None,
+    };
 
     match result {
-        Ok(Ok(Ok((zk_proof, public_values)))) => {
+        Some(Ok(Ok((zk_proof, public_values)))) => {
             // Record successful completion
             metrics.record_completion();
 
@@ -182,7 +213,7 @@ async fn process_job(
             )
             .await;
         }
-        Ok(Ok(Err(err))) => {
+        Some(Ok(Err(err))) => {
             error!("Proof generation failed for job {}: {}", job_id, err);
             update_job(
                 &jobs,
@@ -193,7 +224,7 @@ async fn process_job(
             )
             .await;
         }
-        Ok(Err(join_err)) => {
+        Some(Err(join_err)) => {
             error!("Job {} panicked: {}", job_id, join_err);
             update_job(
                 &jobs,
@@ -204,16 +235,14 @@ async fn process_job(
             )
             .await;
         }
-        Err(_elapsed) => {
-            // Timeout fired - record it in metrics
-            // Note: The spawn_blocking task continues running in the background!
+        None => {
+            // Timeout fired - mark job as failed immediately for user feedback
             metrics.record_timeout();
 
             error!(
-                "Job {} timed out after {:?} - task continues in background (timed_out_still_running={})",
+                "Job {} timed out after {:?} - waiting for task to complete before releasing permit",
                 job_id,
                 timeout,
-                metrics.timed_out_still_running.load(Ordering::Relaxed)
             );
 
             update_job(
@@ -229,21 +258,82 @@ async fn process_job(
             )
             .await;
 
-            // Note: We cannot cancel spawn_blocking tasks. The task will continue
-            // running until completion, consuming resources. The metrics track this
-            // so operators can monitor for resource exhaustion.
-            // When the background task eventually completes, the semaphore permit
-            // will be released, but we've already marked the job as failed.
+            // CRITICAL: Wait for the blocking task to actually finish before releasing permit.
+            // This ensures true concurrency limits are enforced. The job is already marked
+            // as failed for the user, but we prevent resource exhaustion by not starting
+            // new jobs until this one completes.
+            //
+            // Note: spawn_blocking tasks cannot be cancelled. We must wait for completion.
+            // This may take a long time (SP1 network proofs can take 10+ minutes), but
+            // it's necessary to prevent unbounded cost and resource usage.
+            warn!(
+                "Job {} timed out, holding permit while waiting for blocking task to complete (timed_out_still_running={})",
+                job_id,
+                metrics.timed_out_still_running.load(Ordering::Relaxed)
+            );
+
+            // Wait for the actual task to complete (handle is still valid after select!)
+            match handle.await {
+                Ok(Ok((zk_proof, public_values))) => {
+                    metrics.record_completion();
+                    {
+                        let mut c = cache.lock().await;
+                        c.insert(
+                            cache_key,
+                            CachedProof::new(zk_proof.clone(), public_values.clone()),
+                        );
+                    }
+                    update_job(
+                        &jobs,
+                        &job_id,
+                        JobStatus::Completed {
+                            zk_proof,
+                            public_values,
+                        },
+                    )
+                    .await;
+                }
+                Ok(Err(err)) => {
+                    error!("Proof generation failed for job {} after timeout: {}", job_id, err);
+                    update_job(
+                        &jobs,
+                        &job_id,
+                        JobStatus::Failed {
+                            error: format!("{}: {}", error_codes::PROOF_FAILED, err),
+                        },
+                    )
+                    .await;
+                }
+                Err(join_err) => {
+                    error!(
+                        "Job {} panicked after timeout: {}",
+                        job_id, join_err
+                    );
+                    update_job(
+                        &jobs,
+                        &job_id,
+                        JobStatus::Failed {
+                            error: format!("{}: task panicked", error_codes::INTERNAL_ERROR),
+                        },
+                    )
+                    .await;
+                }
+            }
+
+            // Task completed - update metrics
+            metrics.decrement_timed_out_still_running();
+            info!(
+                "Job {} blocking task finally completed after timeout (timed_out_still_running={})",
+                job_id,
+                metrics.timed_out_still_running.load(Ordering::Relaxed)
+            );
         }
     }
+    // Permit is dropped here, releasing the semaphore slot
 }
 
 /// Update a job's status
-async fn update_job(
-    jobs: &Arc<Mutex<HashMap<String, JobEntry>>>,
-    job_id: &str,
-    status: JobStatus,
-) {
+async fn update_job(jobs: &Arc<Mutex<HashMap<String, JobEntry>>>, job_id: &str, status: JobStatus) {
     let mut jobs = jobs.lock().await;
     if let Some(entry) = jobs.get_mut(job_id) {
         entry.status = status;

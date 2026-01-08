@@ -136,15 +136,38 @@ pub fn rate_limit_key_ip(ip: &str) -> String {
     format!("ip:{}", ip)
 }
 
-/// Extract client IP from headers (supports proxies)
+/// Extract client IP from headers or socket address
 ///
-/// Priority: X-Forwarded-For (first IP) → X-Real-IP → socket address
-pub fn extract_client_ip(headers: &HeaderMap, socket_addr: Option<&str>) -> String {
-    // Check X-Forwarded-For (first IP in chain is the original client)
-    if let Some(xff) = headers.get("x-forwarded-for") {
-        if let Ok(value) = xff.to_str() {
-            if let Some(first_ip) = value.split(',').next() {
-                let trimmed = first_ip.trim();
+/// When `trust_proxy` is true:
+///   Priority: X-Forwarded-For (first IP) → X-Real-IP → socket address (IP only)
+/// When `trust_proxy` is false:
+///   Only uses socket address (IP only) - ignores potentially spoofed headers
+///
+/// The socket address port is always stripped to ensure consistent rate limiting
+/// (ephemeral ports change per connection).
+pub fn extract_client_ip(
+    headers: &HeaderMap,
+    socket_addr: Option<&str>,
+    trust_proxy: bool,
+) -> String {
+    // Only check proxy headers if we trust them (i.e., we're behind a trusted reverse proxy)
+    if trust_proxy {
+        // Check X-Forwarded-For (first IP in chain is the original client)
+        if let Some(xff) = headers.get("x-forwarded-for") {
+            if let Ok(value) = xff.to_str() {
+                if let Some(first_ip) = value.split(',').next() {
+                    let trimmed = first_ip.trim();
+                    if !trimmed.is_empty() {
+                        return trimmed.to_string();
+                    }
+                }
+            }
+        }
+
+        // Check X-Real-IP
+        if let Some(xri) = headers.get("x-real-ip") {
+            if let Ok(value) = xri.to_str() {
+                let trimmed = value.trim();
                 if !trimmed.is_empty() {
                     return trimmed.to_string();
                 }
@@ -152,18 +175,36 @@ pub fn extract_client_ip(headers: &HeaderMap, socket_addr: Option<&str>) -> Stri
         }
     }
 
-    // Check X-Real-IP
-    if let Some(xri) = headers.get("x-real-ip") {
-        if let Ok(value) = xri.to_str() {
-            let trimmed = value.trim();
-            if !trimmed.is_empty() {
-                return trimmed.to_string();
-            }
+    // Fallback to socket address, stripping the port
+    // Socket address format: "192.168.1.1:54321" or "[::1]:54321" for IPv6
+    socket_addr
+        .map(|addr| strip_port(addr))
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+/// Strip port from a socket address string
+/// Handles both IPv4 ("192.168.1.1:8080") and IPv6 ("[::1]:8080") formats
+fn strip_port(addr: &str) -> String {
+    // Check for IPv6 with brackets: [::1]:8080
+    if addr.starts_with('[') {
+        // Find the closing bracket and return everything up to and including it
+        if let Some(bracket_end) = addr.find(']') {
+            return addr[..=bracket_end].to_string();
         }
     }
 
-    // Fallback to socket address
-    socket_addr.unwrap_or("unknown").to_string()
+    // For IPv4 or unbracketed addresses, split on last colon
+    // (last colon is the port separator for IPv4, but IPv6 without brackets is rare)
+    if let Some(last_colon) = addr.rfind(':') {
+        // Verify the part after colon looks like a port (all digits)
+        let after_colon = &addr[last_colon + 1..];
+        if !after_colon.is_empty() && after_colon.chars().all(|c| c.is_ascii_digit()) {
+            return addr[..last_colon].to_string();
+        }
+    }
+
+    // No port found, return as-is
+    addr.to_string()
 }
 
 #[cfg(test)]
@@ -350,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_client_ip_xff() {
+    fn test_extract_client_ip_xff_trusted() {
         let mut headers = HeaderMap::new();
         headers.insert(
             "x-forwarded-for",
@@ -358,29 +399,80 @@ mod tests {
                 .parse()
                 .unwrap(),
         );
-        let ip = extract_client_ip(&headers, Some("127.0.0.1:8080"));
+        // With trust_proxy=true, use X-Forwarded-For
+        let ip = extract_client_ip(&headers, Some("127.0.0.1:8080"), true);
         assert_eq!(ip, "203.0.113.195");
     }
 
     #[test]
-    fn test_extract_client_ip_xri() {
+    fn test_extract_client_ip_xff_untrusted() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-forwarded-for",
+            "203.0.113.195, 70.41.3.18, 150.172.238.178"
+                .parse()
+                .unwrap(),
+        );
+        // With trust_proxy=false, ignore X-Forwarded-For and use socket address
+        let ip = extract_client_ip(&headers, Some("127.0.0.1:8080"), false);
+        assert_eq!(ip, "127.0.0.1");
+    }
+
+    #[test]
+    fn test_extract_client_ip_xri_trusted() {
         let mut headers = HeaderMap::new();
         headers.insert("x-real-ip", "203.0.113.195".parse().unwrap());
-        let ip = extract_client_ip(&headers, Some("127.0.0.1:8080"));
+        let ip = extract_client_ip(&headers, Some("127.0.0.1:8080"), true);
         assert_eq!(ip, "203.0.113.195");
     }
 
     #[test]
-    fn test_extract_client_ip_socket() {
+    fn test_extract_client_ip_xri_untrusted() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-real-ip", "203.0.113.195".parse().unwrap());
+        // With trust_proxy=false, ignore X-Real-IP and use socket address
+        let ip = extract_client_ip(&headers, Some("127.0.0.1:8080"), false);
+        assert_eq!(ip, "127.0.0.1");
+    }
+
+    #[test]
+    fn test_extract_client_ip_socket_strips_port() {
         let headers = HeaderMap::new();
-        let ip = extract_client_ip(&headers, Some("192.168.1.100:54321"));
-        assert_eq!(ip, "192.168.1.100:54321");
+        // Port should be stripped from socket address
+        let ip = extract_client_ip(&headers, Some("192.168.1.100:54321"), false);
+        assert_eq!(ip, "192.168.1.100");
+    }
+
+    #[test]
+    fn test_extract_client_ip_ipv6_strips_port() {
+        let headers = HeaderMap::new();
+        // IPv6 with brackets should strip port correctly
+        let ip = extract_client_ip(&headers, Some("[::1]:8080"), false);
+        assert_eq!(ip, "[::1]");
     }
 
     #[test]
     fn test_extract_client_ip_unknown() {
         let headers = HeaderMap::new();
-        let ip = extract_client_ip(&headers, None);
+        let ip = extract_client_ip(&headers, None, false);
         assert_eq!(ip, "unknown");
+    }
+
+    #[test]
+    fn test_strip_port_ipv4() {
+        assert_eq!(strip_port("192.168.1.1:8080"), "192.168.1.1");
+        assert_eq!(strip_port("10.0.0.1:54321"), "10.0.0.1");
+    }
+
+    #[test]
+    fn test_strip_port_ipv6() {
+        assert_eq!(strip_port("[::1]:8080"), "[::1]");
+        assert_eq!(strip_port("[2001:db8::1]:443"), "[2001:db8::1]");
+    }
+
+    #[test]
+    fn test_strip_port_no_port() {
+        assert_eq!(strip_port("192.168.1.1"), "192.168.1.1");
+        assert_eq!(strip_port("[::1]"), "[::1]");
     }
 }

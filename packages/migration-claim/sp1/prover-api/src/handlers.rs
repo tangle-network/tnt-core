@@ -30,7 +30,11 @@ pub async fn submit_job(
     Json(request): Json<ProveRequest>,
 ) -> Result<Json<JobResponse>, (StatusCode, Json<StatusResponse>)> {
     // 0. Extract client IP for rate limiting
-    let client_ip = extract_client_ip(&headers, Some(&addr.to_string()));
+    let client_ip = extract_client_ip(
+        &headers,
+        Some(&addr.to_string()),
+        state.config.trust_proxy_headers,
+    );
 
     // 1. Check IP-based rate limit FIRST (cheapest check, catches scanners/bots)
     let ip_rate_limit_key = rate_limit_key_ip(&client_ip);
@@ -66,7 +70,10 @@ pub async fn submit_job(
         warn!("Invalid request: {}", e.message);
         (
             StatusCode::BAD_REQUEST,
-            Json(StatusResponse::failed(error_codes::INVALID_INPUT, e.message)),
+            Json(StatusResponse::failed(
+                error_codes::INVALID_INPUT,
+                e.message,
+            )),
         )
     })?;
 
@@ -84,7 +91,10 @@ pub async fn submit_job(
 
     // 4. Verify amount matches the eligible balance (by pubkey)
     let request_amount = U256::from_be_bytes(validated.amount);
-    if !state.eligibility.verify_amount_by_pubkey(&validated.pubkey, &request_amount) {
+    if !state
+        .eligibility
+        .verify_amount_by_pubkey(&validated.pubkey, &request_amount)
+    {
         warn!(
             "Amount mismatch for {}: requested {} but eligible for different amount",
             request.ss58_address, request_amount
@@ -105,10 +115,7 @@ pub async fn submit_job(
             &validated.signature,
             &validated.challenge,
         ) {
-            warn!(
-                "Invalid signature for {}: {}",
-                request.ss58_address, e
-            );
+            warn!("Invalid signature for {}: {}", request.ss58_address, e);
             return Err((
                 StatusCode::UNAUTHORIZED,
                 Json(StatusResponse::failed(
@@ -214,13 +221,22 @@ pub async fn submit_job(
     let job_id = Uuid::new_v4().to_string();
 
     // Try to enqueue if we have a queue
-    if let Some(ref sender) = state.job_sender {
-        let queue = JobQueue::from_sender(sender.clone(), state.config.queue_capacity);
+    if let (Some(sender), Some(queue_size)) =
+        (state.job_sender.as_ref(), state.queue_size.as_ref())
+    {
+        let queue = JobQueue::from_sender(
+            sender.clone(),
+            state.config.queue_capacity,
+            queue_size.clone(),
+        );
 
-        match queue.try_enqueue(JobMessage {
-            job_id: job_id.clone(),
-            request: request.clone(),
-        }).await {
+        match queue
+            .try_enqueue(JobMessage {
+                job_id: job_id.clone(),
+                request: request.clone(),
+            })
+            .await
+        {
             EnqueueResult::Queued => {
                 // Create pending job entry
                 {
@@ -240,6 +256,15 @@ pub async fn submit_job(
                 ));
             }
         }
+    } else if state.job_sender.is_some() {
+        error!("Job sender configured but queue size counter is missing");
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(StatusResponse::failed(
+                error_codes::INTERNAL_ERROR,
+                "Server misconfiguration".to_string(),
+            )),
+        ));
     } else {
         // Legacy mode: spawn task directly (for backward compatibility during transition)
         {
@@ -274,23 +299,25 @@ pub async fn submit_job(
             // Generate proof with timeout
             let timeout = std::time::Duration::from_secs(config.proof_timeout_seconds);
             let prover_mode_clone = prover_mode.clone();
-            let result = tokio::time::timeout(timeout, async {
-                let req = request.clone();
-                tokio::task::spawn_blocking(move || {
-                    generate_proof(req, verify_proof, verify_onchain, &prover_mode_clone)
-                })
-                .await
-            })
-            .await;
+            let handle = tokio::task::spawn_blocking(move || {
+                generate_proof(request, verify_proof, verify_onchain, &prover_mode_clone)
+            });
+            tokio::pin!(handle);
+            let result = tokio::select! {
+                biased;
+                res = &mut handle => Some(res),
+                _ = tokio::time::sleep(timeout) => None,
+            };
+            let timed_out = result.is_none();
 
             let final_status = match result {
-                Ok(Ok(Ok((zk_proof, public_values)))) => {
+                Some(Ok(Ok((zk_proof, public_values)))) => {
                     metrics.record_completion();
                     // Store in cache
                     {
                         let mut c = cache.lock().await;
                         c.insert(
-                            cache_key_clone,
+                            cache_key_clone.clone(),
                             CachedProof::new(zk_proof.clone(), public_values.clone()),
                         );
                     }
@@ -299,19 +326,19 @@ pub async fn submit_job(
                         public_values,
                     }
                 }
-                Ok(Ok(Err(err))) => {
+                Some(Ok(Err(err))) => {
                     error!("Proof generation failed for job {}: {}", job_id_clone, err);
                     JobStatus::Failed {
                         error: format!("{}: {}", error_codes::PROOF_FAILED, err),
                     }
                 }
-                Ok(Err(join_err)) => {
+                Some(Err(join_err)) => {
                     error!("Job {} panicked: {}", job_id_clone, join_err);
                     JobStatus::Failed {
                         error: format!("{}: task panicked", error_codes::INTERNAL_ERROR),
                     }
                 }
-                Err(_) => {
+                None => {
                     metrics.record_timeout();
                     error!("Job {} timed out after {:?}", job_id_clone, timeout);
                     JobStatus::Failed {
@@ -331,6 +358,56 @@ pub async fn submit_job(
                     entry.status = final_status;
                     entry.updated_at = now_ts();
                 }
+            }
+
+            if timed_out {
+                match handle.await {
+                    Ok(Ok((zk_proof, public_values))) => {
+                        metrics.record_completion();
+                        {
+                            let mut c = cache.lock().await;
+                            c.insert(
+                                cache_key_clone,
+                                CachedProof::new(zk_proof.clone(), public_values.clone()),
+                            );
+                        }
+                        let mut jobs = jobs.lock().await;
+                        if let Some(entry) = jobs.get_mut(&job_id_clone) {
+                            entry.status = JobStatus::Completed {
+                                zk_proof,
+                                public_values,
+                            };
+                            entry.updated_at = now_ts();
+                        }
+                    }
+                    Ok(Err(err)) => {
+                        error!(
+                            "Proof generation failed for job {} after timeout: {}",
+                            job_id_clone, err
+                        );
+                        let mut jobs = jobs.lock().await;
+                        if let Some(entry) = jobs.get_mut(&job_id_clone) {
+                            entry.status = JobStatus::Failed {
+                                error: format!("{}: {}", error_codes::PROOF_FAILED, err),
+                            };
+                            entry.updated_at = now_ts();
+                        }
+                    }
+                    Err(join_err) => {
+                        error!(
+                            "Job {} panicked after timeout: {}",
+                            job_id_clone, join_err
+                        );
+                        let mut jobs = jobs.lock().await;
+                        if let Some(entry) = jobs.get_mut(&job_id_clone) {
+                            entry.status = JobStatus::Failed {
+                                error: format!("{}: task panicked", error_codes::INTERNAL_ERROR),
+                            };
+                            entry.updated_at = now_ts();
+                        }
+                    }
+                }
+                metrics.decrement_timed_out_still_running();
             }
         });
 
@@ -402,17 +479,6 @@ fn status_from_job(status: &JobStatus) -> StatusResponse {
                 (error_codes::PROOF_FAILED, error.clone())
             };
             StatusResponse::failed(code, message)
-        }
-    }
-}
-
-/// Extension trait for JobQueue to create from sender
-impl JobQueue {
-    pub fn from_sender(sender: tokio::sync::mpsc::Sender<JobMessage>, capacity: usize) -> Self {
-        Self {
-            sender,
-            queue_size: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
-            capacity,
         }
     }
 }

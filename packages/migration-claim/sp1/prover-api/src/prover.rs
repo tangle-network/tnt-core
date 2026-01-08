@@ -54,7 +54,11 @@ pub fn generate_proof(
             std::env::set_var("SP1_PROVER", "mock");
             let client = ProverClient::from_env();
             let (pk, vk) = client.setup(ELF);
-            let proof = client.prove(&pk, &stdin).groth16().run().map_err(err_to_string)?;
+            let proof = client
+                .prove(&pk, &stdin)
+                .groth16()
+                .run()
+                .map_err(err_to_string)?;
             if verify_proof {
                 client.verify(&proof, &vk).map_err(err_to_string)?;
             }
@@ -65,7 +69,11 @@ pub fn generate_proof(
             std::env::set_var("SP1_PROVER", "local");
             let client = ProverClient::from_env();
             let (pk, vk) = client.setup(ELF);
-            let proof = client.prove(&pk, &stdin).groth16().run().map_err(err_to_string)?;
+            let proof = client
+                .prove(&pk, &stdin)
+                .groth16()
+                .run()
+                .map_err(err_to_string)?;
             if verify_proof {
                 client.verify(&proof, &vk).map_err(err_to_string)?;
             }
@@ -79,7 +87,11 @@ pub fn generate_proof(
                 .network_for(NetworkMode::Mainnet)
                 .build();
             let (pk, vk) = client.setup(ELF);
-            let proof = client.prove(&pk, &stdin).groth16().run().map_err(err_to_string)?;
+            let proof = client
+                .prove(&pk, &stdin)
+                .groth16()
+                .run()
+                .map_err(err_to_string)?;
             if verify_proof {
                 client.verify(&proof, &vk).map_err(err_to_string)?;
             }
@@ -153,7 +165,7 @@ fn verify_onchain_proof(
     });
 
     let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(config.timeout_seconds))
         .build()
         .map_err(err_to_string)?;
 
@@ -251,6 +263,8 @@ fn err_to_string(err: impl std::fmt::Display) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use httpmock::{Method::POST, MockServer};
+    use serde_json::json;
 
     // Note: These tests require the SP1 SDK which is not available in unit tests
     // Integration tests should be used for actual proof generation

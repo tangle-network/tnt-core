@@ -36,6 +36,12 @@ pub fn load_config() -> Result<AppConfig, String> {
         );
     }
 
+    // Parse RPC timeout early (needed for verify_onchain_config)
+    let rpc_timeout_seconds = env::var("RPC_TIMEOUT_SECONDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(10);
+
     // Parse on-chain verification config
     let verify_onchain_config = if verify_onchain {
         let rpc_url = env::var("VERIFY_ONCHAIN_RPC_URL")
@@ -58,6 +64,7 @@ pub fn load_config() -> Result<AppConfig, String> {
             rpc_url,
             verifier_address: verifier_bytes,
             program_vkey,
+            timeout_seconds: rpc_timeout_seconds,
         })
     } else {
         None
@@ -113,11 +120,6 @@ pub fn load_config() -> Result<AppConfig, String> {
         .and_then(|v| v.parse().ok())
         .unwrap_or(600); // 10 minutes
 
-    let rpc_timeout_seconds = env::var("RPC_TIMEOUT_SECONDS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(10);
-
     let max_body_bytes = env::var("MAX_BODY_BYTES")
         .ok()
         .and_then(|v| v.parse().ok())
@@ -140,13 +142,19 @@ pub fn load_config() -> Result<AppConfig, String> {
         .unwrap_or(10); // 10 requests per minute per IP
 
     // Eligibility file path (default works for local dev, Dockerfile overrides for production)
-    let eligibility_file = env::var("ELIGIBILITY_FILE")
-        .unwrap_or_else(|_| "../merkle-tree.json".to_string());
+    let eligibility_file =
+        env::var("ELIGIBILITY_FILE").unwrap_or_else(|_| "../merkle-tree.json".to_string());
 
     // Signature verification (enabled by default, can be disabled for testing)
     let verify_signatures = env::var("VERIFY_SIGNATURES")
         .map(|v| v != "false")
         .unwrap_or(true);
+
+    // Trust proxy headers (X-Forwarded-For, X-Real-IP) for IP extraction
+    // Default: false for security. Set to true when behind a trusted reverse proxy.
+    let trust_proxy_headers = env::var("TRUST_PROXY_HEADERS")
+        .map(|v| v == "true")
+        .unwrap_or(false);
 
     Ok(AppConfig {
         prover_mode,
@@ -166,6 +174,7 @@ pub fn load_config() -> Result<AppConfig, String> {
         jobs_ttl_seconds,
         eligibility_file,
         verify_signatures,
+        trust_proxy_headers,
     })
 }
 

@@ -221,6 +221,12 @@ impl ProofMetrics {
         self.timed_out_still_running.fetch_add(1, Ordering::Relaxed);
     }
 
+    /// Decrement the count of timed-out tasks still running
+    /// Called when a timed-out task eventually completes
+    pub fn decrement_timed_out_still_running(&self) {
+        self.timed_out_still_running.fetch_sub(1, Ordering::Relaxed);
+    }
+
     /// Get current metrics snapshot
     pub fn snapshot(&self) -> ProofMetricsSnapshot {
         ProofMetricsSnapshot {
@@ -293,6 +299,10 @@ pub struct AppConfig {
     pub eligibility_file: String,
     /// Whether to verify signatures before proof generation
     pub verify_signatures: bool,
+    /// Whether to trust proxy headers (X-Forwarded-For, X-Real-IP) for client IP extraction
+    /// Set to true when behind a trusted reverse proxy/load balancer
+    /// Default: false (use socket address only for security)
+    pub trust_proxy_headers: bool,
 }
 
 impl Default for AppConfig {
@@ -311,10 +321,11 @@ impl Default for AppConfig {
             worker_count: 4,
             proof_timeout_seconds: 600, // 10 minutes
             rpc_timeout_seconds: 10,
-            max_body_bytes: 4096,  // 4 KB
+            max_body_bytes: 4096,   // 4 KB
             jobs_ttl_seconds: 3600, // 1 hour
             eligibility_file: "../merkle-tree.json".to_string(),
-            verify_signatures: true, // Enabled by default
+            verify_signatures: true,    // Enabled by default
+            trust_proxy_headers: false, // Disabled by default for security
         }
     }
 }
@@ -325,6 +336,8 @@ pub struct VerifyOnchainConfig {
     pub rpc_url: String,
     pub verifier_address: [u8; 20],
     pub program_vkey: [u8; 32],
+    /// RPC timeout in seconds for on-chain verification calls
+    pub timeout_seconds: u64,
 }
 
 /// Claim contract configuration for checking already-claimed
