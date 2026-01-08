@@ -302,17 +302,17 @@ impl Default for AppConfig {
             verify_proof: false,
             verify_onchain: None,
             claim_contract: None,
-            cache_ttl_seconds: 600,           // 10 minutes
+            cache_ttl_seconds: 3600,          // 1 hour
             rate_limit_window_seconds: 300,   // 5 minutes
             rate_limit_max_requests: 3,       // 3 requests per window
             ip_rate_limit_window_seconds: 60, // 1 minute
             ip_rate_limit_max_requests: 10,   // 10 requests per IP per minute
-            queue_capacity: 100,
+            queue_capacity: 50,
             worker_count: 4,
             proof_timeout_seconds: 600, // 10 minutes
             rpc_timeout_seconds: 10,
             max_body_bytes: 4096,  // 4 KB
-            jobs_ttl_seconds: 600, // 10 minutes
+            jobs_ttl_seconds: 3600, // 1 hour
             eligibility_file: "../merkle-tree.json".to_string(),
             verify_signatures: true, // Enabled by default
         }

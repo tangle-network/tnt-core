@@ -86,7 +86,7 @@ pub fn load_config() -> Result<AppConfig, String> {
     let cache_ttl_seconds = env::var("CACHE_TTL_SECONDS")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(600); // 10 minutes
+        .unwrap_or(3600); // 1 hour - proofs are deterministic and expensive
 
     let rate_limit_window_seconds = env::var("RATE_LIMIT_WINDOW_SECONDS")
         .ok()
@@ -101,7 +101,7 @@ pub fn load_config() -> Result<AppConfig, String> {
     let queue_capacity = env::var("QUEUE_CAPACITY")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(100);
+        .unwrap_or(50); // ~1 hour max wait with 4 workers
 
     let worker_count = env::var("WORKER_COUNT")
         .ok()
@@ -126,7 +126,7 @@ pub fn load_config() -> Result<AppConfig, String> {
     let jobs_ttl_seconds = env::var("JOBS_TTL_SECONDS")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(600); // 10 minutes
+        .unwrap_or(3600); // 1 hour - let users come back for their proof
 
     // IP-based rate limiting (separate from pubkey rate limiting)
     let ip_rate_limit_window_seconds = env::var("IP_RATE_LIMIT_WINDOW_SECONDS")
