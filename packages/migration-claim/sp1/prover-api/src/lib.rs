@@ -5,18 +5,15 @@
 
 pub mod cache;
 pub mod config;
+pub mod eligibility;
+pub mod handlers;
 pub mod jobs;
+pub mod prover;
+pub mod queue;
 pub mod rate_limit;
+pub mod signature;
 pub mod types;
 pub mod validation;
-
-// These modules depend on SP1 and are only available when sp1-sdk feature is enabled
-#[cfg(feature = "sp1-sdk")]
-pub mod handlers;
-#[cfg(feature = "sp1-sdk")]
-pub mod prover;
-#[cfg(feature = "sp1-sdk")]
-pub mod queue;
 
 // Re-export commonly used types
 pub use types::{

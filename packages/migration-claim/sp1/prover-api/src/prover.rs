@@ -1,6 +1,6 @@
 use alloy_primitives::{Bytes, FixedBytes};
 use alloy_sol_types::{sol, SolCall};
-use sp1_sdk::{network::NetworkMode, Prover, ProverClient, SP1Stdin};
+use sp1_sdk::{ProverClient, SP1Stdin};
 use sr25519_claim_lib::{ss58_decode, ProgramInput, PublicValues};
 use std::time::Duration;
 use tracing::info;
@@ -16,10 +16,17 @@ sol! {
 }
 
 /// Generate a ZK proof for the given request
+///
+/// # Arguments
+/// * `request` - The proof request containing signature and claim details
+/// * `verify_proof` - Whether to verify the proof after generation
+/// * `verify_onchain` - Optional on-chain verification config
+/// * `prover_mode` - The prover mode: "mock", "local", or "network"
 pub fn generate_proof(
     request: ProveRequest,
     verify_proof: bool,
     verify_onchain: Option<VerifyOnchainConfig>,
+    prover_mode: &str,
 ) -> Result<(String, String), String> {
     let signature = parse_hex_bytes::<64>(&request.signature).map_err(err_to_string)?;
     let evm_address = parse_hex_bytes::<20>(&request.evm_address).map_err(err_to_string)?;
@@ -35,10 +42,25 @@ pub fn generate_proof(
         challenge,
     };
 
-    // Explicitly use Mainnet mode instead of relying on default (Reserved)
-    let client = ProverClient::builder()
-        .network_for(NetworkMode::Mainnet)
-        .build();
+    // Create prover client based on configured mode
+    match prover_mode {
+        "mock" => {
+            info!("Using SP1 mock prover (test mode)");
+            std::env::set_var("SP1_PROVER", "mock");
+        }
+        "local" => {
+            info!("Using SP1 local prover");
+            std::env::set_var("SP1_PROVER", "local");
+        }
+        _ => {
+            info!("Using SP1 network prover (mainnet)");
+            std::env::set_var("SP1_PROVER", "network");
+            // Ensure mainnet RPC URL is set
+            std::env::set_var("NETWORK_RPC_URL", "https://rpc.mainnet.succinct.xyz");
+        }
+    };
+
+    let client = ProverClient::from_env();
     let (pk, vk) = client.setup(ELF);
 
     let mut stdin = SP1Stdin::new();

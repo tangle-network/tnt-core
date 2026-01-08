@@ -1,9 +1,11 @@
+use alloy_primitives::U256;
 use axum::{
-    extract::{Path, State},
-    http::StatusCode,
+    extract::{ConnectInfo, Path, State},
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     Json,
 };
+use std::net::SocketAddr;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
@@ -11,18 +13,55 @@ use crate::cache::ProofCache;
 use crate::prover::check_already_claimed;
 use crate::queue::{EnqueueResult, JobQueue};
 use crate::rate_limit::{RateLimitResult, RateLimiter};
+use crate::signature::verify_signature;
 use crate::types::{
     error_codes, AppState, HealthResponse, JobEntry, JobMessage, JobResponse, JobStatus,
     ProveRequest, StatusResponse,
 };
-use crate::validation::{cache_key, rate_limit_key_pubkey, validate_request};
+use crate::validation::{
+    cache_key, extract_client_ip, rate_limit_key_ip, rate_limit_key_pubkey, validate_request,
+};
 
 /// Submit a new proof generation job
 pub async fn submit_job(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Json(request): Json<ProveRequest>,
 ) -> Result<Json<JobResponse>, (StatusCode, Json<StatusResponse>)> {
-    // 1. Validate input
+    // 0. Extract client IP for rate limiting
+    let client_ip = extract_client_ip(&headers, Some(&addr.to_string()));
+
+    // 1. Check IP-based rate limit FIRST (cheapest check, catches scanners/bots)
+    let ip_rate_limit_key = rate_limit_key_ip(&client_ip);
+    let ip_limiter = RateLimiter::new(
+        state.ip_rate_limits.clone(),
+        state.config.ip_rate_limit_window_seconds,
+        state.config.ip_rate_limit_max_requests,
+    );
+
+    match ip_limiter.check_and_update(&ip_rate_limit_key).await {
+        RateLimitResult::Limited { retry_after } => {
+            warn!(
+                "IP rate limited: {} (retry after {}s)",
+                client_ip, retry_after
+            );
+            return Err((
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(StatusResponse::failed_with_retry(
+                    error_codes::RATE_LIMITED,
+                    format!(
+                        "Too many requests from your IP. Please wait {} seconds.",
+                        retry_after
+                    ),
+                    retry_after,
+                )),
+            ));
+        }
+        RateLimitResult::Allowed => {}
+    }
+
+    // 2. Validate input format
     let validated = validate_request(&request).map_err(|e| {
         warn!("Invalid request: {}", e.message);
         (
@@ -31,7 +70,56 @@ pub async fn submit_job(
         )
     })?;
 
-    // 2. Check rate limit (by pubkey for stronger protection)
+    // 3. Check eligibility by pubkey (handles different SS58 prefixes)
+    if !state.eligibility.is_eligible_by_pubkey(&validated.pubkey) {
+        warn!("Ineligible address: {}", request.ss58_address);
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(StatusResponse::failed(
+                error_codes::NOT_ELIGIBLE,
+                "This address is not eligible for migration claims".to_string(),
+            )),
+        ));
+    }
+
+    // 4. Verify amount matches the eligible balance (by pubkey)
+    let request_amount = U256::from_be_bytes(validated.amount);
+    if !state.eligibility.verify_amount_by_pubkey(&validated.pubkey, &request_amount) {
+        warn!(
+            "Amount mismatch for {}: requested {} but eligible for different amount",
+            request.ss58_address, request_amount
+        );
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(StatusResponse::failed(
+                error_codes::AMOUNT_MISMATCH,
+                "Requested amount does not match the eligible balance".to_string(),
+            )),
+        ));
+    }
+
+    // 5. Verify signature (if enabled)
+    if state.config.verify_signatures {
+        if let Err(e) = verify_signature(
+            &validated.pubkey,
+            &validated.signature,
+            &validated.challenge,
+        ) {
+            warn!(
+                "Invalid signature for {}: {}",
+                request.ss58_address, e
+            );
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(StatusResponse::failed(
+                    error_codes::INVALID_SIGNATURE,
+                    "Signature verification failed. Please sign with the correct key.".to_string(),
+                )),
+            ));
+        }
+    }
+
+    // 6. Check per-pubkey rate limit (existing, for abuse prevention)
     let rate_limit_key = rate_limit_key_pubkey(&validated.pubkey);
     let rate_limiter = RateLimiter::new(
         state.rate_limits.clone(),
@@ -60,7 +148,7 @@ pub async fn submit_job(
         RateLimitResult::Allowed => {}
     }
 
-    // 3. Check cache for existing proof
+    // 7. Check cache for existing proof
     let cache_key = cache_key(&request);
     let proof_cache = ProofCache::new(state.cache.clone(), state.config.cache_ttl_seconds);
 
@@ -81,7 +169,7 @@ pub async fn submit_job(
         return Ok(Json(JobResponse { job_id }));
     }
 
-    // 4. Check if user has already claimed on-chain
+    // 8. Check if user has already claimed on-chain
     if let Some(ref claim_config) = state.config.claim_contract {
         match check_already_claimed(
             claim_config,
@@ -122,7 +210,7 @@ pub async fn submit_job(
         }
     }
 
-    // 5. Create job and try to enqueue
+    // 9. Create job and try to enqueue
     let job_id = Uuid::new_v4().to_string();
 
     // Try to enqueue if we have a queue
@@ -163,10 +251,12 @@ pub async fn submit_job(
         let cache = state.cache.clone();
         let verify_proof = state.config.verify_proof;
         let verify_onchain = state.config.verify_onchain.clone();
+        let prover_mode = state.config.prover_mode.clone();
         let job_id_clone = job_id.clone();
         let cache_key_clone = cache_key.clone();
         let config = state.config.clone();
         let ss58_address = request.ss58_address.clone();
+        let metrics = state.metrics.clone();
 
         tokio::spawn(async move {
             use crate::prover::generate_proof;
@@ -183,10 +273,11 @@ pub async fn submit_job(
 
             // Generate proof with timeout
             let timeout = std::time::Duration::from_secs(config.proof_timeout_seconds);
+            let prover_mode_clone = prover_mode.clone();
             let result = tokio::time::timeout(timeout, async {
                 let req = request.clone();
                 tokio::task::spawn_blocking(move || {
-                    generate_proof(req, verify_proof, verify_onchain)
+                    generate_proof(req, verify_proof, verify_onchain, &prover_mode_clone)
                 })
                 .await
             })
@@ -194,6 +285,7 @@ pub async fn submit_job(
 
             let final_status = match result {
                 Ok(Ok(Ok((zk_proof, public_values)))) => {
+                    metrics.record_completion();
                     // Store in cache
                     {
                         let mut c = cache.lock().await;
@@ -220,6 +312,7 @@ pub async fn submit_job(
                     }
                 }
                 Err(_) => {
+                    metrics.record_timeout();
                     error!("Job {} timed out after {:?}", job_id_clone, timeout);
                     JobStatus::Failed {
                         error: format!(
@@ -285,6 +378,7 @@ pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
         cache_size: cache.len(),
         queue_size,
         queue_capacity: state.config.queue_capacity,
+        proof_metrics: state.metrics.snapshot(),
     };
     (StatusCode::OK, Json(response))
 }

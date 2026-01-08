@@ -1,10 +1,12 @@
 mod cache;
 mod config;
+mod eligibility;
 mod handlers;
 mod jobs;
 mod prover;
 mod queue;
 mod rate_limit;
+mod signature;
 mod types;
 mod validation;
 
@@ -14,18 +16,19 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info};
 
 use cache::start_cache_cleanup_task;
 use config::{get_port, load_config, validate_cors};
+use eligibility::EligibilityData;
 use handlers::{health, job_status, submit_job};
 use jobs::start_jobs_cleanup_task;
 use queue::{JobQueue, WorkerPool};
 use rate_limit::start_rate_limit_cleanup_task;
-use types::{AppState, CachedProof, JobEntry, RateLimitEntry};
+use types::{AppState, CachedProof, JobEntry, ProofMetrics, RateLimitEntry};
 
 #[tokio::main]
 async fn main() {
@@ -82,15 +85,37 @@ async fn main() {
     info!("  MAX_BODY_BYTES={}", config.max_body_bytes);
     info!("  JOBS_TTL_SECONDS={}", config.jobs_ttl_seconds);
     info!(
+        "  IP_RATE_LIMIT={}/{}s",
+        config.ip_rate_limit_max_requests, config.ip_rate_limit_window_seconds
+    );
+    info!("  ELIGIBILITY_FILE={}", config.eligibility_file);
+    info!("  VERIFY_SIGNATURES={}", config.verify_signatures);
+    info!(
         "  CORS_ALLOWED_ORIGINS={}",
         cors_origins.as_deref().unwrap_or("*")
     );
+
+    // Load eligibility data
+    info!("Loading eligibility data from {}", config.eligibility_file);
+    let eligibility = match EligibilityData::load_from_file(&config.eligibility_file) {
+        Ok(data) => {
+            info!("Loaded {} eligible addresses", data.entry_count());
+            Arc::new(data)
+        }
+        Err(e) => {
+            error!("Failed to load eligibility data: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     // Initialize shared state
     let jobs: Arc<Mutex<HashMap<String, JobEntry>>> = Arc::new(Mutex::new(HashMap::new()));
     let cache: Arc<Mutex<HashMap<String, CachedProof>>> = Arc::new(Mutex::new(HashMap::new()));
     let rate_limits: Arc<Mutex<HashMap<String, RateLimitEntry>>> =
         Arc::new(Mutex::new(HashMap::new()));
+    let ip_rate_limits: Arc<Mutex<HashMap<String, RateLimitEntry>>> =
+        Arc::new(Mutex::new(HashMap::new()));
+    let metrics = Arc::new(ProofMetrics::new());
     let config = Arc::new(config);
 
     // Start cleanup tasks
@@ -99,6 +124,13 @@ async fn main() {
         rate_limits.clone(),
         config.rate_limit_window_seconds,
         config.rate_limit_max_requests,
+        60,
+    );
+    // IP rate limit cleanup task
+    start_rate_limit_cleanup_task(
+        ip_rate_limits.clone(),
+        config.ip_rate_limit_window_seconds,
+        config.ip_rate_limit_max_requests,
         60,
     );
     start_jobs_cleanup_task(jobs.clone(), config.jobs_ttl_seconds, 60);
@@ -114,15 +146,19 @@ async fn main() {
         cache.clone(),
         config.clone(),
         job_queue.size_counter(),
+        metrics.clone(),
     );
 
     let state = AppState {
         jobs,
         cache,
         rate_limits,
+        ip_rate_limits,
+        eligibility,
         config: config.clone(),
         job_sender: Some(job_queue.sender.clone()),
         queue_size: Some(job_queue.size_counter()),
+        metrics,
     };
 
     // Configure CORS
@@ -157,16 +193,13 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
         .await
         .expect("Failed to bind port");
-    axum::serve(listener, app).await.expect("Server error");
+
+    // Use into_make_service_with_connect_info to enable IP extraction
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .expect("Server error");
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_modules_compile() {
-        // This test just verifies all modules compile correctly
-        assert!(true);
-    }
-}

@@ -128,6 +128,26 @@ pub fn load_config() -> Result<AppConfig, String> {
         .and_then(|v| v.parse().ok())
         .unwrap_or(600); // 10 minutes
 
+    // IP-based rate limiting (separate from pubkey rate limiting)
+    let ip_rate_limit_window_seconds = env::var("IP_RATE_LIMIT_WINDOW_SECONDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(60); // 1 minute
+
+    let ip_rate_limit_max_requests = env::var("IP_RATE_LIMIT_MAX_REQUESTS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(10); // 10 requests per minute per IP
+
+    // Eligibility file path (default works for local dev, Dockerfile overrides for production)
+    let eligibility_file = env::var("ELIGIBILITY_FILE")
+        .unwrap_or_else(|_| "../merkle-tree.json".to_string());
+
+    // Signature verification (enabled by default, can be disabled for testing)
+    let verify_signatures = env::var("VERIFY_SIGNATURES")
+        .map(|v| v != "false")
+        .unwrap_or(true);
+
     Ok(AppConfig {
         prover_mode,
         verify_proof,
@@ -136,12 +156,16 @@ pub fn load_config() -> Result<AppConfig, String> {
         cache_ttl_seconds,
         rate_limit_window_seconds,
         rate_limit_max_requests,
+        ip_rate_limit_window_seconds,
+        ip_rate_limit_max_requests,
         queue_capacity,
         worker_count,
         proof_timeout_seconds,
         rpc_timeout_seconds,
         max_body_bytes,
         jobs_ttl_seconds,
+        eligibility_file,
+        verify_signatures,
     })
 }
 

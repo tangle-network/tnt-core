@@ -1,4 +1,5 @@
 use alloy_primitives::U256;
+use axum::http::HeaderMap;
 use sr25519_claim_lib::ss58_decode;
 
 use crate::types::{error_codes, ProveRequest};
@@ -34,10 +35,8 @@ impl std::error::Error for ValidationError {}
 /// Validated proof request with parsed fields
 #[derive(Debug, Clone)]
 pub struct ValidatedRequest {
-    pub ss58_address: String,
     pub pubkey: [u8; 32],
     pub signature: [u8; 64],
-    pub evm_address: [u8; 20],
     pub challenge: [u8; 32],
     pub amount: [u8; 32],
 }
@@ -76,8 +75,8 @@ pub fn validate_request(request: &ProveRequest) -> Result<ValidatedRequest, Vali
     let signature = parse_hex_bytes::<64>(&request.signature)
         .map_err(|e| ValidationError::invalid_input(format!("Invalid signature: {e}")))?;
 
-    // Parse and validate EVM address (20 bytes)
-    let evm_address = parse_hex_bytes::<20>(&request.evm_address)
+    // Validate EVM address format (20 bytes) - we check but don't store
+    parse_hex_bytes::<20>(&request.evm_address)
         .map_err(|e| ValidationError::invalid_input(format!("Invalid evmAddress: {e}")))?;
 
     // Parse and validate challenge (32 bytes)
@@ -89,10 +88,8 @@ pub fn validate_request(request: &ProveRequest) -> Result<ValidatedRequest, Vali
         .map_err(|e| ValidationError::invalid_input(format!("Invalid amount: {e}")))?;
 
     Ok(ValidatedRequest {
-        ss58_address: request.ss58_address.clone(),
         pubkey,
         signature,
-        evm_address,
         challenge,
         amount,
     })
@@ -129,14 +126,44 @@ pub fn cache_key(request: &ProveRequest) -> String {
     )
 }
 
-/// Generate rate limit key from request (uses SS58 address)
-pub fn rate_limit_key_ss58(request: &ProveRequest) -> String {
-    request.ss58_address.clone()
-}
-
 /// Generate rate limit key from pubkey
 pub fn rate_limit_key_pubkey(pubkey: &[u8; 32]) -> String {
     format!("pubkey:{}", hex::encode(pubkey))
+}
+
+/// Generate rate limit key from IP address
+pub fn rate_limit_key_ip(ip: &str) -> String {
+    format!("ip:{}", ip)
+}
+
+/// Extract client IP from headers (supports proxies)
+///
+/// Priority: X-Forwarded-For (first IP) → X-Real-IP → socket address
+pub fn extract_client_ip(headers: &HeaderMap, socket_addr: Option<&str>) -> String {
+    // Check X-Forwarded-For (first IP in chain is the original client)
+    if let Some(xff) = headers.get("x-forwarded-for") {
+        if let Ok(value) = xff.to_str() {
+            if let Some(first_ip) = value.split(',').next() {
+                let trimmed = first_ip.trim();
+                if !trimmed.is_empty() {
+                    return trimmed.to_string();
+                }
+            }
+        }
+    }
+
+    // Check X-Real-IP
+    if let Some(xri) = headers.get("x-real-ip") {
+        if let Ok(value) = xri.to_str() {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+    }
+
+    // Fallback to socket address
+    socket_addr.unwrap_or("unknown").to_string()
 }
 
 #[cfg(test)]
@@ -159,10 +186,10 @@ mod tests {
         let result = validate_request(&request);
         assert!(result.is_ok());
         let validated = result.unwrap();
-        assert_eq!(validated.ss58_address, request.ss58_address);
         assert_eq!(validated.signature.len(), 64);
-        assert_eq!(validated.evm_address.len(), 20);
         assert_eq!(validated.challenge.len(), 32);
+        assert_eq!(validated.amount.len(), 32);
+        assert_eq!(validated.pubkey.len(), 32);
     }
 
     #[test]
@@ -292,7 +319,10 @@ mod tests {
         assert!(result.is_ok());
         let bytes = result.unwrap();
         // 1e18 = 0x0de0b6b3a7640000
-        assert_eq!(&bytes[24..], &[0x0d, 0xe0, 0xb6, 0xb3, 0xa7, 0x64, 0x00, 0x00]);
+        assert_eq!(
+            &bytes[24..],
+            &[0x0d, 0xe0, 0xb6, 0xb3, 0xa7, 0x64, 0x00, 0x00]
+        );
     }
 
     #[test]
@@ -306,9 +336,51 @@ mod tests {
     }
 
     #[test]
-    fn test_rate_limit_key() {
-        let request = valid_request();
-        let key = rate_limit_key_ss58(&request);
-        assert_eq!(key, request.ss58_address);
+    fn test_rate_limit_key_pubkey() {
+        let pubkey = [0xab; 32];
+        let key = rate_limit_key_pubkey(&pubkey);
+        assert!(key.starts_with("pubkey:"));
+        assert!(key.contains(&hex::encode(&pubkey)));
+    }
+
+    #[test]
+    fn test_rate_limit_key_ip() {
+        let key = rate_limit_key_ip("192.168.1.1");
+        assert_eq!(key, "ip:192.168.1.1");
+    }
+
+    #[test]
+    fn test_extract_client_ip_xff() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-forwarded-for",
+            "203.0.113.195, 70.41.3.18, 150.172.238.178"
+                .parse()
+                .unwrap(),
+        );
+        let ip = extract_client_ip(&headers, Some("127.0.0.1:8080"));
+        assert_eq!(ip, "203.0.113.195");
+    }
+
+    #[test]
+    fn test_extract_client_ip_xri() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-real-ip", "203.0.113.195".parse().unwrap());
+        let ip = extract_client_ip(&headers, Some("127.0.0.1:8080"));
+        assert_eq!(ip, "203.0.113.195");
+    }
+
+    #[test]
+    fn test_extract_client_ip_socket() {
+        let headers = HeaderMap::new();
+        let ip = extract_client_ip(&headers, Some("192.168.1.100:54321"));
+        assert_eq!(ip, "192.168.1.100:54321");
+    }
+
+    #[test]
+    fn test_extract_client_ip_unknown() {
+        let headers = HeaderMap::new();
+        let ip = extract_client_ip(&headers, None);
+        assert_eq!(ip, "unknown");
     }
 }

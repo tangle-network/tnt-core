@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::info;
 
-use crate::types::{now_ts, CachedProof};
+use crate::types::CachedProof;
 
 /// Proof cache for deduplication
 pub struct ProofCache {
@@ -27,18 +27,6 @@ impl ProofCache {
         None
     }
 
-    /// Store a proof in the cache
-    pub async fn set(&self, key: String, zk_proof: String, public_values: String) {
-        let mut cache = self.cache.lock().await;
-        cache.insert(key, CachedProof::new(zk_proof, public_values));
-    }
-
-    /// Get the current cache size
-    pub async fn size(&self) -> usize {
-        let cache = self.cache.lock().await;
-        cache.len()
-    }
-
     /// Clean up expired entries
     pub async fn cleanup(&self) -> usize {
         let mut cache = self.cache.lock().await;
@@ -60,9 +48,8 @@ pub fn start_cache_cleanup_task(
 ) {
     let proof_cache = ProofCache::new(cache, ttl_seconds);
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(
-            std::time::Duration::from_secs(cleanup_interval_seconds)
-        );
+        let mut interval =
+            tokio::time::interval(std::time::Duration::from_secs(cleanup_interval_seconds));
         loop {
             interval.tick().await;
             proof_cache.cleanup().await;
@@ -73,16 +60,22 @@ pub fn start_cache_cleanup_task(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::now_ts;
 
     #[tokio::test]
-    async fn test_cache_set_and_get() {
+    async fn test_cache_get() {
         let cache = Arc::new(Mutex::new(HashMap::new()));
+
+        // Insert directly into the HashMap (as production code does)
+        {
+            let mut c = cache.lock().await;
+            c.insert(
+                "key1".to_string(),
+                CachedProof::new("proof1".to_string(), "values1".to_string()),
+            );
+        }
+
         let proof_cache = ProofCache::new(cache, 60);
-
-        proof_cache
-            .set("key1".to_string(), "proof1".to_string(), "values1".to_string())
-            .await;
-
         let result = proof_cache.get("key1").await;
         assert!(result.is_some());
         let cached = result.unwrap();
@@ -154,29 +147,12 @@ mod tests {
 
         let proof_cache = ProofCache::new(cache.clone(), 60);
 
-        assert_eq!(proof_cache.size().await, 3);
+        assert_eq!(cache.lock().await.len(), 3);
         let removed = proof_cache.cleanup().await;
         assert_eq!(removed, 2);
-        assert_eq!(proof_cache.size().await, 1);
+        assert_eq!(cache.lock().await.len(), 1);
 
         // Fresh entry should still be there
         assert!(proof_cache.get("fresh").await.is_some());
-    }
-
-    #[tokio::test]
-    async fn test_cache_overwrite() {
-        let cache = Arc::new(Mutex::new(HashMap::new()));
-        let proof_cache = ProofCache::new(cache, 60);
-
-        proof_cache
-            .set("key".to_string(), "proof1".to_string(), "values1".to_string())
-            .await;
-        proof_cache
-            .set("key".to_string(), "proof2".to_string(), "values2".to_string())
-            .await;
-
-        let result = proof_cache.get("key").await.unwrap();
-        assert_eq!(result.zk_proof, "proof2");
-        assert_eq!(result.public_values, "values2");
     }
 }

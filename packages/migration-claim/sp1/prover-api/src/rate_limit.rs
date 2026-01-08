@@ -65,33 +65,6 @@ impl RateLimiter {
         }
     }
 
-    /// Check if a request would be rate limited without updating state
-    pub async fn check(&self, key: &str) -> RateLimitResult {
-        let limits = self.limits.lock().await;
-
-        match limits.get(key) {
-            Some(entry) => {
-                let elapsed = now_ts() - entry.last_request_at;
-
-                if elapsed >= self.window_seconds {
-                    RateLimitResult::Allowed
-                } else if entry.request_count >= self.max_requests {
-                    let retry_after = self.window_seconds - elapsed;
-                    RateLimitResult::Limited { retry_after }
-                } else {
-                    RateLimitResult::Allowed
-                }
-            }
-            None => RateLimitResult::Allowed,
-        }
-    }
-
-    /// Get the current number of tracked keys
-    pub async fn size(&self) -> usize {
-        let limits = self.limits.lock().await;
-        limits.len()
-    }
-
     /// Clean up expired entries
     pub async fn cleanup(&self) -> usize {
         let mut limits = self.limits.lock().await;
@@ -214,30 +187,15 @@ mod tests {
             );
         }
 
-        let limiter = RateLimiter::new(limits, 60, 3);
+        let limiter = RateLimiter::new(limits.clone(), 60, 3);
 
         // Should be allowed because window expired
         let result = limiter.check_and_update("user1").await;
         assert!(matches!(result, RateLimitResult::Allowed));
 
         // Check that count was reset
-        let limiter_limits = limiter.limits.lock().await;
-        assert_eq!(limiter_limits.get("user1").unwrap().request_count, 1);
-    }
-
-    #[tokio::test]
-    async fn test_check_does_not_update() {
-        let limits = Arc::new(Mutex::new(HashMap::new()));
-        let limiter = RateLimiter::new(limits.clone(), 60, 3);
-
-        // check() should not create entry
-        let result = limiter.check("user1").await;
-        assert!(matches!(result, RateLimitResult::Allowed));
-        assert_eq!(limiter.size().await, 0);
-
-        // check_and_update() should create entry
-        limiter.check_and_update("user1").await;
-        assert_eq!(limiter.size().await, 1);
+        let l = limits.lock().await;
+        assert_eq!(l.get("user1").unwrap().request_count, 1);
     }
 
     #[tokio::test]
@@ -263,12 +221,12 @@ mod tests {
             );
         }
 
-        let limiter = RateLimiter::new(limits, 60, 3); // 2x window = 120s
+        let limiter = RateLimiter::new(limits.clone(), 60, 3); // 2x window = 120s
 
-        assert_eq!(limiter.size().await, 2);
+        assert_eq!(limits.lock().await.len(), 2);
         let removed = limiter.cleanup().await;
         assert_eq!(removed, 1);
-        assert_eq!(limiter.size().await, 1);
+        assert_eq!(limits.lock().await.len(), 1);
     }
 
     #[tokio::test]
@@ -290,7 +248,8 @@ mod tests {
 
         let limiter = RateLimiter::new(limits, 60, 3);
 
-        let result = limiter.check("user1").await;
+        // This will check and update, but since limit is reached, will return Limited
+        let result = limiter.check_and_update("user1").await;
         match result {
             RateLimitResult::Limited { retry_after } => {
                 // Should be close to 60 seconds (might be slightly less due to timing)

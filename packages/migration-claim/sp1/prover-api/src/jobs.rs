@@ -40,38 +40,6 @@ impl JobManager {
         }
         removed
     }
-
-    /// Get the current number of jobs
-    pub async fn size(&self) -> usize {
-        let jobs = self.jobs.lock().await;
-        jobs.len()
-    }
-
-    /// Get counts by status
-    pub async fn counts(&self) -> JobCounts {
-        let jobs = self.jobs.lock().await;
-        let mut counts = JobCounts::default();
-
-        for entry in jobs.values() {
-            match &entry.status {
-                JobStatus::Pending => counts.pending += 1,
-                JobStatus::Running => counts.running += 1,
-                JobStatus::Completed { .. } => counts.completed += 1,
-                JobStatus::Failed { .. } => counts.failed += 1,
-            }
-        }
-
-        counts
-    }
-}
-
-/// Job counts by status
-#[derive(Debug, Default)]
-pub struct JobCounts {
-    pub pending: usize,
-    pub running: usize,
-    pub completed: usize,
-    pub failed: usize,
 }
 
 /// Start a background task to periodically clean up old jobs
@@ -115,7 +83,7 @@ mod tests {
         let removed = manager.cleanup().await;
 
         assert_eq!(removed, 0);
-        assert_eq!(manager.size().await, 1);
+        assert_eq!(jobs.lock().await.len(), 1);
     }
 
     #[tokio::test]
@@ -138,7 +106,7 @@ mod tests {
         let removed = manager.cleanup().await;
 
         assert_eq!(removed, 0);
-        assert_eq!(manager.size().await, 1);
+        assert_eq!(jobs.lock().await.len(), 1);
     }
 
     #[tokio::test]
@@ -175,7 +143,7 @@ mod tests {
         let removed = manager.cleanup().await;
 
         assert_eq!(removed, 1);
-        assert_eq!(manager.size().await, 1);
+        assert_eq!(jobs.lock().await.len(), 1);
 
         // Verify the fresh one is still there
         let j = jobs.lock().await;
@@ -205,64 +173,7 @@ mod tests {
         let removed = manager.cleanup().await;
 
         assert_eq!(removed, 1);
-        assert_eq!(manager.size().await, 0);
-    }
-
-    #[tokio::test]
-    async fn test_job_counts() {
-        let jobs = Arc::new(Mutex::new(HashMap::new()));
-
-        {
-            let mut j = jobs.lock().await;
-            j.insert(
-                "pending1".to_string(),
-                JobEntry {
-                    status: JobStatus::Pending,
-                    updated_at: now_ts(),
-                },
-            );
-            j.insert(
-                "pending2".to_string(),
-                JobEntry {
-                    status: JobStatus::Pending,
-                    updated_at: now_ts(),
-                },
-            );
-            j.insert(
-                "running1".to_string(),
-                JobEntry {
-                    status: JobStatus::Running,
-                    updated_at: now_ts(),
-                },
-            );
-            j.insert(
-                "completed1".to_string(),
-                JobEntry {
-                    status: JobStatus::Completed {
-                        zk_proof: "0x".to_string(),
-                        public_values: "0x".to_string(),
-                    },
-                    updated_at: now_ts(),
-                },
-            );
-            j.insert(
-                "failed1".to_string(),
-                JobEntry {
-                    status: JobStatus::Failed {
-                        error: "err".to_string(),
-                    },
-                    updated_at: now_ts(),
-                },
-            );
-        }
-
-        let manager = JobManager::new(jobs, 600);
-        let counts = manager.counts().await;
-
-        assert_eq!(counts.pending, 2);
-        assert_eq!(counts.running, 1);
-        assert_eq!(counts.completed, 1);
-        assert_eq!(counts.failed, 1);
+        assert_eq!(jobs.lock().await.len(), 0);
     }
 
     #[tokio::test]
@@ -324,7 +235,7 @@ mod tests {
 
         // Should remove old_completed and old_failed, keep pending/running and fresh_completed
         assert_eq!(removed, 2);
-        assert_eq!(manager.size().await, 3);
+        assert_eq!(jobs.lock().await.len(), 3);
 
         let j = jobs.lock().await;
         assert!(j.contains_key("old_pending"));

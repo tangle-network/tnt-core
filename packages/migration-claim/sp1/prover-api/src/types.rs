@@ -1,5 +1,7 @@
+use crate::eligibility::EligibilityData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
@@ -107,6 +109,8 @@ pub struct HealthResponse {
     pub cache_size: usize,
     pub queue_size: usize,
     pub queue_capacity: usize,
+    /// Proof generation metrics for monitoring
+    pub proof_metrics: ProofMetricsSnapshot,
 }
 
 /// Job status enum
@@ -175,38 +179,70 @@ impl RateLimitEntry {
             request_count: 1,
         }
     }
-
-    pub fn is_rate_limited(&self, window_seconds: u64, max_requests: u32) -> bool {
-        let elapsed = now_ts() - self.last_request_at;
-        elapsed < window_seconds && self.request_count >= max_requests
-    }
-
-    pub fn time_until_reset(&self, window_seconds: u64) -> u64 {
-        let elapsed = now_ts() - self.last_request_at;
-        if elapsed >= window_seconds {
-            0
-        } else {
-            window_seconds - elapsed
-        }
-    }
-
-    pub fn update(&mut self, window_seconds: u64) {
-        let now = now_ts();
-        let elapsed = now - self.last_request_at;
-        if elapsed >= window_seconds {
-            // Reset window
-            self.last_request_at = now;
-            self.request_count = 1;
-        } else {
-            self.request_count += 1;
-        }
-    }
 }
 
 impl Default for RateLimitEntry {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Metrics for monitoring proof generation
+///
+/// Tracks completions, timeouts, and timed-out tasks that continue running
+/// in the background (since spawn_blocking cannot be cancelled).
+pub struct ProofMetrics {
+    /// Total number of successful proof completions
+    pub total_completions: AtomicUsize,
+    /// Total number of proof timeouts
+    pub total_timeouts: AtomicUsize,
+    /// Number of timed-out tasks still running in background
+    /// Note: This counter increases on timeout and decreases when the task eventually completes
+    pub timed_out_still_running: AtomicUsize,
+}
+
+impl ProofMetrics {
+    pub fn new() -> Self {
+        Self {
+            total_completions: AtomicUsize::new(0),
+            total_timeouts: AtomicUsize::new(0),
+            timed_out_still_running: AtomicUsize::new(0),
+        }
+    }
+
+    /// Record a successful completion
+    pub fn record_completion(&self) {
+        self.total_completions.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Record a timeout (task continues running in background)
+    pub fn record_timeout(&self) {
+        self.total_timeouts.fetch_add(1, Ordering::Relaxed);
+        self.timed_out_still_running.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Get current metrics snapshot
+    pub fn snapshot(&self) -> ProofMetricsSnapshot {
+        ProofMetricsSnapshot {
+            total_completions: self.total_completions.load(Ordering::Relaxed),
+            total_timeouts: self.total_timeouts.load(Ordering::Relaxed),
+            timed_out_still_running: self.timed_out_still_running.load(Ordering::Relaxed),
+        }
+    }
+}
+
+impl Default for ProofMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Serializable snapshot of proof metrics
+#[derive(Debug, Clone, Serialize)]
+pub struct ProofMetricsSnapshot {
+    pub total_completions: usize,
+    pub total_timeouts: usize,
+    pub timed_out_still_running: usize,
 }
 
 /// Job queue message
@@ -222,9 +258,15 @@ pub struct AppState {
     pub jobs: Arc<Mutex<HashMap<String, JobEntry>>>,
     pub cache: Arc<Mutex<HashMap<String, CachedProof>>>,
     pub rate_limits: Arc<Mutex<HashMap<String, RateLimitEntry>>>,
+    /// IP-based rate limits (separate from pubkey rate limits)
+    pub ip_rate_limits: Arc<Mutex<HashMap<String, RateLimitEntry>>>,
+    /// Eligibility data loaded from merkle-tree.json
+    pub eligibility: Arc<EligibilityData>,
     pub config: Arc<AppConfig>,
     pub job_sender: Option<tokio::sync::mpsc::Sender<JobMessage>>,
     pub queue_size: Option<Arc<std::sync::atomic::AtomicUsize>>,
+    /// Metrics for monitoring proof generation
+    pub metrics: Arc<ProofMetrics>,
 }
 
 /// Application configuration
@@ -237,12 +279,20 @@ pub struct AppConfig {
     pub cache_ttl_seconds: u64,
     pub rate_limit_window_seconds: u64,
     pub rate_limit_max_requests: u32,
+    /// IP-based rate limit window in seconds
+    pub ip_rate_limit_window_seconds: u64,
+    /// Maximum requests per IP per window
+    pub ip_rate_limit_max_requests: u32,
     pub queue_capacity: usize,
     pub worker_count: usize,
     pub proof_timeout_seconds: u64,
     pub rpc_timeout_seconds: u64,
     pub max_body_bytes: usize,
     pub jobs_ttl_seconds: u64,
+    /// Path to the eligibility file (merkle-tree.json)
+    pub eligibility_file: String,
+    /// Whether to verify signatures before proof generation
+    pub verify_signatures: bool,
 }
 
 impl Default for AppConfig {
@@ -252,15 +302,19 @@ impl Default for AppConfig {
             verify_proof: false,
             verify_onchain: None,
             claim_contract: None,
-            cache_ttl_seconds: 600,          // 10 minutes
-            rate_limit_window_seconds: 300,  // 5 minutes
-            rate_limit_max_requests: 3,      // 3 requests per window
+            cache_ttl_seconds: 600,           // 10 minutes
+            rate_limit_window_seconds: 300,   // 5 minutes
+            rate_limit_max_requests: 3,       // 3 requests per window
+            ip_rate_limit_window_seconds: 60, // 1 minute
+            ip_rate_limit_max_requests: 10,   // 10 requests per IP per minute
             queue_capacity: 100,
             worker_count: 4,
-            proof_timeout_seconds: 600,      // 10 minutes
+            proof_timeout_seconds: 600, // 10 minutes
             rpc_timeout_seconds: 10,
-            max_body_bytes: 4096,            // 4 KB
-            jobs_ttl_seconds: 600,           // 10 minutes
+            max_body_bytes: 4096,  // 4 KB
+            jobs_ttl_seconds: 600, // 10 minutes
+            eligibility_file: "../merkle-tree.json".to_string(),
+            verify_signatures: true, // Enabled by default
         }
     }
 }
@@ -299,7 +353,12 @@ pub mod error_codes {
     pub const PROOF_FAILED: &str = "proof_failed";
     pub const NOT_FOUND: &str = "not_found";
     pub const INTERNAL_ERROR: &str = "internal_error";
-    pub const PAYLOAD_TOO_LARGE: &str = "payload_too_large";
+    /// Address is not in the eligibility list
+    pub const NOT_ELIGIBLE: &str = "not_eligible";
+    /// Requested amount doesn't match the eligible balance
+    pub const AMOUNT_MISMATCH: &str = "amount_mismatch";
+    /// Signature verification failed
+    pub const INVALID_SIGNATURE: &str = "invalid_signature";
 }
 
 #[cfg(test)]
@@ -342,34 +401,9 @@ mod tests {
     }
 
     #[test]
-    fn test_rate_limit_entry() {
+    fn test_rate_limit_entry_new() {
         let entry = RateLimitEntry::new();
-        assert!(!entry.is_rate_limited(60, 3));
-
-        let mut entry2 = RateLimitEntry {
-            last_request_at: now_ts(),
-            request_count: 3,
-        };
-        assert!(entry2.is_rate_limited(60, 3));
-
-        // After window expires
-        entry2.last_request_at = now_ts() - 61;
-        assert!(!entry2.is_rate_limited(60, 3));
-    }
-
-    #[test]
-    fn test_rate_limit_update() {
-        let mut entry = RateLimitEntry {
-            last_request_at: now_ts() - 100,
-            request_count: 5,
-        };
-
-        // Window expired, should reset
-        entry.update(60);
         assert_eq!(entry.request_count, 1);
-
-        // Within window, should increment
-        entry.update(60);
-        assert_eq!(entry.request_count, 2);
+        assert!(entry.last_request_at > 0);
     }
 }

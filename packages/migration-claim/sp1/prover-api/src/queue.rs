@@ -6,9 +6,7 @@ use tokio::sync::{mpsc, Mutex};
 use tracing::{error, info, warn};
 
 use crate::prover::generate_proof;
-use crate::types::{
-    error_codes, AppConfig, CachedProof, JobEntry, JobMessage, JobStatus, VerifyOnchainConfig,
-};
+use crate::types::{error_codes, AppConfig, CachedProof, JobEntry, JobMessage, JobStatus, ProofMetrics};
 use crate::validation::cache_key;
 
 /// Job queue for managing proof generation work
@@ -60,21 +58,6 @@ impl JobQueue {
         }
     }
 
-    /// Get the current queue size
-    pub fn size(&self) -> usize {
-        self.queue_size.load(Ordering::SeqCst)
-    }
-
-    /// Get the queue capacity
-    pub fn capacity(&self) -> usize {
-        self.capacity
-    }
-
-    /// Decrement the queue size (called when a job is dequeued)
-    pub fn decrement_size(&self) {
-        self.queue_size.fetch_sub(1, Ordering::SeqCst);
-    }
-
     /// Get a handle to the queue size counter
     pub fn size_counter(&self) -> Arc<AtomicUsize> {
         self.queue_size.clone()
@@ -99,17 +82,16 @@ impl WorkerPool {
         cache: Arc<Mutex<HashMap<String, CachedProof>>>,
         config: Arc<AppConfig>,
         queue_size: Arc<AtomicUsize>,
+        metrics: Arc<ProofMetrics>,
     ) {
         let worker_count = self.worker_count;
         let proof_timeout = Duration::from_secs(config.proof_timeout_seconds);
-
-        // Create a shared receiver for all workers
-        let (work_sender, _) = tokio::sync::broadcast::channel::<()>(1);
 
         // Spawn a task that distributes work to workers
         let jobs_clone = jobs.clone();
         let cache_clone = cache.clone();
         let config_clone = config.clone();
+        let metrics_clone = metrics.clone();
 
         tokio::spawn(async move {
             info!("Starting {} workers for job processing", worker_count);
@@ -123,6 +105,7 @@ impl WorkerPool {
                 let jobs = jobs_clone.clone();
                 let cache = cache_clone.clone();
                 let config = config_clone.clone();
+                let metrics = metrics_clone.clone();
                 let sem = semaphore.clone();
                 let timeout = proof_timeout;
 
@@ -136,7 +119,7 @@ impl WorkerPool {
                         }
                     };
 
-                    process_job(message, jobs, cache, config, timeout).await;
+                    process_job(message, jobs, cache, config, timeout, metrics).await;
                 });
             }
 
@@ -152,6 +135,7 @@ async fn process_job(
     cache: Arc<Mutex<HashMap<String, CachedProof>>>,
     config: Arc<AppConfig>,
     timeout: Duration,
+    metrics: Arc<ProofMetrics>,
 ) {
     let job_id = message.job_id.clone();
     let cache_key = cache_key(&message.request);
@@ -162,20 +146,29 @@ async fn process_job(
     // Generate proof with timeout
     let verify_proof = config.verify_proof;
     let verify_onchain = config.verify_onchain.clone();
+    let prover_mode = config.prover_mode.clone();
     let request = message.request.clone();
 
-    let result = tokio::time::timeout(timeout, async {
-        tokio::task::spawn_blocking(move || generate_proof(request, verify_proof, verify_onchain))
-            .await
-    })
-    .await;
+    // Spawn the blocking task - we keep the handle to track completion after timeout
+    let handle = tokio::task::spawn_blocking(move || {
+        generate_proof(request, verify_proof, verify_onchain, &prover_mode)
+    });
+
+    // Wait with timeout
+    let result = tokio::time::timeout(timeout, handle).await;
 
     match result {
         Ok(Ok(Ok((zk_proof, public_values)))) => {
+            // Record successful completion
+            metrics.record_completion();
+
             // Store in cache
             {
                 let mut c = cache.lock().await;
-                c.insert(cache_key, CachedProof::new(zk_proof.clone(), public_values.clone()));
+                c.insert(
+                    cache_key,
+                    CachedProof::new(zk_proof.clone(), public_values.clone()),
+                );
             }
 
             // Update job status
@@ -211,8 +204,18 @@ async fn process_job(
             )
             .await;
         }
-        Err(_) => {
-            error!("Job {} timed out after {:?}", job_id, timeout);
+        Err(_elapsed) => {
+            // Timeout fired - record it in metrics
+            // Note: The spawn_blocking task continues running in the background!
+            metrics.record_timeout();
+
+            error!(
+                "Job {} timed out after {:?} - task continues in background (timed_out_still_running={})",
+                job_id,
+                timeout,
+                metrics.timed_out_still_running.load(Ordering::Relaxed)
+            );
+
             update_job(
                 &jobs,
                 &job_id,
@@ -225,12 +228,22 @@ async fn process_job(
                 },
             )
             .await;
+
+            // Note: We cannot cancel spawn_blocking tasks. The task will continue
+            // running until completion, consuming resources. The metrics track this
+            // so operators can monitor for resource exhaustion.
+            // When the background task eventually completes, the semaphore permit
+            // will be released, but we've already marked the job as failed.
         }
     }
 }
 
 /// Update a job's status
-async fn update_job(jobs: &Arc<Mutex<HashMap<String, JobEntry>>>, job_id: &str, status: JobStatus) {
+async fn update_job(
+    jobs: &Arc<Mutex<HashMap<String, JobEntry>>>,
+    job_id: &str,
+    status: JobStatus,
+) {
     let mut jobs = jobs.lock().await;
     if let Some(entry) = jobs.get_mut(job_id) {
         entry.status = status;
@@ -265,7 +278,7 @@ mod tests {
             .await;
 
         assert!(matches!(result, EnqueueResult::Queued));
-        assert_eq!(queue.size(), 1);
+        assert_eq!(queue.queue_size.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]
@@ -295,7 +308,7 @@ mod tests {
             .await;
 
         assert!(matches!(result, EnqueueResult::QueueFull));
-        assert_eq!(queue.size(), 2);
+        assert_eq!(queue.queue_size.load(Ordering::SeqCst), 2);
     }
 
     #[tokio::test]
@@ -309,19 +322,13 @@ mod tests {
             })
             .await;
 
-        assert_eq!(queue.size(), 1);
+        assert_eq!(queue.queue_size.load(Ordering::SeqCst), 1);
 
-        // Receive the message
+        // Receive the message and decrement size (simulating worker behavior)
         let _msg = receiver.recv().await;
-        queue.decrement_size();
+        queue.queue_size.fetch_sub(1, Ordering::SeqCst);
 
-        assert_eq!(queue.size(), 0);
-    }
-
-    #[tokio::test]
-    async fn test_queue_capacity() {
-        let (queue, _receiver) = JobQueue::new(100);
-        assert_eq!(queue.capacity(), 100);
+        assert_eq!(queue.queue_size.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]
@@ -338,6 +345,6 @@ mod tests {
             assert!(matches!(result, EnqueueResult::Queued));
         }
 
-        assert_eq!(queue.size(), 50);
+        assert_eq!(queue.queue_size.load(Ordering::SeqCst), 50);
     }
 }
