@@ -274,4 +274,97 @@ mod tests {
         // Just verify the ELF is included
         assert!(!ELF.is_empty());
     }
+
+    #[test]
+    fn test_verify_onchain_proof_success() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST);
+            then.status(200).json_body(json!({"result": "0x1"}));
+        });
+
+        let config = VerifyOnchainConfig {
+            rpc_url: server.url("/"),
+            verifier_address: [0x11; 20],
+            program_vkey: [0x22; 32],
+            timeout_seconds: 5,
+        };
+
+        let public_values = PublicValues {
+            pubkey: [0x33; 32],
+            evm_address: [0x44; 20],
+            amount: [0x55; 32],
+            challenge: [0x66; 32],
+        };
+
+        let result = verify_onchain_proof(&config, public_values, vec![0xaa, 0xbb]);
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[test]
+    fn test_verify_onchain_proof_reverted() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST);
+            then.status(200)
+                .json_body(json!({"error": {"code": -32000, "message": "revert"}}));
+        });
+
+        let config = VerifyOnchainConfig {
+            rpc_url: server.url("/"),
+            verifier_address: [0x11; 20],
+            program_vkey: [0x22; 32],
+            timeout_seconds: 5,
+        };
+
+        let public_values = PublicValues {
+            pubkey: [0x33; 32],
+            evm_address: [0x44; 20],
+            amount: [0x55; 32],
+            challenge: [0x66; 32],
+        };
+
+        let err = verify_onchain_proof(&config, public_values, vec![0xaa, 0xbb])
+            .expect_err("expected eth_call error");
+        assert!(err.contains("eth_call reverted"));
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_check_already_claimed_true_false() {
+        let ss58_address = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+
+        let claimed_server = MockServer::start();
+        let claimed_mock = claimed_server.mock(|when, then| {
+            when.method(POST);
+            then.status(200)
+                .json_body(json!({"result": format!("0x{}01", "00".repeat(31))}));
+        });
+        let claimed_config = ClaimContractConfig {
+            rpc_url: claimed_server.url("/"),
+            contract_address: [0x12; 20],
+        };
+        let claimed = check_already_claimed(&claimed_config, ss58_address, 5)
+            .await
+            .unwrap();
+        assert!(claimed);
+        claimed_mock.assert();
+
+        let unclaimed_server = MockServer::start();
+        let unclaimed_mock = unclaimed_server.mock(|when, then| {
+            when.method(POST);
+            then.status(200)
+                .json_body(json!({"result": format!("0x{}", "00".repeat(32))}));
+        });
+        let unclaimed_config = ClaimContractConfig {
+            rpc_url: unclaimed_server.url("/"),
+            contract_address: [0x12; 20],
+        };
+        let claimed = check_already_claimed(&unclaimed_config, ss58_address, 5)
+            .await
+            .unwrap();
+        assert!(!claimed);
+        unclaimed_mock.assert();
+    }
 }

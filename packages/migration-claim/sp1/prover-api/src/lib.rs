@@ -17,7 +17,7 @@ pub mod validation;
 
 // Re-export commonly used types
 pub use types::{
-    error_codes, AppConfig, AppState, CachedProof, ClaimContractConfig, HealthResponse,
-    JobEntry, JobMessage, JobResponse, JobStatus, ProveRequest, RateLimitEntry, StatusResponse,
+    error_codes, AppConfig, AppState, CachedProof, ClaimContractConfig, HealthResponse, JobEntry,
+    JobMessage, JobResponse, JobStatus, ProveRequest, RateLimitEntry, StatusResponse,
     VerifyOnchainConfig,
 };

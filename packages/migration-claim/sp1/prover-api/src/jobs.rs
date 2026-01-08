@@ -17,21 +17,16 @@ impl JobManager {
     }
 
     /// Clean up old completed/failed jobs
-    /// Keeps pending and running jobs regardless of age
     pub async fn cleanup(&self) -> usize {
         let mut jobs = self.jobs.lock().await;
         let before = jobs.len();
         let now = now_ts();
 
-        jobs.retain(|_, entry| {
-            // Always keep pending and running jobs
-            match &entry.status {
-                JobStatus::Pending | JobStatus::Running => true,
-                // Remove completed/failed jobs older than TTL
-                JobStatus::Completed { .. } | JobStatus::Failed { .. } => {
-                    now - entry.updated_at < self.ttl_seconds
-                }
+        jobs.retain(|_, entry| match entry.status {
+            JobStatus::Completed { .. } | JobStatus::Failed { .. } => {
+                now - entry.updated_at < self.ttl_seconds
             }
+            JobStatus::Pending | JobStatus::Running => true,
         });
 
         let removed = before - jobs.len();
@@ -233,15 +228,13 @@ mod tests {
         let manager = JobManager::new(jobs.clone(), 60);
         let removed = manager.cleanup().await;
 
-        // Should remove old_completed and old_failed, keep pending/running and fresh_completed
+        // Should remove old completed/failed only; keep pending/running and fresh completed
         assert_eq!(removed, 2);
         assert_eq!(jobs.lock().await.len(), 3);
 
         let j = jobs.lock().await;
+        assert!(j.contains_key("fresh_completed"));
         assert!(j.contains_key("old_pending"));
         assert!(j.contains_key("old_running"));
-        assert!(j.contains_key("fresh_completed"));
-        assert!(!j.contains_key("old_completed"));
-        assert!(!j.contains_key("old_failed"));
     }
 }

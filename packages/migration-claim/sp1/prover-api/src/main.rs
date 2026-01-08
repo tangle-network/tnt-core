@@ -202,4 +202,3 @@ async fn main() {
     .await
     .expect("Server error");
 }
-
