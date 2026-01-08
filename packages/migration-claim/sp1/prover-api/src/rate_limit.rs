@@ -37,14 +37,15 @@ impl RateLimiter {
     /// Check if a request is allowed and update the rate limit state
     pub async fn check_and_update(&self, key: &str) -> RateLimitResult {
         let mut limits = self.limits.lock().await;
+        let now = now_ts();
 
         match limits.get_mut(key) {
             Some(entry) => {
-                let elapsed = now_ts() - entry.last_request_at;
+                let elapsed = now - entry.last_request_at;
 
                 if elapsed >= self.window_seconds {
                     // Window expired, reset
-                    entry.last_request_at = now_ts();
+                    entry.last_request_at = now;
                     entry.request_count = 1;
                     RateLimitResult::Allowed
                 } else if entry.request_count >= self.max_requests {
