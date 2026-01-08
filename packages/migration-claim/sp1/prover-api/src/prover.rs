@@ -1,6 +1,6 @@
 use alloy_primitives::{Bytes, FixedBytes};
 use alloy_sol_types::{sol, SolCall};
-use sp1_sdk::{ProverClient, SP1Stdin};
+use sp1_sdk::{network::NetworkMode, Prover, ProverClient, SP1Stdin};
 use sr25519_claim_lib::{ss58_decode, ProgramInput, PublicValues};
 use std::time::Duration;
 use tracing::info;
@@ -42,39 +42,50 @@ pub fn generate_proof(
         challenge,
     };
 
-    // Create prover client based on configured mode
-    match prover_mode {
+    let mut stdin = SP1Stdin::new();
+    stdin.write(&input);
+
+    // Generate proof based on configured mode
+    // For network mode, we must explicitly use Mainnet - from_env() defaults to Reserved
+    // which has an invalid domain for the mainnet network
+    let (proof, _vk) = match prover_mode {
         "mock" => {
             info!("Using SP1 mock prover (test mode)");
             std::env::set_var("SP1_PROVER", "mock");
+            let client = ProverClient::from_env();
+            let (pk, vk) = client.setup(ELF);
+            let proof = client.prove(&pk, &stdin).groth16().run().map_err(err_to_string)?;
+            if verify_proof {
+                client.verify(&proof, &vk).map_err(err_to_string)?;
+            }
+            (proof, vk)
         }
         "local" => {
             info!("Using SP1 local prover");
             std::env::set_var("SP1_PROVER", "local");
+            let client = ProverClient::from_env();
+            let (pk, vk) = client.setup(ELF);
+            let proof = client.prove(&pk, &stdin).groth16().run().map_err(err_to_string)?;
+            if verify_proof {
+                client.verify(&proof, &vk).map_err(err_to_string)?;
+            }
+            (proof, vk)
         }
         _ => {
             info!("Using SP1 network prover (mainnet)");
-            std::env::set_var("SP1_PROVER", "network");
-            // Ensure mainnet RPC URL is set
-            std::env::set_var("NETWORK_RPC_URL", "https://rpc.mainnet.succinct.xyz");
+            // Explicitly use Mainnet mode - from_env() defaults to Reserved
+            // which has an invalid domain for the mainnet network
+            let client = ProverClient::builder()
+                .network_for(NetworkMode::Mainnet)
+                .build();
+            let (pk, vk) = client.setup(ELF);
+            let proof = client.prove(&pk, &stdin).groth16().run().map_err(err_to_string)?;
+            if verify_proof {
+                client.verify(&proof, &vk).map_err(err_to_string)?;
+            }
+            (proof, vk)
         }
     };
-
-    let client = ProverClient::from_env();
-    let (pk, vk) = client.setup(ELF);
-
-    let mut stdin = SP1Stdin::new();
-    stdin.write(&input);
-
-    let proof = client
-        .prove(&pk, &stdin)
-        .groth16()
-        .run()
-        .map_err(err_to_string)?;
-
-    if verify_proof {
-        client.verify(&proof, &vk).map_err(err_to_string)?;
-    }
 
     // Log the committed public values for debugging
     let committed_public_values = proof.public_values.to_vec();
@@ -99,7 +110,6 @@ pub fn generate_proof(
     }
 
     let proof_bytes = proof.bytes();
-    let committed_public_values = committed_public_values.clone();
 
     if let Some(config) = verify_onchain {
         let pubkey = ss58_decode(&ss58_address).map_err(err_to_string)?;
