@@ -40,7 +40,6 @@ import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFa
 import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
 import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
 import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
 import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
 import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
 import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
@@ -350,13 +349,12 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
         restaking.setServiceFeeDistributor(serviceFeeDistributor);
 
+        // Wire restaker inflation to ServiceFeeDistributor
+        InflationPool(payable(inflationPool)).setRestakerInflationConfig(tangleProxy, serviceFeeDistributor);
+        ServiceFeeDistributor(payable(serviceFeeDistributor)).setInflationPool(inflationPool);
+
         // Wire RewardVaults into Tangle for TNT-specific incentives
         Tangle(payable(tangleProxy)).setRewardVaults(rewardVaults);
-        uint256 feeBps = _envUintOrZero("TNT_RESTAKER_FEE_BPS");
-        if (feeBps > 0) {
-            require(feeBps <= 10_000, "TNT_RESTAKER_FEE_BPS too high");
-            Tangle(payable(tangleProxy)).setTntRestakerFeeBps(uint16(feeBps));
-        }
         uint256 discountBps = _envUintOrZero("TNT_PAYMENT_DISCOUNT_BPS");
         if (discountBps > 0) {
             require(discountBps <= 10_000, "TNT_PAYMENT_DISCOUNT_BPS too high");
@@ -382,20 +380,17 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         // Use conservative caps to avoid overflow in RewardVaults math.
         uint256 depositCap = 1_000_000 ether;
-        uint256 incentiveCap = 1_000_000 ether;
-        uint256 apyBps = 500; // 5% (unused for seeded epoch rewards, but kept sane)
-        uint256 boostMultiplierBps = 0;
 
         // Native (address(0)) + all configured restaking assets
-        vaults.createVault(address(0), apyBps, depositCap, incentiveCap, boostMultiplierBps);
-        vaults.createVault(address(tntToken), apyBps, depositCap, incentiveCap, boostMultiplierBps);
-        vaults.createVault(address(usdc), apyBps, depositCap, incentiveCap, boostMultiplierBps);
-        vaults.createVault(address(usdt), apyBps, depositCap, incentiveCap, boostMultiplierBps);
-        vaults.createVault(address(dai), apyBps, depositCap, incentiveCap, boostMultiplierBps);
-        vaults.createVault(address(weth), apyBps, depositCap, incentiveCap, boostMultiplierBps);
-        vaults.createVault(address(stETH), apyBps, depositCap, incentiveCap, boostMultiplierBps);
-        vaults.createVault(address(wstETH), apyBps, depositCap, incentiveCap, boostMultiplierBps);
-        vaults.createVault(address(eigen), apyBps, depositCap, incentiveCap, boostMultiplierBps);
+        vaults.createVault(address(0), depositCap);
+        vaults.createVault(address(tntToken), depositCap);
+        vaults.createVault(address(usdc), depositCap);
+        vaults.createVault(address(usdt), depositCap);
+        vaults.createVault(address(dai), depositCap);
+        vaults.createVault(address(weth), depositCap);
+        vaults.createVault(address(stETH), depositCap);
+        vaults.createVault(address(wstETH), depositCap);
+        vaults.createVault(address(eigen), depositCap);
 
         console2.log("RewardVaults configured for: native, TNT, USDC, USDT, DAI, WETH, stETH, wstETH, EIGEN");
 
@@ -992,7 +987,6 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingRewardsFacet()));
         router.registerFacet(address(new RestakingSlashingFacet()));
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));

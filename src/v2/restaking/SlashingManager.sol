@@ -347,7 +347,6 @@ abstract contract SlashingManager is RewardsManager {
         uint256 amount,
         bytes32 evidence
     ) internal returns (uint256 actualSlashed) {
-        Types.OperatorMetadata storage meta = _operatorMetadata[operator];
         if (!_operators.contains(operator)) {
             revert DelegationErrors.OperatorNotRegistered(operator);
         }
@@ -356,62 +355,55 @@ abstract contract SlashingManager is RewardsManager {
             revert DelegationErrors.LegacySlashRequiresAllMode(operator);
         }
 
-        Types.OperatorRewardPool storage pool = _rewardPools[operator];
+        uint256 totalStake;
+        uint256 exchangeRateBefore;
+        uint256 actualOperatorSlash;
+        uint256 actualDelegatorSlash;
 
-        // Calculate total stake (operator self-stake + delegated assets)
-        uint256 slashAmount = amount;
-        uint256 operatorStake = meta.stake;
-        uint256 totalStake = operatorStake + pool.totalAssets;
+        {
+            Types.OperatorMetadata storage meta = _operatorMetadata[operator];
+            Types.OperatorRewardPool storage pool = _rewardPools[operator];
+            uint256 slashAmount = amount;
+            uint256 operatorStake = meta.stake;
+            totalStake = operatorStake + pool.totalAssets;
 
-        if (totalStake == 0) {
-            return 0;
+            if (totalStake == 0) {
+                return 0;
+            }
+
+            if (slashAmount > totalStake) {
+                slashAmount = totalStake;
+            }
+
+            uint256 operatorSlashAmount = (slashAmount * operatorStake) / totalStake;
+
+            exchangeRateBefore = _getExchangeRate(operator);
+            actualOperatorSlash = _slashOperatorStake(operator, operatorSlashAmount);
+            actualDelegatorSlash = _slashAllModePool(operator, slashAmount - operatorSlashAmount);
+            actualSlashed = actualOperatorSlash + actualDelegatorSlash;
         }
-
-        // Cap slash to total stake
-        if (slashAmount > totalStake) {
-            slashAmount = totalStake;
-        }
-
-        // Calculate proportional slash amounts
-        uint256 operatorSlashAmount = (slashAmount * operatorStake) / totalStake;
-
-        // Record exchange rate before slash
-        uint256 exchangeRateBefore = _getExchangeRate(operator);
-
-        // Slash operator's self-stake
-        uint256 actualOperatorSlash = _slashOperatorStake(operator, operatorSlashAmount);
-
-        // Slash delegators by reducing totalAssets - O(1)!
-        // Shares stay constant, but each share is now worth less
-        uint256 actualDelegatorSlash = _slashAllModePool(operator, slashAmount - operatorSlashAmount);
-
-        actualSlashed = actualOperatorSlash + actualDelegatorSlash;
 
         // Record exchange rate after slash
         uint256 exchangeRateAfter = _getExchangeRate(operator);
 
         // Deactivate operator if below minimum
-        bytes32 nativeHash = _assetHash(Types.Asset(Types.AssetKind.Native, address(0)));
-        uint256 minStake = _assetConfigs[nativeHash].minOperatorStake;
-        if (meta.stake < minStake) {
-            meta.status = Types.OperatorStatus.Inactive;
+        {
+            Types.OperatorMetadata storage meta = _operatorMetadata[operator];
+            bytes32 nativeHash = _assetHash(Types.Asset(Types.AssetKind.Native, address(0)));
+            uint256 minStake = _assetConfigs[nativeHash].minOperatorStake;
+            if (meta.stake < minStake) {
+                meta.status = Types.OperatorStatus.Inactive;
+            }
         }
 
-        // Record slash for historical queries
-        // Note: Legacy slash doesn't have blueprintId, so we use 0
-        uint64 slashId = nextSlashId[operator]++;
-        slashHistory[operator][slashId] = SlashRecord({
-            round: currentRound,
-            serviceId: serviceId,
-            blueprintId: 0, // Legacy slash - blueprint unknown
-            totalSlashed: actualSlashed,
-            exchangeRateBefore: exchangeRateBefore,
-            exchangeRateAfter: exchangeRateAfter,
-            evidence: evidence
-        });
-
-        // Increment per-service slash count (no blueprint for legacy slash)
-        serviceSlashCount[serviceId][operator]++;
+        uint64 slashId = _recordLegacySlash(
+            operator,
+            serviceId,
+            actualSlashed,
+            exchangeRateBefore,
+            exchangeRateAfter,
+            evidence
+        );
 
         // Update slash factor for lazy slashing of pending unstakes
         if (totalStake > 0) {
@@ -421,6 +413,30 @@ abstract contract SlashingManager is RewardsManager {
 
         emit Slashed(operator, serviceId, actualOperatorSlash, actualDelegatorSlash, exchangeRateAfter);
         emit SlashRecorded(operator, slashId, actualSlashed, exchangeRateBefore, exchangeRateAfter);
+    }
+
+    function _recordLegacySlash(
+        address operator,
+        uint64 serviceId,
+        uint256 totalSlashed,
+        uint256 exchangeRateBefore,
+        uint256 exchangeRateAfter,
+        bytes32 evidence
+    ) private returns (uint64 slashId) {
+        // Note: Legacy slash doesn't have blueprintId, so we use 0.
+        slashId = nextSlashId[operator]++;
+        slashHistory[operator][slashId] = SlashRecord({
+            round: currentRound,
+            serviceId: serviceId,
+            blueprintId: 0,
+            totalSlashed: totalSlashed,
+            exchangeRateBefore: exchangeRateBefore,
+            exchangeRateAfter: exchangeRateAfter,
+            evidence: evidence
+        });
+
+        // Increment per-service slash count (no blueprint for legacy slash).
+        serviceSlashCount[serviceId][operator]++;
     }
 
     function _hasFixedModeStake(address operator) internal view returns (bool) {

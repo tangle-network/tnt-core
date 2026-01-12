@@ -140,33 +140,6 @@ interface IRestaking {
     /// @return True if authorized
     function isSlasher(address account) external view returns (bool);
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // REWARD COORDINATION
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Notify the restaking module of rewards from a specific blueprint
-    /// @dev Routes rewards to appropriate pools based on delegator blueprint exposure
-    /// @param operator The operator receiving rewards
-    /// @param blueprintId The blueprint generating rewards
-    /// @param serviceId The service generating rewards
-    /// @param amount Reward amount
-    function notifyRewardForBlueprint(
-        address operator,
-        uint64 blueprintId,
-        uint64 serviceId,
-        uint256 amount
-    ) external;
-
-    /// @notice Notify the restaking module of rewards to distribute (legacy)
-    /// @dev Called by Tangle core after service payments
-    /// @param operator The operator receiving rewards
-    /// @param serviceId The service generating rewards
-    /// @param amount Reward amount
-    function notifyReward(
-        address operator,
-        uint64 serviceId,
-        uint256 amount
-    ) external;
 }
 
 /// @title IRestakingAdmin

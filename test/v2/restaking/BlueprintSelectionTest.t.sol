@@ -67,12 +67,6 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         delegation.slashForBlueprint(operator, blueprintId, 0, amount, keccak256("evidence"));
     }
 
-    /// @notice Add rewards for a specific blueprint
-    function _addRewardsForBlueprint(address operator, uint64 blueprintId, uint256 amount) internal {
-        vm.deal(address(delegation), address(delegation).balance + amount);
-        delegation.notifyRewardForBlueprint(operator, blueprintId, 0, amount);
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════
     // DELEGATION MODE TESTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -230,60 +224,6 @@ contract BlueprintSelectionTest is DelegationTestHarness {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // REWARD TESTS - BLUEPRINT FILTERING
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Test that All mode delegators receive rewards from any blueprint
-    function test_AllModeReceivesRewardsFromAnyBlueprint() public {
-        // Setup: All mode delegation
-        _depositAndDelegateAll(delegator1, operator1, 10 ether);
-
-        uint256 pendingBefore = delegation.getPendingDelegatorRewards(delegator1);
-
-        // Add rewards for blueprint 1
-        _addRewardsForBlueprint(operator1, BLUEPRINT_1, 1 ether);
-
-        uint256 pendingAfter = delegation.getPendingDelegatorRewards(delegator1);
-        assertTrue(pendingAfter > pendingBefore, "All mode delegator should receive rewards");
-    }
-
-    /// @notice Test that Fixed mode delegators only receive rewards from selected blueprints
-    function test_FixedModeOnlyReceivesRewardsFromSelectedBlueprints() public {
-        // Setup: Fixed mode delegation to blueprint 1 only
-        uint64[] memory blueprints = new uint64[](1);
-        blueprints[0] = BLUEPRINT_1;
-        _depositAndDelegateFixed(delegator1, operator1, 10 ether, blueprints);
-
-        uint256 pendingBefore = delegation.getPendingDelegatorRewards(delegator1);
-
-        // Add rewards for blueprint 2 (not selected)
-        _addRewardsForBlueprint(operator1, BLUEPRINT_2, 1 ether);
-
-        uint256 pendingAfter = delegation.getPendingDelegatorRewards(delegator1);
-
-        // Fixed mode delegator should NOT receive rewards from blueprint 2
-        assertEq(pendingAfter, pendingBefore, "Fixed mode should not receive rewards from unselected blueprint");
-    }
-
-    /// @notice Test that Fixed mode delegators DO receive rewards from selected blueprints
-    function test_FixedModeReceivesRewardsFromSelectedBlueprint() public {
-        // Setup: Fixed mode delegation to blueprint 1
-        uint64[] memory blueprints = new uint64[](1);
-        blueprints[0] = BLUEPRINT_1;
-        _depositAndDelegateFixed(delegator1, operator1, 10 ether, blueprints);
-
-        uint256 pendingBefore = delegation.getPendingDelegatorRewards(delegator1);
-
-        // Add rewards for blueprint 1 (selected)
-        _addRewardsForBlueprint(operator1, BLUEPRINT_1, 1 ether);
-
-        uint256 pendingAfter = delegation.getPendingDelegatorRewards(delegator1);
-
-        // Fixed mode delegator SHOULD receive rewards
-        assertTrue(pendingAfter > pendingBefore, "Fixed mode should receive rewards from selected blueprint");
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT MANAGEMENT TESTS
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -428,31 +368,6 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         _slashForBlueprint(operator2, BLUEPRINT_1, 1 ether);
         uint256 op2DelegationAfter = delegation.getDelegation(delegator1, operator2);
         assertEq(op2DelegationAfter, op2DelegationBefore, "Op2 delegation should not be slashed for bp1");
-    }
-
-    /// @notice Test reward claiming with multiple blueprint pools
-    function test_ClaimRewardsFromMultipleBlueprintPools() public {
-        // Fixed mode with 2 blueprints
-        uint64[] memory blueprints = new uint64[](2);
-        blueprints[0] = BLUEPRINT_1;
-        blueprints[1] = BLUEPRINT_2;
-        _depositAndDelegateFixed(delegator1, operator1, 10 ether, blueprints);
-
-        // Add rewards for both blueprints
-        _addRewardsForBlueprint(operator1, BLUEPRINT_1, 0.5 ether);
-        _addRewardsForBlueprint(operator1, BLUEPRINT_2, 0.5 ether);
-
-        // Check pending rewards
-        uint256 pending = delegation.getPendingDelegatorRewards(delegator1);
-        assertTrue(pending > 0, "Should have pending rewards from both blueprints");
-
-        // Claim rewards
-        uint256 balanceBefore = delegator1.balance;
-        vm.prank(delegator1);
-        delegation.claimDelegatorRewards();
-        uint256 balanceAfter = delegator1.balance;
-
-        assertTrue(balanceAfter > balanceBefore, "Should have claimed rewards");
     }
 
     /// @notice Test unstaking preserves blueprint exposure correctly

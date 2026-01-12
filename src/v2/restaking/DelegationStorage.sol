@@ -174,12 +174,6 @@ abstract contract DelegationStorage {
     /// @dev This is the "All mode" pool - delegators with All mode get rewards/slashes from ALL blueprints
     mapping(address => Types.OperatorRewardPool) internal _rewardPools;
 
-    /// @notice Delegator reward tracking: delegator => operator => debt
-    mapping(address => mapping(address => Types.DelegatorRewardDebt)) internal _rewardDebts;
-
-    /// @notice Pending operator rewards from commission
-    mapping(address => uint256) internal _operatorPendingRewards;
-
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT EXPOSURE TRACKING
     // ═══════════════════════════════════════════════════════════════════════════
@@ -188,10 +182,6 @@ abstract contract DelegationStorage {
     /// @dev operator => blueprintId => pool
     /// Fixed mode delegators only get rewards/slashes from their selected blueprints
     mapping(address => mapping(uint64 => Types.OperatorRewardPool)) internal _blueprintPools;
-
-    /// @notice Per-blueprint reward debt for Fixed mode delegators
-    /// @dev delegator => operator => blueprintId => debt
-    mapping(address => mapping(address => mapping(uint64 => Types.DelegatorRewardDebt))) internal _blueprintRewardDebts;
 
     /// @notice Track which delegations use "All" mode (exposed to all blueprints)
     /// @dev delegator => operator => delegationIndex => isAllMode

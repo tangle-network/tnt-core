@@ -198,6 +198,7 @@ abstract contract Payments is Base {
     function claimRewards() external nonReentrant {
         uint256 claimed = PaymentLib.claimPendingReward(_pendingRewards, msg.sender, address(0));
         if (claimed > 0) {
+            _pendingRewardTokens[msg.sender].remove(address(0));
             emit RewardsClaimed(msg.sender, address(0), claimed);
         }
     }
@@ -206,6 +207,7 @@ abstract contract Payments is Base {
     function claimRewards(address token) external nonReentrant {
         uint256 claimed = PaymentLib.claimPendingReward(_pendingRewards, msg.sender, token);
         if (claimed > 0) {
+            _pendingRewardTokens[msg.sender].remove(token);
             emit RewardsClaimed(msg.sender, token, claimed);
         }
     }
@@ -218,6 +220,15 @@ abstract contract Payments is Base {
     /// @notice Get pending rewards for token
     function pendingRewards(address account, address token) external view returns (uint256) {
         return _pendingRewards[account][token];
+    }
+
+    /// @notice Return the set of tokens with non-zero pending operator rewards for an account
+    function rewardTokens(address account) external view returns (address[] memory tokens) {
+        EnumerableSet.AddressSet storage set = _pendingRewardTokens[account];
+        tokens = new address[](set.length());
+        for (uint256 i = 0; i < tokens.length; i++) {
+            tokens[i] = set.at(i);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -280,10 +291,7 @@ abstract contract Payments is Base {
         Types.Blueprint storage bp = _blueprints[blueprintId];
         Types.Service storage svc = _services[serviceId];
 
-        uint256 tntRestakerReserve = _computeTntRestakerReserve(token, amount, operators, exposures, totalExposure);
-
-        PaymentLib.PaymentAmounts memory amounts =
-            PaymentLib.calculateSplit(amount - tntRestakerReserve, _paymentSplit);
+        PaymentLib.PaymentAmounts memory amounts = PaymentLib.calculateSplit(amount, _paymentSplit);
 
         // Developer payment
         address developerAddr = bp.owner;
@@ -302,7 +310,7 @@ abstract contract Payments is Base {
             amounts.protocolAmount > 0 &&
             svc.owner != address(0)
         ) {
-            uint256 desiredDiscount = ((amount - tntRestakerReserve) * _tntPaymentDiscountBps) / BPS_DENOMINATOR;
+            uint256 desiredDiscount = (amount * _tntPaymentDiscountBps) / BPS_DENOMINATOR;
             uint256 discount = desiredDiscount > amounts.protocolAmount ? amounts.protocolAmount : desiredDiscount;
             if (discount > 0) {
                 amounts.protocolAmount -= discount;
@@ -313,12 +321,6 @@ abstract contract Payments is Base {
 
         // Protocol payment
         PaymentLib.transferPayment(_treasury, token, amounts.protocolAmount);
-
-        // TNT restaker reserve (distributed to TNT restakers per operator)
-        if (tntRestakerReserve > 0) {
-            PaymentLib.transferPayment(_rewardVaults, token, tntRestakerReserve);
-            _distributeTntRestakerReserve(token, tntRestakerReserve, operators, exposures);
-        }
 
         // Operator and restaker payments
         if (totalExposure > 0) {
@@ -337,101 +339,53 @@ abstract contract Payments is Base {
                     token,
                     opPayments[i].operatorShare
                 );
+                if (opPayments[i].operatorShare > 0) {
+                    _pendingRewardTokens[opPayments[i].operator].add(token);
+                }
 
                 if (opPayments[i].restakerShare > 0) {
-                    if (_serviceFeeDistributor != address(0)) {
-                        if (token == address(0)) {
-                            IServiceFeeDistributor(_serviceFeeDistributor).distributeServiceFee{ value: opPayments[i].restakerShare }(
-                                serviceId,
-                                blueprintId,
-                                opPayments[i].operator,
-                                token,
-                                opPayments[i].restakerShare
-                            );
-                        } else {
-                            PaymentLib.transferPayment(_serviceFeeDistributor, token, opPayments[i].restakerShare);
-                            IServiceFeeDistributor(_serviceFeeDistributor).distributeServiceFee(
-                                serviceId,
-                                blueprintId,
-                                opPayments[i].operator,
-                                token,
-                                opPayments[i].restakerShare
-                            );
-                        }
-                    } else if (token == address(0)) {
-                        // Backward-compatible behavior when distributor is unset.
-                        PaymentLib.transferPayment(address(_restaking), token, opPayments[i].restakerShare);
-                        _restaking.notifyReward(opPayments[i].operator, serviceId, opPayments[i].restakerShare);
-                    } else {
-                        PaymentLib.transferPayment(_treasury, token, opPayments[i].restakerShare);
-                    }
+                    _forwardRestakerShare(
+                        serviceId,
+                        blueprintId,
+                        opPayments[i].operator,
+                        token,
+                        opPayments[i].restakerShare
+                    );
                 }
             }
         }
     }
 
-    function _computeTntRestakerReserve(
+    function _forwardRestakerShare(
+        uint64 serviceId,
+        uint64 blueprintId,
+        address operator,
         address token,
-        uint256 amount,
-        address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure
-    ) internal view returns (uint256 reserve) {
-        if (
-            token == address(0) ||
-            token != _tntToken ||
-            _rewardVaults == address(0) ||
-            _tntRestakerFeeBps == 0 ||
-            totalExposure == 0
-        ) {
-            return 0;
+        uint256 amount
+    ) private {
+        address distributor = _serviceFeeDistributor;
+        if (distributor == address(0)) {
+            PaymentLib.transferPayment(_treasury, token, amount);
+            return;
         }
 
-        uint256 eligibleExposure = 0;
-        for (uint256 i = 0; i < operators.length; i++) {
-            (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, operators[i]);
-            if (totalStaked == 0) continue;
-            eligibleExposure += exposures[i];
-        }
-
-        if (eligibleExposure == 0) return 0;
-        return (amount * _tntRestakerFeeBps) / BPS_DENOMINATOR;
-    }
-
-    function _distributeTntRestakerReserve(
-        address token,
-        uint256 reserveAmount,
-        address[] memory operators,
-        uint16[] memory exposures
-    ) internal {
-        uint256 eligibleExposure = 0;
-        for (uint256 i = 0; i < operators.length; i++) {
-            (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, operators[i]);
-            if (totalStaked == 0) continue;
-            eligibleExposure += exposures[i];
-        }
-
-        if (eligibleExposure == 0) return;
-
-        uint256 reserveRemaining = reserveAmount;
-        uint256 exposureRemaining = eligibleExposure;
-        for (uint256 i = 0; i < operators.length && reserveRemaining > 0; i++) {
-            uint256 exposure = exposures[i];
-            if (exposure == 0) continue;
-            (, uint256 totalStaked,,) = IRewardVaults(_rewardVaults).operatorPools(token, operators[i]);
-            if (totalStaked == 0) continue;
-
-            uint256 share = (reserveRemaining * exposure) / exposureRemaining;
-            reserveRemaining -= share;
-            exposureRemaining -= exposure;
-            if (share == 0) continue;
-
-            IRewardVaults(_rewardVaults).distributeServiceFeeRewards(token, operators[i], share);
+        if (token == address(0)) {
+            IServiceFeeDistributor(distributor).distributeServiceFee{ value: amount }(
+                serviceId,
+                blueprintId,
+                operator,
+                token,
+                amount
+            );
+        } else {
+            PaymentLib.transferPayment(distributor, token, amount);
+            IServiceFeeDistributor(distributor).distributeServiceFee(
+                serviceId,
+                blueprintId,
+                operator,
+                token,
+                amount
+            );
         }
     }
-}
-
-interface IRewardVaults {
-    function distributeServiceFeeRewards(address asset, address operator, uint256 amount) external;
-    function operatorPools(address asset, address operator) external view returns (uint256, uint256, uint256, uint256);
 }

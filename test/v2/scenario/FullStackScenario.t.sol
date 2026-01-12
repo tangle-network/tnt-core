@@ -5,7 +5,7 @@ import { DelegationTestHarness } from "../restaking/DelegationTestHarness.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 
 /// @notice Full stack scenario that deterministically simulates deposits, delegations,
-///         reward accruals, withdraw queues, and round advancement. This doubles as an
+///         withdraw queues, and round advancement. This doubles as an
 ///         end-to-end trace for the indexer: run the test with `forge test -vvv` to emit
 ///         the event log, or replay the resulting transactions against `envio dev`.
 contract FullStackScenarioTest is DelegationTestHarness {
@@ -39,11 +39,6 @@ contract FullStackScenarioTest is DelegationTestHarness {
                 address tokenAddr = tokens[tick % tokens.length];
                 _depositAndDelegateErc20(delegator, operator, tokenAddr, amount);
                 emit ScenarioTick(tick, delegator, operator, keccak256("erc20-deposit"), amount);
-            }
-
-            if (tick % 3 == 0) {
-                _addRewards(operator, 0.05 ether);
-                emit ScenarioTick(tick, delegator, operator, keccak256("reward"), 0.05 ether);
             }
 
             if (tick % 4 == 3) {

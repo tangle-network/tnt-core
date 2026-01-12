@@ -56,29 +56,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         uint64 serviceId = 0;
         assertTrue(tangle.isServiceActive(serviceId), "Service should be active");
 
-        // Step 6: Verify reward notification and pending rewards work
-        // Fund restaking and notify rewards
-        uint256 restakerShare = 2 ether;
-        vm.deal(address(restaking), restakerShare * 4); // Buffer for claims
-
-        // Record pending rewards before notification
-        uint256 delegator1PendingBefore = restaking.getPendingDelegatorRewards(delegator1);
-        uint256 operatorPendingBefore = restaking.getPendingOperatorRewards(operator1);
-
-        // Notify rewards (simulates payment distribution)
-        restaking.notifyReward(operator1, 0, restakerShare);
-
-        // Verify pending rewards increased
-        uint256 delegator1PendingAfter = restaking.getPendingDelegatorRewards(delegator1);
-        uint256 operatorPendingAfter = restaking.getPendingOperatorRewards(operator1);
-
-        assertTrue(delegator1PendingAfter > delegator1PendingBefore, "Delegator pending should increase");
-        assertTrue(operatorPendingAfter > operatorPendingBefore, "Operator pending should increase");
-
-        // Verify the incremental change equals the notified amount
-        uint256 delegatorIncrease = delegator1PendingAfter - delegator1PendingBefore;
-        uint256 operatorIncrease = operatorPendingAfter - operatorPendingBefore;
-        assertEq(delegatorIncrease + operatorIncrease, restakerShare, "Incremental change should equal notified");
+        // Service fee rewards are handled by ServiceFeeDistributor during billing; see reward-specific tests.
     }
 
     /// @notice Test subscription billing fails when escrow is exhausted
@@ -285,24 +263,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         // Bill subscription
         vm.warp(startTime + 31 days);
         tangle.billSubscription(serviceId);
-
-        // Simulate reward distribution
-        // Total reward = 2 ETH (restaker share of 10 ETH)
-        uint256 restakerShare = 2 ether;
-        vm.deal(address(restaking), restakerShare);
-        restaking.notifyReward(operator1, 0, restakerShare);
-
-        // After 10% commission: 1.8 ETH for delegators
-        // Total delegated = 40 ETH
-        // Delegator1 (10/40 = 25%): 0.45 ETH
-        // Delegator2 (30/40 = 75%): 1.35 ETH
-        uint256 delegator1Pending = restaking.getPendingDelegatorRewards(delegator1);
-        uint256 delegator2Pending = restaking.getPendingDelegatorRewards(delegator2);
-
-        // Verify proportionality - delegator2 should have 3x of delegator1
-        assertTrue(delegator1Pending > 0, "Delegator1 should have pending rewards");
-        assertTrue(delegator2Pending > 0, "Delegator2 should have pending rewards");
-        assertEq(delegator2Pending, delegator1Pending * 3, "Delegator2 should receive 3x rewards (3/4 vs 1/4)");
+        // Service fee rewards are streamed/distributed via ServiceFeeDistributor; see reward-specific streaming tests.
     }
 
     /// @notice Test subscription termination and refund

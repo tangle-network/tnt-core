@@ -88,7 +88,6 @@ abstract contract Base is
 
         _maxBlueprintsPerOperator = ProtocolConfig.MAX_BLUEPRINTS_PER_OPERATOR;
         _defaultTntMinExposureBps = 1000; // 10%
-        _tntRestakerFeeBps = 0;
         _tntPaymentDiscountBps = 0;
 
         // Initialize payment split
@@ -221,17 +220,6 @@ abstract contract Base is
     function setDefaultTntMinExposureBps(uint16 minExposureBps) external onlyRole(ADMIN_ROLE) {
         if (minExposureBps == 0 || minExposureBps > BPS_DENOMINATOR) revert Errors.InvalidSecurityRequirement();
         _defaultTntMinExposureBps = minExposureBps;
-    }
-
-    /// @notice Portion of service payments reserved for TNT restakers (bps)
-    function tntRestakerFeeBps() external view returns (uint16) {
-        return _tntRestakerFeeBps;
-    }
-
-    /// @notice Configure portion of service payments reserved for TNT restakers (bps)
-    function setTntRestakerFeeBps(uint16 feeBps) external onlyRole(ADMIN_ROLE) {
-        if (feeBps > BPS_DENOMINATOR) revert Errors.InvalidState();
-        _tntRestakerFeeBps = feeBps;
     }
 
     /// @notice Discount applied to service payments made in TNT (bps of the payment amount; capped to protocol share)

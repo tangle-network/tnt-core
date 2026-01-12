@@ -1,0 +1,82 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+import { Types } from "../../../src/v2/libraries/Types.sol";
+import { IServiceFeeDistributor } from "../../../src/v2/interfaces/IServiceFeeDistributor.sol";
+
+/// @notice Minimal test stub that accepts service-fee restaker shares without redistributing.
+/// @dev Used by payment-split tests to ensure protocol/treasury accounting is stable even when no restakers exist.
+contract MockServiceFeeDistributor is IServiceFeeDistributor {
+    event ServiceFeeReceived(
+        uint64 indexed serviceId,
+        uint64 indexed blueprintId,
+        address indexed operator,
+        address paymentToken,
+        uint256 amount
+    );
+
+    function distributeServiceFee(
+        uint64 serviceId,
+        uint64 blueprintId,
+        address operator,
+        address paymentToken,
+        uint256 amount
+    ) external payable override {
+        if (paymentToken == address(0)) {
+            require(msg.value == amount, "bad msg.value");
+        } else {
+            require(msg.value == 0, "unexpected msg.value");
+        }
+        emit ServiceFeeReceived(serviceId, blueprintId, operator, paymentToken, amount);
+    }
+
+    function distributeInflationReward(
+        uint64 serviceId,
+        uint64 blueprintId,
+        address operator,
+        address paymentToken,
+        uint256 amount
+    ) external payable override {
+        if (paymentToken == address(0)) {
+            require(msg.value == amount, "bad msg.value");
+        } else {
+            require(msg.value == 0, "unexpected msg.value");
+        }
+        emit ServiceFeeReceived(serviceId, blueprintId, operator, paymentToken, amount);
+    }
+
+    function onDelegationChanged(
+        address,
+        address,
+        Types.Asset calldata,
+        uint256,
+        bool,
+        Types.BlueprintSelectionMode,
+        uint64[] calldata,
+        uint16
+    ) external override {}
+
+    function onBlueprintAdded(address, address, Types.Asset calldata, uint64) external override {}
+    function onBlueprintRemoved(address, address, Types.Asset calldata, uint64) external override {}
+
+    function getPoolScore(
+        address,
+        uint64,
+        Types.Asset calldata
+    ) external pure override returns (uint256 allScore, uint256 fixedScore) {
+        return (0, 0);
+    }
+
+    function getOperatorServiceUsdExposure(
+        uint64,
+        uint64,
+        address
+    ) external pure override returns (uint256 totalUsdExposure) {
+        return totalUsdExposure;
+    }
+
+    function onOperatorLeaving(uint64, address) external override {}
+    function onServiceTerminated(uint64, address) external override {}
+
+    receive() external payable {}
+}

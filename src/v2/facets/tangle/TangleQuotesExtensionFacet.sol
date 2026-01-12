@@ -20,14 +20,23 @@ contract TangleQuotesExtensionFacet is QuotesExtend, IFacetSelectors {
         uint64 blueprintId,
         uint256 amount,
         address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure,
         uint64 startTime,
         uint64 endTime
     ) internal override {
-        if (amount == 0 || totalExposure == 0) return;
+        if (amount == 0) return;
+
+        // Payments currently distribute "immediate" amounts; streaming is handled by ServiceFeeDistributor/StreamingPaymentManager.
         startTime;
         endTime;
+
+        uint16[] memory exposures = new uint16[](operators.length);
+        uint256 totalExposure = 0;
+        for (uint256 i = 0; i < operators.length; i++) {
+            uint16 exposure = _serviceOperators[serviceId][operators[i]].exposureBps;
+            exposures[i] = exposure;
+            totalExposure += exposure;
+        }
+        if (totalExposure == 0) return;
 
         ITanglePaymentsInternal(address(this)).distributePayment(
             serviceId,

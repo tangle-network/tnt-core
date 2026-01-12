@@ -12,7 +12,6 @@ import { Types } from "../../../src/v2/libraries/Types.sol";
 import { RestakingOperatorsFacet } from "../../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
 import { RestakingDepositsFacet } from "../../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
 import { RestakingDelegationsFacet } from "../../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingRewardsFacet } from "../../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
 import { RestakingSlashingFacet } from "../../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
 import { RestakingAssetsFacet } from "../../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
 import { RestakingViewsFacet } from "../../../src/v2/facets/restaking/RestakingViewsFacet.sol";
@@ -119,7 +118,6 @@ contract DelegationEdgeCasesTest is Test {
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingRewardsFacet()));
         router.registerFacet(address(new RestakingSlashingFacet()));
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));
@@ -522,46 +520,6 @@ contract DelegationEdgeCasesTest is Test {
 
         // Should only have received once
         assertEq(evilToken.balanceOf(delegator1), 10 ether);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // REWARD INTERACTION TESTS
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Test that rewards should be claimed before unstaking (rewards tied to shares)
-    /// @dev In this system, rewards are proportional to shares. Full unstake zeros shares,
-    ///      so users should claim rewards before unstaking to avoid losing them.
-    function test_UnstakeWithPendingRewards() public {
-        vm.prank(delegator1);
-        delegation.depositAndDelegate{ value: 10 ether }(operator1);
-
-        // Add rewards
-        vm.deal(address(delegation), 10 ether);
-        delegation.notifyReward(operator1, 0, 1 ether);
-
-        // Verify rewards exist before unstake
-        uint256 pendingBefore = delegation.getPendingDelegatorRewards(delegator1);
-        assertGt(pendingBefore, 0, "Should have pending rewards before unstake");
-
-        // Claim rewards BEFORE unstaking
-        uint256 balanceBefore = delegator1.balance;
-        vm.prank(delegator1);
-        delegation.claimDelegatorRewards();
-        uint256 claimed = delegator1.balance - balanceBefore;
-        assertGt(claimed, 0, "Should have claimed rewards");
-
-        // Now schedule and execute unstake
-        vm.prank(delegator1);
-        delegation.scheduleDelegatorUnstake(operator1, address(0), 10 ether);
-
-        _advanceRounds(DELAY);
-
-        vm.prank(delegator1);
-        delegation.executeDelegatorUnstake();
-
-        // After full unstake, delegation should be 0
-        uint256 delegationAfter = delegation.getDelegation(delegator1, operator1);
-        assertEq(delegationAfter, 0, "Delegation should be 0 after unstake");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

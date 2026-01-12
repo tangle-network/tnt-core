@@ -13,7 +13,6 @@ import { Types } from "../../../src/v2/libraries/Types.sol";
 import { RestakingOperatorsFacet } from "../../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
 import { RestakingDepositsFacet } from "../../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
 import { RestakingDelegationsFacet } from "../../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingRewardsFacet } from "../../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
 import { RestakingSlashingFacet } from "../../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
 import { RestakingAssetsFacet } from "../../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
 import { RestakingViewsFacet } from "../../../src/v2/facets/restaking/RestakingViewsFacet.sol";
@@ -99,7 +98,6 @@ contract LiquidDelegationTest is Test {
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingRewardsFacet()));
         router.registerFacet(address(new RestakingSlashingFacet()));
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));
@@ -122,7 +120,7 @@ contract LiquidDelegationTest is Test {
         assertEq(address(v.asset()), address(token), "Vault asset should match");
     }
 
-    function test_AllBlueprintsVault_IsDynamicAndReceivesFutureBlueprintRewards() public {
+    function test_AllBlueprintsVault_IsDynamicAndTracksAllBlueprints() public {
         address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
         LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
 
@@ -153,13 +151,9 @@ contract LiquidDelegationTest is Test {
         uint64 futureBlueprintId = 999;
         vm.prank(operator1);
         restaking.addBlueprint(futureBlueprintId);
-
-        restaking.notifyRewardForBlueprint(operator1, futureBlueprintId, 0, 1 ether);
-        assertGt(
-            restaking.getPendingDelegatorRewards(vaultAddr),
-            0,
-            "All mode should receive rewards from future blueprints"
-        );
+        // All-mode delegations should not store explicit blueprint IDs; it implicitly tracks operator's full set.
+        uint64[] memory delegationBlueprintsAfter = restaking.getDelegationBlueprints(vaultAddr, 0);
+        assertEq(delegationBlueprintsAfter.length, 0, "All mode: still no stored blueprint IDs");
     }
 
     function test_Factory_CreateVault_FixedBlueprints() public {

@@ -10,18 +10,17 @@ import { IRewardsManager } from "../interfaces/IRewardsManager.sol";
 
 /// @title RewardVaults
 /// @notice Vault-based reward distribution for TNT incentives
-/// @dev Implements O(1) reward distribution using accumulated-per-share pattern
+/// @dev Implements O(1) reward distribution using accumulated-per-share accounting.
 ///
 /// Key Concepts:
 /// - One vault per staking asset (TNT, WETH, etc.)
 /// - Rewards are paid in TNT (funded by InflationPool, NOT minted)
-/// - Deposit cap limits how much can earn rewards
-/// - Utilization affects reward rate: 10% utilized = 10% of max rewards
+/// - Deposit cap limits how much stake can earn rewards
 /// - Operators earn commission, rest goes to delegator pool
 ///
 /// Funding Model:
 /// - InflationPool transfers TNT to this contract each epoch
-/// - This contract holds TNT balance and distributes to claimants
+/// - This contract holds TNT and distributes it to claimants
 /// - NO MINTING: This contract cannot mint tokens, only transfer what it holds
 contract RewardVaults is
     Initializable,
@@ -40,9 +39,6 @@ contract RewardVaults is
 
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant PRECISION = 1e18;
-
-    /// @notice Blocks per year (assuming ~12s blocks)
-    uint256 public constant BLOCKS_PER_YEAR = 2_628_000;
 
     /// @notice Configurable lock durations for multiplier rewards (in seconds)
     uint256 public lockDurationOneMonth = 30 days;
@@ -65,10 +61,7 @@ contract RewardVaults is
 
     /// @notice Vault configuration for a specific asset
     struct VaultConfig {
-        uint256 apyBps;          // Annual percentage yield in basis points (e.g., 500 = 5%)
         uint256 depositCap;      // Maximum deposits that earn rewards
-        uint256 incentiveCap;    // Maximum rewards that can be distributed
-        uint256 boostMultiplierBps; // Boost multiplier (10000 = 1x, 0 = disabled)
         bool active;             // Whether vault accepts deposits
     }
 
@@ -77,14 +70,12 @@ contract RewardVaults is
         uint256 totalDeposits;   // Current total deposits
         uint256 totalScore;      // Total weighted score (deposits * lock multipliers)
         uint256 rewardsDistributed; // Total rewards distributed from this vault
-        uint256 lastUpdateBlock; // Last block rewards were calculated
     }
 
     /// @notice Operator reward pool for O(1) delegator distribution
     struct OperatorPool {
         uint256 accumulatedPerShare; // Accumulated rewards per share (scaled by PRECISION)
         uint256 totalStaked;         // Total delegated to this operator
-        uint256 lastUpdateBlock;     // Last update block
         uint256 pendingCommission;   // Unclaimed operator commission
     }
 
@@ -100,15 +91,11 @@ contract RewardVaults is
     /// @notice Snapshot returned when rendering vaults in UI clients
     struct VaultSummary {
         address asset;
-        uint256 apyBps;
         uint256 depositCap;
-        uint256 incentiveCap;
-        uint256 boostMultiplierBps;
         bool active;
         uint256 totalDeposits;
         uint256 totalScore;
         uint256 rewardsDistributed;
-        uint256 lastUpdateBlock;
         uint256 depositCapRemaining;
         uint256 utilizationBps;
     }
@@ -161,10 +148,6 @@ contract RewardVaults is
     /// @notice Index of an operator inside a delegator's operator list (index + 1)
     mapping(address => mapping(address => mapping(address => uint256))) private delegatorOperatorIndex;
 
-    /// @notice Decay configuration
-    uint256 public decayStartBlock;  // Block after which decay starts
-    uint256 public decayRateBps;     // Decay rate per block in basis points
-
     /// @notice List of active vault assets
     address[] public vaultAssets;
 
@@ -172,19 +155,17 @@ contract RewardVaults is
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event VaultCreated(address indexed asset, uint256 apyBps, uint256 depositCap, uint256 incentiveCap);
-    event VaultConfigUpdated(address indexed asset, uint256 apyBps, uint256 depositCap, uint256 incentiveCap);
+    event VaultCreated(address indexed asset, uint256 depositCap);
+    event VaultConfigUpdated(address indexed asset, uint256 depositCap);
     event VaultDeactivated(address indexed asset);
 
     event StakeRecorded(address indexed asset, address indexed delegator, address indexed operator, uint256 amount, LockDuration lock);
     event UnstakeRecorded(address indexed asset, address indexed delegator, address indexed operator, uint256 amount);
 
     event RewardsDistributed(address indexed asset, address indexed operator, uint256 poolReward, uint256 commission);
-    event ServiceFeeRewardsDistributed(address indexed asset, address indexed operator, uint256 amount);
     event DelegatorRewardsClaimed(address indexed asset, address indexed delegator, address indexed operator, uint256 amount);
     event OperatorCommissionClaimed(address indexed asset, address indexed operator, uint256 amount);
 
-    event DecayConfigUpdated(uint256 startBlock, uint256 rateBps);
     event OperatorCommissionUpdated(uint16 newBps);
     event LockDurationsUpdated(uint256 oneMonth, uint256 twoMonths, uint256 threeMonths, uint256 sixMonths);
 
@@ -195,13 +176,9 @@ contract RewardVaults is
     error VaultNotFound(address asset);
     error VaultAlreadyExists(address asset);
     error VaultNotActive(address asset);
-    error InvalidAPY(uint256 apyBps);
     error InvalidDepositCap();
-    error InvalidIncentiveCap();
-    error InvalidDecayRate(uint256 rateBps);
     error NoRewardsToClaim();
     error StillLocked(uint256 expiry);
-    error MintFailed();
     error DepositCapExceeded(address asset);
     error InsufficientStake();
 
@@ -242,64 +219,41 @@ contract RewardVaults is
 
     /// @notice Create a new reward vault for an asset
     /// @param asset The asset address (address(0) for native)
-    /// @param apyBps APY in basis points (e.g., 500 = 5%)
     /// @param depositCap Maximum deposits that earn rewards
-    /// @param incentiveCap Maximum rewards distributable
-    /// @param boostMultiplierBps Boost multiplier (10000 = 1x, 0 = disabled)
     function createVault(
         address asset,
-        uint256 apyBps,
-        uint256 depositCap,
-        uint256 incentiveCap,
-        uint256 boostMultiplierBps
+        uint256 depositCap
     ) external onlyRole(ADMIN_ROLE) {
         if (vaultConfigs[asset].depositCap != 0) revert VaultAlreadyExists(asset);
-        if (apyBps > 10000) revert InvalidAPY(apyBps); // Max 100% APY
         if (depositCap == 0) revert InvalidDepositCap();
-        if (incentiveCap > depositCap) revert InvalidIncentiveCap();
 
         vaultConfigs[asset] = VaultConfig({
-            apyBps: apyBps,
             depositCap: depositCap,
-            incentiveCap: incentiveCap,
-            boostMultiplierBps: boostMultiplierBps,
             active: true
         });
 
         vaultStates[asset] = VaultState({
             totalDeposits: 0,
             totalScore: 0,
-            rewardsDistributed: 0,
-            lastUpdateBlock: block.number
+            rewardsDistributed: 0
         });
 
         vaultAssets.push(asset);
 
-        emit VaultCreated(asset, apyBps, depositCap, incentiveCap);
+        emit VaultCreated(asset, depositCap);
     }
 
     /// @notice Update vault configuration
     function updateVaultConfig(
         address asset,
-        uint256 apyBps,
-        uint256 depositCap,
-        uint256 incentiveCap,
-        uint256 boostMultiplierBps
+        uint256 depositCap
     ) external onlyRole(ADMIN_ROLE) {
         if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
-        if (apyBps > 10000) revert InvalidAPY(apyBps);
         if (depositCap == 0) revert InvalidDepositCap();
-        if (incentiveCap > depositCap) revert InvalidIncentiveCap();
 
-        // Update rewards before config change
-        _updateVaultRewards(asset);
-
-        vaultConfigs[asset].apyBps = apyBps;
         vaultConfigs[asset].depositCap = depositCap;
-        vaultConfigs[asset].incentiveCap = incentiveCap;
-        vaultConfigs[asset].boostMultiplierBps = boostMultiplierBps;
 
-        emit VaultConfigUpdated(asset, apyBps, depositCap, incentiveCap);
+        emit VaultConfigUpdated(asset, depositCap);
     }
 
     /// @notice Deactivate a vault (no new deposits, existing can withdraw)
@@ -314,14 +268,6 @@ contract RewardVaults is
         require(newBps <= 5000, "Max 50% commission");
         operatorCommissionBps = newBps;
         emit OperatorCommissionUpdated(newBps);
-    }
-
-    /// @notice Update decay configuration
-    function setDecayConfig(uint256 startBlock, uint256 rateBps) external onlyRole(ADMIN_ROLE) {
-        if (rateBps > 1000) revert InvalidDecayRate(rateBps); // Max 10% decay
-        decayStartBlock = startBlock;
-        decayRateBps = rateBps;
-        emit DecayConfigUpdated(startBlock, rateBps);
     }
 
     /// @notice Update lock durations to better align with observed block times
@@ -362,14 +308,13 @@ contract RewardVaults is
         if (!config.active) revert VaultNotActive(asset);
 
         _trackOperator(asset, operator);
-        _updateVaultRewards(asset);
 
         // Update vault totals
         VaultState storage state = vaultStates[asset];
         uint256 score = lockMultiplierBps > 0
             ? (amount * lockMultiplierBps) / BPS_DENOMINATOR
             : amount;
-        if (state.totalScore + score > config.depositCap) revert DepositCapExceeded(asset);
+        if (state.totalDeposits + amount > config.depositCap) revert DepositCapExceeded(asset);
         state.totalDeposits += amount;
         state.totalScore += score;
 
@@ -388,8 +333,8 @@ contract RewardVaults is
             _trackDelegatorOperator(asset, delegator, operator);
         }
 
-        // Update operator pool total
-        operatorPools[asset][operator].totalStaked += amount;
+        // Update operator pool total (score-weighted)
+        operatorPools[asset][operator].totalStaked += score;
 
         emit StakeRecorded(asset, delegator, operator, amount, LockDuration.None);
     }
@@ -403,8 +348,6 @@ contract RewardVaults is
     ) external override onlyRole(REWARDS_MANAGER_ROLE) {
         // Skip if asset not in a vault
         if (vaultConfigs[asset].depositCap == 0) return;
-
-        _updateVaultRewards(asset);
 
         // Update vault totals
         VaultState storage state = vaultStates[asset];
@@ -430,10 +373,10 @@ contract RewardVaults is
             _untrackDelegatorOperator(asset, delegator, operator);
         }
 
-        // Update operator pool total
+        // Update operator pool total (score-weighted)
         OperatorPool storage pool = operatorPools[asset][operator];
-        if (pool.totalStaked < amount) revert InsufficientStake();
-        pool.totalStaked -= amount;
+        if (pool.totalStaked < score) revert InsufficientStake();
+        pool.totalStaked -= score;
 
         emit UnstakeRecorded(asset, delegator, operator, amount);
     }
@@ -448,8 +391,6 @@ contract RewardVaults is
         if (vaultConfigs[asset].depositCap == 0 || amount == 0) return;
 
         _trackOperator(asset, operator);
-        _updateVaultRewards(asset);
-        _updateOperatorPool(asset, operator);
 
         _distributeToOperatorPool(asset, operator, amount);
     }
@@ -460,14 +401,9 @@ contract RewardVaults is
         if (config.depositCap == 0) return 0;
 
         VaultState storage state = vaultStates[asset];
-        if (state.totalScore >= config.depositCap) return 0;
+        if (state.totalDeposits >= config.depositCap) return 0;
 
-        return config.depositCap - state.totalScore;
-    }
-
-    /// @inheritdoc IRewardsManager
-    function getAssetIncentiveCap(address asset) external view override returns (uint256) {
-        return vaultConfigs[asset].incentiveCap;
+        return config.depositCap - state.totalDeposits;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -485,10 +421,8 @@ contract RewardVaults is
         if (amount == 0) return;
         if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
 
-        _updateVaultRewards(asset);
-
         VaultState storage state = vaultStates[asset];
-        if (state.totalDeposits == 0) return;
+        if (state.totalScore == 0) return;
 
         address[] storage operators = assetOperators[asset];
         uint256 totalStake = 0;
@@ -511,7 +445,6 @@ contract RewardVaults is
             stakeRemaining -= operatorStake;
             if (share == 0) continue;
 
-            _updateOperatorPool(asset, operator);
             _distributeToOperatorPool(asset, operator, share);
         }
 
@@ -531,8 +464,6 @@ contract RewardVaults is
         if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
 
         _trackOperator(asset, operator);
-        _updateVaultRewards(asset);
-        _updateOperatorPool(asset, operator);
 
         _distributeToOperatorPool(asset, operator, amount);
     }
@@ -562,20 +493,17 @@ contract RewardVaults is
         if (!config.active) revert VaultNotActive(asset);
 
         _trackOperator(asset, operator);
-        // Update vault and operator pool rewards first
-        _updateVaultRewards(asset);
-        _updateOperatorPool(asset, operator);
 
         // Update vault state
         VaultState storage state = vaultStates[asset];
         uint256 score = _calculateScore(amount, lock);
-        if (state.totalScore + score > config.depositCap) revert DepositCapExceeded(asset);
+        if (state.totalDeposits + amount > config.depositCap) revert DepositCapExceeded(asset);
         state.totalDeposits += amount;
         state.totalScore += score;
 
         // Update operator pool
         OperatorPool storage pool = operatorPools[asset][operator];
-        pool.totalStaked += amount;
+        pool.totalStaked += score;
 
         // Update delegator debt
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
@@ -610,9 +538,7 @@ contract RewardVaults is
         if (debt.lockExpiry > block.timestamp) revert StillLocked(debt.lockExpiry);
         if (debt.stakedAmount < amount) revert InsufficientStake();
 
-        // Update rewards before unstaking
-        _updateVaultRewards(asset);
-        _updateOperatorPool(asset, operator);
+        // Update operator pool before unstaking
 
         // Update vault state
         VaultState storage state = vaultStates[asset];
@@ -624,8 +550,8 @@ contract RewardVaults is
 
         // Update operator pool
         OperatorPool storage pool = operatorPools[asset][operator];
-        if (pool.totalStaked < amount) revert InsufficientStake();
-        pool.totalStaked -= amount;
+        if (pool.totalStaked < score) revert InsufficientStake();
+        pool.totalStaked -= score;
 
         // Update delegator debt
         debt.stakedAmount -= amount;
@@ -691,9 +617,6 @@ contract RewardVaults is
     /// @notice Claim operator commission
     /// @param asset The vault asset
     function claimOperatorCommission(address asset) external nonReentrant returns (uint256) {
-        _updateVaultRewards(asset);
-        _updateOperatorPool(asset, msg.sender);
-
         OperatorPool storage pool = operatorPools[asset][msg.sender];
         uint256 commission = pool.pendingCommission;
         if (commission == 0) revert NoRewardsToClaim();
@@ -724,84 +647,13 @@ contract RewardVaults is
         if (amount == 0) return;
 
         _trackOperator(asset, operator);
-        _updateVaultRewards(asset);
-        _updateOperatorPool(asset, operator);
 
         _distributeToOperatorPool(asset, operator, amount);
-    }
-
-    /// @notice Distribute TNT service-fee rewards to restakers (no operator commission)
-    /// @dev Intended for routing a portion of service payments (in TNT) directly to TNT restakers.
-    function distributeServiceFeeRewards(
-        address asset,
-        address operator,
-        uint256 amount
-    ) external onlyRole(REWARDS_MANAGER_ROLE) {
-        if (amount == 0) return;
-        if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
-
-        _trackOperator(asset, operator);
-        _updateVaultRewards(asset);
-        _updateOperatorPool(asset, operator);
-
-        OperatorPool storage pool = operatorPools[asset][operator];
-        if (pool.totalStaked > 0) {
-            pool.accumulatedPerShare += (amount * PRECISION) / pool.totalStaked;
-        } else {
-            // Avoid trapping rewards when no delegators are staked yet for this operator.
-            // In this edge case, route the funds to the operator's claimable commission bucket.
-            pool.pendingCommission += amount;
-        }
-
-        vaultStates[asset].rewardsDistributed += amount;
-        emit ServiceFeeRewardsDistributed(asset, operator, amount);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INTERNAL: REWARD CALCULATIONS
     // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Update vault rewards based on time elapsed
-    function _updateVaultRewards(address asset) internal {
-        VaultState storage state = vaultStates[asset];
-        VaultConfig storage config = vaultConfigs[asset];
-
-        uint256 blocksPassed = block.number - state.lastUpdateBlock;
-        if (blocksPassed == 0) return;
-
-        state.lastUpdateBlock = block.number;
-
-        // No rewards if no deposits
-        if (state.totalDeposits == 0) return;
-
-        // Calculate utilization: min(deposits, depositCap) / depositCap
-        uint256 effectiveDeposits = state.totalDeposits > config.depositCap
-            ? config.depositCap
-            : state.totalDeposits;
-        uint256 utilizationBps = (effectiveDeposits * BPS_DENOMINATOR) / config.depositCap;
-
-        // Calculate rewards: (APY / blocks_per_year) * effective_deposits * utilization * blocks
-        // Utilization squared effect: 10% utilized = 1% of max rewards
-        uint256 maxRewardsPerBlock = (config.incentiveCap * config.apyBps) / (BLOCKS_PER_YEAR * BPS_DENOMINATOR);
-        uint256 actualRewards = (maxRewardsPerBlock * utilizationBps * utilizationBps * blocksPassed) / (BPS_DENOMINATOR * BPS_DENOMINATOR);
-
-        // Apply decay if past start block
-        if (decayStartBlock > 0 && block.number > decayStartBlock) {
-            uint256 decayBlocks = block.number - decayStartBlock;
-            uint256 decayFactor = BPS_DENOMINATOR - ((decayBlocks * decayRateBps) / BPS_DENOMINATOR);
-            if (decayFactor < 1000) decayFactor = 1000; // Minimum 10% of rewards
-            actualRewards = (actualRewards * decayFactor) / BPS_DENOMINATOR;
-        }
-
-        // Rewards are distributed when operators receive them via distributeRewards()
-        // This function just updates the vault's time tracking
-    }
-
-    /// @notice Update operator pool state
-    function _updateOperatorPool(address asset, address operator) internal {
-        OperatorPool storage pool = operatorPools[asset][operator];
-        pool.lastUpdateBlock = block.number;
-    }
 
     function _trackOperator(address asset, address operator) internal {
         if (isAssetOperator[asset][operator]) return;
@@ -865,7 +717,7 @@ contract RewardVaults is
         if (debt.stakedAmount == 0) return 0;
 
         uint256 accumulatedDiff = pool.accumulatedPerShare - debt.lastAccumulatedPerShare;
-        return (debt.stakedAmount * accumulatedDiff) / PRECISION;
+        return (debt.boostedScore * accumulatedDiff) / PRECISION;
     }
 
     /// @notice Shared implementation for delegator reward claims
@@ -875,8 +727,6 @@ contract RewardVaults is
         address operator
     ) internal returns (uint256) {
         if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
-        _updateVaultRewards(asset);
-        _updateOperatorPool(asset, operator);
 
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
         OperatorPool storage pool = operatorPools[asset][operator];
@@ -974,21 +824,17 @@ contract RewardVaults is
 
         VaultState storage state = vaultStates[asset];
         uint256 depositCapRemaining =
-            state.totalScore >= config.depositCap ? 0 : config.depositCap - state.totalScore;
+            state.totalDeposits >= config.depositCap ? 0 : config.depositCap - state.totalDeposits;
         uint256 utilizationBps =
             (state.totalDeposits * BPS_DENOMINATOR) / config.depositCap;
 
         return VaultSummary({
             asset: asset,
-            apyBps: config.apyBps,
             depositCap: config.depositCap,
-            incentiveCap: config.incentiveCap,
-            boostMultiplierBps: config.boostMultiplierBps,
             active: config.active,
             totalDeposits: state.totalDeposits,
             totalScore: state.totalScore,
             rewardsDistributed: state.rewardsDistributed,
-            lastUpdateBlock: state.lastUpdateBlock,
             depositCapRemaining: depositCapRemaining,
             utilizationBps: utilizationBps
         });

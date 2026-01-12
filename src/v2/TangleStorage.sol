@@ -262,8 +262,8 @@ abstract contract TangleStorage {
     /// @notice Default minimum TNT exposure for all service requests (bps)
     uint16 internal _defaultTntMinExposureBps;
 
-    /// @notice Portion of service payment reserved for TNT restakers (bps)
-    uint16 internal _tntRestakerFeeBps;
+    /// @notice Deprecated (reserved storage): was "TNT restaker fee bps"
+    uint16 internal _deprecatedTntRestakerFeeBps;
 
     /// @notice Discount applied to service payments made in TNT (bps of the payment amount; capped to protocol share)
     uint16 internal _tntPaymentDiscountBps;
@@ -282,10 +282,18 @@ abstract contract TangleStorage {
     mapping(bytes4 => address) internal _facetForSelector;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // RESERVED (USED) STORAGE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Account => Set of reward tokens with pending operator rewards
+    /// @dev Uses a reserved storage slot to support token discovery for `pendingRewards`.
+    mapping(address => EnumerableSet.AddressSet) internal _pendingRewardTokens;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev When adding new storage, decrease this gap accordingly
-    uint256[39] private _gap;
+    uint256[38] private _gap;
 }

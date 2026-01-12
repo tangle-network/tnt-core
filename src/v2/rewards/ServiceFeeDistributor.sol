@@ -13,7 +13,6 @@ import { Types } from "../libraries/Types.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 import { ITangleSecurityView } from "../interfaces/ITangleSecurityView.sol";
 import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
-import { IMetricsRecorder } from "../interfaces/IMetricsRecorder.sol";
 import { IStreamingPaymentManager } from "../interfaces/IStreamingPaymentManager.sol";
 
 /// @title ServiceFeeDistributor
@@ -45,11 +44,8 @@ contract ServiceFeeDistributor is
     /// @notice Price oracle used for USD weighting (address(0) disables USD weighting and uses raw amounts).
     IPriceOracle public priceOracle;
 
-    /// @notice InflationPool for recording exposure scores
+    /// @notice InflationPool authorized to distribute inflation-funded restaker rewards.
     address public inflationPool;
-
-    /// @notice Metrics recorder for tracking exposure scores
-    IMetricsRecorder public metrics;
 
     /// @notice StreamingPaymentManager for handling streamed payments
     IStreamingPaymentManager public streamingManager;
@@ -93,24 +89,10 @@ contract ServiceFeeDistributor is
     mapping(address => EnumerableSet.AddressSet) private _delegatorOperators; // delegator => operators
     mapping(address => mapping(address => EnumerableSet.Bytes32Set)) private _delegatorAssets; // delegator => operator => assetHashes
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // EXPOSURE TRACKING (for inflation rewards)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    // Exposure accumulators: track USD×seconds per score unit (parallel to reward accumulators)
-    // Units: (USD * seconds * PRECISION) / score
-    mapping(address => mapping(bytes32 => uint256)) public exposureAccAllPerScore; // operator => assetHash => acc
-    mapping(address => mapping(uint64 => mapping(bytes32 => uint256))) public exposureAccFixedPerScore; // operator => blueprintId => assetHash => acc
-
-    // Exposure debt to prevent retroactive exposure claims
-    mapping(address => mapping(address => mapping(bytes32 => uint256))) private _exposureDebtAll; // delegator => operator => assetHash => debt
-    mapping(address => mapping(address => mapping(uint64 => mapping(bytes32 => uint256)))) private _exposureDebtFixed; // delegator => operator => blueprintId => assetHash => debt
-
     event RestakingConfigured(address indexed restaking);
     event TangleConfigured(address indexed tangle);
     event PriceOracleConfigured(address indexed oracle);
     event InflationPoolConfigured(address indexed pool);
-    event MetricsConfigured(address indexed metrics);
     event StreamingManagerConfigured(address indexed streamingManager);
 
     event DelegationTracked(
@@ -132,14 +114,9 @@ contract ServiceFeeDistributor is
 
     event Claimed(address indexed account, address indexed token, uint256 amount);
 
-    event ExposureHarvested(
-        address indexed delegator,
-        address indexed operator,
-        uint256 exposureScore
-    );
-
     error NotRestaking();
     error NotTangle();
+    error NotInflationPool();
     error InvalidModeChange();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -190,11 +167,6 @@ contract ServiceFeeDistributor is
         emit InflationPoolConfigured(pool_);
     }
 
-    function setMetrics(address metrics_) external onlyRole(ADMIN_ROLE) {
-        metrics = IMetricsRecorder(metrics_);
-        emit MetricsConfigured(metrics_);
-    }
-
     function setStreamingManager(address streamingManager_) external onlyRole(ADMIN_ROLE) {
         streamingManager = IStreamingPaymentManager(streamingManager_);
         emit StreamingManagerConfigured(streamingManager_);
@@ -233,11 +205,6 @@ contract ServiceFeeDistributor is
 
         // Harvest for all known payment tokens before mutating scores.
         _harvestAllTokens(delegator, operator, assetHash, existingMode == 0 ? newMode : existingMode);
-
-        // Harvest accumulated exposure before score changes
-        if (existingMode != 0) {
-            _harvestExposure(delegator, operator, assetHash, existingMode);
-        }
 
         // Update principal/score.
         uint256 principalBefore = _positionPrincipal[delegator][operator][assetHash];
@@ -289,7 +256,6 @@ contract ServiceFeeDistributor is
 
         // Reset reward debt to prevent retroactive claims with the new score.
         _syncDebtsToCurrentAcc(delegator, operator, assetHash, newMode);
-        _syncExposureDebts(delegator, operator, assetHash, newMode);
 
         emit DelegationTracked(
             delegator,
@@ -319,8 +285,6 @@ contract ServiceFeeDistributor is
 
         // Harvest for all known payment tokens for existing selected blueprints before changes.
         _harvestAllTokens(delegator, operator, assetHash, 2);
-        // Harvest accumulated exposure before blueprint change
-        _harvestExposure(delegator, operator, assetHash, 2);
 
         uint256 userScore = _positionScore[delegator][operator][assetHash];
         totalFixedScore[operator][blueprintId][assetHash] += userScore;
@@ -328,7 +292,6 @@ contract ServiceFeeDistributor is
         _addFixedBlueprint(delegator, operator, assetHash, blueprintId);
 
         _syncDebtsToCurrentAcc(delegator, operator, assetHash, 2);
-        _syncExposureDebts(delegator, operator, assetHash, 2);
     }
 
     function onBlueprintRemoved(
@@ -348,8 +311,6 @@ contract ServiceFeeDistributor is
         }
 
         _harvestAllTokens(delegator, operator, assetHash, 2);
-        // Harvest accumulated exposure before blueprint removal
-        _harvestExposure(delegator, operator, assetHash, 2);
 
         uint256 userScore = _positionScore[delegator][operator][assetHash];
         uint256 cur = totalFixedScore[operator][blueprintId][assetHash];
@@ -358,7 +319,6 @@ contract ServiceFeeDistributor is
         _removeFixedBlueprint(delegator, operator, assetHash, blueprintId);
 
         _syncDebtsToCurrentAcc(delegator, operator, assetHash, 2);
-        _syncExposureDebts(delegator, operator, assetHash, 2);
     }
 
     /// @notice Called when an operator is about to leave a service
@@ -435,6 +395,28 @@ contract ServiceFeeDistributor is
         }
 
         // Immediate distribution (no TTL or expired service)
+        _distributeImmediate(serviceId, blueprintId, operator, paymentToken, amount);
+        emit ServiceFeeDistributed(serviceId, blueprintId, operator, paymentToken, amount);
+    }
+
+    /// @notice Distribute inflation-funded restaker rewards (no streaming).
+    function distributeInflationReward(
+        uint64 serviceId,
+        uint64 blueprintId,
+        address operator,
+        address paymentToken,
+        uint256 amount
+    ) external payable override nonReentrant {
+        if (msg.sender != inflationPool) revert NotInflationPool();
+        if (amount == 0) return;
+
+        if (paymentToken == address(0)) {
+            require(msg.value == amount, "bad msg.value");
+        } else {
+            require(msg.value == 0, "unexpected msg.value");
+        }
+
+        _operatorRewardTokens[operator].add(paymentToken);
         _distributeImmediate(serviceId, blueprintId, operator, paymentToken, amount);
         emit ServiceFeeDistributed(serviceId, blueprintId, operator, paymentToken, amount);
     }
@@ -794,6 +776,24 @@ contract ServiceFeeDistributor is
         fixedScore = totalFixedScore[operator][blueprintId][assetHash];
     }
 
+    function getOperatorServiceUsdExposure(
+        uint64 serviceId,
+        uint64 blueprintId,
+        address operator
+    ) external view override returns (uint256 totalUsdExposure) {
+        Types.AssetSecurityRequirement[] memory reqs =
+            ITangleSecurityView(tangle).getServiceSecurityRequirements(serviceId);
+        if (reqs.length == 0) {
+            EnumerableSet.Bytes32Set storage set = _operatorAssetHashes[operator];
+            (uint256 allUsd, uint256 fixedUsd) = _computeUsdTotalsForOperatorAssets(operator, blueprintId, set);
+            return allUsd + fixedUsd;
+        }
+
+        (uint256 allUsdTotal, uint256 fixedUsdTotal) =
+            _computeUsdTotalsForRequirements(serviceId, blueprintId, operator, reqs);
+        return allUsdTotal + fixedUsdTotal;
+    }
+
     function operatorRewardTokens(address operator) external view returns (address[] memory tokens) {
         EnumerableSet.AddressSet storage set = _operatorRewardTokens[operator];
         tokens = new address[](set.length());
@@ -985,38 +985,26 @@ contract ServiceFeeDistributor is
 
     /// @notice Distribute a chunk of payment using current scores
     /// @dev Internal helper for streaming distribution - uses same logic as immediate distribution
-    /// @param durationSeconds The time period this chunk covers (for exposure recording)
     function _distributeChunk(
         uint64 serviceId,
         uint64 blueprintId,
         address operator,
         address paymentToken,
         uint256 amount,
-        uint256 durationSeconds
+        uint256 /* durationSeconds */
     ) internal {
         Types.AssetSecurityRequirement[] memory reqs =
             ITangleSecurityView(tangle).getServiceSecurityRequirements(serviceId);
 
-        uint256 totalUsd;
-
         if (reqs.length == 0) {
             // No security requirements - distribute across all operator assets
             _distributeWithoutRequirements(serviceId, blueprintId, operator, paymentToken, amount);
-            // Calculate total USD for metrics recording (without requirements)
-            EnumerableSet.Bytes32Set storage set = _operatorAssetHashes[operator];
-            (uint256 allU, uint256 fixedU) = _computeUsdTotalsForOperatorAssets(operator, blueprintId, set);
-            totalUsd = allU + fixedU;
-
-            // Update exposure accumulators for delegators (no security requirements path)
-            if (durationSeconds > 0) {
-                _updateExposureAccumulatorsNoReqs(operator, blueprintId, durationSeconds, set);
-            }
         } else {
             // Compute USD totals for All vs Fixed mode delegators
             (uint256 allUsdTotal, uint256 fixedUsdTotal) =
                 _computeUsdTotalsForRequirements(serviceId, blueprintId, operator, reqs);
 
-            totalUsd = allUsdTotal + fixedUsdTotal;
+            uint256 totalUsd = allUsdTotal + fixedUsdTotal;
             if (totalUsd == 0) {
                 // No eligible delegators - send to treasury
                 _transferPayment(ITangleSecurityView(tangle).treasury(), paymentToken, amount);
@@ -1033,22 +1021,6 @@ contract ServiceFeeDistributor is
             if (fixedAmount > 0 && fixedUsdTotal > 0) {
                 _distributeFixedForRequirements(serviceId, blueprintId, operator, paymentToken, fixedAmount, fixedUsdTotal, reqs);
             }
-
-            // Update exposure accumulators for delegators (with security requirements)
-            if (durationSeconds > 0) {
-                _updateExposureAccumulatorsWithReqs(serviceId, blueprintId, operator, durationSeconds, reqs);
-            }
-        }
-
-        // Record operator-level exposure to metrics for inflation scoring
-        if (address(metrics) != address(0) && totalUsd > 0 && durationSeconds > 0) {
-            metrics.recordOperatorServiceExposure(
-                operator,
-                serviceId,
-                blueprintId,
-                totalUsd,
-                durationSeconds
-            );
         }
     }
 
@@ -1085,155 +1057,6 @@ contract ServiceFeeDistributor is
     function pendingDrip(uint64 serviceId, address operator) external view returns (uint256) {
         if (address(streamingManager) == address(0)) return 0;
         return streamingManager.pendingDrip(serviceId, operator);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // UNIFIED SCORING (For InflationPool integration)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Get operator's total USD-weighted exposure score across all assets
-    /// @dev Returns All mode scores only - use getOperatorExposedUsdForBlueprint for Fixed mode
-    /// @param operator The operator address
-    /// @return allModeUsd USD value of All-mode delegator stakes
-    function getOperatorExposedUsd(address operator) external view returns (uint256 allModeUsd) {
-        EnumerableSet.Bytes32Set storage assets = _operatorAssetHashes[operator];
-        uint256 assetCount = assets.length();
-
-        for (uint256 i = 0; i < assetCount; i++) {
-            bytes32 assetHash = assets.at(i);
-            Types.Asset memory asset = _assetByHash[assetHash];
-            allModeUsd += _toUsd(asset, totalAllScore[operator][assetHash]);
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // EXPOSURE ACCUMULATOR UPDATES
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Update exposure accumulators when no security requirements (all operator assets)
-    function _updateExposureAccumulatorsNoReqs(
-        address operator,
-        uint64 blueprintId,
-        uint256 durationSeconds,
-        EnumerableSet.Bytes32Set storage assetSet
-    ) internal {
-        uint256 assetCount = assetSet.length();
-        for (uint256 i = 0; i < assetCount; i++) {
-            bytes32 assetHash = assetSet.at(i);
-            Types.Asset memory asset = _assetByHash[assetHash];
-
-            // Update All mode exposure accumulator
-            uint256 allScore = totalAllScore[operator][assetHash];
-            if (allScore > 0) {
-                uint256 allUsd = _toUsd(asset, allScore);
-                // exposureAcc += (USD × seconds × PRECISION) / score
-                exposureAccAllPerScore[operator][assetHash] += (allUsd * durationSeconds * PRECISION) / allScore;
-            }
-
-            // Update Fixed mode exposure accumulator
-            uint256 fixedScore = totalFixedScore[operator][blueprintId][assetHash];
-            if (fixedScore > 0) {
-                uint256 fixedUsd = _toUsd(asset, fixedScore);
-                exposureAccFixedPerScore[operator][blueprintId][assetHash] += (fixedUsd * durationSeconds * PRECISION) / fixedScore;
-            }
-        }
-    }
-
-    /// @notice Update exposure accumulators with security requirements
-    function _updateExposureAccumulatorsWithReqs(
-        uint64 serviceId,
-        uint64 blueprintId,
-        address operator,
-        uint256 durationSeconds,
-        Types.AssetSecurityRequirement[] memory reqs
-    ) internal {
-        for (uint256 i = 0; i < reqs.length; i++) {
-            Types.Asset memory asset = reqs[i].asset;
-            bytes32 assetHash = _assetHash(asset);
-
-            uint16 commitmentBps = ITangleSecurityView(tangle).getServiceSecurityCommitmentBps(
-                serviceId,
-                operator,
-                asset.kind,
-                asset.token
-            );
-            if (commitmentBps == 0) continue;
-
-            // Update All mode exposure accumulator
-            uint256 allScore = totalAllScore[operator][assetHash];
-            if (allScore > 0) {
-                uint256 allExposed = (allScore * commitmentBps) / BPS_DENOMINATOR;
-                uint256 allUsd = _toUsd(asset, allExposed);
-                exposureAccAllPerScore[operator][assetHash] += (allUsd * durationSeconds * PRECISION) / allScore;
-            }
-
-            // Update Fixed mode exposure accumulator
-            uint256 fixedScore = totalFixedScore[operator][blueprintId][assetHash];
-            if (fixedScore > 0) {
-                uint256 fixedExposed = (fixedScore * commitmentBps) / BPS_DENOMINATOR;
-                uint256 fixedUsd = _toUsd(asset, fixedExposed);
-                exposureAccFixedPerScore[operator][blueprintId][assetHash] += (fixedUsd * durationSeconds * PRECISION) / fixedScore;
-            }
-        }
-    }
-
-    /// @notice Harvest accumulated exposure for a delegator and record to metrics
-    /// @dev Called before delegation changes to record their exposure so far
-    function _harvestExposure(address delegator, address operator, bytes32 assetHash, uint8 mode) internal {
-        if (address(metrics) == address(0)) return;
-
-        uint256 userScore = _positionScore[delegator][operator][assetHash];
-        if (userScore == 0) return;
-
-        uint256 totalExposure = 0;
-
-        if (mode == 1) {
-            // All mode
-            uint256 acc = exposureAccAllPerScore[operator][assetHash];
-            uint256 accumulated = (userScore * acc) / PRECISION;
-            uint256 debt = _exposureDebtAll[delegator][operator][assetHash];
-            if (accumulated > debt) {
-                totalExposure = accumulated - debt;
-            }
-            _exposureDebtAll[delegator][operator][assetHash] = accumulated;
-        } else if (mode == 2) {
-            // Fixed mode - sum across all selected blueprints
-            uint64[] storage bps = _fixedBlueprints[delegator][operator][assetHash];
-            for (uint256 i = 0; i < bps.length; i++) {
-                uint64 bpId = bps[i];
-                uint256 acc = exposureAccFixedPerScore[operator][bpId][assetHash];
-                uint256 accumulated = (userScore * acc) / PRECISION;
-                uint256 debt = _exposureDebtFixed[delegator][operator][bpId][assetHash];
-                if (accumulated > debt) {
-                    totalExposure += accumulated - debt;
-                }
-                _exposureDebtFixed[delegator][operator][bpId][assetHash] = accumulated;
-            }
-        }
-
-        if (totalExposure > 0) {
-            // Record to TangleMetrics - exposure is in USD×seconds units
-            // Note: We pass 1 for durationSeconds since totalExposure already includes duration
-            metrics.recordServiceExposure(delegator, operator, 0, 0, totalExposure, 1);
-            emit ExposureHarvested(delegator, operator, totalExposure);
-        }
-    }
-
-    /// @notice Sync exposure debt to current accumulator values (prevents retroactive claims)
-    function _syncExposureDebts(address delegator, address operator, bytes32 assetHash, uint8 mode) internal {
-        uint256 userScore = _positionScore[delegator][operator][assetHash];
-
-        if (mode == 1) {
-            _exposureDebtAll[delegator][operator][assetHash] =
-                (userScore * exposureAccAllPerScore[operator][assetHash]) / PRECISION;
-        } else if (mode == 2) {
-            uint64[] storage bps = _fixedBlueprints[delegator][operator][assetHash];
-            for (uint256 i = 0; i < bps.length; i++) {
-                uint64 bpId = bps[i];
-                _exposureDebtFixed[delegator][operator][bpId][assetHash] =
-                    (userScore * exposureAccFixedPerScore[operator][bpId][assetHash]) / PRECISION;
-            }
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -10,7 +10,6 @@ import { Types } from "../../src/v2/libraries/Types.sol";
 import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
 import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
 import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
 import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
 import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
 import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
@@ -168,7 +167,6 @@ contract FullStackScenario is Script {
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingRewardsFacet()));
         router.registerFacet(address(new RestakingSlashingFacet()));
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));
@@ -220,7 +218,7 @@ contract FullStackScenario is Script {
         if (tick % 3 == 0) {
             vm.deal(address(delegation), address(delegation).balance + 0.05 ether);
             vm.startBroadcast(ADMIN_KEY);
-            delegation.notifyReward(operator, 0, 0.05 ether);
+            // Legacy restaking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
             vm.stopBroadcast();
         }
 

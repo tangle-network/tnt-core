@@ -648,17 +648,6 @@ contract ValidatorPodManagerTest is BeaconTestBase {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // REWARD NOTIFICATION TESTS
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    function test_notifyReward_NoOp() public {
-        // These are placeholder functions that should not revert
-        podManager.notifyReward(operator1, 1, 1 ether);
-        podManager.notifyRewardForBlueprint(operator1, 1, 1, 1 ether);
-        // If we got here without reverting, the test passes
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
     // WITHDRAWAL QUEUE TESTS
     // ═══════════════════════════════════════════════════════════════════════════
 

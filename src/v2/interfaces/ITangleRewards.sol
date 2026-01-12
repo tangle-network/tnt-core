@@ -8,15 +8,7 @@ interface ITangleRewards {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event RewardsDistributed(
-        uint64 indexed serviceId,
-        uint256 developerAmount,
-        uint256 protocolAmount,
-        uint256 operatorAmount,
-        uint256 restakerAmount
-    );
-
-    event RewardsClaimed(address indexed account, uint256 amount);
+    event RewardsClaimed(address indexed account, address indexed token, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FUNCTIONS
@@ -37,4 +29,8 @@ interface ITangleRewards {
 
     /// @notice Get pending rewards for an account and token
     function pendingRewards(address account, address token) external view returns (uint256);
+
+    /// @notice List tokens with non-zero pending rewards for an account
+    /// @dev Convenience view; mappings are not enumerable.
+    function rewardTokens(address account) external view returns (address[] memory);
 }

@@ -42,10 +42,6 @@ contract MockRewardsManager is IRewardsManager {
         return type(uint256).max;
     }
 
-    function getAssetIncentiveCap(address) external pure override returns (uint256) {
-        return type(uint256).max;
-    }
-
     function lastDelegateCall() external view returns (DelegateCall memory) {
         return delegateCalls[delegateCalls.length - 1];
     }

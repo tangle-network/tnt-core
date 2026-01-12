@@ -735,26 +735,6 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         return _slashers[account];
     }
 
-    /// @inheritdoc IRestaking
-    function notifyRewardForBlueprint(
-        address operator,
-        uint64 blueprintId,
-        uint64 serviceId,
-        uint256 amount
-    ) external override {
-        // Reward distribution would be implemented here
-        // For now, this is a no-op placeholder
-    }
-
-    /// @inheritdoc IRestaking
-    function notifyReward(
-        address operator,
-        uint64 serviceId,
-        uint256 amount
-    ) external override {
-        // Reward distribution would be implemented here
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN
     // ═══════════════════════════════════════════════════════════════════════════

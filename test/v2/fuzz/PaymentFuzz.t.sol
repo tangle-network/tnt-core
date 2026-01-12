@@ -54,7 +54,8 @@ contract PaymentFuzzTest is BaseTest {
 
         uint256 treasuryBefore = treasury.balance;
         uint256 developerBefore = developer.balance;
-        uint256 restakerBefore = address(restaking).balance;
+        address distributor = tangle.serviceFeeDistributor();
+        uint256 restakerBefore = distributor == address(0) ? 0 : distributor.balance;
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -62,7 +63,7 @@ contract PaymentFuzzTest is BaseTest {
         uint256 developerReceived = developer.balance - developerBefore;
         uint256 treasuryReceived = treasury.balance - treasuryBefore;
         uint256 operatorPending = tangle.pendingRewards(operator1);
-        uint256 restakerReceived = address(restaking).balance - restakerBefore;
+        uint256 restakerReceived = distributor == address(0) ? 0 : distributor.balance - restakerBefore;
 
         // Total distributed should equal total payment (accounting for rounding)
         uint256 totalDistributed = developerReceived + treasuryReceived + operatorPending + restakerReceived;

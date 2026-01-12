@@ -12,31 +12,10 @@ import { MockERC20 } from "./mocks/MockERC20.sol";
 import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
 import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
 import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
 import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
 import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
 import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
 import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
-
-contract NonPayableOperator {
-    IMultiAssetDelegation public immutable delegation;
-
-    constructor(IMultiAssetDelegation _delegation) {
-        delegation = _delegation;
-    }
-
-    function register() external payable {
-        delegation.registerOperator{ value: msg.value }();
-    }
-
-    function claimRewards() external {
-        delegation.claimOperatorRewards();
-    }
-
-    function claimRewardsTo(address payable recipient) external {
-        delegation.claimOperatorRewardsTo(recipient);
-    }
-}
 
 contract MultiAssetDelegationTest is Test {
     IMultiAssetDelegation public delegation;
@@ -98,7 +77,6 @@ contract MultiAssetDelegationTest is Test {
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingRewardsFacet()));
         router.registerFacet(address(new RestakingSlashingFacet()));
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));
@@ -372,121 +350,6 @@ contract MultiAssetDelegationTest is Test {
 
         Types.Deposit memory dep = delegation.getDeposit(delegator1, address(0));
         assertEq(dep.delegatedAmount, 0.25 ether);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // REWARD TESTS
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    function test_NotifyReward() public {
-        vm.prank(operator1);
-        delegation.registerOperator{ value: MIN_OPERATOR_STAKE }();
-
-        vm.startPrank(delegator1);
-        delegation.deposit{ value: 1 ether }();
-        delegation.delegate(operator1, 1 ether);
-        vm.stopPrank();
-
-        // Fund contract and notify reward
-        vm.deal(address(delegation), 10 ether);
-        delegation.notifyReward(operator1, 0, 1 ether);
-
-        // Check operator pending rewards (10% commission)
-        assertEq(delegation.getPendingOperatorRewards(operator1), 0.1 ether);
-
-        // Check delegator pending rewards (90%)
-        assertEq(delegation.getPendingDelegatorRewards(delegator1), 0.9 ether);
-    }
-
-    function test_ClaimDelegatorRewards() public {
-        vm.prank(operator1);
-        delegation.registerOperator{ value: MIN_OPERATOR_STAKE }();
-
-        vm.startPrank(delegator1);
-        delegation.deposit{ value: 1 ether }();
-        delegation.delegate(operator1, 1 ether);
-        vm.stopPrank();
-
-        vm.deal(address(delegation), 10 ether);
-        delegation.notifyReward(operator1, 0, 1 ether);
-
-        uint256 balanceBefore = delegator1.balance;
-
-        vm.prank(delegator1);
-        delegation.claimDelegatorRewards();
-
-        assertEq(delegator1.balance, balanceBefore + 0.9 ether);
-        assertEq(delegation.getPendingDelegatorRewards(delegator1), 0);
-    }
-
-    function test_ClaimOperatorRewards() public {
-        vm.prank(operator1);
-        delegation.registerOperator{ value: MIN_OPERATOR_STAKE }();
-
-        vm.startPrank(delegator1);
-        delegation.deposit{ value: 1 ether }();
-        delegation.delegate(operator1, 1 ether);
-        vm.stopPrank();
-
-        vm.deal(address(delegation), 10 ether);
-        delegation.notifyReward(operator1, 0, 1 ether);
-
-        uint256 balanceBefore = operator1.balance;
-
-        vm.prank(operator1);
-        delegation.claimOperatorRewards();
-
-        assertEq(operator1.balance, balanceBefore + 0.1 ether);
-        assertEq(delegation.getPendingOperatorRewards(operator1), 0);
-    }
-
-    function test_ClaimOperatorRewardsToCustomRecipient() public {
-        NonPayableOperator opContract = new NonPayableOperator(delegation);
-        opContract.register{ value: MIN_OPERATOR_STAKE }();
-
-        vm.startPrank(delegator1);
-        delegation.deposit{ value: 1 ether }();
-        delegation.delegate(address(opContract), 1 ether);
-        vm.stopPrank();
-
-        vm.deal(address(delegation), 10 ether);
-        delegation.notifyReward(address(opContract), 0, 1 ether);
-
-        vm.expectRevert(DelegationErrors.TransferFailed.selector);
-        opContract.claimRewards();
-
-        address payable recipient = payable(makeAddr("reward-recipient"));
-        uint256 balanceBefore = recipient.balance;
-        opContract.claimRewardsTo(recipient);
-
-        assertEq(recipient.balance, balanceBefore + 0.1 ether);
-        assertEq(delegation.getPendingOperatorRewards(address(opContract)), 0);
-    }
-
-    function test_RewardsProportionalToStake() public {
-        vm.prank(operator1);
-        delegation.registerOperator{ value: MIN_OPERATOR_STAKE }();
-
-        // Delegator1 delegates 1 ether
-        vm.startPrank(delegator1);
-        delegation.deposit{ value: 1 ether }();
-        delegation.delegate(operator1, 1 ether);
-        vm.stopPrank();
-
-        // Delegator2 delegates 3 ether (3x more)
-        vm.startPrank(delegator2);
-        delegation.deposit{ value: 3 ether }();
-        delegation.delegate(operator1, 3 ether);
-        vm.stopPrank();
-
-        vm.deal(address(delegation), 10 ether);
-        delegation.notifyReward(operator1, 0, 4 ether);
-
-        // Total delegator share: 3.6 ether (90% of 4)
-        // Delegator1: 3.6 * 1/4 = 0.9 ether
-        // Delegator2: 3.6 * 3/4 = 2.7 ether
-        assertEq(delegation.getPendingDelegatorRewards(delegator1), 0.9 ether);
-        assertEq(delegation.getPendingDelegatorRewards(delegator2), 2.7 ether);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

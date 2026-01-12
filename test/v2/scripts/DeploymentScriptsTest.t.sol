@@ -97,18 +97,6 @@ contract MockRestaking is IRestaking {
         return true;
     }
 
-    function notifyRewardForBlueprint(
-        address,
-        uint64,
-        uint64,
-        uint256
-    ) external pure override {}
-
-    function notifyReward(
-        address,
-        uint64,
-        uint256
-    ) external pure override {}
 }
 
 contract DeployV2Harness is DeployV2 {

@@ -112,12 +112,6 @@ interface ITangleAdmin {
     /// @notice Set default TNT min exposure bps
     function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
 
-    /// @notice Get TNT restaker fee bps
-    function tntRestakerFeeBps() external view returns (uint16);
-
-    /// @notice Set TNT restaker fee bps
-    function setTntRestakerFeeBps(uint16 feeBps) external;
-
     /// @notice Get TNT payment discount bps
     function tntPaymentDiscountBps() external view returns (uint16);
 

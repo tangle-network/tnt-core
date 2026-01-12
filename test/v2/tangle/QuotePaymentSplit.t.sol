@@ -5,6 +5,7 @@ import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 import { SignatureLib } from "../../../src/v2/libraries/SignatureLib.sol";
 import { IMetricsRecorder } from "../../../src/v2/interfaces/IMetricsRecorder.sol";
+import { MockServiceFeeDistributor } from "../mocks/MockServiceFeeDistributor.sol";
 
 contract RecordingMetrics is IMetricsRecorder {
     uint256 public serviceCreatedCount;
@@ -54,8 +55,6 @@ contract RecordingMetrics is IMetricsRecorder {
     function recordJobCall(uint64, address, uint64) external {}
     function recordBlueprintCreated(uint64, address) external {}
     function recordBlueprintRegistration(uint64, address) external {}
-    function recordServiceExposure(address, address, uint64, uint64, uint256, uint256) external {}
-    function recordOperatorServiceExposure(address, uint64, uint64, uint256, uint256) external {}
 }
 
 contract RevertingMetricsRecorder is IMetricsRecorder {
@@ -80,8 +79,6 @@ contract RevertingMetricsRecorder is IMetricsRecorder {
     function recordPayment(address, uint64, address, uint256) external {}
     function recordBlueprintCreated(uint64, address) external {}
     function recordBlueprintRegistration(uint64, address) external {}
-    function recordServiceExposure(address, address, uint64, uint64, uint256, uint256) external {}
-    function recordOperatorServiceExposure(address, uint64, uint64, uint256, uint256) external {}
 }
 
 contract QuotePaymentSplitTest is BaseTest {
@@ -91,12 +88,20 @@ contract QuotePaymentSplitTest is BaseTest {
     );
 
     RecordingMetrics internal metrics;
+    MockServiceFeeDistributor internal serviceFeeDistributor;
 
     function setUp() public override {
         super.setUp();
         metrics = new RecordingMetrics();
         vm.prank(admin);
         tangle.setMetricsRecorder(address(metrics));
+
+        serviceFeeDistributor = new MockServiceFeeDistributor();
+        vm.startPrank(admin);
+        tangle.setServiceFeeDistributor(address(serviceFeeDistributor));
+        restaking.setServiceFeeDistributor(address(serviceFeeDistributor));
+        vm.stopPrank();
+
         operator1 = vm.addr(OPERATOR_PK);
         vm.deal(operator1, 100 ether);
         _registerOperator(operator1);
@@ -112,7 +117,7 @@ contract QuotePaymentSplitTest is BaseTest {
 
         uint256 devStart = developer.balance;
         uint256 treasuryStart = treasury.balance;
-        uint256 restakingStart = address(restaking).balance;
+        uint256 distributorStart = address(serviceFeeDistributor).balance;
 
         vm.prank(user1);
         tangle.createServiceFromQuotes{ value: 1 ether }(
@@ -125,7 +130,7 @@ contract QuotePaymentSplitTest is BaseTest {
 
         assertEq(developer.balance, devStart + 0.5 ether, "developer split");
         assertEq(treasury.balance, treasuryStart + 0.1 ether, "treasury split");
-        assertEq(address(restaking).balance, restakingStart + 0.2 ether, "restaker split");
+        assertEq(address(serviceFeeDistributor).balance, distributorStart + 0.2 ether, "restaker split");
         assertEq(tangle.pendingRewards(operator1), 0.2 ether, "operator pending reward");
 
         assertEq(metrics.serviceCreatedCount(), 1, "metrics service created");

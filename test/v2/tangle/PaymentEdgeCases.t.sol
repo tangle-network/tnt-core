@@ -8,6 +8,7 @@ import { Types } from "../../../src/v2/libraries/Types.sol";
 import { Errors } from "../../../src/v2/libraries/Errors.sol";
 import { PaymentLib } from "../../../src/v2/libraries/PaymentLib.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
+import { MockServiceFeeDistributor } from "../mocks/MockServiceFeeDistributor.sol";
 
 /// @notice Mock token that takes a fee on transfer
 contract FeeOnTransferToken is ERC20 {
@@ -65,10 +66,17 @@ contract ETHRejecter {
 /// @notice Edge cases and stress tests for payment system
 contract PaymentEdgeCasesTest is BaseTest {
     MockERC20 public token;
+    MockServiceFeeDistributor public serviceFeeDistributor;
     uint64 public blueprintId;
 
     function setUp() public override {
         super.setUp();
+
+        serviceFeeDistributor = new MockServiceFeeDistributor();
+        vm.startPrank(admin);
+        tangle.setServiceFeeDistributor(address(serviceFeeDistributor));
+        restaking.setServiceFeeDistributor(address(serviceFeeDistributor));
+        vm.stopPrank();
 
         // Deploy mock token (constructor initializes with default name/symbol)
         token = new MockERC20();
@@ -163,7 +171,7 @@ contract PaymentEdgeCasesTest is BaseTest {
 
         uint256 developerBefore = developer.balance;
         uint256 treasuryBefore = treasury.balance;
-        uint256 restakerBefore = address(restaking).balance;
+        uint256 restakerBefore = address(serviceFeeDistributor).balance;
 
         uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
         _approveService(operator1, requestId);
@@ -176,7 +184,7 @@ contract PaymentEdgeCasesTest is BaseTest {
 
         assertEq(developer.balance - developerBefore, expectedDev);
         assertEq(treasury.balance - treasuryBefore, expectedTreasury);
-        assertEq(address(restaking).balance - restakerBefore, expectedRestaker);
+        assertEq(address(serviceFeeDistributor).balance - restakerBefore, expectedRestaker);
         assertEq(tangle.pendingRewards(operator1), expectedOperator);
     }
 

@@ -304,23 +304,11 @@ RewardVaults (receives transfers)
 
 ### Vault Configuration
 
-Each asset has its own reward vault with configurable parameters:
+Each asset has its own reward vault with a deposit cap:
 
 ```solidity
-vaults.createVault(
-    address(token),     // Asset address
-    500,                // 5% APY (basis points)
-    1_000_000 ether,    // Deposit cap (rewards only on this amount)
-    100_000 ether,      // Max rewards distributable
-    10000               // Boost multiplier (10000 = 1x)
-);
+vaults.createVault(address(token), 1_000_000 ether);
 ```
-
-### Utilization-Based Rewards
-
-Deposit cap limits reward distribution:
-- 10% utilized = 10% of max rewards distributed
-- Prevents over-rewarding under-utilized vaults
 
 ### Operator Commission
 
@@ -345,10 +333,9 @@ vaults.claimOperatorCommission(asset);
 | Function | Role | Purpose |
 |----------|------|---------|
 | `createVault()` | ADMIN_ROLE | Create new reward vault |
-| `updateVaultConfig()` | ADMIN_ROLE | Modify APY, caps |
+| `updateVaultConfig()` | ADMIN_ROLE | Update deposit cap |
 | `deactivateVault()` | ADMIN_ROLE | Stop new deposits |
 | `setOperatorCommission()` | ADMIN_ROLE | Change commission rate |
-| `setDecayConfig()` | ADMIN_ROLE | Set reward decay |
 
 ### Integration with Core Contracts
 
@@ -393,10 +380,11 @@ pool.fund(yearlyInflation);
 
 ```solidity
  pool.setWeights(
-    6000,   // 60% to stakers
+    4000,   // 40% to stakers
     2500,   // 25% to operators
     1000,   // 10% to customers
-    500     // 5% to developers
+    2500,   // 25% to developers
+    0       // 0% to restakers (optional)
  );
 
  // Epoch length is in seconds (timestamp-based)
@@ -407,9 +395,11 @@ pool.fund(yearlyInflation);
 
 | Category | Default | Metric Basis |
 |----------|---------|--------------|
-| Stakers | 60% | Vault deposits, lock multipliers |
+| Stakers | 40% | Vault deposits, lock multipliers |
 | Operators | 25% | Jobs completed × stake, heartbeats |
-| Customers | 15% | Fees paid, services used |
+| Customers | 10% | Fees paid, services used |
+| Developers | 25% | Blueprint creation, jobs, fees |
+| Restakers | 0% | Exposure-weighted inflation via ServiceFeeDistributor |
 
 ### Epoch Distribution
 
@@ -418,6 +408,8 @@ pool.fund(yearlyInflation);
  if (pool.isEpochReady()) {
     pool.distributeEpoch();
  }
+// If restaker inflation is enabled, a keeper should call:
+// pool.distributeEpochWithServices(activeServiceIds);
 
 // Claim rewards
 pool.claimOperatorRewards();
@@ -438,7 +430,7 @@ pool.emergencyWithdraw(newPoolAddress);
 | Function | Role | Purpose |
 |----------|------|---------|
 | `fund()` | FUNDER_ROLE | Add tokens to pool budget |
-| `setWeights()` | ADMIN_ROLE | Adjust distribution weights |
+| `setWeights()` | ADMIN_ROLE | Adjust distribution weights (stakers/operators/customers/developers/restakers) |
 | `setEpochLength()` | ADMIN_ROLE | Change distribution frequency (seconds) |
 | `emergencyWithdraw()` | DEFAULT_ADMIN_ROLE | Migrate to new pool |
 

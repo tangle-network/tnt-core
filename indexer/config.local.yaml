@@ -46,7 +46,7 @@ networks:
           - event: ServiceApproved(uint64 indexed requestId, address indexed operator)
           - event: ServiceRejected(uint64 indexed requestId, address indexed operator)
           - event: ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester)
-          - event: ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester, address[] operators, ((uint8,address),uint16,uint16)[] securityRequirements)
+          - event: ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester)
           - event: ServiceTerminated(uint64 indexed serviceId)
           - event: SlashCancelled(uint64 indexed slashId, address indexed canceller, string reason)
           - event: SlashConfigUpdated(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps)
@@ -137,8 +137,8 @@ networks:
           - "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82"
         handler: src/EventHandlers.ts
         events:
-          - event: VaultCreated(address indexed asset, uint256 apyBps, uint256 depositCap, uint256 incentiveCap)
-          - event: VaultConfigUpdated(address indexed asset, uint256 apyBps, uint256 depositCap, uint256 incentiveCap)
+          - event: VaultCreated(address indexed asset, uint256 depositCap)
+          - event: VaultConfigUpdated(address indexed asset, uint256 depositCap)
           - event: VaultDeactivated(address indexed asset)
           - event: StakeRecorded(address indexed asset, address indexed delegator, address indexed operator, uint256 amount, uint8 lock)
           - event: UnstakeRecorded(address indexed asset, address indexed delegator, address indexed operator, uint256 amount)

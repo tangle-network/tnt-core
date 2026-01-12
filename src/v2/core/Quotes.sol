@@ -338,17 +338,14 @@ abstract contract Quotes is Base {
 
         // Distribute payment as streaming starting from extension start
         if (totalCost > 0) {
-            uint16[] memory exposures = _getCurrentOperatorExposures(serviceId, quoteOperators);
-            uint256 totalExposure = _sumExposures(exposures);
+            uint64 extensionEnd = extensionStart + additionalTtl;
             _distributeExtensionPayment(
                 serviceId,
                 svc.blueprintId,
                 totalCost,
                 quoteOperators,
-                exposures,
-                totalExposure,
                 extensionStart,
-                extensionStart + additionalTtl
+                extensionEnd
             );
         }
     }
@@ -376,30 +373,12 @@ abstract contract Quotes is Base {
         );
     }
 
-    function _getCurrentOperatorExposures(
-        uint64 serviceId,
-        address[] memory operators
-    ) private view returns (uint16[] memory exposures) {
-        exposures = new uint16[](operators.length);
-        for (uint256 i = 0; i < operators.length; i++) {
-            exposures[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
-        }
-    }
-
-    function _sumExposures(uint16[] memory exposures) private pure returns (uint256 total) {
-        for (uint256 i = 0; i < exposures.length; i++) {
-            total += exposures[i];
-        }
-    }
-
     /// @notice Distribute extension payment - to be implemented in final contract
     function _distributeExtensionPayment(
         uint64 serviceId,
         uint64 blueprintId,
         uint256 amount,
         address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure,
         uint64 startTime,
         uint64 endTime
     ) internal virtual;

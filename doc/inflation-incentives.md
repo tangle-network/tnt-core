@@ -4,24 +4,27 @@
 
 Pre-funded reward pool that distributes TNT to ecosystem participants based on activity metrics. No minting - only distributes what's funded.
 
+Service-fee rewards for restakers are paid from service payments via `ServiceFeeDistributor`. Inflation can optionally
+allocate a restaker share that is also distributed through `ServiceFeeDistributor` by exposure.
+
 ## Distribution Weights
 
 | Category | Weight | Rationale |
 |----------|--------|-----------|
-| Staking | 10% | Passive capital provision - lowest value |
+| Staking | 40% | Explicit staking incentives (RewardVaults) |
 | Operators | 25% | Active work running services |
 | Customers | 10% | Fee rebates for service usage |
 | Developers | 25% | Blueprint creation and ecosystem growth |
-| Restakers | 30% | Real slashing risk from service exposure |
+| Restakers | 0% (default) | Optional exposure-weighted restaker inflation |
 
-**Verify:** `InflationPool.getWeights()` returns `(1000, 2500, 1000, 2500, 3000)`
+**Verify:** `InflationPool.getWeights()` returns `(4000, 2500, 1000, 2500, 0)`
 
 ### Design Rationale
 
-- **Staking (10%)**: Passive deposits that aren't delegated to services provide minimal security value
-- **Restakers (30%)**: Delegators whose stake secures active services take real slashing risk and deserve the largest share
+- **Staking (40%)**: Primary inflation sink to fund TNT staking incentives via `RewardVaults`
 - **Operators/Developers (25% each)**: Active participants who build and run the ecosystem
 - **Customers (10%)**: Rebate for service usage to encourage adoption
+- **Restakers (0% default)**: Optional exposure-weighted inflation for delegators
 
 ## Epoch Configuration
 
@@ -69,20 +72,6 @@ feeScore = sqrt(totalFees / 1e18) × 1e9
 - `developerTotalJobs(developer)`
 - `developerTotalFees(developer)`
 
-## Restaker Score Formula
-
-```
-score = exposureScore
-exposureScore = USD_exposure × duration_seconds
-```
-
-Rewards delegators proportionally to their risk exposure - higher USD value staked for longer durations = higher score.
-
-**Verify via TangleMetrics:**
-- `delegatorExposureScore(delegator)`
-- `totalExposureScore()`
-- `getRestakerStats(delegator)` returns `(exposureScore, shareOfTotal)`
-
 ## Customer Score Formula
 
 ```
@@ -102,6 +91,20 @@ vaultShare = (epochBudget × stakingWeight × vaultDeposits) / (10000 × totalDe
 
 **Verify:** `RewardVaults.vaultStates(asset)` returns `(totalDeposits, ...)`
 
+## Restaker Inflation (Optional)
+
+When `restakersBps > 0`, the pool distributes a restaker share by exposure using `ServiceFeeDistributor`.
+An account with `DISTRIBUTOR_ROLE` calls `distributeEpochWithServices(serviceIds)` with the active services for that epoch.
+
+Restaker inflation is allocated:
+1. By service exposure (USD-weighted) across services in the list.
+2. By operator exposure within each service.
+3. By delegator score within each operator and asset (handled by `ServiceFeeDistributor`).
+
+Configuration:
+- `InflationPool.setRestakerInflationConfig(tangle, serviceFeeDistributor)`
+- `ServiceFeeDistributor.setInflationPool(inflationPool)`
+
 ## Operator Commission
 
 | Parameter | Value | Contract Field |
@@ -115,11 +118,12 @@ Operator receives commission, remainder goes to delegator pool.
 ## Redistribution
 
 When a category has no eligible participants, its allocation redistributes to active categories **equally** (not by weight).
+If restaker inflation is configured but no eligible services are provided, that share remains in the pool for a later epoch.
 
 Example scenarios:
 - **Only stakers**: 100% to staking
-- **Stakers + restakers**: 50% each
-- **All active**: Uses configured weights (10/25/10/25/30)
+- **Stakers + operators**: 50% each
+- **All active**: Uses configured weights (40/25/10/25)
 
 ## Admin Configuration
 
@@ -128,13 +132,13 @@ Example scenarios:
 ```solidity
 // Requires ADMIN_ROLE
 // All five must sum to 10000 (100%)
-InflationPool.setDistributionWeights(
-    1000,  // stakingBps (10%)
+InflationPool.setWeights(
+    4000,  // stakingBps (40%)
     2500,  // operatorsBps (25%)
     1000,  // customersBps (10%)
     2500,  // developersBps (25%)
-    3000   // restakersBps (30%)
-)
+    0      // restakersBps (0% default)
+);
 ```
 
 ### Changing Epoch Length
@@ -159,9 +163,9 @@ InflationPool.fund(amount)
 | Contract | Purpose |
 |----------|---------|
 | `InflationPool` | Epoch distribution, claiming, weight configuration |
-| `TangleMetrics` | Activity recording (jobs, heartbeats, exposure, fees) |
+| `TangleMetrics` | Activity recording (jobs, heartbeats, fees) |
 | `RewardVaults` | Staking reward distribution to delegators |
-| `ServiceFeeDistributor` | Service fee distribution and exposure tracking |
+| `ServiceFeeDistributor` | Service-fee rewards to restakers (separate from inflation) |
 
 ## Governance
 
@@ -169,7 +173,7 @@ The InflationPool is modular and upgradeable:
 
 1. **Upgrade existing**: Governance can upgrade via `UPGRADER_ROLE`
 2. **Deploy new**: Deploy a new incentive contract pointing to same TangleMetrics
-3. **Change weights**: Call `setDistributionWeights()` via governance
+3. **Change weights**: Call `setWeights()` via governance
 
 New incentive contracts can read from TangleMetrics (public view functions) and apply completely different formulas without touching core protocol.
 
@@ -193,7 +197,6 @@ InflationPool.pendingDeveloperRewards(developer)
 TangleMetrics.getOperatorSuccessRate(operator) // basis points
 TangleMetrics.getBlueprintStats(blueprintId)
 TangleMetrics.getDeveloperStats(developer)
-TangleMetrics.getRestakerStats(delegator)
 ```
 
 ## Vault UI + Claiming Helpers

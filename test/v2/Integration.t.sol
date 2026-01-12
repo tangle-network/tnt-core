@@ -99,28 +99,7 @@ contract IntegrationTest is BaseTest {
         Types.JobCall memory job = tangle.getJobCall(0, callId);
         assertTrue(job.completed);
 
-        // Step 10: Check delegators can claim rewards from restaking
-        // Restaker share was 22.5% = 2.25 ETH
-        uint256 restakerShare = (payment * 2250) / 10000;
-
-        // Fund restaking contract with the reward amount
-        vm.deal(address(restaking), restakerShare);
-
-        // Notify rewards for operators
-        restaking.notifyReward(operator1, 0, restakerShare / 2);
-        restaking.notifyReward(operator2, 0, restakerShare / 2);
-
-        // Check pending rewards
-        uint256 delegator1Pending = restaking.getPendingDelegatorRewards(delegator1);
-        uint256 delegator2Pending = restaking.getPendingDelegatorRewards(delegator2);
-        assertTrue(delegator1Pending > 0, "Delegator1 should have pending rewards");
-        assertTrue(delegator2Pending > 0, "Delegator2 should have pending rewards");
-
-        // Claim rewards
-        uint256 delegator1Before = delegator1.balance;
-        vm.prank(delegator1);
-        restaking.claimDelegatorRewards();
-        assertTrue(delegator1.balance > delegator1Before, "Delegator1 should receive rewards");
+        // Service-fee restaker rewards are handled by ServiceFeeDistributor during payment distribution.
     }
 
     function test_FullWorkflow_MultiOperatorExposure() public {
@@ -499,95 +478,6 @@ contract IntegrationTest is BaseTest {
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.ServiceNotActive.selector, serviceId));
         tangle.submitJob(serviceId, 0, "should fail");
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // REWARD DISTRIBUTION INTEGRATION TESTS
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    function test_RewardDistribution_ProportionalByDelegation() public {
-        // Setup
-        vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rewards", address(0)));
-
-        vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
-        _directRegisterOperator(operator1, blueprintId, "");
-
-        // Delegator1: 1 ETH, Delegator2: 3 ETH (3x more)
-        vm.startPrank(delegator1);
-        restaking.deposit{ value: 1 ether }();
-        restaking.delegate(operator1, 1 ether);
-        vm.stopPrank();
-
-        vm.startPrank(delegator2);
-        restaking.deposit{ value: 3 ether }();
-        restaking.delegate(operator1, 3 ether);
-        vm.stopPrank();
-
-        // Fund and notify rewards
-        uint256 rewardAmount = 4 ether;
-        vm.deal(address(restaking), rewardAmount);
-        restaking.notifyReward(operator1, 0, rewardAmount);
-
-        // After 10% commission: 3.6 ETH for delegators
-        // Delegator1: 3.6 * 1/4 = 0.9 ETH
-        // Delegator2: 3.6 * 3/4 = 2.7 ETH
-        assertEq(restaking.getPendingDelegatorRewards(delegator1), 0.9 ether);
-        assertEq(restaking.getPendingDelegatorRewards(delegator2), 2.7 ether);
-    }
-
-    function test_RewardDistribution_OperatorCommission() public {
-        vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
-
-        vm.startPrank(delegator1);
-        restaking.deposit{ value: 10 ether }();
-        restaking.delegate(operator1, 10 ether);
-        vm.stopPrank();
-
-        // Fund and notify reward
-        uint256 rewardAmount = 10 ether;
-        vm.deal(address(restaking), rewardAmount);
-        restaking.notifyReward(operator1, 0, rewardAmount);
-
-        // 10% commission = 1 ETH to operator
-        assertEq(restaking.getPendingOperatorRewards(operator1), 1 ether);
-
-        // 90% to delegators = 9 ETH
-        assertEq(restaking.getPendingDelegatorRewards(delegator1), 9 ether);
-    }
-
-    function test_RewardDistribution_ClaimingClearsDebt() public {
-        vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
-
-        vm.startPrank(delegator1);
-        restaking.deposit{ value: 10 ether }();
-        restaking.delegate(operator1, 10 ether);
-        vm.stopPrank();
-
-        // First reward
-        vm.deal(address(restaking), 10 ether);
-        restaking.notifyReward(operator1, 0, 5 ether);
-
-        uint256 pending1 = restaking.getPendingDelegatorRewards(delegator1);
-        assertTrue(pending1 > 0);
-
-        // Claim
-        uint256 balanceBefore = delegator1.balance;
-        vm.prank(delegator1);
-        restaking.claimDelegatorRewards();
-
-        assertEq(delegator1.balance, balanceBefore + pending1);
-        assertEq(restaking.getPendingDelegatorRewards(delegator1), 0);
-
-        // Second reward
-        restaking.notifyReward(operator1, 0, 5 ether);
-
-        // Should only see second reward, not accumulate with first
-        uint256 pending2 = restaking.getPendingDelegatorRewards(delegator1);
-        assertEq(pending2, 4.5 ether); // 90% of 5 ETH
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

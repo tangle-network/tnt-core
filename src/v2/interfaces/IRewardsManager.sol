@@ -45,9 +45,4 @@ interface IRewardsManager {
     /// @param asset The asset to query
     /// @return remaining The remaining deposit capacity
     function getAssetDepositCapRemaining(address asset) external view returns (uint256 remaining);
-
-    /// @notice Get incentive cap for an asset vault
-    /// @param asset The asset to query
-    /// @return cap The incentive cap
-    function getAssetIncentiveCap(address asset) external view returns (uint256 cap);
 }

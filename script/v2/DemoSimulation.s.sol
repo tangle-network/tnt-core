@@ -29,7 +29,6 @@ import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFa
 import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
 import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
 import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
 import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
 import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
 import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
@@ -191,7 +190,6 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingRewardsFacet()));
         router.registerFacet(address(new RestakingSlashingFacet()));
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));
@@ -693,7 +691,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         vm.deal(address(restaking), address(restaking).balance + rewardAmount);
 
         vm.startBroadcast(ADMIN_KEY);
-        try restaking.notifyReward(operators[operatorIndex], 0, rewardAmount) {} catch {}
+        // Legacy restaking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
         vm.stopBroadcast();
     }
 

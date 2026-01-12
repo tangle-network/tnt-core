@@ -34,10 +34,7 @@
     "vaults": [
       {
         "asset": "0x0000000000000000000000000000000000000000",
-        "apyBps": 800,
         "depositCap": 1000000000000000000000000,
-        "incentiveCap": 200000000000000000000000,
-        "boostMultiplierBps": 0,
         "active": true
       }
     ]

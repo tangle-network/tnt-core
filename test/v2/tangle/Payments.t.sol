@@ -6,16 +6,23 @@ import { Types } from "../../../src/v2/libraries/Types.sol";
 import { Errors } from "../../../src/v2/libraries/Errors.sol";
 import { PaymentLib } from "../../../src/v2/libraries/PaymentLib.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
-import { MockRewardVaults } from "../mocks/MockRewardVaults.sol";
+import { MockServiceFeeDistributor } from "../mocks/MockServiceFeeDistributor.sol";
 
 /// @title PaymentsTest
 /// @notice Comprehensive tests for payment distribution, escrow, and rewards
 contract PaymentsTest is BaseTest {
     MockERC20 public token;
+    MockServiceFeeDistributor public serviceFeeDistributor;
     uint64 blueprintId;
 
     function setUp() public override {
         super.setUp();
+
+        serviceFeeDistributor = new MockServiceFeeDistributor();
+        vm.startPrank(admin);
+        tangle.setServiceFeeDistributor(address(serviceFeeDistributor));
+        restaking.setServiceFeeDistributor(address(serviceFeeDistributor));
+        vm.stopPrank();
 
         // Deploy mock token and fund users (constructor initializes with default name/symbol)
         token = new MockERC20();
@@ -135,78 +142,9 @@ contract PaymentsTest is BaseTest {
         assertEq(operatorPending, 2 ether, "Operator pending rewards incorrect");
     }
 
-    function test_TntRestakerFee_ReservesPortionToRewardVaults() public {
-        MockRewardVaults vaults = new MockRewardVaults();
-
-        vm.startPrank(admin);
-        tangle.setTntToken(address(token));
-        tangle.setRewardVaults(address(vaults));
-        tangle.setTntRestakerFeeBps(1000); // 10%
-
-        // Make split easy to reason about: everything (after reserve) goes to treasury.
-        tangle.setPaymentSplit(Types.PaymentSplit({
-            developerBps: 0,
-            protocolBps: 10000,
-            operatorBps: 0,
-            restakerBps: 0
-        }));
-        vm.stopPrank();
-
-        // Enable reserve only when there are TNT restakers for the operator.
-        vaults.setTotalStaked(address(token), operator1, 1 ether);
-
-        uint256 payment = 100 ether;
-
-        uint256 treasuryBefore = token.balanceOf(treasury);
-        uint256 vaultsBefore = token.balanceOf(address(vaults));
-
-        uint64 requestId = _requestServiceWithErc20(user1, blueprintId, operator1, address(token), payment);
-        vm.prank(operator1);
-        tangle.approveService(requestId, 0);
-
-        // 10% reserved to TNT restakers.
-        assertEq(token.balanceOf(address(vaults)), vaultsBefore + 10 ether);
-        assertEq(vaults.totalDistributed(), 10 ether);
-        assertEq(vaults.distributedToOperator(operator1), 10 ether);
-
-        // Remaining 90% goes to treasury per split config.
-        assertEq(token.balanceOf(treasury), treasuryBefore + 90 ether);
-    }
-
-    function test_TntRestakerFee_NoTntRestakers_NoReserveTaken() public {
-        MockRewardVaults vaults = new MockRewardVaults();
-
-        vm.startPrank(admin);
-        tangle.setTntToken(address(token));
-        tangle.setRewardVaults(address(vaults));
-        tangle.setTntRestakerFeeBps(1000); // 10%
-
-        // Everything goes to treasury so we can verify no reserve was taken.
-        tangle.setPaymentSplit(Types.PaymentSplit({
-            developerBps: 0,
-            protocolBps: 10000,
-            operatorBps: 0,
-            restakerBps: 0
-        }));
-        vm.stopPrank();
-
-        uint256 payment = 100 ether;
-
-        uint256 treasuryBefore = token.balanceOf(treasury);
-        uint256 vaultsBefore = token.balanceOf(address(vaults));
-
-        uint64 requestId = _requestServiceWithErc20(user1, blueprintId, operator1, address(token), payment);
-        vm.prank(operator1);
-        tangle.approveService(requestId, 0);
-
-        assertEq(token.balanceOf(address(vaults)), vaultsBefore);
-        assertEq(token.balanceOf(treasury), treasuryBefore + 100 ether);
-    }
-
     function test_TntPaymentDiscount_FundedFromProtocolShare_RebatesOwner() public {
         vm.startPrank(admin);
         tangle.setTntToken(address(token));
-        tangle.setTntRestakerFeeBps(0);
         tangle.setTntPaymentDiscountBps(1000); // 10%
 
         // Everything goes to treasury, so discount is easy to verify.
@@ -237,7 +175,6 @@ contract PaymentsTest is BaseTest {
     function test_TntPaymentDiscount_CappedToProtocolShare() public {
         vm.startPrank(admin);
         tangle.setTntToken(address(token));
-        tangle.setTntRestakerFeeBps(0);
         tangle.setTntPaymentDiscountBps(1000); // 10%
 
         // Protocol share is only 5%; discount should be capped to 5%.
@@ -795,7 +732,7 @@ contract PaymentsTest is BaseTest {
 
         uint256 developerBefore = developer.balance;
         uint256 treasuryBefore = treasury.balance;
-        uint256 restakingBefore = address(restaking).balance;
+        uint256 distributorBefore = address(serviceFeeDistributor).balance;
 
         uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
         vm.prank(operator1);
@@ -807,9 +744,9 @@ contract PaymentsTest is BaseTest {
         assertEq(treasury.balance, treasuryBefore, "treasury cannot receive fractional wei");
         assertEq(tangle.pendingRewards(operator1), 0, "operator share rounds down to zero");
         assertEq(
-            address(restaking).balance,
-            restakingBefore + payment,
-            "restakers receive the rounded remainder"
+            address(serviceFeeDistributor).balance,
+            distributorBefore + payment,
+            "restaker share is forwarded to ServiceFeeDistributor"
         );
     }
 

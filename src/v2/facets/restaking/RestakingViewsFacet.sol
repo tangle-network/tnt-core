@@ -4,13 +4,12 @@ pragma solidity ^0.8.26;
 import { RestakingFacetBase } from "../../restaking/RestakingFacetBase.sol";
 import { Types } from "../../libraries/Types.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
-import { IRestaking } from "../../interfaces/IRestaking.sol";
 
 /// @title RestakingViewsFacet
 /// @notice Facet for restaking view functions
 contract RestakingViewsFacet is RestakingFacetBase, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](27);
+        selectorList = new bytes4[](25);
         selectorList[0] = this.isOperator.selector;
         selectorList[1] = this.isOperatorActive.selector;
         selectorList[2] = this.getOperatorStake.selector;
@@ -32,12 +31,10 @@ contract RestakingViewsFacet is RestakingFacetBase, IFacetSelectors {
         selectorList[18] = this.getDelegationBlueprints.selector;
         selectorList[19] = this.getPendingUnstakes.selector;
         selectorList[20] = this.getOperatorRewardPool.selector;
-        selectorList[21] = this.getPendingDelegatorRewards.selector;
-        selectorList[22] = this.getPendingOperatorRewards.selector;
-        selectorList[23] = this.getOperatorDelegators.selector;
-        selectorList[24] = this.getOperatorDelegatorCount.selector;
-        selectorList[25] = this.rewardsManager.selector;
-        selectorList[26] = this.serviceFeeDistributor.selector;
+        selectorList[21] = this.getOperatorDelegators.selector;
+        selectorList[22] = this.getOperatorDelegatorCount.selector;
+        selectorList[23] = this.rewardsManager.selector;
+        selectorList[24] = this.serviceFeeDistributor.selector;
     }
 
     function isOperator(address operator) external view returns (bool) {
@@ -138,16 +135,6 @@ contract RestakingViewsFacet is RestakingFacetBase, IFacetSelectors {
     /// @notice Get operator reward pool
     function getOperatorRewardPool(address operator) external view returns (Types.OperatorRewardPool memory) {
         return _getOperatorRewardPool(operator);
-    }
-
-    /// @notice Get pending delegator rewards
-    function getPendingDelegatorRewards(address delegator) external view returns (uint256) {
-        return _getPendingDelegatorRewards(delegator);
-    }
-
-    /// @notice Get pending operator rewards
-    function getPendingOperatorRewards(address operator) external view returns (uint256) {
-        return _getPendingOperatorRewards(operator);
     }
 
     /// @notice Get all delegators for an operator

@@ -185,7 +185,6 @@ library SchemaLib {
             uint16 childCount,
             uint256 childCursor
         ) = _readHeader(schema, start, ctx, path);
-        uint256 nodeEnd = _nodeEnd(schema, childCursor, childCount, ctx, path);
 
         if (kind == Types.BlueprintFieldKind.Void) {
             return cursor;
@@ -258,109 +257,138 @@ library SchemaLib {
         }
 
         if (kind == Types.BlueprintFieldKind.Optional) {
-            if (childCount != 1) {
-                revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
-            }
-            (uint256 len, uint256 next) = _readCompactLength(data, cursor, limit, ctx, path);
-            uint256 childStart = childCursor;
-
-            if (len == 0) {
-                return next;
-            }
-
-            uint256 endCursor = next + len;
-            if (endCursor > limit) {
-                revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
-            }
-
-            uint256 consumed = _validateField(
-                schema,
-                childStart,
-                data,
-                next,
-                endCursor,
-                ctx,
-                _encodePath(path, 0)
-            );
-            if (consumed != endCursor) {
-                revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
-            }
-            return consumed;
+            return _validateOptional(schema, childCursor, childCount, data, cursor, limit, ctx, path);
         }
 
         if (kind == Types.BlueprintFieldKind.Array) {
-            if (childCount != 1) {
-                revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
-            }
-            uint256 childStart = childCursor;
-            uint256 childEnd = _skipNode(schema, childStart, ctx, _encodePath(path, 0));
-            uint256 current = cursor;
-            for (uint16 i = 0; i < arrayLength; ++i) {
-                current = _validateField(
-                    schema,
-                    childStart,
-                    data,
-                    current,
-                    limit,
-                    ctx,
-                    _encodePath(path, i)
-                );
-            }
-            if (childEnd != nodeEnd) {
-                revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
-            }
-            return current;
+            return _validateArray(schema, childCursor, childCount, arrayLength, data, cursor, limit, ctx, path);
         }
 
         if (kind == Types.BlueprintFieldKind.List) {
-            if (childCount != 1) {
-                revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
-            }
-            uint256 childStart = childCursor;
-            (uint256 count, uint256 next) = _readCompactLength(data, cursor, limit, ctx, path);
-            uint256 current = next;
-            for (uint256 i = 0; i < count; ++i) {
-                current = _validateField(
-                    schema,
-                    childStart,
-                    data,
-                    current,
-                    limit,
-                    ctx,
-                    // forge-lint: disable-next-line(unsafe-typecast)
-                    _encodePath(path, uint16(i))
-                );
-            }
-            return current;
+            return _validateList(schema, childCursor, childCount, data, cursor, limit, ctx, path);
         }
 
         if (kind == Types.BlueprintFieldKind.Struct) {
-            (uint256 fieldCount, uint256 next) = _readCompactLength(data, cursor, limit, ctx, path);
-            if (fieldCount != childCount) {
-                revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
-            }
-            uint256 current = next;
-            uint256 childStart = childCursor;
-            for (uint16 i = 0; i < childCount; ++i) {
-                uint256 childEnd = _skipNode(schema, childStart, ctx, _encodePath(path, i));
-                current = _validateField(
-                    schema,
-                    childStart,
-                    data,
-                    current,
-                    limit,
-                    ctx,
-                    _encodePath(path, i)
-                );
-                childStart = childEnd;
-            }
-            if (childStart != nodeEnd) {
-                revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
-            }
-            return current;
+            return _validateStruct(schema, childCursor, childCount, data, cursor, limit, ctx, path);
         }
 
         revert Errors.UnsupportedFieldKind(uint8(kind));
+    }
+
+    function _validateOptional(
+        bytes memory schema,
+        uint256 childCursor,
+        uint16 childCount,
+        bytes memory data,
+        uint256 cursor,
+        uint256 limit,
+        ValidationContext memory ctx,
+        uint256 path
+    ) private pure returns (uint256) {
+        if (childCount != 1) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+
+        (uint256 len, uint256 next) = _readCompactLength(data, cursor, limit, ctx, path);
+        if (len == 0) return next;
+
+        uint256 endCursor = next + len;
+        if (endCursor > limit) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+
+        uint256 consumed = _validateField(
+            schema,
+            childCursor,
+            data,
+            next,
+            endCursor,
+            ctx,
+            _encodePath(path, 0)
+        );
+        if (consumed != endCursor) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+        return consumed;
+    }
+
+    function _validateArray(
+        bytes memory schema,
+        uint256 childCursor,
+        uint16 childCount,
+        uint16 arrayLength,
+        bytes memory data,
+        uint256 cursor,
+        uint256 limit,
+        ValidationContext memory ctx,
+        uint256 path
+    ) private pure returns (uint256 current) {
+        if (childCount != 1) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+
+        current = cursor;
+        for (uint16 i = 0; i < arrayLength; ++i) {
+            current = _validateField(schema, childCursor, data, current, limit, ctx, _encodePath(path, i));
+        }
+    }
+
+    function _validateList(
+        bytes memory schema,
+        uint256 childCursor,
+        uint16 childCount,
+        bytes memory data,
+        uint256 cursor,
+        uint256 limit,
+        ValidationContext memory ctx,
+        uint256 path
+    ) private pure returns (uint256 current) {
+        if (childCount != 1) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+
+        (uint256 count, uint256 next) = _readCompactLength(data, cursor, limit, ctx, path);
+        current = next;
+        for (uint256 i = 0; i < count; ++i) {
+            current = _validateField(
+                schema,
+                childCursor,
+                data,
+                current,
+                limit,
+                ctx,
+                // forge-lint: disable-next-line(unsafe-typecast)
+                _encodePath(path, uint16(i))
+            );
+        }
+    }
+
+    function _validateStruct(
+        bytes memory schema,
+        uint256 childCursor,
+        uint16 childCount,
+        bytes memory data,
+        uint256 cursor,
+        uint256 limit,
+        ValidationContext memory ctx,
+        uint256 path
+    ) private pure returns (uint256 current) {
+        (uint256 fieldCount, uint256 next) = _readCompactLength(data, cursor, limit, ctx, path);
+        if (fieldCount != childCount) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+
+        current = next;
+        uint256 childStart = childCursor;
+        for (uint16 i = 0; i < childCount; ++i) {
+            uint256 childEnd = _skipNode(schema, childStart, ctx, _encodePath(path, i));
+            current = _validateField(schema, childStart, data, current, limit, ctx, _encodePath(path, i));
+            childStart = childEnd;
+        }
+
+        if (childStart != _nodeEnd(schema, childCursor, childCount, ctx, path)) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
     }
 
     function _skipNode(

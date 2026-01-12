@@ -34,9 +34,7 @@ abstract contract ServicesRequests is Base {
     event ServiceRequestedWithSecurity(
         uint64 indexed requestId,
         uint64 indexed blueprintId,
-        address indexed requester,
-        address[] operators,
-        Types.AssetSecurityRequirement[] securityRequirements
+        address indexed requester
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -99,35 +97,7 @@ abstract contract ServicesRequests is Base {
         );
 
         _storeSecurityRequirementsWithDefaultTnt(requestId, securityRequirements);
-
-        if (_tntToken == address(0)) {
-            emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, operators, securityRequirements);
-        } else {
-            bool hasTnt = false;
-            for (uint256 i = 0; i < securityRequirements.length; i++) {
-                if (securityRequirements[i].asset.kind == Types.AssetKind.ERC20 &&
-                    securityRequirements[i].asset.token == _tntToken) {
-                    hasTnt = true;
-                    break;
-                }
-            }
-
-            if (hasTnt) {
-                emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, operators, securityRequirements);
-            } else {
-                Types.AssetSecurityRequirement[] memory emitted =
-                    new Types.AssetSecurityRequirement[](securityRequirements.length + 1);
-                for (uint256 i = 0; i < securityRequirements.length; i++) {
-                    emitted[i] = securityRequirements[i];
-                }
-                emitted[securityRequirements.length] = Types.AssetSecurityRequirement({
-                    asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: _tntToken }),
-                    minExposureBps: _defaultTntMinExposureBps,
-                    maxExposureBps: BPS_DENOMINATOR
-                });
-                emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, operators, emitted);
-            }
-        }
+        emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender);
     }
 
     function _requestServiceWithDefaultExposure(

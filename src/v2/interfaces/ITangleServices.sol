@@ -16,9 +16,7 @@ interface ITangleServices {
     event ServiceRequestedWithSecurity(
         uint64 indexed requestId,
         uint64 indexed blueprintId,
-        address indexed requester,
-        address[] operators,
-        Types.AssetSecurityRequirement[] securityRequirements
+        address indexed requester
     );
 
     event ServiceApproved(uint64 indexed requestId, address indexed operator);

@@ -77,9 +77,6 @@ interface IMultiAssetDelegation {
         uint256 exchangeRateAfter
     );
 
-    event RewardDistributed(address indexed operator, uint256 amount);
-    event RewardClaimed(address indexed account, uint256 amount);
-
     event AdapterRegistered(address indexed token, address indexed adapter);
     event AdapterRemoved(address indexed token);
     event RequireAdaptersUpdated(bool required);
@@ -150,21 +147,6 @@ interface IMultiAssetDelegation {
     ) external returns (uint256 amount);
     function addBlueprintToDelegation(uint256 delegationIndex, uint64 blueprintId) external;
     function removeBlueprintFromDelegation(uint256 delegationIndex, uint64 blueprintId) external;
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // REWARD FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    function notifyRewardForBlueprint(
-        address operator,
-        uint64 blueprintId,
-        uint64 serviceId,
-        uint256 amount
-    ) external;
-    function notifyReward(address operator, uint64 serviceId, uint256 amount) external;
-    function claimDelegatorRewards() external returns (uint256 totalRewards);
-    function claimOperatorRewards() external;
-    function claimOperatorRewardsTo(address payable recipient) external;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SLASHING
@@ -244,8 +226,6 @@ interface IMultiAssetDelegation {
     function getDelegationBlueprints(address delegator, uint256 idx) external view returns (uint64[] memory);
     function getPendingUnstakes(address delegator) external view returns (Types.BondLessRequest[] memory);
     function getOperatorRewardPool(address operator) external view returns (Types.OperatorRewardPool memory);
-    function getPendingDelegatorRewards(address delegator) external view returns (uint256);
-    function getPendingOperatorRewards(address operator) external view returns (uint256);
     function getOperatorDelegators(address operator) external view returns (address[] memory);
     function getOperatorDelegatorCount(address operator) external view returns (uint256);
     function rewardsManager() external view returns (address);

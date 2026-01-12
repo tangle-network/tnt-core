@@ -338,13 +338,6 @@ library Types {
     // REWARDS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Reward pool for delegator rewards (Masterchef-style)
-    struct RewardPool {
-        uint256 accRewardPerShare;  // Accumulated rewards per share, scaled by 1e18
-        uint256 totalShares;        // Total delegated amount
-        uint64 lastUpdateBlock;     // Last block rewards were updated
-    }
-
     /// @notice Payment split configuration
     /// @dev Percentages in basis points (10000 = 100%)
     struct PaymentSplit {
@@ -464,21 +457,13 @@ library Types {
         LeavingScheduled
     }
 
-    /// @notice Per-operator reward pool (Share-based with Masterchef rewards)
+    /// @notice Per-operator reward pool (share-based accounting for O(1) slashing)
     /// @dev Uses ERC4626-style share accounting for O(1) slashing
     struct OperatorRewardPool {
-        uint256 accRewardPerShare;  // Accumulated rewards per share, scaled by 1e18
         uint256 totalShares;        // Total shares outstanding (not amounts!)
         uint256 totalAssets;        // Total underlying value (decreases on slash)
-        uint64 lastUpdateRound;     // Last round rewards were updated
         // Exchange rate = totalAssets / totalShares
         // After slash: totalAssets decreases, shares stay same → each share worth less
-    }
-
-    /// @notice Delegator's reward debt for an operator
-    struct DelegatorRewardDebt {
-        uint256 rewardDebt;         // Reward debt for Masterchef calculation
-        uint256 pendingRewards;     // Accumulated unclaimed rewards
     }
 
     /// @notice Asset configuration

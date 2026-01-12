@@ -75,7 +75,6 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     event Withdraw(
         address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares
     );
-    event RewardsHarvested(address indexed caller, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -435,17 +434,6 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         _operators[msg.sender][_operator] = approved;
         emit OperatorSet(msg.sender, _operator, approved);
         return true;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // REWARD HANDLING
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Harvest rewards and distribute to vault
-    /// @dev Rewards increase totalAssets, benefiting all share holders
-    function harvestRewards() external nonReentrant {
-        uint256 harvested = restaking.claimDelegatorRewards();
-        emit RewardsHarvested(msg.sender, harvested);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

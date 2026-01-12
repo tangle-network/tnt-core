@@ -31,10 +31,7 @@ export function registerRewardVaultHandlers() {
       vault = {
         id: token,
         asset: token,
-        apyBps: 0n,
         depositCap: 0n,
-        incentiveCap: 0n,
-        boostMultiplierBps: 0n,
         active: true,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -50,7 +47,6 @@ export function registerRewardVaultHandlers() {
         totalDeposits: 0n,
         totalScore: 0n,
         rewardsDistributed: 0n,
-        lastUpdateBlock: 0n,
         updatedAt: timestamp,
       } as RewardVaultState;
     }
@@ -61,9 +57,7 @@ export function registerRewardVaultHandlers() {
   RewardVaults.VaultCreated.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     await ensureRewardVault(context, event.params.asset, timestamp, {
-      apyBps: toBigInt(event.params.apyBps),
       depositCap: toBigInt(event.params.depositCap),
-      incentiveCap: toBigInt(event.params.incentiveCap),
       active: true,
     });
   });
@@ -71,9 +65,7 @@ export function registerRewardVaultHandlers() {
   RewardVaults.VaultConfigUpdated.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     await ensureRewardVault(context, event.params.asset, timestamp, {
-      apyBps: toBigInt(event.params.apyBps),
       depositCap: toBigInt(event.params.depositCap),
-      incentiveCap: toBigInt(event.params.incentiveCap),
     });
   });
 

@@ -172,56 +172,7 @@ abstract contract DelegationManagerLib is OperatorManager {
         // Update deposit tracking (in amounts, not shares)
         dep.delegatedAmount += amount;
 
-        // Find existing delegation or create new
-        bool found = false;
-        uint256 foundIndex = 0;
-        for (uint256 i = 0; i < _delegations[msg.sender].length; i++) {
-            Types.BondInfoDelegator storage d = _delegations[msg.sender][i];
-            if (d.operator == operator && _assetHash(d.asset) == assetHash) {
-                if (d.selectionMode != selectionMode) {
-                    revert DelegationErrors.SelectionModeMismatch();
-                }
-                d.shares += shares;  // Add shares, not amount
-                found = true;
-                foundIndex = i;
-                break;
-            }
-        }
-
-        if (!found) {
-            uint256 idx = _delegations[msg.sender].length;
-            _delegations[msg.sender].push(Types.BondInfoDelegator({
-                operator: operator,
-                shares: shares,  // Store shares, not amount
-                asset: asset,
-                selectionMode: selectionMode
-            }));
-
-            // Track blueprint exposure mode
-            if (selectionMode == Types.BlueprintSelectionMode.All) {
-                _delegationIsAllMode[msg.sender][operator][idx] = true;
-            } else {
-                // Fixed mode: store selected blueprints and track per-blueprint shares
-                _delegationBlueprints[msg.sender][idx] = blueprintIds;
-                uint256 sharesPerBlueprint = blueprintIds.length > 0 ? shares / blueprintIds.length : 0;
-                for (uint256 j = 0; j < blueprintIds.length; j++) {
-                    _delegatorBlueprintShares[msg.sender][operator][blueprintIds[j]] += sharesPerBlueprint;
-                }
-            }
-            opMeta.delegationCount++;
-            // Track delegator in operator's set
-            _operatorDelegators[operator].add(msg.sender);
-        } else {
-            // Existing delegation - update blueprint shares for Fixed mode
-            Types.BondInfoDelegator storage dExisting = _delegations[msg.sender][foundIndex];
-            if (dExisting.selectionMode == Types.BlueprintSelectionMode.Fixed) {
-                uint64[] storage bpsExisting = _delegationBlueprints[msg.sender][foundIndex];
-                uint256 sharesPerBlueprint = bpsExisting.length > 0 ? shares / bpsExisting.length : 0;
-                for (uint256 j = 0; j < bpsExisting.length; j++) {
-                    _delegatorBlueprintShares[msg.sender][operator][bpsExisting[j]] += sharesPerBlueprint;
-                }
-            }
-        }
+        _upsertDelegationPosition(operator, asset, assetHash, shares, selectionMode, blueprintIds);
 
         // Update reward pool - pass shares, amount, and selection mode for proper pool routing
         uint16 lockMultiplierBps = _calculateLockMultiplierBps(msg.sender, assetHash, dep.delegatedAmount, amount);
@@ -239,6 +190,73 @@ abstract contract DelegationManagerLib is OperatorManager {
         );
 
         emit Delegated(msg.sender, operator, asset.token, amount, shares, selectionMode);
+    }
+
+    function _upsertDelegationPosition(
+        address operator,
+        Types.Asset memory asset,
+        bytes32 assetHash,
+        uint256 shares,
+        Types.BlueprintSelectionMode selectionMode,
+        uint64[] memory blueprintIds
+    ) private {
+        Types.BondInfoDelegator[] storage delegations = _delegations[msg.sender];
+
+        for (uint256 i = 0; i < delegations.length; i++) {
+            Types.BondInfoDelegator storage d = delegations[i];
+            if (d.operator != operator || _assetHash(d.asset) != assetHash) continue;
+            if (d.selectionMode != selectionMode) revert DelegationErrors.SelectionModeMismatch();
+
+            d.shares += shares;
+            if (selectionMode == Types.BlueprintSelectionMode.Fixed) {
+                uint64[] storage bpsExisting = _delegationBlueprints[msg.sender][i];
+                _increaseDelegatorBlueprintSharesFromStorage(msg.sender, operator, bpsExisting, shares);
+            }
+            return;
+        }
+
+        uint256 idx = delegations.length;
+        delegations.push(
+            Types.BondInfoDelegator({ operator: operator, shares: shares, asset: asset, selectionMode: selectionMode })
+        );
+
+        if (selectionMode == Types.BlueprintSelectionMode.All) {
+            _delegationIsAllMode[msg.sender][operator][idx] = true;
+        } else {
+            _delegationBlueprints[msg.sender][idx] = blueprintIds;
+            _increaseDelegatorBlueprintSharesFromMemory(msg.sender, operator, blueprintIds, shares);
+        }
+
+        _operatorMetadata[operator].delegationCount++;
+        _addOperatorDelegator(operator, msg.sender);
+    }
+
+    function _addOperatorDelegator(address operator, address delegator) private {
+        _operatorDelegators[operator].add(delegator);
+    }
+
+    function _increaseDelegatorBlueprintSharesFromMemory(
+        address delegator,
+        address operator,
+        uint64[] memory blueprintIds,
+        uint256 shares
+    ) private {
+        uint256 sharesPerBlueprint = blueprintIds.length > 0 ? shares / blueprintIds.length : 0;
+        for (uint256 i = 0; i < blueprintIds.length; i++) {
+            _delegatorBlueprintShares[delegator][operator][blueprintIds[i]] += sharesPerBlueprint;
+        }
+    }
+
+    function _increaseDelegatorBlueprintSharesFromStorage(
+        address delegator,
+        address operator,
+        uint64[] storage blueprintIds,
+        uint256 shares
+    ) private {
+        uint256 sharesPerBlueprint = blueprintIds.length > 0 ? shares / blueprintIds.length : 0;
+        for (uint256 i = 0; i < blueprintIds.length; i++) {
+            _delegatorBlueprintShares[delegator][operator][blueprintIds[i]] += sharesPerBlueprint;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

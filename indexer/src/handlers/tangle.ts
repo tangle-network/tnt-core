@@ -363,8 +363,6 @@ export function registerTangleHandlers() {
       ...request,
       blueprint_id: blueprintId,
       requester: request.requester ?? requester,
-      operatorCandidates: (event.params.operators || []).map((op) => normalizeAddress(op)),
-      securityRequirements: JSON.stringify(event.params.securityRequirements ?? []),
       updatedAt: timestamp,
     } as ServiceRequest;
     context.ServiceRequest.set(updated);

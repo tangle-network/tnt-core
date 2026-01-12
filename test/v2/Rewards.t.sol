@@ -141,63 +141,48 @@ contract RewardsTest is Test {
 
     function test_Vaults_CreateVault() public {
         vm.prank(admin);
-        vaults.createVault(
-            address(0),      // native asset
-            500,             // 5% APY
-            1_000_000 ether, // 1M deposit cap
-            100_000 ether,   // 100k incentive cap
-            10000            // 1x boost
-        );
+        vaults.createVault(address(0), 1_000_000 ether);
 
-        (uint256 apy, uint256 depCap, uint256 incCap, uint256 boost, bool active) = vaults.vaultConfigs(address(0));
-        assertEq(apy, 500);
+        (uint256 depCap, bool active) = vaults.vaultConfigs(address(0));
         assertEq(depCap, 1_000_000 ether);
-        assertEq(incCap, 100_000 ether);
-        assertEq(boost, 10000);
         assertTrue(active);
-    }
-
-    function test_Vaults_CreateVault_RevertInvalidAPY() public {
-        vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(RewardVaults.InvalidAPY.selector, 15000));
-        vaults.createVault(address(0), 15000, 1_000_000 ether, 100_000 ether, 10000); // 150% APY - too high
     }
 
     function test_Vaults_RecordStake() public {
         // Create vault first
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         // Record stake
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
 
-        (uint256 totalDep,,,) = vaults.vaultStates(address(0));
+        (uint256 totalDep,,) = vaults.vaultStates(address(0));
         assertEq(totalDep, 100 ether);
     }
 
     function test_Vaults_RecordDelegateAndUndelegate() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vaults.recordDelegate(delegator1, operator1, address(0), 500 ether, 12000);
-        (uint256 totalDeposits, uint256 totalScore,,) = vaults.vaultStates(address(0));
+        (uint256 totalDeposits, uint256 totalScore,) = vaults.vaultStates(address(0));
         assertEq(totalDeposits, 500 ether);
         assertEq(totalScore, 600 ether); // 1.2x multiplier
 
         vaults.recordUndelegate(delegator1, operator1, address(0), 200 ether);
 
-        (totalDeposits, totalScore,,) = vaults.vaultStates(address(0));
+        (totalDeposits, totalScore,) = vaults.vaultStates(address(0));
         assertEq(totalDeposits, 300 ether);
         assertEq(totalScore, 360 ether); // Maintains proportional boosted score
 
-        (, uint256 totalStaked,,) = vaults.operatorPools(address(0), operator1);
-        assertEq(totalStaked, 300 ether);
+        (, uint256 totalStaked,) = vaults.operatorPools(address(0), operator1);
+        assertEq(totalStaked, 360 ether); // Operator pool tracks total score (not raw deposits)
     }
 
     function test_Vaults_DistributeRewards() public {
         // Create vault
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         // Record stake
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
@@ -213,7 +198,7 @@ contract RewardsTest is Test {
     function test_Vaults_ClaimOperatorCommission() public {
         // Setup
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
         vaults.distributeRewards(address(0), operator1, 10 ether);
 
@@ -229,7 +214,7 @@ contract RewardsTest is Test {
     function test_Vaults_ClaimDelegatorRewards() public {
         // Setup
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
         vaults.distributeRewards(address(0), operator1, 10 ether);
 
@@ -245,19 +230,19 @@ contract RewardsTest is Test {
     function test_Vaults_LockMultiplier() public {
         // Create vault
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         // Record stake with 6-month lock (1.6x multiplier)
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.SixMonths);
 
         // Check score includes multiplier (100 * 1.6 = 160)
-        (, uint256 totalScore,,) = vaults.vaultStates(address(0));
+        (, uint256 totalScore,) = vaults.vaultStates(address(0));
         assertEq(totalScore, 160 ether);
     }
 
     function test_Vaults_RecordStake_RevertWhenVaultInactive() public {
         vm.startPrank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
         vaults.deactivateVault(address(0));
         vm.stopPrank();
 
@@ -267,7 +252,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_RecordStake_RevertWhenDepositCapExceeded() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 100 ether, 100 ether, 10000);
+        vaults.createVault(address(0), 100 ether);
 
         vaults.recordStake(address(0), delegator1, operator1, 80 ether, RewardVaults.LockDuration.None);
 
@@ -277,7 +262,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_RecordDelegate_RevertWhenDepositCapExceeded() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 100 ether, 100 ether, 10000);
+        vaults.createVault(address(0), 100 ether);
 
         vaults.recordDelegate(delegator1, operator1, address(0), 90 ether, 10000);
 
@@ -287,7 +272,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_RecordDelegate_RevertWhenVaultInactive() public {
         vm.startPrank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
         vaults.deactivateVault(address(0));
         vm.stopPrank();
 
@@ -298,7 +283,7 @@ contract RewardsTest is Test {
     function test_Vaults_MultipleOperators() public {
         // Create vault
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         // Delegator1 stakes to operator1, delegator2 stakes to operator2
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
@@ -321,7 +306,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_EpochRewardDistributesAcrossOperators() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
         vaults.recordStake(address(0), delegator2, operator2, 300 ether, RewardVaults.LockDuration.None);
@@ -343,7 +328,7 @@ contract RewardsTest is Test {
     function test_Vaults_UtilizationView() public {
         // Create vault with 1000 cap
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1000 ether, 100 ether, 10000);
+        vaults.createVault(address(0), 1000 ether);
 
         // Stake 100 (10% of cap)
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
@@ -355,28 +340,26 @@ contract RewardsTest is Test {
     function test_Vaults_DeactivateVault() public {
         // Create and deactivate vault
         vm.startPrank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
         vaults.deactivateVault(address(0));
         vm.stopPrank();
 
-        (,,,, bool active) = vaults.vaultConfigs(address(0));
+        (, bool active) = vaults.vaultConfigs(address(0));
         assertFalse(active);
     }
 
     function test_Vaults_UpdateConfig() public {
         // Create vault
         vm.startPrank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         // Update config
-        vaults.updateVaultConfig(address(0), 1000, 2_000_000 ether, 200_000 ether, 12000);
+        vaults.updateVaultConfig(address(0), 2_000_000 ether);
         vm.stopPrank();
 
-        (uint256 apy, uint256 depCap, uint256 incCap, uint256 boost,) = vaults.vaultConfigs(address(0));
-        assertEq(apy, 1000);
+        (uint256 depCap, bool active) = vaults.vaultConfigs(address(0));
         assertEq(depCap, 2_000_000 ether);
-        assertEq(incCap, 200_000 ether);
-        assertEq(boost, 12000);
+        assertTrue(active);
     }
 
     function test_Vaults_SetOperatorCommission() public {
@@ -386,17 +369,9 @@ contract RewardsTest is Test {
         assertEq(vaults.operatorCommissionBps(), 2000);
     }
 
-    function test_Vaults_SetDecayConfig() public {
-        vm.prank(admin);
-        vaults.setDecayConfig(1_000_000, 100); // Start at block 1M, 1% rate
-
-        assertEq(vaults.decayStartBlock(), 1_000_000);
-        assertEq(vaults.decayRateBps(), 100);
-    }
-
     function test_Vaults_LargeBalanceRewardAccrual() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 10_000_000 ether, 2_000_000 ether, 10000);
+        vaults.createVault(address(0), 10_000_000 ether);
 
         vaults.recordStake(address(0), delegator1, operator1, 5_000_000 ether, RewardVaults.LockDuration.None);
 
@@ -419,25 +394,25 @@ contract RewardsTest is Test {
 
     function test_Vaults_RecordUndelegateClearsBoostedScore() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vaults.recordDelegate(delegator1, operator1, address(0), 400 ether, 15000); // Score = 600
 
-        (, uint256 totalScore,,) = vaults.vaultStates(address(0));
+        (, uint256 totalScore,) = vaults.vaultStates(address(0));
         assertEq(totalScore, 600 ether);
 
         vaults.recordUndelegate(delegator1, operator1, address(0), 400 ether);
 
-        (, totalScore,,) = vaults.vaultStates(address(0));
+        (, totalScore,) = vaults.vaultStates(address(0));
         assertEq(totalScore, 0);
 
-        (, uint256 totalStaked,,) = vaults.operatorPools(address(0), operator1);
+        (, uint256 totalStaked,) = vaults.operatorPools(address(0), operator1);
         assertEq(totalStaked, 0);
     }
 
     function test_Vaults_VaultSummaryAndAllSummaries() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 16000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.SixMonths);
 
@@ -445,7 +420,7 @@ contract RewardsTest is Test {
         assertEq(summary.asset, address(0));
         assertEq(summary.totalDeposits, 100 ether);
         assertEq(summary.totalScore, 160 ether);
-        assertEq(summary.depositCapRemaining, 1_000_000 ether - 160 ether);
+        assertEq(summary.depositCapRemaining, 1_000_000 ether - 100 ether);
 
         RewardVaults.VaultSummary[] memory summaries = vaults.getAllVaultSummaries();
         assertEq(summaries.length, 1);
@@ -454,7 +429,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_GetDelegatorPositionsAndPending() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
         vaults.recordStake(address(0), delegator1, operator2, 50 ether, RewardVaults.LockDuration.OneMonth);
@@ -465,18 +440,18 @@ contract RewardsTest is Test {
         (RewardVaults.PendingRewardsView[] memory pending, uint256 total) =
             vaults.pendingDelegatorRewardsAll(address(0), delegator1);
         assertEq(pending.length, 2);
-        assertEq(total, 15.3 ether);
+        assertApproxEqAbs(total, 15.3 ether, 100); // rounding in per-score division
 
         RewardVaults.DelegatorPosition[] memory positions =
             vaults.getDelegatorPositions(address(0), delegator1);
         assertEq(positions.length, 2);
         assertEq(positions[0].pendingRewards, 8.5 ether);
-        assertEq(positions[1].pendingRewards, 6.8 ether);
+        assertApproxEqAbs(positions[1].pendingRewards, 6.8 ether, 100);
     }
 
     function test_Vaults_ClaimDelegatorRewardsBatch() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
         vaults.recordStake(address(0), delegator1, operator2, 100 ether, RewardVaults.LockDuration.None);
@@ -502,7 +477,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_ClaimDelegatorRewardsBatch_RevertWhenNothingOwed() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         address[] memory operatorsList = new address[](1);
         operatorsList[0] = operator1;
@@ -514,7 +489,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_ClaimDelegatorRewardsFor() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
         vaults.distributeRewards(address(0), operator1, 10 ether);
@@ -530,7 +505,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_ClaimDelegatorRewardsFor_RevertWhenNothingOwed() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vm.prank(admin);
         vm.expectRevert(RewardVaults.NoRewardsToClaim.selector);
@@ -539,7 +514,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_DelegatorOperatorTracking() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
         vaults.recordStake(address(0), delegator1, operator2, 50 ether, RewardVaults.LockDuration.None);
@@ -556,7 +531,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_DelegatorOperatorTracking_NoDuplicates() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
         // stake additional amount to same operator - should not duplicate entry
@@ -569,7 +544,7 @@ contract RewardsTest is Test {
 
     function test_Vaults_PendingRewardsAllAfterClaimIsZero() public {
         vm.prank(admin);
-        vaults.createVault(address(0), 500, 1_000_000 ether, 100_000 ether, 10000);
+        vaults.createVault(address(0), 1_000_000 ether);
 
         vaults.recordStake(address(0), delegator1, operator1, 100 ether, RewardVaults.LockDuration.None);
         vaults.distributeRewards(address(0), operator1, 10 ether);

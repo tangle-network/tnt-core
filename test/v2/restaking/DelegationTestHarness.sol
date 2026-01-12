@@ -11,7 +11,6 @@ import { Types } from "../../../src/v2/libraries/Types.sol";
 import { RestakingOperatorsFacet } from "../../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
 import { RestakingDepositsFacet } from "../../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
 import { RestakingDelegationsFacet } from "../../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingRewardsFacet } from "../../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
 import { RestakingSlashingFacet } from "../../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
 import { RestakingAssetsFacet } from "../../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
 import { RestakingViewsFacet } from "../../../src/v2/facets/restaking/RestakingViewsFacet.sol";
@@ -242,7 +241,6 @@ abstract contract DelegationTestHarness is Test {
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingRewardsFacet()));
         router.registerFacet(address(new RestakingSlashingFacet()));
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));
@@ -396,12 +394,6 @@ abstract contract DelegationTestHarness is Test {
     /// @notice Get deposit (convenience wrapper)
     function _getDeposit(address delegator, address tokenAddr) internal view returns (Types.Deposit memory) {
         return delegation.getDeposit(delegator, tokenAddr);
-    }
-
-    /// @notice Add rewards to operator (simulates reward distribution)
-    function _addRewards(address operator, uint256 amount) internal {
-        vm.deal(address(delegation), address(delegation).balance + amount);
-        delegation.notifyReward(operator, 0, amount);
     }
 
     /// @notice Calculate expected slashing impact proportionally

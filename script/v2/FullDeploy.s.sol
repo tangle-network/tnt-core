@@ -14,6 +14,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
+import { ITangleAdmin } from "../../src/v2/interfaces/ITangle.sol";
 import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
 import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
@@ -67,10 +68,7 @@ contract FullDeploy is DeployV2 {
 
     struct RewardVaultConfig {
         address asset;
-        uint256 apyBps;
         uint256 depositCap;
-        uint256 incentiveCap;
-        uint256 boostMultiplierBps;
         bool active;
     }
 
@@ -96,7 +94,6 @@ contract FullDeploy is DeployV2 {
         address tntToken;
         address priceOracle;
         uint16 defaultTntMinExposureBps;
-        uint16 tntRestakerFeeBps;
         uint16 tntPaymentDiscountBps;
         uint16 vaultOperatorCommissionBps;
         uint256 epochLength;
@@ -245,7 +242,7 @@ contract FullDeploy is DeployV2 {
         _applyRewardsManager(restaking, rewardVaults, inflationPool);
         _wireServiceFeeDistributor(restaking, tangle, serviceFeeDistributor, streamingPaymentManager, priceOracle);
         _configureRewardVaults(rewardVaults, cfg.incentives.vaults);
-        _configureInflationPool(inflationPool, cfg.incentives, metrics, rewardVaults);
+        _configureInflationPool(inflationPool, cfg.incentives, metrics, rewardVaults, tangle, serviceFeeDistributor);
         _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
         _applyGuards(restaking, tangle, cfg.guards);
         if (migration.deploy) {
@@ -395,9 +392,6 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".incentives.defaultTntMinExposureBps")) {
             cfg.incentives.defaultTntMinExposureBps = uint16(jsonBlob.readUint(".incentives.defaultTntMinExposureBps"));
         }
-        if (jsonBlob.keyExists(".incentives.tntRestakerFeeBps")) {
-            cfg.incentives.tntRestakerFeeBps = uint16(jsonBlob.readUint(".incentives.tntRestakerFeeBps"));
-        }
         if (jsonBlob.keyExists(".incentives.tntPaymentDiscountBps")) {
             cfg.incentives.tntPaymentDiscountBps = uint16(jsonBlob.readUint(".incentives.tntPaymentDiscountBps"));
         }
@@ -534,18 +528,10 @@ contract FullDeploy is DeployV2 {
         for (uint256 i = 0; i < count; i++) {
             string memory base = string.concat(".incentives.vaults[", i.toString(), "]");
             vaults[i].asset = jsonBlob.readAddress(string.concat(base, ".asset"));
-            if (jsonBlob.keyExists(string.concat(base, ".apyBps"))) {
-                vaults[i].apyBps = jsonBlob.readUint(string.concat(base, ".apyBps"));
-            }
             if (jsonBlob.keyExists(string.concat(base, ".depositCap"))) {
                 vaults[i].depositCap = jsonBlob.readUint(string.concat(base, ".depositCap"));
             }
-            if (jsonBlob.keyExists(string.concat(base, ".incentiveCap"))) {
-                vaults[i].incentiveCap = jsonBlob.readUint(string.concat(base, ".incentiveCap"));
-            }
-            if (jsonBlob.keyExists(string.concat(base, ".boostMultiplierBps"))) {
-                vaults[i].boostMultiplierBps = jsonBlob.readUint(string.concat(base, ".boostMultiplierBps"));
-            }
+            vaults[i].active = true;
             if (jsonBlob.keyExists(string.concat(base, ".active"))) {
                 vaults[i].active = jsonBlob.readBool(string.concat(base, ".active"));
             }
@@ -805,12 +791,12 @@ contract FullDeploy is DeployV2 {
         for (uint256 i = 0; i < vaults.length; i++) {
             RewardVaultConfig memory cfg = vaults[i];
             uint256 depositCapExisting;
-            (, depositCapExisting,,,) = vaultsContract.vaultConfigs(cfg.asset);
+            (depositCapExisting,) = vaultsContract.vaultConfigs(cfg.asset);
             if (depositCapExisting != 0) {
                 console2.log("Vault already exists for asset:", cfg.asset);
                 continue;
             }
-            vaultsContract.createVault(cfg.asset, cfg.apyBps, cfg.depositCap, cfg.incentiveCap, cfg.boostMultiplierBps);
+            vaultsContract.createVault(cfg.asset, cfg.depositCap);
             if (!cfg.active) {
                 vaultsContract.deactivateVault(cfg.asset);
             }
@@ -822,7 +808,9 @@ contract FullDeploy is DeployV2 {
         address poolAddr,
         IncentiveConfig memory inc,
         address metrics,
-        address rewardVaults
+        address rewardVaults,
+        address tangleAddr,
+        address distributor
     )
         internal
     {
@@ -842,11 +830,22 @@ contract FullDeploy is DeployV2 {
             uint256 total = uint256(weights.stakingBps) + uint256(weights.operatorsBps) + uint256(weights.customersBps)
                 + uint256(weights.developersBps) + uint256(weights.restakersBps);
             require(total == 10_000, "Inflation weights must sum to 10_000 bps");
-            pool.setWeights(weights.stakingBps, weights.operatorsBps, weights.customersBps, weights.developersBps, weights.restakersBps);
+            pool.setWeights(
+                weights.stakingBps,
+                weights.operatorsBps,
+                weights.customersBps,
+                weights.developersBps,
+                weights.restakersBps
+            );
         }
 
         if (inc.epochLength != 0) {
             pool.setEpochLength(inc.epochLength);
+        }
+
+        if (tangleAddr != address(0) && distributor != address(0)) {
+            pool.setRestakerInflationConfig(tangleAddr, distributor);
+            ServiceFeeDistributor(payable(distributor)).setInflationPool(poolAddr);
         }
     }
 
@@ -878,9 +877,6 @@ contract FullDeploy is DeployV2 {
         if (rewardVaults != address(0)) {
             tangleContract.setRewardVaults(rewardVaults);
         }
-        if (inc.tntRestakerFeeBps != 0) {
-            tangleContract.setTntRestakerFeeBps(inc.tntRestakerFeeBps);
-        }
         if (inc.tntPaymentDiscountBps != 0) {
             tangleContract.setTntPaymentDiscountBps(inc.tntPaymentDiscountBps);
         }
@@ -896,7 +892,13 @@ contract FullDeploy is DeployV2 {
         address streamingMgr,
         address oracle
     ) internal {
-        if (distributor == address(0)) return;
+        if (distributor == address(0)) {
+            if (tangleAddr != address(0)) {
+                (, , , uint16 restakerBps) = ITangleAdmin(tangleAddr).paymentSplit();
+                require(restakerBps == 0, "ServiceFeeDistributor required when restakerBps > 0");
+            }
+            return;
+        }
         if (tangleAddr != address(0)) {
             Tangle(payable(tangleAddr)).setServiceFeeDistributor(distributor);
             if (oracle != address(0)) {
@@ -1410,18 +1412,9 @@ contract FullDeploy is DeployV2 {
                 '"asset":"',
                 _addrToString(vault.asset),
                 '",',
-                '"apyBps":',
-                vault.apyBps.toString(),
-                ",",
                 '"depositCap":"',
                 _uintToString(vault.depositCap),
                 '",',
-                '"incentiveCap":"',
-                _uintToString(vault.incentiveCap),
-                '",',
-                '"boostMultiplierBps":',
-                vault.boostMultiplierBps.toString(),
-                ",",
                 '"active":',
                 _boolToString(vault.active),
                 "}"

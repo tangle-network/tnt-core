@@ -28,11 +28,11 @@ import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFa
 import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
 import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
 import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingRewardsFacet } from "../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
 import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
 import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
 import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
 import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
+import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributor.sol";
 
 error InvalidAddress(string field);
 error ProxyVerificationFailed(string reason);
@@ -233,6 +233,7 @@ contract DeployV2 is DeployScriptBase {
 
         _ensureTntToken(admin);
         _configureTntDefaults(tangleProxy);
+        _configureServiceFeeDistributor(admin, restakingProxy, tangleProxy);
 
         if (broadcast) {
             vm.stopBroadcast();
@@ -265,18 +266,38 @@ contract DeployV2 is DeployScriptBase {
             console2.log("Configured default TNT min exposure bps:", minExposure);
         }
 
-        uint256 feeBps = _envUintOrDefault("TNT_RESTAKER_FEE_BPS", 0);
-        if (feeBps > 0) {
-            require(feeBps <= 10_000, "TNT_RESTAKER_FEE_BPS too high");
-            tangle.setTntRestakerFeeBps(uint16(feeBps));
-            console2.log("Configured TNT restaker fee bps:", feeBps);
-        }
-
         uint256 discountBps = _envUintOrDefault("TNT_PAYMENT_DISCOUNT_BPS", 0);
         if (discountBps > 0) {
             require(discountBps <= 10_000, "TNT_PAYMENT_DISCOUNT_BPS too high");
             tangle.setTntPaymentDiscountBps(uint16(discountBps));
             console2.log("Configured TNT payment discount bps:", discountBps);
+        }
+    }
+
+    function _configureServiceFeeDistributor(address admin, address restakingProxy, address tangleProxy) internal {
+        Tangle tangle = Tangle(payable(tangleProxy));
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+
+        address distributor = _envAddressIfSet("SERVICE_FEE_DISTRIBUTOR");
+        address oracle = _envAddressIfSet("PRICE_ORACLE");
+
+        if (distributor == address(0)) {
+            ServiceFeeDistributor impl = new ServiceFeeDistributor();
+            ERC1967Proxy proxy = new ERC1967Proxy(
+                address(impl),
+                abi.encodeCall(ServiceFeeDistributor.initialize, (admin, restakingProxy, tangleProxy, oracle))
+            );
+            distributor = address(proxy);
+            console2.log("Deployed ServiceFeeDistributor proxy:", distributor);
+        } else {
+            console2.log("Using existing ServiceFeeDistributor:", distributor);
+        }
+
+        tangle.setServiceFeeDistributor(distributor);
+        restaking.setServiceFeeDistributor(distributor);
+
+        if (oracle != address(0)) {
+            tangle.setPriceOracle(oracle);
         }
     }
 
@@ -362,7 +383,6 @@ contract DeployV2 is DeployScriptBase {
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingRewardsFacet()));
         router.registerFacet(address(new RestakingSlashingFacet()));
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));

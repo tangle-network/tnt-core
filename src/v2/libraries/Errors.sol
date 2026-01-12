@@ -198,6 +198,9 @@ library Errors {
     /// @notice Invalid payment token for escrow
     error InvalidPaymentToken();
 
+    /// @notice Service-fee distributor required but not configured
+    error ServiceFeeDistributorNotSet();
+
     // ═══════════════════════════════════════════════════════════════════════════
     // RESTAKING
     // ═══════════════════════════════════════════════════════════════════════════

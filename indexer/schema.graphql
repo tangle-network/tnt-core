@@ -590,10 +590,7 @@ type SlashRecord {
 type RewardVault {
   id: ID!
   asset: String!
-  apyBps: BigInt!
   depositCap: BigInt
-  incentiveCap: BigInt
-  boostMultiplierBps: BigInt
   active: Boolean!
   createdAt: BigInt!
   updatedAt: BigInt!
@@ -607,7 +604,6 @@ type RewardVaultState {
   totalDeposits: BigInt!
   totalScore: BigInt!
   rewardsDistributed: BigInt!
-  lastUpdateBlock: BigInt!
   updatedAt: BigInt!
 }
 

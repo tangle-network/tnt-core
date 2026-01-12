@@ -114,6 +114,16 @@ contract RestakingDelegationsFacet is RestakingFacetBase, IFacetSelectors {
         returns (uint256 amountReturned)
     {
         _tryAdvanceRound();
+        return _executeDelegatorUnstakeAndWithdrawInner(operator, token, shares, requestedRound, receiver);
+    }
+
+    function _executeDelegatorUnstakeAndWithdrawInner(
+        address operator,
+        address token,
+        uint256 shares,
+        uint64 requestedRound,
+        address receiver
+    ) private returns (uint256 amountReturned) {
         if (receiver == address(0)) revert DelegationErrors.ZeroAddress();
         if (shares == 0) revert DelegationErrors.ZeroAmount();
 
@@ -161,61 +171,7 @@ contract RestakingDelegationsFacet is RestakingFacetBase, IFacetSelectors {
             getOperatorSlashFactor(req.operator)
         );
 
-        // Update delegation + deposits (mirrors _executeDelegatorUnstake, but only for this request).
-        bool updated = false;
-        for (uint256 j = 0; j < _delegations[msg.sender].length; j++) {
-            Types.BondInfoDelegator storage d = _delegations[msg.sender][j];
-            if (d.operator == req.operator && _assetHash(d.asset) == assetHash) {
-                uint64[] memory blueprintIds = d.selectionMode == Types.BlueprintSelectionMode.Fixed
-                    ? _delegationBlueprints[msg.sender][j]
-                    : new uint64[](0);
-
-                // Update blueprint shares for Fixed mode.
-                if (d.selectionMode == Types.BlueprintSelectionMode.Fixed && blueprintIds.length > 0) {
-                    uint256 sharesPerBlueprint = req.shares / blueprintIds.length;
-                    for (uint256 k = 0; k < blueprintIds.length; k++) {
-                        uint256 currentBpShares = _delegatorBlueprintShares[msg.sender][req.operator][blueprintIds[k]];
-                        _delegatorBlueprintShares[msg.sender][req.operator][blueprintIds[k]] =
-                            sharesPerBlueprint > currentBpShares ? 0 : currentBpShares - sharesPerBlueprint;
-                    }
-                }
-
-                _onDelegationChanged(
-                    msg.sender,
-                    req.operator,
-                    req.asset,
-                    req.shares,
-                    amountReturned,
-                    false,
-                    d.selectionMode,
-                    blueprintIds,
-                    _getLockMultiplierBps(Types.LockMultiplier.None)
-                );
-
-                d.shares -= req.shares;
-
-                // Update deposit (cap at delegatedAmount to handle slashing edge cases).
-                Types.Deposit storage dep = _deposits[msg.sender][assetHash];
-                uint256 depReduction = amountReturned > dep.delegatedAmount ? dep.delegatedAmount : amountReturned;
-                dep.delegatedAmount -= depReduction;
-
-                // Remove delegation if zero shares.
-                if (d.shares == 0) {
-                    _operatorMetadata[req.operator].delegationCount--;
-                    _delegations[msg.sender][j] = _delegations[msg.sender][_delegations[msg.sender].length - 1];
-                    _delegations[msg.sender].pop();
-                    if (_getDelegatorSharesForOperator(msg.sender, req.operator) == 0) {
-                        _operatorDelegators[req.operator].remove(msg.sender);
-                    }
-                }
-
-                updated = true;
-                break;
-            }
-        }
-        if (!updated) {
-            revert DelegationErrors.DelegationNotFound(msg.sender, operator);
-        }
+        _applyBondlessUnstakeToDelegatorState(msg.sender, operator, assetHash, req, amountReturned);
 
         emit DelegatorUnstakeExecuted(msg.sender, req.operator, req.asset.token, req.shares, amountReturned);
 
@@ -241,8 +197,94 @@ contract RestakingDelegationsFacet is RestakingFacetBase, IFacetSelectors {
             // Clamp for upgrade safety (in case currentDeposits was previously incorrect).
             config.currentDeposits = 0;
         }
-        _transferAsset(asset, receiver, amountReturned);
-        emit Withdrawn(msg.sender, token, amountReturned);
+        _transferAssetAndEmitWithdraw(asset, receiver, amountReturned);
+    }
+
+    function _applyBondlessUnstakeToDelegatorState(
+        address delegator,
+        address operator,
+        bytes32 assetHash,
+        Types.BondLessRequest storage req,
+        uint256 amountReturned
+    ) private {
+        bool updated = false;
+        Types.BondInfoDelegator[] storage delegations = _delegations[delegator];
+        for (uint256 j = 0; j < delegations.length; j++) {
+            Types.BondInfoDelegator storage d = delegations[j];
+            if (d.operator != req.operator || _assetHash(d.asset) != assetHash) continue;
+
+            uint64[] memory blueprintIds = d.selectionMode == Types.BlueprintSelectionMode.Fixed
+                ? _delegationBlueprints[delegator][j]
+                : new uint64[](0);
+
+            if (d.selectionMode == Types.BlueprintSelectionMode.Fixed && blueprintIds.length > 0) {
+                uint256 sharesPerBlueprint = req.shares / blueprintIds.length;
+                for (uint256 k = 0; k < blueprintIds.length; k++) {
+                    uint256 currentBpShares = _delegatorBlueprintShares[delegator][req.operator][blueprintIds[k]];
+                    _delegatorBlueprintShares[delegator][req.operator][blueprintIds[k]] =
+                        sharesPerBlueprint > currentBpShares ? 0 : currentBpShares - sharesPerBlueprint;
+                }
+            }
+
+            _notifyDelegationChangedForBondlessExecution(
+                delegator,
+                req.operator,
+                req.asset,
+                req.shares,
+                amountReturned,
+                d.selectionMode,
+                blueprintIds
+            );
+
+            d.shares -= req.shares;
+
+            Types.Deposit storage dep = _deposits[delegator][assetHash];
+            uint256 depReduction = amountReturned > dep.delegatedAmount ? dep.delegatedAmount : amountReturned;
+            dep.delegatedAmount -= depReduction;
+
+            if (d.shares == 0) {
+                _operatorMetadata[req.operator].delegationCount--;
+                delegations[j] = delegations[delegations.length - 1];
+                delegations.pop();
+                if (_getDelegatorSharesForOperator(delegator, req.operator) == 0) {
+                    _operatorDelegators[req.operator].remove(delegator);
+                }
+            }
+
+            updated = true;
+            break;
+        }
+
+        if (!updated) {
+            revert DelegationErrors.DelegationNotFound(delegator, operator);
+        }
+    }
+
+    function _notifyDelegationChangedForBondlessExecution(
+        address delegator,
+        address operator,
+        Types.Asset memory asset,
+        uint256 shares,
+        uint256 amount,
+        Types.BlueprintSelectionMode selectionMode,
+        uint64[] memory blueprintIds
+    ) private {
+        _onDelegationChanged(
+            delegator,
+            operator,
+            asset,
+            shares,
+            amount,
+            false,
+            selectionMode,
+            blueprintIds,
+            _getLockMultiplierBps(Types.LockMultiplier.None)
+        );
+    }
+
+    function _transferAssetAndEmitWithdraw(Types.Asset memory asset, address receiver, uint256 amount) private {
+        _transferAsset(asset, receiver, amount);
+        emit Withdrawn(msg.sender, asset.token, amount);
     }
 
     /// @notice Add a blueprint to a Fixed mode delegation

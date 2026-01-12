@@ -158,42 +158,27 @@
     "vaults": [
       {
         "asset": "0x0000000000000000000000000000000000000001",
-        "apyBps": 750,
         "depositCap": 1000000000000000000000000,
-        "incentiveCap": 200000000000000000000000,
-        "boostMultiplierBps": 0,
         "active": true
       },
       {
         "asset": "0x4200000000000000000000000000000000000006",
-        "apyBps": 850,
         "depositCap": 50000000000000000000000,
-        "incentiveCap": 10000000000000000000000,
-        "boostMultiplierBps": 0,
         "active": true
       },
       {
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "apyBps": 650,
         "depositCap": 20000000000000,
-        "incentiveCap": 4000000000000,
-        "boostMultiplierBps": 0,
         "active": true
       },
       {
         "asset": "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
-        "apyBps": 650,
         "depositCap": 20000000000000,
-        "incentiveCap": 4000000000000,
-        "boostMultiplierBps": 0,
         "active": true
       },
       {
         "asset": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",
-        "apyBps": 700,
         "depositCap": 15000000000000,
-        "incentiveCap": 3000000000000,
-        "boostMultiplierBps": 0,
         "active": true
       }
     ]

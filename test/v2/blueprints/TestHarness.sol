@@ -27,11 +27,12 @@ import { TangleSlashingFacet } from "../../../src/v2/facets/tangle/TangleSlashin
 import { RestakingOperatorsFacet } from "../../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
 import { RestakingDepositsFacet } from "../../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
 import { RestakingDelegationsFacet } from "../../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingRewardsFacet } from "../../../src/v2/facets/restaking/RestakingRewardsFacet.sol";
 import { RestakingSlashingFacet } from "../../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
 import { RestakingAssetsFacet } from "../../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
 import { RestakingViewsFacet } from "../../../src/v2/facets/restaking/RestakingViewsFacet.sol";
 import { RestakingAdminFacet } from "../../../src/v2/facets/restaking/RestakingAdminFacet.sol";
+
+import { MockServiceFeeDistributor } from "../mocks/MockServiceFeeDistributor.sol";
 
 /// @title BlueprintTestHarness
 /// @notice Comprehensive test harness for BSM testing with reusable primitives
@@ -141,6 +142,14 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         mbsmRegistry.addVersion(address(masterManager));
         Tangle(payable(address(tangleProxy))).setMBSMRegistry(address(mbsmRegistry));
         vm.stopPrank();
+
+        // Default payment split includes a restaker share; configure a distributor in the harness
+        // so service creation/tests don't depend on treasury fallback behavior.
+        MockServiceFeeDistributor distributor = new MockServiceFeeDistributor();
+        vm.startPrank(admin);
+        tangle.setServiceFeeDistributor(address(distributor));
+        restaking.setServiceFeeDistributor(address(distributor));
+        vm.stopPrank();
     }
 
     function _registerTangleFacets() internal {
@@ -164,7 +173,6 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         router.registerFacet(address(new RestakingOperatorsFacet()));
         router.registerFacet(address(new RestakingDepositsFacet()));
         router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingRewardsFacet()));
         router.registerFacet(address(new RestakingSlashingFacet()));
         router.registerFacet(address(new RestakingAssetsFacet()));
         router.registerFacet(address(new RestakingViewsFacet()));
