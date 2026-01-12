@@ -208,7 +208,7 @@ abstract contract ServicesRequests is Base {
         uint32 maxOperators,
         uint32 operatorCount,
         uint32 minOps
-    ) private view {
+    ) private pure {
         if (operatorCount < minOps) {
             revert Errors.InsufficientOperators(minOps, operatorCount);
         }
