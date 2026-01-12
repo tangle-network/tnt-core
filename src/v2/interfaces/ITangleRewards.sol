@@ -20,6 +20,12 @@ interface ITangleRewards {
     /// @notice Claim accumulated rewards for a specific token
     function claimRewards(address token) external;
 
+    /// @notice Claim accumulated rewards for multiple tokens
+    function claimRewardsBatch(address[] calldata tokens) external;
+
+    /// @notice Claim accumulated rewards for all pending tokens
+    function claimRewardsAll() external;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════

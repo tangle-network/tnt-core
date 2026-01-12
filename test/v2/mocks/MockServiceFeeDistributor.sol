@@ -45,6 +45,46 @@ contract MockServiceFeeDistributor is IServiceFeeDistributor {
         emit ServiceFeeReceived(serviceId, blueprintId, operator, paymentToken, amount);
     }
 
+    function claimFor(
+        address,
+        address,
+        Types.Asset calldata
+    ) external pure override returns (uint256 amount) {
+        return amount;
+    }
+
+    function claimAll(address) external pure override returns (uint256 totalAmount) {
+        return totalAmount;
+    }
+
+    function claimAllBatch(address[] calldata tokens) external pure override returns (uint256[] memory amounts) {
+        amounts = new uint256[](tokens.length);
+    }
+
+    function pendingRewards(address, address) external pure override returns (uint256 pending) {
+        return pending;
+    }
+
+    function delegatorOperators(address) external pure override returns (address[] memory operators) {
+        return operators;
+    }
+
+    function delegatorAssets(address, address) external pure override returns (bytes32[] memory assetHashes) {
+        return assetHashes;
+    }
+
+    function getPosition(
+        address,
+        address,
+        bytes32
+    ) external pure override returns (uint8 mode, uint256 principal, uint256 score) {
+        return (mode, principal, score);
+    }
+
+    function operatorRewardTokens(address) external pure override returns (address[] memory tokens) {
+        return tokens;
+    }
+
     function onDelegationChanged(
         address,
         address,

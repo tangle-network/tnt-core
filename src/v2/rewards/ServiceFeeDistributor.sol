@@ -699,7 +699,21 @@ contract ServiceFeeDistributor is
     /// @param token The payment token to claim (address(0) for native)
     /// @return totalAmount Total amount claimed
     function claimAll(address token) external nonReentrant returns (uint256 totalAmount) {
-        EnumerableSet.AddressSet storage operators = _delegatorOperators[msg.sender];
+        totalAmount = _claimAllForToken(msg.sender, token);
+    }
+
+    /// @notice Claim all pending rewards across all tokens
+    /// @param tokens The payment tokens to claim (address(0) for native)
+    /// @return amounts Total amounts claimed per token (same order as input)
+    function claimAllBatch(address[] calldata tokens) external nonReentrant returns (uint256[] memory amounts) {
+        amounts = new uint256[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            amounts[i] = _claimAllForToken(msg.sender, tokens[i]);
+        }
+    }
+
+    function _claimAllForToken(address account, address token) internal returns (uint256 totalAmount) {
+        EnumerableSet.AddressSet storage operators = _delegatorOperators[account];
         uint256 opLen = operators.length();
 
         for (uint256 i = 0; i < opLen; i++) {
@@ -708,24 +722,24 @@ contract ServiceFeeDistributor is
             // Drip all streams for this operator to get up-to-date rewards
             _dripOperatorStreams(operator);
 
-            EnumerableSet.Bytes32Set storage assets = _delegatorAssets[msg.sender][operator];
+            EnumerableSet.Bytes32Set storage assets = _delegatorAssets[account][operator];
             uint256 assetLen = assets.length();
 
             for (uint256 j = 0; j < assetLen; j++) {
                 bytes32 assetHash = assets.at(j);
-                uint8 mode = _positionMode[msg.sender][operator][assetHash];
+                uint8 mode = _positionMode[account][operator][assetHash];
                 if (mode == 0) continue;
 
-                _harvestToken(msg.sender, operator, assetHash, token, mode);
+                _harvestToken(account, operator, assetHash, token, mode);
             }
         }
 
-        totalAmount = claimable[msg.sender][token];
+        totalAmount = claimable[account][token];
         if (totalAmount == 0) return 0;
-        claimable[msg.sender][token] = 0;
+        claimable[account][token] = 0;
 
-        _transferPayment(payable(msg.sender), token, totalAmount);
-        emit Claimed(msg.sender, token, totalAmount);
+        _transferPayment(payable(account), token, totalAmount);
+        emit Claimed(account, token, totalAmount);
     }
 
     function _harvestToken(

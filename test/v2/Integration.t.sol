@@ -78,12 +78,12 @@ contract IntegrationTest is BaseTest {
         assertTrue(tangle.isServiceActive(0));
 
         // Step 7: Check payment was distributed (PayOnce model)
-        // Default split: developer=5000, protocol=1000, operator=2000, restaker=2000
-        uint256 developerAmount = (payment * 5000) / 10000;
-        uint256 protocolAmount = (payment * 1000) / 10000;
+        // Default split: developer=2000, protocol=2000, operator=4000, restaker=2000
+        uint256 developerAmount = (payment * 2000) / 10000;
+        uint256 protocolAmount = (payment * 2000) / 10000;
 
-        assertEq(developer.balance, developerBefore + developerAmount, "Developer should receive 50%");
-        assertEq(treasury.balance, treasuryBefore + protocolAmount, "Treasury should receive 10%");
+        assertEq(developer.balance, developerBefore + developerAmount, "Developer should receive 20%");
+        assertEq(treasury.balance, treasuryBefore + protocolAmount, "Treasury should receive 20%");
 
         // Step 8: Submit a job
         bytes memory inputs = abi.encode("compute something");

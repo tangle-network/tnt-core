@@ -144,6 +144,28 @@ contract ServiceFeeDistributorTest is BaseTest {
         assertEq(payTokenB.balanceOf(delegator2) - d2B, 5 ether);
     }
 
+    function test_ClaimAllBatch_MultiToken() public {
+        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10000, 10000, address(payTokenB), 50 ether);
+
+        uint256 pendingA = distributor.pendingRewards(delegator1, address(payTokenA));
+        uint256 pendingB = distributor.pendingRewards(delegator1, address(payTokenB));
+        assertGt(pendingA, 0);
+        assertGt(pendingB, 0);
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(payTokenA);
+        tokens[1] = address(payTokenB);
+
+        vm.prank(delegator1);
+        uint256[] memory claimed = distributor.claimAllBatch(tokens);
+
+        assertEq(claimed[0], pendingA);
+        assertEq(claimed[1], pendingB);
+        assertEq(distributor.pendingRewards(delegator1, address(payTokenA)), 0);
+        assertEq(distributor.pendingRewards(delegator1, address(payTokenB)), 0);
+    }
+
     function test_Fallback_NoSecurityRequirements_StillDistributesToRestakers() public {
         address[] memory ops = new address[](1);
         ops[0] = operator1;

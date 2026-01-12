@@ -9308,6 +9308,8 @@ interface ITangle {
     function cancelExit(uint64 serviceId) external;
     function claimRewards() external;
     function claimRewards(address token) external;
+    function claimRewardsAll() external;
+    function claimRewardsBatch(address[] memory tokens) external;
     function createBlueprint(Types.BlueprintDefinition memory definition) external returns (uint64 blueprintId);
     function createServiceFromQuotes(uint64 blueprintId, Types.SignedQuote[] memory quotes, bytes memory config, address[] memory permittedCallers, uint64 ttl) external payable returns (uint64 serviceId);
     function deactivateBlueprint(uint64 blueprintId) external;
@@ -9830,6 +9832,26 @@ interface ITangle {
         "name": "token",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimRewardsAll",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimRewardsBatch",
+    "inputs": [
+      {
+        "name": "tokens",
+        "type": "address[]",
+        "internalType": "address[]"
       }
     ],
     "outputs": [],
@@ -17748,6 +17770,299 @@ function claimRewards(address token) external;
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 claimRewards_1Return::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `claimRewardsAll()` and selector `0x62b83dda`.
+```solidity
+function claimRewardsAll() external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct claimRewardsAllCall;
+    ///Container type for the return parameters of the [`claimRewardsAll()`](claimRewardsAllCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct claimRewardsAllReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<claimRewardsAllCall> for UnderlyingRustTuple<'_> {
+                fn from(value: claimRewardsAllCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for claimRewardsAllCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<claimRewardsAllReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: claimRewardsAllReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimRewardsAllReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl claimRewardsAllReturn {
+            fn _tokenize(
+                &self,
+            ) -> <claimRewardsAllCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for claimRewardsAllCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = claimRewardsAllReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "claimRewardsAll()";
+            const SELECTOR: [u8; 4] = [98u8, 184u8, 61u8, 218u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                claimRewardsAllReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `claimRewardsBatch(address[])` and selector `0x8602bba0`.
+```solidity
+function claimRewardsBatch(address[] memory tokens) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct claimRewardsBatchCall {
+        #[allow(missing_docs)]
+        pub tokens: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
+    }
+    ///Container type for the return parameters of the [`claimRewardsBatch(address[])`](claimRewardsBatchCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct claimRewardsBatchReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<claimRewardsBatchCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: claimRewardsBatchCall) -> Self {
+                    (value.tokens,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimRewardsBatchCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { tokens: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<claimRewardsBatchReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: claimRewardsBatchReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimRewardsBatchReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl claimRewardsBatchReturn {
+            fn _tokenize(
+                &self,
+            ) -> <claimRewardsBatchCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for claimRewardsBatchCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = claimRewardsBatchReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "claimRewardsBatch(address[])";
+            const SELECTOR: [u8; 4] = [134u8, 2u8, 187u8, 160u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Address,
+                    > as alloy_sol_types::SolType>::tokenize(&self.tokens),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                claimRewardsBatchReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -27380,6 +27695,10 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         claimRewards_1(claimRewards_1Call),
         #[allow(missing_docs)]
+        claimRewardsAll(claimRewardsAllCall),
+        #[allow(missing_docs)]
+        claimRewardsBatch(claimRewardsBatchCall),
+        #[allow(missing_docs)]
         createBlueprint(createBlueprintCall),
         #[allow(missing_docs)]
         createServiceFromQuotes(createServiceFromQuotesCall),
@@ -27528,6 +27847,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [95u8, 155u8, 77u8, 250u8],
             [97u8, 72u8, 35u8, 178u8],
             [97u8, 113u8, 254u8, 168u8],
+            [98u8, 184u8, 61u8, 218u8],
             [100u8, 70u8, 37u8, 149u8],
             [103u8, 120u8, 175u8, 188u8],
             [104u8, 77u8, 137u8, 245u8],
@@ -27537,6 +27857,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [128u8, 172u8, 130u8, 40u8],
             [129u8, 93u8, 106u8, 38u8],
             [132u8, 37u8, 36u8, 187u8],
+            [134u8, 2u8, 187u8, 160u8],
             [138u8, 76u8, 247u8, 99u8],
             [141u8, 63u8, 101u8, 190u8],
             [144u8, 158u8, 172u8, 36u8],
@@ -27603,6 +27924,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(getServiceRequest),
             ::core::stringify!(approveService),
             ::core::stringify!(getBlueprintDefinition),
+            ::core::stringify!(claimRewardsAll),
             ::core::stringify!(isOperatorRegistered),
             ::core::stringify!(leaveService),
             ::core::stringify!(forceRemoveOperator),
@@ -27612,6 +27934,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(pendingRewards_1),
             ::core::stringify!(addPermittedCaller),
             ::core::stringify!(getServiceOperator),
+            ::core::stringify!(claimRewardsBatch),
             ::core::stringify!(transferBlueprint),
             ::core::stringify!(blueprintOperatorCount),
             ::core::stringify!(updateOperatorPreferences),
@@ -27678,6 +28001,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <getServiceRequestCall as alloy_sol_types::SolCall>::SIGNATURE,
             <approveServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getBlueprintDefinitionCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <claimRewardsAllCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isOperatorRegisteredCall as alloy_sol_types::SolCall>::SIGNATURE,
             <leaveServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <forceRemoveOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -27687,6 +28011,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <pendingRewards_1Call as alloy_sol_types::SolCall>::SIGNATURE,
             <addPermittedCallerCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <claimRewardsBatchCall as alloy_sol_types::SolCall>::SIGNATURE,
             <transferBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintOperatorCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <updateOperatorPreferencesCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -27750,7 +28075,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
     impl alloy_sol_types::SolInterface for ITangleCalls {
         const NAME: &'static str = "ITangleCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 72usize;
+        const COUNT: usize = 74usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -27798,6 +28123,12 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::claimRewards_1(_) => {
                     <claimRewards_1Call as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::claimRewardsAll(_) => {
+                    <claimRewardsAllCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::claimRewardsBatch(_) => {
+                    <claimRewardsBatchCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::createBlueprint(_) => {
                     <createBlueprintCall as alloy_sol_types::SolCall>::SELECTOR
@@ -28268,6 +28599,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     getBlueprintDefinition
                 },
                 {
+                    fn claimRewardsAll(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleCalls> {
+                        <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleCalls::claimRewardsAll)
+                    }
+                    claimRewardsAll
+                },
+                {
                     fn isOperatorRegistered(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleCalls> {
@@ -28365,6 +28707,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleCalls::getServiceOperator)
                     }
                     getServiceOperator
+                },
+                {
+                    fn claimRewardsBatch(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleCalls> {
+                        <claimRewardsBatchCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleCalls::claimRewardsBatch)
+                    }
+                    claimRewardsBatch
                 },
                 {
                     fn transferBlueprint(
@@ -29068,6 +29421,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     getBlueprintDefinition
                 },
                 {
+                    fn claimRewardsAll(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleCalls> {
+                        <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleCalls::claimRewardsAll)
+                    }
+                    claimRewardsAll
+                },
+                {
                     fn isOperatorRegistered(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleCalls> {
@@ -29165,6 +29529,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleCalls::getServiceOperator)
                     }
                     getServiceOperator
+                },
+                {
+                    fn claimRewardsBatch(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleCalls> {
+                        <claimRewardsBatchCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleCalls::claimRewardsBatch)
+                    }
+                    claimRewardsBatch
                 },
                 {
                     fn transferBlueprint(
@@ -29654,6 +30029,16 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         inner,
                     )
                 }
+                Self::claimRewardsAll(inner) => {
+                    <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::claimRewardsBatch(inner) => {
+                    <claimRewardsBatchCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::createBlueprint(inner) => {
                     <createBlueprintCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -30022,6 +30407,18 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::claimRewards_1(inner) => {
                     <claimRewards_1Call as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::claimRewardsAll(inner) => {
+                    <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::claimRewardsBatch(inner) => {
+                    <claimRewardsBatchCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -31219,6 +31616,19 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             token: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, claimRewards_1Call, N> {
             self.call_builder(&claimRewards_1Call { token })
+        }
+        ///Creates a new call builder for the [`claimRewardsAll`] function.
+        pub fn claimRewardsAll(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, claimRewardsAllCall, N> {
+            self.call_builder(&claimRewardsAllCall)
+        }
+        ///Creates a new call builder for the [`claimRewardsBatch`] function.
+        pub fn claimRewardsBatch(
+            &self,
+            tokens: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
+        ) -> alloy_contract::SolCallBuilder<&P, claimRewardsBatchCall, N> {
+            self.call_builder(&claimRewardsBatchCall { tokens })
         }
         ///Creates a new call builder for the [`createBlueprint`] function.
         pub fn createBlueprint(

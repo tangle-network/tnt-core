@@ -25,6 +25,38 @@ interface IServiceFeeDistributor {
         uint256 amount
     ) external payable;
 
+    /// @notice Claim rewards for a specific delegator position and token
+    function claimFor(
+        address token,
+        address operator,
+        Types.Asset calldata asset
+    ) external returns (uint256 amount);
+
+    /// @notice Claim all pending rewards across all positions for a token
+    function claimAll(address token) external returns (uint256 totalAmount);
+
+    /// @notice Claim all pending rewards for multiple tokens
+    function claimAllBatch(address[] calldata tokens) external returns (uint256[] memory amounts);
+
+    /// @notice Preview pending rewards for a delegator across all positions for a token
+    function pendingRewards(address delegator, address token) external view returns (uint256 pending);
+
+    /// @notice Return all operators a delegator has positions with
+    function delegatorOperators(address delegator) external view returns (address[] memory operators);
+
+    /// @notice Return all asset hashes a delegator has positions for with an operator
+    function delegatorAssets(address delegator, address operator) external view returns (bytes32[] memory assetHashes);
+
+    /// @notice Return a delegator's position details
+    function getPosition(
+        address delegator,
+        address operator,
+        bytes32 assetHash
+    ) external view returns (uint8 mode, uint256 principal, uint256 score);
+
+    /// @notice Return reward tokens ever distributed for an operator
+    function operatorRewardTokens(address operator) external view returns (address[] memory tokens);
+
     function onDelegationChanged(
         address delegator,
         address operator,

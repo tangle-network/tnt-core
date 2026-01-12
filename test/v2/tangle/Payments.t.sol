@@ -46,9 +46,9 @@ contract PaymentsTest is BaseTest {
 
     function test_PaymentSplit_DefaultValues() public view {
         (uint16 dev, uint16 proto, uint16 op, uint16 rest) = tangle.paymentSplit();
-        assertEq(dev, 5000);   // 50%
-        assertEq(proto, 1000); // 10%
-        assertEq(op, 2000);    // 20%
+        assertEq(dev, 2000);   // 20%
+        assertEq(proto, 2000); // 20%
+        assertEq(op, 4000);    // 40%
         assertEq(rest, 2000);  // 20%
         assertEq(dev + proto + op + rest, 10000);
     }
@@ -131,15 +131,57 @@ contract PaymentsTest is BaseTest {
         tangle.approveService(requestId, 0);
 
         // Check distribution
-        uint256 developerExpected = (payment * 5000) / 10000; // 50%
-        uint256 protocolExpected = (payment * 1000) / 10000;  // 10%
+        uint256 developerExpected = (payment * 2000) / 10000; // 20%
+        uint256 protocolExpected = (payment * 2000) / 10000;  // 20%
 
         assertEq(developer.balance, developerBefore + developerExpected, "Developer payment incorrect");
         assertEq(treasury.balance, treasuryBefore + protocolExpected, "Protocol payment incorrect");
 
-        // Check operator has pending rewards (20% of 10 ETH = 2 ETH)
+        // Check operator has pending rewards (40% of 10 ETH = 4 ETH)
         uint256 operatorPending = tangle.pendingRewards(operator1);
-        assertEq(operatorPending, 2 ether, "Operator pending rewards incorrect");
+        assertEq(operatorPending, 4 ether, "Operator pending rewards incorrect");
+    }
+
+    function test_ClaimRewardsBatch_MultiToken() public {
+        uint256 nativePayment = 10 ether;
+        uint256 erc20Payment = 50 ether;
+
+        uint256 operatorEthBefore = operator1.balance;
+        uint256 operatorTokenBefore = token.balanceOf(operator1);
+
+        uint64 nativeRequest = _requestServiceWithPayment(user1, blueprintId, operator1, nativePayment);
+        _approveService(operator1, nativeRequest);
+
+        uint64 tokenRequest = _requestServiceWithErc20(user1, blueprintId, operator1, address(token), erc20Payment);
+        _approveService(operator1, tokenRequest);
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(0);
+        tokens[1] = address(token);
+
+        vm.prank(operator1);
+        tangle.claimRewardsBatch(tokens);
+
+        assertEq(tangle.pendingRewards(operator1), 0, "Native rewards should be claimed");
+        assertEq(tangle.pendingRewards(operator1, address(token)), 0, "ERC20 rewards should be claimed");
+        assertEq(operator1.balance, operatorEthBefore + 4 ether, "Native rewards mismatch");
+        assertEq(token.balanceOf(operator1), operatorTokenBefore + 20 ether, "ERC20 rewards mismatch");
+    }
+
+    function test_ClaimRewardsAll_UsesTrackedTokens() public {
+        uint256 payment = 5 ether;
+
+        uint256 operatorEthBefore = operator1.balance;
+
+        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
+        _approveService(operator1, requestId);
+
+        vm.prank(operator1);
+        tangle.claimRewardsAll();
+
+        assertEq(tangle.pendingRewards(operator1), 0, "Native rewards should be claimed");
+        assertEq(operator1.balance, operatorEthBefore + 2 ether, "Native rewards mismatch");
+        assertEq(tangle.rewardTokens(operator1).length, 0, "Tracked token set should be empty");
     }
 
     function test_TntPaymentDiscount_FundedFromProtocolShare_RebatesOwner() public {
@@ -223,11 +265,11 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator2);
         tangle.approveService(requestId, 0);
 
-        // Each operator should get half of the 20% operator share (1 ETH each)
+        // Each operator should get half of the 40% operator share (2 ETH each)
         uint256 op1Pending = tangle.pendingRewards(operator1);
         uint256 op2Pending = tangle.pendingRewards(operator2);
-        assertEq(op1Pending, 1 ether, "Operator1 pending incorrect");
-        assertEq(op2Pending, 1 ether, "Operator2 pending incorrect");
+        assertEq(op1Pending, 2 ether, "Operator1 pending incorrect");
+        assertEq(op2Pending, 2 ether, "Operator2 pending incorrect");
     }
 
     function test_PayOnce_NativeToken_ExposureWeightedDistribution() public {
@@ -252,13 +294,13 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator2);
         tangle.approveService(requestId, 0);
 
-        // Operator share is 2 ETH total
-        // Op1 should get 70% = 1.4 ETH
-        // Op2 should get 30% = 0.6 ETH
+        // Operator share is 4 ETH total
+        // Op1 should get 70% = 2.8 ETH
+        // Op2 should get 30% = 1.2 ETH
         uint256 op1Pending = tangle.pendingRewards(operator1);
         uint256 op2Pending = tangle.pendingRewards(operator2);
-        assertEq(op1Pending, 1.4 ether, "Operator1 exposure-weighted payment incorrect");
-        assertEq(op2Pending, 0.6 ether, "Operator2 exposure-weighted payment incorrect");
+        assertEq(op1Pending, 2.8 ether, "Operator1 exposure-weighted payment incorrect");
+        assertEq(op2Pending, 1.2 ether, "Operator2 exposure-weighted payment incorrect");
     }
 
     function test_PayOnce_ZeroPayment() public {
@@ -327,8 +369,8 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator1);
         tangle.claimRewards();
 
-        // Should receive 20% of 5 ETH = 1 ETH
-        assertEq(operator1.balance, balanceBefore + 1 ether);
+        // Should receive 40% of 5 ETH = 2 ETH
+        assertEq(operator1.balance, balanceBefore + 2 ether);
     }
 
     function test_ClaimRewards_ERC20Token() public {
@@ -685,8 +727,8 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        // 10% should go to new treasury
-        assertEq(newTreasury.balance, newTreasuryBefore + 1 ether);
+        // 20% should go to new treasury
+        assertEq(newTreasury.balance, newTreasuryBefore + 2 ether);
     }
 
     function test_SetTreasury_RevertZeroAddress() public {
@@ -738,7 +780,7 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        // With 1 wei: developer gets 0 (50% of 1 = 0.5 rounds down)
+        // With 1 wei: developer/protocol/operator shares round down to 0
         // All goes to restaker remainder handling
         assertEq(developer.balance, developerBefore, "developer cannot receive fractional wei");
         assertEq(treasury.balance, treasuryBefore, "treasury cannot receive fractional wei");
@@ -761,10 +803,10 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        uint256 devExpected = (uint256(333) * 5000) / 10000; // 166
-        uint256 protoExpected = (uint256(333) * 1000) / 10000; // 33
-        uint256 opExpected = (uint256(333) * 2000) / 10000; // 66
-        // Restaker gets remainder: 333 - 166 - 33 - 66 = 68
+        uint256 devExpected = (uint256(333) * 2000) / 10000; // 66
+        uint256 protoExpected = (uint256(333) * 2000) / 10000; // 66
+        uint256 opExpected = (uint256(333) * 4000) / 10000; // 133
+        // Restaker gets remainder: 333 - 66 - 66 - 133 = 68
 
         assertEq(developer.balance, developerBefore + devExpected);
         assertEq(treasury.balance, treasuryBefore + protoExpected);

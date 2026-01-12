@@ -508,7 +508,7 @@ library Types {
     struct Deposit { uint256 amount; uint256 delegatedAmount; }
     struct LockInfo { uint256 amount; LockMultiplier multiplier; uint64 expiryBlock; }
     struct OperatorMetadata { uint256 stake; uint32 delegationCount; OperatorStatus status; uint64 leavingRound; }
-    struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint256 totalAssets; uint64 lastUpdateRound; }
+    struct OperatorRewardPool { uint256 totalShares; uint256 totalAssets; }
     struct WithdrawRequest { Asset asset; uint256 amount; uint64 requestedRound; }
 }
 ```*/
@@ -3158,19 +3158,15 @@ struct OperatorMetadata { uint256 stake; uint32 delegationCount; OperatorStatus 
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint256 totalAssets; uint64 lastUpdateRound; }
+struct OperatorRewardPool { uint256 totalShares; uint256 totalAssets; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct OperatorRewardPool {
         #[allow(missing_docs)]
-        pub accRewardPerShare: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
         pub totalShares: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
         pub totalAssets: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
-        pub lastUpdateRound: u64,
     }
     #[allow(
         non_camel_case_types,
@@ -3185,15 +3181,11 @@ struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<64>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
             alloy::sol_types::private::primitives::aliases::U256,
             alloy::sol_types::private::primitives::aliases::U256,
-            alloy::sol_types::private::primitives::aliases::U256,
-            u64,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -3210,12 +3202,7 @@ struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint
         #[doc(hidden)]
         impl ::core::convert::From<OperatorRewardPool> for UnderlyingRustTuple<'_> {
             fn from(value: OperatorRewardPool) -> Self {
-                (
-                    value.accRewardPerShare,
-                    value.totalShares,
-                    value.totalAssets,
-                    value.lastUpdateRound,
-                )
+                (value.totalShares, value.totalAssets)
             }
         }
         #[automatically_derived]
@@ -3223,10 +3210,8 @@ struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint
         impl ::core::convert::From<UnderlyingRustTuple<'_>> for OperatorRewardPool {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
-                    accRewardPerShare: tuple.0,
-                    totalShares: tuple.1,
-                    totalAssets: tuple.2,
-                    lastUpdateRound: tuple.3,
+                    totalShares: tuple.0,
+                    totalAssets: tuple.1,
                 }
             }
         }
@@ -3241,16 +3226,10 @@ struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint
                 (
                     <alloy::sol_types::sol_data::Uint<
                         256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.accRewardPerShare),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
                     > as alloy_sol_types::SolType>::tokenize(&self.totalShares),
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.totalAssets),
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::tokenize(&self.lastUpdateRound),
                 )
             }
             #[inline]
@@ -3325,7 +3304,7 @@ struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "OperatorRewardPool(uint256 accRewardPerShare,uint256 totalShares,uint256 totalAssets,uint64 lastUpdateRound)",
+                    "OperatorRewardPool(uint256 totalShares,uint256 totalAssets)",
                 )
             }
             #[inline]
@@ -3343,23 +3322,11 @@ struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint
                 [
                     <alloy::sol_types::sol_data::Uint<
                         256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.accRewardPerShare,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.totalShares)
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.totalAssets)
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.lastUpdateRound,
-                        )
                         .0,
                 ]
                     .concat()
@@ -3373,22 +3340,12 @@ struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint
                     + <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.accRewardPerShare,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.totalShares,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.totalAssets,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        64,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.lastUpdateRound,
                     )
             }
             #[inline]
@@ -3402,12 +3359,6 @@ struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint
                 <alloy::sol_types::sol_data::Uint<
                     256,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.accRewardPerShare,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.totalShares,
                     out,
                 );
@@ -3415,12 +3366,6 @@ struct OperatorRewardPool { uint256 accRewardPerShare; uint256 totalShares; uint
                     256,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.totalAssets,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    64,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.lastUpdateRound,
                     out,
                 );
             }
@@ -3870,10 +3815,8 @@ library Types {
         uint64 leavingRound;
     }
     struct OperatorRewardPool {
-        uint256 accRewardPerShare;
         uint256 totalShares;
         uint256 totalAssets;
-        uint64 lastUpdateRound;
     }
     struct WithdrawRequest {
         Asset asset;
@@ -4873,11 +4816,6 @@ interface IMultiAssetDelegation {
         "internalType": "struct Types.OperatorRewardPool",
         "components": [
           {
-            "name": "accRewardPerShare",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
             "name": "totalShares",
             "type": "uint256",
             "internalType": "uint256"
@@ -4886,11 +4824,6 @@ interface IMultiAssetDelegation {
             "name": "totalAssets",
             "type": "uint256",
             "internalType": "uint256"
-          },
-          {
-            "name": "lastUpdateRound",
-            "type": "uint64",
-            "internalType": "uint64"
           }
         ]
       }

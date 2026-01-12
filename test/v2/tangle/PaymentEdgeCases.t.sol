@@ -214,9 +214,9 @@ contract PaymentEdgeCasesTest is BaseTest {
         uint256 op2Pending = tangle.pendingRewards(operator2);
         uint256 op3Pending = tangle.pendingRewards(operator3);
 
-        // Total operator share is 20% of 100 = 20 wei, split 3 ways
-        // Each gets ~6 wei
-        assertTrue(op1Pending + op2Pending + op3Pending <= 20, "Total operator rewards should not exceed 20% of payment");
+        // Total operator share is 40% of 100 = 40 wei, split 3 ways
+        // Each gets ~13 wei
+        assertTrue(op1Pending + op2Pending + op3Pending <= 40, "Total operator rewards should not exceed 40% of payment");
     }
 
     function test_Payment_RequestServiceWithRevertingTokenReverts() public {
@@ -301,9 +301,9 @@ contract PaymentEdgeCasesTest is BaseTest {
         uint256 op1Pending = tangle.pendingRewards(operator1);
         uint256 op2Pending = tangle.pendingRewards(operator2);
 
-        // Operator share is 20% of 100 = 20 ETH
-        // Op1 gets 99% of 20 = 19.8 ETH
-        // Op2 gets 1% of 20 = 0.2 ETH
+        // Operator share is 40% of 100 = 40 ETH
+        // Op1 gets 99% of 40 = 39.6 ETH
+        // Op2 gets 1% of 40 = 0.4 ETH
         assertGt(op1Pending, op2Pending * 90, "Op1 should get much more than op2");
     }
 

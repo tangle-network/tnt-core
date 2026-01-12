@@ -23,9 +23,9 @@ abstract contract TangleStorage {
     uint16 internal constant BPS_DENOMINATOR = 10_000;
 
     // Default payment split (can be changed by admin)
-    uint16 internal constant DEFAULT_DEVELOPER_BPS = 5000;  // 50%
-    uint16 internal constant DEFAULT_PROTOCOL_BPS = 1000;   // 10%
-    uint16 internal constant DEFAULT_OPERATOR_BPS = 2000;   // 20%
+    uint16 internal constant DEFAULT_DEVELOPER_BPS = 2000;  // 20%
+    uint16 internal constant DEFAULT_PROTOCOL_BPS = 2000;   // 20%
+    uint16 internal constant DEFAULT_OPERATOR_BPS = 4000;   // 40%
     uint16 internal constant DEFAULT_RESTAKER_BPS = 2000;   // 20%
 
     // Default exit queue configuration

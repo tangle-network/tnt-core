@@ -196,19 +196,27 @@ abstract contract Payments is Base {
 
     /// @notice Claim pending rewards (native token)
     function claimRewards() external nonReentrant {
-        uint256 claimed = PaymentLib.claimPendingReward(_pendingRewards, msg.sender, address(0));
-        if (claimed > 0) {
-            _pendingRewardTokens[msg.sender].remove(address(0));
-            emit RewardsClaimed(msg.sender, address(0), claimed);
-        }
+        _claimRewardsToken(msg.sender, address(0), false);
     }
 
     /// @notice Claim pending rewards for specific token
     function claimRewards(address token) external nonReentrant {
-        uint256 claimed = PaymentLib.claimPendingReward(_pendingRewards, msg.sender, token);
-        if (claimed > 0) {
-            _pendingRewardTokens[msg.sender].remove(token);
-            emit RewardsClaimed(msg.sender, token, claimed);
+        _claimRewardsToken(msg.sender, token, false);
+    }
+
+    /// @notice Claim pending rewards for multiple tokens
+    function claimRewardsBatch(address[] calldata tokens) external nonReentrant {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            _claimRewardsToken(msg.sender, tokens[i], false);
+        }
+    }
+
+    /// @notice Claim pending rewards for all tokens tracked for the caller
+    function claimRewardsAll() external nonReentrant {
+        EnumerableSet.AddressSet storage set = _pendingRewardTokens[msg.sender];
+        while (set.length() > 0) {
+            address token = set.at(set.length() - 1);
+            _claimRewardsToken(msg.sender, token, true);
         }
     }
 
@@ -228,6 +236,16 @@ abstract contract Payments is Base {
         tokens = new address[](set.length());
         for (uint256 i = 0; i < tokens.length; i++) {
             tokens[i] = set.at(i);
+        }
+    }
+
+    function _claimRewardsToken(address account, address token, bool forceRemove) private {
+        uint256 claimed = PaymentLib.claimPendingReward(_pendingRewards, account, token);
+        if (claimed > 0) {
+            _pendingRewardTokens[account].remove(token);
+            emit RewardsClaimed(account, token, claimed);
+        } else if (forceRemove) {
+            _pendingRewardTokens[account].remove(token);
         }
     }
 
