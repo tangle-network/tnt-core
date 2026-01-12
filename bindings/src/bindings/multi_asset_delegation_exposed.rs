@@ -1183,8 +1183,6 @@ interface MultiAssetDelegationExposed {
     event OperatorUnstakeExecuted(address indexed operator, uint256 amount);
     event OperatorUnstakeScheduled(address indexed operator, uint256 amount, uint64 readyRound);
     event Paused(address account);
-    event RewardClaimed(address indexed account, uint256 amount);
-    event RewardDistributed(address indexed operator, uint256 amount);
     event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);
     event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);
     event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);
@@ -2525,44 +2523,6 @@ interface MultiAssetDelegationExposed {
         "type": "address",
         "indexed": false,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "RewardClaimed",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "RewardDistributed",
-    "inputs": [
-      {
-        "name": "operator",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -5568,238 +5528,6 @@ event Paused(address account);
         impl From<&Paused> for alloy_sol_types::private::LogData {
             #[inline]
             fn from(this: &Paused) -> alloy_sol_types::private::LogData {
-                alloy_sol_types::SolEvent::encode_log_data(this)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `RewardClaimed(address,uint256)` and selector `0x106f923f993c2149d49b4255ff723acafa1f2d94393f561d3eda32ae348f7241`.
-```solidity
-event RewardClaimed(address indexed account, uint256 amount);
-```*/
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    #[derive(Clone)]
-    pub struct RewardClaimed {
-        #[allow(missing_docs)]
-        pub account: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub amount: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[automatically_derived]
-        impl alloy_sol_types::SolEvent for RewardClaimed {
-            type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type TopicList = (
-                alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Address,
-            );
-            const SIGNATURE: &'static str = "RewardClaimed(address,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                16u8, 111u8, 146u8, 63u8, 153u8, 60u8, 33u8, 73u8, 212u8, 155u8, 66u8,
-                85u8, 255u8, 114u8, 58u8, 202u8, 250u8, 31u8, 45u8, 148u8, 57u8, 63u8,
-                86u8, 29u8, 62u8, 218u8, 50u8, 174u8, 52u8, 143u8, 114u8, 65u8,
-            ]);
-            const ANONYMOUS: bool = false;
-            #[allow(unused_variables)]
-            #[inline]
-            fn new(
-                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
-                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                Self {
-                    account: topics.1,
-                    amount: data.0,
-                }
-            }
-            #[inline]
-            fn check_signature(
-                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
-            ) -> alloy_sol_types::Result<()> {
-                if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
-                }
-                Ok(())
-            }
-            #[inline]
-            fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
-                )
-            }
-            #[inline]
-            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.account.clone())
-            }
-            #[inline]
-            fn encode_topics_raw(
-                &self,
-                out: &mut [alloy_sol_types::abi::token::WordToken],
-            ) -> alloy_sol_types::Result<()> {
-                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
-                    return Err(alloy_sol_types::Error::Overrun);
-                }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
-                out[1usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.account,
-                );
-                Ok(())
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::IntoLogData for RewardClaimed {
-            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
-                From::from(self)
-            }
-            fn into_log_data(self) -> alloy_sol_types::private::LogData {
-                From::from(&self)
-            }
-        }
-        #[automatically_derived]
-        impl From<&RewardClaimed> for alloy_sol_types::private::LogData {
-            #[inline]
-            fn from(this: &RewardClaimed) -> alloy_sol_types::private::LogData {
-                alloy_sol_types::SolEvent::encode_log_data(this)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `RewardDistributed(address,uint256)` and selector `0xe34918ff1c7084970068b53fd71ad6d8b04e9f15d3886cbf006443e6cdc52ea6`.
-```solidity
-event RewardDistributed(address indexed operator, uint256 amount);
-```*/
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    #[derive(Clone)]
-    pub struct RewardDistributed {
-        #[allow(missing_docs)]
-        pub operator: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub amount: alloy::sol_types::private::primitives::aliases::U256,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[automatically_derived]
-        impl alloy_sol_types::SolEvent for RewardDistributed {
-            type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type TopicList = (
-                alloy_sol_types::sol_data::FixedBytes<32>,
-                alloy::sol_types::sol_data::Address,
-            );
-            const SIGNATURE: &'static str = "RewardDistributed(address,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                227u8, 73u8, 24u8, 255u8, 28u8, 112u8, 132u8, 151u8, 0u8, 104u8, 181u8,
-                63u8, 215u8, 26u8, 214u8, 216u8, 176u8, 78u8, 159u8, 21u8, 211u8, 136u8,
-                108u8, 191u8, 0u8, 100u8, 67u8, 230u8, 205u8, 197u8, 46u8, 166u8,
-            ]);
-            const ANONYMOUS: bool = false;
-            #[allow(unused_variables)]
-            #[inline]
-            fn new(
-                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
-                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                Self {
-                    operator: topics.1,
-                    amount: data.0,
-                }
-            }
-            #[inline]
-            fn check_signature(
-                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
-            ) -> alloy_sol_types::Result<()> {
-                if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
-                }
-                Ok(())
-            }
-            #[inline]
-            fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
-                )
-            }
-            #[inline]
-            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(), self.operator.clone())
-            }
-            #[inline]
-            fn encode_topics_raw(
-                &self,
-                out: &mut [alloy_sol_types::abi::token::WordToken],
-            ) -> alloy_sol_types::Result<()> {
-                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
-                    return Err(alloy_sol_types::Error::Overrun);
-                }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
-                out[1usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
-                    &self.operator,
-                );
-                Ok(())
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::IntoLogData for RewardDistributed {
-            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
-                From::from(self)
-            }
-            fn into_log_data(self) -> alloy_sol_types::private::LogData {
-                From::from(&self)
-            }
-        }
-        #[automatically_derived]
-        impl From<&RewardDistributed> for alloy_sol_types::private::LogData {
-            #[inline]
-            fn from(this: &RewardDistributed) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
         }
@@ -16781,10 +16509,6 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
         #[allow(missing_docs)]
         Paused(Paused),
         #[allow(missing_docs)]
-        RewardClaimed(RewardClaimed),
-        #[allow(missing_docs)]
-        RewardDistributed(RewardDistributed),
-        #[allow(missing_docs)]
         RoleAdminChanged(RoleAdminChanged),
         #[allow(missing_docs)]
         RoleGranted(RoleGranted),
@@ -16815,11 +16539,6 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
                 6u8, 50u8, 93u8, 131u8, 67u8, 93u8, 168u8, 118u8, 87u8, 176u8, 99u8,
                 198u8, 20u8, 42u8, 91u8, 145u8, 166u8, 106u8, 126u8, 129u8, 24u8, 39u8,
                 208u8, 130u8, 214u8, 36u8, 40u8, 122u8, 153u8, 83u8, 196u8, 186u8,
-            ],
-            [
-                16u8, 111u8, 146u8, 63u8, 153u8, 60u8, 33u8, 73u8, 212u8, 155u8, 66u8,
-                85u8, 255u8, 114u8, 58u8, 202u8, 250u8, 31u8, 45u8, 148u8, 57u8, 63u8,
-                86u8, 29u8, 62u8, 218u8, 50u8, 174u8, 52u8, 143u8, 114u8, 65u8,
             ],
             [
                 18u8, 5u8, 153u8, 248u8, 131u8, 1u8, 21u8, 237u8, 151u8, 49u8, 137u8,
@@ -16922,11 +16641,6 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
                 32u8, 254u8, 153u8, 251u8, 248u8, 154u8, 84u8, 236u8, 14u8, 39u8,
             ],
             [
-                227u8, 73u8, 24u8, 255u8, 28u8, 112u8, 132u8, 151u8, 0u8, 104u8, 181u8,
-                63u8, 215u8, 26u8, 214u8, 216u8, 176u8, 78u8, 159u8, 21u8, 211u8, 136u8,
-                108u8, 191u8, 0u8, 100u8, 67u8, 230u8, 205u8, 197u8, 46u8, 166u8,
-            ],
-            [
                 228u8, 24u8, 53u8, 20u8, 199u8, 72u8, 48u8, 57u8, 83u8, 140u8, 209u8,
                 249u8, 202u8, 32u8, 228u8, 137u8, 179u8, 196u8, 17u8, 243u8, 175u8, 18u8,
                 17u8, 207u8, 107u8, 90u8, 208u8, 160u8, 12u8, 164u8, 226u8, 40u8,
@@ -16955,7 +16669,6 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
             ::core::stringify!(DelegatorUnstakeScheduled),
-            ::core::stringify!(RewardClaimed),
             ::core::stringify!(OperatorLeft),
             ::core::stringify!(SlashRecorded),
             ::core::stringify!(RoleGranted),
@@ -16976,7 +16689,6 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
             ::core::stringify!(Initialized),
             ::core::stringify!(Withdrawn),
             ::core::stringify!(OperatorUnstakeExecuted),
-            ::core::stringify!(RewardDistributed),
             ::core::stringify!(DelegatorUnstakeExecuted),
             ::core::stringify!(SlashedForService),
             ::core::stringify!(RoleRevoked),
@@ -16986,7 +16698,6 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
             <DelegatorUnstakeScheduled as alloy_sol_types::SolEvent>::SIGNATURE,
-            <RewardClaimed as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorLeft as alloy_sol_types::SolEvent>::SIGNATURE,
             <SlashRecorded as alloy_sol_types::SolEvent>::SIGNATURE,
             <RoleGranted as alloy_sol_types::SolEvent>::SIGNATURE,
@@ -17007,7 +16718,6 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
             <Initialized as alloy_sol_types::SolEvent>::SIGNATURE,
             <Withdrawn as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorUnstakeExecuted as alloy_sol_types::SolEvent>::SIGNATURE,
-            <RewardDistributed as alloy_sol_types::SolEvent>::SIGNATURE,
             <DelegatorUnstakeExecuted as alloy_sol_types::SolEvent>::SIGNATURE,
             <SlashedForService as alloy_sol_types::SolEvent>::SIGNATURE,
             <RoleRevoked as alloy_sol_types::SolEvent>::SIGNATURE,
@@ -17038,7 +16748,7 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for MultiAssetDelegationExposedEvents {
         const NAME: &'static str = "MultiAssetDelegationExposedEvents";
-        const COUNT: usize = 28usize;
+        const COUNT: usize = 26usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -17184,22 +16894,6 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
                     <Paused as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::Paused)
                 }
-                Some(<RewardClaimed as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <RewardClaimed as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
-                        .map(Self::RewardClaimed)
-                }
-                Some(
-                    <RewardDistributed as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
-                ) => {
-                    <RewardDistributed as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
-                        .map(Self::RewardDistributed)
-                }
                 Some(<RoleAdminChanged as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <RoleAdminChanged as alloy_sol_types::SolEvent>::decode_raw_log(
                             topics,
@@ -17330,12 +17024,6 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
                 Self::Paused(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
-                Self::RewardClaimed(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
-                Self::RewardDistributed(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
                 Self::RoleAdminChanged(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -17416,12 +17104,6 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool);
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::Paused(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
-                Self::RewardClaimed(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
-                Self::RewardDistributed(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::RoleAdminChanged(inner) => {
@@ -18072,18 +17754,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ///Creates a new event filter for the [`Paused`] event.
         pub fn Paused_filter(&self) -> alloy_contract::Event<&P, Paused, N> {
             self.event_filter::<Paused>()
-        }
-        ///Creates a new event filter for the [`RewardClaimed`] event.
-        pub fn RewardClaimed_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, RewardClaimed, N> {
-            self.event_filter::<RewardClaimed>()
-        }
-        ///Creates a new event filter for the [`RewardDistributed`] event.
-        pub fn RewardDistributed_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, RewardDistributed, N> {
-            self.event_filter::<RewardDistributed>()
         }
         ///Creates a new event filter for the [`RoleAdminChanged`] event.
         pub fn RoleAdminChanged_filter(

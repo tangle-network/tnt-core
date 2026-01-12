@@ -444,11 +444,9 @@ interface ITangleAdmin {
     function setRewardVaults(address vaults) external;
     function setServiceFeeDistributor(address distributor) external;
     function setTntPaymentDiscountBps(uint16 discountBps) external;
-    function setTntRestakerFeeBps(uint16 feeBps) external;
     function setTntToken(address token) external;
     function setTreasury(address treasury) external;
     function tntPaymentDiscountBps() external view returns (uint16);
-    function tntRestakerFeeBps() external view returns (uint16);
     function tntToken() external view returns (address);
     function treasury() external view returns (address payable);
     function unpause() external;
@@ -764,19 +762,6 @@ interface ITangleAdmin {
   },
   {
     "type": "function",
-    "name": "setTntRestakerFeeBps",
-    "inputs": [
-      {
-        "name": "feeBps",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "setTntToken",
     "inputs": [
       {
@@ -804,19 +789,6 @@ interface ITangleAdmin {
   {
     "type": "function",
     "name": "tntPaymentDiscountBps",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "tntRestakerFeeBps",
     "inputs": [],
     "outputs": [
       {
@@ -4018,156 +3990,6 @@ function setTntPaymentDiscountBps(uint16 discountBps) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setTntRestakerFeeBps(uint16)` and selector `0xce6dd06f`.
-```solidity
-function setTntRestakerFeeBps(uint16 feeBps) external;
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setTntRestakerFeeBpsCall {
-        #[allow(missing_docs)]
-        pub feeBps: u16,
-    }
-    ///Container type for the return parameters of the [`setTntRestakerFeeBps(uint16)`](setTntRestakerFeeBpsCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setTntRestakerFeeBpsReturn {}
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<16>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u16,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setTntRestakerFeeBpsCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setTntRestakerFeeBpsCall) -> Self {
-                    (value.feeBps,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setTntRestakerFeeBpsCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { feeBps: tuple.0 }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setTntRestakerFeeBpsReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: setTntRestakerFeeBpsReturn) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setTntRestakerFeeBpsReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
-                }
-            }
-        }
-        impl setTntRestakerFeeBpsReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setTntRestakerFeeBpsCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
-                ()
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for setTntRestakerFeeBpsCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<16>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = setTntRestakerFeeBpsReturn;
-            type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setTntRestakerFeeBps(uint16)";
-            const SELECTOR: [u8; 4] = [206u8, 109u8, 208u8, 111u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.feeBps),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                setTntRestakerFeeBpsReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setTntToken(address)` and selector `0x9fb43d4c`.
 ```solidity
 function setTntToken(address token) external;
@@ -4598,155 +4420,6 @@ function tntPaymentDiscountBps() external view returns (uint16);
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(|r| {
                         let r: tntPaymentDiscountBpsReturn = r.into();
-                        r._0
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `tntRestakerFeeBps()` and selector `0x06438c97`.
-```solidity
-function tntRestakerFeeBps() external view returns (uint16);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct tntRestakerFeeBpsCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`tntRestakerFeeBps()`](tntRestakerFeeBpsCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct tntRestakerFeeBpsReturn {
-        #[allow(missing_docs)]
-        pub _0: u16,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<tntRestakerFeeBpsCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: tntRestakerFeeBpsCall) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for tntRestakerFeeBpsCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<16>,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u16,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<tntRestakerFeeBpsReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: tntRestakerFeeBpsReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for tntRestakerFeeBpsReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for tntRestakerFeeBpsCall {
-            type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = u16;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<16>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "tntRestakerFeeBps()";
-            const SELECTOR: [u8; 4] = [6u8, 67u8, 140u8, 151u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: tntRestakerFeeBpsReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: tntRestakerFeeBpsReturn = r.into();
                         r._0
                     })
             }
@@ -5227,15 +4900,11 @@ function unpause() external;
         #[allow(missing_docs)]
         setTntPaymentDiscountBps(setTntPaymentDiscountBpsCall),
         #[allow(missing_docs)]
-        setTntRestakerFeeBps(setTntRestakerFeeBpsCall),
-        #[allow(missing_docs)]
         setTntToken(setTntTokenCall),
         #[allow(missing_docs)]
         setTreasury(setTreasuryCall),
         #[allow(missing_docs)]
         tntPaymentDiscountBps(tntPaymentDiscountBpsCall),
-        #[allow(missing_docs)]
-        tntRestakerFeeBps(tntRestakerFeeBpsCall),
         #[allow(missing_docs)]
         tntToken(tntTokenCall),
         #[allow(missing_docs)]
@@ -5251,7 +4920,6 @@ function unpause() external;
         ///
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
-            [6u8, 67u8, 140u8, 151u8],
             [29u8, 119u8, 53u8, 27u8],
             [32u8, 129u8, 41u8, 86u8],
             [38u8, 48u8, 193u8, 47u8],
@@ -5275,7 +4943,6 @@ function unpause() external;
             [170u8, 199u8, 65u8, 107u8],
             [184u8, 23u8, 65u8, 172u8],
             [205u8, 211u8, 213u8, 186u8],
-            [206u8, 109u8, 208u8, 111u8],
             [211u8, 144u8, 187u8, 187u8],
             [227u8, 150u8, 150u8, 23u8],
             [240u8, 244u8, 66u8, 96u8],
@@ -5283,7 +4950,6 @@ function unpause() external;
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
-            ::core::stringify!(tntRestakerFeeBps),
             ::core::stringify!(setMaxBlueprintsPerOperator),
             ::core::stringify!(setMetricsRecorder),
             ::core::stringify!(priceOracle),
@@ -5307,7 +4973,6 @@ function unpause() external;
             ::core::stringify!(paymentSplit),
             ::core::stringify!(setPaymentSplit),
             ::core::stringify!(tntPaymentDiscountBps),
-            ::core::stringify!(setTntRestakerFeeBps),
             ::core::stringify!(operatorStatusRegistry),
             ::core::stringify!(tntToken),
             ::core::stringify!(setTreasury),
@@ -5315,7 +4980,6 @@ function unpause() external;
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
-            <tntRestakerFeeBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setMaxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setMetricsRecorderCall as alloy_sol_types::SolCall>::SIGNATURE,
             <priceOracleCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -5339,7 +5003,6 @@ function unpause() external;
             <paymentSplitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setPaymentSplitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <setTntRestakerFeeBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <operatorStatusRegistryCall as alloy_sol_types::SolCall>::SIGNATURE,
             <tntTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTreasuryCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -5370,7 +5033,7 @@ function unpause() external;
     impl alloy_sol_types::SolInterface for ITangleAdminCalls {
         const NAME: &'static str = "ITangleAdminCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 29usize;
+        const COUNT: usize = 27usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -5435,9 +5098,6 @@ function unpause() external;
                 Self::setTntPaymentDiscountBps(_) => {
                     <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::setTntRestakerFeeBps(_) => {
-                    <setTntRestakerFeeBpsCall as alloy_sol_types::SolCall>::SELECTOR
-                }
                 Self::setTntToken(_) => {
                     <setTntTokenCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -5446,9 +5106,6 @@ function unpause() external;
                 }
                 Self::tntPaymentDiscountBps(_) => {
                     <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::tntRestakerFeeBps(_) => {
-                    <tntRestakerFeeBpsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::tntToken(_) => <tntTokenCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::treasury(_) => <treasuryCall as alloy_sol_types::SolCall>::SELECTOR,
@@ -5472,17 +5129,6 @@ function unpause() external;
             static DECODE_SHIMS: &[fn(
                 &[u8],
             ) -> alloy_sol_types::Result<ITangleAdminCalls>] = &[
-                {
-                    fn tntRestakerFeeBps(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <tntRestakerFeeBpsCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::tntRestakerFeeBps)
-                    }
-                    tntRestakerFeeBps
-                },
                 {
                     fn setMaxBlueprintsPerOperator(
                         data: &[u8],
@@ -5729,17 +5375,6 @@ function unpause() external;
                     tntPaymentDiscountBps
                 },
                 {
-                    fn setTntRestakerFeeBps(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setTntRestakerFeeBpsCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setTntRestakerFeeBps)
-                    }
-                    setTntRestakerFeeBps
-                },
-                {
                     fn operatorStatusRegistry(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
@@ -5801,17 +5436,6 @@ function unpause() external;
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
             ) -> alloy_sol_types::Result<ITangleAdminCalls>] = &[
-                {
-                    fn tntRestakerFeeBps(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <tntRestakerFeeBpsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::tntRestakerFeeBps)
-                    }
-                    tntRestakerFeeBps
-                },
                 {
                     fn setMaxBlueprintsPerOperator(
                         data: &[u8],
@@ -6064,17 +5688,6 @@ function unpause() external;
                     tntPaymentDiscountBps
                 },
                 {
-                    fn setTntRestakerFeeBps(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setTntRestakerFeeBpsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setTntRestakerFeeBps)
-                    }
-                    setTntRestakerFeeBps
-                },
-                {
                     fn operatorStatusRegistry(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
@@ -6235,11 +5848,6 @@ function unpause() external;
                         inner,
                     )
                 }
-                Self::setTntRestakerFeeBps(inner) => {
-                    <setTntRestakerFeeBpsCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::setTntToken(inner) => {
                     <setTntTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -6252,11 +5860,6 @@ function unpause() external;
                 }
                 Self::tntPaymentDiscountBps(inner) => {
                     <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::tntRestakerFeeBps(inner) => {
-                    <tntRestakerFeeBpsCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -6397,12 +6000,6 @@ function unpause() external;
                         out,
                     )
                 }
-                Self::setTntRestakerFeeBps(inner) => {
-                    <setTntRestakerFeeBpsCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::setTntToken(inner) => {
                     <setTntTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -6417,12 +6014,6 @@ function unpause() external;
                 }
                 Self::tntPaymentDiscountBps(inner) => {
                     <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::tntRestakerFeeBps(inner) => {
-                    <tntRestakerFeeBpsCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -6757,13 +6348,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
-        ///Creates a new call builder for the [`setTntRestakerFeeBps`] function.
-        pub fn setTntRestakerFeeBps(
-            &self,
-            feeBps: u16,
-        ) -> alloy_contract::SolCallBuilder<&P, setTntRestakerFeeBpsCall, N> {
-            self.call_builder(&setTntRestakerFeeBpsCall { feeBps })
-        }
         ///Creates a new call builder for the [`setTntToken`] function.
         pub fn setTntToken(
             &self,
@@ -6783,12 +6367,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::SolCallBuilder<&P, tntPaymentDiscountBpsCall, N> {
             self.call_builder(&tntPaymentDiscountBpsCall)
-        }
-        ///Creates a new call builder for the [`tntRestakerFeeBps`] function.
-        pub fn tntRestakerFeeBps(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, tntRestakerFeeBpsCall, N> {
-            self.call_builder(&tntRestakerFeeBpsCall)
         }
         ///Creates a new call builder for the [`tntToken`] function.
         pub fn tntToken(&self) -> alloy_contract::SolCallBuilder<&P, tntTokenCall, N> {

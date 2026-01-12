@@ -4292,7 +4292,7 @@ interface ITangleServices {
     event ServiceApproved(uint64 indexed requestId, address indexed operator);
     event ServiceRejected(uint64 indexed requestId, address indexed operator);
     event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
-    event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester, address[] operators, Types.AssetSecurityRequirement[] securityRequirements);
+    event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
     event ServiceTerminated(uint64 indexed serviceId);
     event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
 
@@ -5913,47 +5913,6 @@ interface ITangleServices {
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      },
-      {
-        "name": "operators",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
-      },
-      {
-        "name": "securityRequirements",
-        "type": "tuple[]",
-        "indexed": false,
-        "internalType": "struct Types.AssetSecurityRequirement[]",
-        "components": [
-          {
-            "name": "asset",
-            "type": "tuple",
-            "internalType": "struct Types.Asset",
-            "components": [
-              {
-                "name": "kind",
-                "type": "uint8",
-                "internalType": "enum Types.AssetKind"
-              },
-              {
-                "name": "token",
-                "type": "address",
-                "internalType": "address"
-              }
-            ]
-          },
-          {
-            "name": "minExposureBps",
-            "type": "uint16",
-            "internalType": "uint16"
-          },
-          {
-            "name": "maxExposureBps",
-            "type": "uint16",
-            "internalType": "uint16"
-          }
-        ]
       }
     ],
     "anonymous": false
@@ -6773,10 +6732,10 @@ event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, add
         }
     };
     #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive()]
-    /**Event with signature `ServiceRequestedWithSecurity(uint64,uint64,address,address[],((uint8,address),uint16,uint16)[])` and selector `0xe9b9d941d31762ebeb7a00008b4cf95e9a19255cb6695c9d35215c914a7e8486`.
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `ServiceRequestedWithSecurity(uint64,uint64,address)` and selector `0xfbac8949e27fddc00e1098b7adab064a0ccb07cdd8df7bc8dc57a704bcd6d9f7`.
 ```solidity
-event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester, address[] operators, Types.AssetSecurityRequirement[] securityRequirements);
+event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -6792,14 +6751,6 @@ event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blue
         pub blueprintId: u64,
         #[allow(missing_docs)]
         pub requester: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub operators: alloy::sol_types::private::Vec<
-            alloy::sol_types::private::Address,
-        >,
-        #[allow(missing_docs)]
-        pub securityRequirements: alloy::sol_types::private::Vec<
-            <Types::AssetSecurityRequirement as alloy::sol_types::SolType>::RustType,
-        >,
     }
     #[allow(
         non_camel_case_types,
@@ -6811,10 +6762,7 @@ event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blue
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for ServiceRequestedWithSecurity {
-            type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
-                alloy::sol_types::sol_data::Array<Types::AssetSecurityRequirement>,
-            );
+            type DataTuple<'a> = ();
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -6824,11 +6772,11 @@ event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blue
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "ServiceRequestedWithSecurity(uint64,uint64,address,address[],((uint8,address),uint16,uint16)[])";
+            const SIGNATURE: &'static str = "ServiceRequestedWithSecurity(uint64,uint64,address)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                233u8, 185u8, 217u8, 65u8, 211u8, 23u8, 98u8, 235u8, 235u8, 122u8, 0u8,
-                0u8, 139u8, 76u8, 249u8, 94u8, 154u8, 25u8, 37u8, 92u8, 182u8, 105u8,
-                92u8, 157u8, 53u8, 33u8, 92u8, 145u8, 74u8, 126u8, 132u8, 134u8,
+                251u8, 172u8, 137u8, 73u8, 226u8, 127u8, 221u8, 192u8, 14u8, 16u8, 152u8,
+                183u8, 173u8, 171u8, 6u8, 74u8, 12u8, 203u8, 7u8, 205u8, 216u8, 223u8,
+                123u8, 200u8, 220u8, 87u8, 167u8, 4u8, 188u8, 214u8, 217u8, 247u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -6841,8 +6789,6 @@ event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blue
                     requestId: topics.1,
                     blueprintId: topics.2,
                     requester: topics.3,
-                    operators: data.0,
-                    securityRequirements: data.1,
                 }
             }
             #[inline]
@@ -6862,14 +6808,7 @@ event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blue
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Array<
-                        alloy::sol_types::sol_data::Address,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operators),
-                    <alloy::sol_types::sol_data::Array<
-                        Types::AssetSecurityRequirement,
-                    > as alloy_sol_types::SolType>::tokenize(&self.securityRequirements),
-                )
+                ()
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
@@ -15640,7 +15579,7 @@ function terminateService(uint64 serviceId) external;
     ///Container for all the [`ITangleServices`](self) events.
     #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive()]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum ITangleServicesEvents {
         #[allow(missing_docs)]
         OperatorJoinedService(OperatorJoinedService),
@@ -15711,9 +15650,9 @@ function terminateService(uint64 serviceId) external;
                 153u8, 56u8, 92u8, 145u8, 131u8, 217u8, 134u8, 220u8, 171u8, 152u8, 15u8,
             ],
             [
-                233u8, 185u8, 217u8, 65u8, 211u8, 23u8, 98u8, 235u8, 235u8, 122u8, 0u8,
-                0u8, 139u8, 76u8, 249u8, 94u8, 154u8, 25u8, 37u8, 92u8, 182u8, 105u8,
-                92u8, 157u8, 53u8, 33u8, 92u8, 145u8, 74u8, 126u8, 132u8, 134u8,
+                251u8, 172u8, 137u8, 73u8, 226u8, 127u8, 221u8, 192u8, 14u8, 16u8, 152u8,
+                183u8, 173u8, 171u8, 6u8, 74u8, 12u8, 203u8, 7u8, 205u8, 216u8, 223u8,
+                123u8, 200u8, 220u8, 87u8, 167u8, 4u8, 188u8, 214u8, 217u8, 247u8,
             ],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
