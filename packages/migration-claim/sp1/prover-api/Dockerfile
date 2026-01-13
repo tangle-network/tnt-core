@@ -16,8 +16,17 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
+# Create app directory structure
+WORKDIR /app
+
+# Copy eligibility data (can be overridden via volume mount at runtime)
+COPY packages/migration-claim/sp1/merkle-tree.json /app/data/merkle-tree.json
+
+# Copy binary
 COPY --from=builder /repo/packages/migration-claim/sp1/target/release/tnt-claim-prover-api /usr/local/bin/tnt-claim-prover-api
 
+# Set default eligibility path (overridable via ELIGIBILITY_FILE env var)
+ENV ELIGIBILITY_FILE=/app/data/merkle-tree.json
 ENV PORT=8080
 EXPOSE 8080
 
