@@ -128,10 +128,10 @@ contract QuotePaymentSplitTest is BaseTest {
             120
         );
 
-        assertEq(developer.balance, devStart + 0.5 ether, "developer split");
-        assertEq(treasury.balance, treasuryStart + 0.1 ether, "treasury split");
+        assertEq(developer.balance, devStart + 0.2 ether, "developer split");
+        assertEq(treasury.balance, treasuryStart + 0.2 ether, "treasury split");
         assertEq(address(serviceFeeDistributor).balance, distributorStart + 0.2 ether, "restaker split");
-        assertEq(tangle.pendingRewards(operator1), 0.2 ether, "operator pending reward");
+        assertEq(tangle.pendingRewards(operator1), 0.4 ether, "operator pending reward");
 
         assertEq(metrics.serviceCreatedCount(), 1, "metrics service created");
         assertEq(metrics.lastBlueprintId(), blueprintId, "metrics blueprint id");
