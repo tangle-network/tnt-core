@@ -450,12 +450,6 @@ setup_indexer() {
         pnpm install
     fi
 
-    # Restore config.local.yaml to ensure placeholder exists, then update with actual Credits address
-    log "Updating indexer config with Credits address..."
-    git checkout config.local.yaml 2>/dev/null || true
-    sed -i.bak "s|0x0000000000000000000000651234512121212666|$CREDITS_ADDRESS|g" config.local.yaml
-    rm -f config.local.yaml.bak
-
     # Run codegen with local config
     log "Running codegen with local config..."
     pnpm envio codegen --config config.local.yaml

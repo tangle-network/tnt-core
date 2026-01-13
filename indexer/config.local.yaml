@@ -159,7 +159,7 @@ networks:
       - name: Credits
         address:
           # Deploy `packages/credits/src/Credits.sol` and set its address here when indexing credits locally.
-          - "0x5081a39b8A5f0E35a8D959395a630b68B74Dd30f"
+          - "0x162A433068F51e18b7d13932F27e66a3f99E6890"
         handler: src/EventHandlers.ts
         events:
           - event: CreditsClaimed(address indexed account, uint256 amount, bytes32 offchainAccountId)
