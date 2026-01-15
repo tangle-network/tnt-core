@@ -24,18 +24,9 @@ contract SP1ZKVerifier is IZKVerifier {
     /// @notice Verification key for the SR25519 claim program
     bytes32 public immutable programVKey;
 
-    /// @notice Owner for admin functions
-    address public owner;
-
-    error InvalidProof();
-    error OnlyOwner();
-
-    event ProgramVKeyUpdated(bytes32 oldVKey, bytes32 newVKey);
-
-    constructor(address _sp1Verifier, bytes32 _programVKey, address _owner) {
+    constructor(address _sp1Verifier, bytes32 _programVKey) {
         sp1Verifier = ISP1Verifier(_sp1Verifier);
         programVKey = _programVKey;
-        owner = _owner;
     }
 
     /// @notice Verifies a ZK proof of Substrate key ownership
@@ -74,23 +65,5 @@ contract SP1ZKVerifier is IZKVerifier {
         } catch {
             return false;
         }
-    }
-}
-
-/// @title MockZKVerifier
-/// @notice Mock verifier for testing - always returns true
-/// @dev DO NOT USE IN PRODUCTION
-contract MockZKVerifier is IZKVerifier {
-    bool public shouldPass = true;
-
-    function setResult(bool _shouldPass) external {
-        shouldPass = _shouldPass;
-    }
-
-    function verifyProof(
-        bytes calldata,
-        bytes calldata
-    ) external view override returns (bool) {
-        return shouldPass;
     }
 }
