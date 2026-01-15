@@ -207,7 +207,7 @@ export function registerTangleHandlers() {
       blueprintId: toBigInt(event.params.blueprintId),
       owner: normalizeAddress(event.params.owner),
       manager: normalizeAddress(event.params.manager),
-      metadataUri: undefined,
+      metadataUri: event.params.metadataUri || undefined,
       active: true,
       createdAt: timestamp,
       updatedAt: timestamp,

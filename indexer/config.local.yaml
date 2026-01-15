@@ -18,7 +18,7 @@ networks:
         handler: src/EventHandlers.ts
         events:
           - event: AggregatedResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint256 signerBitmap, bytes output)
-          - event: BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager)
+          - event: BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri)
           - event: BlueprintDeactivated(uint64 indexed blueprintId)
           - event: BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to)
           - event: BlueprintUpdated(uint64 indexed blueprintId, string metadataUri)
