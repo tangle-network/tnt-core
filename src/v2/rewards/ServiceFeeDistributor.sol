@@ -50,6 +50,14 @@ contract ServiceFeeDistributor is
     /// @notice StreamingPaymentManager for handling streamed payments
     IStreamingPaymentManager public streamingManager;
 
+    /// @notice TNT token address for score boost
+    address public tntToken;
+
+    /// @notice TNT score rate: how much "USD score" 1 TNT is worth (18 decimals).
+    /// @dev If tntScoreRate = 1e18, then 1 TNT = $1 score regardless of actual market price.
+    /// If tntScoreRate = 0, TNT uses oracle price like other tokens.
+    uint256 public tntScoreRate;
+
     // operator => rewardToken set (payment tokens ever distributed for this operator)
     // Note: This is a superset used for view functions. The more precise set is _operatorAssetRewardTokens
     mapping(address => EnumerableSet.AddressSet) private _operatorRewardTokens;
@@ -108,6 +116,7 @@ contract ServiceFeeDistributor is
     event PriceOracleConfigured(address indexed oracle);
     event InflationPoolConfigured(address indexed pool);
     event StreamingManagerConfigured(address indexed streamingManager);
+    event TntScoreRateConfigured(address indexed tntToken, uint256 scoreRate);
 
     event DelegationTracked(
         address indexed delegator,
@@ -185,6 +194,18 @@ contract ServiceFeeDistributor is
     function setStreamingManager(address streamingManager_) external onlyRole(ADMIN_ROLE) {
         streamingManager = IStreamingPaymentManager(streamingManager_);
         emit StreamingManagerConfigured(streamingManager_);
+    }
+
+    /// @notice Set TNT token and its score rate for fee distribution boost.
+    /// @param tntToken_ The TNT token address (address(0) to disable).
+    /// @param scoreRate_ Score rate in 18 decimals. 1e18 means 1 TNT = $1 score.
+    ///        Set to 0 to use oracle price for TNT like other tokens.
+    /// @dev Example: If TNT market price is $0.10 and scoreRate_ = 1e18,
+    ///      then 1 TNT earns 10x the fee share compared to its market value.
+    function setTntScoreRate(address tntToken_, uint256 scoreRate_) external onlyRole(ADMIN_ROLE) {
+        tntToken = tntToken_;
+        tntScoreRate = scoreRate_;
+        emit TntScoreRateConfigured(tntToken_, scoreRate_);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1275,10 +1296,22 @@ contract ServiceFeeDistributor is
         return (score * factor) / PRECISION;
     }
 
+    /// @notice Convert asset amount to USD score value.
+    /// @dev TNT gets a boosted score rate if tntScoreRate > 0, otherwise uses oracle.
+    ///      For all other tokens, uses oracle price.
     function _toUsd(Types.Asset memory asset, uint256 amount) internal view returns (uint256) {
         if (amount == 0) return 0;
-        if (address(priceOracle) == address(0)) return amount;
+
         address token = asset.kind == Types.AssetKind.Native ? address(0) : asset.token;
+
+        // TNT boost: if tntScoreRate is set, 1 TNT = tntScoreRate/1e18 USD score
+        // This allows TNT to earn outsized fee share regardless of market price
+        if (token != address(0) && token == tntToken && tntScoreRate > 0) {
+            return (amount * tntScoreRate) / PRECISION;
+        }
+
+        // All other tokens use oracle price
+        if (address(priceOracle) == address(0)) return amount;
         return priceOracle.toUSD(token, amount);
     }
 

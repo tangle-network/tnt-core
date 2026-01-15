@@ -565,4 +565,113 @@ contract ServiceFeeDistributorTest is BaseTest {
         assertEq(ops.length, 1, "Should track 1 operator");
         assertEq(ops[0], operator1, "Should be operator1");
     }
+
+    /// @notice Test TNT score rate boost: 1 TNT = $1 score regardless of market price
+    function test_TntScoreRate_BoostsDistribution() public {
+        // Setup: Create a "TNT" token with market price of $0.10
+        MockERC20 tntToken = new MockERC20();
+        oracle.setPrice(address(tntToken), 0.1e18); // TNT = $0.10 market price
+
+        // Enable TNT as a staking asset
+        vm.prank(admin);
+        restaking.enableAsset(address(tntToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+
+        // Set TNT score rate: 1 TNT = $1 score (10x boost vs market price)
+        vm.prank(admin);
+        distributor.setTntScoreRate(address(tntToken), 1e18);
+
+        // Verify storage
+        assertEq(distributor.tntToken(), address(tntToken), "TNT token should be set");
+        assertEq(distributor.tntScoreRate(), 1e18, "TNT score rate should be 1e18");
+
+        // delegator3 stakes 10 TNT (worth $1 at market, but $10 score value)
+        address delegator3 = makeAddr("delegator3");
+        tntToken.mint(delegator3, 10 ether);
+
+        vm.startPrank(delegator3);
+        tntToken.approve(address(restaking), 10 ether);
+        restaking.depositAndDelegateWithOptions(
+            operator1,
+            address(tntToken),
+            10 ether,
+            Types.BlueprintSelectionMode.All,
+            new uint64[](0)
+        );
+        vm.stopPrank();
+
+        // Request service with all 3 assets: native ETH ($10), stakeToken ($10), TNT ($1 market but $10 score)
+        Types.AssetSecurityRequirement[] memory reqs = new Types.AssetSecurityRequirement[](3);
+        reqs[0] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            minExposureBps: 1,
+            maxExposureBps: 10000
+        });
+        reqs[1] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) }),
+            minExposureBps: 1,
+            maxExposureBps: 10000
+        });
+        reqs[2] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(tntToken) }),
+            minExposureBps: 1,
+            maxExposureBps: 10000
+        });
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+
+        uint256 paymentAmount = 300 ether; // Large amount for easier math
+        vm.startPrank(user1);
+        payTokenA.approve(address(tangle), paymentAmount);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), paymentAmount
+        );
+        vm.stopPrank();
+
+        // Commit 100% exposure on all assets
+        Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](3);
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
+        commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 10000 });
+        commits[2] = Types.AssetSecurityCommitment({ asset: reqs[2].asset, exposureBps: 10000 });
+
+        vm.prank(operator1);
+        tangle.approveServiceWithCommitments(requestId, commits);
+
+        // Restaker share is 20% = 60 ether
+        // Without TNT boost: native $10, stakeToken $10, TNT $1 = $21 total
+        //   - native gets 10/21 * 60 ≈ 28.57 ether
+        //   - stakeToken gets 10/21 * 60 ≈ 28.57 ether
+        //   - TNT gets 1/21 * 60 ≈ 2.86 ether
+        //
+        // WITH TNT boost (1 TNT = $1 score): native $10, stakeToken $10, TNT $10 = $30 total
+        //   - Each gets exactly 1/3 = 20 ether
+
+        Types.Asset memory tntAsset = Types.Asset({ kind: Types.AssetKind.ERC20, token: address(tntToken) });
+
+        uint256 d3Before = payTokenA.balanceOf(delegator3);
+        vm.prank(delegator3);
+        distributor.claimFor(address(payTokenA), operator1, tntAsset);
+        uint256 d3Claimed = payTokenA.balanceOf(delegator3) - d3Before;
+
+        // With TNT boost, delegator3 should get 1/3 of 60 ether = 20 ether
+        assertEq(d3Claimed, 20 ether, "TNT holder should get 1/3 of restaker share with score boost");
+    }
+
+    /// @notice Test that disabling TNT score rate reverts to oracle price
+    function test_TntScoreRate_DisabledUsesOracle() public {
+        MockERC20 tntToken = new MockERC20();
+        oracle.setPrice(address(tntToken), 0.1e18); // TNT = $0.10
+
+        vm.prank(admin);
+        restaking.enableAsset(address(tntToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+
+        // First set TNT score rate, then disable it
+        vm.startPrank(admin);
+        distributor.setTntScoreRate(address(tntToken), 1e18);
+        distributor.setTntScoreRate(address(0), 0); // Disable
+        vm.stopPrank();
+
+        assertEq(distributor.tntToken(), address(0), "TNT token should be cleared");
+        assertEq(distributor.tntScoreRate(), 0, "TNT score rate should be 0");
+    }
 }
