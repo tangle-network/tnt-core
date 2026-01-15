@@ -416,7 +416,7 @@ See the [wrapper's documentation](`PaymentLibInstance`) for more details.*/
 ```solidity
 library SlashingLib {
     type SlashStatus is uint8;
-    struct SlashProposal { uint64 serviceId; address operator; address proposer; uint256 amount; uint256 effectiveAmount; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; }
+    struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; }
 }
 ```*/
 #[allow(
@@ -569,7 +569,7 @@ pub mod SlashingLib {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct SlashProposal { uint64 serviceId; address operator; address proposer; uint256 amount; uint256 effectiveAmount; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; }
+struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -581,9 +581,9 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
         #[allow(missing_docs)]
         pub proposer: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
-        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+        pub slashBps: u16,
         #[allow(missing_docs)]
-        pub effectiveAmount: alloy::sol_types::private::primitives::aliases::U256,
+        pub effectiveSlashBps: u16,
         #[allow(missing_docs)]
         pub evidence: alloy::sol_types::private::FixedBytes<32>,
         #[allow(missing_docs)]
@@ -609,8 +609,8 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Address,
-            alloy::sol_types::sol_data::Uint<256>,
-            alloy::sol_types::sol_data::Uint<256>,
+            alloy::sol_types::sol_data::Uint<16>,
+            alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::FixedBytes<32>,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<64>,
@@ -622,8 +622,8 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             u64,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
-            alloy::sol_types::private::primitives::aliases::U256,
-            alloy::sol_types::private::primitives::aliases::U256,
+            u16,
+            u16,
             alloy::sol_types::private::FixedBytes<32>,
             u64,
             u64,
@@ -649,8 +649,8 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     value.serviceId,
                     value.operator,
                     value.proposer,
-                    value.amount,
-                    value.effectiveAmount,
+                    value.slashBps,
+                    value.effectiveSlashBps,
                     value.evidence,
                     value.proposedAt,
                     value.executeAfter,
@@ -667,8 +667,8 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     serviceId: tuple.0,
                     operator: tuple.1,
                     proposer: tuple.2,
-                    amount: tuple.3,
-                    effectiveAmount: tuple.4,
+                    slashBps: tuple.3,
+                    effectiveSlashBps: tuple.4,
                     evidence: tuple.5,
                     proposedAt: tuple.6,
                     executeAfter: tuple.7,
@@ -696,11 +696,11 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                         &self.proposer,
                     ),
                     <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashBps),
                     <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.effectiveAmount),
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.effectiveSlashBps),
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::SolType>::tokenize(&self.evidence),
@@ -788,7 +788,7 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "SlashProposal(uint64 serviceId,address operator,address proposer,uint256 amount,uint256 effectiveAmount,bytes32 evidence,uint64 proposedAt,uint64 executeAfter,uint8 status,string disputeReason)",
+                    "SlashProposal(uint64 serviceId,address operator,address proposer,uint16 slashBps,uint16 effectiveSlashBps,bytes32 evidence,uint64 proposedAt,uint64 executeAfter,uint8 status,string disputeReason)",
                 )
             }
             #[inline]
@@ -817,13 +817,13 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                         )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.amount)
+                        16,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.slashBps)
                         .0,
                     <alloy::sol_types::sol_data::Uint<
-                        256,
+                        16,
                     > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.effectiveAmount,
+                            &self.effectiveSlashBps,
                         )
                         .0,
                     <alloy::sol_types::sol_data::FixedBytes<
@@ -867,14 +867,14 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                         &rust.proposer,
                     )
                     + <alloy::sol_types::sol_data::Uint<
-                        256,
+                        16,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.amount,
+                        &rust.slashBps,
                     )
                     + <alloy::sol_types::sol_data::Uint<
-                        256,
+                        16,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.effectiveAmount,
+                        &rust.effectiveSlashBps,
                     )
                     + <alloy::sol_types::sol_data::FixedBytes<
                         32,
@@ -921,15 +921,15 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
-                    256,
+                    16,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.amount,
+                    &rust.slashBps,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
-                    256,
+                    16,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.effectiveAmount,
+                    &rust.effectiveSlashBps,
                     out,
                 );
                 <alloy::sol_types::sol_data::FixedBytes<
@@ -10052,8 +10052,8 @@ library SlashingLib {
         uint64 serviceId;
         address operator;
         address proposer;
-        uint256 amount;
-        uint256 effectiveAmount;
+        uint16 slashBps;
+        uint16 effectiveSlashBps;
         bytes32 evidence;
         uint64 proposedAt;
         uint64 executeAfter;
@@ -10275,7 +10275,7 @@ interface ITangleFull {
     event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
     event ServiceTerminated(uint64 indexed serviceId);
     event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 amount);
-    event SlashProposed(uint64 indexed serviceId, address indexed operator, uint256 amount, bytes32 evidence);
+    event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 slashBps, bytes32 evidence);
     event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
 
     function addPermittedCaller(uint64 serviceId, address caller) external;
@@ -10347,7 +10347,7 @@ interface ITangleFull {
     function pendingRewards(address account, address token) external view returns (uint256);
     function preRegister(uint64 blueprintId) external;
     function priceOracle() external view returns (address);
-    function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes32 evidence) external returns (uint64 slashId);
+    function proposeSlash(uint64 serviceId, address operator, uint16 slashBps, bytes32 evidence) external returns (uint64 slashId);
     function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external;
     function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external;
     function rejectService(uint64 requestId) external;
@@ -12800,14 +12800,14 @@ interface ITangleFull {
             "internalType": "address"
           },
           {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "slashBps",
+            "type": "uint16",
+            "internalType": "uint16"
           },
           {
-            "name": "effectiveAmount",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "effectiveSlashBps",
+            "type": "uint16",
+            "internalType": "uint16"
           },
           {
             "name": "evidence",
@@ -13179,9 +13179,9 @@ interface ITangleFull {
         "internalType": "address"
       },
       {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "slashBps",
+        "type": "uint16",
+        "internalType": "uint16"
       },
       {
         "name": "evidence",
@@ -14488,10 +14488,10 @@ interface ITangleFull {
         "internalType": "address"
       },
       {
-        "name": "amount",
-        "type": "uint256",
+        "name": "slashBps",
+        "type": "uint16",
         "indexed": false,
-        "internalType": "uint256"
+        "internalType": "uint16"
       },
       {
         "name": "evidence",
@@ -17072,9 +17072,9 @@ event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `SlashProposed(uint64,address,uint256,bytes32)` and selector `0xf4ad7d6e9772d592d2a6c9449d8cc40b67b9f0e4b81c3c76979c799b3beb34c2`.
+    /**Event with signature `SlashProposed(uint64,address,uint16,bytes32)` and selector `0x0f9eb929e655f6ca1293bbddbade0ebf2c4b209d4454d5399825561892404962`.
 ```solidity
-event SlashProposed(uint64 indexed serviceId, address indexed operator, uint256 amount, bytes32 evidence);
+event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 slashBps, bytes32 evidence);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -17089,7 +17089,7 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint256 
         #[allow(missing_docs)]
         pub operator: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
-        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+        pub slashBps: u16,
         #[allow(missing_docs)]
         pub evidence: alloy::sol_types::private::FixedBytes<32>,
     }
@@ -17104,7 +17104,7 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint256 
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for SlashProposed {
             type DataTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             type DataToken<'a> = <Self::DataTuple<
@@ -17115,12 +17115,11 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint256 
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "SlashProposed(uint64,address,uint256,bytes32)";
+            const SIGNATURE: &'static str = "SlashProposed(uint64,address,uint16,bytes32)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                244u8, 173u8, 125u8, 110u8, 151u8, 114u8, 213u8, 146u8, 210u8, 166u8,
-                201u8, 68u8, 157u8, 140u8, 196u8, 11u8, 103u8, 185u8, 240u8, 228u8,
-                184u8, 28u8, 60u8, 118u8, 151u8, 156u8, 121u8, 155u8, 59u8, 235u8, 52u8,
-                194u8,
+                15u8, 158u8, 185u8, 41u8, 230u8, 85u8, 246u8, 202u8, 18u8, 147u8, 187u8,
+                221u8, 186u8, 222u8, 14u8, 191u8, 44u8, 75u8, 32u8, 157u8, 68u8, 84u8,
+                213u8, 57u8, 152u8, 37u8, 86u8, 24u8, 146u8, 64u8, 73u8, 98u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -17132,7 +17131,7 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint256 
                 Self {
                     serviceId: topics.1,
                     operator: topics.2,
-                    amount: data.0,
+                    slashBps: data.0,
                     evidence: data.1,
                 }
             }
@@ -17155,8 +17154,8 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint256 
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
                     <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashBps),
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::SolType>::tokenize(&self.evidence),
@@ -28431,9 +28430,9 @@ function priceOracle() external view returns (address);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `proposeSlash(uint64,address,uint256,bytes32)` and selector `0x30ae289c`.
+    /**Function with signature `proposeSlash(uint64,address,uint16,bytes32)` and selector `0x0472d2ff`.
 ```solidity
-function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes32 evidence) external returns (uint64 slashId);
+function proposeSlash(uint64 serviceId, address operator, uint16 slashBps, bytes32 evidence) external returns (uint64 slashId);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -28443,13 +28442,13 @@ function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes3
         #[allow(missing_docs)]
         pub operator: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
-        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+        pub slashBps: u16,
         #[allow(missing_docs)]
         pub evidence: alloy::sol_types::private::FixedBytes<32>,
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`proposeSlash(uint64,address,uint256,bytes32)`](proposeSlashCall) function.
+    ///Container type for the return parameters of the [`proposeSlash(uint64,address,uint16,bytes32)`](proposeSlashCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct proposeSlashReturn {
@@ -28470,14 +28469,14 @@ function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes3
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 u64,
                 alloy::sol_types::private::Address,
-                alloy::sol_types::private::primitives::aliases::U256,
+                u16,
                 alloy::sol_types::private::FixedBytes<32>,
             );
             #[cfg(test)]
@@ -28495,7 +28494,7 @@ function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes3
             #[doc(hidden)]
             impl ::core::convert::From<proposeSlashCall> for UnderlyingRustTuple<'_> {
                 fn from(value: proposeSlashCall) -> Self {
-                    (value.serviceId, value.operator, value.amount, value.evidence)
+                    (value.serviceId, value.operator, value.slashBps, value.evidence)
                 }
             }
             #[automatically_derived]
@@ -28505,7 +28504,7 @@ function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes3
                     Self {
                         serviceId: tuple.0,
                         operator: tuple.1,
-                        amount: tuple.2,
+                        slashBps: tuple.2,
                         evidence: tuple.3,
                     }
                 }
@@ -28548,7 +28547,7 @@ function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes3
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             type Token<'a> = <Self::Parameters<
@@ -28559,8 +28558,8 @@ function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes3
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "proposeSlash(uint64,address,uint256,bytes32)";
-            const SELECTOR: [u8; 4] = [48u8, 174u8, 40u8, 156u8];
+            const SIGNATURE: &'static str = "proposeSlash(uint64,address,uint16,bytes32)";
+            const SELECTOR: [u8; 4] = [4u8, 114u8, 210u8, 255u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -28577,8 +28576,8 @@ function proposeSlash(uint64 serviceId, address operator, uint256 amount, bytes3
                         &self.operator,
                     ),
                     <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashBps),
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::SolType>::tokenize(&self.evidence),
@@ -35161,6 +35160,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         ///
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
+            [4u8, 114u8, 210u8, 255u8],
             [5u8, 187u8, 58u8, 163u8],
             [6u8, 7u8, 157u8, 197u8],
             [6u8, 35u8, 117u8, 38u8],
@@ -35181,7 +35181,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [46u8, 64u8, 247u8, 251u8],
             [46u8, 194u8, 189u8, 3u8],
             [47u8, 70u8, 39u8, 159u8],
-            [48u8, 174u8, 40u8, 156u8],
             [49u8, 215u8, 162u8, 98u8],
             [51u8, 94u8, 160u8, 113u8],
             [52u8, 19u8, 232u8, 238u8],
@@ -35273,6 +35272,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(proposeSlash),
             ::core::stringify!(getServiceRequestSecurityCommitments),
             ::core::stringify!(cancelSlash),
             ::core::stringify!(serviceCount),
@@ -35293,7 +35293,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(serviceFeeDistributor),
             ::core::stringify!(isPermittedCaller),
             ::core::stringify!(isServiceActive),
-            ::core::stringify!(proposeSlash),
             ::core::stringify!(pendingRewards_0),
             ::core::stringify!(blueprintSources),
             ::core::stringify!(submitJob),
@@ -35385,6 +35384,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
+            <proposeSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceRequestSecurityCommitmentsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <cancelSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <serviceCountCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -35405,7 +35405,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <serviceFeeDistributorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isPermittedCallerCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isServiceActiveCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <proposeSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pendingRewards_0Call as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintSourcesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <submitJobCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -35863,6 +35862,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 &[u8],
             ) -> alloy_sol_types::Result<ITangleFullCalls>] = &[
                 {
+                    fn proposeSlash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <proposeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::proposeSlash)
+                    }
+                    proposeSlash
+                },
+                {
                     fn getServiceRequestSecurityCommitments(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -36081,17 +36091,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::isServiceActive)
                     }
                     isServiceActive
-                },
-                {
-                    fn proposeSlash(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <proposeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleFullCalls::proposeSlash)
-                    }
-                    proposeSlash
                 },
                 {
                     fn pendingRewards_0(
@@ -37068,6 +37067,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 &[u8],
             ) -> alloy_sol_types::Result<ITangleFullCalls>] = &[
                 {
+                    fn proposeSlash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <proposeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::proposeSlash)
+                    }
+                    proposeSlash
+                },
+                {
                     fn getServiceRequestSecurityCommitments(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -37286,17 +37296,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::isServiceActive)
                     }
                     isServiceActive
-                },
-                {
-                    fn proposeSlash(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <proposeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleFullCalls::proposeSlash)
-                    }
-                    proposeSlash
                 },
                 {
                     fn pendingRewards_0(
@@ -39525,6 +39524,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 44u8, 141u8, 94u8, 152u8, 92u8, 153u8, 228u8, 16u8, 65u8, 2u8,
             ],
             [
+                15u8, 158u8, 185u8, 41u8, 230u8, 85u8, 246u8, 202u8, 18u8, 147u8, 187u8,
+                221u8, 186u8, 222u8, 14u8, 191u8, 44u8, 75u8, 32u8, 157u8, 68u8, 84u8,
+                213u8, 57u8, 152u8, 37u8, 86u8, 24u8, 146u8, 64u8, 73u8, 98u8,
+            ],
+            [
                 36u8, 87u8, 145u8, 135u8, 150u8, 7u8, 132u8, 64u8, 6u8, 131u8, 133u8,
                 231u8, 62u8, 66u8, 37u8, 57u8, 200u8, 79u8, 47u8, 144u8, 69u8, 221u8,
                 68u8, 46u8, 18u8, 61u8, 66u8, 132u8, 37u8, 138u8, 226u8, 74u8,
@@ -39621,12 +39625,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 51u8, 227u8, 145u8, 167u8, 181u8, 174u8, 101u8, 137u8, 231u8, 137u8,
             ],
             [
-                244u8, 173u8, 125u8, 110u8, 151u8, 114u8, 213u8, 146u8, 210u8, 166u8,
-                201u8, 68u8, 157u8, 140u8, 196u8, 11u8, 103u8, 185u8, 240u8, 228u8,
-                184u8, 28u8, 60u8, 118u8, 151u8, 156u8, 121u8, 155u8, 59u8, 235u8, 52u8,
-                194u8,
-            ],
-            [
                 251u8, 172u8, 137u8, 73u8, 226u8, 127u8, 221u8, 192u8, 14u8, 16u8, 152u8,
                 183u8, 173u8, 171u8, 6u8, 74u8, 12u8, 203u8, 7u8, 205u8, 216u8, 223u8,
                 123u8, 200u8, 220u8, 87u8, 167u8, 4u8, 188u8, 214u8, 217u8, 247u8,
@@ -39635,6 +39633,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
             ::core::stringify!(OperatorRegistered),
+            ::core::stringify!(SlashProposed),
             ::core::stringify!(OperatorJoinedService),
             ::core::stringify!(SubscriptionBilled),
             ::core::stringify!(SlashExecuted),
@@ -39654,12 +39653,12 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(BlueprintTransferred),
             ::core::stringify!(JobSubmitted),
             ::core::stringify!(BlueprintDeactivated),
-            ::core::stringify!(SlashProposed),
             ::core::stringify!(ServiceRequestedWithSecurity),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
             <OperatorRegistered as alloy_sol_types::SolEvent>::SIGNATURE,
+            <SlashProposed as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorJoinedService as alloy_sol_types::SolEvent>::SIGNATURE,
             <SubscriptionBilled as alloy_sol_types::SolEvent>::SIGNATURE,
             <SlashExecuted as alloy_sol_types::SolEvent>::SIGNATURE,
@@ -39679,7 +39678,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <BlueprintTransferred as alloy_sol_types::SolEvent>::SIGNATURE,
             <JobSubmitted as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintDeactivated as alloy_sol_types::SolEvent>::SIGNATURE,
-            <SlashProposed as alloy_sol_types::SolEvent>::SIGNATURE,
             <ServiceRequestedWithSecurity as alloy_sol_types::SolEvent>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -40914,14 +40912,14 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
             serviceId: u64,
             operator: alloy::sol_types::private::Address,
-            amount: alloy::sol_types::private::primitives::aliases::U256,
+            slashBps: u16,
             evidence: alloy::sol_types::private::FixedBytes<32>,
         ) -> alloy_contract::SolCallBuilder<&P, proposeSlashCall, N> {
             self.call_builder(
                 &proposeSlashCall {
                     serviceId,
                     operator,
-                    amount,
+                    slashBps,
                     evidence,
                 },
             )

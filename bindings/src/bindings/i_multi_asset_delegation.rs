@@ -3,7 +3,7 @@
 
 ```solidity
 library SlashingManager {
-    struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256 totalSlashed; uint256 exchangeRateBefore; uint256 exchangeRateAfter; bytes32 evidence; }
+    struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; bytes32 assetHash; uint16 slashBps; uint256 totalSlashed; uint256 exchangeRateBefore; uint256 exchangeRateAfter; bytes32 evidence; }
 }
 ```*/
 #[allow(
@@ -19,7 +19,7 @@ pub mod SlashingManager {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256 totalSlashed; uint256 exchangeRateBefore; uint256 exchangeRateAfter; bytes32 evidence; }
+struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; bytes32 assetHash; uint16 slashBps; uint256 totalSlashed; uint256 exchangeRateBefore; uint256 exchangeRateAfter; bytes32 evidence; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -30,6 +30,10 @@ struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256
         pub serviceId: u64,
         #[allow(missing_docs)]
         pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub assetHash: alloy::sol_types::private::FixedBytes<32>,
+        #[allow(missing_docs)]
+        pub slashBps: u16,
         #[allow(missing_docs)]
         pub totalSlashed: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
@@ -53,6 +57,8 @@ struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<64>,
+            alloy::sol_types::sol_data::FixedBytes<32>,
+            alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<256>,
@@ -63,6 +69,8 @@ struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256
             u64,
             u64,
             u64,
+            alloy::sol_types::private::FixedBytes<32>,
+            u16,
             alloy::sol_types::private::primitives::aliases::U256,
             alloy::sol_types::private::primitives::aliases::U256,
             alloy::sol_types::private::primitives::aliases::U256,
@@ -87,6 +95,8 @@ struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256
                     value.round,
                     value.serviceId,
                     value.blueprintId,
+                    value.assetHash,
+                    value.slashBps,
                     value.totalSlashed,
                     value.exchangeRateBefore,
                     value.exchangeRateAfter,
@@ -102,10 +112,12 @@ struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256
                     round: tuple.0,
                     serviceId: tuple.1,
                     blueprintId: tuple.2,
-                    totalSlashed: tuple.3,
-                    exchangeRateBefore: tuple.4,
-                    exchangeRateAfter: tuple.5,
-                    evidence: tuple.6,
+                    assetHash: tuple.3,
+                    slashBps: tuple.4,
+                    totalSlashed: tuple.5,
+                    exchangeRateBefore: tuple.6,
+                    exchangeRateAfter: tuple.7,
+                    evidence: tuple.8,
                 }
             }
         }
@@ -127,6 +139,12 @@ struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.assetHash),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashBps),
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.totalSlashed),
@@ -213,7 +231,7 @@ struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "SlashRecord(uint64 round,uint64 serviceId,uint64 blueprintId,uint256 totalSlashed,uint256 exchangeRateBefore,uint256 exchangeRateAfter,bytes32 evidence)",
+                    "SlashRecord(uint64 round,uint64 serviceId,uint64 blueprintId,bytes32 assetHash,uint16 slashBps,uint256 totalSlashed,uint256 exchangeRateBefore,uint256 exchangeRateAfter,bytes32 evidence)",
                 )
             }
             #[inline]
@@ -240,6 +258,14 @@ struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.blueprintId)
+                        .0,
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.assetHash)
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.slashBps)
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         256,
@@ -282,6 +308,16 @@ struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256
                         64,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.blueprintId,
+                    )
+                    + <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.assetHash,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.slashBps,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         256,
@@ -328,6 +364,18 @@ struct SlashRecord { uint64 round; uint64 serviceId; uint64 blueprintId; uint256
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.blueprintId,
+                    out,
+                );
+                <alloy::sol_types::sol_data::FixedBytes<
+                    32,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.assetHash,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    16,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.slashBps,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
@@ -3757,6 +3805,8 @@ library SlashingManager {
         uint64 round;
         uint64 serviceId;
         uint64 blueprintId;
+        bytes32 assetHash;
+        uint16 slashBps;
         uint256 totalSlashed;
         uint256 exchangeRateBefore;
         uint256 exchangeRateAfter;
@@ -3847,8 +3897,8 @@ interface IMultiAssetDelegation {
     event OperatorUnstakeScheduled(address indexed operator, uint256 amount, uint64 readyRound);
     event RequireAdaptersUpdated(bool required);
     event RoundAdvanced(uint64 indexed round);
-    event SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 totalSlashed, uint256 exchangeRateBefore, uint256 exchangeRateAfter);
-    event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operatorSlashed, uint256 delegatorsSlashed, uint256 newExchangeRate);
+    event SlashRecorded(address indexed operator, uint64 indexed slashId, bytes32 assetHash, uint16 slashBps, uint256 totalSlashed, uint256 exchangeRateBefore, uint256 exchangeRateAfter);
+    event Slashed(address indexed operator, uint64 indexed serviceId, uint64 indexed blueprintId, bytes32 assetHash, uint16 slashBps, uint256 operatorSlashed, uint256 delegatorsSlashed, uint256 exchangeRateAfter);
     event SlashedForService(address indexed operator, uint64 indexed serviceId, uint64 indexed blueprintId, uint256 totalSlashed, uint256 commitmentCount);
     event WithdrawScheduled(address indexed delegator, address indexed token, uint256 amount, uint64 readyRound);
     event Withdrawn(address indexed delegator, address indexed token, uint256 amount);
@@ -3892,12 +3942,14 @@ interface IMultiAssetDelegation {
     function getLocks(address delegator, address token) external view returns (Types.LockInfo[] memory);
     function getOperatorBlueprints(address operator) external view returns (uint256[] memory);
     function getOperatorDelegatedStake(address operator) external view returns (uint256);
+    function getOperatorDelegatedStakeForAsset(address operator, Types.Asset memory asset) external view returns (uint256);
     function getOperatorDelegatorCount(address operator) external view returns (uint256);
     function getOperatorDelegators(address operator) external view returns (address[] memory);
     function getOperatorMetadata(address operator) external view returns (Types.OperatorMetadata memory);
     function getOperatorRewardPool(address operator) external view returns (Types.OperatorRewardPool memory);
     function getOperatorSelfStake(address operator) external view returns (uint256);
     function getOperatorStake(address operator) external view returns (uint256);
+    function getOperatorStakeForAsset(address operator, Types.Asset memory asset) external view returns (uint256);
     function getPendingUnstakes(address delegator) external view returns (Types.BondLessRequest[] memory);
     function getPendingWithdrawals(address delegator) external view returns (Types.WithdrawRequest[] memory);
     function getSlashCount(address operator) external view returns (uint64);
@@ -3907,6 +3959,7 @@ interface IMultiAssetDelegation {
     function getSlashRecord(address operator, uint64 slashIndex) external view returns (SlashingManager.SlashRecord memory);
     function getTotalDelegation(address delegator) external view returns (uint256 total);
     function increaseStake() external payable;
+    function increaseStakeWithAsset(address token, uint256 amount) external;
     function isOperator(address operator) external view returns (bool);
     function isOperatorActive(address operator) external view returns (bool);
     function isSlasher(address account) external view returns (bool);
@@ -3915,9 +3968,11 @@ interface IMultiAssetDelegation {
     function meetsStakeRequirement(address operator, uint256 required) external view returns (bool);
     function minOperatorStake() external view returns (uint256);
     function operatorAt(uint256 index) external view returns (address);
+    function operatorBondToken() external view returns (address);
     function operatorCommissionBps() external view returns (uint16);
     function operatorCount() external view returns (uint256);
     function pause() external;
+    function previewDelegatorUnstakeShares(address operator, address token, uint256 amount) external view returns (uint256);
     function registerAdapter(address token, address adapter) external;
     function registerOperator() external payable;
     function registerOperatorWithAsset(address token, uint256 amount) external;
@@ -3933,13 +3988,14 @@ interface IMultiAssetDelegation {
     function scheduleWithdraw(address token, uint256 amount) external;
     function serviceFeeDistributor() external view returns (address);
     function setDelays(uint64 delegationBondLessDelay, uint64 leaveDelegatorsDelay, uint64 leaveOperatorsDelay) external;
+    function setOperatorBondToken(address token) external;
     function setOperatorCommission(uint16 bps) external;
     function setRequireAdapters(bool required) external;
     function setRewardsManager(address manager) external;
     function setServiceFeeDistributor(address distributor) external;
-    function slash(address operator, uint64 serviceId, uint256 amount, bytes32 evidence) external returns (uint256 actualSlashed);
-    function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceId, uint256 amount, bytes32 evidence) external returns (uint256 actualSlashed);
-    function slashForService(address operator, uint64 blueprintId, uint64 serviceId, Types.AssetSecurityCommitment[] memory commitments, uint256 amount, bytes32 evidence) external returns (uint256 actualSlashed);
+    function slash(address operator, uint64 serviceId, uint16 slashBps, bytes32 evidence) external returns (uint256 actualSlashed);
+    function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceId, uint16 slashBps, bytes32 evidence) external returns (uint256 actualSlashed);
+    function slashForService(address operator, uint64 blueprintId, uint64 serviceId, Types.AssetSecurityCommitment[] memory commitments, uint16 slashBps, bytes32 evidence) external returns (uint256 actualSlashed);
     function snapshotOperator(address operator) external;
     function startLeaving() external;
     function undelegate(address operator, uint256 amount) external;
@@ -4722,6 +4778,42 @@ interface IMultiAssetDelegation {
   },
   {
     "type": "function",
+    "name": "getOperatorDelegatedStakeForAsset",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "asset",
+        "type": "tuple",
+        "internalType": "struct Types.Asset",
+        "components": [
+          {
+            "name": "kind",
+            "type": "uint8",
+            "internalType": "enum Types.AssetKind"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getOperatorDelegatorCount",
     "inputs": [
       {
@@ -4857,6 +4949,42 @@ interface IMultiAssetDelegation {
         "name": "operator",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getOperatorStakeForAsset",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "asset",
+        "type": "tuple",
+        "internalType": "struct Types.Asset",
+        "components": [
+          {
+            "name": "kind",
+            "type": "uint8",
+            "internalType": "enum Types.AssetKind"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
       }
     ],
     "outputs": [
@@ -5112,6 +5240,16 @@ interface IMultiAssetDelegation {
             "internalType": "uint64"
           },
           {
+            "name": "assetHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "slashBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
             "name": "totalSlashed",
             "type": "uint256",
             "internalType": "uint256"
@@ -5161,6 +5299,24 @@ interface IMultiAssetDelegation {
     "inputs": [],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "increaseStakeWithAsset",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -5303,6 +5459,19 @@ interface IMultiAssetDelegation {
   },
   {
     "type": "function",
+    "name": "operatorBondToken",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "operatorCommissionBps",
     "inputs": [],
     "outputs": [
@@ -5333,6 +5502,35 @@ interface IMultiAssetDelegation {
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "previewDelegatorUnstakeShares",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -5575,6 +5773,19 @@ interface IMultiAssetDelegation {
   },
   {
     "type": "function",
+    "name": "setOperatorBondToken",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setOperatorCommission",
     "inputs": [
       {
@@ -5640,9 +5851,9 @@ interface IMultiAssetDelegation {
         "internalType": "uint64"
       },
       {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "slashBps",
+        "type": "uint16",
+        "internalType": "uint16"
       },
       {
         "name": "evidence",
@@ -5679,9 +5890,9 @@ interface IMultiAssetDelegation {
         "internalType": "uint64"
       },
       {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "slashBps",
+        "type": "uint16",
+        "internalType": "uint16"
       },
       {
         "name": "evidence",
@@ -5747,9 +5958,9 @@ interface IMultiAssetDelegation {
         ]
       },
       {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "slashBps",
+        "type": "uint16",
+        "internalType": "uint16"
       },
       {
         "name": "evidence",
@@ -6311,6 +6522,18 @@ interface IMultiAssetDelegation {
         "internalType": "uint64"
       },
       {
+        "name": "assetHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "slashBps",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
         "name": "totalSlashed",
         "type": "uint256",
         "indexed": false,
@@ -6348,6 +6571,24 @@ interface IMultiAssetDelegation {
         "internalType": "uint64"
       },
       {
+        "name": "blueprintId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "assetHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "slashBps",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
         "name": "operatorSlashed",
         "type": "uint256",
         "indexed": false,
@@ -6360,7 +6601,7 @@ interface IMultiAssetDelegation {
         "internalType": "uint256"
       },
       {
-        "name": "newExchangeRate",
+        "name": "exchangeRateAfter",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -9079,9 +9320,9 @@ event RoundAdvanced(uint64 indexed round);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `SlashRecorded(address,uint64,uint256,uint256,uint256)` and selector `0x1508fbe22c9805770740c8f3827567950022729e0096e311dc087990c157fffc`.
+    /**Event with signature `SlashRecorded(address,uint64,bytes32,uint16,uint256,uint256,uint256)` and selector `0x983077b9b339d83d83ba0acb16fafe11cf53f1f16a50eee02e4c7d467350f6ca`.
 ```solidity
-event SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 totalSlashed, uint256 exchangeRateBefore, uint256 exchangeRateAfter);
+event SlashRecorded(address indexed operator, uint64 indexed slashId, bytes32 assetHash, uint16 slashBps, uint256 totalSlashed, uint256 exchangeRateBefore, uint256 exchangeRateAfter);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -9095,6 +9336,10 @@ event SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 to
         pub operator: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub slashId: u64,
+        #[allow(missing_docs)]
+        pub assetHash: alloy::sol_types::private::FixedBytes<32>,
+        #[allow(missing_docs)]
+        pub slashBps: u16,
         #[allow(missing_docs)]
         pub totalSlashed: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
@@ -9113,6 +9358,8 @@ event SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 to
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for SlashRecorded {
             type DataTuple<'a> = (
+                alloy::sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Uint<256>,
@@ -9125,11 +9372,11 @@ event SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 to
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<64>,
             );
-            const SIGNATURE: &'static str = "SlashRecorded(address,uint64,uint256,uint256,uint256)";
+            const SIGNATURE: &'static str = "SlashRecorded(address,uint64,bytes32,uint16,uint256,uint256,uint256)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                21u8, 8u8, 251u8, 226u8, 44u8, 152u8, 5u8, 119u8, 7u8, 64u8, 200u8,
-                243u8, 130u8, 117u8, 103u8, 149u8, 0u8, 34u8, 114u8, 158u8, 0u8, 150u8,
-                227u8, 17u8, 220u8, 8u8, 121u8, 144u8, 193u8, 87u8, 255u8, 252u8,
+                152u8, 48u8, 119u8, 185u8, 179u8, 57u8, 216u8, 61u8, 131u8, 186u8, 10u8,
+                203u8, 22u8, 250u8, 254u8, 17u8, 207u8, 83u8, 241u8, 241u8, 106u8, 80u8,
+                238u8, 224u8, 46u8, 76u8, 125u8, 70u8, 115u8, 80u8, 246u8, 202u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -9141,9 +9388,11 @@ event SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 to
                 Self {
                     operator: topics.1,
                     slashId: topics.2,
-                    totalSlashed: data.0,
-                    exchangeRateBefore: data.1,
-                    exchangeRateAfter: data.2,
+                    assetHash: data.0,
+                    slashBps: data.1,
+                    totalSlashed: data.2,
+                    exchangeRateBefore: data.3,
+                    exchangeRateAfter: data.4,
                 }
             }
             #[inline]
@@ -9164,6 +9413,12 @@ event SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 to
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.assetHash),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashBps),
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.totalSlashed),
@@ -9222,9 +9477,9 @@ event SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 to
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `Slashed(address,uint64,uint256,uint256,uint256)` and selector `0x91754b254153861c1e9bc9186484a0bb770823acfa00423044ba1759a01210e7`.
+    /**Event with signature `Slashed(address,uint64,uint64,bytes32,uint16,uint256,uint256,uint256)` and selector `0x2f5da1efb3a68ece960caa5f9c275a9f476d45f1cfc50b92d01bc9a34b38a8f6`.
 ```solidity
-event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operatorSlashed, uint256 delegatorsSlashed, uint256 newExchangeRate);
+event Slashed(address indexed operator, uint64 indexed serviceId, uint64 indexed blueprintId, bytes32 assetHash, uint16 slashBps, uint256 operatorSlashed, uint256 delegatorsSlashed, uint256 exchangeRateAfter);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -9239,11 +9494,17 @@ event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operat
         #[allow(missing_docs)]
         pub serviceId: u64,
         #[allow(missing_docs)]
+        pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub assetHash: alloy::sol_types::private::FixedBytes<32>,
+        #[allow(missing_docs)]
+        pub slashBps: u16,
+        #[allow(missing_docs)]
         pub operatorSlashed: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
         pub delegatorsSlashed: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
-        pub newExchangeRate: alloy::sol_types::private::primitives::aliases::U256,
+        pub exchangeRateAfter: alloy::sol_types::private::primitives::aliases::U256,
     }
     #[allow(
         non_camel_case_types,
@@ -9256,6 +9517,8 @@ event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operat
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for Slashed {
             type DataTuple<'a> = (
+                alloy::sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Uint<256>,
@@ -9267,12 +9530,13 @@ event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operat
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
             );
-            const SIGNATURE: &'static str = "Slashed(address,uint64,uint256,uint256,uint256)";
+            const SIGNATURE: &'static str = "Slashed(address,uint64,uint64,bytes32,uint16,uint256,uint256,uint256)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                145u8, 117u8, 75u8, 37u8, 65u8, 83u8, 134u8, 28u8, 30u8, 155u8, 201u8,
-                24u8, 100u8, 132u8, 160u8, 187u8, 119u8, 8u8, 35u8, 172u8, 250u8, 0u8,
-                66u8, 48u8, 68u8, 186u8, 23u8, 89u8, 160u8, 18u8, 16u8, 231u8,
+                47u8, 93u8, 161u8, 239u8, 179u8, 166u8, 142u8, 206u8, 150u8, 12u8, 170u8,
+                95u8, 156u8, 39u8, 90u8, 159u8, 71u8, 109u8, 69u8, 241u8, 207u8, 197u8,
+                11u8, 146u8, 208u8, 27u8, 201u8, 163u8, 75u8, 56u8, 168u8, 246u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -9284,9 +9548,12 @@ event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operat
                 Self {
                     operator: topics.1,
                     serviceId: topics.2,
-                    operatorSlashed: data.0,
-                    delegatorsSlashed: data.1,
-                    newExchangeRate: data.2,
+                    blueprintId: topics.3,
+                    assetHash: data.0,
+                    slashBps: data.1,
+                    operatorSlashed: data.2,
+                    delegatorsSlashed: data.3,
+                    exchangeRateAfter: data.4,
                 }
             }
             #[inline]
@@ -9307,6 +9574,12 @@ event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operat
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.assetHash),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashBps),
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(&self.operatorSlashed),
@@ -9315,7 +9588,7 @@ event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operat
                     > as alloy_sol_types::SolType>::tokenize(&self.delegatorsSlashed),
                     <alloy::sol_types::sol_data::Uint<
                         256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.newExchangeRate),
+                    > as alloy_sol_types::SolType>::tokenize(&self.exchangeRateAfter),
                 )
             }
             #[inline]
@@ -9324,6 +9597,7 @@ event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operat
                     Self::SIGNATURE_HASH.into(),
                     self.operator.clone(),
                     self.serviceId.clone(),
+                    self.blueprintId.clone(),
                 )
             }
             #[inline]
@@ -9343,6 +9617,9 @@ event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operat
                 out[2usize] = <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
+                out[3usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.blueprintId);
                 Ok(())
             }
         }
@@ -15969,6 +16246,176 @@ function getOperatorDelegatedStake(address operator) external view returns (uint
         }
     };
     #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
+    /**Function with signature `getOperatorDelegatedStakeForAsset(address,(uint8,address))` and selector `0x20e1b202`.
+```solidity
+function getOperatorDelegatedStakeForAsset(address operator, Types.Asset memory asset) external view returns (uint256);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getOperatorDelegatedStakeForAssetCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub asset: <Types::Asset as alloy::sol_types::SolType>::RustType,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getOperatorDelegatedStakeForAsset(address,(uint8,address))`](getOperatorDelegatedStakeForAssetCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getOperatorDelegatedStakeForAssetReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                Types::Asset,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                <Types::Asset as alloy::sol_types::SolType>::RustType,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getOperatorDelegatedStakeForAssetCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getOperatorDelegatedStakeForAssetCall) -> Self {
+                    (value.operator, value.asset)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getOperatorDelegatedStakeForAssetCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        operator: tuple.0,
+                        asset: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getOperatorDelegatedStakeForAssetReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getOperatorDelegatedStakeForAssetReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getOperatorDelegatedStakeForAssetReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getOperatorDelegatedStakeForAssetCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address, Types::Asset);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getOperatorDelegatedStakeForAsset(address,(uint8,address))";
+            const SELECTOR: [u8; 4] = [32u8, 225u8, 178u8, 2u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                    <Types::Asset as alloy_sol_types::SolType>::tokenize(&self.asset),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getOperatorDelegatedStakeForAssetReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getOperatorDelegatedStakeForAssetReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getOperatorDelegatorCount(address)` and selector `0x486398c3`.
 ```solidity
@@ -16909,6 +17356,176 @@ function getOperatorStake(address operator) external view returns (uint256);
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(|r| {
                         let r: getOperatorStakeReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
+    /**Function with signature `getOperatorStakeForAsset(address,(uint8,address))` and selector `0x3501b458`.
+```solidity
+function getOperatorStakeForAsset(address operator, Types.Asset memory asset) external view returns (uint256);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getOperatorStakeForAssetCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub asset: <Types::Asset as alloy::sol_types::SolType>::RustType,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getOperatorStakeForAsset(address,(uint8,address))`](getOperatorStakeForAssetCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getOperatorStakeForAssetReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                Types::Asset,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                <Types::Asset as alloy::sol_types::SolType>::RustType,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getOperatorStakeForAssetCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getOperatorStakeForAssetCall) -> Self {
+                    (value.operator, value.asset)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getOperatorStakeForAssetCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        operator: tuple.0,
+                        asset: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getOperatorStakeForAssetReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getOperatorStakeForAssetReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getOperatorStakeForAssetReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getOperatorStakeForAssetCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address, Types::Asset);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getOperatorStakeForAsset(address,(uint8,address))";
+            const SELECTOR: [u8; 4] = [53u8, 1u8, 180u8, 88u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                    <Types::Asset as alloy_sol_types::SolType>::tokenize(&self.asset),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getOperatorStakeForAssetReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getOperatorStakeForAssetReturn = r.into();
                         r._0
                     })
             }
@@ -18391,6 +19008,173 @@ function increaseStake() external payable;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `increaseStakeWithAsset(address,uint256)` and selector `0xe5e27b6a`.
+```solidity
+function increaseStakeWithAsset(address token, uint256 amount) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct increaseStakeWithAssetCall {
+        #[allow(missing_docs)]
+        pub token: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    ///Container type for the return parameters of the [`increaseStakeWithAsset(address,uint256)`](increaseStakeWithAssetCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct increaseStakeWithAssetReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<increaseStakeWithAssetCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: increaseStakeWithAssetCall) -> Self {
+                    (value.token, value.amount)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for increaseStakeWithAssetCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        token: tuple.0,
+                        amount: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<increaseStakeWithAssetReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: increaseStakeWithAssetReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for increaseStakeWithAssetReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl increaseStakeWithAssetReturn {
+            fn _tokenize(
+                &self,
+            ) -> <increaseStakeWithAssetCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for increaseStakeWithAssetCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = increaseStakeWithAssetReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "increaseStakeWithAsset(address,uint256)";
+            const SELECTOR: [u8; 4] = [229u8, 226u8, 123u8, 106u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.token,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                increaseStakeWithAssetReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `isOperator(address)` and selector `0x6d70f7ae`.
 ```solidity
 function isOperator(address operator) external view returns (bool);
@@ -19627,6 +20411,155 @@ function operatorAt(uint256 index) external view returns (address);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `operatorBondToken()` and selector `0x0f157fb9`.
+```solidity
+function operatorBondToken() external view returns (address);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct operatorBondTokenCall;
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`operatorBondToken()`](operatorBondTokenCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct operatorBondTokenReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::Address,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<operatorBondTokenCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: operatorBondTokenCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for operatorBondTokenCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<operatorBondTokenReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: operatorBondTokenReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for operatorBondTokenReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for operatorBondTokenCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::Address;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "operatorBondToken()";
+            const SELECTOR: [u8; 4] = [15u8, 21u8, 127u8, 185u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: operatorBondTokenReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: operatorBondTokenReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `operatorCommissionBps()` and selector `0x32273f61`.
 ```solidity
 function operatorCommissionBps() external view returns (uint16);
@@ -20055,6 +20988,190 @@ function pause() external;
                     '_,
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `previewDelegatorUnstakeShares(address,address,uint256)` and selector `0x71ed20b6`.
+```solidity
+function previewDelegatorUnstakeShares(address operator, address token, uint256 amount) external view returns (uint256);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct previewDelegatorUnstakeSharesCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub token: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`previewDelegatorUnstakeShares(address,address,uint256)`](previewDelegatorUnstakeSharesCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct previewDelegatorUnstakeSharesReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<previewDelegatorUnstakeSharesCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: previewDelegatorUnstakeSharesCall) -> Self {
+                    (value.operator, value.token, value.amount)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for previewDelegatorUnstakeSharesCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        operator: tuple.0,
+                        token: tuple.1,
+                        amount: tuple.2,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<previewDelegatorUnstakeSharesReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: previewDelegatorUnstakeSharesReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for previewDelegatorUnstakeSharesReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for previewDelegatorUnstakeSharesCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "previewDelegatorUnstakeShares(address,address,uint256)";
+            const SELECTOR: [u8; 4] = [113u8, 237u8, 32u8, 182u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.token,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: previewDelegatorUnstakeSharesReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: previewDelegatorUnstakeSharesReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
@@ -22408,6 +23525,156 @@ function setDelays(uint64 delegationBondLessDelay, uint64 leaveDelegatorsDelay, 
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `setOperatorBondToken(address)` and selector `0x84f5ef65`.
+```solidity
+function setOperatorBondToken(address token) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setOperatorBondTokenCall {
+        #[allow(missing_docs)]
+        pub token: alloy::sol_types::private::Address,
+    }
+    ///Container type for the return parameters of the [`setOperatorBondToken(address)`](setOperatorBondTokenCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setOperatorBondTokenReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setOperatorBondTokenCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setOperatorBondTokenCall) -> Self {
+                    (value.token,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setOperatorBondTokenCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { token: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setOperatorBondTokenReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setOperatorBondTokenReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setOperatorBondTokenReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl setOperatorBondTokenReturn {
+            fn _tokenize(
+                &self,
+            ) -> <setOperatorBondTokenCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for setOperatorBondTokenCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = setOperatorBondTokenReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "setOperatorBondToken(address)";
+            const SELECTOR: [u8; 4] = [132u8, 245u8, 239u8, 101u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.token,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                setOperatorBondTokenReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setOperatorCommission(uint16)` and selector `0xf3c4d8a0`.
 ```solidity
 function setOperatorCommission(uint16 bps) external;
@@ -23004,9 +24271,9 @@ function setServiceFeeDistributor(address distributor) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `slash(address,uint64,uint256,bytes32)` and selector `0x356924ea`.
+    /**Function with signature `slash(address,uint64,uint16,bytes32)` and selector `0xff38b049`.
 ```solidity
-function slash(address operator, uint64 serviceId, uint256 amount, bytes32 evidence) external returns (uint256 actualSlashed);
+function slash(address operator, uint64 serviceId, uint16 slashBps, bytes32 evidence) external returns (uint256 actualSlashed);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -23016,13 +24283,13 @@ function slash(address operator, uint64 serviceId, uint256 amount, bytes32 evide
         #[allow(missing_docs)]
         pub serviceId: u64,
         #[allow(missing_docs)]
-        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+        pub slashBps: u16,
         #[allow(missing_docs)]
         pub evidence: alloy::sol_types::private::FixedBytes<32>,
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`slash(address,uint64,uint256,bytes32)`](slashCall) function.
+    ///Container type for the return parameters of the [`slash(address,uint64,uint16,bytes32)`](slashCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct slashReturn {
@@ -23043,14 +24310,14 @@ function slash(address operator, uint64 serviceId, uint256 amount, bytes32 evide
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 alloy::sol_types::private::Address,
                 u64,
-                alloy::sol_types::private::primitives::aliases::U256,
+                u16,
                 alloy::sol_types::private::FixedBytes<32>,
             );
             #[cfg(test)]
@@ -23068,7 +24335,7 @@ function slash(address operator, uint64 serviceId, uint256 amount, bytes32 evide
             #[doc(hidden)]
             impl ::core::convert::From<slashCall> for UnderlyingRustTuple<'_> {
                 fn from(value: slashCall) -> Self {
-                    (value.operator, value.serviceId, value.amount, value.evidence)
+                    (value.operator, value.serviceId, value.slashBps, value.evidence)
                 }
             }
             #[automatically_derived]
@@ -23078,7 +24345,7 @@ function slash(address operator, uint64 serviceId, uint256 amount, bytes32 evide
                     Self {
                         operator: tuple.0,
                         serviceId: tuple.1,
-                        amount: tuple.2,
+                        slashBps: tuple.2,
                         evidence: tuple.3,
                     }
                 }
@@ -23123,7 +24390,7 @@ function slash(address operator, uint64 serviceId, uint256 amount, bytes32 evide
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             type Token<'a> = <Self::Parameters<
@@ -23134,8 +24401,8 @@ function slash(address operator, uint64 serviceId, uint256 amount, bytes32 evide
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "slash(address,uint64,uint256,bytes32)";
-            const SELECTOR: [u8; 4] = [53u8, 105u8, 36u8, 234u8];
+            const SIGNATURE: &'static str = "slash(address,uint64,uint16,bytes32)";
+            const SELECTOR: [u8; 4] = [255u8, 56u8, 176u8, 73u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -23152,8 +24419,8 @@ function slash(address operator, uint64 serviceId, uint256 amount, bytes32 evide
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
                     <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashBps),
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::SolType>::tokenize(&self.evidence),
@@ -23193,9 +24460,9 @@ function slash(address operator, uint64 serviceId, uint256 amount, bytes32 evide
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `slashForBlueprint(address,uint64,uint64,uint256,bytes32)` and selector `0x8d795d50`.
+    /**Function with signature `slashForBlueprint(address,uint64,uint64,uint16,bytes32)` and selector `0x614b1d9b`.
 ```solidity
-function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceId, uint256 amount, bytes32 evidence) external returns (uint256 actualSlashed);
+function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceId, uint16 slashBps, bytes32 evidence) external returns (uint256 actualSlashed);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -23207,13 +24474,13 @@ function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceI
         #[allow(missing_docs)]
         pub serviceId: u64,
         #[allow(missing_docs)]
-        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+        pub slashBps: u16,
         #[allow(missing_docs)]
         pub evidence: alloy::sol_types::private::FixedBytes<32>,
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`slashForBlueprint(address,uint64,uint64,uint256,bytes32)`](slashForBlueprintCall) function.
+    ///Container type for the return parameters of the [`slashForBlueprint(address,uint64,uint64,uint16,bytes32)`](slashForBlueprintCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct slashForBlueprintReturn {
@@ -23235,7 +24502,7 @@ function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceI
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             #[doc(hidden)]
@@ -23243,7 +24510,7 @@ function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceI
                 alloy::sol_types::private::Address,
                 u64,
                 u64,
-                alloy::sol_types::private::primitives::aliases::U256,
+                u16,
                 alloy::sol_types::private::FixedBytes<32>,
             );
             #[cfg(test)]
@@ -23266,7 +24533,7 @@ function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceI
                         value.operator,
                         value.blueprintId,
                         value.serviceId,
-                        value.amount,
+                        value.slashBps,
                         value.evidence,
                     )
                 }
@@ -23280,7 +24547,7 @@ function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceI
                         operator: tuple.0,
                         blueprintId: tuple.1,
                         serviceId: tuple.2,
-                        amount: tuple.3,
+                        slashBps: tuple.3,
                         evidence: tuple.4,
                     }
                 }
@@ -23328,7 +24595,7 @@ function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceI
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<64>,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             type Token<'a> = <Self::Parameters<
@@ -23339,8 +24606,8 @@ function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceI
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "slashForBlueprint(address,uint64,uint64,uint256,bytes32)";
-            const SELECTOR: [u8; 4] = [141u8, 121u8, 93u8, 80u8];
+            const SIGNATURE: &'static str = "slashForBlueprint(address,uint64,uint64,uint16,bytes32)";
+            const SELECTOR: [u8; 4] = [97u8, 75u8, 29u8, 155u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -23360,8 +24627,8 @@ function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceI
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
                     <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashBps),
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::SolType>::tokenize(&self.evidence),
@@ -23401,9 +24668,9 @@ function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceI
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `slashForService(address,uint64,uint64,((uint8,address),uint16)[],uint256,bytes32)` and selector `0x9e8c49d4`.
+    /**Function with signature `slashForService(address,uint64,uint64,((uint8,address),uint16)[],uint16,bytes32)` and selector `0x675b3c43`.
 ```solidity
-function slashForService(address operator, uint64 blueprintId, uint64 serviceId, Types.AssetSecurityCommitment[] memory commitments, uint256 amount, bytes32 evidence) external returns (uint256 actualSlashed);
+function slashForService(address operator, uint64 blueprintId, uint64 serviceId, Types.AssetSecurityCommitment[] memory commitments, uint16 slashBps, bytes32 evidence) external returns (uint256 actualSlashed);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -23419,13 +24686,13 @@ function slashForService(address operator, uint64 blueprintId, uint64 serviceId,
             <Types::AssetSecurityCommitment as alloy::sol_types::SolType>::RustType,
         >,
         #[allow(missing_docs)]
-        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+        pub slashBps: u16,
         #[allow(missing_docs)]
         pub evidence: alloy::sol_types::private::FixedBytes<32>,
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`slashForService(address,uint64,uint64,((uint8,address),uint16)[],uint256,bytes32)`](slashForServiceCall) function.
+    ///Container type for the return parameters of the [`slashForService(address,uint64,uint64,((uint8,address),uint16)[],uint16,bytes32)`](slashForServiceCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct slashForServiceReturn {
@@ -23448,7 +24715,7 @@ function slashForService(address operator, uint64 blueprintId, uint64 serviceId,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Array<Types::AssetSecurityCommitment>,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             #[doc(hidden)]
@@ -23459,7 +24726,7 @@ function slashForService(address operator, uint64 blueprintId, uint64 serviceId,
                 alloy::sol_types::private::Vec<
                     <Types::AssetSecurityCommitment as alloy::sol_types::SolType>::RustType,
                 >,
-                alloy::sol_types::private::primitives::aliases::U256,
+                u16,
                 alloy::sol_types::private::FixedBytes<32>,
             );
             #[cfg(test)]
@@ -23482,7 +24749,7 @@ function slashForService(address operator, uint64 blueprintId, uint64 serviceId,
                         value.blueprintId,
                         value.serviceId,
                         value.commitments,
-                        value.amount,
+                        value.slashBps,
                         value.evidence,
                     )
                 }
@@ -23496,7 +24763,7 @@ function slashForService(address operator, uint64 blueprintId, uint64 serviceId,
                         blueprintId: tuple.1,
                         serviceId: tuple.2,
                         commitments: tuple.3,
-                        amount: tuple.4,
+                        slashBps: tuple.4,
                         evidence: tuple.5,
                     }
                 }
@@ -23545,7 +24812,7 @@ function slashForService(address operator, uint64 blueprintId, uint64 serviceId,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Array<Types::AssetSecurityCommitment>,
-                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
             type Token<'a> = <Self::Parameters<
@@ -23556,8 +24823,8 @@ function slashForService(address operator, uint64 blueprintId, uint64 serviceId,
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "slashForService(address,uint64,uint64,((uint8,address),uint16)[],uint256,bytes32)";
-            const SELECTOR: [u8; 4] = [158u8, 140u8, 73u8, 212u8];
+            const SIGNATURE: &'static str = "slashForService(address,uint64,uint64,((uint8,address),uint16)[],uint16,bytes32)";
+            const SELECTOR: [u8; 4] = [103u8, 91u8, 60u8, 67u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -23580,8 +24847,8 @@ function slashForService(address operator, uint64 blueprintId, uint64 serviceId,
                         Types::AssetSecurityCommitment,
                     > as alloy_sol_types::SolType>::tokenize(&self.commitments),
                     <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashBps),
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::SolType>::tokenize(&self.evidence),
@@ -24286,6 +25553,8 @@ function unpause() external;
         #[allow(missing_docs)]
         getOperatorDelegatedStake(getOperatorDelegatedStakeCall),
         #[allow(missing_docs)]
+        getOperatorDelegatedStakeForAsset(getOperatorDelegatedStakeForAssetCall),
+        #[allow(missing_docs)]
         getOperatorDelegatorCount(getOperatorDelegatorCountCall),
         #[allow(missing_docs)]
         getOperatorDelegators(getOperatorDelegatorsCall),
@@ -24297,6 +25566,8 @@ function unpause() external;
         getOperatorSelfStake(getOperatorSelfStakeCall),
         #[allow(missing_docs)]
         getOperatorStake(getOperatorStakeCall),
+        #[allow(missing_docs)]
+        getOperatorStakeForAsset(getOperatorStakeForAssetCall),
         #[allow(missing_docs)]
         getPendingUnstakes(getPendingUnstakesCall),
         #[allow(missing_docs)]
@@ -24316,6 +25587,8 @@ function unpause() external;
         #[allow(missing_docs)]
         increaseStake(increaseStakeCall),
         #[allow(missing_docs)]
+        increaseStakeWithAsset(increaseStakeWithAssetCall),
+        #[allow(missing_docs)]
         isOperator(isOperatorCall),
         #[allow(missing_docs)]
         isOperatorActive(isOperatorActiveCall),
@@ -24332,11 +25605,15 @@ function unpause() external;
         #[allow(missing_docs)]
         operatorAt(operatorAtCall),
         #[allow(missing_docs)]
+        operatorBondToken(operatorBondTokenCall),
+        #[allow(missing_docs)]
         operatorCommissionBps(operatorCommissionBpsCall),
         #[allow(missing_docs)]
         operatorCount(operatorCountCall),
         #[allow(missing_docs)]
         pause(pauseCall),
+        #[allow(missing_docs)]
+        previewDelegatorUnstakeShares(previewDelegatorUnstakeSharesCall),
         #[allow(missing_docs)]
         registerAdapter(registerAdapterCall),
         #[allow(missing_docs)]
@@ -24367,6 +25644,8 @@ function unpause() external;
         serviceFeeDistributor(serviceFeeDistributorCall),
         #[allow(missing_docs)]
         setDelays(setDelaysCall),
+        #[allow(missing_docs)]
+        setOperatorBondToken(setOperatorBondTokenCall),
         #[allow(missing_docs)]
         setOperatorCommission(setOperatorCommissionCall),
         #[allow(missing_docs)]
@@ -24404,9 +25683,11 @@ function unpause() external;
             [3u8, 120u8, 2u8, 17u8],
             [10u8, 141u8, 220u8, 94u8],
             [12u8, 136u8, 51u8, 206u8],
+            [15u8, 21u8, 127u8, 185u8],
             [21u8, 4u8, 154u8, 90u8],
             [24u8, 5u8, 109u8, 194u8],
             [27u8, 169u8, 153u8, 139u8],
+            [32u8, 225u8, 178u8, 2u8],
             [35u8, 204u8, 39u8, 0u8],
             [38u8, 20u8, 35u8, 53u8],
             [40u8, 231u8, 14u8, 204u8],
@@ -24415,8 +25696,8 @@ function unpause() external;
             [46u8, 230u8, 99u8, 184u8],
             [49u8, 204u8, 19u8, 186u8],
             [50u8, 39u8, 63u8, 97u8],
+            [53u8, 1u8, 180u8, 88u8],
             [53u8, 78u8, 190u8, 249u8],
-            [53u8, 105u8, 36u8, 234u8],
             [63u8, 75u8, 168u8, 58u8],
             [68u8, 175u8, 242u8, 82u8],
             [69u8, 62u8, 204u8, 234u8],
@@ -24429,26 +25710,28 @@ function unpause() external;
             [87u8, 34u8, 213u8, 18u8],
             [87u8, 96u8, 28u8, 93u8],
             [88u8, 92u8, 211u8, 75u8],
+            [97u8, 75u8, 29u8, 155u8],
             [102u8, 195u8, 104u8, 117u8],
+            [103u8, 91u8, 60u8, 67u8],
             [104u8, 169u8, 241u8, 156u8],
             [109u8, 112u8, 247u8, 174u8],
             [110u8, 195u8, 171u8, 103u8],
             [112u8, 128u8, 117u8, 40u8],
+            [113u8, 237u8, 32u8, 182u8],
             [114u8, 181u8, 3u8, 45u8],
             [123u8, 118u8, 254u8, 94u8],
             [123u8, 153u8, 150u8, 197u8],
             [124u8, 111u8, 49u8, 88u8],
             [125u8, 249u8, 42u8, 218u8],
             [132u8, 86u8, 203u8, 89u8],
+            [132u8, 245u8, 239u8, 101u8],
             [133u8, 156u8, 170u8, 24u8],
             [135u8, 112u8, 53u8, 80u8],
             [138u8, 25u8, 200u8, 188u8],
             [140u8, 91u8, 74u8, 231u8],
-            [141u8, 121u8, 93u8, 80u8],
             [148u8, 148u8, 244u8, 38u8],
             [151u8, 254u8, 185u8, 38u8],
             [158u8, 135u8, 5u8, 133u8],
-            [158u8, 140u8, 73u8, 212u8],
             [162u8, 153u8, 226u8, 152u8],
             [164u8, 87u8, 175u8, 61u8],
             [167u8, 250u8, 111u8, 152u8],
@@ -24475,6 +25758,7 @@ function unpause() external;
             [224u8, 165u8, 130u8, 91u8],
             [225u8, 238u8, 75u8, 204u8],
             [228u8, 232u8, 141u8, 232u8],
+            [229u8, 226u8, 123u8, 106u8],
             [235u8, 71u8, 53u8, 51u8],
             [240u8, 181u8, 43u8, 180u8],
             [243u8, 64u8, 192u8, 208u8],
@@ -24489,6 +25773,7 @@ function unpause() external;
             [252u8, 94u8, 126u8, 9u8],
             [252u8, 138u8, 145u8, 175u8],
             [253u8, 125u8, 61u8, 188u8],
+            [255u8, 56u8, 176u8, 73u8],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
@@ -24498,9 +25783,11 @@ function unpause() external;
             ::core::stringify!(setDelays),
             ::core::stringify!(setRewardsManager),
             ::core::stringify!(getLocks),
+            ::core::stringify!(operatorBondToken),
             ::core::stringify!(getDelegation),
             ::core::stringify!(MULTIPLIER_ONE_MONTH),
             ::core::stringify!(advanceRound),
+            ::core::stringify!(getOperatorDelegatedStakeForAsset),
             ::core::stringify!(addBlueprintToDelegation),
             ::core::stringify!(operatorAt),
             ::core::stringify!(removeBlueprint),
@@ -24509,8 +25796,8 @@ function unpause() external;
             ::core::stringify!(getOperatorMetadata),
             ::core::stringify!(getDelegations),
             ::core::stringify!(operatorCommissionBps),
+            ::core::stringify!(getOperatorStakeForAsset),
             ::core::stringify!(enableAsset),
-            ::core::stringify!(slash),
             ::core::stringify!(unpause),
             ::core::stringify!(scheduleOperatorUnstake),
             ::core::stringify!(MULTIPLIER_SIX_MONTHS),
@@ -24523,26 +25810,28 @@ function unpause() external;
             ::core::stringify!(getPendingUnstakes),
             ::core::stringify!(isSlasher),
             ::core::stringify!(removeAdapter),
+            ::core::stringify!(slashForBlueprint),
             ::core::stringify!(getSlashCount),
+            ::core::stringify!(slashForService),
             ::core::stringify!(addSlasher),
             ::core::stringify!(isOperator),
             ::core::stringify!(getAssetConfig),
             ::core::stringify!(disableAsset),
+            ::core::stringify!(previewDelegatorUnstakeShares),
             ::core::stringify!(getSlashCountForService),
             ::core::stringify!(setRequireAdapters),
             ::core::stringify!(getDelegationBlueprints),
             ::core::stringify!(operatorCount),
             ::core::stringify!(LOCK_TWO_MONTHS),
             ::core::stringify!(pause),
+            ::core::stringify!(setOperatorBondToken),
             ::core::stringify!(removeBlueprintFromDelegation),
             ::core::stringify!(startLeaving),
             ::core::stringify!(currentRound),
             ::core::stringify!(getOperatorDelegatedStake),
-            ::core::stringify!(slashForBlueprint),
             ::core::stringify!(getSlashImpact),
             ::core::stringify!(depositERC20),
             ::core::stringify!(LOCK_ONE_MONTH),
-            ::core::stringify!(slashForService),
             ::core::stringify!(getOperatorDelegators),
             ::core::stringify!(getSlashRecord),
             ::core::stringify!(MULTIPLIER_THREE_MONTHS),
@@ -24569,6 +25858,7 @@ function unpause() external;
             ::core::stringify!(registerOperatorWithAsset),
             ::core::stringify!(scheduleWithdraw),
             ::core::stringify!(getOperatorStake),
+            ::core::stringify!(increaseStakeWithAsset),
             ::core::stringify!(isOperatorActive),
             ::core::stringify!(enableAssetWithAdapter),
             ::core::stringify!(getPendingWithdrawals),
@@ -24583,6 +25873,7 @@ function unpause() external;
             ::core::stringify!(getTotalDelegation),
             ::core::stringify!(scheduleDelegatorUnstake),
             ::core::stringify!(delegateWithOptions),
+            ::core::stringify!(slash),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
@@ -24592,9 +25883,11 @@ function unpause() external;
             <setDelaysCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setRewardsManagerCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getLocksCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <operatorBondTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getDelegationCall as alloy_sol_types::SolCall>::SIGNATURE,
             <MULTIPLIER_ONE_MONTHCall as alloy_sol_types::SolCall>::SIGNATURE,
             <advanceRoundCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getOperatorDelegatedStakeForAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <addBlueprintToDelegationCall as alloy_sol_types::SolCall>::SIGNATURE,
             <operatorAtCall as alloy_sol_types::SolCall>::SIGNATURE,
             <removeBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -24603,8 +25896,8 @@ function unpause() external;
             <getOperatorMetadataCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getDelegationsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <operatorCommissionBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getOperatorStakeForAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <enableAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <slashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <unpauseCall as alloy_sol_types::SolCall>::SIGNATURE,
             <scheduleOperatorUnstakeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <MULTIPLIER_SIX_MONTHSCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -24617,26 +25910,28 @@ function unpause() external;
             <getPendingUnstakesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isSlasherCall as alloy_sol_types::SolCall>::SIGNATURE,
             <removeAdapterCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <slashForBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashCountCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <slashForServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <addSlasherCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getAssetConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <disableAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <previewDelegatorUnstakeSharesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashCountForServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setRequireAdaptersCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getDelegationBlueprintsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <operatorCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <LOCK_TWO_MONTHSCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pauseCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setOperatorBondTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <removeBlueprintFromDelegationCall as alloy_sol_types::SolCall>::SIGNATURE,
             <startLeavingCall as alloy_sol_types::SolCall>::SIGNATURE,
             <currentRoundCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorDelegatedStakeCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <slashForBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashImpactCall as alloy_sol_types::SolCall>::SIGNATURE,
             <depositERC20Call as alloy_sol_types::SolCall>::SIGNATURE,
             <LOCK_ONE_MONTHCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <slashForServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorDelegatorsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashRecordCall as alloy_sol_types::SolCall>::SIGNATURE,
             <MULTIPLIER_THREE_MONTHSCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -24663,6 +25958,7 @@ function unpause() external;
             <registerOperatorWithAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <scheduleWithdrawCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorStakeCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <increaseStakeWithAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isOperatorActiveCall as alloy_sol_types::SolCall>::SIGNATURE,
             <enableAssetWithAdapterCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getPendingWithdrawalsCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -24677,6 +25973,7 @@ function unpause() external;
             <getTotalDelegationCall as alloy_sol_types::SolCall>::SIGNATURE,
             <scheduleDelegatorUnstakeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <delegateWithOptionsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <slashCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
         #[inline]
@@ -24703,7 +26000,7 @@ function unpause() external;
     impl alloy_sol_types::SolInterface for IMultiAssetDelegationCalls {
         const NAME: &'static str = "IMultiAssetDelegationCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 91usize;
+        const COUNT: usize = 97usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -24818,6 +26115,9 @@ function unpause() external;
                 Self::getOperatorDelegatedStake(_) => {
                     <getOperatorDelegatedStakeCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::getOperatorDelegatedStakeForAsset(_) => {
+                    <getOperatorDelegatedStakeForAssetCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::getOperatorDelegatorCount(_) => {
                     <getOperatorDelegatorCountCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -24835,6 +26135,9 @@ function unpause() external;
                 }
                 Self::getOperatorStake(_) => {
                     <getOperatorStakeCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getOperatorStakeForAsset(_) => {
+                    <getOperatorStakeForAssetCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::getPendingUnstakes(_) => {
                     <getPendingUnstakesCall as alloy_sol_types::SolCall>::SELECTOR
@@ -24863,6 +26166,9 @@ function unpause() external;
                 Self::increaseStake(_) => {
                     <increaseStakeCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::increaseStakeWithAsset(_) => {
+                    <increaseStakeWithAssetCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::isOperator(_) => {
                     <isOperatorCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -24887,6 +26193,9 @@ function unpause() external;
                 Self::operatorAt(_) => {
                     <operatorAtCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::operatorBondToken(_) => {
+                    <operatorBondTokenCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::operatorCommissionBps(_) => {
                     <operatorCommissionBpsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -24894,6 +26203,9 @@ function unpause() external;
                     <operatorCountCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::pause(_) => <pauseCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::previewDelegatorUnstakeShares(_) => {
+                    <previewDelegatorUnstakeSharesCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::registerAdapter(_) => {
                     <registerAdapterCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -24938,6 +26250,9 @@ function unpause() external;
                 }
                 Self::setDelays(_) => {
                     <setDelaysCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::setOperatorBondToken(_) => {
+                    <setOperatorBondTokenCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::setOperatorCommission(_) => {
                     <setOperatorCommissionCall as alloy_sol_types::SolCall>::SELECTOR
@@ -25048,6 +26363,17 @@ function unpause() external;
                     getLocks
                 },
                 {
+                    fn operatorBondToken(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::operatorBondToken)
+                    }
+                    operatorBondToken
+                },
+                {
                     fn getDelegation(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -25079,6 +26405,19 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::advanceRound)
                     }
                     advanceRound
+                },
+                {
+                    fn getOperatorDelegatedStakeForAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <getOperatorDelegatedStakeForAssetCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(
+                                IMultiAssetDelegationCalls::getOperatorDelegatedStakeForAsset,
+                            )
+                    }
+                    getOperatorDelegatedStakeForAsset
                 },
                 {
                     fn addBlueprintToDelegation(
@@ -25169,6 +26508,17 @@ function unpause() external;
                     operatorCommissionBps
                 },
                 {
+                    fn getOperatorStakeForAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <getOperatorStakeForAssetCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::getOperatorStakeForAsset)
+                    }
+                    getOperatorStakeForAsset
+                },
+                {
                     fn enableAsset(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -25178,15 +26528,6 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::enableAsset)
                     }
                     enableAsset
-                },
-                {
-                    fn slash(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
-                        <slashCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                            .map(IMultiAssetDelegationCalls::slash)
-                    }
-                    slash
                 },
                 {
                     fn unpause(
@@ -25317,6 +26658,17 @@ function unpause() external;
                     removeAdapter
                 },
                 {
+                    fn slashForBlueprint(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <slashForBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::slashForBlueprint)
+                    }
+                    slashForBlueprint
+                },
+                {
                     fn getSlashCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -25326,6 +26678,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::getSlashCount)
                     }
                     getSlashCount
+                },
+                {
+                    fn slashForService(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <slashForServiceCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::slashForService)
+                    }
+                    slashForService
                 },
                 {
                     fn addSlasher(
@@ -25370,6 +26733,19 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::disableAsset)
                     }
                     disableAsset
+                },
+                {
+                    fn previewDelegatorUnstakeShares(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <previewDelegatorUnstakeSharesCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(
+                                IMultiAssetDelegationCalls::previewDelegatorUnstakeShares,
+                            )
+                    }
+                    previewDelegatorUnstakeShares
                 },
                 {
                     fn getSlashCountForService(
@@ -25436,6 +26812,17 @@ function unpause() external;
                     pause
                 },
                 {
+                    fn setOperatorBondToken(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <setOperatorBondTokenCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::setOperatorBondToken)
+                    }
+                    setOperatorBondToken
+                },
+                {
                     fn removeBlueprintFromDelegation(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -25482,17 +26869,6 @@ function unpause() external;
                     getOperatorDelegatedStake
                 },
                 {
-                    fn slashForBlueprint(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
-                        <slashForBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(IMultiAssetDelegationCalls::slashForBlueprint)
-                    }
-                    slashForBlueprint
-                },
-                {
                     fn getSlashImpact(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -25524,17 +26900,6 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::LOCK_ONE_MONTH)
                     }
                     LOCK_ONE_MONTH
-                },
-                {
-                    fn slashForService(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
-                        <slashForServiceCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(IMultiAssetDelegationCalls::slashForService)
-                    }
-                    slashForService
                 },
                 {
                     fn getOperatorDelegators(
@@ -25823,6 +27188,17 @@ function unpause() external;
                     getOperatorStake
                 },
                 {
+                    fn increaseStakeWithAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <increaseStakeWithAssetCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::increaseStakeWithAsset)
+                    }
+                    increaseStakeWithAsset
+                },
+                {
                     fn isOperatorActive(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -25978,6 +27354,15 @@ function unpause() external;
                     }
                     delegateWithOptions
                 },
+                {
+                    fn slash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <slashCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(IMultiAssetDelegationCalls::slash)
+                    }
+                    slash
+                },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
                 return Err(
@@ -26065,6 +27450,17 @@ function unpause() external;
                     getLocks
                 },
                 {
+                    fn operatorBondToken(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::operatorBondToken)
+                    }
+                    operatorBondToken
+                },
+                {
                     fn getDelegation(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -26096,6 +27492,19 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::advanceRound)
                     }
                     advanceRound
+                },
+                {
+                    fn getOperatorDelegatedStakeForAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <getOperatorDelegatedStakeForAssetCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(
+                                IMultiAssetDelegationCalls::getOperatorDelegatedStakeForAsset,
+                            )
+                    }
+                    getOperatorDelegatedStakeForAsset
                 },
                 {
                     fn addBlueprintToDelegation(
@@ -26186,6 +27595,17 @@ function unpause() external;
                     operatorCommissionBps
                 },
                 {
+                    fn getOperatorStakeForAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <getOperatorStakeForAssetCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::getOperatorStakeForAsset)
+                    }
+                    getOperatorStakeForAsset
+                },
+                {
                     fn enableAsset(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -26195,17 +27615,6 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::enableAsset)
                     }
                     enableAsset
-                },
-                {
-                    fn slash(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
-                        <slashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(IMultiAssetDelegationCalls::slash)
-                    }
-                    slash
                 },
                 {
                     fn unpause(
@@ -26340,6 +27749,17 @@ function unpause() external;
                     removeAdapter
                 },
                 {
+                    fn slashForBlueprint(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <slashForBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::slashForBlueprint)
+                    }
+                    slashForBlueprint
+                },
+                {
                     fn getSlashCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -26349,6 +27769,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::getSlashCount)
                     }
                     getSlashCount
+                },
+                {
+                    fn slashForService(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <slashForServiceCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::slashForService)
+                    }
+                    slashForService
                 },
                 {
                     fn addSlasher(
@@ -26393,6 +27824,19 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::disableAsset)
                     }
                     disableAsset
+                },
+                {
+                    fn previewDelegatorUnstakeShares(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <previewDelegatorUnstakeSharesCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(
+                                IMultiAssetDelegationCalls::previewDelegatorUnstakeShares,
+                            )
+                    }
+                    previewDelegatorUnstakeShares
                 },
                 {
                     fn getSlashCountForService(
@@ -26461,6 +27905,17 @@ function unpause() external;
                     pause
                 },
                 {
+                    fn setOperatorBondToken(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <setOperatorBondTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::setOperatorBondToken)
+                    }
+                    setOperatorBondToken
+                },
+                {
                     fn removeBlueprintFromDelegation(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -26507,17 +27962,6 @@ function unpause() external;
                     getOperatorDelegatedStake
                 },
                 {
-                    fn slashForBlueprint(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
-                        <slashForBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(IMultiAssetDelegationCalls::slashForBlueprint)
-                    }
-                    slashForBlueprint
-                },
-                {
                     fn getSlashImpact(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -26549,17 +27993,6 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::LOCK_ONE_MONTH)
                     }
                     LOCK_ONE_MONTH
-                },
-                {
-                    fn slashForService(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
-                        <slashForServiceCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(IMultiAssetDelegationCalls::slashForService)
-                    }
-                    slashForService
                 },
                 {
                     fn getOperatorDelegators(
@@ -26850,6 +28283,17 @@ function unpause() external;
                     getOperatorStake
                 },
                 {
+                    fn increaseStakeWithAsset(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <increaseStakeWithAssetCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::increaseStakeWithAsset)
+                    }
+                    increaseStakeWithAsset
+                },
+                {
                     fn isOperatorActive(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -27004,6 +28448,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::delegateWithOptions)
                     }
                     delegateWithOptions
+                },
+                {
+                    fn slash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <slashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::slash)
+                    }
+                    slash
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
@@ -27204,6 +28659,11 @@ function unpause() external;
                         inner,
                     )
                 }
+                Self::getOperatorDelegatedStakeForAsset(inner) => {
+                    <getOperatorDelegatedStakeForAssetCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::getOperatorDelegatorCount(inner) => {
                     <getOperatorDelegatorCountCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -27231,6 +28691,11 @@ function unpause() external;
                 }
                 Self::getOperatorStake(inner) => {
                     <getOperatorStakeCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::getOperatorStakeForAsset(inner) => {
+                    <getOperatorStakeForAssetCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -27279,6 +28744,11 @@ function unpause() external;
                         inner,
                     )
                 }
+                Self::increaseStakeWithAsset(inner) => {
+                    <increaseStakeWithAssetCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::isOperator(inner) => {
                     <isOperatorCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
@@ -27313,6 +28783,11 @@ function unpause() external;
                 Self::operatorAt(inner) => {
                     <operatorAtCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
+                Self::operatorBondToken(inner) => {
+                    <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::operatorCommissionBps(inner) => {
                     <operatorCommissionBpsCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -27325,6 +28800,11 @@ function unpause() external;
                 }
                 Self::pause(inner) => {
                     <pauseCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                }
+                Self::previewDelegatorUnstakeShares(inner) => {
+                    <previewDelegatorUnstakeSharesCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::registerAdapter(inner) => {
                     <registerAdapterCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -27398,6 +28878,11 @@ function unpause() external;
                 }
                 Self::setDelays(inner) => {
                     <setDelaysCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                }
+                Self::setOperatorBondToken(inner) => {
+                    <setOperatorBondTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::setOperatorCommission(inner) => {
                     <setOperatorCommissionCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -27684,6 +29169,12 @@ function unpause() external;
                         out,
                     )
                 }
+                Self::getOperatorDelegatedStakeForAsset(inner) => {
+                    <getOperatorDelegatedStakeForAssetCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::getOperatorDelegatorCount(inner) => {
                     <getOperatorDelegatorCountCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -27716,6 +29207,12 @@ function unpause() external;
                 }
                 Self::getOperatorStake(inner) => {
                     <getOperatorStakeCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getOperatorStakeForAsset(inner) => {
+                    <getOperatorStakeForAssetCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -27774,6 +29271,12 @@ function unpause() external;
                         out,
                     )
                 }
+                Self::increaseStakeWithAsset(inner) => {
+                    <increaseStakeWithAssetCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::isOperator(inner) => {
                     <isOperatorCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -27822,6 +29325,12 @@ function unpause() external;
                         out,
                     )
                 }
+                Self::operatorBondToken(inner) => {
+                    <operatorBondTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::operatorCommissionBps(inner) => {
                     <operatorCommissionBpsCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -27836,6 +29345,12 @@ function unpause() external;
                 }
                 Self::pause(inner) => {
                     <pauseCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                }
+                Self::previewDelegatorUnstakeShares(inner) => {
+                    <previewDelegatorUnstakeSharesCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::registerAdapter(inner) => {
                     <registerAdapterCall as alloy_sol_types::SolCall>::abi_encode_raw(
@@ -27923,6 +29438,12 @@ function unpause() external;
                 }
                 Self::setDelays(inner) => {
                     <setDelaysCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::setOperatorBondToken(inner) => {
+                    <setOperatorBondTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -28067,9 +29588,9 @@ function unpause() external;
                 212u8, 124u8, 77u8, 106u8, 216u8, 209u8, 163u8, 241u8, 90u8, 247u8, 52u8,
             ],
             [
-                21u8, 8u8, 251u8, 226u8, 44u8, 152u8, 5u8, 119u8, 7u8, 64u8, 200u8,
-                243u8, 130u8, 117u8, 103u8, 149u8, 0u8, 34u8, 114u8, 158u8, 0u8, 150u8,
-                227u8, 17u8, 220u8, 8u8, 121u8, 144u8, 193u8, 87u8, 255u8, 252u8,
+                47u8, 93u8, 161u8, 239u8, 179u8, 166u8, 142u8, 206u8, 150u8, 12u8, 170u8,
+                95u8, 156u8, 39u8, 90u8, 159u8, 71u8, 109u8, 69u8, 241u8, 207u8, 197u8,
+                11u8, 146u8, 208u8, 27u8, 201u8, 163u8, 75u8, 56u8, 168u8, 246u8,
             ],
             [
                 51u8, 52u8, 138u8, 114u8, 227u8, 8u8, 201u8, 43u8, 68u8, 117u8, 64u8,
@@ -28102,14 +29623,14 @@ function unpause() external;
                 100u8, 139u8, 35u8, 42u8, 128u8, 80u8, 51u8, 83u8, 124u8, 86u8, 149u8,
             ],
             [
-                145u8, 117u8, 75u8, 37u8, 65u8, 83u8, 134u8, 28u8, 30u8, 155u8, 201u8,
-                24u8, 100u8, 132u8, 160u8, 187u8, 119u8, 8u8, 35u8, 172u8, 250u8, 0u8,
-                66u8, 48u8, 68u8, 186u8, 23u8, 89u8, 160u8, 18u8, 16u8, 231u8,
-            ],
-            [
                 145u8, 239u8, 247u8, 211u8, 157u8, 36u8, 153u8, 215u8, 106u8, 194u8,
                 26u8, 25u8, 3u8, 169u8, 90u8, 136u8, 243u8, 21u8, 137u8, 203u8, 7u8,
                 177u8, 255u8, 223u8, 182u8, 29u8, 185u8, 247u8, 205u8, 138u8, 57u8, 120u8,
+            ],
+            [
+                152u8, 48u8, 119u8, 185u8, 179u8, 57u8, 216u8, 61u8, 131u8, 186u8, 10u8,
+                203u8, 22u8, 250u8, 254u8, 17u8, 207u8, 83u8, 241u8, 241u8, 106u8, 80u8,
+                238u8, 224u8, 46u8, 76u8, 125u8, 70u8, 115u8, 80u8, 246u8, 202u8,
             ],
             [
                 154u8, 76u8, 89u8, 197u8, 97u8, 83u8, 36u8, 94u8, 35u8, 220u8, 184u8,
@@ -28191,15 +29712,15 @@ function unpause() external;
         pub const VARIANT_NAMES: &'static [&'static str] = &[
             ::core::stringify!(DelegatorUnstakeScheduled),
             ::core::stringify!(OperatorLeft),
-            ::core::stringify!(SlashRecorded),
+            ::core::stringify!(Slashed),
             ::core::stringify!(ExpiredLocksHarvested),
             ::core::stringify!(OperatorBlueprintRemoved),
             ::core::stringify!(Delegated),
             ::core::stringify!(OperatorStakeIncreased),
             ::core::stringify!(Deposited),
             ::core::stringify!(RoundAdvanced),
-            ::core::stringify!(Slashed),
             ::core::stringify!(WithdrawScheduled),
+            ::core::stringify!(SlashRecorded),
             ::core::stringify!(AssetEnabled),
             ::core::stringify!(BlueprintAddedToDelegation),
             ::core::stringify!(OperatorBlueprintAdded),
@@ -28220,15 +29741,15 @@ function unpause() external;
         pub const SIGNATURES: &'static [&'static str] = &[
             <DelegatorUnstakeScheduled as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorLeft as alloy_sol_types::SolEvent>::SIGNATURE,
-            <SlashRecorded as alloy_sol_types::SolEvent>::SIGNATURE,
+            <Slashed as alloy_sol_types::SolEvent>::SIGNATURE,
             <ExpiredLocksHarvested as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorBlueprintRemoved as alloy_sol_types::SolEvent>::SIGNATURE,
             <Delegated as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorStakeIncreased as alloy_sol_types::SolEvent>::SIGNATURE,
             <Deposited as alloy_sol_types::SolEvent>::SIGNATURE,
             <RoundAdvanced as alloy_sol_types::SolEvent>::SIGNATURE,
-            <Slashed as alloy_sol_types::SolEvent>::SIGNATURE,
             <WithdrawScheduled as alloy_sol_types::SolEvent>::SIGNATURE,
+            <SlashRecorded as alloy_sol_types::SolEvent>::SIGNATURE,
             <AssetEnabled as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintAddedToDelegation as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorBlueprintAdded as alloy_sol_types::SolEvent>::SIGNATURE,
@@ -29186,6 +30707,23 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
+        ///Creates a new call builder for the [`getOperatorDelegatedStakeForAsset`] function.
+        pub fn getOperatorDelegatedStakeForAsset(
+            &self,
+            operator: alloy::sol_types::private::Address,
+            asset: <Types::Asset as alloy::sol_types::SolType>::RustType,
+        ) -> alloy_contract::SolCallBuilder<
+            &P,
+            getOperatorDelegatedStakeForAssetCall,
+            N,
+        > {
+            self.call_builder(
+                &getOperatorDelegatedStakeForAssetCall {
+                    operator,
+                    asset,
+                },
+            )
+        }
         ///Creates a new call builder for the [`getOperatorDelegatorCount`] function.
         pub fn getOperatorDelegatorCount(
             &self,
@@ -29247,6 +30785,19 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             operator: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, getOperatorStakeCall, N> {
             self.call_builder(&getOperatorStakeCall { operator })
+        }
+        ///Creates a new call builder for the [`getOperatorStakeForAsset`] function.
+        pub fn getOperatorStakeForAsset(
+            &self,
+            operator: alloy::sol_types::private::Address,
+            asset: <Types::Asset as alloy::sol_types::SolType>::RustType,
+        ) -> alloy_contract::SolCallBuilder<&P, getOperatorStakeForAssetCall, N> {
+            self.call_builder(
+                &getOperatorStakeForAssetCall {
+                    operator,
+                    asset,
+                },
+            )
         }
         ///Creates a new call builder for the [`getPendingUnstakes`] function.
         pub fn getPendingUnstakes(
@@ -29348,6 +30899,19 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, increaseStakeCall, N> {
             self.call_builder(&increaseStakeCall)
         }
+        ///Creates a new call builder for the [`increaseStakeWithAsset`] function.
+        pub fn increaseStakeWithAsset(
+            &self,
+            token: alloy::sol_types::private::Address,
+            amount: alloy::sol_types::private::primitives::aliases::U256,
+        ) -> alloy_contract::SolCallBuilder<&P, increaseStakeWithAssetCall, N> {
+            self.call_builder(
+                &increaseStakeWithAssetCall {
+                    token,
+                    amount,
+                },
+            )
+        }
         ///Creates a new call builder for the [`isOperator`] function.
         pub fn isOperator(
             &self,
@@ -29407,6 +30971,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, operatorAtCall, N> {
             self.call_builder(&operatorAtCall { index })
         }
+        ///Creates a new call builder for the [`operatorBondToken`] function.
+        pub fn operatorBondToken(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, operatorBondTokenCall, N> {
+            self.call_builder(&operatorBondTokenCall)
+        }
         ///Creates a new call builder for the [`operatorCommissionBps`] function.
         pub fn operatorCommissionBps(
             &self,
@@ -29422,6 +30992,21 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ///Creates a new call builder for the [`pause`] function.
         pub fn pause(&self) -> alloy_contract::SolCallBuilder<&P, pauseCall, N> {
             self.call_builder(&pauseCall)
+        }
+        ///Creates a new call builder for the [`previewDelegatorUnstakeShares`] function.
+        pub fn previewDelegatorUnstakeShares(
+            &self,
+            operator: alloy::sol_types::private::Address,
+            token: alloy::sol_types::private::Address,
+            amount: alloy::sol_types::private::primitives::aliases::U256,
+        ) -> alloy_contract::SolCallBuilder<&P, previewDelegatorUnstakeSharesCall, N> {
+            self.call_builder(
+                &previewDelegatorUnstakeSharesCall {
+                    operator,
+                    token,
+                    amount,
+                },
+            )
         }
         ///Creates a new call builder for the [`registerAdapter`] function.
         pub fn registerAdapter(
@@ -29576,6 +31161,13 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
+        ///Creates a new call builder for the [`setOperatorBondToken`] function.
+        pub fn setOperatorBondToken(
+            &self,
+            token: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, setOperatorBondTokenCall, N> {
+            self.call_builder(&setOperatorBondTokenCall { token })
+        }
         ///Creates a new call builder for the [`setOperatorCommission`] function.
         pub fn setOperatorCommission(
             &self,
@@ -29613,14 +31205,14 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
             operator: alloy::sol_types::private::Address,
             serviceId: u64,
-            amount: alloy::sol_types::private::primitives::aliases::U256,
+            slashBps: u16,
             evidence: alloy::sol_types::private::FixedBytes<32>,
         ) -> alloy_contract::SolCallBuilder<&P, slashCall, N> {
             self.call_builder(
                 &slashCall {
                     operator,
                     serviceId,
-                    amount,
+                    slashBps,
                     evidence,
                 },
             )
@@ -29631,7 +31223,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             operator: alloy::sol_types::private::Address,
             blueprintId: u64,
             serviceId: u64,
-            amount: alloy::sol_types::private::primitives::aliases::U256,
+            slashBps: u16,
             evidence: alloy::sol_types::private::FixedBytes<32>,
         ) -> alloy_contract::SolCallBuilder<&P, slashForBlueprintCall, N> {
             self.call_builder(
@@ -29639,7 +31231,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     operator,
                     blueprintId,
                     serviceId,
-                    amount,
+                    slashBps,
                     evidence,
                 },
             )
@@ -29653,7 +31245,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             commitments: alloy::sol_types::private::Vec<
                 <Types::AssetSecurityCommitment as alloy::sol_types::SolType>::RustType,
             >,
-            amount: alloy::sol_types::private::primitives::aliases::U256,
+            slashBps: u16,
             evidence: alloy::sol_types::private::FixedBytes<32>,
         ) -> alloy_contract::SolCallBuilder<&P, slashForServiceCall, N> {
             self.call_builder(
@@ -29662,7 +31254,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     blueprintId,
                     serviceId,
                     commitments,
-                    amount,
+                    slashBps,
                     evidence,
                 },
             )
