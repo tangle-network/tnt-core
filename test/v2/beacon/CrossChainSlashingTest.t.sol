@@ -187,6 +187,8 @@ contract MockRestaking is IRestaking {
     function isOperatorActive(address operator) external view returns (bool) { return operators[operator]; }
     function meetsStakeRequirement(address operator, uint256 required) external view returns (bool) { return operatorStakes[operator] >= required; }
     function minOperatorStake() external pure returns (uint256) { return 1 ether; }
+    function addBlueprintForOperator(address, uint64) external override {}
+    function removeBlueprintForOperator(address, uint64) external override {}
 }
 
 /// @title CrossChainSlashingTest

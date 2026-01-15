@@ -15,8 +15,8 @@ contract RestakingOperatorsFacet is RestakingFacetBase, IFacetSelectors {
         selectorList[3] = this.increaseStakeWithAsset.selector;
         selectorList[4] = this.scheduleOperatorUnstake.selector;
         selectorList[5] = this.executeOperatorUnstake.selector;
-        selectorList[6] = this.addBlueprint.selector;
-        selectorList[7] = this.removeBlueprint.selector;
+        selectorList[6] = this.addBlueprintForOperator.selector;
+        selectorList[7] = this.removeBlueprintForOperator.selector;
         selectorList[8] = this.startLeaving.selector;
         selectorList[9] = this.completeLeaving.selector;
     }
@@ -52,14 +52,18 @@ contract RestakingOperatorsFacet is RestakingFacetBase, IFacetSelectors {
         _executeOperatorUnstake();
     }
 
-    /// @notice Add blueprint support
-    function addBlueprint(uint64 blueprintId) external {
-        _addBlueprint(blueprintId);
+    /// @notice Add blueprint support for an operator (called by Tangle on registration)
+    /// @param operator The operator address
+    /// @param blueprintId The blueprint to add
+    function addBlueprintForOperator(address operator, uint64 blueprintId) external onlyRole(SLASHER_ROLE) {
+        _addBlueprintForOperator(operator, blueprintId);
     }
 
-    /// @notice Remove blueprint support
-    function removeBlueprint(uint64 blueprintId) external {
-        _removeBlueprint(blueprintId);
+    /// @notice Remove blueprint support for an operator (called by Tangle on unregistration)
+    /// @param operator The operator address
+    /// @param blueprintId The blueprint to remove
+    function removeBlueprintForOperator(address operator, uint64 blueprintId) external onlyRole(SLASHER_ROLE) {
+        _removeBlueprintForOperator(operator, blueprintId);
     }
 
     /// @notice Schedule leaving as operator

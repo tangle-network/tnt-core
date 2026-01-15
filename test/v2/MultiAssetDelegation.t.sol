@@ -130,12 +130,15 @@ contract MultiAssetDelegationTest is Test {
         assertEq(delegation.getOperatorSelfStake(operator1), MIN_OPERATOR_STAKE + 1 ether);
     }
 
-    function test_AddBlueprint() public {
+    function test_AddBlueprintForOperator() public {
         vm.prank(operator1);
         delegation.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
-        vm.prank(operator1);
-        delegation.addBlueprint(1);
+        // Admin (slasher) adds blueprint for operator (simulating Tangle registration)
+        vm.prank(admin);
+        delegation.addSlasher(admin);
+        vm.prank(admin);
+        delegation.addBlueprintForOperator(operator1, 1);
 
         uint256[] memory blueprints = delegation.getOperatorBlueprints(operator1);
         assertEq(blueprints.length, 1);

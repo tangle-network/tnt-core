@@ -105,6 +105,8 @@ contract MockRestaking is IRestaking {
         return true;
     }
 
+    function addBlueprintForOperator(address, uint64) external override {}
+    function removeBlueprintForOperator(address, uint64) external override {}
 }
 
 contract DeployV2Harness is DeployV2 {

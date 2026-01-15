@@ -96,8 +96,8 @@ interface IMultiAssetDelegation {
     function increaseStakeWithAsset(address token, uint256 amount) external;
     function scheduleOperatorUnstake(uint256 amount) external;
     function executeOperatorUnstake() external;
-    function addBlueprint(uint64 blueprintId) external;
-    function removeBlueprint(uint64 blueprintId) external;
+    function addBlueprintForOperator(address operator, uint64 blueprintId) external;
+    function removeBlueprintForOperator(address operator, uint64 blueprintId) external;
     function startLeaving() external;
     function completeLeaving() external;
 

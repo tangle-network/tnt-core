@@ -755,6 +755,18 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         return _slashers[account];
     }
 
+    /// @inheritdoc IRestaking
+    /// @dev No-op for ValidatorPodManager - blueprint tracking not needed
+    function addBlueprintForOperator(address, uint64) external override {
+        // No-op: ValidatorPodManager doesn't track blueprint-specific pools
+    }
+
+    /// @inheritdoc IRestaking
+    /// @dev No-op for ValidatorPodManager - blueprint tracking not needed
+    function removeBlueprintForOperator(address, uint64) external override {
+        // No-op: ValidatorPodManager doesn't track blueprint-specific pools
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN
     // ═══════════════════════════════════════════════════════════════════════════

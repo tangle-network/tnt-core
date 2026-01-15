@@ -182,6 +182,9 @@ abstract contract Operators is Base {
         _blueprintOperators[blueprintId].add(msg.sender);
         bp.operatorCount++;
 
+        // Add blueprint to operator's restaking profile for delegation exposure
+        _restaking.addBlueprintForOperator(msg.sender, blueprintId);
+
         _recordBlueprintRegistration(blueprintId, msg.sender);
         emit OperatorRegistered(blueprintId, msg.sender, ecdsaPublicKey, rpcAddressCopy);
     }
@@ -220,6 +223,9 @@ abstract contract Operators is Base {
         if (_operatorBlueprintCounts[msg.sender] > 0) {
             _operatorBlueprintCounts[msg.sender] -= 1;
         }
+
+        // Remove blueprint from operator's restaking profile
+        _restaking.removeBlueprintForOperator(msg.sender, blueprintId);
 
         emit OperatorUnregistered(blueprintId, msg.sender);
     }

@@ -1134,8 +1134,9 @@ contract DelegationCriticalTest is DelegationTestHarness {
         uint64[] memory bps = new uint64[](1);
         bps[0] = 42;
 
-        vm.prank(operator1);
-        delegation.addBlueprint(42);
+        // Slasher adds blueprint for operator (simulating Tangle registration)
+        vm.prank(slasher);
+        delegation.addBlueprintForOperator(operator1, 42);
 
         vm.prank(delegator1);
         delegation.delegateWithOptions(

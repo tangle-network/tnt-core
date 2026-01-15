@@ -148,9 +148,10 @@ contract LiquidDelegationTest is Test {
         uint64[] memory delegationBlueprints = restaking.getDelegationBlueprints(vaultAddr, 0);
         assertEq(delegationBlueprints.length, 0, "All mode: restaking stores no blueprint IDs");
 
+        // Slasher adds blueprint for operator (simulating Tangle registration)
         uint64 futureBlueprintId = 999;
-        vm.prank(operator1);
-        restaking.addBlueprint(futureBlueprintId);
+        vm.prank(slasher);
+        restaking.addBlueprintForOperator(operator1, futureBlueprintId);
         // All-mode delegations should not store explicit blueprint IDs; it implicitly tracks operator's full set.
         uint64[] memory delegationBlueprintsAfter = restaking.getDelegationBlueprints(vaultAddr, 0);
         assertEq(delegationBlueprintsAfter.length, 0, "All mode: still no stored blueprint IDs");

@@ -158,6 +158,22 @@ interface IRestaking {
     /// @return True if authorized
     function isSlasher(address account) external view returns (bool);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT MANAGEMENT (called by Tangle on operator registration)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Add a blueprint to an operator's supported list
+    /// @dev Called by Tangle when operator registers for a blueprint
+    /// @param operator The operator address
+    /// @param blueprintId The blueprint to add
+    function addBlueprintForOperator(address operator, uint64 blueprintId) external;
+
+    /// @notice Remove a blueprint from an operator's supported list
+    /// @dev Called by Tangle when operator unregisters from a blueprint
+    /// @param operator The operator address
+    /// @param blueprintId The blueprint to remove
+    function removeBlueprintForOperator(address operator, uint64 blueprintId) external;
+
 }
 
 /// @title IRestakingAdmin

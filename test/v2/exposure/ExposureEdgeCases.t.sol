@@ -50,6 +50,8 @@ contract MockRestakingEdge is IRestaking {
     function isSlasher(address) external pure returns (bool) { return false; }
     function notifyRewardForBlueprint(address, uint64, uint64, uint256) external {}
     function notifyReward(address, uint64, uint256) external {}
+    function addBlueprintForOperator(address, uint64) external override {}
+    function removeBlueprintForOperator(address, uint64) external override {}
 }
 
 /// @title ExposureEdgeCasesTest

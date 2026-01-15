@@ -231,24 +231,28 @@ abstract contract OperatorManager is DelegationStorage {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // BLUEPRINT MANAGEMENT
+    // BLUEPRINT MANAGEMENT (called by Tangle on operator registration)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Add blueprint support
+    /// @notice Add blueprint support for an operator
+    /// @dev Called by Tangle when operator registers for a blueprint
+    /// @param operator The operator address
     /// @param blueprintId Blueprint to add
-    function _addBlueprint(uint64 blueprintId) internal {
-        if (_operatorMetadata[msg.sender].status != Types.OperatorStatus.Active) {
-            revert DelegationErrors.OperatorNotActive(msg.sender);
+    function _addBlueprintForOperator(address operator, uint64 blueprintId) internal {
+        if (_operatorMetadata[operator].status != Types.OperatorStatus.Active) {
+            revert DelegationErrors.OperatorNotActive(operator);
         }
-        _operatorBlueprints[msg.sender].add(blueprintId);
-        emit OperatorBlueprintAdded(msg.sender, blueprintId);
+        _operatorBlueprints[operator].add(blueprintId);
+        emit OperatorBlueprintAdded(operator, blueprintId);
     }
 
-    /// @notice Remove blueprint support
+    /// @notice Remove blueprint support for an operator
+    /// @dev Called by Tangle when operator unregisters from a blueprint
+    /// @param operator The operator address
     /// @param blueprintId Blueprint to remove
-    function _removeBlueprint(uint64 blueprintId) internal {
-        _operatorBlueprints[msg.sender].remove(blueprintId);
-        emit OperatorBlueprintRemoved(msg.sender, blueprintId);
+    function _removeBlueprintForOperator(address operator, uint64 blueprintId) internal {
+        _operatorBlueprints[operator].remove(blueprintId);
+        emit OperatorBlueprintRemoved(operator, blueprintId);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
