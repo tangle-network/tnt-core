@@ -22,6 +22,7 @@ RPC_URL="${RPC_URL:-http://localhost:8545}"
 PRIVATE_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"  # Anvil default account 0
 MERKLE_ROOT="${MERKLE_ROOT:-0x0000000000000000000000000000000000000000000000000000000000000000}"
 TOTAL_SUPPLY="${TOTAL_SUPPLY:-100000000000000000000000000}"  # 100M TNT with 18 decimals
+TREASURY="${TREASURY:-}"  # Treasury address for unclaimed token sweep
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -42,6 +43,10 @@ while [[ $# -gt 0 ]]; do
       PRIVATE_KEY="$2"
       shift 2
       ;;
+    --treasury)
+      TREASURY="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option: $1"
       exit 1
@@ -58,6 +63,12 @@ echo ""
 # Get deployer address
 DEPLOYER=$(cast wallet address --private-key $PRIVATE_KEY)
 echo "Deployer: $DEPLOYER"
+
+# Default treasury to deployer if not specified
+if [ -z "$TREASURY" ]; then
+  TREASURY=$DEPLOYER
+fi
+echo "Treasury: $TREASURY"
 echo ""
 
 cd "$(dirname "$0")/.."
@@ -91,7 +102,7 @@ echo "Deploying TangleMigration..."
 MIGRATION_ADDRESS=$(forge create src/TangleMigration.sol:TangleMigration \
   --rpc-url $RPC_URL \
   --private-key $PRIVATE_KEY \
-  --constructor-args $TNT_ADDRESS $MERKLE_ROOT $MOCK_VERIFIER_ADDRESS $DEPLOYER \
+  --constructor-args $TNT_ADDRESS $MERKLE_ROOT $MOCK_VERIFIER_ADDRESS $DEPLOYER $TREASURY \
   --json | jq -r '.deployedTo')
 echo "TangleMigration deployed at: $MIGRATION_ADDRESS"
 
@@ -110,6 +121,7 @@ echo ""
 echo "TNT Token: $TNT_ADDRESS"
 echo "MockZKVerifier: $MOCK_VERIFIER_ADDRESS"
 echo "TangleMigration: $MIGRATION_ADDRESS"
+echo "Treasury: $TREASURY"
 echo ""
 echo "Migration contract balance: $MIGRATION_BALANCE"
 echo ""

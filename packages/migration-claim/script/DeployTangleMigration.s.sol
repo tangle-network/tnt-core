@@ -4,7 +4,8 @@ pragma solidity ^0.8.20;
 import {Script, console} from "forge-std/Script.sol";
 import {TNT} from "../src/TNT.sol";
 import {TangleMigration} from "../src/TangleMigration.sol";
-import {SP1ZKVerifier, MockZKVerifier} from "../src/SP1ZKVerifier.sol";
+import {SP1ZKVerifier} from "../src/SP1ZKVerifier.sol";
+import {MockZKVerifier} from "../src/MockZKVerifier.sol";
 import {TNTVestingFactory} from "../src/lockups/TNTVestingFactory.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -136,7 +137,7 @@ contract DeployTangleMigration is Script {
             console.log("   WARNING: Using mock verifier - NOT FOR PRODUCTION");
         } else {
             require(programVKey != bytes32(0), "PROGRAM_VKEY required for SP1 verifier");
-            SP1ZKVerifier sp1 = new SP1ZKVerifier(sp1VerifierAddr, programVKey, deployer);
+            SP1ZKVerifier sp1 = new SP1ZKVerifier(sp1VerifierAddr, programVKey);
             zkVerifier = address(sp1);
             console.log("\n2. SP1ZKVerifier deployed:", zkVerifier);
             console.log("   SP1 Gateway:", sp1VerifierAddr);
