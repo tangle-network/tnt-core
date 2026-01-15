@@ -12,6 +12,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  */
 contract TNT is ERC20, ERC20Burnable, Ownable {
     error ZeroAddress();
+    error LengthMismatch();
 
     constructor(
         address initialOwner
@@ -35,7 +36,7 @@ contract TNT is ERC20, ERC20Burnable, Ownable {
      * @param amounts Array of amounts to mint (must match recipients length)
      */
     function batchMint(address[] calldata recipients, uint256[] calldata amounts) external onlyOwner {
-        if (recipients.length != amounts.length) revert("Length mismatch");
+        if (recipients.length != amounts.length) revert LengthMismatch();
         for (uint256 i = 0; i < recipients.length; i++) {
             if (recipients[i] != address(0)) {
                 _mint(recipients[i], amounts[i]);
