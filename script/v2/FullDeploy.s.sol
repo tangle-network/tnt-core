@@ -24,6 +24,7 @@ import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributo
 import { StreamingPaymentManager } from "../../src/v2/rewards/StreamingPaymentManager.sol";
 import { TangleMigration } from "../../packages/migration-claim/src/TangleMigration.sol";
 import { SP1ZKVerifier } from "../../packages/migration-claim/src/SP1ZKVerifier.sol";
+import { TNTVestingFactory } from "../../packages/migration-claim/src/lockups/TNTVestingFactory.sol";
 import { Credits } from "../../packages/credits/src/Credits.sol";
 
 /// @title FullDeploy
@@ -138,7 +139,8 @@ contract FullDeploy is DeployV2 {
         uint256 foundationAmount;
         uint256 claimDeadline;
         uint16 unlockedBps;
-        uint64 unlockTimestamp;
+        uint64 cliffDuration;
+        uint64 vestingDuration;
         address tangleMigration;
         address zkVerifier;
     }
@@ -483,8 +485,11 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".migration.unlockedBps")) {
             cfg.migration.unlockedBps = uint16(_readUintFlexible(jsonBlob, ".migration.unlockedBps"));
         }
-        if (jsonBlob.keyExists(".migration.unlockTimestamp")) {
-            cfg.migration.unlockTimestamp = uint64(_readUintFlexible(jsonBlob, ".migration.unlockTimestamp"));
+        if (jsonBlob.keyExists(".migration.cliffDuration")) {
+            cfg.migration.cliffDuration = uint64(_readUintFlexible(jsonBlob, ".migration.cliffDuration"));
+        }
+        if (jsonBlob.keyExists(".migration.vestingDuration")) {
+            cfg.migration.vestingDuration = uint64(_readUintFlexible(jsonBlob, ".migration.vestingDuration"));
         }
 
         if (jsonBlob.keyExists(".credits.deploy")) cfg.credits.deploy = jsonBlob.readBool(".credits.deploy");
@@ -1168,7 +1173,10 @@ contract FullDeploy is DeployV2 {
         require(tnt.balanceOf(deployer) >= requiredBalance, "Insufficient TNT balance for migration");
 
         SP1ZKVerifier verifier = new SP1ZKVerifier(migration.sp1VerifierGateway, migration.programVKey, deployer);
-        TangleMigration claim = new TangleMigration(tntToken, migration.merkleRoot, address(verifier), deployer);
+        // Treasury for unclaimed token sweep - use configured treasury or fallback to global treasury
+        address sweepTreasury = migration.treasuryRecipient != address(0) ? migration.treasuryRecipient : treasury;
+        if (sweepTreasury == address(0)) sweepTreasury = deployer; // Final fallback
+        TangleMigration claim = new TangleMigration(tntToken, migration.merkleRoot, address(verifier), deployer, sweepTreasury);
 
         uint256 claimDeadline = migration.claimDeadline;
         if (claimDeadline == 0) {
@@ -1176,25 +1184,56 @@ contract FullDeploy is DeployV2 {
         }
         claim.setClaimDeadline(claimDeadline);
 
-        if (migration.unlockedBps != 0 || migration.unlockTimestamp != 0) {
+        // Configure vesting if custom parameters are provided
+        if (migration.unlockedBps != 0 || migration.cliffDuration != 0 || migration.vestingDuration != 0) {
             uint16 unlockedBps = migration.unlockedBps == 0 ? claim.unlockedBps() : migration.unlockedBps;
-            uint64 unlockTimestamp = migration.unlockTimestamp == 0 ? claim.unlockTimestamp() : migration.unlockTimestamp;
-            claim.setLockConfig(address(claim.lockFactory()), unlockTimestamp, unlockedBps);
+            uint64 cliffDur = migration.cliffDuration == 0 ? claim.cliffDuration() : migration.cliffDuration;
+            uint64 vestingDur = migration.vestingDuration == 0 ? claim.vestingDuration() : migration.vestingDuration;
+            // Deploy new vesting factory with custom durations
+            TNTVestingFactory customFactory = new TNTVestingFactory(cliffDur, vestingDur);
+            claim.setVestingConfig(address(customFactory), unlockedBps);
         }
 
         tnt.safeTransfer(address(claim), migration.substrateAllocation);
 
+        // Treasury: 0% unlocked, 100% vested with 6-month cliff + 30-month linear (3 years)
         if (migration.treasuryAmount > 0) {
             address treasuryRecipient = migration.treasuryRecipient == address(0) ? treasury : migration.treasuryRecipient;
             require(treasuryRecipient != address(0), "Missing treasury recipient");
-            tnt.safeTransfer(treasuryRecipient, migration.treasuryAmount);
+
+            // Create vesting contract for 100% of treasury allocation
+            TNTVestingFactory treasuryVestingFactory = new TNTVestingFactory(180 days, 912 days);
+            address treasuryVesting = treasuryVestingFactory.getOrCreateVesting(
+                address(tnt),
+                treasuryRecipient,
+                uint64(block.timestamp),
+                treasuryRecipient
+            );
+            tnt.safeTransfer(treasuryVesting, migration.treasuryAmount);
             migration.treasuryRecipient = treasuryRecipient;
         }
 
+        // Foundation: 30% unlocked, 70% vested with 6-month cliff + 30-month linear (3 years)
+        // 30% unlocked ensures ~5% of total supply is liquid at launch
         if (migration.foundationAmount > 0) {
             address foundationRecipient = migration.foundationRecipient;
             require(foundationRecipient != address(0), "Missing foundation recipient");
-            tnt.safeTransfer(foundationRecipient, migration.foundationAmount);
+
+            // 30% unlocked immediately
+            uint256 foundationUnlocked = (migration.foundationAmount * 3000) / 10_000;
+            uint256 foundationVested = migration.foundationAmount - foundationUnlocked;
+
+            tnt.safeTransfer(foundationRecipient, foundationUnlocked);
+
+            // 70% to vesting contract
+            TNTVestingFactory foundationVestingFactory = new TNTVestingFactory(180 days, 912 days);
+            address foundationVesting = foundationVestingFactory.getOrCreateVesting(
+                address(tnt),
+                foundationRecipient,
+                uint64(block.timestamp),
+                foundationRecipient
+            );
+            tnt.safeTransfer(foundationVesting, foundationVested);
         }
 
         address finalOwner = migration.migrationOwner;
@@ -1556,9 +1595,12 @@ contract FullDeploy is DeployV2 {
                 '"unlockedBps":',
                 uint256(migration.unlockedBps).toString(),
                 ",",
-                '"unlockTimestamp":"',
-                uint256(migration.unlockTimestamp).toString(),
-                '",',
+                '"cliffDuration":',
+                uint256(migration.cliffDuration).toString(),
+                ",",
+                '"vestingDuration":',
+                uint256(migration.vestingDuration).toString(),
+                ",",
                 '"tangleMigration":"',
                 _addrToString(migration.tangleMigration),
                 '",',

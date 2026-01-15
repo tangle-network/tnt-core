@@ -6,9 +6,8 @@ import {TangleMigration} from "../src/TangleMigration.sol";
 import {TNT} from "../src/TNT.sol";
 import {MockZKVerifier} from "../src/MockZKVerifier.sol";
 import {IZKVerifier} from "../src/IZKVerifier.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import {TNTLockFactory} from "../src/lockups/TNTLockFactory.sol";
-import {TNTCliffLock} from "../src/lockups/TNTCliffLock.sol";
+import {TNTVestingFactory} from "../src/lockups/TNTVestingFactory.sol";
+import {TNTLinearVesting} from "../src/lockups/TNTLinearVesting.sol";
 
 contract TangleMigrationTest is Test {
     TangleMigration public migration;
@@ -17,6 +16,7 @@ contract TangleMigrationTest is Test {
 
     address public owner;
     address public claimer;
+    address public treasury;
 
     // Test data - using raw 32-byte pubkey instead of SS58 string
     bytes32 constant TEST_PUBKEY = bytes32(0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d);
@@ -29,6 +29,7 @@ contract TangleMigrationTest is Test {
     function setUp() public {
         owner = address(this);
         claimer = makeAddr("claimer");
+        treasury = makeAddr("treasury");
 
         // Deploy TNT token
         tnt = new TNT(owner);
@@ -54,7 +55,8 @@ contract TangleMigrationTest is Test {
             address(tnt),
             merkleRoot,
             address(mockVerifier),
-            owner
+            owner,
+            treasury
         );
 
         // Fund migration contract
@@ -69,10 +71,15 @@ contract TangleMigrationTest is Test {
         assertEq(address(migration.token()), address(tnt));
         assertEq(migration.merkleRoot(), merkleRoot);
         assertEq(migration.owner(), owner);
+        assertEq(migration.treasury(), treasury);
         assertFalse(migration.paused());
-        assertEq(migration.unlockedBps(), 1000);
-        assertGt(migration.unlockTimestamp(), 0);
-        assertTrue(address(migration.lockFactory()) != address(0));
+        // New defaults: 2% unlocked
+        assertEq(migration.unlockedBps(), 200);
+        // Vesting config: 6-month cliff + 30-month linear (3 years total)
+        assertEq(migration.cliffDuration(), 180 days);
+        assertEq(migration.vestingDuration(), 912 days);
+        assertEq(migration.totalVestingDuration(), 180 days + 912 days);
+        assertTrue(address(migration.vestingFactory()) != address(0));
         assertEq(migration.adminClaimDeadline(), block.timestamp + 60 days);
     }
 
@@ -117,10 +124,11 @@ contract TangleMigrationTest is Test {
         uint256 claimerBalanceBefore = tnt.balanceOf(claimer);
         uint16 unlockedBps = migration.unlockedBps();
         uint256 unlockedAmount = (TEST_AMOUNT * unlockedBps) / 10_000;
-        uint256 lockedAmount = TEST_AMOUNT - unlockedAmount;
+        uint256 vestedAmount = TEST_AMOUNT - unlockedAmount;
 
-        TNTLockFactory factory = migration.lockFactory();
-        address lock = factory.predictLockAddress(address(tnt), claimer, migration.unlockTimestamp());
+        TNTVestingFactory factory = migration.vestingFactory();
+        // forge-lint: disable-next-line(unsafe-typecast)
+        address vestingContract = factory.predictVestingAddress(address(tnt), claimer, uint64(block.timestamp));
 
         vm.prank(claimer);
         migration.claimWithZKProof(
@@ -131,10 +139,11 @@ contract TangleMigrationTest is Test {
             claimer
         );
 
-        // Check balance increased
+        // Check balance increased by unlocked amount only
         assertEq(tnt.balanceOf(claimer), claimerBalanceBefore + unlockedAmount);
-        assertEq(tnt.balanceOf(lock), lockedAmount);
-        assertGt(lock.code.length, 0);
+        // Check vested amount in vesting contract
+        assertEq(tnt.balanceOf(vestingContract), vestedAmount);
+        assertGt(vestingContract.code.length, 0);
 
         // Check claimed amount recorded
         assertEq(migration.getClaimedAmount(TEST_PUBKEY), TEST_AMOUNT);
@@ -146,18 +155,20 @@ contract TangleMigrationTest is Test {
     function test_ClaimWithZKProof_EmitsEvent() public {
         bytes memory zkProof = "";
 
-        vm.expectEmit(true, true, false, true);
-        TNTLockFactory factory = migration.lockFactory();
+        TNTVestingFactory factory = migration.vestingFactory();
         uint256 unlockedAmount = (TEST_AMOUNT * migration.unlockedBps()) / 10_000;
-        uint256 lockedAmount = TEST_AMOUNT - unlockedAmount;
-        address lock = factory.predictLockAddress(address(tnt), claimer, migration.unlockTimestamp());
+        uint256 vestedAmount = TEST_AMOUNT - unlockedAmount;
+        // forge-lint: disable-next-line(unsafe-typecast)
+        address vestingContract = factory.predictVestingAddress(address(tnt), claimer, uint64(block.timestamp));
+
+        vm.expectEmit(true, true, false, true);
         emit TangleMigration.Claimed(
             TEST_PUBKEY,
             claimer,
             TEST_AMOUNT,
             unlockedAmount,
-            lockedAmount,
-            lock
+            vestedAmount,
+            vestingContract
         );
 
         vm.prank(claimer);
@@ -280,7 +291,8 @@ contract TangleMigrationTest is Test {
             address(tnt),
             merkleRoot,
             address(0), // No verifier
-            owner
+            owner,
+            treasury
         );
 
         bytes memory zkProof = "";
@@ -304,16 +316,17 @@ contract TangleMigrationTest is Test {
         uint256 claimerBalanceBefore = tnt.balanceOf(claimer);
         uint16 unlockedBps = migration.unlockedBps();
         uint256 unlockedAmount = (TEST_AMOUNT * unlockedBps) / 10_000;
-        uint256 lockedAmount = TEST_AMOUNT - unlockedAmount;
+        uint256 vestedAmount = TEST_AMOUNT - unlockedAmount;
 
-        TNTLockFactory factory = migration.lockFactory();
-        address lock = factory.predictLockAddress(address(tnt), claimer, migration.unlockTimestamp());
+        TNTVestingFactory factory = migration.vestingFactory();
+        // forge-lint: disable-next-line(unsafe-typecast)
+        address vestingContract = factory.predictVestingAddress(address(tnt), claimer, uint64(block.timestamp));
 
         migration.adminClaim(TEST_PUBKEY, TEST_AMOUNT, merkleProof, claimer);
 
         assertEq(tnt.balanceOf(claimer), claimerBalanceBefore + unlockedAmount);
-        assertEq(tnt.balanceOf(lock), lockedAmount);
-        assertGt(lock.code.length, 0);
+        assertEq(tnt.balanceOf(vestingContract), vestedAmount);
+        assertGt(vestingContract.code.length, 0);
         assertEq(migration.getClaimedAmount(TEST_PUBKEY), TEST_AMOUNT);
 
         vm.expectRevert(TangleMigration.AlreadyClaimed.selector);
@@ -459,6 +472,160 @@ contract TangleMigrationTest is Test {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // LINEAR VESTING TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function test_LinearVesting_CannotReleaseBeforeCliff() public {
+        bytes memory zkProof = "";
+
+        uint256 vestedAmount = TEST_AMOUNT - (TEST_AMOUNT * migration.unlockedBps()) / 10_000;
+
+        vm.prank(claimer);
+        migration.claimWithZKProof(TEST_PUBKEY, TEST_AMOUNT, merkleProof, zkProof, claimer);
+
+        // Get vesting contract
+        TNTVestingFactory factory = migration.vestingFactory();
+        // forge-lint: disable-next-line(unsafe-typecast)
+        address vestingAddr = factory.predictVestingAddress(address(tnt), claimer, uint64(block.timestamp));
+        TNTLinearVesting vesting = TNTLinearVesting(vestingAddr);
+
+        // Before cliff, nothing is releasable
+        assertEq(vesting.vestedAmount(), 0);
+        assertEq(vesting.releasable(), 0);
+
+        // Fast forward to just before cliff ends (cliff = 180 days)
+        vm.warp(block.timestamp + 179 days);
+        assertEq(vesting.vestedAmount(), 0);
+        assertEq(vesting.releasable(), 0);
+
+        // Try to release - should revert
+        vm.prank(claimer);
+        vm.expectRevert(TNTLinearVesting.NothingToRelease.selector);
+        vesting.release();
+    }
+
+    function test_LinearVesting_GradualReleaseAfterCliff() public {
+        bytes memory zkProof = "";
+
+        uint256 vestedAmount = TEST_AMOUNT - (TEST_AMOUNT * migration.unlockedBps()) / 10_000;
+
+        vm.prank(claimer);
+        migration.claimWithZKProof(TEST_PUBKEY, TEST_AMOUNT, merkleProof, zkProof, claimer);
+
+        // Get vesting contract
+        TNTVestingFactory factory = migration.vestingFactory();
+        // forge-lint: disable-next-line(unsafe-typecast)
+        address vestingAddr = factory.predictVestingAddress(address(tnt), claimer, uint64(block.timestamp));
+        TNTLinearVesting vesting = TNTLinearVesting(vestingAddr);
+
+        uint256 claimerBalanceAfterClaim = tnt.balanceOf(claimer);
+
+        // Fast forward to cliff end (180 days)
+        vm.warp(block.timestamp + 180 days);
+
+        // At cliff end, still nothing vested (linear vesting starts after cliff)
+        assertEq(vesting.vestedAmount(), 0);
+
+        // Fast forward ~15 months into vesting period (halfway through 30-month vesting)
+        vm.warp(block.timestamp + 456 days); // ~half of 912 days
+
+        // Should have ~50% vested
+        uint256 expectedVested = (vestedAmount * 456) / 912;
+        assertApproxEqRel(vesting.vestedAmount(), expectedVested, 0.01e18); // 1% tolerance
+
+        // Release partial amount
+        vm.prank(claimer);
+        uint256 released = vesting.release();
+
+        assertApproxEqRel(released, expectedVested, 0.01e18);
+        assertEq(tnt.balanceOf(claimer), claimerBalanceAfterClaim + released);
+    }
+
+    function test_LinearVesting_FullReleaseAfterVestingComplete() public {
+        bytes memory zkProof = "";
+
+        uint256 vestedAmount = TEST_AMOUNT - (TEST_AMOUNT * migration.unlockedBps()) / 10_000;
+
+        vm.prank(claimer);
+        migration.claimWithZKProof(TEST_PUBKEY, TEST_AMOUNT, merkleProof, zkProof, claimer);
+
+        // Get vesting contract
+        TNTVestingFactory factory = migration.vestingFactory();
+        // forge-lint: disable-next-line(unsafe-typecast)
+        address vestingAddr = factory.predictVestingAddress(address(tnt), claimer, uint64(block.timestamp));
+        TNTLinearVesting vesting = TNTLinearVesting(vestingAddr);
+
+        uint256 claimerBalanceAfterClaim = tnt.balanceOf(claimer);
+
+        // Fast forward past full vesting period (180 + 912 = 1092 days = 3 years)
+        vm.warp(block.timestamp + 1092 days + 1);
+
+        // Should have 100% vested
+        assertEq(vesting.vestedAmount(), vestedAmount);
+        assertEq(vesting.releasable(), vestedAmount);
+
+        // Release all
+        vm.prank(claimer);
+        uint256 released = vesting.release();
+
+        assertEq(released, vestedAmount);
+        assertEq(tnt.balanceOf(claimer), claimerBalanceAfterClaim + vestedAmount);
+        assertEq(tnt.balanceOf(vestingAddr), 0);
+    }
+
+    function test_LinearVesting_OnlyBeneficiaryCanRelease() public {
+        bytes memory zkProof = "";
+
+        vm.prank(claimer);
+        migration.claimWithZKProof(TEST_PUBKEY, TEST_AMOUNT, merkleProof, zkProof, claimer);
+
+        TNTVestingFactory factory = migration.vestingFactory();
+        // forge-lint: disable-next-line(unsafe-typecast)
+        address vestingAddr = factory.predictVestingAddress(address(tnt), claimer, uint64(block.timestamp));
+        TNTLinearVesting vesting = TNTLinearVesting(vestingAddr);
+
+        // Fast forward past vesting
+        vm.warp(block.timestamp + 600 days);
+
+        // Non-beneficiary cannot release
+        address attacker = makeAddr("attacker");
+        vm.prank(attacker);
+        vm.expectRevert(TNTLinearVesting.NotBeneficiary.selector);
+        vesting.release();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VESTING CONFIG TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function test_SetVestingConfig_CustomSchedule() public {
+        // Create a 24-month schedule (6 month cliff + 18 month vesting)
+        TNTVestingFactory customFactory = new TNTVestingFactory(
+            180 days,  // 6 month cliff
+            540 days   // 18 month vesting (total 24 months)
+        );
+
+        migration.setVestingConfig(address(customFactory), 300); // 3% unlocked
+
+        assertEq(migration.unlockedBps(), 300);
+        assertEq(migration.cliffDuration(), 180 days);
+        assertEq(migration.vestingDuration(), 540 days);
+        assertEq(migration.totalVestingDuration(), 720 days); // 24 months
+    }
+
+    function test_SetVestingConfig_RevertAfterFirstClaim() public {
+        bytes memory zkProof = "";
+
+        vm.prank(claimer);
+        migration.claimWithZKProof(TEST_PUBKEY, TEST_AMOUNT, merkleProof, zkProof, claimer);
+
+        TNTVestingFactory customFactory = new TNTVestingFactory(180 days, 540 days);
+
+        vm.expectRevert(TangleMigration.VestingConfigLocked.selector);
+        migration.setVestingConfig(address(customFactory), 300);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // MULTI-LEAF MERKLE TREE TEST
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -497,7 +664,8 @@ contract TangleMigrationTest is Test {
             address(tnt),
             root,
             address(mockVerifier),
-            owner
+            owner,
+            treasury
         );
         tnt.transfer(address(multiMigration), 1000 ether);
 
@@ -524,38 +692,6 @@ contract TangleMigrationTest is Test {
         );
 
         assertEq(multiMigration.getClaimedAmount(pubkeys[0]), amounts[0]);
-    }
-
-    function test_ClaimWithZKProof_LockWithdrawAfterCliff() public {
-        bytes memory zkProof = "";
-
-        uint256 unlockedAmount = (TEST_AMOUNT * migration.unlockedBps()) / 10_000;
-        uint256 lockedAmount = TEST_AMOUNT - unlockedAmount;
-
-        TNTLockFactory factory = migration.lockFactory();
-        address lock = factory.predictLockAddress(address(tnt), claimer, migration.unlockTimestamp());
-
-        vm.prank(claimer);
-        migration.claimWithZKProof(TEST_PUBKEY, TEST_AMOUNT, merkleProof, zkProof, claimer);
-
-        // Before cliff, cannot withdraw.
-        uint64 unlockTs = migration.unlockTimestamp();
-        // forge-lint: disable-next-line(unsafe-typecast)
-        uint64 nowTs = uint64(block.timestamp);
-        vm.startPrank(claimer);
-        vm.expectRevert(
-            abi.encodeWithSelector(TNTCliffLock.NotUnlocked.selector, unlockTs, nowTs)
-        );
-        TNTCliffLock(lock).withdraw(claimer);
-        vm.stopPrank();
-
-        // After cliff, can withdraw the locked amount.
-        vm.warp(migration.unlockTimestamp());
-        vm.prank(claimer);
-        TNTCliffLock(lock).withdraw(claimer);
-
-        assertEq(tnt.balanceOf(claimer), unlockedAmount + lockedAmount);
-        assertEq(tnt.balanceOf(lock), 0);
     }
 
     function _hashPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
@@ -592,6 +728,72 @@ contract TangleMigrationTest is Test {
         vm.prank(notOwner);
         vm.expectRevert();
         migration.emergencyWithdraw(address(tnt), 100 ether);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SWEEP UNCLAIMED TO TREASURY TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function test_SweepUnclaimedToTreasury() public {
+        // Set claim deadline
+        uint256 deadline = block.timestamp + 365 days;
+        migration.setClaimDeadline(deadline);
+
+        uint256 migrationBalance = tnt.balanceOf(address(migration));
+        uint256 treasuryBalanceBefore = tnt.balanceOf(treasury);
+
+        // Fast forward past deadline
+        vm.warp(deadline + 1);
+
+        // Anyone can call sweep
+        address randomCaller = makeAddr("randomCaller");
+        vm.prank(randomCaller);
+        uint256 swept = migration.sweepUnclaimedToTreasury();
+
+        assertEq(swept, migrationBalance);
+        assertEq(tnt.balanceOf(address(migration)), 0);
+        assertEq(tnt.balanceOf(treasury), treasuryBalanceBefore + migrationBalance);
+    }
+
+    function test_SweepUnclaimedToTreasury_RevertIfNoDeadlineSet() public {
+        // Deadline is 0 by default
+        assertEq(migration.claimDeadline(), 0);
+
+        vm.expectRevert(TangleMigration.NoClaimDeadlineSet.selector);
+        migration.sweepUnclaimedToTreasury();
+    }
+
+    function test_SweepUnclaimedToTreasury_RevertIfDeadlineNotPassed() public {
+        // Set claim deadline
+        uint256 deadline = block.timestamp + 365 days;
+        migration.setClaimDeadline(deadline);
+
+        // Try to sweep before deadline
+        vm.expectRevert(TangleMigration.ClaimDeadlineNotPassed.selector);
+        migration.sweepUnclaimedToTreasury();
+    }
+
+    function test_SweepUnclaimedToTreasury_AfterPartialClaims() public {
+        // Set claim deadline
+        uint256 deadline = block.timestamp + 365 days;
+        migration.setClaimDeadline(deadline);
+
+        // Make a claim first
+        bytes memory zkProof = "";
+        vm.prank(claimer);
+        migration.claimWithZKProof(TEST_PUBKEY, TEST_AMOUNT, merkleProof, zkProof, claimer);
+
+        uint256 remainingBalance = tnt.balanceOf(address(migration));
+        uint256 treasuryBalanceBefore = tnt.balanceOf(treasury);
+
+        // Fast forward past deadline
+        vm.warp(deadline + 1);
+
+        // Sweep remaining unclaimed tokens
+        uint256 swept = migration.sweepUnclaimedToTreasury();
+
+        assertEq(swept, remainingBalance);
+        assertEq(tnt.balanceOf(treasury), treasuryBalanceBefore + remainingBalance);
     }
 }
 

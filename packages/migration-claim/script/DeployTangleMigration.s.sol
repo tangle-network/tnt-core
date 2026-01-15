@@ -5,6 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {TNT} from "../src/TNT.sol";
 import {TangleMigration} from "../src/TangleMigration.sol";
 import {SP1ZKVerifier, MockZKVerifier} from "../src/SP1ZKVerifier.sol";
+import {TNTVestingFactory} from "../src/lockups/TNTVestingFactory.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -143,13 +144,17 @@ contract DeployTangleMigration is Script {
         }
 
         // 4. Deploy TangleMigration
+        // Treasury for unclaimed token sweep - defaults to treasury recipient, falls back to owner
+        address sweepTreasury = treasuryRecipient != address(0) ? treasuryRecipient : migrationOwner;
         TangleMigration migration = new TangleMigration(
             configuredTnt,
             merkleRoot,
             zkVerifier,
-            migrationOwner
+            migrationOwner,
+            sweepTreasury
         );
         console.log("\n3. TangleMigration deployed:", address(migration));
+        console.log("   Unclaimed sweep treasury:", sweepTreasury);
 
         // 5. Fund the migration contract with EXACT Substrate allocation
         require(tntToken.transfer(address(migration), substrateAllocation), "Funding transfer failed");
@@ -165,20 +170,58 @@ contract DeployTangleMigration is Script {
         console.log("   Remaining in deployer:", evmAllocation / 1e18, "TNT");
         console.log("   Run ExecuteEVMAirdrop to distribute to", "EVM holders");
 
-        // 8. Optional: transfer carved-out treasury allocation to the configured recipient.
+        // 8. Optional: Treasury allocation (0% unlocked, 100% vested with 6-month cliff + 30-month linear)
         if (treasuryAmount > 0) {
             require(treasuryRecipient != address(0), "TREASURY_RECIPIENT required when TREASURY_AMOUNT > 0");
-            require(tntToken.transfer(treasuryRecipient, treasuryAmount), "Treasury transfer failed");
-            console.log("\n5. Treasury Allocation:");
-            console.log("   Sent:", treasuryAmount / 1e18, "TNT to", treasuryRecipient);
+
+            // Treasury: 0% unlocked, 100% goes to vesting contract
+            // Use same vesting schedule as migration: 180 days cliff + 912 days linear (3 years total)
+            TNTVestingFactory treasuryVestingFactory = new TNTVestingFactory(180 days, 912 days);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            address treasuryVesting = treasuryVestingFactory.getOrCreateVesting(
+                configuredTnt,
+                treasuryRecipient,
+                uint64(block.timestamp),
+                treasuryRecipient // delegatee
+            );
+            require(tntToken.transfer(treasuryVesting, treasuryAmount), "Treasury vesting transfer failed");
+
+            console.log("\n5. Treasury Allocation (0% unlocked, 100% vested):");
+            console.log("   Total:", treasuryAmount / 1e18, "TNT");
+            console.log("   Vesting contract:", treasuryVesting);
+            console.log("   Beneficiary:", treasuryRecipient);
+            console.log("   Cliff: 6 months, Linear: 30 months (3 years total)");
         }
 
-        // 9. Optional: transfer carved-out foundation allocation to the configured recipient (fully liquid).
+        // 9. Optional: Foundation allocation (30% unlocked, 70% vested with 6-month cliff + 30-month linear)
+        // 30% unlocked ensures ~5% of total supply is liquid at launch
         if (foundationAmount > 0) {
             require(foundationRecipient != address(0), "FOUNDATION_RECIPIENT required when FOUNDATION_AMOUNT > 0");
-            require(tntToken.transfer(foundationRecipient, foundationAmount), "Foundation transfer failed");
-            console.log("\n6. Foundation Allocation:");
-            console.log("   Sent:", foundationAmount / 1e18, "TNT to", foundationRecipient);
+
+            // Foundation: 30% unlocked immediately, 70% vested
+            uint256 foundationUnlocked = (foundationAmount * 3000) / 10_000; // 30%
+            uint256 foundationVested = foundationAmount - foundationUnlocked;
+
+            // Transfer unlocked portion directly
+            require(tntToken.transfer(foundationRecipient, foundationUnlocked), "Foundation unlocked transfer failed");
+
+            // Create vesting for the rest (6-month cliff + 30-month linear = 3 years)
+            TNTVestingFactory foundationVestingFactory = new TNTVestingFactory(180 days, 912 days);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            address foundationVesting = foundationVestingFactory.getOrCreateVesting(
+                configuredTnt,
+                foundationRecipient,
+                uint64(block.timestamp),
+                foundationRecipient // delegatee
+            );
+            require(tntToken.transfer(foundationVesting, foundationVested), "Foundation vesting transfer failed");
+
+            console.log("\n6. Foundation Allocation (30% unlocked, 70% vested):");
+            console.log("   Total:", foundationAmount / 1e18, "TNT");
+            console.log("   Unlocked (30%):", foundationUnlocked / 1e18, "TNT to", foundationRecipient);
+            console.log("   Vested (70%):", foundationVested / 1e18, "TNT");
+            console.log("   Vesting contract:", foundationVesting);
+            console.log("   Cliff: 6 months, Linear: 30 months (3 years total)");
         }
 
         vm.stopBroadcast();
@@ -234,18 +277,24 @@ contract DeployTangleMigration is Script {
                     "\"unlockedBps\":",
                     vm.toString(uint256(migration.unlockedBps())),
                     ",",
-                    "\"unlockTimestamp\":",
-                    vm.toString(uint256(migration.unlockTimestamp())),
+                    "\"cliffDuration\":",
+                    vm.toString(uint256(migration.cliffDuration())),
                     ",",
-                    "\"lockFactory\":\"",
-                    vm.toString(address(migration.lockFactory())),
+                    "\"vestingDuration\":",
+                    vm.toString(uint256(migration.vestingDuration())),
+                    ",",
+                    "\"vestingFactory\":\"",
+                    vm.toString(address(migration.vestingFactory())),
                     "\",",
                     "\"adminClaimDeadline\":",
                     vm.toString(uint256(migration.adminClaimDeadline())),
                     ",",
                     "\"claimDeadline\":",
                     vm.toString(migration.claimDeadline()),
-                    "}"
+                    ",",
+                    "\"treasury\":\"",
+                    vm.toString(migration.treasury()),
+                    "\"}"
                 )
             );
             vm.writeJson(json, manifestPath);
