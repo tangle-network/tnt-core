@@ -3912,7 +3912,7 @@ interface IMultiAssetDelegation {
     function MULTIPLIER_SIX_MONTHS() external view returns (uint16);
     function MULTIPLIER_THREE_MONTHS() external view returns (uint16);
     function MULTIPLIER_TWO_MONTHS() external view returns (uint16);
-    function addBlueprint(uint64 blueprintId) external;
+    function addBlueprintForOperator(address operator, uint64 blueprintId) external;
     function addBlueprintToDelegation(uint256 delegationIndex, uint64 blueprintId) external;
     function addSlasher(address slasher) external;
     function advanceRound() external;
@@ -3977,7 +3977,7 @@ interface IMultiAssetDelegation {
     function registerOperator() external payable;
     function registerOperatorWithAsset(address token, uint256 amount) external;
     function removeAdapter(address token) external;
-    function removeBlueprint(uint64 blueprintId) external;
+    function removeBlueprintForOperator(address operator, uint64 blueprintId) external;
     function removeBlueprintFromDelegation(uint256 delegationIndex, uint64 blueprintId) external;
     function removeSlasher(address slasher) external;
     function rescueTokens(address token, address to, uint256 amount) external;
@@ -4125,8 +4125,13 @@ interface IMultiAssetDelegation {
   },
   {
     "type": "function",
-    "name": "addBlueprint",
+    "name": "addBlueprintForOperator",
     "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
       {
         "name": "blueprintId",
         "type": "uint64",
@@ -5590,8 +5595,13 @@ interface IMultiAssetDelegation {
   },
   {
     "type": "function",
-    "name": "removeBlueprint",
+    "name": "removeBlueprintForOperator",
     "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
       {
         "name": "blueprintId",
         "type": "uint64",
@@ -11374,20 +11384,22 @@ function MULTIPLIER_TWO_MONTHS() external view returns (uint16);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `addBlueprint(uint64)` and selector `0xc7353025`.
+    /**Function with signature `addBlueprintForOperator(address,uint64)` and selector `0xb9c04c1b`.
 ```solidity
-function addBlueprint(uint64 blueprintId) external;
+function addBlueprintForOperator(address operator, uint64 blueprintId) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct addBlueprintCall {
+    pub struct addBlueprintForOperatorCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub blueprintId: u64,
     }
-    ///Container type for the return parameters of the [`addBlueprint(uint64)`](addBlueprintCall) function.
+    ///Container type for the return parameters of the [`addBlueprintForOperator(address,uint64)`](addBlueprintForOperatorCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct addBlueprintReturn {}
+    pub struct addBlueprintForOperatorReturn {}
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -11399,9 +11411,12 @@ function addBlueprint(uint64 blueprintId) external;
         {
             #[doc(hidden)]
             #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u64,);
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address, u64);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -11415,16 +11430,21 @@ function addBlueprint(uint64 blueprintId) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<addBlueprintCall> for UnderlyingRustTuple<'_> {
-                fn from(value: addBlueprintCall) -> Self {
-                    (value.blueprintId,)
+            impl ::core::convert::From<addBlueprintForOperatorCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: addBlueprintForOperatorCall) -> Self {
+                    (value.operator, value.blueprintId)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for addBlueprintCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for addBlueprintForOperatorCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { blueprintId: tuple.0 }
+                    Self {
+                        operator: tuple.0,
+                        blueprintId: tuple.1,
+                    }
                 }
             }
         }
@@ -11447,39 +11467,46 @@ function addBlueprint(uint64 blueprintId) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<addBlueprintReturn> for UnderlyingRustTuple<'_> {
-                fn from(value: addBlueprintReturn) -> Self {
+            impl ::core::convert::From<addBlueprintForOperatorReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: addBlueprintForOperatorReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for addBlueprintReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for addBlueprintForOperatorReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
             }
         }
-        impl addBlueprintReturn {
+        impl addBlueprintForOperatorReturn {
             fn _tokenize(
                 &self,
-            ) -> <addBlueprintCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            ) -> <addBlueprintForOperatorCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
                 ()
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolCall for addBlueprintCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+        impl alloy_sol_types::SolCall for addBlueprintForOperatorCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = addBlueprintReturn;
+            type Return = addBlueprintForOperatorReturn;
             type ReturnTuple<'a> = ();
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "addBlueprint(uint64)";
-            const SELECTOR: [u8; 4] = [199u8, 53u8, 48u8, 37u8];
+            const SIGNATURE: &'static str = "addBlueprintForOperator(address,uint64)";
+            const SELECTOR: [u8; 4] = [185u8, 192u8, 76u8, 27u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -11489,6 +11516,9 @@ function addBlueprint(uint64 blueprintId) external;
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
@@ -11496,7 +11526,7 @@ function addBlueprint(uint64 blueprintId) external;
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                addBlueprintReturn::_tokenize(ret)
+                addBlueprintForOperatorReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -21792,20 +21822,22 @@ function removeAdapter(address token) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `removeBlueprint(uint64)` and selector `0x28e70ecc`.
+    /**Function with signature `removeBlueprintForOperator(address,uint64)` and selector `0xd106de35`.
 ```solidity
-function removeBlueprint(uint64 blueprintId) external;
+function removeBlueprintForOperator(address operator, uint64 blueprintId) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct removeBlueprintCall {
+    pub struct removeBlueprintForOperatorCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub blueprintId: u64,
     }
-    ///Container type for the return parameters of the [`removeBlueprint(uint64)`](removeBlueprintCall) function.
+    ///Container type for the return parameters of the [`removeBlueprintForOperator(address,uint64)`](removeBlueprintForOperatorCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct removeBlueprintReturn {}
+    pub struct removeBlueprintForOperatorReturn {}
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -21817,9 +21849,12 @@ function removeBlueprint(uint64 blueprintId) external;
         {
             #[doc(hidden)]
             #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u64,);
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address, u64);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -21833,16 +21868,21 @@ function removeBlueprint(uint64 blueprintId) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<removeBlueprintCall> for UnderlyingRustTuple<'_> {
-                fn from(value: removeBlueprintCall) -> Self {
-                    (value.blueprintId,)
+            impl ::core::convert::From<removeBlueprintForOperatorCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: removeBlueprintForOperatorCall) -> Self {
+                    (value.operator, value.blueprintId)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for removeBlueprintCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for removeBlueprintForOperatorCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { blueprintId: tuple.0 }
+                    Self {
+                        operator: tuple.0,
+                        blueprintId: tuple.1,
+                    }
                 }
             }
         }
@@ -21865,41 +21905,46 @@ function removeBlueprint(uint64 blueprintId) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<removeBlueprintReturn>
+            impl ::core::convert::From<removeBlueprintForOperatorReturn>
             for UnderlyingRustTuple<'_> {
-                fn from(value: removeBlueprintReturn) -> Self {
+                fn from(value: removeBlueprintForOperatorReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for removeBlueprintReturn {
+            for removeBlueprintForOperatorReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
             }
         }
-        impl removeBlueprintReturn {
+        impl removeBlueprintForOperatorReturn {
             fn _tokenize(
                 &self,
-            ) -> <removeBlueprintCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            ) -> <removeBlueprintForOperatorCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
                 ()
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolCall for removeBlueprintCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+        impl alloy_sol_types::SolCall for removeBlueprintForOperatorCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = removeBlueprintReturn;
+            type Return = removeBlueprintForOperatorReturn;
             type ReturnTuple<'a> = ();
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "removeBlueprint(uint64)";
-            const SELECTOR: [u8; 4] = [40u8, 231u8, 14u8, 204u8];
+            const SIGNATURE: &'static str = "removeBlueprintForOperator(address,uint64)";
+            const SELECTOR: [u8; 4] = [209u8, 6u8, 222u8, 53u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -21909,6 +21954,9 @@ function removeBlueprint(uint64 blueprintId) external;
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
@@ -21916,7 +21964,7 @@ function removeBlueprint(uint64 blueprintId) external;
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                removeBlueprintReturn::_tokenize(ret)
+                removeBlueprintForOperatorReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -25493,7 +25541,7 @@ function unpause() external;
         #[allow(missing_docs)]
         MULTIPLIER_TWO_MONTHS(MULTIPLIER_TWO_MONTHSCall),
         #[allow(missing_docs)]
-        addBlueprint(addBlueprintCall),
+        addBlueprintForOperator(addBlueprintForOperatorCall),
         #[allow(missing_docs)]
         addBlueprintToDelegation(addBlueprintToDelegationCall),
         #[allow(missing_docs)]
@@ -25623,7 +25671,7 @@ function unpause() external;
         #[allow(missing_docs)]
         removeAdapter(removeAdapterCall),
         #[allow(missing_docs)]
-        removeBlueprint(removeBlueprintCall),
+        removeBlueprintForOperator(removeBlueprintForOperatorCall),
         #[allow(missing_docs)]
         removeBlueprintFromDelegation(removeBlueprintFromDelegationCall),
         #[allow(missing_docs)]
@@ -25690,7 +25738,6 @@ function unpause() external;
             [32u8, 225u8, 178u8, 2u8],
             [35u8, 204u8, 39u8, 0u8],
             [38u8, 20u8, 35u8, 53u8],
-            [40u8, 231u8, 14u8, 204u8],
             [42u8, 205u8, 224u8, 152u8],
             [46u8, 64u8, 247u8, 251u8],
             [46u8, 230u8, 99u8, 184u8],
@@ -25737,15 +25784,16 @@ function unpause() external;
             [167u8, 250u8, 111u8, 152u8],
             [170u8, 198u8, 170u8, 156u8],
             [176u8, 223u8, 206u8, 6u8],
+            [185u8, 192u8, 76u8, 27u8],
             [186u8, 5u8, 187u8, 245u8],
             [191u8, 105u8, 2u8, 6u8],
             [195u8, 80u8, 130u8, 169u8],
             [197u8, 80u8, 217u8, 56u8],
-            [199u8, 53u8, 48u8, 37u8],
             [202u8, 221u8, 85u8, 12u8],
             [203u8, 21u8, 3u8, 139u8],
             [206u8, 169u8, 210u8, 111u8],
             [208u8, 227u8, 13u8, 176u8],
+            [209u8, 6u8, 222u8, 53u8],
             [209u8, 115u8, 107u8, 167u8],
             [210u8, 122u8, 111u8, 6u8],
             [214u8, 85u8, 185u8, 42u8],
@@ -25790,7 +25838,6 @@ function unpause() external;
             ::core::stringify!(getOperatorDelegatedStakeForAsset),
             ::core::stringify!(addBlueprintToDelegation),
             ::core::stringify!(operatorAt),
-            ::core::stringify!(removeBlueprint),
             ::core::stringify!(registerOperator),
             ::core::stringify!(serviceFeeDistributor),
             ::core::stringify!(getOperatorMetadata),
@@ -25837,15 +25884,16 @@ function unpause() external;
             ::core::stringify!(MULTIPLIER_THREE_MONTHS),
             ::core::stringify!(removeSlasher),
             ::core::stringify!(executeOperatorUnstake),
+            ::core::stringify!(addBlueprintForOperator),
             ::core::stringify!(delegationBondLessDelay),
             ::core::stringify!(executeDelegatorUnstakeAndWithdraw),
             ::core::stringify!(getDeposit),
             ::core::stringify!(getSlashCountForBlueprint),
-            ::core::stringify!(addBlueprint),
             ::core::stringify!(snapshotOperator),
             ::core::stringify!(depositERC20WithLock),
             ::core::stringify!(rescueTokens),
             ::core::stringify!(deposit),
+            ::core::stringify!(removeBlueprintForOperator),
             ::core::stringify!(completeLeaving),
             ::core::stringify!(LOCK_THREE_MONTHS),
             ::core::stringify!(registerAdapter),
@@ -25890,7 +25938,6 @@ function unpause() external;
             <getOperatorDelegatedStakeForAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <addBlueprintToDelegationCall as alloy_sol_types::SolCall>::SIGNATURE,
             <operatorAtCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <removeBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <registerOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <serviceFeeDistributorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorMetadataCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -25937,15 +25984,16 @@ function unpause() external;
             <MULTIPLIER_THREE_MONTHSCall as alloy_sol_types::SolCall>::SIGNATURE,
             <removeSlasherCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeOperatorUnstakeCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <addBlueprintForOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <delegationBondLessDelayCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeDelegatorUnstakeAndWithdrawCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getDepositCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashCountForBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <addBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <snapshotOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <depositERC20WithLockCall as alloy_sol_types::SolCall>::SIGNATURE,
             <rescueTokensCall as alloy_sol_types::SolCall>::SIGNATURE,
             <depositCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <removeBlueprintForOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <completeLeavingCall as alloy_sol_types::SolCall>::SIGNATURE,
             <LOCK_THREE_MONTHSCall as alloy_sol_types::SolCall>::SIGNATURE,
             <registerAdapterCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -26031,8 +26079,8 @@ function unpause() external;
                 Self::MULTIPLIER_TWO_MONTHS(_) => {
                     <MULTIPLIER_TWO_MONTHSCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::addBlueprint(_) => {
-                    <addBlueprintCall as alloy_sol_types::SolCall>::SELECTOR
+                Self::addBlueprintForOperator(_) => {
+                    <addBlueprintForOperatorCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::addBlueprintToDelegation(_) => {
                     <addBlueprintToDelegationCall as alloy_sol_types::SolCall>::SELECTOR
@@ -26218,8 +26266,8 @@ function unpause() external;
                 Self::removeAdapter(_) => {
                     <removeAdapterCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::removeBlueprint(_) => {
-                    <removeBlueprintCall as alloy_sol_types::SolCall>::SELECTOR
+                Self::removeBlueprintForOperator(_) => {
+                    <removeBlueprintForOperatorCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::removeBlueprintFromDelegation(_) => {
                     <removeBlueprintFromDelegationCall as alloy_sol_types::SolCall>::SELECTOR
@@ -26440,17 +26488,6 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::operatorAt)
                     }
                     operatorAt
-                },
-                {
-                    fn removeBlueprint(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
-                        <removeBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(IMultiAssetDelegationCalls::removeBlueprint)
-                    }
-                    removeBlueprint
                 },
                 {
                     fn registerOperator(
@@ -26957,6 +26994,17 @@ function unpause() external;
                     executeOperatorUnstake
                 },
                 {
+                    fn addBlueprintForOperator(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <addBlueprintForOperatorCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::addBlueprintForOperator)
+                    }
+                    addBlueprintForOperator
+                },
+                {
                     fn delegationBondLessDelay(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -27003,17 +27051,6 @@ function unpause() external;
                     getSlashCountForBlueprint
                 },
                 {
-                    fn addBlueprint(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
-                        <addBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(IMultiAssetDelegationCalls::addBlueprint)
-                    }
-                    addBlueprint
-                },
-                {
                     fn snapshotOperator(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -27054,6 +27091,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::deposit)
                     }
                     deposit
+                },
+                {
+                    fn removeBlueprintForOperator(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <removeBlueprintForOperatorCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::removeBlueprintForOperator)
+                    }
+                    removeBlueprintForOperator
                 },
                 {
                     fn completeLeaving(
@@ -27527,17 +27575,6 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::operatorAt)
                     }
                     operatorAt
-                },
-                {
-                    fn removeBlueprint(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
-                        <removeBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(IMultiAssetDelegationCalls::removeBlueprint)
-                    }
-                    removeBlueprint
                 },
                 {
                     fn registerOperator(
@@ -28050,6 +28087,17 @@ function unpause() external;
                     executeOperatorUnstake
                 },
                 {
+                    fn addBlueprintForOperator(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <addBlueprintForOperatorCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::addBlueprintForOperator)
+                    }
+                    addBlueprintForOperator
+                },
+                {
                     fn delegationBondLessDelay(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -28096,17 +28144,6 @@ function unpause() external;
                     getSlashCountForBlueprint
                 },
                 {
-                    fn addBlueprint(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
-                        <addBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(IMultiAssetDelegationCalls::addBlueprint)
-                    }
-                    addBlueprint
-                },
-                {
                     fn snapshotOperator(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -28149,6 +28186,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::deposit)
                     }
                     deposit
+                },
+                {
+                    fn removeBlueprintForOperator(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <removeBlueprintForOperatorCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::removeBlueprintForOperator)
+                    }
+                    removeBlueprintForOperator
                 },
                 {
                     fn completeLeaving(
@@ -28519,8 +28567,8 @@ function unpause() external;
                         inner,
                     )
                 }
-                Self::addBlueprint(inner) => {
-                    <addBlueprintCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                Self::addBlueprintForOperator(inner) => {
+                    <addBlueprintForOperatorCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -28826,8 +28874,8 @@ function unpause() external;
                         inner,
                     )
                 }
-                Self::removeBlueprint(inner) => {
-                    <removeBlueprintCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                Self::removeBlueprintForOperator(inner) => {
+                    <removeBlueprintForOperatorCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -28992,8 +29040,8 @@ function unpause() external;
                         out,
                     )
                 }
-                Self::addBlueprint(inner) => {
-                    <addBlueprintCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                Self::addBlueprintForOperator(inner) => {
+                    <addBlueprintForOperatorCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -29376,8 +29424,8 @@ function unpause() external;
                         out,
                     )
                 }
-                Self::removeBlueprint(inner) => {
-                    <removeBlueprintCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                Self::removeBlueprintForOperator(inner) => {
+                    <removeBlueprintForOperatorCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -30399,12 +30447,18 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, MULTIPLIER_TWO_MONTHSCall, N> {
             self.call_builder(&MULTIPLIER_TWO_MONTHSCall)
         }
-        ///Creates a new call builder for the [`addBlueprint`] function.
-        pub fn addBlueprint(
+        ///Creates a new call builder for the [`addBlueprintForOperator`] function.
+        pub fn addBlueprintForOperator(
             &self,
+            operator: alloy::sol_types::private::Address,
             blueprintId: u64,
-        ) -> alloy_contract::SolCallBuilder<&P, addBlueprintCall, N> {
-            self.call_builder(&addBlueprintCall { blueprintId })
+        ) -> alloy_contract::SolCallBuilder<&P, addBlueprintForOperatorCall, N> {
+            self.call_builder(
+                &addBlueprintForOperatorCall {
+                    operator,
+                    blueprintId,
+                },
+            )
         }
         ///Creates a new call builder for the [`addBlueprintToDelegation`] function.
         pub fn addBlueprintToDelegation(
@@ -31047,12 +31101,18 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, removeAdapterCall, N> {
             self.call_builder(&removeAdapterCall { token })
         }
-        ///Creates a new call builder for the [`removeBlueprint`] function.
-        pub fn removeBlueprint(
+        ///Creates a new call builder for the [`removeBlueprintForOperator`] function.
+        pub fn removeBlueprintForOperator(
             &self,
+            operator: alloy::sol_types::private::Address,
             blueprintId: u64,
-        ) -> alloy_contract::SolCallBuilder<&P, removeBlueprintCall, N> {
-            self.call_builder(&removeBlueprintCall { blueprintId })
+        ) -> alloy_contract::SolCallBuilder<&P, removeBlueprintForOperatorCall, N> {
+            self.call_builder(
+                &removeBlueprintForOperatorCall {
+                    operator,
+                    blueprintId,
+                },
+            )
         }
         ///Creates a new call builder for the [`removeBlueprintFromDelegation`] function.
         pub fn removeBlueprintFromDelegation(
