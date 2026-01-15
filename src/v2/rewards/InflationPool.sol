@@ -57,7 +57,7 @@ contract InflationPool is
     /// @notice Seconds per year for budgeting and funding periods.
     uint256 public constant SECONDS_PER_YEAR = 365 days;
 
-    /// @notice Legacy constant (unused): blocks per year (assuming ~12s blocks).
+    /// @notice Unused constant (kept for tooling parity): blocks per year (assuming ~12s blocks).
     uint256 public constant BLOCKS_PER_YEAR = 2_628_000;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -167,7 +167,7 @@ contract InflationPool is
     /// @notice Total ever distributed from this pool
     uint256 public totalDistributed;
 
-    /// @notice Deprecated: legacy blocks-per-year parameter (no longer used after timestamp migration).
+    /// @notice Reserved for storage compatibility (unused after timestamp migration).
     uint256 public blocksPerYear;
 
     /// @notice Funding period duration in seconds (defaults to 365 days).
@@ -274,7 +274,7 @@ contract InflationPool is
         currentEpoch = 1;
         fundingPeriodStartTimestamp = block.timestamp;
         fundingPeriodSeconds = SECONDS_PER_YEAR;
-        blocksPerYear = BLOCKS_PER_YEAR; // legacy
+        blocksPerYear = BLOCKS_PER_YEAR; // reserved
 
         uint256 firstEpochEnd = block.timestamp + _epochLength;
         epochs[1] = EpochData({

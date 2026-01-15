@@ -126,13 +126,14 @@ contract MockRestaking is IRestaking {
     function slash(
         address operator,
         uint64,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external returns (uint256 actualSlashed) {
         require(slashers[msg.sender], "Not a slasher");
         require(operators[operator], "Not an operator");
 
         uint256 available = operatorStakes[operator];
+        uint256 amount = (available * slashBps) / 10_000;
         actualSlashed = amount > available ? available : amount;
 
         operatorStakes[operator] -= actualSlashed;
@@ -147,10 +148,10 @@ contract MockRestaking is IRestaking {
         address operator,
         uint64,
         uint64,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external returns (uint256 actualSlashed) {
-        return this.slash(operator, 0, amount, evidence);
+        return this.slash(operator, 0, slashBps, evidence);
     }
 
     function slashForService(
@@ -158,10 +159,10 @@ contract MockRestaking is IRestaking {
         uint64,
         uint64,
         Types.AssetSecurityCommitment[] calldata,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external returns (uint256 actualSlashed) {
-        return this.slash(operator, 0, amount, evidence);
+        return this.slash(operator, 0, slashBps, evidence);
     }
 
     // Other interface methods (not used in tests)
@@ -173,6 +174,10 @@ contract MockRestaking is IRestaking {
     function notifyReward(address, uint64, uint256) external {}
     function notifyRewardForBlueprint(address, uint64, uint64, uint256) external {}
     function getOperatorDelegatedStake(address) external view returns (uint256) { return 0; }
+    function getOperatorDelegatedStakeForAsset(address, Types.Asset calldata) external pure returns (uint256) { return 0; }
+    function getOperatorStakeForAsset(address operator, Types.Asset calldata) external view returns (uint256) {
+        return operatorStakes[operator];
+    }
 
     // Additional interface methods
     function getDelegation(address, address) external pure returns (uint256) { return 0; }
@@ -275,6 +280,13 @@ contract CrossChainSlashingTest is Test {
 
         // Check state was updated
         assertEq(connector.lastProcessedSlashingFactor(pod1), newFactor);
+    }
+
+    function test_propagateBeaconSlashing_RevertsForUnknownPod() public {
+        address unknownPod = makeAddr("unknownPod");
+        vm.prank(oracle);
+        vm.expectRevert(abi.encodeWithSelector(L2SlashingConnector.UnknownPod.selector, unknownPod));
+        connector.propagateBeaconSlashing{value: 0.01 ether}(unknownPod, 0.9e18);
     }
 
     function test_propagateBeaconSlashingToSpecificChain() public {
@@ -476,13 +488,13 @@ contract CrossChainSlashingTest is Test {
     function test_receiveMessage_Success() public {
         // Encode slash message
         bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
-        uint256 slashAmount = 10 ether;
+        uint16 slashBps = 1000;
         uint64 slashingFactor = 0.9e18;
         uint256 nonce = 0;
 
         bytes memory payload = abi.encodePacked(
             messageType,
-            abi.encode(operator1, slashAmount, slashingFactor, nonce, pod1)
+            abi.encode(operator1, slashBps, slashingFactor, nonce, pod1)
         );
 
         // Deliver message as messenger
@@ -491,7 +503,7 @@ contract CrossChainSlashingTest is Test {
 
         // Check slash was executed
         assertEq(restaking.lastSlashedOperator(), operator1);
-        assertEq(restaking.lastSlashAmount(), slashAmount);
+        assertEq(restaking.lastSlashAmount(), (INITIAL_STAKE * slashBps) / 10_000);
     }
 
     function test_receiveMessage_RevertUnauthorizedMessenger() public {
@@ -506,7 +518,7 @@ contract CrossChainSlashingTest is Test {
         bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
         bytes memory payload = abi.encodePacked(
             messageType,
-            abi.encode(operator1, 10 ether, 0.9e18, 0, pod1)
+            abi.encode(operator1, uint16(1000), 0.9e18, 0, pod1)
         );
 
         vm.expectRevert(L2SlashingReceiver.UnauthorizedSender.selector);
@@ -517,16 +529,17 @@ contract CrossChainSlashingTest is Test {
     function test_receiveMessage_ReplayProtection() public {
         bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
         uint256 nonce = 42;
+        uint16 slashBps = 1000;
         bytes memory payload = abi.encodePacked(
             messageType,
-            abi.encode(operator1, 10 ether, 0.9e18, nonce, pod1)
+            abi.encode(operator1, slashBps, 0.9e18, nonce, pod1)
         );
 
         // First delivery works
         vm.prank(address(messenger));
         receiver.receiveMessage(ETH_CHAIN_ID, address(connector), payload);
 
-        assertEq(restaking.lastSlashAmount(), 10 ether);
+        assertEq(restaking.lastSlashAmount(), (INITIAL_STAKE * slashBps) / 10_000);
 
         // Reset to check replay is ignored
         restaking.registerOperator(operator1, INITIAL_STAKE);
@@ -546,7 +559,7 @@ contract CrossChainSlashingTest is Test {
         bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
         bytes memory payload = abi.encodePacked(
             messageType,
-            abi.encode(operator1, 10 ether, 0.9e18, 0, pod1)
+            abi.encode(operator1, uint16(1000), 0.9e18, 0, pod1)
         );
 
         uint256 previousSlash = restaking.lastSlashAmount();
@@ -561,20 +574,21 @@ contract CrossChainSlashingTest is Test {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_slashOperator_Success() public {
-        uint256 slashAmount = 10 ether;
+        uint16 slashBps = 1000;
         bytes memory reason = abi.encode("BEACON_CHAIN_SLASH", ETH_CHAIN_ID, pod1);
 
         vm.prank(address(receiver));
-        slasher.slashOperator(operator1, slashAmount, reason);
+        slasher.slashOperator(operator1, slashBps, reason);
 
-        assertEq(restaking.operatorStakes(operator1), INITIAL_STAKE - slashAmount);
-        assertEq(slasher.totalBeaconSlashed(operator1), slashAmount);
+        uint256 expected = (INITIAL_STAKE * slashBps) / 10_000;
+        assertEq(restaking.operatorStakes(operator1), INITIAL_STAKE - expected);
+        assertEq(slasher.totalBeaconSlashed(operator1), expected);
     }
 
     function test_slashOperator_RevertUnauthorized() public {
         vm.expectRevert(TangleL2Slasher.UnauthorizedCaller.selector);
         vm.prank(makeAddr("random"));
-        slasher.slashOperator(operator1, 10 ether, "");
+        slasher.slashOperator(operator1, 1000, "");
     }
 
     function test_slashOperator_RevertWhenPaused() public {
@@ -583,7 +597,7 @@ contract CrossChainSlashingTest is Test {
 
         vm.expectRevert(TangleL2Slasher.SlashingPaused.selector);
         vm.prank(address(receiver));
-        slasher.slashOperator(operator1, 10 ether, "");
+        slasher.slashOperator(operator1, 1000, "");
     }
 
     function test_slashOperator_RevertZeroAmount() public {
@@ -615,7 +629,7 @@ contract CrossChainSlashingTest is Test {
         assertEq(beforeSlash, INITIAL_STAKE);
 
         vm.prank(address(receiver));
-        slasher.slashOperator(operator1, 50 ether, "");
+        slasher.slashOperator(operator1, 5000, "");
 
         uint256 total = slasher.getSlashableStake(operator1);
         uint256 already = slasher.totalBeaconSlashed(operator1);

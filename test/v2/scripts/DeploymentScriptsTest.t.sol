@@ -44,6 +44,14 @@ contract MockRestaking is IRestaking {
         return 0;
     }
 
+    function getOperatorDelegatedStakeForAsset(address, Types.Asset calldata) external pure override returns (uint256) {
+        return 0;
+    }
+
+    function getOperatorStakeForAsset(address operator, Types.Asset calldata) external view override returns (uint256) {
+        return operatorStake[operator];
+    }
+
     function getDelegation(address, address) external pure override returns (uint256) {
         return 0;
     }
@@ -64,11 +72,11 @@ contract MockRestaking is IRestaking {
         address operator,
         uint64,
         uint64,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external override returns (uint256) {
-        emit OperatorSlashed(operator, 0, amount, evidence);
-        return amount;
+        emit OperatorSlashed(operator, 0, slashBps, evidence);
+        return slashBps;
     }
 
     function slashForService(
@@ -76,21 +84,21 @@ contract MockRestaking is IRestaking {
         uint64,
         uint64,
         Types.AssetSecurityCommitment[] calldata,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external override returns (uint256) {
-        emit OperatorSlashed(operator, 0, amount, evidence);
-        return amount;
+        emit OperatorSlashed(operator, 0, slashBps, evidence);
+        return slashBps;
     }
 
     function slash(
         address operator,
         uint64,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external override returns (uint256) {
-        emit OperatorSlashed(operator, 0, amount, evidence);
-        return amount;
+        emit OperatorSlashed(operator, 0, slashBps, evidence);
+        return slashBps;
     }
 
     function isSlasher(address) external pure override returns (bool) {

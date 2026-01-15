@@ -37,13 +37,18 @@ contract ProportionalSlashingTest is Test {
     event Slashed(
         address indexed operator,
         uint64 indexed serviceId,
+        uint64 indexed blueprintId,
+        bytes32 assetHash,
+        uint16 slashBps,
         uint256 operatorSlashed,
         uint256 delegatorsSlashed,
-        uint256 newExchangeRate
+        uint256 exchangeRateAfter
     );
     event SlashRecorded(
         address indexed operator,
         uint64 indexed slashId,
+        bytes32 assetHash,
+        uint16 slashBps,
         uint256 totalSlashed,
         uint256 exchangeRateBefore,
         uint256 exchangeRateAfter
@@ -99,8 +104,8 @@ contract ProportionalSlashingTest is Test {
                              restaking.getDelegation(delegator2, operator1);
         assertEq(totalStake, 60 ether, "Total stake should be 60 ETH");
 
-        // Slash 6 ETH (10% of total)
-        uint256 slashAmount = 6 ether;
+        // Slash 10% of total
+        uint16 slashBps = 1000;
 
         // Expected distribution:
         // Operator: 6 * 10/60 = 1 ETH
@@ -114,7 +119,7 @@ contract ProportionalSlashingTest is Test {
 
         // Execute slash
         vm.prank(slasher);
-        restaking.slash(operator1, 0, slashAmount, keccak256("test_evidence"));
+        restaking.slash(operator1, 0, slashBps, keccak256("test_evidence"));
 
         uint256 operatorAfter = restaking.getOperatorSelfStake(operator1);
         uint256 d1After = restaking.getDelegation(delegator1, operator1);
@@ -140,7 +145,7 @@ contract ProportionalSlashingTest is Test {
     function test_SlashRecord_CreatedWithExchangeRates() public {
         _setupOperatorWithDelegators();
 
-        uint256 slashAmount = 6 ether;
+        uint16 slashBps = 1000;
 
         // Get exchange rate before slash
         Types.OperatorRewardPool memory poolBefore = restaking.getOperatorRewardPool(operator1);
@@ -148,7 +153,7 @@ contract ProportionalSlashingTest is Test {
 
         // Execute slash
         vm.prank(slasher);
-        restaking.slash(operator1, 0, slashAmount, keccak256("test_evidence"));
+        restaking.slash(operator1, 0, slashBps, keccak256("test_evidence"));
 
         // Get exchange rate after slash
         Types.OperatorRewardPool memory poolAfter = restaking.getOperatorRewardPool(operator1);
@@ -175,7 +180,7 @@ contract ProportionalSlashingTest is Test {
 
         // Slash 50% of total (30 ETH)
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 30 ether, keccak256("evidence"));
+        restaking.slash(operator1, 0, 5000, keccak256("evidence"));
 
         uint256 d1After = restaking.getDelegation(delegator1, operator1);
         uint256 d2After = restaking.getDelegation(delegator2, operator1);
@@ -225,10 +230,10 @@ contract ProportionalSlashingTest is Test {
         restaking.delegate(operator1, 10 ether);
         vm.stopPrank();
 
-        // Slash 2 ETH from total of 20 ETH
+        // Slash 10% from total of 20 ETH
         // O(1) slashing: just reduces totalAssets, exchange rate drops
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 2 ether, keccak256("evidence"));
+        restaking.slash(operator1, 0, 1000, keccak256("evidence"));
 
         assertEq(restaking.getOperatorSelfStake(operator1), 9 ether, "Operator should have 9 ETH");
         assertEq(restaking.getDelegation(delegator1, operator1), 9 ether, "Delegator should have 9 ETH");
@@ -256,7 +261,7 @@ contract ProportionalSlashingTest is Test {
         vm.stopPrank();
 
         // Total = 70 ETH (10 op + 60 delegated)
-        // Slash 7 ETH (10%)
+        // Slash 10%
         // Operator: 7 * 10/70 = 1 ETH
         // Delegators: 6 ETH split by 10:20:30 ratio
         // D1: 6 * 10/60 = 1 ETH
@@ -264,7 +269,7 @@ contract ProportionalSlashingTest is Test {
         // D3: 6 * 30/60 = 3 ETH
 
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 7 ether, keccak256("evidence"));
+        restaking.slash(operator1, 0, 1000, keccak256("evidence"));
 
         assertEq(restaking.getOperatorSelfStake(operator1), 9 ether, "Operator should have 9 ETH");
         assertEq(restaking.getDelegation(delegator1, operator1), 9 ether, "D1 should have 9 ETH");
@@ -295,7 +300,7 @@ contract ProportionalSlashingTest is Test {
 
         // Slash operator1 only
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 6 ether, keccak256("evidence"));
+        restaking.slash(operator1, 0, 2000, keccak256("evidence"));
 
         // Operator2 and D2 should be unaffected
         assertEq(restaking.getOperatorSelfStake(operator2), 10 ether, "Operator2 should be unchanged");
@@ -306,13 +311,9 @@ contract ProportionalSlashingTest is Test {
     function test_Slashing_CapsAtTotalStake() public {
         _setupOperatorWithDelegators();
 
-        uint256 totalBefore = restaking.getOperatorSelfStake(operator1) +
-                              restaking.getDelegation(delegator1, operator1) +
-                              restaking.getDelegation(delegator2, operator1);
-
-        // Try to slash more than total stake
+        // Try to slash full stake
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 100 ether, keccak256("evidence"));
+        restaking.slash(operator1, 0, 10_000, keccak256("evidence"));
 
         uint256 totalAfter = restaking.getOperatorSelfStake(operator1) +
                              restaking.getDelegation(delegator1, operator1) +
@@ -331,7 +332,7 @@ contract ProportionalSlashingTest is Test {
 
         // Slash but not enough to remove delegators
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 6 ether, keccak256("evidence"));
+        restaking.slash(operator1, 0, 1000, keccak256("evidence"));
 
         uint256 countAfter = restaking.getOperatorDelegatorCount(operator1);
         assertEq(countAfter, 2, "Should still have 2 delegators after slash");
@@ -349,10 +350,11 @@ contract ProportionalSlashingTest is Test {
 
         // Expect main Slashed event with new exchange rate
         vm.expectEmit(true, true, true, true);
-        emit Slashed(operator1, 0, 1 ether, 5 ether, expectedNewRate);
+        bytes32 assetHash = keccak256(abi.encode(Types.AssetKind.Native, address(0)));
+        emit Slashed(operator1, 0, 0, assetHash, 1000, 1 ether, 5 ether, expectedNewRate);
 
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 6 ether, keccak256("evidence"));
+        restaking.slash(operator1, 0, 1000, keccak256("evidence"));
     }
 
     /// @notice Test slashing operator with no delegators
@@ -361,9 +363,9 @@ contract ProportionalSlashingTest is Test {
         vm.prank(operator1);
         restaking.registerOperator{ value: 10 ether }();
 
-        // Slash 5 ETH
+        // Slash 50%
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 5 ether, keccak256("evidence"));
+        restaking.slash(operator1, 0, 5000, keccak256("evidence"));
 
         // Only operator should be slashed
         assertEq(restaking.getOperatorSelfStake(operator1), 5 ether, "Operator should have 5 ETH");

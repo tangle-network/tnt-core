@@ -33,6 +33,7 @@ import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAss
 import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
 import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
 import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributor.sol";
+import { Types } from "../../src/v2/libraries/Types.sol";
 
 error InvalidAddress(string field);
 error ProxyVerificationFailed(string reason);
@@ -232,7 +233,7 @@ contract DeployV2 is DeployScriptBase {
         console2.log("Set OperatorStatusRegistry on Tangle");
 
         _ensureTntToken(admin);
-        _configureTntDefaults(tangleProxy);
+        _configureTntDefaults(tangleProxy, restakingProxy);
         _configureServiceFeeDistributor(admin, restakingProxy, tangleProxy);
 
         if (broadcast) {
@@ -242,8 +243,9 @@ contract DeployV2 is DeployScriptBase {
         }
     }
 
-    function _configureTntDefaults(address tangleProxy) internal {
+    function _configureTntDefaults(address tangleProxy, address restakingProxy) internal {
         Tangle tangle = Tangle(payable(tangleProxy));
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
 
         address tnt = _envAddressIfSet("TNT_TOKEN");
         if (tnt == address(0)) {
@@ -252,6 +254,15 @@ contract DeployV2 is DeployScriptBase {
 
         tangle.setTntToken(tnt);
         console2.log("Configured TNT token:", tnt);
+        if (tnt != address(0)) {
+            Types.AssetConfig memory cfg = restaking.getAssetConfig(tnt);
+            if (!cfg.enabled) {
+                restaking.enableAsset(tnt, minOperatorStake, minDelegation, 0, 10_000);
+                console2.log("Enabled TNT as restaking asset");
+            }
+            restaking.setOperatorBondToken(tnt);
+            console2.log("Configured operator bond token:", tnt);
+        }
 
         address vaults = _envAddressIfSet("REWARD_VAULTS");
         if (vaults != address(0)) {

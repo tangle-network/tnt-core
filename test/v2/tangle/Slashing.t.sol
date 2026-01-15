@@ -67,19 +67,20 @@ contract SlashingTest is BaseTest {
 
     function test_ProposeSlash_ByServiceOwner() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 2 ether, keccak256("evidence"));
+        uint16 slashBps = 2000;
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashBps, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(proposal.serviceId, serviceId);
         assertEq(proposal.operator, operator1);
         assertEq(proposal.proposer, user1);
-        assertEq(proposal.amount, 2 ether);
+        assertEq(proposal.slashBps, slashBps);
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Pending));
     }
 
     function test_ProposeSlash_ByBlueprintOwner() public {
         vm.prank(developer);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(proposal.proposer, developer);
@@ -88,13 +89,13 @@ contract SlashingTest is BaseTest {
     function test_ProposeSlash_RevertUnauthorized() public {
         vm.prank(user2);
         vm.expectRevert(Errors.Unauthorized.selector);
-        tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
     }
 
     function test_ProposeSlash_RevertOperatorNotInService() public {
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotInService.selector, serviceId, operator2));
-        tangle.proposeSlash(serviceId, operator2, 1 ether, keccak256("evidence"));
+        tangle.proposeSlash(serviceId, operator2, 1000, keccak256("evidence"));
     }
 
     function test_ProposeSlash_RevertZeroAmount() public {
@@ -111,18 +112,18 @@ contract SlashingTest is BaseTest {
         Types.Service memory svc = tangle.getService(exposureServiceId);
 
         vm.prank(svc.owner);
-        uint64 slashId = tangle.proposeSlash(exposureServiceId, operator1, 10 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(exposureServiceId, operator1, 2000, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-        assertEq(proposal.amount, 10 ether);
-        assertEq(proposal.effectiveAmount, 5 ether); // 50% of 10 ETH
+        assertEq(proposal.slashBps, 2000);
+        assertEq(proposal.effectiveSlashBps, 1000); // 50% of 20% = 10%
     }
 
     function test_ProposeSlash_SetsCorrectExecuteAfter() public {
         uint256 proposalTime = block.timestamp;
 
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(proposal.proposedAt, proposalTime);
@@ -135,7 +136,7 @@ contract SlashingTest is BaseTest {
 
     function test_DisputeSlash_ByOperator() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(operator1);
         tangle.disputeSlash(slashId, "Invalid evidence");
@@ -147,7 +148,7 @@ contract SlashingTest is BaseTest {
 
     function test_DisputeSlash_BySlashAdmin() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(admin);
         tangle.disputeSlash(slashId, "Admin review needed");
@@ -158,7 +159,7 @@ contract SlashingTest is BaseTest {
 
     function test_DisputeSlash_RevertNotAuthorized() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(user2);
         vm.expectRevert(abi.encodeWithSelector(Errors.NotSlashDisputer.selector, slashId, user2));
@@ -167,7 +168,7 @@ contract SlashingTest is BaseTest {
 
     function test_DisputeSlash_RevertAfterWindowPassed() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Fast forward past dispute window
         vm.warp(block.timestamp + 7 days + 1);
@@ -179,7 +180,7 @@ contract SlashingTest is BaseTest {
 
     function test_DisputeSlash_RevertIfAlreadyExecuted() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
@@ -191,7 +192,7 @@ contract SlashingTest is BaseTest {
 
     function test_DisputeSlash_AtExactWindowBoundary() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Warp to just before the boundary (dispute window uses >= check)
         vm.warp(block.timestamp + 7 days - 1);
@@ -209,7 +210,7 @@ contract SlashingTest is BaseTest {
         uint64 managedServiceId = _deployManagedService(address(manager));
 
         vm.prank(managerCaller);
-        tangle.proposeSlash(managedServiceId, operator1, 1 ether, keccak256("hook"));
+        tangle.proposeSlash(managedServiceId, operator1, 1000, keccak256("hook"));
 
         assertEq(manager.lastUnappliedPercent(), 10, "manager notified");
     }
@@ -220,7 +221,7 @@ contract SlashingTest is BaseTest {
         uint64 managedServiceId = _deployManagedService(address(manager));
 
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(managedServiceId, operator1, 1 ether, keccak256("hook"));
+        uint64 slashId = tangle.proposeSlash(managedServiceId, operator1, 1000, keccak256("hook"));
 
         vm.warp(block.timestamp + 7 days + 1);
         uint64[] memory ids = new uint64[](1);
@@ -249,7 +250,7 @@ contract SlashingTest is BaseTest {
         uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
 
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 2 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 2000, keccak256("evidence"));
 
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
@@ -263,7 +264,7 @@ contract SlashingTest is BaseTest {
 
     function test_ExecuteSlash_RevertBeforeWindow() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Try to execute before window
         vm.expectRevert(abi.encodeWithSelector(Errors.SlashNotExecutable.selector, slashId));
@@ -272,7 +273,7 @@ contract SlashingTest is BaseTest {
 
     function test_ExecuteSlash_RevertIfDisputed() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(operator1);
         tangle.disputeSlash(slashId, "disputed");
@@ -285,7 +286,7 @@ contract SlashingTest is BaseTest {
 
     function test_ExecuteSlash_RevertDoubleExecution() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
@@ -296,7 +297,7 @@ contract SlashingTest is BaseTest {
 
     function test_ExecuteSlash_AtExactWindowEnd() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Warp to exactly when execution becomes possible
         vm.warp(block.timestamp + 7 days);
@@ -310,7 +311,7 @@ contract SlashingTest is BaseTest {
 
     function test_ExecuteSlash_AnyoneCanExecute() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.warp(block.timestamp + 7 days + 1);
 
@@ -328,7 +329,7 @@ contract SlashingTest is BaseTest {
 
     function test_CancelSlash_ByAdmin() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(admin);
         tangle.cancelSlash(slashId, "Invalid slash");
@@ -339,7 +340,7 @@ contract SlashingTest is BaseTest {
 
     function test_CancelSlash_AfterDispute() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(operator1);
         tangle.disputeSlash(slashId, "disputed");
@@ -353,7 +354,7 @@ contract SlashingTest is BaseTest {
 
     function test_CancelSlash_RevertNotAdmin() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.NotSlashCanceller.selector, slashId, user1));
@@ -362,7 +363,7 @@ contract SlashingTest is BaseTest {
 
     function test_CancelSlash_RevertAlreadyExecuted() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
@@ -374,7 +375,7 @@ contract SlashingTest is BaseTest {
 
     function test_CancelSlash_RevertDoubleCancellation() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         vm.prank(admin);
         tangle.cancelSlash(slashId, "cancelled");
@@ -390,9 +391,9 @@ contract SlashingTest is BaseTest {
 
     function test_MultipleSlashProposals_SameOperator() public {
         vm.startPrank(user1);
-        uint64 slashId1 = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence1"));
-        uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, 2 ether, keccak256("evidence2"));
-        uint64 slashId3 = tangle.proposeSlash(serviceId, operator1, 0.5 ether, keccak256("evidence3"));
+        uint64 slashId1 = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence1"));
+        uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, 2000, keccak256("evidence2"));
+        uint64 slashId3 = tangle.proposeSlash(serviceId, operator1, 500, keccak256("evidence3"));
         vm.stopPrank();
 
         assertEq(slashId1, 0);
@@ -407,10 +408,12 @@ contract SlashingTest is BaseTest {
 
     function test_MultipleSlashProposals_ExecuteAll() public {
         uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint16 slashBps1 = 1000;
+        uint16 slashBps2 = 2000;
 
         vm.startPrank(user1);
-        uint64 slashId1 = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("e1"));
-        uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, 2 ether, keccak256("e2"));
+        uint64 slashId1 = tangle.proposeSlash(serviceId, operator1, slashBps1, keccak256("e1"));
+        uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, slashBps2, keccak256("e2"));
         vm.stopPrank();
 
         vm.warp(block.timestamp + 7 days + 1);
@@ -419,7 +422,9 @@ contract SlashingTest is BaseTest {
         tangle.executeSlash(slashId2);
 
         uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
-        assertEq(stakeAfter, stakeBefore - 3 ether);
+        uint256 afterFirst = stakeBefore - ((stakeBefore * slashBps1) / 10_000);
+        uint256 expectedAfter = afterFirst - ((afterFirst * slashBps2) / 10_000);
+        assertEq(stakeAfter, expectedAfter);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -432,7 +437,7 @@ contract SlashingTest is BaseTest {
 
         // New proposal should use updated window
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(proposal.executeAfter, block.timestamp + 14 days);

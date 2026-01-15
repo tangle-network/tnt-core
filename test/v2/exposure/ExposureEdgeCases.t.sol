@@ -24,13 +24,29 @@ contract MockRestakingEdge is IRestaking {
     function getOperatorStake(address operator) external view returns (uint256) { return stakes[operator]; }
     function getOperatorSelfStake(address operator) external view returns (uint256) { return stakes[operator]; }
     function getOperatorDelegatedStake(address operator) external view returns (uint256) { return delegatedStakes[operator]; }
+    function getOperatorDelegatedStakeForAsset(address operator, Types.Asset calldata) external view returns (uint256) {
+        return delegatedStakes[operator];
+    }
+    function getOperatorStakeForAsset(address operator, Types.Asset calldata) external view returns (uint256) {
+        return stakes[operator];
+    }
     function getDelegation(address, address) external pure returns (uint256) { return 0; }
     function getTotalDelegation(address) external pure returns (uint256) { return 0; }
     function minOperatorStake() external pure returns (uint256) { return 0; }
     function meetsStakeRequirement(address, uint256) external pure returns (bool) { return true; }
-    function slashForBlueprint(address, uint64, uint64, uint256 amount, bytes32) external pure returns (uint256) { return amount; }
-    function slashForService(address, uint64, uint64, Types.AssetSecurityCommitment[] calldata, uint256 amount, bytes32) external pure returns (uint256) { return amount; }
-    function slash(address, uint64, uint256 amount, bytes32) external pure returns (uint256) { return amount; }
+    function slashForBlueprint(address, uint64, uint64, uint16 slashBps, bytes32) external pure returns (uint256) {
+        return slashBps;
+    }
+    function slashForService(address, uint64, uint64, Types.AssetSecurityCommitment[] calldata, uint16 slashBps, bytes32)
+        external
+        pure
+        returns (uint256)
+    {
+        return slashBps;
+    }
+    function slash(address, uint64, uint16 slashBps, bytes32) external pure returns (uint256) {
+        return slashBps;
+    }
     function isSlasher(address) external pure returns (bool) { return false; }
     function notifyRewardForBlueprint(address, uint64, uint64, uint256) external {}
     function notifyReward(address, uint64, uint256) external {}
@@ -377,45 +393,43 @@ contract ExposureEdgeCasesTest is Test {
     // SLASHING INTEGRATION TESTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function test_SlashingLib_EffectiveSlash_WithExposure() public pure {
-        uint256 baseAmount = 10 ether;
+    function test_SlashingLib_EffectiveSlashBps_WithExposure() public pure {
+        uint16 slashBps = 10_000;
 
-        // 50% exposure = 5 ether effective slash
-        uint256 effective = SlashingLib.calculateEffectiveSlash(baseAmount, 5000);
-        assertEq(effective, 5 ether);
+        // 50% exposure
+        uint16 effective = SlashingLib.calculateEffectiveSlashBps(slashBps, 5000);
+        assertEq(effective, 5000);
 
-        // 25% exposure = 2.5 ether
-        effective = SlashingLib.calculateEffectiveSlash(baseAmount, 2500);
-        assertEq(effective, 2.5 ether);
+        // 25% exposure
+        effective = SlashingLib.calculateEffectiveSlashBps(slashBps, 2500);
+        assertEq(effective, 2500);
 
-        // 100% exposure = 10 ether
-        effective = SlashingLib.calculateEffectiveSlash(baseAmount, 10000);
-        assertEq(effective, 10 ether);
+        // 100% exposure
+        effective = SlashingLib.calculateEffectiveSlashBps(slashBps, 10000);
+        assertEq(effective, 10000);
 
-        // 1% exposure = 0.1 ether
-        effective = SlashingLib.calculateEffectiveSlash(baseAmount, 100);
-        assertEq(effective, 0.1 ether);
+        // 1% exposure
+        effective = SlashingLib.calculateEffectiveSlashBps(slashBps, 100);
+        assertEq(effective, 100);
     }
 
-    function test_SlashingLib_EffectiveSlash_ZeroExposure() public pure {
-        uint256 effective = SlashingLib.calculateEffectiveSlash(10 ether, 0);
+    function test_SlashingLib_EffectiveSlashBps_ZeroExposure() public pure {
+        uint16 effective = SlashingLib.calculateEffectiveSlashBps(10_000, 0);
         assertEq(effective, 0);
     }
 
-    function test_SlashingLib_CapSlashAmount() public pure {
-        uint256 operatorStake = 100 ether;
+    function test_SlashingLib_CapSlashBps() public pure {
+        // Slash 50% with 100% max = 50%
+        uint16 capped = SlashingLib.capSlashBps(5000, 10000);
+        assertEq(capped, 5000);
 
-        // Slash 50 ether with 100% max = 50 ether
-        uint256 capped = SlashingLib.capSlashAmount(50 ether, operatorStake, 10000);
-        assertEq(capped, 50 ether);
+        // Slash 120% with 100% max = 100% (capped)
+        capped = SlashingLib.capSlashBps(12000, 10000);
+        assertEq(capped, 10000);
 
-        // Slash 150 ether with 100% max = 100 ether (capped)
-        capped = SlashingLib.capSlashAmount(150 ether, operatorStake, 10000);
-        assertEq(capped, 100 ether);
-
-        // Slash 50 ether with 25% max = 25 ether (capped)
-        capped = SlashingLib.capSlashAmount(50 ether, operatorStake, 2500);
-        assertEq(capped, 25 ether);
+        // Slash 50% with 25% max = 25% (capped)
+        capped = SlashingLib.capSlashBps(5000, 2500);
+        assertEq(capped, 2500);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -499,10 +513,10 @@ contract ExposureEdgeCasesTest is Test {
         assertEq(restaking.minOperatorStake(), 0);
         assertTrue(restaking.meetsStakeRequirement(tempOperator, 1 ether));
         assertEq(
-            restaking.slashForBlueprint(tempOperator, 1, 2, 5 ether, keccak256("bp-slash")),
-            5 ether
+            restaking.slashForBlueprint(tempOperator, 1, 2, 5000, keccak256("bp-slash")),
+            5000
         );
-        assertEq(restaking.slash(tempOperator, 3, 4 ether, keccak256("plain-slash")), 4 ether);
+        assertEq(restaking.slash(tempOperator, 3, 4000, keccak256("plain-slash")), 4000);
         assertFalse(restaking.isSlasher(tempOperator));
 
         // The reward notifiers are no-ops but should remain callable
@@ -627,15 +641,15 @@ contract ExposureFuzzTest is Test {
         }
     }
 
-    function testFuzz_SlashingLib_EffectiveSlash(uint256 amount, uint16 exposureBps) public pure {
-        amount = bound(amount, 0, type(uint128).max);
+    function testFuzz_SlashingLib_EffectiveSlashBps(uint16 slashBps, uint16 exposureBps) public pure {
+        slashBps = uint16(bound(uint256(slashBps), 0, 10000));
         exposureBps = uint16(bound(uint256(exposureBps), 0, 10000));
 
-        uint256 effective = SlashingLib.calculateEffectiveSlash(amount, exposureBps);
+        uint16 effective = SlashingLib.calculateEffectiveSlashBps(slashBps, exposureBps);
 
-        assertLe(effective, amount);
+        assertLe(effective, slashBps);
         if (exposureBps == 10000) {
-            assertEq(effective, amount);
+            assertEq(effective, slashBps);
         }
     }
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { DelegationManagerLib } from "./DelegationManagerLib.sol";
 import { Types } from "../libraries/Types.sol";
+import { DelegationErrors } from "./DelegationErrors.sol";
 import { IRewardsManager } from "../interfaces/IRewardsManager.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 
@@ -32,21 +33,68 @@ abstract contract RewardsManager is DelegationManagerLib {
         bool isIncrease,
         Types.BlueprintSelectionMode selectionMode,
         uint64[] memory blueprintIds,
+        uint256[] memory blueprintShares,
         uint16 lockMultiplierBps
     ) internal override {
+        bytes32 assetHash = _assetHash(asset);
+        uint256[] memory blueprintAmounts = new uint256[](0);
         if (selectionMode == Types.BlueprintSelectionMode.All) {
             // All mode: use the operator's main pool (exposed to ALL blueprints)
-            _updateAllModePool(delegator, operator, shares, amount, isIncrease);
+            _updateAllModePool(delegator, operator, assetHash, shares, amount, isIncrease);
         } else {
+            blueprintAmounts = new uint256[](blueprintIds.length);
+            if (blueprintIds.length != blueprintShares.length) {
+                revert DelegationErrors.InvalidBlueprintShares();
+            }
+
+            if (isIncrease) {
+                uint256 remaining = amount;
+                for (uint256 i = 0; i < blueprintIds.length; i++) {
+                    uint256 amountForBlueprint = i == blueprintIds.length - 1
+                        ? remaining
+                        : amount / blueprintIds.length;
+                    remaining -= amountForBlueprint;
+                    blueprintAmounts[i] = amountForBlueprint;
+                }
+            } else {
+                for (uint256 i = 0; i < blueprintIds.length; i++) {
+                    blueprintAmounts[i] = _sharesToAmountForBlueprint(
+                        operator,
+                        blueprintIds[i],
+                        assetHash,
+                        blueprintShares[i]
+                    );
+                }
+            }
             // Fixed mode: update per-blueprint pools for selected blueprints only
-            _updateFixedModePools(delegator, operator, shares, amount, isIncrease, blueprintIds);
+            _updateFixedModePools(
+                delegator,
+                operator,
+                assetHash,
+                shares,
+                amount,
+                isIncrease,
+                blueprintIds,
+                blueprintShares,
+                blueprintAmounts
+            );
         }
 
         // Notify external rewards manager for TNT incentives (if configured)
         _notifyExternalRewardsManager(delegator, operator, asset, amount, isIncrease, lockMultiplierBps);
 
         // Notify external service-fee distributor for multi-token fee accrual (if configured)
-        _notifyServiceFeeDistributor(delegator, operator, asset, amount, isIncrease, selectionMode, blueprintIds, lockMultiplierBps);
+        _notifyServiceFeeDistributor(
+            delegator,
+            operator,
+            asset,
+            amount,
+            isIncrease,
+            selectionMode,
+            blueprintIds,
+            blueprintAmounts,
+            lockMultiplierBps
+        );
     }
 
     /// @notice Update reward pool for All mode delegations
@@ -54,11 +102,12 @@ abstract contract RewardsManager is DelegationManagerLib {
     function _updateAllModePool(
         address /* delegator */,
         address operator,
+        bytes32 assetHash,
         uint256 shares,
         uint256 amount,
         bool isIncrease
     ) internal {
-        Types.OperatorRewardPool storage pool = _rewardPools[operator];
+        Types.OperatorRewardPool storage pool = _rewardPools[operator][assetHash];
         if (isIncrease) {
             pool.totalShares += shares;
             pool.totalAssets += amount;
@@ -73,28 +122,41 @@ abstract contract RewardsManager is DelegationManagerLib {
     function _updateFixedModePools(
         address /* delegator */,
         address operator,
-        uint256 shares,
+        bytes32 assetHash,
+        uint256 /* shares */,
         uint256 amount,
         bool isIncrease,
-        uint64[] memory blueprintIds
+        uint64[] memory blueprintIds,
+        uint256[] memory blueprintShares,
+        uint256[] memory blueprintAmounts
     ) internal {
         if (blueprintIds.length == 0) return;
 
-        // Distribute shares equally across selected blueprints
-        uint256 sharesPerBlueprint = shares / blueprintIds.length;
-        uint256 amountPerBlueprint = amount / blueprintIds.length;
+        if (blueprintIds.length != blueprintShares.length || blueprintIds.length != blueprintAmounts.length) {
+            revert DelegationErrors.InvalidBlueprintShares();
+        }
 
+        uint256 remaining = amount;
         for (uint256 i = 0; i < blueprintIds.length; i++) {
             uint64 blueprintId = blueprintIds[i];
-            Types.OperatorRewardPool storage pool = _blueprintPools[operator][blueprintId];
+            Types.OperatorRewardPool storage pool = _blueprintPools[operator][blueprintId][assetHash];
+
+            uint256 sharesForBlueprint = blueprintShares[i];
+            uint256 amountForBlueprint = blueprintAmounts[i];
+            if (isIncrease && i == blueprintIds.length - 1) {
+                amountForBlueprint = remaining;
+            }
+            if (isIncrease) {
+                remaining -= amountForBlueprint;
+            }
 
             // Update pool
             if (isIncrease) {
-                pool.totalShares += sharesPerBlueprint;
-                pool.totalAssets += amountPerBlueprint;
+                pool.totalShares += sharesForBlueprint;
+                pool.totalAssets += amountForBlueprint;
             } else {
-                pool.totalShares = sharesPerBlueprint > pool.totalShares ? 0 : pool.totalShares - sharesPerBlueprint;
-                pool.totalAssets = amountPerBlueprint > pool.totalAssets ? 0 : pool.totalAssets - amountPerBlueprint;
+                pool.totalShares = sharesForBlueprint > pool.totalShares ? 0 : pool.totalShares - sharesForBlueprint;
+                pool.totalAssets = amountForBlueprint > pool.totalAssets ? 0 : pool.totalAssets - amountForBlueprint;
             }
         }
     }
@@ -139,6 +201,7 @@ abstract contract RewardsManager is DelegationManagerLib {
         bool isIncrease,
         Types.BlueprintSelectionMode selectionMode,
         uint64[] memory blueprintIds,
+        uint256[] memory blueprintAmounts,
         uint16 lockMultiplierBps
     ) internal {
         if (_serviceFeeDistributor == address(0)) return;
@@ -150,6 +213,7 @@ abstract contract RewardsManager is DelegationManagerLib {
             isIncrease,
             selectionMode,
             blueprintIds,
+            blueprintAmounts,
             lockMultiplierBps
         ) {} catch {}
     }
@@ -162,6 +226,9 @@ abstract contract RewardsManager is DelegationManagerLib {
     function _getOperatorRewardPool(
         address operator
     ) internal view returns (Types.OperatorRewardPool memory) {
-        return _rewardPools[operator];
+        bytes32 bondHash = _operatorBondToken == address(0)
+            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
+            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        return _rewardPools[operator][bondHash];
     }
 }

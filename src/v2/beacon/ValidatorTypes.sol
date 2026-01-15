@@ -27,7 +27,7 @@ library ValidatorTypes {
     /// @dev Introduced in EIP-7251 (Pectra upgrade) for validators with >32 ETH effective balance
     bytes1 constant WITHDRAWAL_CREDENTIALS_PREFIX_02 = 0x02;
 
-    /// @dev Legacy alias for 0x01 prefix
+    /// @dev Alias for 0x01 prefix
     bytes1 constant WITHDRAWAL_CREDENTIALS_PREFIX = WITHDRAWAL_CREDENTIALS_PREFIX_01;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -141,7 +141,7 @@ library ValidatorTypes {
         return prefix == WITHDRAWAL_CREDENTIALS_PREFIX_01 || prefix == WITHDRAWAL_CREDENTIALS_PREFIX_02;
     }
 
-    /// @notice Check if withdrawal credentials have the legacy 0x01 prefix
+    /// @notice Check if withdrawal credentials have the 0x01 prefix
     /// @param withdrawalCredentials The credentials to check
     /// @return True if prefix is 0x01
     function has01Prefix(bytes32 withdrawalCredentials) internal pure returns (bool) {

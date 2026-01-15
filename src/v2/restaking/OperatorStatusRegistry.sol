@@ -336,17 +336,11 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
         MetricPair[] memory pairs;
 
-        // Prefer decoding as an array (supports multiple metrics).
+        // Decode as MetricPair[]; a single metric should be encoded as a 1-element array.
         try this.decodeMetricPairs(metrics) returns (MetricPair[] memory decoded) {
             pairs = decoded;
         } catch {
-            // Backwards-compatible: support a single (string,uint256) tuple encoded via abi.encode("name", value).
-            try this.decodeMetricPair(metrics) returns (MetricPair memory single) {
-                pairs = new MetricPair[](1);
-                pairs[0] = single;
-            } catch {
-                return;
-            }
+            return;
         }
 
         for (uint256 i = 0; i < pairs.length; i++) {
@@ -543,12 +537,6 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @dev External + try/catch wrapper target so malformed payloads don't brick heartbeats.
     function decodeMetricPairs(bytes calldata payload) external pure returns (MetricPair[] memory pairs) {
         return abi.decode(payload, (MetricPair[]));
-    }
-
-    /// @notice Decode a single metric pair from ABI-encoded payload.
-    /// @dev Supports legacy encoding via abi.encode("name", value).
-    function decodeMetricPair(bytes calldata payload) external pure returns (MetricPair memory pair) {
-        (pair.name, pair.value) = abi.decode(payload, (string, uint256));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

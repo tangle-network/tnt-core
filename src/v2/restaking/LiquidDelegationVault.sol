@@ -260,14 +260,8 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Calculate assets at current exchange rate (for scheduling)
         uint256 assets = convertToAssets(shares);
 
-        // Mirror restaking's shares rounding-up rule so we can execute the exact bond-less request later.
-        Types.OperatorRewardPool memory pool = restaking.getOperatorRewardPool(operator);
-        uint256 unstakeShares;
-        if (pool.totalAssets == 0 || pool.totalShares == 0) {
-            unstakeShares = assets;
-        } else {
-            unstakeShares = (assets * pool.totalShares + pool.totalAssets - 1) / pool.totalAssets;
-        }
+        // Mirror restaking's unstake share calculation so we can execute the exact bond-less request later.
+        uint256 unstakeShares = restaking.previewDelegatorUnstakeShares(operator, address(asset), assets);
 
         uint64 requestRound = uint64(restaking.currentRound());
 

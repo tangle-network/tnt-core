@@ -353,8 +353,11 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         address operator,
         uint256 amount
     ) public returns (uint64 slashId) {
+        uint256 stake = restaking.getOperatorStake(operator);
+        uint16 slashBps = stake == 0 ? 0 : uint16((amount * 10_000) / stake);
+        if (slashBps > 10_000) slashBps = 10_000;
         vm.prank(serviceOwner);
-        return tangle.proposeSlash(serviceId, operator, amount, keccak256("test-evidence"));
+        return tangle.proposeSlash(serviceId, operator, slashBps, keccak256("test-evidence"));
     }
 
     /// @notice Execute a slash (after dispute window)

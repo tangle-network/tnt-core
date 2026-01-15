@@ -25,14 +25,14 @@ contract RestakingSlashingFacet is RestakingFacetBase, IFacetSelectors {
         address operator,
         uint64 blueprintId,
         uint64 serviceId,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     )
         external
         onlyRole(SLASHER_ROLE)
         returns (uint256 actualSlashed)
     {
-        return _slashForBlueprint(operator, blueprintId, serviceId, amount, evidence);
+        return _slashForBlueprint(operator, blueprintId, serviceId, slashBps, evidence);
     }
 
     /// @notice Slash operator for a specific service with per-asset commitments
@@ -42,28 +42,28 @@ contract RestakingSlashingFacet is RestakingFacetBase, IFacetSelectors {
         uint64 blueprintId,
         uint64 serviceId,
         Types.AssetSecurityCommitment[] calldata commitments,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     )
         external
         onlyRole(SLASHER_ROLE)
         returns (uint256 actualSlashed)
     {
-        return _slashForService(operator, blueprintId, serviceId, commitments, amount, evidence);
+        return _slashForService(operator, blueprintId, serviceId, commitments, slashBps, evidence);
     }
 
-    /// @notice Slash operator and delegators proportionally (legacy - slashes all)
+    /// @notice Slash operator and delegators proportionally for consensus/native violations
     function slash(
         address operator,
         uint64 serviceId,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     )
         external
         onlyRole(SLASHER_ROLE)
         returns (uint256 actualSlashed)
     {
-        return _slash(operator, serviceId, amount, evidence);
+        return _slash(operator, serviceId, slashBps, evidence);
     }
 
     /// @notice Advance to next round

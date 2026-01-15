@@ -21,7 +21,7 @@ interface IRestaking {
     event OperatorSlashed(
         address indexed operator,
         uint64 indexed serviceId,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     );
 
@@ -53,6 +53,24 @@ interface IRestaking {
     /// @param operator The operator address
     /// @return Total delegated amount
     function getOperatorDelegatedStake(address operator) external view returns (uint256);
+
+    /// @notice Get total delegated amount for a specific asset
+    /// @param operator The operator address
+    /// @param asset The asset to query
+    /// @return Total delegated amount for the asset
+    function getOperatorDelegatedStakeForAsset(
+        address operator,
+        Types.Asset calldata asset
+    ) external view returns (uint256);
+
+    /// @notice Get total stake (self + delegated) for a specific asset
+    /// @param operator The operator address
+    /// @param asset The asset to query
+    /// @return Total stake for the asset
+    function getOperatorStakeForAsset(
+        address operator,
+        Types.Asset calldata asset
+    ) external view returns (uint256);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DELEGATOR QUERIES
@@ -92,14 +110,14 @@ interface IRestaking {
     /// @param operator The operator to slash
     /// @param blueprintId The blueprint where violation occurred
     /// @param serviceId The service where violation occurred
-    /// @param amount Amount to slash
+    /// @param slashBps Slash percentage in basis points
     /// @param evidence Evidence hash (IPFS or other reference)
     /// @return actualSlashed The actual amount slashed (may be less if insufficient stake)
     function slashForBlueprint(
         address operator,
         uint64 blueprintId,
         uint64 serviceId,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external returns (uint256 actualSlashed);
 
@@ -109,7 +127,7 @@ interface IRestaking {
     /// @param blueprintId The blueprint where violation occurred
     /// @param serviceId The service where violation occurred
     /// @param commitments The operator's asset security commitments for this service
-    /// @param amount Amount to slash
+    /// @param slashBps Slash percentage in basis points
     /// @param evidence Evidence hash (IPFS or other reference)
     /// @return actualSlashed The actual amount slashed (may be less if insufficient committed stake)
     function slashForService(
@@ -117,21 +135,21 @@ interface IRestaking {
         uint64 blueprintId,
         uint64 serviceId,
         Types.AssetSecurityCommitment[] calldata commitments,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external returns (uint256 actualSlashed);
 
-    /// @notice Slash an operator's stake (legacy - slashes all delegators)
+    /// @notice Slash an operator's native stake for consensus violations (affects all native delegators)
     /// @dev Only callable by authorized slashers (e.g., Tangle core contract)
     /// @param operator The operator to slash
     /// @param serviceId The service where violation occurred
-    /// @param amount Amount to slash
+    /// @param slashBps Slash percentage in basis points
     /// @param evidence Evidence hash (IPFS or other reference)
     /// @return actualSlashed The actual amount slashed (may be less if insufficient stake)
     function slash(
         address operator,
         uint64 serviceId,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external returns (uint256 actualSlashed);
 

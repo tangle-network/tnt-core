@@ -65,21 +65,34 @@ interface IServiceFeeDistributor {
         bool isIncrease,
         Types.BlueprintSelectionMode selectionMode,
         uint64[] calldata blueprintIds,
+        // Per-blueprint amount deltas (must align with blueprintIds for Fixed mode).
+        uint256[] calldata blueprintAmounts,
         uint16 lockMultiplierBps
     ) external;
 
-    function onBlueprintAdded(
-        address delegator,
+    /// @notice Apply a slash factor to All-mode exposure for an operator/asset
+    function onAllModeSlashed(
         address operator,
         Types.Asset calldata asset,
-        uint64 blueprintId
+        uint16 slashBps
     ) external;
 
-    function onBlueprintRemoved(
+    /// @notice Apply a slash factor to Fixed-mode exposure for a blueprint/operator/asset
+    function onFixedModeSlashed(
+        address operator,
+        uint64 blueprintId,
+        Types.Asset calldata asset,
+        uint16 slashBps
+    ) external;
+
+    /// @notice Update fixed-mode blueprint set after a rebalance
+    /// @dev blueprintAmounts are post-rebalance amounts, ordered to match blueprintIds.
+    function onBlueprintsRebalanced(
         address delegator,
         address operator,
         Types.Asset calldata asset,
-        uint64 blueprintId
+        uint64[] calldata blueprintIds,
+        uint256[] calldata blueprintAmounts
     ) external;
 
     function getPoolScore(

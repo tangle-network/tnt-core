@@ -360,14 +360,7 @@ contract ExposureManager is IExposureManager {
         address operator,
         Types.Asset memory asset
     ) internal view returns (uint256) {
-        if (asset.kind == Types.AssetKind.Native) {
-            // Native asset uses operator stake + native delegations
-            return restaking.getOperatorStake(operator);
-        } else {
-            // ERC20 delegations - would need per-asset tracking
-            // For now, use total delegation (actual implementation needs asset-specific tracking)
-            return restaking.getOperatorDelegatedStake(operator);
-        }
+        return restaking.getOperatorStakeForAsset(operator, asset);
     }
 
     function _hashAsset(Types.Asset memory asset) internal pure returns (bytes32) {

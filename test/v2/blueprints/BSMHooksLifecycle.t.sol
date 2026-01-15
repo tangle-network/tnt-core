@@ -369,18 +369,18 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
         // Service owner can STILL slash (authorization is additive)
         vm.prank(serviceOwner);
-        uint64 slashId1 = tangle.proposeSlash(serviceId, operator1, 0.1 ether, keccak256("evidence1"));
+        uint64 slashId1 = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence1"));
 
         // Custom slasher can ALSO slash
         vm.deal(customSlasher, 1 ether);
         vm.prank(customSlasher);
-        uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, 0.2 ether, keccak256("evidence2"));
+        uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, 2000, keccak256("evidence2"));
 
         // Random address cannot slash
         address randomUser = makeAddr("randomUser");
         vm.prank(randomUser);
         vm.expectRevert(Errors.Unauthorized.selector);
-        tangle.proposeSlash(serviceId, operator1, 0.1 ether, keccak256("evidence3"));
+        tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence3"));
 
         // Execute one of the slashes
         executeSlash(slashId1);

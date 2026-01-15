@@ -111,13 +111,19 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         // Slash the operator
         vm.prank(slasher);
-        uint256 slashed = podManager.slash(operator1, 1, 15 ether, keccak256("misbehavior"));
+        uint16 slashBps = 4000;
+        uint256 slashed = podManager.slash(operator1, 1, slashBps, keccak256("misbehavior"));
 
-        assertEq(slashed, 15 ether, "Should slash 15 ETH");
+        uint256 expectedSlashed = (totalStakeBefore * slashBps) / 10_000;
+        assertEq(slashed, expectedSlashed, "Should slash expected amount");
 
-        // Self-stake slashed first (10 ETH), then 5 ETH from delegated
-        assertEq(podManager.getOperatorSelfStake(operator1), 0, "Self stake should be fully slashed");
-        assertEq(podManager.getOperatorDelegatedStake(operator1), 27 ether, "Delegated stake should be reduced");
+        // Self-stake slashed first, then remaining from delegated
+        uint256 selfAfter = podManager.getOperatorSelfStake(operator1);
+        uint256 delegatedAfter = podManager.getOperatorDelegatedStake(operator1);
+        uint256 selfSlashed = 10 ether < expectedSlashed ? 10 ether : expectedSlashed;
+        uint256 expectedDelegatedAfter = 32 ether - (expectedSlashed - selfSlashed);
+        assertEq(selfAfter, 10 ether - selfSlashed, "Self stake should be reduced first");
+        assertEq(delegatedAfter, expectedDelegatedAfter, "Delegated stake should be reduced");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -274,11 +280,11 @@ contract BeaconIntegrationTest is BeaconTestBase {
         // Unauthorized slashing attempt
         vm.prank(attacker);
         vm.expectRevert(ValidatorPodManager.NotAuthorizedSlasher.selector);
-        podManager.slash(operator1, 1, 1 ether, bytes32(0));
+        podManager.slash(operator1, 1, 1000, bytes32(0));
 
         // Authorized slashing works
         vm.prank(slasher);
-        podManager.slash(operator1, 1, 1 ether, bytes32(0));
+        podManager.slash(operator1, 1, 1000, bytes32(0));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

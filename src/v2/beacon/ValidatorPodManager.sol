@@ -12,6 +12,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 /// @notice Factory and manager for ValidatorPods, implements IRestaking for Tangle integration
 /// @dev Creates pods for users, tracks shares, handles delegation to operators
 contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
+    uint256 public constant BPS_DENOMINATOR = 10_000;
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE - CORE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -612,6 +613,24 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc IRestaking
+    function getOperatorDelegatedStakeForAsset(
+        address operator,
+        Types.Asset calldata asset
+    ) external view override returns (uint256) {
+        if (asset.kind != Types.AssetKind.Native) return 0;
+        return operatorDelegatedStake[operator];
+    }
+
+    /// @inheritdoc IRestaking
+    function getOperatorStakeForAsset(
+        address operator,
+        Types.Asset calldata asset
+    ) external view override returns (uint256) {
+        if (asset.kind != Types.AssetKind.Native) return 0;
+        return operatorStake[operator] + operatorDelegatedStake[operator];
+    }
+
+    /// @inheritdoc IRestaking
     function getDelegation(
         address delegator,
         address operator
@@ -645,14 +664,14 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         address operator,
         uint64 /*blueprintId*/,
         uint64 serviceId,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external override returns (uint256 actualSlashed) {
         if (!_slashers[msg.sender]) revert NotAuthorizedSlasher();
 
-        actualSlashed = _slash(operator, amount);
+        actualSlashed = _slash(operator, slashBps);
 
-        emit OperatorSlashed(operator, serviceId, actualSlashed, evidence);
+        emit OperatorSlashed(operator, serviceId, slashBps, evidence);
     }
 
     /// @inheritdoc IRestaking
@@ -661,38 +680,39 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         uint64 /*blueprintId*/,
         uint64 serviceId,
         Types.AssetSecurityCommitment[] calldata /*commitments*/,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external override returns (uint256 actualSlashed) {
         if (!_slashers[msg.sender]) revert NotAuthorizedSlasher();
 
-        actualSlashed = _slash(operator, amount);
+        actualSlashed = _slash(operator, slashBps);
 
-        emit OperatorSlashed(operator, serviceId, actualSlashed, evidence);
+        emit OperatorSlashed(operator, serviceId, slashBps, evidence);
     }
 
     /// @inheritdoc IRestaking
     function slash(
         address operator,
         uint64 serviceId,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external override returns (uint256 actualSlashed) {
         if (!_slashers[msg.sender]) revert NotAuthorizedSlasher();
 
-        actualSlashed = _slash(operator, amount);
+        actualSlashed = _slash(operator, slashBps);
 
-        emit OperatorSlashed(operator, serviceId, actualSlashed, evidence);
+        emit OperatorSlashed(operator, serviceId, slashBps, evidence);
     }
 
     /// @notice Internal slash implementation
     /// @dev H-4 FIX: Now proportionally slashes delegators
-    function _slash(address operator, uint256 amount) internal returns (uint256 actualSlashed) {
+    function _slash(address operator, uint16 slashBps) internal returns (uint256 actualSlashed) {
         uint256 totalStake = operatorStake[operator] + operatorDelegatedStake[operator];
 
-        if (amount > totalStake) {
-            amount = totalStake;
+        if (slashBps > BPS_DENOMINATOR) {
+            slashBps = uint16(BPS_DENOMINATOR);
         }
+        uint256 amount = (totalStake * slashBps) / BPS_DENOMINATOR;
 
         actualSlashed = amount;
 

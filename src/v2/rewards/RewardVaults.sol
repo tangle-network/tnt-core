@@ -472,7 +472,7 @@ contract RewardVaults is
     event EpochRewardDistributed(address indexed asset, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STAKE RECORDING (Legacy - for direct calls with LockDuration enum)
+    // Stake recording (compatibility for direct calls with LockDuration enum)
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Record a stake for reward tracking

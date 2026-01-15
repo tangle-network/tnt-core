@@ -65,21 +65,25 @@ contract ScenarioERC20 {
 
 /// @notice Forge script that replays the full stack scenario on a live RPC (e.g., anvil).
 ///         Run with: `forge script script/v2/FullStackScenario.s.sol:FullStackScenario --rpc-url http://127.0.0.1:8545 --broadcast --slow`
+///         Optionally set FULLSTACK_MNEMONIC to match the mnemonic used by your RPC node.
+///         For local RPC time advances, set FULLSTACK_USE_FFI=1 and pass --ffi (uses cast rpc).
+///         Use FULLSTACK_RPC_URL to override the RPC URL used for time advances.
 contract FullStackScenario is Script {
-    uint256 internal constant ADMIN_KEY = uint256(keccak256("admin"));
-    uint256 internal constant SLASHER_KEY = uint256(keccak256("slasher"));
-    uint256 internal constant OPERATOR1_KEY = uint256(keccak256("operator1"));
-    uint256 internal constant OPERATOR2_KEY = uint256(keccak256("operator2"));
-    uint256 internal constant OPERATOR3_KEY = uint256(keccak256("operator3"));
-    uint256 internal constant DELEGATOR1_KEY = uint256(keccak256("delegator1"));
-    uint256 internal constant DELEGATOR2_KEY = uint256(keccak256("delegator2"));
-    uint256 internal constant DELEGATOR3_KEY = uint256(keccak256("delegator3"));
+    string internal constant MNEMONIC_ENV = "FULLSTACK_MNEMONIC";
+
+    uint256 internal adminKey;
+    uint256 internal slasherKey;
+    uint256 internal operator1Key;
+    uint256 internal operator2Key;
+    uint256 internal operator3Key;
+    uint256 internal delegator1Key;
+    uint256 internal delegator2Key;
+    uint256 internal delegator3Key;
 
     uint64 internal constant DEFAULT_DELAY = 7;
     uint16 internal constant COMMISSION_BPS = 1000; // 10%
 
     uint256 internal constant ITERATIONS = 12;
-    uint256 internal constant STEP_SECONDS = 5;
 
     IMultiAssetDelegation public delegation;
     ScenarioERC20 public tokenA;
@@ -91,6 +95,7 @@ contract FullStackScenario is Script {
     uint256[] public operatorKeys;
 
     function run() external {
+        _initKeys();
         _labelActors();
         _fundActors();
         _deployContracts();
@@ -108,32 +113,56 @@ contract FullStackScenario is Script {
         console2.log("Token B:", address(tokenB));
     }
 
-    function _labelActors() internal {
-        vm.label(vm.addr(ADMIN_KEY), "admin");
-        vm.label(vm.addr(SLASHER_KEY), "slasher");
-        vm.label(vm.addr(OPERATOR1_KEY), "operator1");
-        vm.label(vm.addr(OPERATOR2_KEY), "operator2");
-        vm.label(vm.addr(OPERATOR3_KEY), "operator3");
-        vm.label(vm.addr(DELEGATOR1_KEY), "delegator1");
-        vm.label(vm.addr(DELEGATOR2_KEY), "delegator2");
-        vm.label(vm.addr(DELEGATOR3_KEY), "delegator3");
+    function _initKeys() internal {
+        string memory mnemonic = _envStringOrEmpty(MNEMONIC_ENV);
+        if (bytes(mnemonic).length == 0) {
+            adminKey = uint256(keccak256("admin"));
+            slasherKey = uint256(keccak256("slasher"));
+            operator1Key = uint256(keccak256("operator1"));
+            operator2Key = uint256(keccak256("operator2"));
+            operator3Key = uint256(keccak256("operator3"));
+            delegator1Key = uint256(keccak256("delegator1"));
+            delegator2Key = uint256(keccak256("delegator2"));
+            delegator3Key = uint256(keccak256("delegator3"));
+            return;
+        }
 
-        delegators = [vm.addr(DELEGATOR1_KEY), vm.addr(DELEGATOR2_KEY), vm.addr(DELEGATOR3_KEY)];
-        operators = [vm.addr(OPERATOR1_KEY), vm.addr(OPERATOR2_KEY), vm.addr(OPERATOR3_KEY)];
-        delegatorKeys = [DELEGATOR1_KEY, DELEGATOR2_KEY, DELEGATOR3_KEY];
-        operatorKeys = [OPERATOR1_KEY, OPERATOR2_KEY, OPERATOR3_KEY];
+        adminKey = vm.deriveKey(mnemonic, 0);
+        slasherKey = vm.deriveKey(mnemonic, 1);
+        operator1Key = vm.deriveKey(mnemonic, 2);
+        operator2Key = vm.deriveKey(mnemonic, 3);
+        operator3Key = vm.deriveKey(mnemonic, 4);
+        delegator1Key = vm.deriveKey(mnemonic, 5);
+        delegator2Key = vm.deriveKey(mnemonic, 6);
+        delegator3Key = vm.deriveKey(mnemonic, 7);
+    }
+
+    function _labelActors() internal {
+        vm.label(vm.addr(adminKey), "admin");
+        vm.label(vm.addr(slasherKey), "slasher");
+        vm.label(vm.addr(operator1Key), "operator1");
+        vm.label(vm.addr(operator2Key), "operator2");
+        vm.label(vm.addr(operator3Key), "operator3");
+        vm.label(vm.addr(delegator1Key), "delegator1");
+        vm.label(vm.addr(delegator2Key), "delegator2");
+        vm.label(vm.addr(delegator3Key), "delegator3");
+
+        delegators = [vm.addr(delegator1Key), vm.addr(delegator2Key), vm.addr(delegator3Key)];
+        operators = [vm.addr(operator1Key), vm.addr(operator2Key), vm.addr(operator3Key)];
+        delegatorKeys = [delegator1Key, delegator2Key, delegator3Key];
+        operatorKeys = [operator1Key, operator2Key, operator3Key];
     }
 
     function _fundActors() internal {
         uint256[8] memory keys = [
-            ADMIN_KEY,
-            SLASHER_KEY,
-            OPERATOR1_KEY,
-            OPERATOR2_KEY,
-            OPERATOR3_KEY,
-            DELEGATOR1_KEY,
-            DELEGATOR2_KEY,
-            DELEGATOR3_KEY
+            adminKey,
+            slasherKey,
+            operator1Key,
+            operator2Key,
+            operator3Key,
+            delegator1Key,
+            delegator2Key,
+            delegator3Key
         ];
         for (uint256 i = 0; i < keys.length; i++) {
             vm.deal(vm.addr(keys[i]), 1_000 ether);
@@ -141,12 +170,12 @@ contract FullStackScenario is Script {
     }
 
     function _deployContracts() internal {
-        vm.startBroadcast(ADMIN_KEY);
+        vm.startBroadcast(adminKey);
 
         MultiAssetDelegation impl = new MultiAssetDelegation();
         bytes memory initData = abi.encodeCall(
             MultiAssetDelegation.initialize,
-            (vm.addr(ADMIN_KEY), 1 ether, DEFAULT_DELAY, COMMISSION_BPS)
+            (vm.addr(adminKey), 1 ether, DEFAULT_DELAY, COMMISSION_BPS)
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         _registerFacets(address(proxy));
@@ -157,7 +186,7 @@ contract FullStackScenario is Script {
 
         delegation.enableAsset(address(tokenA), 1 ether, 0.1 ether, 0, 10000);
         delegation.enableAsset(address(tokenB), 1 ether, 0.1 ether, 0, 10000);
-        delegation.addSlasher(vm.addr(SLASHER_KEY));
+        delegation.addSlasher(vm.addr(slasherKey));
 
         vm.stopBroadcast();
     }
@@ -174,7 +203,7 @@ contract FullStackScenario is Script {
     }
 
     function _seedTokens() internal {
-        vm.startBroadcast(ADMIN_KEY);
+        vm.startBroadcast(adminKey);
         for (uint256 i = 0; i < delegators.length; i++) {
             tokenA.mint(delegators[i], 1_000 ether);
             tokenB.mint(delegators[i], 1_000 ether);
@@ -191,7 +220,6 @@ contract FullStackScenario is Script {
     }
 
     function _executeTick(uint256 tick) internal {
-        address delegator = delegators[tick % delegators.length];
         uint256 delegatorKey = delegatorKeys[tick % delegators.length];
         address operator = operators[tick % operators.length];
         uint256 amount = (tick + 1) * 0.2 ether;
@@ -217,8 +245,8 @@ contract FullStackScenario is Script {
 
         if (tick % 3 == 0) {
             vm.deal(address(delegation), address(delegation).balance + 0.05 ether);
-            vm.startBroadcast(ADMIN_KEY);
-            // Legacy restaking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
+            vm.startBroadcast(adminKey);
+            // Restaking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
             vm.stopBroadcast();
         }
 
@@ -238,24 +266,91 @@ contract FullStackScenario is Script {
             vm.stopBroadcast();
         }
 
-        vm.warp(block.timestamp + STEP_SECONDS);
-        vm.startBroadcast(ADMIN_KEY);
-        delegation.advanceRound();
-        vm.stopBroadcast();
+        _advanceRound();
     }
 
     function _finalizeExits() internal {
-        vm.startBroadcast(ADMIN_KEY);
         for (uint64 i = 0; i < 12; i++) {
-            delegation.advanceRound();
+            _advanceRound();
         }
-        vm.stopBroadcast();
 
         for (uint256 i = 0; i < delegators.length; i++) {
             vm.startBroadcast(delegatorKeys[i]);
             delegation.executeDelegatorUnstake();
             delegation.executeWithdraw();
             vm.stopBroadcast();
+        }
+    }
+
+    function _advanceRound() internal {
+        uint64 duration = delegation.roundDuration();
+        uint64 lastAdvance = MultiAssetDelegation(payable(address(delegation))).lastRoundAdvance();
+
+        if (lastAdvance != 0) {
+            uint64 nextAllowed = lastAdvance + duration;
+            if (block.timestamp < nextAllowed) {
+                uint256 current = block.timestamp;
+                uint256 delta = nextAllowed - current;
+                vm.warp(nextAllowed);
+                _rpcAdvanceTime(delta);
+            }
+        }
+
+        vm.startBroadcast(adminKey);
+        delegation.advanceRound();
+        vm.stopBroadcast();
+    }
+
+    function _rpcAdvanceTime(uint256 delta) internal {
+        if (delta == 0) {
+            return;
+        }
+        if (!vm.envOr("FULLSTACK_USE_FFI", false)) {
+            return;
+        }
+        string memory rpcUrl = _rpcUrlOrEmpty();
+        if (bytes(rpcUrl).length == 0) {
+            return;
+        }
+        _ffiAdvanceTime(rpcUrl, delta);
+    }
+
+    function _ffiAdvanceTime(string memory rpcUrl, uint256 delta) internal {
+        string[] memory increase = new string[](6);
+        increase[0] = "cast";
+        increase[1] = "rpc";
+        increase[2] = "--rpc-url";
+        increase[3] = rpcUrl;
+        increase[4] = "evm_increaseTime";
+        increase[5] = vm.toString(delta);
+        vm.ffi(increase);
+
+        string[] memory mine = new string[](5);
+        mine[0] = "cast";
+        mine[1] = "rpc";
+        mine[2] = "--rpc-url";
+        mine[3] = rpcUrl;
+        mine[4] = "evm_mine";
+        vm.ffi(mine);
+    }
+
+    function _rpcUrlOrEmpty() internal view returns (string memory url) {
+        string memory envOverride = _envStringOrEmpty("FULLSTACK_RPC_URL");
+        if (bytes(envOverride).length != 0) {
+            return envOverride;
+        }
+        try vm.rpcUrl("default") returns (string memory configured) {
+            url = configured;
+        } catch {
+            url = "";
+        }
+    }
+
+    function _envStringOrEmpty(string memory key) internal view returns (string memory value) {
+        try vm.envString(key) returns (string memory raw) {
+            value = raw;
+        } catch {
+            value = "";
         }
     }
 }

@@ -93,11 +93,16 @@ contract MockServiceFeeDistributor is IServiceFeeDistributor {
         bool,
         Types.BlueprintSelectionMode,
         uint64[] calldata,
+        uint256[] calldata,
         uint16
     ) external override {}
 
-    function onBlueprintAdded(address, address, Types.Asset calldata, uint64) external override {}
-    function onBlueprintRemoved(address, address, Types.Asset calldata, uint64) external override {}
+    function onBlueprintsRebalanced(address, address, Types.Asset calldata, uint64[] calldata, uint256[] calldata)
+        external
+        override
+    {}
+    function onAllModeSlashed(address, Types.Asset calldata, uint16) external override {}
+    function onFixedModeSlashed(address, uint64, Types.Asset calldata, uint16) external override {}
 
     function getPoolScore(
         address,

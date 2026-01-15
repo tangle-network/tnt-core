@@ -26,11 +26,13 @@ contract MultiAssetDelegationExposed is RestakingFacetBase, IFacetSelectors {
     }
 
     function rewardPoolTotals(address operator) external view returns (uint256) {
-        return _rewardPools[operator].totalAssets;
+        bytes32 assetHash = keccak256(abi.encode(Types.AssetKind.Native, address(0)));
+        return _rewardPools[operator][assetHash].totalAssets;
     }
 
     function blueprintPoolTotals(address operator, uint64 blueprintId) external view returns (uint256) {
-        return _blueprintPools[operator][blueprintId].totalAssets;
+        bytes32 assetHash = keccak256(abi.encode(Types.AssetKind.Native, address(0)));
+        return _blueprintPools[operator][blueprintId][assetHash].totalAssets;
     }
 
     function operatorStake(address operator) external view returns (uint256) {
@@ -99,21 +101,21 @@ contract SlashForBlueprintFuzzTest is Test {
         router.registerFacet(address(new MultiAssetDelegationExposed()));
     }
 
-    function testFuzz_slashAccounting(uint128 rawAmount) public {
+    function testFuzz_slashAccounting(uint16 rawBps) public {
         uint256 operatorStakeBefore = exposed.operatorStake(operator);
         uint256 allAssetsBefore = exposed.rewardPoolTotals(operator);
         uint256 blueprintAssetsBefore = exposed.blueprintPoolTotals(operator, BLUEPRINT_ID);
         uint256 maxSlash = operatorStakeBefore + allAssetsBefore + blueprintAssetsBefore;
         vm.assume(maxSlash > 0);
 
-        uint256 amount = bound(uint256(rawAmount), 1, maxSlash);
+        uint16 slashBps = uint16(bound(uint256(rawBps), 1, 10_000));
 
         vm.prank(slasher);
         uint256 actualSlashed = delegation.slashForBlueprint(
             operator,
             BLUEPRINT_ID,
             99,
-            amount,
+            slashBps,
             keccak256("evidence")
         );
 

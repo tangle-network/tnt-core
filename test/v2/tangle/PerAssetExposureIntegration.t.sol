@@ -173,13 +173,12 @@ contract PerAssetExposureIntegrationTest is BaseTest {
 
         // With equal stake in each asset, weighted commitment = (10000 + 1000) / 2 = 5500.
         // Service exposure is 10000 (default), so effective exposure is 5500.
-        uint256 slashAmount = 10 ether;
+        uint16 slashBps = 2000;
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashAmount, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashBps, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory p = tangle.getSlashProposal(slashId);
-        assertEq(p.amount, slashAmount);
-        assertEq(p.effectiveAmount, (slashAmount * 5500) / 10000);
+        assertEq(p.slashBps, slashBps);
+        assertEq(p.effectiveSlashBps, (uint256(slashBps) * 5500) / 10000);
     }
 }
-

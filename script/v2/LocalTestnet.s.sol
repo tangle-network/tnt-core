@@ -467,6 +467,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         restaking.enableAsset(address(wstETH), 0, 0, 0, 15_000); // 1.5x multiplier for wstETH
         restaking.enableAsset(address(eigen), 0, 0, 0, 20_000); // 2x multiplier for EIGEN
         restaking.enableAsset(address(tntToken), 0, 0, 0, 10_000); // TNT native token
+        restaking.setOperatorBondToken(address(tntToken));
         console2.log("All tokens enabled as restaking assets");
 
         // Mint tokens to test accounts (use large amounts for testing)
@@ -508,29 +509,32 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     function _registerOperatorsRestaking() internal {
         console2.log("\n=== Registering Operators in Restaking ===");
         IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+        uint256 operatorBond = 100 ether; // 100 TNT bond
 
-        // Operator 1 registers with 10 ETH stake
+        // Operator 1 registers with TNT stake (bond token is TNT)
         if (useBroadcastKeys) {
             vm.startBroadcast(OPERATOR1_KEY);
         } else {
             vm.startPrank(operator1);
         }
-        restaking.registerOperator{ value: 10 ether }();
-        console2.log("Operator1 registered with 10 ETH stake");
+        tntToken.approve(restakingProxy, operatorBond);
+        restaking.registerOperatorWithAsset(address(tntToken), operatorBond);
+        console2.log("Operator1 registered with 100 TNT stake");
         if (useBroadcastKeys) {
             vm.stopBroadcast();
         } else {
             vm.stopPrank();
         }
 
-        // Operator 2 registers with 10 ETH stake
+        // Operator 2 registers with TNT stake
         if (useBroadcastKeys) {
             vm.startBroadcast(OPERATOR2_KEY);
         } else {
             vm.startPrank(operator2);
         }
-        restaking.registerOperator{ value: 10 ether }();
-        console2.log("Operator2 registered with 10 ETH stake");
+        tntToken.approve(restakingProxy, operatorBond);
+        restaking.registerOperatorWithAsset(address(tntToken), operatorBond);
+        console2.log("Operator2 registered with 100 TNT stake");
         if (useBroadcastKeys) {
             vm.stopBroadcast();
         } else {

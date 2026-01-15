@@ -35,32 +35,35 @@ contract SlashingEdgeCasesTest is BaseTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SLASH AMOUNT EXCEEDS TOTAL STAKE
+    // SLASH BPS EXCEEDS MAX
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function test_SlashAmountExceedsTotalStake_CapsAtStake() public {
+    function test_SlashBpsExceedsMax_CapsAtMax() public {
         uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
         assertEq(stakeBefore, 10 ether);
 
-        // Propose slash for more than total stake
+        vm.prank(admin);
+        tangle.setSlashConfig(7 days, false, 5000);
+
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 100 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 8000, keccak256("evidence"));
 
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
 
-        // Should have slashed everything available, not more
         uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
-        assertEq(stakeAfter, 0, "Operator stake should be 0 after slashing more than available");
+        assertEq(stakeAfter, 5 ether, "Operator stake should be cut by maxSlashBps");
     }
 
-    function test_SlashAmountExceedsTotalStake_ProposalStoresOriginalAmount() public {
-        // Propose slash for more than total stake
+    function test_SlashBpsExceedsMax_ProposalStoresCappedBps() public {
+        vm.prank(admin);
+        tangle.setSlashConfig(7 days, false, 5000);
+
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 100 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 8000, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-        assertEq(proposal.amount, 100 ether, "Proposal should store original amount");
+        assertEq(proposal.slashBps, 5000, "Proposal should store capped slash bps");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -70,9 +73,9 @@ contract SlashingEdgeCasesTest is BaseTest {
     function test_MultipleSlashProposals_SameBlock() public {
         // Propose multiple slashes in the same block
         vm.startPrank(user1);
-        uint64 slashId1 = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence1"));
-        uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, 2 ether, keccak256("evidence2"));
-        uint64 slashId3 = tangle.proposeSlash(serviceId, operator1, 3 ether, keccak256("evidence3"));
+        uint64 slashId1 = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence1"));
+        uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, 2000, keccak256("evidence2"));
+        uint64 slashId3 = tangle.proposeSlash(serviceId, operator1, 3000, keccak256("evidence3"));
         vm.stopPrank();
 
         // All should have same proposedAt timestamp
@@ -89,21 +92,24 @@ contract SlashingEdgeCasesTest is BaseTest {
         tangle.executeSlash(slashId3);
 
         uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
-        assertEq(stakeAfter, stakeBefore - 6 ether, "Total slash should be 6 ETH");
+        uint256 afterFirst = stakeBefore - ((stakeBefore * 1000) / 10_000);
+        uint256 afterSecond = afterFirst - ((afterFirst * 2000) / 10_000);
+        uint256 expectedAfter = afterSecond - ((afterSecond * 3000) / 10_000);
+        assertEq(stakeAfter, expectedAfter, "Total slash should match sequential bps");
     }
 
     function test_MultipleSlashExecutions_SameBlock() public {
         // Create multiple proposals at different times
         vm.prank(user1);
-        uint64 slashId1 = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("e1"));
+        uint64 slashId1 = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("e1"));
 
         vm.warp(block.timestamp + 1 days);
         vm.prank(user1);
-        uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("e2"));
+        uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("e2"));
 
         vm.warp(block.timestamp + 1 days);
         vm.prank(user1);
-        uint64 slashId3 = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("e3"));
+        uint64 slashId3 = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("e3"));
 
         // Wait until all are executable
         vm.warp(block.timestamp + 7 days + 1);
@@ -116,7 +122,10 @@ contract SlashingEdgeCasesTest is BaseTest {
         tangle.executeSlash(slashId3);
 
         uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
-        assertEq(stakeAfter, stakeBefore - 3 ether);
+        uint256 afterFirst = stakeBefore - ((stakeBefore * 1000) / 10_000);
+        uint256 afterSecond = afterFirst - ((afterFirst * 1000) / 10_000);
+        uint256 expectedAfter = afterSecond - ((afterSecond * 1000) / 10_000);
+        assertEq(stakeAfter, expectedAfter);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -134,7 +143,7 @@ contract SlashingEdgeCasesTest is BaseTest {
 
         // Now slash
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 5 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 5000, keccak256("evidence"));
 
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
@@ -151,7 +160,7 @@ contract SlashingEdgeCasesTest is BaseTest {
 
         // Slash before unstake executes
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 5 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 5000, keccak256("evidence"));
 
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
@@ -166,7 +175,7 @@ contract SlashingEdgeCasesTest is BaseTest {
 
     function test_DisputeAtExactWindowBoundary() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Warp to exactly the boundary - dispute should still work
         vm.warp(block.timestamp + 7 days - 1);
@@ -180,7 +189,7 @@ contract SlashingEdgeCasesTest is BaseTest {
 
     function test_DisputeOneSecondAfterWindow() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Warp to one second after window ends
         vm.warp(block.timestamp + 7 days + 1);
@@ -192,7 +201,7 @@ contract SlashingEdgeCasesTest is BaseTest {
 
     function test_ExecuteAtExactWindowBoundary() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Warp to exactly the window end
         vm.warp(block.timestamp + 7 days);
@@ -206,7 +215,7 @@ contract SlashingEdgeCasesTest is BaseTest {
 
     function test_ExecuteOneSecondBeforeWindow() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Warp to one second before window ends
         vm.warp(block.timestamp + 7 days - 1);
@@ -248,7 +257,7 @@ contract SlashingEdgeCasesTest is BaseTest {
 
         // Propose slash while still in service - should work
         vm.prank(user1);
-        tangle.proposeSlash(dynamicServiceId, operator2, 0.5 ether, keccak256("evidence"));
+        tangle.proposeSlash(dynamicServiceId, operator2, 1000, keccak256("evidence"));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -263,7 +272,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         uint64[] memory slashIds = new uint64[](5);
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(user1);
-            slashIds[i] = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256(abi.encode("evidence", i)));
+            slashIds[i] = tangle.proposeSlash(serviceId, operator1, 1000, keccak256(abi.encode("evidence", i)));
         }
 
         // Wait for dispute window to pass
@@ -275,18 +284,22 @@ contract SlashingEdgeCasesTest is BaseTest {
         }
 
         uint256 finalStake = restaking.getOperatorSelfStake(operator1);
-        assertEq(finalStake, 5 ether, "Should have 5 ETH left after 5x 1 ETH slashes");
+        uint256 expected = initialStake;
+        for (uint256 i = 0; i < 5; i++) {
+            expected -= (expected * 1000) / 10_000;
+        }
+        assertEq(finalStake, expected, "Should match sequential bps slashes");
     }
 
     function test_CumulativeSlashing_UntilDepleted() public {
         uint256 initialStake = restaking.getOperatorSelfStake(operator1);
         assertEq(initialStake, 10 ether);
 
-        // Propose 5 slashes of 2 ETH each at once
+        // Propose repeated full slashes at once
         uint64[] memory slashIds = new uint64[](5);
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(user1);
-            slashIds[i] = tangle.proposeSlash(serviceId, operator1, 2 ether, keccak256(abi.encode("evidence", i)));
+            slashIds[i] = tangle.proposeSlash(serviceId, operator1, 10_000, keccak256(abi.encode("evidence", i)));
         }
 
         // Wait for dispute window to pass
@@ -311,7 +324,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         tangle.setSlashConfig(1 hours, false, 10000);
 
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(proposal.executeAfter, block.timestamp + 1 hours);
@@ -329,7 +342,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         tangle.setSlashConfig(30 days, false, 10000);
 
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(proposal.executeAfter, block.timestamp + 30 days);
@@ -366,23 +379,23 @@ contract SlashingEdgeCasesTest is BaseTest {
 
         uint64 exposureServiceId = tangle.serviceCount() - 1;
 
-        // Propose slash for 4 ETH
+        // Propose slash for 40% (effective 10% after 25% exposure)
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(exposureServiceId, operator1, 4 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(exposureServiceId, operator1, 4000, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-        assertEq(proposal.amount, 4 ether);
-        assertEq(proposal.effectiveAmount, 1 ether, "25% of 4 ETH = 1 ETH");
+        assertEq(proposal.slashBps, 4000);
+        assertEq(proposal.effectiveSlashBps, 1000, "25% of 40% = 10%");
     }
 
     function test_SlashWithFullExposure_FullAmount() public {
         // Default service has 100% exposure
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 4 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 4000, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-        assertEq(proposal.amount, 4 ether);
-        assertEq(proposal.effectiveAmount, 4 ether, "100% exposure = full amount");
+        assertEq(proposal.slashBps, 4000);
+        assertEq(proposal.effectiveSlashBps, 4000, "100% exposure = full bps");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -393,20 +406,20 @@ contract SlashingEdgeCasesTest is BaseTest {
         // Create many pending proposals
         for (uint256 i = 0; i < 50; i++) {
             vm.prank(user1);
-            tangle.proposeSlash(serviceId, operator1, 0.1 ether, keccak256(abi.encode("evidence", i)));
+            tangle.proposeSlash(serviceId, operator1, 100, keccak256(abi.encode("evidence", i)));
         }
 
         // All should be valid proposals
         for (uint64 i = 0; i < 50; i++) {
             SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(i);
-            assertEq(proposal.amount, 0.1 ether);
+            assertEq(proposal.slashBps, 100);
             assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Pending));
         }
     }
 
     function test_SlashAndDisputeRace() public {
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Warp to just before window ends
         vm.warp(block.timestamp + 7 days - 1);
@@ -432,7 +445,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         tangle.proposeSlash(serviceId, operator1, 0, keccak256("evidence"));
     }
 
-    function test_SlashOneWei() public {
+    function test_SlashOneBps() public {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1, keccak256("evidence"));
 
@@ -442,6 +455,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         tangle.executeSlash(slashId);
 
         uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
-        assertEq(stakeAfter, stakeBefore - 1, "Should slash exactly 1 wei");
+        uint256 expectedSlash = (stakeBefore * 1) / 10_000;
+        assertEq(stakeAfter, stakeBefore - expectedSlash, "Should slash 1 bps of stake");
     }
 }

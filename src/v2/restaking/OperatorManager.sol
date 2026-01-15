@@ -37,6 +37,9 @@ abstract contract OperatorManager is DelegationStorage {
     /// @notice Register as an operator with native stake
     /// @dev Caller must send ETH >= minOperatorStake
     function _registerOperatorNative() internal {
+        if (_operatorBondToken != address(0)) {
+            revert DelegationErrors.OperatorBondTokenOnly(_operatorBondToken);
+        }
         if (_operators.contains(msg.sender)) {
             revert DelegationErrors.OperatorAlreadyRegistered(msg.sender);
         }
@@ -67,6 +70,9 @@ abstract contract OperatorManager is DelegationStorage {
         if (_operators.contains(msg.sender)) {
             revert DelegationErrors.OperatorAlreadyRegistered(msg.sender);
         }
+        if (_operatorBondToken == address(0) || token != _operatorBondToken) {
+            revert DelegationErrors.OperatorBondTokenOnly(_operatorBondToken);
+        }
         if (token == address(0)) revert DelegationErrors.AssetNotEnabled(address(0));
 
         bytes32 assetHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
@@ -96,6 +102,9 @@ abstract contract OperatorManager is DelegationStorage {
 
     /// @notice Increase operator stake with native token
     function _increaseStakeNative() internal {
+        if (_operatorBondToken != address(0)) {
+            revert DelegationErrors.OperatorBondTokenOnly(_operatorBondToken);
+        }
         Types.OperatorMetadata storage meta = _operatorMetadata[msg.sender];
         if (meta.status != Types.OperatorStatus.Active) {
             revert DelegationErrors.OperatorNotActive(msg.sender);
@@ -104,6 +113,22 @@ abstract contract OperatorManager is DelegationStorage {
 
         meta.stake += msg.value;
         emit OperatorStakeIncreased(msg.sender, msg.value);
+    }
+
+    /// @notice Increase operator stake with ERC20 bond token
+    function _increaseStakeWithAsset(address token, uint256 amount) internal {
+        if (_operatorBondToken == address(0) || token != _operatorBondToken) {
+            revert DelegationErrors.OperatorBondTokenOnly(_operatorBondToken);
+        }
+        Types.OperatorMetadata storage meta = _operatorMetadata[msg.sender];
+        if (meta.status != Types.OperatorStatus.Active) {
+            revert DelegationErrors.OperatorNotActive(msg.sender);
+        }
+        if (amount == 0) revert DelegationErrors.ZeroAmount();
+
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        meta.stake += amount;
+        emit OperatorStakeIncreased(msg.sender, amount);
     }
 
     /// @notice Schedule operator stake reduction
@@ -116,8 +141,10 @@ abstract contract OperatorManager is DelegationStorage {
         if (amount == 0) revert DelegationErrors.ZeroAmount();
 
         // Check minimum stake requirement after unstake
-        bytes32 nativeHash = _assetHash(Types.Asset(Types.AssetKind.Native, address(0)));
-        uint256 minStake = _assetConfigs[nativeHash].minOperatorStake;
+        bytes32 bondHash = _operatorBondToken == address(0)
+            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
+            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        uint256 minStake = _assetConfigs[bondHash].minOperatorStake;
 
         // Include pending unstakes
         uint256 pendingUnstake = _operatorBondLessRequests[msg.sender].amount;
@@ -149,9 +176,13 @@ abstract contract OperatorManager is DelegationStorage {
 
         delete _operatorBondLessRequests[msg.sender];
 
-        // Transfer native tokens back
-        (bool success,) = msg.sender.call{ value: unstaked }("");
-        require(success, "Transfer failed");
+        if (_operatorBondToken == address(0)) {
+            // Transfer native tokens back
+            (bool success,) = msg.sender.call{ value: unstaked }("");
+            require(success, "Transfer failed");
+        } else {
+            IERC20(_operatorBondToken).safeTransfer(msg.sender, unstaked);
+        }
 
         emit OperatorUnstakeExecuted(msg.sender, unstaked);
     }
@@ -188,9 +219,13 @@ abstract contract OperatorManager is DelegationStorage {
         meta.status = Types.OperatorStatus.Inactive;
         _operators.remove(msg.sender);
 
-        // Return stake
-        (bool success,) = msg.sender.call{ value: stake }("");
-        require(success, "Transfer failed");
+        if (_operatorBondToken == address(0)) {
+            // Return stake
+            (bool success,) = msg.sender.call{ value: stake }("");
+            require(success, "Transfer failed");
+        } else {
+            IERC20(_operatorBondToken).safeTransfer(msg.sender, stake);
+        }
 
         emit OperatorLeft(msg.sender);
     }

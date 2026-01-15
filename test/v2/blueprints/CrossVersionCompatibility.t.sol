@@ -177,7 +177,7 @@ contract CrossVersionCompatibilityTest is BlueprintTestHarness {
         // V3 service requires custom slasher
         vm.deal(customSlasher, 1 ether);
         vm.prank(customSlasher);
-        uint64 slashIdV3 = tangle.proposeSlash(serviceV3, operator2, 0.3 ether, keccak256("evidence"));
+        uint64 slashIdV3 = tangle.proposeSlash(serviceV3, operator2, 3000, keccak256("evidence"));
 
         // Execute both
         vm.warp(block.timestamp + 7 days + 1);

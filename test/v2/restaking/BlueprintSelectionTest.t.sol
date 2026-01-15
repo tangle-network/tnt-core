@@ -62,9 +62,9 @@ contract BlueprintSelectionTest is DelegationTestHarness {
     }
 
     /// @notice Slash for a specific blueprint
-    function _slashForBlueprint(address operator, uint64 blueprintId, uint256 amount) internal {
+    function _slashForBlueprint(address operator, uint64 blueprintId, uint16 slashBps) internal {
         vm.prank(slasher);
-        delegation.slashForBlueprint(operator, blueprintId, 0, amount, keccak256("evidence"));
+        delegation.slashForBlueprint(operator, blueprintId, 0, slashBps, keccak256("evidence"));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -120,6 +120,22 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         );
     }
 
+    function test_FixedModeRejectsDuplicateBlueprints() public {
+        uint64[] memory blueprints = new uint64[](2);
+        blueprints[0] = BLUEPRINT_1;
+        blueprints[1] = BLUEPRINT_1;
+
+        vm.prank(delegator1);
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.DuplicateBlueprint.selector, BLUEPRINT_1));
+        delegation.depositAndDelegateWithOptions{value: 5 ether}(
+            operator1,
+            address(0), // native
+            5 ether,
+            Types.BlueprintSelectionMode.Fixed,
+            blueprints
+        );
+    }
+
     /// @notice Test mixed mode delegations to same operator
     function test_MixedModeDelegations() public {
         // Delegator1 uses All mode
@@ -146,7 +162,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         uint256 delegationBefore = delegation.getDelegation(delegator1, operator1);
 
         // Slash for blueprint 1
-        _slashForBlueprint(operator1, BLUEPRINT_1, 2 ether);
+        _slashForBlueprint(operator1, BLUEPRINT_1, 2000);
 
         // All mode delegator should be slashed
         uint256 delegationAfter = delegation.getDelegation(delegator1, operator1);
@@ -163,7 +179,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         uint256 delegationBefore = delegation.getDelegation(delegator1, operator1);
 
         // Slash for blueprint 2 (not selected by delegator1)
-        _slashForBlueprint(operator1, BLUEPRINT_2, 2 ether);
+        _slashForBlueprint(operator1, BLUEPRINT_2, 2000);
 
         // Fixed mode delegator should NOT be slashed (didn't select blueprint 2)
         uint256 delegationAfter = delegation.getDelegation(delegator1, operator1);
@@ -180,7 +196,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         uint256 delegationBefore = delegation.getDelegation(delegator1, operator1);
 
         // Slash for blueprint 1 (selected by delegator1)
-        _slashForBlueprint(operator1, BLUEPRINT_1, 2 ether);
+        _slashForBlueprint(operator1, BLUEPRINT_1, 2000);
 
         // Fixed mode delegator SHOULD be slashed
         uint256 delegationAfter = delegation.getDelegation(delegator1, operator1);
@@ -207,7 +223,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         uint256 del3Before = delegation.getDelegation(delegator3, operator1);
 
         // Slash for blueprint 1
-        _slashForBlueprint(operator1, BLUEPRINT_1, 3 ether);
+        _slashForBlueprint(operator1, BLUEPRINT_1, 3000);
 
         uint256 del1After = delegation.getDelegation(delegator1, operator1);
         uint256 del2After = delegation.getDelegation(delegator2, operator1);
@@ -242,7 +258,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         uint256 delegationBefore = delegation.getDelegation(delegator1, operator1);
 
         // Slash for blueprint 2 - should now affect delegator1
-        _slashForBlueprint(operator1, BLUEPRINT_2, 1 ether);
+        _slashForBlueprint(operator1, BLUEPRINT_2, 1000);
 
         uint256 delegationAfter = delegation.getDelegation(delegator1, operator1);
         assertTrue(delegationAfter < delegationBefore, "Should be slashed after adding blueprint");
@@ -263,7 +279,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         uint256 delegationBefore = delegation.getDelegation(delegator1, operator1);
 
         // Slash for blueprint 2 - should NOT affect delegator1 anymore
-        _slashForBlueprint(operator1, BLUEPRINT_2, 1 ether);
+        _slashForBlueprint(operator1, BLUEPRINT_2, 1000);
 
         uint256 delegationAfter = delegation.getDelegation(delegator1, operator1);
         assertEq(delegationAfter, delegationBefore, "Should not be slashed after removing blueprint");
@@ -332,7 +348,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         // Slash for a blueprint with no Fixed mode delegators
         // Should only affect All mode delegators
         uint256 delegationBefore = delegation.getDelegation(delegator1, operator1);
-        _slashForBlueprint(operator1, BLUEPRINT_1, 2 ether);
+        _slashForBlueprint(operator1, BLUEPRINT_1, 2000);
         uint256 delegationAfter = delegation.getDelegation(delegator1, operator1);
 
         assertTrue(delegationAfter < delegationBefore, "All mode should still be slashed");
@@ -359,13 +375,13 @@ contract BlueprintSelectionTest is DelegationTestHarness {
 
         // Slash operator1 for blueprint 1 - should affect first delegation
         uint256 op1DelegationBefore = delegation.getDelegation(delegator1, operator1);
-        _slashForBlueprint(operator1, BLUEPRINT_1, 1 ether);
+        _slashForBlueprint(operator1, BLUEPRINT_1, 1000);
         uint256 op1DelegationAfter = delegation.getDelegation(delegator1, operator1);
         assertTrue(op1DelegationAfter < op1DelegationBefore, "Op1 delegation should be slashed");
 
         // Slash operator2 for blueprint 1 - should NOT affect second delegation (wrong blueprint)
         uint256 op2DelegationBefore = delegation.getDelegation(delegator1, operator2);
-        _slashForBlueprint(operator2, BLUEPRINT_1, 1 ether);
+        _slashForBlueprint(operator2, BLUEPRINT_1, 1000);
         uint256 op2DelegationAfter = delegation.getDelegation(delegator1, operator2);
         assertEq(op2DelegationAfter, op2DelegationBefore, "Op2 delegation should not be slashed for bp1");
     }
@@ -394,7 +410,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
 
         // Verify still exposed to blueprint 1 by testing slash impact
         uint256 delegationBefore = delegation.getDelegation(delegator1, operator1);
-        _slashForBlueprint(operator1, BLUEPRINT_1, 1 ether);
+        _slashForBlueprint(operator1, BLUEPRINT_1, 1000);
         uint256 delegationAfter = delegation.getDelegation(delegator1, operator1);
         assertTrue(delegationAfter < delegationBefore, "Remaining delegation should still be exposed to bp1");
     }

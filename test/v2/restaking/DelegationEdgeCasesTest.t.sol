@@ -135,9 +135,9 @@ contract DelegationEdgeCasesTest is Test {
         delegation.depositAndDelegate{ value: 10 ether }(operator1);
 
         // Slash 50% of operator's total stake (operator: 10 ETH, delegator: 10 ETH = 20 ETH total)
-        // Slashing 10 ETH = 5 ETH from operator, 5 ETH from delegator
+        // Slashing 50% = 5 ETH from operator, 5 ETH from delegator
         vm.prank(slasher);
-        delegation.slash(operator1, 0, 10 ether, keccak256("evidence"));
+        delegation.slash(operator1, 0, 5000, keccak256("evidence"));
 
         // Delegator's share should be worth less now
         uint256 delegationAfterSlash = delegation.getDelegation(delegator1, operator1);
@@ -163,7 +163,7 @@ contract DelegationEdgeCasesTest is Test {
 
         // Slash 50%
         vm.prank(slasher);
-        delegation.slash(operator1, 0, 10 ether, keccak256("evidence"));
+        delegation.slash(operator1, 0, 5000, keccak256("evidence"));
 
         // Try to unstake original amount (should fail)
         vm.prank(delegator1);
@@ -181,7 +181,7 @@ contract DelegationEdgeCasesTest is Test {
 
         // Slash during delay period
         vm.prank(slasher);
-        delegation.slash(operator1, 0, 10 ether, keccak256("evidence"));
+        delegation.slash(operator1, 0, 5000, keccak256("evidence"));
 
         // Advance and execute
         _advanceRounds(DELAY);
@@ -204,7 +204,7 @@ contract DelegationEdgeCasesTest is Test {
 
         // Slash operator below minimum to make inactive
         vm.prank(slasher);
-        delegation.slash(operator2, 0, 10 ether, keccak256("evidence"));
+        delegation.slash(operator2, 0, 10_000, keccak256("evidence"));
 
         // Try to delegate to now-inactive operator
         vm.prank(delegator1);
@@ -223,7 +223,7 @@ contract DelegationEdgeCasesTest is Test {
 
         // Slash operator to make inactive
         vm.prank(slasher);
-        delegation.slash(operator1, 0, 15 ether, keccak256("evidence"));
+        delegation.slash(operator1, 0, 7500, keccak256("evidence"));
 
         // Should still be able to unstake
         uint256 remaining = delegation.getDelegation(delegator1, operator1);
@@ -398,7 +398,7 @@ contract DelegationEdgeCasesTest is Test {
 
         // Slash during pending
         vm.prank(slasher);
-        delegation.slash(operator1, 0, 20 ether, keccak256("evidence"));
+        delegation.slash(operator1, 0, 5000, keccak256("evidence"));
 
         _advanceRounds(DELAY);
 
@@ -487,7 +487,7 @@ contract DelegationEdgeCasesTest is Test {
     function test_NonSlasherCannotSlash() public {
         vm.prank(delegator1);
         vm.expectRevert();
-        delegation.slash(operator1, 0, 1 ether, keccak256("evidence"));
+        delegation.slash(operator1, 0, 1000, keccak256("evidence"));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

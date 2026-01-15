@@ -9,7 +9,7 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 contract TangleSlashingFacet is Slashing, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
         selectorList = new bytes4[](8);
-        selectorList[0] = bytes4(keccak256("proposeSlash(uint64,address,uint256,bytes32)"));
+        selectorList[0] = bytes4(keccak256("proposeSlash(uint64,address,uint16,bytes32)"));
         selectorList[1] = this.disputeSlash.selector;
         selectorList[2] = this.executeSlash.selector;
         selectorList[3] = this.executeSlashBatch.selector;

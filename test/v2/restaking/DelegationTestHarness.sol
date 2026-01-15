@@ -364,14 +364,28 @@ abstract contract DelegationTestHarness is Test {
 
     /// @notice Slash operator
     function _slash(address operator, uint256 amount) internal {
+        address bondToken = delegation.operatorBondToken();
+        Types.Asset memory bondAsset = bondToken == address(0)
+            ? Types.Asset(Types.AssetKind.Native, address(0))
+            : Types.Asset(Types.AssetKind.ERC20, bondToken);
+        uint256 stake = delegation.getOperatorStakeForAsset(operator, bondAsset);
+        uint16 slashBps = stake == 0 ? 0 : uint16((amount * 10_000) / stake);
+        if (slashBps > 10_000) slashBps = 10_000;
         vm.prank(slasher);
-        delegation.slash(operator, 0, amount, keccak256("evidence"));
+        delegation.slash(operator, 0, slashBps, keccak256("evidence"));
     }
 
     /// @notice Slash operator with specific evidence
     function _slashWithEvidence(address operator, uint256 amount, bytes32 evidence) internal {
+        address bondToken = delegation.operatorBondToken();
+        Types.Asset memory bondAsset = bondToken == address(0)
+            ? Types.Asset(Types.AssetKind.Native, address(0))
+            : Types.Asset(Types.AssetKind.ERC20, bondToken);
+        uint256 stake = delegation.getOperatorStakeForAsset(operator, bondAsset);
+        uint16 slashBps = stake == 0 ? 0 : uint16((amount * 10_000) / stake);
+        if (slashBps > 10_000) slashBps = 10_000;
         vm.prank(slasher);
-        delegation.slash(operator, 0, amount, evidence);
+        delegation.slash(operator, 0, slashBps, evidence);
     }
 
     /// @notice Pause contract

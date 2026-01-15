@@ -244,6 +244,7 @@ contract FullDeploy is DeployV2 {
         _configureRewardVaults(rewardVaults, cfg.incentives.vaults);
         _configureInflationPool(inflationPool, cfg.incentives, metrics, rewardVaults, tangle, serviceFeeDistributor);
         _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
+        _configureOperatorBondToken(restaking, tntToken);
         _applyGuards(restaking, tangle, cfg.guards);
         if (migration.deploy) {
             migration = _deployMigration(migration, tntToken, deployer, timelock, treasury);
@@ -883,6 +884,18 @@ contract FullDeploy is DeployV2 {
         if (guards.maxBlueprintsPerOperator != 0) {
             tangleContract.setMaxBlueprintsPerOperator(guards.maxBlueprintsPerOperator);
         }
+    }
+
+    function _configureOperatorBondToken(address restakingAddr, address tntToken) internal {
+        if (restakingAddr == address(0) || tntToken == address(0)) return;
+        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingAddr));
+        Types.AssetConfig memory cfg = restaking.getAssetConfig(tntToken);
+        if (!cfg.enabled) {
+            console2.log("Skipped operator bond token: TNT asset not enabled");
+            return;
+        }
+        restaking.setOperatorBondToken(tntToken);
+        console2.log("Configured operator bond token:", tntToken);
     }
 
     function _wireServiceFeeDistributor(

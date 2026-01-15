@@ -6,6 +6,8 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { RestakingFacetBase } from "../../restaking/RestakingFacetBase.sol";
+import { Types } from "../../libraries/Types.sol";
+import { DelegationErrors } from "../../restaking/DelegationErrors.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 
 /// @title RestakingAdminFacet
@@ -15,16 +17,17 @@ contract RestakingAdminFacet is RestakingFacetBase, IFacetSelectors {
     using SafeERC20 for IERC20;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](9);
+        selectorList = new bytes4[](10);
         selectorList[0] = this.addSlasher.selector;
         selectorList[1] = this.removeSlasher.selector;
         selectorList[2] = this.setOperatorCommission.selector;
         selectorList[3] = this.setDelays.selector;
         selectorList[4] = this.setRewardsManager.selector;
         selectorList[5] = this.setServiceFeeDistributor.selector;
-        selectorList[6] = this.pause.selector;
-        selectorList[7] = this.unpause.selector;
-        selectorList[8] = this.rescueTokens.selector;
+        selectorList[6] = this.setOperatorBondToken.selector;
+        selectorList[7] = this.pause.selector;
+        selectorList[8] = this.unpause.selector;
+        selectorList[9] = this.rescueTokens.selector;
     }
 
     /// @notice Add a slasher
@@ -67,6 +70,20 @@ contract RestakingAdminFacet is RestakingFacetBase, IFacetSelectors {
     /// @param distributor Address of IServiceFeeDistributor, or address(0) to disable
     function setServiceFeeDistributor(address distributor) external onlyRole(ADMIN_ROLE) {
         _serviceFeeDistributor = distributor;
+    }
+
+    /// @notice Set the operator bond token (TNT); set to address(0) for native
+    function setOperatorBondToken(address token) external onlyRole(ADMIN_ROLE) {
+        if (_operators.length() > 0) {
+            revert DelegationErrors.OperatorBondTokenLocked();
+        }
+        if (token != address(0)) {
+            bytes32 assetHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
+            if (!_assetConfigs[assetHash].enabled) {
+                revert DelegationErrors.AssetNotEnabled(token);
+            }
+        }
+        _operatorBondToken = token;
     }
 
     /// @notice Pause the contract

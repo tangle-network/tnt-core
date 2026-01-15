@@ -364,7 +364,7 @@ contract MultiAssetDelegationTest is Test {
         delegation.addSlasher(admin);
 
         vm.prank(admin);
-        uint256 slashed = delegation.slash(operator1, 0, 1 ether, bytes32(0));
+        uint256 slashed = delegation.slash(operator1, 0, 1000, bytes32(0));
 
         assertEq(slashed, 1 ether);
         assertEq(delegation.getOperatorSelfStake(operator1), 9 ether);
@@ -376,7 +376,7 @@ contract MultiAssetDelegationTest is Test {
 
         vm.prank(delegator1);
         vm.expectRevert();
-        delegation.slash(operator1, 0, 1 ether, bytes32(0));
+        delegation.slash(operator1, 0, 1000, bytes32(0));
     }
 
     function test_SlashForService_WithCommitments() public {
@@ -399,7 +399,7 @@ contract MultiAssetDelegationTest is Test {
             1, // blueprintId
             1, // serviceId
             commitments,
-            1 ether,
+            2000,
             bytes32("evidence")
         );
 
@@ -423,7 +423,7 @@ contract MultiAssetDelegationTest is Test {
             1, // blueprintId
             1, // serviceId
             commitments,
-            1 ether,
+            1000,
             bytes32("evidence")
         );
 
@@ -443,7 +443,7 @@ contract MultiAssetDelegationTest is Test {
 
         vm.prank(delegator1);
         vm.expectRevert();
-        delegation.slashForService(operator1, 1, 1, commitments, 1 ether, bytes32(0));
+        delegation.slashForService(operator1, 1, 1, commitments, 1000, bytes32(0));
     }
 
     function test_SlashForService_SlashesPoolDelegations() public {
@@ -475,14 +475,14 @@ contract MultiAssetDelegationTest is Test {
         });
 
         // Total slashable: 10 operator + 10 delegator = 20 ether
-        // Slash 2 ether (10% of total)
+        // Slash 10% of total
         vm.prank(admin);
         uint256 slashed = delegation.slashForService(
             operator1,
             1,
             1,
             commitments,
-            2 ether,
+            1000,
             bytes32("evidence")
         );
 
@@ -542,16 +542,18 @@ contract MultiAssetDelegationTest is Test {
             1,
             1,
             commitments,
-            1 ether,
+            500,
             bytes32("evidence")
         );
 
         // Should slash proportionally from committed assets
-        assertTrue(slashed > 0);
-        assertTrue(slashed <= 1 ether);
+        uint256 nativeSlashed = (15 ether * 500) / 10_000;
+        uint256 tokenSlashed = (5 ether * 500 * 5000) / (10_000 * 10_000);
+        uint256 expectedSlashed = nativeSlashed + tokenSlashed;
+        assertApproxEqAbs(slashed, expectedSlashed, 1);
     }
 
-    function test_SlashForService_SlashExceedingStake() public {
+    function test_SlashForService_FullSlash() public {
         vm.prank(operator1);
         delegation.registerOperator{ value: 5 ether }();
 
@@ -571,7 +573,7 @@ contract MultiAssetDelegationTest is Test {
             1,
             1,
             commitments,
-            10 ether, // More than operator's 5 ether stake
+            10_000,
             bytes32("evidence")
         );
 

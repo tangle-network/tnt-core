@@ -126,13 +126,11 @@ abstract contract DelegationStorage {
     mapping(uint64 => mapping(address => Types.OperatorSnapshot)) internal _atStake;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // LAZY SLASHING
+    // SLASH FACTOR (RESERVED)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Cumulative slash factor per operator (PRECISION = no slash, 0 = 100% slashed)
-    /// @dev Used for O(1) slashing of pending unstakes. Factor decreases with each slash.
-    /// Example: After 10% slash, factor = 0.9e18. After another 5%, factor = 0.855e18.
-    mapping(address => uint256) internal _operatorSlashFactor;
+    /// @notice Reserved slot for prior slash-factor tracking (unused with share-based pools).
+    mapping(address => mapping(bytes32 => uint256)) internal _operatorSlashFactor;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DELEGATOR DEPOSITS
@@ -170,18 +168,18 @@ abstract contract DelegationStorage {
     // REWARDS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Per-operator reward pools: operator => pool
+    /// @notice Per-operator reward pools: operator => assetHash => pool
     /// @dev This is the "All mode" pool - delegators with All mode get rewards/slashes from ALL blueprints
-    mapping(address => Types.OperatorRewardPool) internal _rewardPools;
+    mapping(address => mapping(bytes32 => Types.OperatorRewardPool)) internal _rewardPools;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT EXPOSURE TRACKING
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Per-blueprint reward pools for Fixed mode delegators
-    /// @dev operator => blueprintId => pool
+    /// @dev operator => blueprintId => assetHash => pool
     /// Fixed mode delegators only get rewards/slashes from their selected blueprints
-    mapping(address => mapping(uint64 => Types.OperatorRewardPool)) internal _blueprintPools;
+    mapping(address => mapping(uint64 => mapping(bytes32 => Types.OperatorRewardPool))) internal _blueprintPools;
 
     /// @notice Track which delegations use "All" mode (exposed to all blueprints)
     /// @dev delegator => operator => delegationIndex => isAllMode
@@ -189,8 +187,8 @@ abstract contract DelegationStorage {
     mapping(address => mapping(address => mapping(uint256 => bool))) internal _delegationIsAllMode;
 
     /// @notice Track shares per blueprint for Fixed mode delegations
-    /// @dev delegator => operator => blueprintId => shares
-    mapping(address => mapping(address => mapping(uint64 => uint256))) internal _delegatorBlueprintShares;
+    /// @dev delegator => operator => assetHash => blueprintId => shares
+    mapping(address => mapping(address => mapping(bytes32 => mapping(uint64 => uint256)))) internal _delegatorBlueprintShares;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EXTERNAL INTEGRATIONS
@@ -247,21 +245,17 @@ abstract contract DelegationStorage {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // LAZY SLASHING HELPERS
+    // RESERVED SLASH FACTOR HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Get the current slash factor for an operator
-    /// @dev Returns PRECISION (1e18) if no slashing has occurred
-    function getOperatorSlashFactor(address operator) public view returns (uint256) {
-        uint256 factor = _operatorSlashFactor[operator];
+    /// @notice Reserved getter for the historical slash factor (unused with share-based pools)
+    /// @dev Returns PRECISION (1e18) if unset
+    function getOperatorSlashFactor(address operator, bytes32 assetHash) public view returns (uint256) {
+        uint256 factor = _operatorSlashFactor[operator][assetHash];
         return factor == 0 ? PRECISION : factor;
     }
 
-    /// @notice Calculate effective amount after applying lazy slash
-    /// @param originalAmount Original amount at time of unstake request
-    /// @param snapshotFactor Slash factor when unstake was requested
-    /// @param currentFactor Current slash factor
-    /// @return effectiveAmount Amount after slashes applied
+    /// @notice Reserved helper kept for storage compatibility (unused)
     function _applyLazySlash(
         uint256 originalAmount,
         uint256 snapshotFactor,
@@ -281,6 +275,9 @@ abstract contract DelegationStorage {
     /// @notice Function selector => facet address
     mapping(bytes4 => address) internal _facetForSelector;
 
+    /// @notice ERC20 token used for operator bond requirements (TNT)
+    address internal _operatorBondToken;
+
     /// @notice Reserved storage gap for future upgrades
-    uint256[47] private _gap;
+    uint256[46] private _gap;
 }

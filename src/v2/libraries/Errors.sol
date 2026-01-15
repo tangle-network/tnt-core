@@ -159,6 +159,8 @@ library Errors {
 
     /// @notice Commitment exposure above maximum requirement
     error CommitmentAboveMaximum(address asset, uint16 committed, uint16 maximum);
+    /// @notice Commitment asset appears more than once
+    error DuplicateAssetCommitment(uint8 assetKind, address asset);
 
     /// @notice Missing commitment for required asset
     error MissingAssetCommitment(address asset);

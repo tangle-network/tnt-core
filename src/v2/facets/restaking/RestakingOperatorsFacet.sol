@@ -8,16 +8,17 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 /// @notice Facet for operator lifecycle management
 contract RestakingOperatorsFacet is RestakingFacetBase, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](9);
+        selectorList = new bytes4[](10);
         selectorList[0] = this.registerOperator.selector;
         selectorList[1] = this.registerOperatorWithAsset.selector;
         selectorList[2] = this.increaseStake.selector;
-        selectorList[3] = this.scheduleOperatorUnstake.selector;
-        selectorList[4] = this.executeOperatorUnstake.selector;
-        selectorList[5] = this.addBlueprint.selector;
-        selectorList[6] = this.removeBlueprint.selector;
-        selectorList[7] = this.startLeaving.selector;
-        selectorList[8] = this.completeLeaving.selector;
+        selectorList[3] = this.increaseStakeWithAsset.selector;
+        selectorList[4] = this.scheduleOperatorUnstake.selector;
+        selectorList[5] = this.executeOperatorUnstake.selector;
+        selectorList[6] = this.addBlueprint.selector;
+        selectorList[7] = this.removeBlueprint.selector;
+        selectorList[8] = this.startLeaving.selector;
+        selectorList[9] = this.completeLeaving.selector;
     }
 
     /// @notice Register as an operator with native stake
@@ -33,6 +34,11 @@ contract RestakingOperatorsFacet is RestakingFacetBase, IFacetSelectors {
     /// @notice Increase operator stake with native token
     function increaseStake() external payable whenNotPaused nonReentrant {
         _increaseStakeNative();
+    }
+
+    /// @notice Increase operator stake with ERC20 bond token
+    function increaseStakeWithAsset(address token, uint256 amount) external whenNotPaused nonReentrant {
+        _increaseStakeWithAsset(token, amount);
     }
 
     /// @notice Schedule operator self-stake reduction

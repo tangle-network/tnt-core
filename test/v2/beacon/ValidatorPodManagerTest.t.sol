@@ -231,7 +231,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         podManager.addSlasher(admin);
 
         vm.prank(admin);
-        podManager.slash(operator1, 1, MIN_OPERATOR_STAKE, bytes32(0));
+        podManager.slash(operator1, 1, 10_000, bytes32(0));
 
         // Stake should be zero now
         assertEq(podManager.getOperatorSelfStake(operator1), 0, "Stake should be zero after slash");
@@ -435,26 +435,32 @@ contract ValidatorPodManagerTest is BeaconTestBase {
 
         vm.prank(attacker);
         vm.expectRevert(ValidatorPodManager.NotAuthorizedSlasher.selector);
-        podManager.slash(operator1, 1, 0.5 ether, bytes32(0));
+        podManager.slash(operator1, 1, 1000, bytes32(0));
     }
 
     function test_slash_Success() public {
         _registerOperator(operator1, 2 ether);
 
         uint256 stakeBefore = podManager.getOperatorSelfStake(operator1);
+        uint16 slashBps = 2500;
 
         vm.prank(slasher);
-        uint256 slashed = podManager.slash(operator1, 1, 0.5 ether, keccak256("evidence"));
+        uint256 slashed = podManager.slash(operator1, 1, slashBps, keccak256("evidence"));
 
-        assertEq(slashed, 0.5 ether, "Should slash requested amount");
-        assertEq(podManager.getOperatorSelfStake(operator1), stakeBefore - 0.5 ether, "Stake should be reduced");
+        uint256 expectedSlashed = (stakeBefore * slashBps) / 10_000;
+        assertEq(slashed, expectedSlashed, "Should slash requested amount");
+        assertEq(
+            podManager.getOperatorSelfStake(operator1),
+            stakeBefore - expectedSlashed,
+            "Stake should be reduced"
+        );
     }
 
     function test_slash_ExceedsStake() public {
         _registerOperator(operator1, MIN_OPERATOR_STAKE);
 
         vm.prank(slasher);
-        uint256 slashed = podManager.slash(operator1, 1, 10 ether, keccak256("evidence"));
+        uint256 slashed = podManager.slash(operator1, 1, 10_000, keccak256("evidence"));
 
         assertEq(slashed, MIN_OPERATOR_STAKE, "Should slash only available stake");
         assertEq(podManager.getOperatorSelfStake(operator1), 0, "Stake should be zero");
@@ -464,7 +470,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         _registerOperator(operator1, 2 ether);
 
         vm.prank(slasher);
-        uint256 slashed = podManager.slashForBlueprint(operator1, 1, 1, 0.5 ether, keccak256("evidence"));
+        uint256 slashed = podManager.slashForBlueprint(operator1, 1, 1, 2500, keccak256("evidence"));
 
         assertEq(slashed, 0.5 ether, "Should slash requested amount");
     }
@@ -548,7 +554,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
 
         // Slash below minimum
         vm.prank(slasher);
-        podManager.slash(operator1, 1, MIN_OPERATOR_STAKE, keccak256("evidence"));
+        podManager.slash(operator1, 1, 10_000, keccak256("evidence"));
 
         assertFalse(podManager.isOperatorActive(operator1), "Should be inactive after slash below min");
     }

@@ -9,9 +9,9 @@ import {ICrossChainReceiver} from "./interfaces/ICrossChainMessenger.sol";
 interface IL2Slasher {
     /// @notice Slash an operator's stake
     /// @param operator The operator to slash
-    /// @param amount The amount to slash (in wei or shares depending on implementation)
+    /// @param slashBps Slash percentage in basis points
     /// @param reason Encoded reason/proof for the slash
-    function slashOperator(address operator, uint256 amount, bytes calldata reason) external;
+    function slashOperator(address operator, uint16 slashBps, bytes calldata reason) external;
 
     /// @notice Check if an operator can be slashed
     /// @param operator The operator address
@@ -45,13 +45,13 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     event SlashingReceived(
         uint256 indexed sourceChainId,
         address indexed operator,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 messageId
     );
 
     event SlashingExecuted(
         address indexed operator,
-        uint256 amount,
+        uint16 slashBps,
         uint64 slashingFactor
     );
 
@@ -84,7 +84,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     /// @notice Nonce for deduplication (sourceChain => sender => nonce => processed)
     mapping(uint256 => mapping(address => mapping(uint256 => bool))) public processedNonces;
 
-    /// @notice Total slashed amount per operator from beacon chain
+    /// @notice Cumulative slash bps per operator from beacon chain
     mapping(address => uint256) public beaconSlashTotal;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -156,14 +156,14 @@ contract L2SlashingReceiver is ICrossChainReceiver {
         address sender,
         bytes calldata data
     ) internal {
-        // Decode: operator, amount, slashingFactor, nonce, podAddress
+        // Decode: operator, slashBps, slashingFactor, nonce, podAddress
         (
             address operator,
-            uint256 amount,
+            uint16 slashBps,
             uint64 slashingFactor,
             uint256 nonce,
             address pod
-        ) = abi.decode(data, (address, uint256, uint64, uint256, address));
+        ) = abi.decode(data, (address, uint16, uint64, uint256, address));
 
         // Check nonce hasn't been processed (replay protection)
         if (processedNonces[sourceChainId][sender][nonce]) {
@@ -181,17 +181,17 @@ contract L2SlashingReceiver is ICrossChainReceiver {
         );
 
         // Execute slashing
-        if (slasher.canSlash(operator) && amount > 0) {
-            slasher.slashOperator(operator, amount, reason);
-            beaconSlashTotal[operator] += amount;
+        if (slasher.canSlash(operator) && slashBps > 0) {
+            slasher.slashOperator(operator, slashBps, reason);
+            beaconSlashTotal[operator] += slashBps;
 
-            emit SlashingExecuted(operator, amount, slashingFactor);
+            emit SlashingExecuted(operator, slashBps, slashingFactor);
         }
 
         emit SlashingReceived(
             sourceChainId,
             operator,
-            amount,
+            slashBps,
             keccak256(abi.encode(sourceChainId, sender, nonce))
         );
     }

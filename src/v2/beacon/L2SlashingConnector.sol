@@ -33,6 +33,7 @@ contract L2SlashingConnector {
     error InsufficientFee();
     error UnsupportedDestinationChain();
     error MessengerNotConfigured();
+    error UnknownPod(address pod);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -241,6 +242,8 @@ contract L2SlashingConnector {
 
         // Calculate the slash percentage (cast to uint256 to avoid overflow)
         uint256 slashPercentage = (uint256(lastFactor - newSlashingFactor) * 1e18) / lastFactor;
+        uint16 slashBps = uint16((slashPercentage * 10_000) / 1e18);
+        if (slashBps > 10_000) slashBps = 10_000;
 
         // Get the operator for this pod
         address operator = _getOperatorForPod(pod);
@@ -261,7 +264,7 @@ contract L2SlashingConnector {
             SLASH_MESSAGE_TYPE,
             abi.encode(
                 operator,
-                l2SlashAmount,
+                slashBps,
                 newSlashingFactor,
                 nonce++,
                 pod
@@ -349,12 +352,12 @@ contract L2SlashingConnector {
         if (lastFactor == 0) lastFactor = 1e18;
 
         uint256 slashPercentage = (uint256(lastFactor - newSlashingFactor) * 1e18) / lastFactor;
-        uint256 operatorStake = podManager.operatorDelegatedStake(operator);
-        uint256 l2SlashAmount = (operatorStake * slashPercentage) / 1e18;
+        uint16 slashBps = uint16((slashPercentage * 10_000) / 1e18);
+        if (slashBps > 10_000) slashBps = 10_000;
 
         bytes memory payload = abi.encodePacked(
             SLASH_MESSAGE_TYPE,
-            abi.encode(operator, l2SlashAmount, newSlashingFactor, nonce, pod)
+            abi.encode(operator, slashBps, newSlashingFactor, nonce, pod)
         );
 
         return messenger.estimateFee(destinationChainId, payload, config.gasLimit);
@@ -430,8 +433,7 @@ contract L2SlashingConnector {
         if (operator != address(0)) {
             return operator;
         }
-        // Fallback: assume pod address is operator (for backwards compatibility)
-        return pod;
+        revert UnknownPod(pod);
     }
 
     /// @notice Allow contract to receive ETH for fee payments

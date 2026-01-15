@@ -158,11 +158,13 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function testFuzz_Invariant_EffectiveSlashNeverExceedsProposed(
-        uint256 amount,
+        uint16 slashBps,
         uint16 exposure
     ) public {
-        amount = bound(amount, 0.01 ether, 100 ether);
-        exposure = uint16(bound(uint256(exposure), 1, 10000));
+        // Bound to minimum 100 each so that effectiveBps = slashBps * exposure / 10000 >= 1
+        // This avoids InvalidSlashAmount when the product rounds to 0
+        slashBps = uint16(bound(uint256(slashBps), 100, 10000));
+        exposure = uint16(bound(uint256(exposure), 100, 10000));
 
         // Create service with custom exposure
         address[] memory ops = new address[](1);
@@ -181,29 +183,29 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         uint64 newServiceId = tangle.serviceCount() - 1;
 
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(newServiceId, operator2, amount, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(newServiceId, operator2, slashBps, keccak256("evidence"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
 
-        // INVARIANT: effectiveAmount <= amount
-        assertLe(proposal.effectiveAmount, proposal.amount, "INVARIANT VIOLATED: effective > proposed");
+        // INVARIANT: effectiveSlashBps <= slashBps
+        assertLe(proposal.effectiveSlashBps, proposal.slashBps, "INVARIANT VIOLATED: effective > proposed");
 
-        // More specifically: effectiveAmount = amount * exposure / 10000
-        uint256 expected = (amount * exposure) / 10000;
-        assertEq(proposal.effectiveAmount, expected, "Effective amount calculation wrong");
+        // More specifically: effectiveSlashBps = slashBps * exposure / 10000
+        uint256 expected = (uint256(slashBps) * exposure) / 10000;
+        assertEq(proposal.effectiveSlashBps, expected, "Effective bps calculation wrong");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INVARIANT: Operator stake can never go negative
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function testFuzz_Invariant_StakeNeverNegative(uint256 slashAmount) public {
-        slashAmount = bound(slashAmount, 1 ether, 500 ether);
+    function testFuzz_Invariant_StakeNeverNegative(uint16 slashBps) public {
+        slashBps = uint16(bound(uint256(slashBps), 1, 10000));
 
         uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
 
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashAmount, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashBps, keccak256("evidence"));
 
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
@@ -213,11 +215,8 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         // INVARIANT: stake >= 0 (always true for uint, but verify reasonable behavior)
         assertLe(stakeAfter, stakeBefore, "Stake increased after slash");
 
-        if (slashAmount <= stakeBefore) {
-            assertEq(stakeAfter, stakeBefore - slashAmount, "Incorrect stake reduction");
-        } else {
-            assertEq(stakeAfter, 0, "Stake should be 0 when slashing more than available");
-        }
+        uint256 expected = stakeBefore - ((stakeBefore * slashBps) / 10_000);
+        assertEq(stakeAfter, expected, "Incorrect stake reduction");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -382,7 +381,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
             uint64 slashId = tangle.proposeSlash(
                 serviceId,
                 operator1,
-                0.01 ether,
+                10,
                 keccak256(abi.encodePacked("evidence", i))
             );
 
@@ -408,7 +407,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
 
             // Verify by creating slash
             vm.prank(user1);
-            uint64 slashId = tangle.proposeSlash(serviceId, operator1, 0.01 ether, keccak256("test"));
+            uint64 slashId = tangle.proposeSlash(serviceId, operator1, 10, keccak256("test"));
 
             SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
             assertEq(

@@ -46,6 +46,12 @@ contract MockRestaking is IRestaking {
     function getOperatorDelegatedStake(address operator) external view returns (uint256) {
         return delegatedStakes[operator];
     }
+    function getOperatorDelegatedStakeForAsset(address operator, Types.Asset calldata) external view returns (uint256) {
+        return delegatedStakes[operator];
+    }
+    function getOperatorStakeForAsset(address operator, Types.Asset calldata) external view returns (uint256) {
+        return stakes[operator];
+    }
 
     function getDelegation(address, address) external pure returns (uint256) {
         return 0;
@@ -67,10 +73,10 @@ contract MockRestaking is IRestaking {
         address,
         uint64,
         uint64,
-        uint256 amount,
+        uint16 slashBps,
         bytes32
     ) external pure returns (uint256) {
-        return amount;
+        return slashBps;
     }
 
     function slashForService(
@@ -78,19 +84,19 @@ contract MockRestaking is IRestaking {
         uint64,
         uint64,
         Types.AssetSecurityCommitment[] calldata,
-        uint256 amount,
+        uint16 slashBps,
         bytes32
     ) external pure returns (uint256) {
-        return amount;
+        return slashBps;
     }
 
     function slash(
         address,
         uint64,
-        uint256 amount,
+        uint16 slashBps,
         bytes32
     ) external pure returns (uint256) {
-        return amount;
+        return slashBps;
     }
 
     function isSlasher(address) external pure returns (bool) {

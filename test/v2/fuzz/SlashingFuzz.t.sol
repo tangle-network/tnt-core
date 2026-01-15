@@ -32,18 +32,16 @@ contract SlashingFuzzTest is BaseTest {
     // PROPORTIONAL SLASHING WITH BALANCE VERIFICATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Fuzz: slashing amount correctly reduces balances proportionally
+    /// @notice Fuzz: slashing bps correctly reduces balances proportionally
     function testFuzz_ProportionalSlashing_BalancesCorrect(
         uint256 opStake,
         uint256 d1Stake,
-        uint256 slashAmount
+        uint16 slashBps
     ) public {
         // Bound inputs to reasonable ranges
         opStake = bound(opStake, MIN_OPERATOR_STAKE, 50 ether);
         d1Stake = bound(d1Stake, MIN_DELEGATION, 50 ether);
-
-        uint256 totalStake = opStake + d1Stake;
-        slashAmount = bound(slashAmount, 0.01 ether, totalStake);
+        slashBps = uint16(bound(uint256(slashBps), 1, 10000));
 
         // Fresh operator setup
         _registerOperator(operator2, opStake);
@@ -67,7 +65,7 @@ contract SlashingFuzzTest is BaseTest {
 
         // Propose and execute slash
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(svcId, operator2, slashAmount, keccak256("fuzz"));
+        uint64 slashId = tangle.proposeSlash(svcId, operator2, slashBps, keccak256("fuzz"));
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
 
@@ -76,10 +74,10 @@ contract SlashingFuzzTest is BaseTest {
         uint256 d1After = restaking.getDelegation(delegator1, operator2);
         uint256 totalAfter = opAfter + d1After;
 
-        // Total slashed should equal slash amount (or cap at total stake)
+        // Total slashed should equal bps of total stake
         // Allow 1 wei tolerance for rounding in share-based accounting
         uint256 actualSlashed = totalBefore - totalAfter;
-        uint256 expectedSlashed = slashAmount > totalBefore ? totalBefore : slashAmount;
+        uint256 expectedSlashed = (totalBefore * slashBps) / 10_000;
         assertApproxEqAbs(actualSlashed, expectedSlashed, 1, "Total slashed incorrect");
 
         // Operator stake reduced
@@ -114,7 +112,7 @@ contract SlashingFuzzTest is BaseTest {
 
         uint256 opStake = 10 ether;
         uint256 totalStake = opStake + d1Stake + d2Stake;
-        uint256 slashAmount = (totalStake * slashPct) / 100;
+        uint16 slashBps = uint16(slashPct * 100);
 
         // Fresh setup
         _registerOperator(operator3, opStake);
@@ -142,7 +140,7 @@ contract SlashingFuzzTest is BaseTest {
 
         // Slash
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(svcId, operator3, slashAmount, keccak256("multi"));
+        uint64 slashId = tangle.proposeSlash(svcId, operator3, slashBps, keccak256("multi"));
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
 
@@ -157,7 +155,9 @@ contract SlashingFuzzTest is BaseTest {
         uint256 totalSlashed = opSlashed + d1Slashed + d2Slashed;
 
         // Total slashed matches (allow 1 wei tolerance for rounding)
-        assertApproxEqAbs(totalSlashed, slashAmount, 1, "Total slashed amount");
+        uint256 totalBefore = opBefore + d1Before + d2Before;
+        uint256 expectedSlashed = (totalBefore * slashBps) / 10_000;
+        assertApproxEqAbs(totalSlashed, expectedSlashed, 1, "Total slashed amount");
 
         // D1 and D2 slashed proportionally to their stakes
         if (d1Slashed > 0 && d2Slashed > 0) {
@@ -173,11 +173,13 @@ contract SlashingFuzzTest is BaseTest {
 
     /// @notice Fuzz: exposure scaling correctly reduces effective slash
     function testFuzz_ExposureScaling_ReducesSlash(
-        uint256 amount,
+        uint16 slashBps,
         uint16 exposure
     ) public {
-        amount = bound(amount, 0.1 ether, 10 ether);
-        exposure = uint16(bound(uint256(exposure), 1, 10000)); // 0.01% to 100%
+        // Bound to minimum 100 each so that effectiveBps = slashBps * exposure / 10000 >= 1
+        // This avoids InvalidSlashAmount when the product rounds to 0
+        slashBps = uint16(bound(uint256(slashBps), 100, 10000));
+        exposure = uint16(bound(uint256(exposure), 100, 10000));
 
         // Create service with exposure
         _registerOperator(operator2, 10 ether);
@@ -200,14 +202,14 @@ contract SlashingFuzzTest is BaseTest {
 
         // Propose slash
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(svcId, operator2, amount, keccak256("exp"));
+        uint64 slashId = tangle.proposeSlash(svcId, operator2, slashBps, keccak256("exp"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-        uint256 expectedEffective = (amount * exposure) / 10000;
+        uint256 expectedEffective = (uint256(slashBps) * exposure) / 10000;
 
         // Verify proposal storage
-        assertEq(proposal.amount, amount, "Proposed amount stored");
-        assertEq(proposal.effectiveAmount, expectedEffective, "Effective amount scaled");
+        assertEq(proposal.slashBps, slashBps, "Proposed bps stored");
+        assertEq(proposal.effectiveSlashBps, expectedEffective, "Effective bps scaled");
 
         // Execute and verify balance
         vm.warp(block.timestamp + 7 days + 1);
@@ -217,7 +219,8 @@ contract SlashingFuzzTest is BaseTest {
         uint256 actualSlashed = stakeBefore - stakeAfter;
 
         // Only effective amount should be slashed
-        assertEq(actualSlashed, expectedEffective, "Only effective amount slashed");
+        uint256 expectedSlashed = (stakeBefore * expectedEffective) / 10_000;
+        assertEq(actualSlashed, expectedSlashed, "Only effective amount slashed");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -227,7 +230,7 @@ contract SlashingFuzzTest is BaseTest {
     /// @notice Fuzz: multiple concurrent slashes correctly cumulate
     function testFuzz_ConcurrentSlashes_CumulativeBalance(uint8 slashCount) public {
         slashCount = uint8(bound(uint256(slashCount), 1, 5));
-        uint256 slashPerRound = 0.5 ether;
+        uint16 slashBpsPerRound = 500;
 
         uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
         uint64[] memory slashIds = new uint64[](slashCount);
@@ -238,7 +241,7 @@ contract SlashingFuzzTest is BaseTest {
             slashIds[i] = tangle.proposeSlash(
                 serviceId,
                 operator1,
-                slashPerRound,
+                slashBpsPerRound,
                 keccak256(abi.encodePacked("concurrent", i))
             );
         }
@@ -257,15 +260,14 @@ contract SlashingFuzzTest is BaseTest {
 
         // Verify cumulative effect
         uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
-        uint256 expectedSlashed = slashPerRound * slashCount;
         uint256 actualSlashed = stakeBefore - stakeAfter;
 
-        // Should have slashed exactly the sum (or capped)
-        if (expectedSlashed > stakeBefore) {
-            assertEq(stakeAfter, 0, "Should be fully slashed");
-        } else {
-            assertEq(actualSlashed, expectedSlashed, "Cumulative slash correct");
+        uint256 expectedStake = stakeBefore;
+        for (uint8 i = 0; i < slashCount; i++) {
+            expectedStake -= (expectedStake * slashBpsPerRound) / 10_000;
         }
+        uint256 expectedSlashed = stakeBefore - expectedStake;
+        assertApproxEqAbs(actualSlashed, expectedSlashed, 1, "Cumulative slash correct");
 
         // Verify all executed
         for (uint8 i = 0; i < slashCount; i++) {
@@ -289,7 +291,7 @@ contract SlashingFuzzTest is BaseTest {
         uint256 proposalTime = block.timestamp;
 
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("timing"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("timing"));
 
         // Verify proposal storage
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
@@ -309,35 +311,27 @@ contract SlashingFuzzTest is BaseTest {
         tangle.executeSlash(slashId);
 
         // Balance now reduced
-        assertEq(restaking.getOperatorSelfStake(operator1), stakeBefore - 1 ether, "Balance reduced after execute");
+        uint256 expectedSlash = (stakeBefore * 1000) / 10_000;
+        assertEq(restaking.getOperatorSelfStake(operator1), stakeBefore - expectedSlash, "Balance reduced after execute");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SLASH CAPS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Fuzz: slash caps at total available stake
-    function testFuzz_SlashCaps_AtTotalStake(uint256 slashAmount) public {
-        slashAmount = bound(slashAmount, 10 ether, 1000 ether); // Much larger than stake
+    /// @notice Fuzz: slash bps are capped by maxSlashBps
+    function testFuzz_SlashCaps_AtMaxBps(uint16 proposedBps) public {
+        proposedBps = uint16(bound(uint256(proposedBps), 1, 10000));
 
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        vm.prank(admin);
+        tangle.setSlashConfig(7 days, false, 3000);
 
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashAmount, keccak256("cap"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, proposedBps, keccak256("cap"));
 
-        vm.warp(block.timestamp + 7 days + 1);
-        tangle.executeSlash(slashId);
-
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
-        uint256 actualSlashed = stakeBefore - stakeAfter;
-
-        // Should cap at total stake
-        if (slashAmount >= stakeBefore) {
-            assertEq(stakeAfter, 0, "Should be fully slashed");
-            assertEq(actualSlashed, stakeBefore, "Slashed amount = total stake");
-        } else {
-            assertEq(actualSlashed, slashAmount, "Slashed exact amount");
-        }
+        SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
+        uint16 expected = proposedBps > 3000 ? 3000 : proposedBps;
+        assertEq(proposal.slashBps, expected, "Slash bps should be capped by max");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -371,7 +365,7 @@ contract SlashingFuzzTest is BaseTest {
         // Verify config applied by creating slash with new window
         uint256 proposalTime = block.timestamp;
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 0.1 ether, keccak256("cfg"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 100, keccak256("cfg"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(proposal.executeAfter, proposalTime + disputeWindow, "Config applied");

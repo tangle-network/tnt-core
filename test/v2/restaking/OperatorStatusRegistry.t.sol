@@ -95,7 +95,10 @@ contract OperatorStatusRegistryTest is Test {
         vm.prank(serviceOwner);
         registry.enableCustomMetrics(SERVICE_ID, true);
 
-        bytes memory metricsData = abi.encode("cpu", uint256(42));
+        // Encode as MetricPair[] array as expected by _processMetrics
+        OperatorStatusRegistry.MetricPair[] memory pairs = new OperatorStatusRegistry.MetricPair[](1);
+        pairs[0] = OperatorStatusRegistry.MetricPair("cpu", 42);
+        bytes memory metricsData = abi.encode(pairs);
         vm.prank(operatorAddr);
         registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, metricsData);
 

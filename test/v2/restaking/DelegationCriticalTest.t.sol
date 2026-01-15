@@ -526,18 +526,17 @@ contract DelegationCriticalTest is DelegationTestHarness {
         assertDelegationEq(delegator1, operator2, 5 ether);
     }
 
-    /// @notice Test slash only affects specific asset type
+    /// @notice Test consensus slash only affects bond asset delegations
     function test_SlashOnlyAffectsNativeDelegations() public {
         // Both delegators delegate to operator1
         _depositAndDelegate(delegator1, operator1, 10 ether); // Native
         _depositAndDelegateErc20(delegator2, operator1, address(token), 10 ether); // ERC20
 
-        // Slash affects both proportionally based on pool
+        // Consensus slash affects only bond asset (native)
         _slash(operator1, 15 ether);
 
-        // Both should be reduced (slash is pool-wide)
         assertLt(_getDelegation(delegator1, operator1), 10 ether);
-        assertLt(_getDelegation(delegator2, operator1), 10 ether);
+        assertEq(_getDelegation(delegator2, operator1), 10 ether);
     }
 
     /// @notice Test multiple ERC20 tokens
@@ -819,7 +818,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
     // Events from the contracts (need to redeclare for testing)
     event Deposited(address indexed delegator, address indexed token, uint256 amount, Types.LockMultiplier lock);
     event Delegated(address indexed delegator, address indexed operator, address indexed token, uint256 amount, uint256 shares, Types.BlueprintSelectionMode selectionMode);
-    event Slashed(address indexed operator, uint64 indexed serviceId, uint256 operatorSlashed, uint256 delegatorsSlashed, uint256 newExchangeRate);
+    event Slashed(address indexed operator, uint64 indexed serviceId, uint64 indexed blueprintId, bytes32 assetHash, uint16 slashBps, uint256 operatorSlashed, uint256 delegatorsSlashed, uint256 exchangeRateAfter);
     event OperatorRegistered(address indexed operator, uint256 stake);
     event RoundAdvanced(uint64 indexed round);
 
@@ -855,9 +854,9 @@ contract DelegationCriticalTest is DelegationTestHarness {
     function test_EventEmission_Slashed() public {
         _depositAndDelegate(delegator1, operator1, 10 ether);
 
-        // Slash event should be emitted
-        vm.expectEmit(true, true, false, false);
-        emit Slashed(operator1, 0, 5 ether, 5 ether, 0); // approx values
+        // Slash event should be emitted - check indexed params only
+        vm.expectEmit(true, true, true, false);
+        emit Slashed(operator1, 0, 0, bytes32(0), 0, 0, 0, 0); // only checking indexed params
 
         _slash(operator1, 10 ether);
     }
@@ -1020,8 +1019,9 @@ contract DelegationCriticalTest is DelegationTestHarness {
         // Small amounts that might cause rounding issues
         _depositAndDelegate(delegator1, operator1, 1000);
 
-        // Slash a tiny amount
-        _slash(operator1, 1);
+        // Slash a tiny amount (1 bps)
+        vm.prank(slasher);
+        delegation.slash(operator1, 0, 1, keccak256("evidence"));
 
         // Should still be able to unstake (minus rounding)
         uint256 remaining = _getDelegation(delegator1, operator1);
@@ -1127,7 +1127,9 @@ contract DelegationCriticalTest is DelegationTestHarness {
         assertEq(storedBps[1], 2);
     }
 
-    function test_LegacySlashRevertsWhenFixedModeStakeExists() public {
+    /// @notice Consensus slashes affect Fixed mode delegators too
+    /// @dev Fixed mode pools are slashed during consensus slashes (service 0)
+    function test_ConsensusSlash_AffectsFixedModeDelegators() public {
         _depositNative(delegator1, 10 ether);
         uint64[] memory bps = new uint64[](1);
         bps[0] = 42;
@@ -1144,9 +1146,15 @@ contract DelegationCriticalTest is DelegationTestHarness {
             bps
         );
 
-        vm.startPrank(slasher);
-        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.LegacySlashRequiresAllMode.selector, operator1));
-        delegation.slash(operator1, 0, 1 ether, keccak256("fixed-slash"));
-        vm.stopPrank();
+        uint256 beforeSlash = _getDelegation(delegator1, operator1);
+        assertEq(beforeSlash, 5 ether, "Before slash should be 5 ether");
+
+        // Slash 10% (1000 bps) - affects Fixed mode delegators too
+        vm.prank(slasher);
+        delegation.slash(operator1, 0, 1000, keccak256("fixed-slash"));
+
+        // Fixed mode delegators ARE slashed during consensus slashes
+        // 5 ETH * 10% = 0.5 ETH slashed, leaving 4.5 ETH
+        assertEq(_getDelegation(delegator1, operator1), 4.5 ether);
     }
 }

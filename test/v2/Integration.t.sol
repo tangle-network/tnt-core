@@ -312,7 +312,7 @@ contract IntegrationTest is BaseTest {
 
         // Service owner can propose slash
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(0, operator1, 2 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(0, operator1, 2000, keccak256("evidence"));
 
         // Fast forward past dispute window (7 days default)
         vm.warp(block.timestamp + 7 days + 1);
@@ -982,6 +982,45 @@ contract MultiAssetSecurityTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.MissingAssetCommitment.selector, mockToken));
+        tangle.approveServiceWithCommitments(requestId, commitments);
+    }
+
+    function test_ApproveWithCommitments_RevertDuplicateAsset() public {
+        vm.prank(developer);
+        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://dup-commit", address(0)));
+
+        vm.prank(operator1);
+        restaking.registerOperator{ value: 5 ether }();
+        _directRegisterOperator(operator1, blueprintId, "");
+
+        Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
+        requirements[0] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            minExposureBps: 1000,
+            maxExposureBps: 10000
+        });
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0
+        );
+
+        Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](2);
+        commitments[0] = Types.AssetSecurityCommitment({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            exposureBps: 5000
+        });
+        commitments[1] = Types.AssetSecurityCommitment({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            exposureBps: 6000
+        });
+
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.DuplicateAssetCommitment.selector, uint8(Types.AssetKind.Native), address(0)));
         tangle.approveServiceWithCommitments(requestId, commitments);
     }
 

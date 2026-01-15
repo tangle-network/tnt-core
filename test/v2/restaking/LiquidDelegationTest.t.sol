@@ -406,9 +406,9 @@ contract LiquidDelegationTest is Test {
 
         // Slash operator (10% of total = 10% of 20 ETH = 2 ETH)
         // Operator stake: 10 ETH, Vault delegation: 10 ETH
-        // Slash 2 ETH: 1 ETH from operator, 1 ETH from delegated
+        // Slash 10%: 1 ETH from operator, 1 ETH from delegated
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 2 ether, keccak256("evidence"));
+        restaking.slashForBlueprint(operator1, 1, 0, 1000, keccak256("evidence"));
 
         // Check value after slash - should be reduced
         uint256 valueAfterSlash = vault.convertToAssets(vault.balanceOf(user1));
@@ -427,9 +427,9 @@ contract LiquidDelegationTest is Test {
 
         uint256 user1Shares = vault.balanceOf(user1);
 
-        // Slash 2 ETH
+        // Slash 10%
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 2 ether, keccak256("evidence"));
+        restaking.slashForBlueprint(operator1, 1, 0, 1000, keccak256("evidence"));
 
         // User2 deposits same 10 ETH - should get MORE shares (assets depreciated)
         vm.startPrank(user2);
@@ -458,7 +458,7 @@ contract LiquidDelegationTest is Test {
 
         // Slash operator to reduce backing assets
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 4 ether, keccak256("evidence"));
+        restaking.slashForBlueprint(operator1, 1, 0, 2000, keccak256("evidence"));
 
         uint256 sharesToRedeem = vault.balanceOf(user1);
         uint256 expectedAssets = vault.convertToAssets(sharesToRedeem);

@@ -236,7 +236,7 @@ contract StakeRequirementTests is BaseTest {
 
         // Slash operator2 to below minimum
         vm.prank(address(tangle));
-        restaking.slash(operator2, 0, 3 ether, keccak256("test"));
+        restaking.slash(operator2, 0, 5000, keccak256("test"));
 
         // Now operator2 has ~3 ETH, below 5 ETH minimum
         // Try to join service should fail

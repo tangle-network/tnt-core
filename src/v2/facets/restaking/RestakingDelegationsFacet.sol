@@ -163,15 +163,8 @@ contract RestakingDelegationsFacet is RestakingFacetBase, IFacetSelectors {
             revert DelegationErrors.WithdrawTooEarly(currentRound, withdrawReadyRound);
         }
 
-        // Convert shares to amount at current exchange rate and apply lazy slashing.
-        amountReturned = _sharesToAmount(req.operator, req.shares);
-        amountReturned = _applyLazySlash(
-            amountReturned,
-            req.slashFactorSnapshot,
-            getOperatorSlashFactor(req.operator)
-        );
-
-        _applyBondlessUnstakeToDelegatorState(msg.sender, operator, assetHash, req, amountReturned);
+        // Convert shares to amount at the current exchange rates and update delegations.
+        amountReturned = _applyBondlessUnstakeToDelegatorState(msg.sender, operator, assetHash, req);
 
         emit DelegatorUnstakeExecuted(msg.sender, req.operator, req.asset.token, req.shares, amountReturned);
 
@@ -204,9 +197,8 @@ contract RestakingDelegationsFacet is RestakingFacetBase, IFacetSelectors {
         address delegator,
         address operator,
         bytes32 assetHash,
-        Types.BondLessRequest storage req,
-        uint256 amountReturned
-    ) private {
+        Types.BondLessRequest storage req
+    ) private returns (uint256 amountReturned) {
         bool updated = false;
         Types.BondInfoDelegator[] storage delegations = _delegations[delegator];
         for (uint256 j = 0; j < delegations.length; j++) {
@@ -217,13 +209,36 @@ contract RestakingDelegationsFacet is RestakingFacetBase, IFacetSelectors {
                 ? _delegationBlueprints[delegator][j]
                 : new uint64[](0);
 
+            uint256[] memory blueprintShares = new uint256[](blueprintIds.length);
             if (d.selectionMode == Types.BlueprintSelectionMode.Fixed && blueprintIds.length > 0) {
-                uint256 sharesPerBlueprint = req.shares / blueprintIds.length;
+                uint256 totalBpShares = 0;
                 for (uint256 k = 0; k < blueprintIds.length; k++) {
-                    uint256 currentBpShares = _delegatorBlueprintShares[delegator][req.operator][blueprintIds[k]];
-                    _delegatorBlueprintShares[delegator][req.operator][blueprintIds[k]] =
-                        sharesPerBlueprint > currentBpShares ? 0 : currentBpShares - sharesPerBlueprint;
+                    totalBpShares += _delegatorBlueprintShares[delegator][req.operator][assetHash][blueprintIds[k]];
                 }
+
+                uint256 remainingShares = req.shares;
+                for (uint256 k = 0; k < blueprintIds.length; k++) {
+                    uint256 currentBpShares =
+                        _delegatorBlueprintShares[delegator][req.operator][assetHash][blueprintIds[k]];
+                    uint256 bpShare = 0;
+                    if (totalBpShares > 0) {
+                        bpShare = k == blueprintIds.length - 1
+                            ? remainingShares
+                            : (req.shares * currentBpShares) / totalBpShares;
+                    } else {
+                        bpShare = k == blueprintIds.length - 1
+                            ? remainingShares
+                            : req.shares / blueprintIds.length;
+                    }
+                    remainingShares = remainingShares > bpShare ? remainingShares - bpShare : 0;
+                    blueprintShares[k] = bpShare;
+                    amountReturned += _sharesToAmountForBlueprint(req.operator, blueprintIds[k], assetHash, bpShare);
+
+                    _delegatorBlueprintShares[delegator][req.operator][assetHash][blueprintIds[k]] =
+                        bpShare > currentBpShares ? 0 : currentBpShares - bpShare;
+                }
+            } else {
+                amountReturned = _sharesToAmount(req.operator, assetHash, req.shares);
             }
 
             _notifyDelegationChangedForBondlessExecution(
@@ -233,7 +248,8 @@ contract RestakingDelegationsFacet is RestakingFacetBase, IFacetSelectors {
                 req.shares,
                 amountReturned,
                 d.selectionMode,
-                blueprintIds
+                blueprintIds,
+                blueprintShares
             );
 
             d.shares -= req.shares;
@@ -267,7 +283,8 @@ contract RestakingDelegationsFacet is RestakingFacetBase, IFacetSelectors {
         uint256 shares,
         uint256 amount,
         Types.BlueprintSelectionMode selectionMode,
-        uint64[] memory blueprintIds
+        uint64[] memory blueprintIds,
+        uint256[] memory blueprintShares
     ) private {
         _onDelegationChanged(
             delegator,
@@ -278,6 +295,7 @@ contract RestakingDelegationsFacet is RestakingFacetBase, IFacetSelectors {
             false,
             selectionMode,
             blueprintIds,
+            blueprintShares,
             _getLockMultiplierBps(Types.LockMultiplier.None)
         );
     }

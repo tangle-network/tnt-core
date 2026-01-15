@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {IL2Slasher} from "./L2SlashingReceiver.sol";
 import {IRestaking} from "../interfaces/IRestaking.sol";
+import {Types} from "../libraries/Types.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title TangleL2Slasher
@@ -31,7 +32,7 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
 
     event BeaconSlashExecuted(
         address indexed operator,
-        uint256 requestedAmount,
+        uint16 slashBps,
         uint256 actualSlashed,
         bytes reason
     );
@@ -105,11 +106,11 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
     /// @inheritdoc IL2Slasher
     function slashOperator(
         address operator,
-        uint256 amount,
+        uint16 slashBps,
         bytes calldata reason
     ) external onlyAuthorized whenNotPaused {
         if (operator == address(0)) revert ZeroAddress();
-        if (amount == 0) revert ZeroAmount();
+        if (slashBps == 0) revert ZeroAmount();
 
         // Check if operator can be slashed
         if (!canSlash(operator)) revert OperatorNotSlashable();
@@ -119,7 +120,7 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
         bytes32 evidence = keccak256(abi.encodePacked(
             "BEACON_CHAIN_SLASH",
             operator,
-            amount,
+            slashBps,
             slashNonce++,
             reason
         ));
@@ -128,14 +129,14 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
         uint256 actualSlashed = restaking.slash(
             operator,
             BEACON_SLASH_SERVICE_ID,
-            amount,
+            slashBps,
             evidence
         );
 
         // Track total slashed
         totalBeaconSlashed[operator] += actualSlashed;
 
-        emit BeaconSlashExecuted(operator, amount, actualSlashed, reason);
+        emit BeaconSlashExecuted(operator, slashBps, actualSlashed, reason);
     }
 
     /// @inheritdoc IL2Slasher
@@ -146,7 +147,10 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
 
     /// @inheritdoc IL2Slasher
     function getSlashableStake(address operator) public view returns (uint256) {
-        return restaking.getOperatorStake(operator);
+        return restaking.getOperatorStakeForAsset(
+            operator,
+            Types.Asset({ kind: Types.AssetKind.Native, token: address(0) })
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

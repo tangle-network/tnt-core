@@ -13,7 +13,7 @@ interface ITangleSlashing {
     event SlashProposed(
         uint64 indexed serviceId,
         address indexed operator,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     );
 
@@ -26,13 +26,13 @@ interface ITangleSlashing {
     /// @notice Propose a slash against an operator
     /// @param serviceId The service where violation occurred
     /// @param operator The operator to slash
-    /// @param amount Amount to slash
+    /// @param slashBps Slash percentage in basis points
     /// @param evidence Evidence hash
     /// @return slashId The ID of the created slash proposal
     function proposeSlash(
         uint64 serviceId,
         address operator,
-        uint256 amount,
+        uint16 slashBps,
         bytes32 evidence
     ) external returns (uint64 slashId);
 

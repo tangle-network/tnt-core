@@ -340,6 +340,8 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         restaking.addSlasher(slasher);
         Tangle(payable(tangleProxy)).setOperatorStatusRegistry(address(statusRegistry));
         Tangle(payable(tangleProxy)).setTntToken(address(tnt));
+        restaking.enableAsset(address(tnt), 1 ether, 7, 0, 10_000);
+        restaking.setOperatorBondToken(address(tnt));
 
         // Deploy and configure MBSM
         MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(admin, tangleProxy);
@@ -691,7 +693,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         vm.deal(address(restaking), address(restaking).balance + rewardAmount);
 
         vm.startBroadcast(ADMIN_KEY);
-        // Legacy restaking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
+        // Restaking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
         vm.stopBroadcast();
     }
 
@@ -700,9 +702,12 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         uint256 operatorIndex = (tick / 20) % operators.length;
         uint256 slashAmount = 0.1 ether;
         bytes32 evidence = keccak256(abi.encodePacked("slash_evidence", tick));
+        uint256 stake = restaking.getOperatorStake(operators[operatorIndex]);
+        uint16 slashBps = stake == 0 ? 0 : uint16((slashAmount * 10_000) / stake);
+        if (slashBps > 10_000) slashBps = 10_000;
 
         vm.startBroadcast(SLASHER_KEY);
-        try tangle.proposeSlash(serviceId, operators[operatorIndex], slashAmount, evidence) {
+        try tangle.proposeSlash(serviceId, operators[operatorIndex], slashBps, evidence) {
             totalSlashes++;
         } catch {}
         vm.stopBroadcast();

@@ -59,14 +59,15 @@ contract EndToEndSlashingTest is BaseTest {
         tangle.approveService(requestId, 0);
         uint64 serviceId = 0;
 
-        // Slash 6 ETH (10% of total)
+        // Slash 10% (1000 bps) of total
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 6 ether, keccak256("evidence"));
+        uint16 slashBps = 1000;
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashBps, keccak256("evidence"));
 
         // Verify proposal storage
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-        assertEq(proposal.amount, 6 ether, "Proposal: amount=6 ETH");
-        assertEq(proposal.effectiveAmount, 6 ether, "Proposal: effective=6 ETH (100% exposure)");
+        assertEq(proposal.slashBps, slashBps, "Proposal: slashBps=1000");
+        assertEq(proposal.effectiveSlashBps, slashBps, "Proposal: effectiveSlashBps=1000");
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Pending), "Proposal: Pending");
 
         // Execute slash after dispute window
@@ -134,12 +135,12 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator2);
         tangle.approveService(requestId, 0);
 
-        // Slash ONLY operator1 for 4 ETH
+        // Slash ONLY operator1 for 20% (2000 bps)
         // Op1 pool = 20 ETH (10 self + 10 delegated)
         // Op1 loses: 4 * 10/20 = 2 ETH
         // D1->Op1 loses: 4 * 10/20 = 2 ETH
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(0, operator1, 4 ether, keccak256("op1_fault"));
+        uint64 slashId = tangle.proposeSlash(0, operator1, 2000, keccak256("op1_fault"));
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
 
@@ -194,7 +195,7 @@ contract EndToEndSlashingTest is BaseTest {
         // Verify slash proposal created
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(proposal.operator, operator1, "Slash targets operator1");
-        assertEq(proposal.amount, 3 ether, "Slash amount = 3 ETH (CHALLENGE_SLASH_AMOUNT)");
+        assertEq(proposal.slashBps, challengeBSM.CHALLENGE_SLASH_BPS(), "Slash bps = 1000 (CHALLENGE_SLASH_BPS)");
 
         // Execute slash
         vm.warp(block.timestamp + 7 days + 1);
@@ -251,30 +252,30 @@ contract EndToEndSlashingTest is BaseTest {
 
         uint256 baseTime = block.timestamp;
 
-        // First slash: 3 ETH
+        // First slash: 30% (3 ETH)
         vm.prank(user1);
-        uint64 slash1 = tangle.proposeSlash(0, operator1, 3 ether, keccak256("e1"));
+        uint64 slash1 = tangle.proposeSlash(0, operator1, 3000, keccak256("e1"));
         vm.warp(baseTime + 8 days);
         tangle.executeSlash(slash1);
         assertEq(restaking.getOperatorSelfStake(operator1), 7 ether, "After slash1: 7 ETH");
 
-        // Second slash: 3 ETH (propose at new time)
+        // Second slash: 50% of 7 ETH = 3.5 ETH slashed
         vm.prank(user1);
-        uint64 slash2 = tangle.proposeSlash(0, operator1, 3 ether, keccak256("e2"));
+        uint64 slash2 = tangle.proposeSlash(0, operator1, 5000, keccak256("e2"));
         vm.warp(baseTime + 16 days);
         tangle.executeSlash(slash2);
-        assertEq(restaking.getOperatorSelfStake(operator1), 4 ether, "After slash2: 4 ETH");
+        assertEq(restaking.getOperatorSelfStake(operator1), 3.5 ether, "After slash2: 3.5 ETH");
 
-        // Third slash: 3 ETH (propose at new time)
+        // Third slash: 75% of 3.5 ETH = 2.625 ETH slashed
         vm.prank(user1);
-        uint64 slash3 = tangle.proposeSlash(0, operator1, 3 ether, keccak256("e3"));
+        uint64 slash3 = tangle.proposeSlash(0, operator1, 7500, keccak256("e3"));
         vm.warp(baseTime + 24 days);
         tangle.executeSlash(slash3);
-        assertEq(restaking.getOperatorSelfStake(operator1), 1 ether, "After slash3: 1 ETH");
+        assertEq(restaking.getOperatorSelfStake(operator1), 0.875 ether, "After slash3: 0.875 ETH");
 
-        // Fourth slash: 5 ETH (caps at remaining 1 ETH)
+        // Fourth slash: 100% (caps at remaining 1 ETH)
         vm.prank(user1);
-        uint64 slash4 = tangle.proposeSlash(0, operator1, 5 ether, keccak256("e4"));
+        uint64 slash4 = tangle.proposeSlash(0, operator1, 10_000, keccak256("e4"));
         vm.warp(baseTime + 32 days);
         tangle.executeSlash(slash4);
         assertEq(restaking.getOperatorSelfStake(operator1), 0, "After slash4: 0 ETH (capped)");
@@ -300,13 +301,13 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        // Propose 6 ETH slash, but effective = 3 ETH (50%)
+        // Propose 60% slash, but effective = 30% (50% exposure)
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(0, operator1, 6 ether, keccak256("ev"));
+        uint64 slashId = tangle.proposeSlash(0, operator1, 6000, keccak256("ev"));
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-        assertEq(proposal.amount, 6 ether, "Proposed: 6 ETH");
-        assertEq(proposal.effectiveAmount, 3 ether, "Effective: 3 ETH (50%)");
+        assertEq(proposal.slashBps, 6000, "Proposed: 6000 bps");
+        assertEq(proposal.effectiveSlashBps, 3000, "Effective: 3000 bps (50%)");
 
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
@@ -329,9 +330,9 @@ contract EndToEndSlashingTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        // Slash to go below minimum
+        // Slash to go below minimum (50%)
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(0, operator1, 0.75 ether, keccak256("ev"));
+        uint64 slashId = tangle.proposeSlash(0, operator1, 5000, keccak256("ev"));
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
 
@@ -359,7 +360,7 @@ contract EndToEndSlashingTest is BaseTest {
         uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
 
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(0, operator1, 2 ether, keccak256("ev"));
+        uint64 slashId = tangle.proposeSlash(0, operator1, 2000, keccak256("ev"));
 
         // Operator disputes
         vm.prank(operator1);
@@ -397,9 +398,9 @@ contract EndToEndSlashingTest is BaseTest {
         tangle.approveService(requestId, 0);
         uint64 serviceId = 0;
 
-        // Propose and execute slash for 3 ETH
+        // Propose and execute slash for 30% (3 ETH)
         vm.prank(user1);
-        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 3 ether, keccak256("evidence"));
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 3000, keccak256("evidence"));
         vm.warp(block.timestamp + 7 days + 1);
         tangle.executeSlash(slashId);
 
@@ -432,9 +433,9 @@ contract EndToEndSlashingTest is BaseTest {
         // Create 3 slash proposals
         uint64[] memory slashIds = new uint64[](3);
         vm.startPrank(user1);
-        slashIds[0] = tangle.proposeSlash(serviceId, operator1, 1 ether, keccak256("e1"));
-        slashIds[1] = tangle.proposeSlash(serviceId, operator1, 1.5 ether, keccak256("e2"));
-        slashIds[2] = tangle.proposeSlash(serviceId, operator1, 0.5 ether, keccak256("e3"));
+        slashIds[0] = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("e1"));
+        slashIds[1] = tangle.proposeSlash(serviceId, operator1, 1500, keccak256("e2"));
+        slashIds[2] = tangle.proposeSlash(serviceId, operator1, 500, keccak256("e3"));
         vm.stopPrank();
 
         // Execute batch
@@ -442,8 +443,10 @@ contract EndToEndSlashingTest is BaseTest {
         tangle.executeSlashBatch(slashIds);
 
         // Verify all 3 slashes recorded in metrics
+        // Cumulative slashing: 10% of 10 = 1, 15% of 9 = 1.35, 5% of 7.65 = 0.3825
+        // Total = 2.7325 ETH
         assertEq(mockMetrics.slashCount(), 3, "recordSlash should be called 3 times");
-        assertEq(mockMetrics.totalSlashedAmount(), 3 ether, "Total slashed amount correct");
+        assertEq(mockMetrics.totalSlashedAmount(), 2.7325 ether, "Total slashed amount correct");
     }
 }
 
@@ -481,7 +484,7 @@ contract MockMetricsRecorder {
 /// @title ChallengingSquareBSM
 /// @notice BSM that validates square(x) results and allows anyone to challenge invalid results
 contract ChallengingSquareBSM is BlueprintServiceManagerBase {
-    uint256 public constant CHALLENGE_SLASH_AMOUNT = 3 ether;
+    uint16 public constant CHALLENGE_SLASH_BPS = 1000;
 
     // serviceId => callId => input
     mapping(uint64 => mapping(uint64 => uint256)) public jobInputs;
@@ -542,7 +545,7 @@ contract ChallengingSquareBSM is BlueprintServiceManagerBase {
         return ITangleFull(tangleCore).proposeSlash(
             serviceId,
             operator,
-            CHALLENGE_SLASH_AMOUNT,
+            CHALLENGE_SLASH_BPS,
             keccak256(abi.encode("invalid_square", callId, jobInputs[serviceId][callId], jobOutputs[serviceId][callId]))
         );
     }

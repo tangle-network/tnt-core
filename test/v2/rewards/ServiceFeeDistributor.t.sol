@@ -209,6 +209,89 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.stopPrank();
     }
 
+    function test_FixedMode_MultiBlueprint_SplitsByBlueprintExposure() public {
+        _registerOperator(operator2, 5 ether);
+        _registerForBlueprint(operator2, blueprintId);
+
+        vm.prank(developer);
+        uint64 blueprint2 = tangle.createBlueprint(_blueprintDefinition("ipfs://sfd-2", address(0)));
+        _registerForBlueprint(operator2, blueprint2);
+
+        address fixedDelA = makeAddr("fixedDelA");
+        address fixedDelB = makeAddr("fixedDelB");
+        vm.deal(fixedDelA, 50 ether);
+        vm.deal(fixedDelB, 50 ether);
+
+        uint64[] memory both = new uint64[](2);
+        both[0] = blueprintId;
+        both[1] = blueprint2;
+
+        vm.prank(fixedDelA);
+        restaking.depositAndDelegateWithOptions{ value: 12 ether }(
+            operator2,
+            address(0),
+            12 ether,
+            Types.BlueprintSelectionMode.Fixed,
+            both
+        );
+
+        uint64[] memory onlyFirst = new uint64[](1);
+        onlyFirst[0] = blueprintId;
+
+        vm.prank(fixedDelB);
+        restaking.depositAndDelegateWithOptions{ value: 12 ether }(
+            operator2,
+            address(0),
+            12 ether,
+            Types.BlueprintSelectionMode.Fixed,
+            onlyFirst
+        );
+
+        Types.AssetSecurityRequirement[] memory reqs = new Types.AssetSecurityRequirement[](1);
+        reqs[0] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            minExposureBps: 1,
+            maxExposureBps: 10000
+        });
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator2;
+
+        uint256 paymentAmount = 90 ether;
+        vm.startPrank(user1);
+        payTokenA.approve(address(tangle), paymentAmount);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId,
+            ops,
+            reqs,
+            "",
+            new address[](0),
+            0,
+            address(payTokenA),
+            paymentAmount
+        );
+        vm.stopPrank();
+
+        Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](1);
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
+
+        vm.prank(operator2);
+        tangle.approveServiceWithCommitments(requestId, commits);
+
+        Types.Asset memory nativeAsset = reqs[0].asset;
+        uint256 beforeA = payTokenA.balanceOf(fixedDelA);
+        uint256 beforeB = payTokenA.balanceOf(fixedDelB);
+
+        vm.prank(fixedDelA);
+        distributor.claimFor(address(payTokenA), operator2, nativeAsset);
+        vm.prank(fixedDelB);
+        distributor.claimFor(address(payTokenA), operator2, nativeAsset);
+
+        // Restaker share = 20% of payment = 18. fixedDelA has half the blueprint exposure.
+        assertEq(payTokenA.balanceOf(fixedDelA) - beforeA, 6 ether);
+        assertEq(payTokenA.balanceOf(fixedDelB) - beforeB, 12 ether);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EDGE CASES & ABUSE SCENARIOS
     // ═══════════════════════════════════════════════════════════════════════════

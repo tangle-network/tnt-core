@@ -501,6 +501,15 @@ abstract contract Services is Base {
         Types.AssetSecurityRequirement[] storage requirements,
         Types.AssetSecurityCommitment[] calldata commitments
     ) internal view {
+        for (uint256 i = 0; i < commitments.length; i++) {
+            for (uint256 j = i + 1; j < commitments.length; j++) {
+                if (commitments[i].asset.token == commitments[j].asset.token &&
+                    commitments[i].asset.kind == commitments[j].asset.kind) {
+                    revert Errors.DuplicateAssetCommitment(uint8(commitments[i].asset.kind), commitments[i].asset.token);
+                }
+            }
+        }
+
         for (uint256 i = 0; i < requirements.length; i++) {
             Types.AssetSecurityRequirement storage req = requirements[i];
             bool found = false;
@@ -885,7 +894,7 @@ abstract contract Services is Base {
         emit ExitForced(serviceId, operator, msg.sender);
     }
 
-    /// @notice Legacy leave function - schedules and immediately executes if allowed
+    /// @notice Convenience leave function - schedules and immediately executes if allowed
     /// @dev For backwards compatibility. Will fail if exit queue duration > 0
     function leaveService(uint64 serviceId) external nonReentrant {
         Types.Service storage svc = _getService(serviceId);

@@ -418,7 +418,7 @@ library Types {
         uint256 shares;              // Shares to unstake (NOT raw amount!)
         uint64 requestedRound;
         BlueprintSelectionMode selectionMode;
-        uint256 slashFactorSnapshot; // Slash factor at request time for lazy slashing
+        uint256 slashFactorSnapshot; // Reserved (kept for storage compatibility)
         // Blueprint IDs stored separately if Fixed
     }
 

@@ -12,6 +12,8 @@ library DelegationErrors {
     error OperatorNotRegistered(address operator);
     error OperatorNotActive(address operator);
     error OperatorNotLeaving(address operator);
+    error OperatorBondTokenOnly(address requiredToken);
+    error OperatorBondTokenLocked();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STAKE ERRORS
@@ -61,7 +63,7 @@ library DelegationErrors {
     // ═══════════════════════════════════════════════════════════════════════════
 
     error NotSlasher(address caller);
-    error LegacySlashRequiresAllMode(address operator);
+    error InvalidSlashBps(uint256 slashBps);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT MANAGEMENT ERRORS
@@ -73,7 +75,9 @@ library DelegationErrors {
     error AllModeDisallowsBlueprints();
     error BlueprintAlreadySelected(uint64 blueprintId);
     error BlueprintNotSelected(uint64 blueprintId);
+    error DuplicateBlueprint(uint64 blueprintId);
     error CannotRemoveLastBlueprint();
+    error InvalidBlueprintShares();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LOCK VALIDATION

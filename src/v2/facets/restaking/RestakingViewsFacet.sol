@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { RestakingFacetBase } from "../../restaking/RestakingFacetBase.sol";
+import { DelegationErrors } from "../../restaking/DelegationErrors.sol";
 import { Types } from "../../libraries/Types.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 
@@ -9,32 +10,36 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 /// @notice Facet for restaking view functions
 contract RestakingViewsFacet is RestakingFacetBase, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](25);
+        selectorList = new bytes4[](29);
         selectorList[0] = this.isOperator.selector;
         selectorList[1] = this.isOperatorActive.selector;
         selectorList[2] = this.getOperatorStake.selector;
         selectorList[3] = this.getOperatorSelfStake.selector;
         selectorList[4] = this.getOperatorDelegatedStake.selector;
-        selectorList[5] = this.getDelegation.selector;
-        selectorList[6] = this.getTotalDelegation.selector;
-        selectorList[7] = this.minOperatorStake.selector;
-        selectorList[8] = this.meetsStakeRequirement.selector;
-        selectorList[9] = this.isSlasher.selector;
-        selectorList[10] = this.getOperatorMetadata.selector;
-        selectorList[11] = this.getOperatorBlueprints.selector;
-        selectorList[12] = this.operatorCount.selector;
-        selectorList[13] = this.operatorAt.selector;
-        selectorList[14] = this.getDeposit.selector;
-        selectorList[15] = this.getPendingWithdrawals.selector;
-        selectorList[16] = this.getLocks.selector;
-        selectorList[17] = this.getDelegations.selector;
-        selectorList[18] = this.getDelegationBlueprints.selector;
-        selectorList[19] = this.getPendingUnstakes.selector;
-        selectorList[20] = this.getOperatorRewardPool.selector;
-        selectorList[21] = this.getOperatorDelegators.selector;
-        selectorList[22] = this.getOperatorDelegatorCount.selector;
-        selectorList[23] = this.rewardsManager.selector;
-        selectorList[24] = this.serviceFeeDistributor.selector;
+        selectorList[5] = this.getOperatorDelegatedStakeForAsset.selector;
+        selectorList[6] = this.getOperatorStakeForAsset.selector;
+        selectorList[7] = this.getDelegation.selector;
+        selectorList[8] = this.getTotalDelegation.selector;
+        selectorList[9] = this.minOperatorStake.selector;
+        selectorList[10] = this.meetsStakeRequirement.selector;
+        selectorList[11] = this.isSlasher.selector;
+        selectorList[12] = this.getOperatorMetadata.selector;
+        selectorList[13] = this.getOperatorBlueprints.selector;
+        selectorList[14] = this.operatorCount.selector;
+        selectorList[15] = this.operatorAt.selector;
+        selectorList[16] = this.getDeposit.selector;
+        selectorList[17] = this.getPendingWithdrawals.selector;
+        selectorList[18] = this.getLocks.selector;
+        selectorList[19] = this.getDelegations.selector;
+        selectorList[20] = this.getDelegationBlueprints.selector;
+        selectorList[21] = this.getPendingUnstakes.selector;
+        selectorList[22] = this.getOperatorRewardPool.selector;
+        selectorList[23] = this.getOperatorDelegators.selector;
+        selectorList[24] = this.getOperatorDelegatorCount.selector;
+        selectorList[25] = this.rewardsManager.selector;
+        selectorList[26] = this.serviceFeeDistributor.selector;
+        selectorList[27] = this.operatorBondToken.selector;
+        selectorList[28] = this.previewDelegatorUnstakeShares.selector;
     }
 
     function isOperator(address operator) external view returns (bool) {
@@ -46,7 +51,7 @@ contract RestakingViewsFacet is RestakingFacetBase, IFacetSelectors {
     }
 
     function getOperatorStake(address operator) external view returns (uint256) {
-        return _getOperatorSelfStake(operator) + _rewardPools[operator].totalAssets;
+        return _getOperatorTotalStake(operator);
     }
 
     function getOperatorSelfStake(address operator) external view returns (uint256) {
@@ -54,7 +59,43 @@ contract RestakingViewsFacet is RestakingFacetBase, IFacetSelectors {
     }
 
     function getOperatorDelegatedStake(address operator) external view returns (uint256) {
-        return _rewardPools[operator].totalAssets;
+        return _getOperatorDelegatedStake(operator);
+    }
+
+    function getOperatorDelegatedStakeForAsset(
+        address operator,
+        Types.Asset calldata asset
+    ) external view returns (uint256) {
+        bytes32 assetHash = _assetHash(asset);
+        return _getOperatorDelegatedStakeForAsset(operator, assetHash);
+    }
+
+    function getOperatorStakeForAsset(
+        address operator,
+        Types.Asset calldata asset
+    ) external view returns (uint256) {
+        bytes32 assetHash = _assetHash(asset);
+        uint256 delegated = _getOperatorDelegatedStakeForAsset(operator, assetHash);
+        if (asset.kind == Types.AssetKind.Native && _operatorBondToken == address(0)) {
+            return delegated + _getOperatorSelfStake(operator);
+        }
+        if (asset.kind == Types.AssetKind.ERC20 && asset.token == _operatorBondToken) {
+            return delegated + _getOperatorSelfStake(operator);
+        }
+        return delegated;
+    }
+
+    function previewDelegatorUnstakeShares(
+        address operator,
+        address token,
+        uint256 amount
+    ) external view returns (uint256 shares) {
+        if (amount == 0) revert DelegationErrors.ZeroAmount();
+        Types.Asset memory asset = token == address(0)
+            ? Types.Asset(Types.AssetKind.Native, address(0))
+            : Types.Asset(Types.AssetKind.ERC20, token);
+        bytes32 assetHash = _assetHash(asset);
+        (shares,) = _previewDelegatorUnstakeShares(msg.sender, operator, assetHash, amount);
     }
 
     function getDelegation(address delegator, address operator) external view returns (uint256) {
@@ -62,20 +103,20 @@ contract RestakingViewsFacet is RestakingFacetBase, IFacetSelectors {
     }
 
     function getTotalDelegation(address delegator) external view returns (uint256 total) {
-        for (uint256 i = 0; i < _delegations[delegator].length; i++) {
-            Types.BondInfoDelegator storage d = _delegations[delegator][i];
-            // Convert shares to underlying amount at current exchange rate
-            total += _sharesToAmount(d.operator, d.shares);
-        }
+        return _getTotalDelegation(delegator);
     }
 
     function minOperatorStake() external view returns (uint256) {
-        bytes32 nativeHash = _assetHash(Types.Asset(Types.AssetKind.Native, address(0)));
-        return _assetConfigs[nativeHash].minOperatorStake;
+        if (_operatorBondToken == address(0)) {
+            bytes32 nativeHash = _assetHash(Types.Asset(Types.AssetKind.Native, address(0)));
+            return _assetConfigs[nativeHash].minOperatorStake;
+        }
+        bytes32 bondHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        return _assetConfigs[bondHash].minOperatorStake;
     }
 
     function meetsStakeRequirement(address operator, uint256 required) external view returns (bool) {
-        return _getOperatorSelfStake(operator) >= required;
+        return _getOperatorTotalStake(operator) >= required;
     }
 
     function isSlasher(address account) external view returns (bool) {
@@ -157,5 +198,10 @@ contract RestakingViewsFacet is RestakingFacetBase, IFacetSelectors {
     /// @notice Get the service-fee distributor address
     function serviceFeeDistributor() external view returns (address) {
         return _serviceFeeDistributor;
+    }
+
+    /// @notice Get the operator bond token (TNT)
+    function operatorBondToken() external view returns (address) {
+        return _operatorBondToken;
     }
 }

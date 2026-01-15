@@ -42,8 +42,8 @@ library SlashingLib {
         uint64 serviceId;           // Service where violation occurred
         address operator;           // Operator to be slashed
         address proposer;           // Who proposed the slash
-        uint256 amount;             // Original slash amount
-        uint256 effectiveAmount;    // Amount after exposure scaling
+        uint16 slashBps;            // Original slash percentage (bps)
+        uint16 effectiveSlashBps;   // Slash percentage after exposure scaling
         bytes32 evidence;           // Evidence hash (IPFS or other)
         uint64 proposedAt;          // When slash was proposed
         uint64 executeAfter;        // When slash can be executed
@@ -73,8 +73,8 @@ library SlashingLib {
         uint64 indexed serviceId,
         address indexed operator,
         address proposer,
-        uint256 amount,
-        uint256 effectiveAmount,
+        uint16 slashBps,
+        uint16 effectiveSlashBps,
         bytes32 evidence,
         uint64 executeAfter
     );
@@ -149,29 +149,26 @@ library SlashingLib {
     // SLASH CALCULATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Calculate effective slash amount based on operator exposure
-    /// @param amount Base slash amount
+    /// @notice Calculate effective slash bps based on operator exposure
+    /// @param slashBps Base slash percentage
     /// @param exposureBps Operator's exposure in basis points
-    /// @return Effective slash amount
-    function calculateEffectiveSlash(
-        uint256 amount,
+    /// @return Effective slash percentage
+    function calculateEffectiveSlashBps(
+        uint16 slashBps,
         uint16 exposureBps
-    ) internal pure returns (uint256) {
-        return (amount * exposureBps) / BPS_DENOMINATOR;
+    ) internal pure returns (uint16) {
+        return uint16((uint256(slashBps) * exposureBps) / BPS_DENOMINATOR);
     }
 
-    /// @notice Cap slash amount to maximum allowed
-    /// @param amount Proposed slash amount
-    /// @param operatorStake Operator's total stake
+    /// @notice Cap slash percentage to maximum allowed
+    /// @param slashBps Proposed slash percentage
     /// @param maxSlashBps Maximum slash percentage
-    /// @return Capped slash amount
-    function capSlashAmount(
-        uint256 amount,
-        uint256 operatorStake,
+    /// @return Capped slash percentage
+    function capSlashBps(
+        uint16 slashBps,
         uint16 maxSlashBps
-    ) internal pure returns (uint256) {
-        uint256 maxSlash = (operatorStake * maxSlashBps) / BPS_DENOMINATOR;
-        return amount > maxSlash ? maxSlash : amount;
+    ) internal pure returns (uint16) {
+        return slashBps > maxSlashBps ? maxSlashBps : slashBps;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -184,7 +181,7 @@ library SlashingLib {
     /// @param serviceId Service where violation occurred
     /// @param operator Operator to slash
     /// @param proposer Who is proposing the slash
-    /// @param amount Base slash amount
+    /// @param slashBps Base slash percentage
     /// @param exposureBps Operator's exposure
     /// @param evidence Evidence hash
     /// @param instant If true, skip dispute window (requires instantSlashEnabled)
@@ -195,17 +192,17 @@ library SlashingLib {
         uint64 serviceId,
         address operator,
         address proposer,
-        uint256 amount,
+        uint16 slashBps,
         uint16 exposureBps,
         bytes32 evidence,
         bool instant
     ) internal returns (uint64 slashId) {
-        if (amount == 0) revert Errors.InvalidSlashAmount();
+        if (slashBps == 0) revert Errors.InvalidSlashAmount();
         if (operator == address(0)) revert Errors.ZeroAddress();
 
-        // Calculate effective amount based on exposure
-        uint256 effectiveAmount = calculateEffectiveSlash(amount, exposureBps);
-        if (effectiveAmount == 0) revert Errors.InvalidSlashAmount();
+        // Calculate effective bps based on exposure
+        uint16 effectiveSlashBps = calculateEffectiveSlashBps(slashBps, exposureBps);
+        if (effectiveSlashBps == 0) revert Errors.InvalidSlashAmount();
 
         // Determine execution time
         uint64 executeAfter;
@@ -224,8 +221,8 @@ library SlashingLib {
             serviceId: serviceId,
             operator: operator,
             proposer: proposer,
-            amount: amount,
-            effectiveAmount: effectiveAmount,
+            slashBps: slashBps,
+            effectiveSlashBps: effectiveSlashBps,
             evidence: evidence,
             proposedAt: uint64(block.timestamp),
             executeAfter: executeAfter,
@@ -238,8 +235,8 @@ library SlashingLib {
             serviceId,
             operator,
             proposer,
-            amount,
-            effectiveAmount,
+            slashBps,
+            effectiveSlashBps,
             evidence,
             executeAfter
         );
@@ -397,23 +394,4 @@ library SlashingLib {
         }
     }
 
-    /// @notice Calculate total pending slash amount for an operator
-    /// @param proposals Storage mapping for proposals
-    /// @param operator The operator address
-    /// @param fromId Start from this ID
-    /// @param toId Search up to this ID
-    /// @return total Total pending slash amount
-    function getTotalPendingSlash(
-        mapping(uint64 => SlashProposal) storage proposals,
-        address operator,
-        uint64 fromId,
-        uint64 toId
-    ) internal view returns (uint256 total) {
-        for (uint64 i = fromId; i < toId; i++) {
-            if (proposals[i].operator == operator &&
-                proposals[i].status == SlashStatus.Pending) {
-                total += proposals[i].effectiveAmount;
-            }
-        }
-    }
 }

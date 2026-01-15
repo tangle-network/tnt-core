@@ -136,7 +136,7 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
         harness.validateJobResult(payload, blueprintId, jobIndex);
     }
 
-    /// @notice Legacy blueprints that stored zero-length schemas continue to accept empty payloads
+    /// @notice Blueprints that stored zero-length schemas continue to accept empty payloads
     function test_ZeroLengthSchemaAllowsEmptyPayloads() public {
         bytes memory empty = _emptySchema();
         harness.setRegistrationSchema(empty);
