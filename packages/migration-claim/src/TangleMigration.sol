@@ -15,8 +15,8 @@ import {TNTVestingFactory} from "./lockups/TNTVestingFactory.sol";
 ///
 /// Vesting Schedule (default 3 years total):
 /// - 2% unlocked immediately at claim
-/// - 6-month cliff (no vesting during this period)
-/// - 98% vested linearly over 30 months after cliff
+/// - 12-month cliff (no vesting during this period)
+/// - 98% vested linearly over 24 months after cliff
 /// - Configurable: deploy new TNTVestingFactory with custom cliff/vesting durations
 contract TangleMigration is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -25,8 +25,8 @@ contract TangleMigration is Ownable, ReentrancyGuard {
     // CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════
 
-    uint64 public constant DEFAULT_CLIFF_DURATION = 180 days; // 6 months
-    uint64 public constant DEFAULT_VESTING_DURATION = 912 days; // 30 months (total 36 months / 3 years)
+    uint64 public constant DEFAULT_CLIFF_DURATION = 365 days; // 12 months
+    uint64 public constant DEFAULT_VESTING_DURATION = 730 days; // 24 months (total 36 months / 3 years)
     uint16 public constant DEFAULT_UNLOCKED_BPS = 200; // 2%
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -108,6 +108,9 @@ contract TangleMigration is Ownable, ReentrancyGuard {
     error EmergencyWithdrawNotAllowed();
     error ClaimDeadlineNotPassed();
     error NoClaimDeadlineSet();
+    error MerkleRootLocked();
+    error ZKVerifierLocked();
+    error ETHTransferFailed();
 
     // ═══════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -259,16 +262,18 @@ contract TangleMigration is Ownable, ReentrancyGuard {
     // ADMIN FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// @notice Update the Merkle root
+    /// @notice Update the Merkle root (only before first claim)
     /// @param _merkleRoot The new Merkle root
     function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+        if (totalClaimed != 0) revert MerkleRootLocked();
         emit MerkleRootUpdated(merkleRoot, _merkleRoot);
         merkleRoot = _merkleRoot;
     }
 
-    /// @notice Update the ZK verifier
+    /// @notice Update the ZK verifier (only before first claim)
     /// @param _zkVerifier The new ZK verifier address
     function setZKVerifier(address _zkVerifier) external onlyOwner {
+        if (totalClaimed != 0) revert ZKVerifierLocked();
         emit ZKVerifierUpdated(address(zkVerifier), _zkVerifier);
         zkVerifier = IZKVerifier(_zkVerifier);
     }
@@ -325,7 +330,8 @@ contract TangleMigration is Ownable, ReentrancyGuard {
         if (!paused && !deadlinePassed) revert EmergencyWithdrawNotAllowed();
 
         if (_token == address(0)) {
-            payable(owner()).transfer(_amount);
+            (bool success,) = owner().call{value: _amount}("");
+            if (!success) revert ETHTransferFailed();
         } else {
             IERC20(_token).safeTransfer(owner(), _amount);
         }

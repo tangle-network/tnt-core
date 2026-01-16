@@ -75,10 +75,10 @@ contract TangleMigrationTest is Test {
         assertFalse(migration.paused());
         // New defaults: 2% unlocked
         assertEq(migration.unlockedBps(), 200);
-        // Vesting config: 6-month cliff + 30-month linear (3 years total)
-        assertEq(migration.cliffDuration(), 180 days);
-        assertEq(migration.vestingDuration(), 912 days);
-        assertEq(migration.totalVestingDuration(), 180 days + 912 days);
+        // Vesting config: 12-month cliff + 24-month linear (3 years total)
+        assertEq(migration.cliffDuration(), 365 days);
+        assertEq(migration.vestingDuration(), 730 days);
+        assertEq(migration.totalVestingDuration(), 365 days + 730 days);
         assertTrue(address(migration.vestingFactory()) != address(0));
         assertEq(migration.adminClaimDeadline(), block.timestamp + 60 days);
     }
@@ -438,6 +438,40 @@ contract TangleMigrationTest is Test {
         assertEq(address(migration.zkVerifier()), newVerifier);
     }
 
+    function test_SetMerkleRoot_RevertAfterFirstClaim() public {
+        // First, make a claim
+        bytes memory zkProof = "";
+        migration.claimWithZKProof(
+            TEST_PUBKEY,
+            TEST_AMOUNT,
+            merkleProof,
+            zkProof,
+            claimer
+        );
+
+        // Now try to change merkle root - should revert
+        bytes32 newRoot = keccak256("newRoot");
+        vm.expectRevert(TangleMigration.MerkleRootLocked.selector);
+        migration.setMerkleRoot(newRoot);
+    }
+
+    function test_SetZKVerifier_RevertAfterFirstClaim() public {
+        // First, make a claim
+        bytes memory zkProof = "";
+        migration.claimWithZKProof(
+            TEST_PUBKEY,
+            TEST_AMOUNT,
+            merkleProof,
+            zkProof,
+            claimer
+        );
+
+        // Now try to change ZK verifier - should revert
+        address newVerifier = makeAddr("newVerifier");
+        vm.expectRevert(TangleMigration.ZKVerifierLocked.selector);
+        migration.setZKVerifier(newVerifier);
+    }
+
     function test_SetClaimDeadline() public {
         uint256 newDeadline = block.timestamp + 365 days;
 
@@ -493,8 +527,8 @@ contract TangleMigrationTest is Test {
         assertEq(vesting.vestedAmount(), 0);
         assertEq(vesting.releasable(), 0);
 
-        // Fast forward to just before cliff ends (cliff = 180 days)
-        vm.warp(block.timestamp + 179 days);
+        // Fast forward to just before cliff ends (cliff = 365 days)
+        vm.warp(block.timestamp + 364 days);
         assertEq(vesting.vestedAmount(), 0);
         assertEq(vesting.releasable(), 0);
 
@@ -520,17 +554,17 @@ contract TangleMigrationTest is Test {
 
         uint256 claimerBalanceAfterClaim = tnt.balanceOf(claimer);
 
-        // Fast forward to cliff end (180 days)
-        vm.warp(block.timestamp + 180 days);
+        // Fast forward to cliff end (365 days)
+        vm.warp(block.timestamp + 365 days);
 
         // At cliff end, still nothing vested (linear vesting starts after cliff)
         assertEq(vesting.vestedAmount(), 0);
 
-        // Fast forward ~15 months into vesting period (halfway through 30-month vesting)
-        vm.warp(block.timestamp + 456 days); // ~half of 912 days
+        // Fast forward ~12 months into vesting period (halfway through 24-month vesting)
+        vm.warp(block.timestamp + 365 days); // ~half of 730 days
 
         // Should have ~50% vested
-        uint256 expectedVested = (vestedAmount * 456) / 912;
+        uint256 expectedVested = (vestedAmount * 365) / 730;
         assertApproxEqRel(vesting.vestedAmount(), expectedVested, 0.01e18); // 1% tolerance
 
         // Release partial amount
@@ -557,8 +591,8 @@ contract TangleMigrationTest is Test {
 
         uint256 claimerBalanceAfterClaim = tnt.balanceOf(claimer);
 
-        // Fast forward past full vesting period (180 + 912 = 1092 days = 3 years)
-        vm.warp(block.timestamp + 1092 days + 1);
+        // Fast forward past full vesting period (365 + 730 = 1095 days = 3 years)
+        vm.warp(block.timestamp + 1095 days + 1);
 
         // Should have 100% vested
         assertEq(vesting.vestedAmount(), vestedAmount);

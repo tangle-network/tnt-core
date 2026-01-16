@@ -34,10 +34,13 @@ contract TNTVestingFactory {
         uint64 vestingDuration
     );
 
+    error InvalidVestingDuration();
+
     /// @notice Deploy a new factory with specified vesting parameters
-    /// @param cliffDuration_ Duration of cliff period (e.g., 180 days for 6 months)
-    /// @param vestingDuration_ Duration of linear vesting after cliff (e.g., 365 days for 12 months)
+    /// @param cliffDuration_ Duration of cliff period (e.g., 365 days for 12 months)
+    /// @param vestingDuration_ Duration of linear vesting after cliff (e.g., 730 days for 24 months)
     constructor(uint64 cliffDuration_, uint64 vestingDuration_) {
+        if (vestingDuration_ == 0) revert InvalidVestingDuration();
         implementation = address(new TNTLinearVesting());
         cliffDuration = cliffDuration_;
         vestingDuration = vestingDuration_;

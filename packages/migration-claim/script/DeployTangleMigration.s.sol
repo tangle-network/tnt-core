@@ -171,13 +171,13 @@ contract DeployTangleMigration is Script {
         console.log("   Remaining in deployer:", evmAllocation / 1e18, "TNT");
         console.log("   Run ExecuteEVMAirdrop to distribute to", "EVM holders");
 
-        // 8. Optional: Treasury allocation (0% unlocked, 100% vested with 6-month cliff + 30-month linear)
+        // 8. Optional: Treasury allocation (0% unlocked, 100% vested with 12-month cliff + 24-month linear)
         if (treasuryAmount > 0) {
             require(treasuryRecipient != address(0), "TREASURY_RECIPIENT required when TREASURY_AMOUNT > 0");
 
             // Treasury: 0% unlocked, 100% goes to vesting contract
-            // Use same vesting schedule as migration: 180 days cliff + 912 days linear (3 years total)
-            TNTVestingFactory treasuryVestingFactory = new TNTVestingFactory(180 days, 912 days);
+            // 12-month cliff + 24-month linear = 3 years total
+            TNTVestingFactory treasuryVestingFactory = new TNTVestingFactory(365 days, 730 days);
             // forge-lint: disable-next-line(unsafe-typecast)
             address treasuryVesting = treasuryVestingFactory.getOrCreateVesting(
                 configuredTnt,
@@ -191,23 +191,22 @@ contract DeployTangleMigration is Script {
             console.log("   Total:", treasuryAmount / 1e18, "TNT");
             console.log("   Vesting contract:", treasuryVesting);
             console.log("   Beneficiary:", treasuryRecipient);
-            console.log("   Cliff: 6 months, Linear: 30 months (3 years total)");
+            console.log("   Cliff: 12 months, Linear: 24 months (3 years total)");
         }
 
-        // 9. Optional: Foundation allocation (30% unlocked, 70% vested with 6-month cliff + 30-month linear)
-        // 30% unlocked ensures ~5% of total supply is liquid at launch
+        // 9. Optional: Foundation allocation (1% unlocked, 99% vested with 12-month cliff + 24-month linear)
         if (foundationAmount > 0) {
             require(foundationRecipient != address(0), "FOUNDATION_RECIPIENT required when FOUNDATION_AMOUNT > 0");
 
-            // Foundation: 30% unlocked immediately, 70% vested
-            uint256 foundationUnlocked = (foundationAmount * 3000) / 10_000; // 30%
+            // Foundation: 1% unlocked immediately, 99% vested
+            uint256 foundationUnlocked = (foundationAmount * 100) / 10_000; // 1%
             uint256 foundationVested = foundationAmount - foundationUnlocked;
 
             // Transfer unlocked portion directly
             require(tntToken.transfer(foundationRecipient, foundationUnlocked), "Foundation unlocked transfer failed");
 
-            // Create vesting for the rest (6-month cliff + 30-month linear = 3 years)
-            TNTVestingFactory foundationVestingFactory = new TNTVestingFactory(180 days, 912 days);
+            // Create vesting for the rest (12-month cliff + 24-month linear = 3 years)
+            TNTVestingFactory foundationVestingFactory = new TNTVestingFactory(365 days, 730 days);
             // forge-lint: disable-next-line(unsafe-typecast)
             address foundationVesting = foundationVestingFactory.getOrCreateVesting(
                 configuredTnt,
@@ -217,12 +216,12 @@ contract DeployTangleMigration is Script {
             );
             require(tntToken.transfer(foundationVesting, foundationVested), "Foundation vesting transfer failed");
 
-            console.log("\n6. Foundation Allocation (30% unlocked, 70% vested):");
+            console.log("\n6. Foundation Allocation (1% unlocked, 99% vested):");
             console.log("   Total:", foundationAmount / 1e18, "TNT");
-            console.log("   Unlocked (30%):", foundationUnlocked / 1e18, "TNT to", foundationRecipient);
-            console.log("   Vested (70%):", foundationVested / 1e18, "TNT");
+            console.log("   Unlocked (1%):", foundationUnlocked / 1e18, "TNT to", foundationRecipient);
+            console.log("   Vested (99%):", foundationVested / 1e18, "TNT");
             console.log("   Vesting contract:", foundationVesting);
-            console.log("   Cliff: 6 months, Linear: 30 months (3 years total)");
+            console.log("   Cliff: 12 months, Linear: 24 months (3 years total)");
         }
 
         vm.stopBroadcast();

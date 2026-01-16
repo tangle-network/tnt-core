@@ -25,8 +25,8 @@ Claims split into:
 - `vestedAmount` (98%) transferred to a deterministic `TNTLinearVesting` contract for the recipient.
 
 **Default vesting parameters:**
-- 6-month cliff (180 days) - no tokens vest during this period
-- 30-month linear vesting (912 days) after cliff ends
+- 12-month cliff (365 days) - no tokens vest during this period
+- 24-month linear vesting (730 days) after cliff ends
 - **Total: 3 years (36 months)**
 
 You can update vesting config via `TangleMigration.setVestingConfig(...)` only while `totalClaimed == 0` (before the first claim).

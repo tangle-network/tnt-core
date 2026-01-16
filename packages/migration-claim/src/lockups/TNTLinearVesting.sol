@@ -15,10 +15,10 @@ import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 ///     vestedAmount = totalLocked * (t - start - cliffDuration) / vestingDuration
 /// - After vesting complete (t >= start + cliffDuration + vestingDuration): 100% vested
 ///
-/// Example with 6-month cliff + 12-month linear vesting (18 months total):
-/// - Month 0-6: 0% vested (cliff period)
-/// - Month 6-18: Linear unlock (~8.33% per month)
-/// - Month 18+: 100% vested
+/// Example with 12-month cliff + 24-month linear vesting (36 months total):
+/// - Month 0-12: 0% vested (cliff period)
+/// - Month 12-36: Linear unlock (~4.17% per month)
+/// - Month 36+: 100% vested
 contract TNTLinearVesting {
     using SafeERC20 for IERC20;
 
