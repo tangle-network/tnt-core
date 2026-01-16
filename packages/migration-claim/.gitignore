@@ -20,6 +20,12 @@ merkle-tree-test.json
 migration-proofs.json
 proof.json
 
+# Internal documents (confidential)
+INVESTOR-ACCOUNTS-INTERNAL.md
+find_investors.js
+find_investors_chain.ts
+trace_zee_prime.ts
+
 # Node (if using scripts)
 node_modules/
 
