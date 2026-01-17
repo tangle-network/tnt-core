@@ -643,6 +643,7 @@ interface ITangleOperators {
     function getOperatorPreferences(uint64 blueprintId, address operator) external view returns (Types.OperatorPreferences memory);
     function getOperatorPublicKey(uint64 blueprintId, address operator) external view returns (bytes memory);
     function getOperatorRegistration(uint64 blueprintId, address operator) external view returns (Types.OperatorRegistration memory);
+    function getOperatorTotalActiveServices(address operator) external view returns (uint256 count);
     function isOperatorRegistered(uint64 blueprintId, address operator) external view returns (bool);
     function preRegister(uint64 blueprintId) external;
     function registerOperator(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress, bytes memory registrationInputs) external;
@@ -757,6 +758,25 @@ interface ITangleOperators {
             "internalType": "bool"
           }
         ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getOperatorTotalActiveServices",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -1908,6 +1928,164 @@ function getOperatorRegistration(uint64 blueprintId, address operator) external 
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getOperatorTotalActiveServices(address)` and selector `0x0ded8bf9`.
+```solidity
+function getOperatorTotalActiveServices(address operator) external view returns (uint256 count);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getOperatorTotalActiveServicesCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getOperatorTotalActiveServices(address)`](getOperatorTotalActiveServicesCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getOperatorTotalActiveServicesReturn {
+        #[allow(missing_docs)]
+        pub count: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getOperatorTotalActiveServicesCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getOperatorTotalActiveServicesCall) -> Self {
+                    (value.operator,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getOperatorTotalActiveServicesCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { operator: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getOperatorTotalActiveServicesReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getOperatorTotalActiveServicesReturn) -> Self {
+                    (value.count,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getOperatorTotalActiveServicesReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { count: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getOperatorTotalActiveServicesCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getOperatorTotalActiveServices(address)";
+            const SELECTOR: [u8; 4] = [13u8, 237u8, 139u8, 249u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getOperatorTotalActiveServicesReturn = r.into();
+                        r.count
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getOperatorTotalActiveServicesReturn = r.into();
+                        r.count
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `isOperatorRegistered(uint64,address)` and selector `0x64462595`.
 ```solidity
 function isOperatorRegistered(uint64 blueprintId, address operator) external view returns (bool);
@@ -2918,6 +3096,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         getOperatorRegistration(getOperatorRegistrationCall),
         #[allow(missing_docs)]
+        getOperatorTotalActiveServices(getOperatorTotalActiveServicesCall),
+        #[allow(missing_docs)]
         isOperatorRegistered(isOperatorRegisteredCall),
         #[allow(missing_docs)]
         preRegister(preRegisterCall),
@@ -2939,6 +3119,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
             [10u8, 253u8, 55u8, 56u8],
+            [13u8, 237u8, 139u8, 249u8],
             [24u8, 12u8, 174u8, 103u8],
             [24u8, 198u8, 128u8, 23u8],
             [100u8, 70u8, 37u8, 149u8],
@@ -2951,6 +3132,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
             ::core::stringify!(unregisterOperator),
+            ::core::stringify!(getOperatorTotalActiveServices),
             ::core::stringify!(getOperatorPublicKey),
             ::core::stringify!(preRegister),
             ::core::stringify!(isOperatorRegistered),
@@ -2963,6 +3145,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
             <unregisterOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getOperatorTotalActiveServicesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorPublicKeyCall as alloy_sol_types::SolCall>::SIGNATURE,
             <preRegisterCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isOperatorRegisteredCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -2997,7 +3180,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
     impl alloy_sol_types::SolInterface for ITangleOperatorsCalls {
         const NAME: &'static str = "ITangleOperatorsCalls";
         const MIN_DATA_LENGTH: usize = 32usize;
-        const COUNT: usize = 9usize;
+        const COUNT: usize = 10usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -3009,6 +3192,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::getOperatorRegistration(_) => {
                     <getOperatorRegistrationCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getOperatorTotalActiveServices(_) => {
+                    <getOperatorTotalActiveServicesCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::isOperatorRegistered(_) => {
                     <isOperatorRegisteredCall as alloy_sol_types::SolCall>::SELECTOR
@@ -3057,6 +3243,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleOperatorsCalls::unregisterOperator)
                     }
                     unregisterOperator
+                },
+                {
+                    fn getOperatorTotalActiveServices(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleOperatorsCalls> {
+                        <getOperatorTotalActiveServicesCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleOperatorsCalls::getOperatorTotalActiveServices)
+                    }
+                    getOperatorTotalActiveServices
                 },
                 {
                     fn getOperatorPublicKey(
@@ -3178,6 +3375,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     unregisterOperator
                 },
                 {
+                    fn getOperatorTotalActiveServices(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleOperatorsCalls> {
+                        <getOperatorTotalActiveServicesCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleOperatorsCalls::getOperatorTotalActiveServices)
+                    }
+                    getOperatorTotalActiveServices
+                },
+                {
                     fn getOperatorPublicKey(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleOperatorsCalls> {
@@ -3294,6 +3502,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         inner,
                     )
                 }
+                Self::getOperatorTotalActiveServices(inner) => {
+                    <getOperatorTotalActiveServicesCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::isOperatorRegistered(inner) => {
                     <isOperatorRegisteredCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -3343,6 +3556,12 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::getOperatorRegistration(inner) => {
                     <getOperatorRegistrationCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getOperatorTotalActiveServices(inner) => {
+                    <getOperatorTotalActiveServicesCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -3726,6 +3945,17 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             self.call_builder(
                 &getOperatorRegistrationCall {
                     blueprintId,
+                    operator,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`getOperatorTotalActiveServices`] function.
+        pub fn getOperatorTotalActiveServices(
+            &self,
+            operator: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, getOperatorTotalActiveServicesCall, N> {
+            self.call_builder(
+                &getOperatorTotalActiveServicesCall {
                     operator,
                 },
             )

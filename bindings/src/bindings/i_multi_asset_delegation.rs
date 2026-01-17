@@ -3916,6 +3916,7 @@ interface IMultiAssetDelegation {
     function addBlueprintToDelegation(uint256 delegationIndex, uint64 blueprintId) external;
     function addSlasher(address slasher) external;
     function advanceRound() external;
+    function cancelCommissionChange() external;
     function completeLeaving() external;
     function currentRound() external view returns (uint64);
     function delegate(address operator, uint256 amount) external;
@@ -3930,6 +3931,7 @@ interface IMultiAssetDelegation {
     function disableAsset(address token) external;
     function enableAsset(address token, uint256 minOperatorStake, uint256 minDelegation, uint256 depositCap, uint16 rewardMultiplierBps) external;
     function enableAssetWithAdapter(address token, address adapter, uint256 minOperatorStake, uint256 minDelegation, uint256 depositCap, uint16 rewardMultiplierBps) external;
+    function executeCommissionChange() external;
     function executeDelegatorUnstake() external;
     function executeDelegatorUnstakeAndWithdraw(address operator, address token, uint256 shares, uint64 requestedRound, address receiver) external returns (uint256 amount);
     function executeOperatorUnstake() external;
@@ -3950,6 +3952,7 @@ interface IMultiAssetDelegation {
     function getOperatorSelfStake(address operator) external view returns (uint256);
     function getOperatorStake(address operator) external view returns (uint256);
     function getOperatorStakeForAsset(address operator, Types.Asset memory asset) external view returns (uint256);
+    function getPendingCommissionChange() external view returns (uint16 pendingBps, uint64 executeAfter);
     function getPendingUnstakes(address delegator) external view returns (Types.BondLessRequest[] memory);
     function getPendingWithdrawals(address delegator) external view returns (Types.WithdrawRequest[] memory);
     function getSlashCount(address operator) external view returns (uint64);
@@ -3993,6 +3996,7 @@ interface IMultiAssetDelegation {
     function setRequireAdapters(bool required) external;
     function setRewardsManager(address manager) external;
     function setServiceFeeDistributor(address distributor) external;
+    function setTangle(address tangle) external;
     function slash(address operator, uint64 serviceId, uint16 slashBps, bytes32 evidence) external returns (uint256 actualSlashed);
     function slashForBlueprint(address operator, uint64 blueprintId, uint64 serviceId, uint16 slashBps, bytes32 evidence) external returns (uint256 actualSlashed);
     function slashForService(address operator, uint64 blueprintId, uint64 serviceId, Types.AssetSecurityCommitment[] memory commitments, uint16 slashBps, bytes32 evidence) external returns (uint256 actualSlashed);
@@ -4175,6 +4179,13 @@ interface IMultiAssetDelegation {
   {
     "type": "function",
     "name": "advanceRound",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "cancelCommissionChange",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -4451,6 +4462,13 @@ interface IMultiAssetDelegation {
         "internalType": "uint16"
       }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "executeCommissionChange",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -4997,6 +5015,24 @@ interface IMultiAssetDelegation {
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPendingCommissionChange",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "pendingBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "executeAfter",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -5839,6 +5875,19 @@ interface IMultiAssetDelegation {
     "inputs": [
       {
         "name": "distributor",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setTangle",
+    "inputs": [
+      {
+        "name": "tangle",
         "type": "address",
         "internalType": "address"
       }
@@ -11996,6 +12045,149 @@ function advanceRound() external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `cancelCommissionChange()` and selector `0xdc71ef30`.
+```solidity
+function cancelCommissionChange() external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct cancelCommissionChangeCall;
+    ///Container type for the return parameters of the [`cancelCommissionChange()`](cancelCommissionChangeCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct cancelCommissionChangeReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<cancelCommissionChangeCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: cancelCommissionChangeCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for cancelCommissionChangeCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<cancelCommissionChangeReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: cancelCommissionChangeReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for cancelCommissionChangeReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl cancelCommissionChangeReturn {
+            fn _tokenize(
+                &self,
+            ) -> <cancelCommissionChangeCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for cancelCommissionChangeCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = cancelCommissionChangeReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "cancelCommissionChange()";
+            const SELECTOR: [u8; 4] = [220u8, 113u8, 239u8, 48u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                cancelCommissionChangeReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `completeLeaving()` and selector `0xd1736ba7`.
 ```solidity
 function completeLeaving() external;
@@ -14285,6 +14477,149 @@ function enableAssetWithAdapter(address token, address adapter, uint256 minOpera
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 enableAssetWithAdapterReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `executeCommissionChange()` and selector `0x46c9b454`.
+```solidity
+function executeCommissionChange() external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct executeCommissionChangeCall;
+    ///Container type for the return parameters of the [`executeCommissionChange()`](executeCommissionChangeCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct executeCommissionChangeReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<executeCommissionChangeCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: executeCommissionChangeCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for executeCommissionChangeCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<executeCommissionChangeReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: executeCommissionChangeReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for executeCommissionChangeReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl executeCommissionChangeReturn {
+            fn _tokenize(
+                &self,
+            ) -> <executeCommissionChangeCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for executeCommissionChangeCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = executeCommissionChangeReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "executeCommissionChange()";
+            const SELECTOR: [u8; 4] = [70u8, 201u8, 180u8, 84u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                executeCommissionChangeReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -17558,6 +17893,172 @@ function getOperatorStakeForAsset(address operator, Types.Asset memory asset) ex
                         let r: getOperatorStakeForAssetReturn = r.into();
                         r._0
                     })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getPendingCommissionChange()` and selector `0xc6b7a813`.
+```solidity
+function getPendingCommissionChange() external view returns (uint16 pendingBps, uint64 executeAfter);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getPendingCommissionChangeCall;
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getPendingCommissionChange()`](getPendingCommissionChangeCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getPendingCommissionChangeReturn {
+        #[allow(missing_docs)]
+        pub pendingBps: u16,
+        #[allow(missing_docs)]
+        pub executeAfter: u64,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getPendingCommissionChangeCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getPendingCommissionChangeCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getPendingCommissionChangeCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<16>,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u16, u64);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getPendingCommissionChangeReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getPendingCommissionChangeReturn) -> Self {
+                    (value.pendingBps, value.executeAfter)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getPendingCommissionChangeReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        pendingBps: tuple.0,
+                        executeAfter: tuple.1,
+                    }
+                }
+            }
+        }
+        impl getPendingCommissionChangeReturn {
+            fn _tokenize(
+                &self,
+            ) -> <getPendingCommissionChangeCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.pendingBps),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.executeAfter),
+                )
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getPendingCommissionChangeCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = getPendingCommissionChangeReturn;
+            type ReturnTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<16>,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getPendingCommissionChange()";
+            const SELECTOR: [u8; 4] = [198u8, 183u8, 168u8, 19u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                getPendingCommissionChangeReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
@@ -24319,6 +24820,150 @@ function setServiceFeeDistributor(address distributor) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `setTangle(address)` and selector `0xbf5274a7`.
+```solidity
+function setTangle(address tangle) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setTangleCall {
+        #[allow(missing_docs)]
+        pub tangle: alloy::sol_types::private::Address,
+    }
+    ///Container type for the return parameters of the [`setTangle(address)`](setTangleCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setTangleReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setTangleCall> for UnderlyingRustTuple<'_> {
+                fn from(value: setTangleCall) -> Self {
+                    (value.tangle,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setTangleCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { tangle: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setTangleReturn> for UnderlyingRustTuple<'_> {
+                fn from(value: setTangleReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setTangleReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl setTangleReturn {
+            fn _tokenize(
+                &self,
+            ) -> <setTangleCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for setTangleCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = setTangleReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "setTangle(address)";
+            const SELECTOR: [u8; 4] = [191u8, 82u8, 116u8, 167u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.tangle,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                setTangleReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `slash(address,uint64,uint16,bytes32)` and selector `0xff38b049`.
 ```solidity
 function slash(address operator, uint64 serviceId, uint16 slashBps, bytes32 evidence) external returns (uint256 actualSlashed);
@@ -25549,6 +26194,8 @@ function unpause() external;
         #[allow(missing_docs)]
         advanceRound(advanceRoundCall),
         #[allow(missing_docs)]
+        cancelCommissionChange(cancelCommissionChangeCall),
+        #[allow(missing_docs)]
         completeLeaving(completeLeavingCall),
         #[allow(missing_docs)]
         currentRound(currentRoundCall),
@@ -25576,6 +26223,8 @@ function unpause() external;
         enableAsset(enableAssetCall),
         #[allow(missing_docs)]
         enableAssetWithAdapter(enableAssetWithAdapterCall),
+        #[allow(missing_docs)]
+        executeCommissionChange(executeCommissionChangeCall),
         #[allow(missing_docs)]
         executeDelegatorUnstake(executeDelegatorUnstakeCall),
         #[allow(missing_docs)]
@@ -25616,6 +26265,8 @@ function unpause() external;
         getOperatorStake(getOperatorStakeCall),
         #[allow(missing_docs)]
         getOperatorStakeForAsset(getOperatorStakeForAssetCall),
+        #[allow(missing_docs)]
+        getPendingCommissionChange(getPendingCommissionChangeCall),
         #[allow(missing_docs)]
         getPendingUnstakes(getPendingUnstakesCall),
         #[allow(missing_docs)]
@@ -25703,6 +26354,8 @@ function unpause() external;
         #[allow(missing_docs)]
         setServiceFeeDistributor(setServiceFeeDistributorCall),
         #[allow(missing_docs)]
+        setTangle(setTangleCall),
+        #[allow(missing_docs)]
         slash(slashCall),
         #[allow(missing_docs)]
         slashForBlueprint(slashForBlueprintCall),
@@ -25749,6 +26402,7 @@ function unpause() external;
             [68u8, 175u8, 242u8, 82u8],
             [69u8, 62u8, 204u8, 234u8],
             [70u8, 28u8, 194u8, 59u8],
+            [70u8, 201u8, 180u8, 84u8],
             [72u8, 99u8, 152u8, 195u8],
             [73u8, 98u8, 248u8, 143u8],
             [77u8, 153u8, 221u8, 22u8],
@@ -25786,9 +26440,11 @@ function unpause() external;
             [176u8, 223u8, 206u8, 6u8],
             [185u8, 192u8, 76u8, 27u8],
             [186u8, 5u8, 187u8, 245u8],
+            [191u8, 82u8, 116u8, 167u8],
             [191u8, 105u8, 2u8, 6u8],
             [195u8, 80u8, 130u8, 169u8],
             [197u8, 80u8, 217u8, 56u8],
+            [198u8, 183u8, 168u8, 19u8],
             [202u8, 221u8, 85u8, 12u8],
             [203u8, 21u8, 3u8, 139u8],
             [206u8, 169u8, 210u8, 111u8],
@@ -25801,6 +26457,7 @@ function unpause() external;
             [215u8, 117u8, 203u8, 97u8],
             [217u8, 226u8, 87u8, 239u8],
             [219u8, 138u8, 23u8, 58u8],
+            [220u8, 113u8, 239u8, 48u8],
             [220u8, 151u8, 44u8, 204u8],
             [222u8, 254u8, 32u8, 83u8],
             [224u8, 165u8, 130u8, 91u8],
@@ -25849,6 +26506,7 @@ function unpause() external;
             ::core::stringify!(scheduleOperatorUnstake),
             ::core::stringify!(MULTIPLIER_SIX_MONTHS),
             ::core::stringify!(depositAndDelegate),
+            ::core::stringify!(executeCommissionChange),
             ::core::stringify!(getOperatorDelegatorCount),
             ::core::stringify!(MULTIPLIER_NONE),
             ::core::stringify!(undelegate),
@@ -25886,9 +26544,11 @@ function unpause() external;
             ::core::stringify!(executeOperatorUnstake),
             ::core::stringify!(addBlueprintForOperator),
             ::core::stringify!(delegationBondLessDelay),
+            ::core::stringify!(setTangle),
             ::core::stringify!(executeDelegatorUnstakeAndWithdraw),
             ::core::stringify!(getDeposit),
             ::core::stringify!(getSlashCountForBlueprint),
+            ::core::stringify!(getPendingCommissionChange),
             ::core::stringify!(snapshotOperator),
             ::core::stringify!(depositERC20WithLock),
             ::core::stringify!(rescueTokens),
@@ -25901,6 +26561,7 @@ function unpause() external;
             ::core::stringify!(minOperatorStake),
             ::core::stringify!(increaseStake),
             ::core::stringify!(leaveDelegatorsDelay),
+            ::core::stringify!(cancelCommissionChange),
             ::core::stringify!(getOperatorBlueprints),
             ::core::stringify!(rewardsManager),
             ::core::stringify!(registerOperatorWithAsset),
@@ -25949,6 +26610,7 @@ function unpause() external;
             <scheduleOperatorUnstakeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <MULTIPLIER_SIX_MONTHSCall as alloy_sol_types::SolCall>::SIGNATURE,
             <depositAndDelegateCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <executeCommissionChangeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorDelegatorCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <MULTIPLIER_NONECall as alloy_sol_types::SolCall>::SIGNATURE,
             <undelegateCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -25986,9 +26648,11 @@ function unpause() external;
             <executeOperatorUnstakeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <addBlueprintForOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <delegationBondLessDelayCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setTangleCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeDelegatorUnstakeAndWithdrawCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getDepositCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashCountForBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getPendingCommissionChangeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <snapshotOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <depositERC20WithLockCall as alloy_sol_types::SolCall>::SIGNATURE,
             <rescueTokensCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -26001,6 +26665,7 @@ function unpause() external;
             <minOperatorStakeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <increaseStakeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <leaveDelegatorsDelayCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <cancelCommissionChangeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorBlueprintsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <rewardsManagerCall as alloy_sol_types::SolCall>::SIGNATURE,
             <registerOperatorWithAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -26048,7 +26713,7 @@ function unpause() external;
     impl alloy_sol_types::SolInterface for IMultiAssetDelegationCalls {
         const NAME: &'static str = "IMultiAssetDelegationCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 97usize;
+        const COUNT: usize = 101usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -26091,6 +26756,9 @@ function unpause() external;
                 Self::advanceRound(_) => {
                     <advanceRoundCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::cancelCommissionChange(_) => {
+                    <cancelCommissionChangeCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::completeLeaving(_) => {
                     <completeLeavingCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -26128,6 +26796,9 @@ function unpause() external;
                 }
                 Self::enableAssetWithAdapter(_) => {
                     <enableAssetWithAdapterCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::executeCommissionChange(_) => {
+                    <executeCommissionChangeCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::executeDelegatorUnstake(_) => {
                     <executeDelegatorUnstakeCall as alloy_sol_types::SolCall>::SELECTOR
@@ -26186,6 +26857,9 @@ function unpause() external;
                 }
                 Self::getOperatorStakeForAsset(_) => {
                     <getOperatorStakeForAssetCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getPendingCommissionChange(_) => {
+                    <getPendingCommissionChangeCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::getPendingUnstakes(_) => {
                     <getPendingUnstakesCall as alloy_sol_types::SolCall>::SELECTOR
@@ -26313,6 +26987,9 @@ function unpause() external;
                 }
                 Self::setServiceFeeDistributor(_) => {
                     <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::setTangle(_) => {
+                    <setTangleCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::slash(_) => <slashCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::slashForBlueprint(_) => {
@@ -26607,6 +27284,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::depositAndDelegate)
                     }
                     depositAndDelegate
+                },
+                {
+                    fn executeCommissionChange(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <executeCommissionChangeCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::executeCommissionChange)
+                    }
+                    executeCommissionChange
                 },
                 {
                     fn getOperatorDelegatorCount(
@@ -27016,6 +27704,15 @@ function unpause() external;
                     delegationBondLessDelay
                 },
                 {
+                    fn setTangle(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <setTangleCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(IMultiAssetDelegationCalls::setTangle)
+                    }
+                    setTangle
+                },
+                {
                     fn executeDelegatorUnstakeAndWithdraw(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -27049,6 +27746,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::getSlashCountForBlueprint)
                     }
                     getSlashCountForBlueprint
+                },
+                {
+                    fn getPendingCommissionChange(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <getPendingCommissionChangeCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::getPendingCommissionChange)
+                    }
+                    getPendingCommissionChange
                 },
                 {
                     fn snapshotOperator(
@@ -27179,6 +27887,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::leaveDelegatorsDelay)
                     }
                     leaveDelegatorsDelay
+                },
+                {
+                    fn cancelCommissionChange(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <cancelCommissionChangeCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::cancelCommissionChange)
+                    }
+                    cancelCommissionChange
                 },
                 {
                     fn getOperatorBlueprints(
@@ -27698,6 +28417,17 @@ function unpause() external;
                     depositAndDelegate
                 },
                 {
+                    fn executeCommissionChange(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <executeCommissionChangeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::executeCommissionChange)
+                    }
+                    executeCommissionChange
+                },
+                {
                     fn getOperatorDelegatorCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -28109,6 +28839,17 @@ function unpause() external;
                     delegationBondLessDelay
                 },
                 {
+                    fn setTangle(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <setTangleCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::setTangle)
+                    }
+                    setTangle
+                },
+                {
                     fn executeDelegatorUnstakeAndWithdraw(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -28142,6 +28883,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::getSlashCountForBlueprint)
                     }
                     getSlashCountForBlueprint
+                },
+                {
+                    fn getPendingCommissionChange(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <getPendingCommissionChangeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::getPendingCommissionChange)
+                    }
+                    getPendingCommissionChange
                 },
                 {
                     fn snapshotOperator(
@@ -28274,6 +29026,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::leaveDelegatorsDelay)
                     }
                     leaveDelegatorsDelay
+                },
+                {
+                    fn cancelCommissionChange(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <cancelCommissionChangeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::cancelCommissionChange)
+                    }
+                    cancelCommissionChange
                 },
                 {
                     fn getOperatorBlueprints(
@@ -28585,6 +29348,11 @@ function unpause() external;
                         inner,
                     )
                 }
+                Self::cancelCommissionChange(inner) => {
+                    <cancelCommissionChangeCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::completeLeaving(inner) => {
                     <completeLeavingCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -28648,6 +29416,11 @@ function unpause() external;
                 }
                 Self::enableAssetWithAdapter(inner) => {
                     <enableAssetWithAdapterCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::executeCommissionChange(inner) => {
+                    <executeCommissionChangeCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -28744,6 +29517,11 @@ function unpause() external;
                 }
                 Self::getOperatorStakeForAsset(inner) => {
                     <getOperatorStakeForAssetCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::getPendingCommissionChange(inner) => {
+                    <getPendingCommissionChangeCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -28952,6 +29730,9 @@ function unpause() external;
                         inner,
                     )
                 }
+                Self::setTangle(inner) => {
+                    <setTangleCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                }
                 Self::slash(inner) => {
                     <slashCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
@@ -29064,6 +29845,12 @@ function unpause() external;
                         out,
                     )
                 }
+                Self::cancelCommissionChange(inner) => {
+                    <cancelCommissionChangeCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::completeLeaving(inner) => {
                     <completeLeavingCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -29141,6 +29928,12 @@ function unpause() external;
                 }
                 Self::enableAssetWithAdapter(inner) => {
                     <enableAssetWithAdapterCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::executeCommissionChange(inner) => {
+                    <executeCommissionChangeCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -29261,6 +30054,12 @@ function unpause() external;
                 }
                 Self::getOperatorStakeForAsset(inner) => {
                     <getOperatorStakeForAssetCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getPendingCommissionChange(inner) => {
+                    <getPendingCommissionChangeCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -29516,6 +30315,12 @@ function unpause() external;
                 }
                 Self::setServiceFeeDistributor(inner) => {
                     <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::setTangle(inner) => {
+                    <setTangleCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -30486,6 +31291,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, advanceRoundCall, N> {
             self.call_builder(&advanceRoundCall)
         }
+        ///Creates a new call builder for the [`cancelCommissionChange`] function.
+        pub fn cancelCommissionChange(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, cancelCommissionChangeCall, N> {
+            self.call_builder(&cancelCommissionChangeCall)
+        }
         ///Creates a new call builder for the [`completeLeaving`] function.
         pub fn completeLeaving(
             &self,
@@ -30641,6 +31452,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     rewardMultiplierBps,
                 },
             )
+        }
+        ///Creates a new call builder for the [`executeCommissionChange`] function.
+        pub fn executeCommissionChange(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, executeCommissionChangeCall, N> {
+            self.call_builder(&executeCommissionChangeCall)
         }
         ///Creates a new call builder for the [`executeDelegatorUnstake`] function.
         pub fn executeDelegatorUnstake(
@@ -30852,6 +31669,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     asset,
                 },
             )
+        }
+        ///Creates a new call builder for the [`getPendingCommissionChange`] function.
+        pub fn getPendingCommissionChange(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, getPendingCommissionChangeCall, N> {
+            self.call_builder(&getPendingCommissionChangeCall)
         }
         ///Creates a new call builder for the [`getPendingUnstakes`] function.
         pub fn getPendingUnstakes(
@@ -31259,6 +32082,13 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     distributor,
                 },
             )
+        }
+        ///Creates a new call builder for the [`setTangle`] function.
+        pub fn setTangle(
+            &self,
+            tangle: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, setTangleCall, N> {
+            self.call_builder(&setTangleCall { tangle })
         }
         ///Creates a new call builder for the [`slash`] function.
         pub fn slash(
