@@ -77,9 +77,11 @@ contract LiquidDelegationTest is Test {
         // Deploy factory
         factory = new LiquidDelegationFactory(restaking);
 
-        // Grant slasher role
-        vm.prank(admin);
+        // Grant slasher and tangle roles
+        vm.startPrank(admin);
         restaking.addSlasher(slasher);
+        restaking.setTangle(slasher);
+        vm.stopPrank();
 
         // Fund accounts
         vm.deal(operator1, 100 ether);

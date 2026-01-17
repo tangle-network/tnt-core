@@ -39,4 +39,26 @@ library ProtocolConfig {
     // ═══════════════════════════════════════════════════════════════════════════
 
     uint32 internal constant MAX_BLUEPRINTS_PER_OPERATOR = 1_024;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SERVICE REQUEST TTL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Minimum TTL for service requests (1 hour)
+    uint64 internal constant MIN_SERVICE_TTL = 1 hours;
+
+    /// @notice Maximum TTL for service requests (365 days)
+    uint64 internal constant MAX_SERVICE_TTL = 365 days;
+
+    /// @notice Default request expiry grace period (1 hour)
+    /// @dev Operators have this additional time to approve after expiry
+    uint64 internal constant REQUEST_EXPIRY_GRACE_PERIOD = 1 hours;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // QUOTE VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Maximum quote age (1 hour)
+    /// @dev Quotes with timestamps older than this are rejected
+    uint64 internal constant MAX_QUOTE_AGE = 1 hours;
 }

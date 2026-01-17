@@ -9,6 +9,7 @@ import { Errors } from "../libraries/Errors.sol";
 import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { SchemaLib } from "../libraries/SchemaLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
+import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
 /// @title ServicesRequests
 /// @notice Service request flows
@@ -128,6 +129,9 @@ abstract contract ServicesRequests is Base {
         uint256 paymentAmount
     ) internal returns (uint64 requestId) {
         if (operators.length == 0) revert Errors.NoOperators();
+
+        // Validate TTL bounds (M-1 fix)
+        _validateServiceTtl(ttl);
 
         BlueprintRequestData memory blueprintData = _loadBlueprintRequestData(blueprintId);
 
@@ -359,5 +363,36 @@ abstract contract ServicesRequests is Base {
             maxOperators: bounds.maxOperators,
             rejected: false
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TTL VALIDATION (M-1 fix)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Validate service TTL is within bounds
+    /// @dev TTL of 0 is allowed for perpetual services
+    function _validateServiceTtl(uint64 ttl) private view {
+        // TTL of 0 means perpetual service - no validation needed
+        if (ttl == 0) return;
+
+        uint64 minTtl = _minServiceTtl > 0 ? _minServiceTtl : ProtocolConfig.MIN_SERVICE_TTL;
+        uint64 maxTtl = _maxServiceTtl > 0 ? _maxServiceTtl : ProtocolConfig.MAX_SERVICE_TTL;
+
+        if (ttl < minTtl) {
+            revert Errors.TTLBelowMinimum(ttl, minTtl);
+        }
+        if (ttl > maxTtl) {
+            revert Errors.TTLAboveMaximum(ttl, maxTtl);
+        }
+    }
+
+    /// @notice Get the minimum service TTL
+    function minServiceTtl() external view returns (uint64) {
+        return _minServiceTtl > 0 ? _minServiceTtl : ProtocolConfig.MIN_SERVICE_TTL;
+    }
+
+    /// @notice Get the maximum service TTL
+    function maxServiceTtl() external view returns (uint64) {
+        return _maxServiceTtl > 0 ? _maxServiceTtl : ProtocolConfig.MAX_SERVICE_TTL;
     }
 }

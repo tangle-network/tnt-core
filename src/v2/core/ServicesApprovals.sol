@@ -76,6 +76,83 @@ abstract contract ServicesApprovals is Base {
         uint64 requestId,
         Types.AssetSecurityCommitment[] calldata commitments
     ) external whenNotPaused nonReentrant {
+        _approveServiceWithCommitmentsInternal(requestId, commitments, _emptyBlsPubkey());
+    }
+
+    /// @notice Approve a service request with BLS public key for aggregated signature verification
+    /// @param requestId The service request ID
+    /// @param restakingPercent The restaking percentage (0-100)
+    /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
+    function approveServiceWithBls(
+        uint64 requestId,
+        uint8 restakingPercent,
+        uint256[4] calldata blsPubkey
+    ) external whenNotPaused nonReentrant {
+        Types.ServiceRequest storage req = _getServiceRequest(requestId);
+        if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
+
+        if (!_restaking.isOperatorActive(msg.sender)) {
+            revert Errors.OperatorNotActive(msg.sender);
+        }
+        bool isOperator = false;
+        for (uint256 i = 0; i < _requestOperators[requestId].length; i++) {
+            if (_requestOperators[requestId][i] == msg.sender) {
+                isOperator = true;
+                break;
+            }
+        }
+        if (!isOperator) revert Errors.Unauthorized();
+
+        if (_requestApprovals[requestId][msg.sender]) {
+            revert Errors.AlreadyApproved(requestId, msg.sender);
+        }
+
+        if (_requestSecurityRequirements[requestId].length > 0) {
+            if (!_isOnlyDefaultTntRequirement(requestId)) {
+                revert Errors.SecurityCommitmentsRequired(requestId);
+            }
+            _storeDefaultTntCommitment(requestId, msg.sender);
+        }
+
+        // Store BLS pubkey for this operator (to be transferred to service on activation)
+        _storeRequestBlsPubkey(requestId, msg.sender, blsPubkey);
+
+        _requestApprovals[requestId][msg.sender] = true;
+        req.approvalCount++;
+
+        emit ServiceApproved(requestId, msg.sender);
+
+        Types.Blueprint storage bp = _blueprints[req.blueprintId];
+        if (bp.manager != address(0)) {
+            _tryCallManager(
+                bp.manager,
+                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, restakingPercent))
+            );
+        }
+
+        if (req.approvalCount == req.operatorCount) {
+            _activateService(requestId);
+        }
+    }
+
+    /// @notice Approve a service request with both security commitments and BLS public key
+    /// @param requestId The service request ID
+    /// @param commitments Security commitments matching the request requirements
+    /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
+    function approveServiceWithCommitmentsAndBls(
+        uint64 requestId,
+        Types.AssetSecurityCommitment[] calldata commitments,
+        uint256[4] calldata blsPubkey
+    ) external whenNotPaused nonReentrant {
+        _approveServiceWithCommitmentsInternal(requestId, commitments, blsPubkey);
+    }
+
+    /// @notice Internal implementation for approving with commitments and optional BLS key
+    function _approveServiceWithCommitmentsInternal(
+        uint64 requestId,
+        Types.AssetSecurityCommitment[] calldata commitments,
+        uint256[4] memory blsPubkey
+    ) private {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
@@ -104,6 +181,11 @@ abstract contract ServicesApprovals is Base {
             _requestSecurityCommitments[requestId][msg.sender].push(commitments[i]);
         }
 
+        // Store BLS pubkey if provided (non-zero)
+        if (_isNonZeroBlsPubkey(blsPubkey)) {
+            _storeRequestBlsPubkey(requestId, msg.sender, blsPubkey);
+        }
+
         _requestApprovals[requestId][msg.sender] = true;
         req.approvalCount++;
 
@@ -122,6 +204,23 @@ abstract contract ServicesApprovals is Base {
             _activateService(requestId);
         }
     }
+
+    /// @notice Check if a BLS pubkey is non-zero
+    function _isNonZeroBlsPubkey(uint256[4] memory key) private pure returns (bool) {
+        return key[0] != 0 || key[1] != 0 || key[2] != 0 || key[3] != 0;
+    }
+
+    /// @notice Return an empty BLS pubkey
+    function _emptyBlsPubkey() private pure returns (uint256[4] memory) {
+        return [uint256(0), uint256(0), uint256(0), uint256(0)];
+    }
+
+    /// @notice Store BLS pubkey for an operator in the request (will be transferred to service on activation)
+    /// @dev This is virtual to allow different storage strategies
+    function _storeRequestBlsPubkey(uint64 requestId, address operator, uint256[4] memory blsPubkey) internal virtual;
+
+    /// @notice Transfer BLS pubkeys from request to service (called during activation)
+    function _transferBlsPubkeysToService(uint64 requestId, uint64 serviceId) internal virtual;
 
     /// @notice Validate security commitments
     function _validateSecurityCommitments(

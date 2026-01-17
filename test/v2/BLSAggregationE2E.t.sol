@@ -84,12 +84,13 @@ contract BLSAggregationE2ETest is BaseTest {
         vm.prank(user1);
         uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
 
+        // Approve with BLS pubkeys - operators use sk=1,2,3 respectively
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveServiceWithBls(requestId, 0, BLSTestHelper.g2ToArray(BLSTestHelper.getTestPubkey(1)));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveServiceWithBls(requestId, 0, BLSTestHelper.g2ToArray(BLSTestHelper.getTestPubkey(2)));
         vm.prank(operator3);
-        tangle.approveService(requestId, 0);
+        tangle.approveServiceWithBls(requestId, 0, BLSTestHelper.g2ToArray(BLSTestHelper.getTestPubkey(3)));
 
         serviceId = 0;
     }

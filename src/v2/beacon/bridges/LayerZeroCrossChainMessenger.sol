@@ -83,9 +83,17 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
     /// @notice Trusted peers on each chain (eid => peer address as bytes32)
     mapping(uint32 => bytes32) public peers;
 
+    /// @notice M-12 FIX: Minimum gas limit for destination chain execution
+    uint256 public minGasLimit = 100_000;
+
+    /// @notice M-12 FIX: Gas buffer percentage (in basis points, 10000 = 100%)
+    uint256 public gasBufferBps = 1000; // 10% buffer by default
+
     /// @notice Events
-    event PeerSet(uint32 indexed eid, bytes32 peer);
-    event ChainMappingSet(uint256 chainId, uint32 eid);
+    event PeerSet(uint32 indexed eid, bytes32 indexed peer);
+    event ChainMappingSet(uint256 indexed chainId, uint32 indexed eid);
+    event MinGasLimitUpdated(uint256 oldLimit, uint256 newLimit);
+    event GasBufferUpdated(uint256 oldBuffer, uint256 newBuffer);
 
     constructor(address _endpoint) {
         endpoint = ILayerZeroEndpointV2(_endpoint);
@@ -122,6 +130,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
     }
 
     /// @inheritdoc ICrossChainMessenger
+    /// @dev M-12 FIX: Gas limit is now enforced to be at least minGasLimit and includes buffer
     function sendMessage(
         uint256 destinationChainId,
         address target,
@@ -131,13 +140,16 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         uint32 dstEid = chainIdToEid[destinationChainId];
         require(dstEid != 0, "Unsupported chain");
 
+        // M-12 FIX: Apply minimum gas limit and add safety buffer
+        uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
+
         // Encode full message with sender info
         bytes memory message = abi.encode(block.chainid, msg.sender, payload);
 
-        // Build execution options
+        // Build execution options with effective gas limit
         bytes memory options = OptionsBuilder.newOptions()
             // forge-lint: disable-next-line(unsafe-typecast)
-            .addExecutorLzReceiveOption(uint128(gasLimit), 0);
+            .addExecutorLzReceiveOption(uint128(effectiveGasLimit), 0);
 
         ILayerZeroEndpointV2.MessagingParams memory params = ILayerZeroEndpointV2.MessagingParams({
             dstEid: dstEid,
@@ -156,6 +168,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
     }
 
     /// @inheritdoc ICrossChainMessenger
+    /// @dev M-12 FIX: Fee estimation now includes gas buffer for accurate cost
     function estimateFee(
         uint256 destinationChainId,
         bytes calldata payload,
@@ -164,13 +177,16 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         uint32 dstEid = chainIdToEid[destinationChainId];
         if (dstEid == 0) return 0;
 
+        // M-12 FIX: Apply minimum gas limit and buffer for accurate estimation
+        uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
+
         // Encode message
         bytes memory message = abi.encode(block.chainid, address(0), payload);
 
-        // Build options
+        // Build options with effective gas limit
         bytes memory options = OptionsBuilder.newOptions()
             // forge-lint: disable-next-line(unsafe-typecast)
-            .addExecutorLzReceiveOption(uint128(gasLimit), 0);
+            .addExecutorLzReceiveOption(uint128(effectiveGasLimit), 0);
 
         ILayerZeroEndpointV2.MessagingParams memory params = ILayerZeroEndpointV2.MessagingParams({
             dstEid: dstEid,
@@ -208,6 +224,34 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         owner = newOwner;
     }
 
+    /// @notice M-12 FIX: Set minimum gas limit for destination chain execution
+    /// @param _minGasLimit New minimum gas limit
+    function setMinGasLimit(uint256 _minGasLimit) external onlyOwner {
+        uint256 oldLimit = minGasLimit;
+        minGasLimit = _minGasLimit;
+        emit MinGasLimitUpdated(oldLimit, _minGasLimit);
+    }
+
+    /// @notice M-12 FIX: Set gas buffer percentage
+    /// @param _gasBufferBps New buffer in basis points (10000 = 100%)
+    function setGasBuffer(uint256 _gasBufferBps) external onlyOwner {
+        require(_gasBufferBps <= 10000, "Buffer too high"); // Max 100% buffer
+        uint256 oldBuffer = gasBufferBps;
+        gasBufferBps = _gasBufferBps;
+        emit GasBufferUpdated(oldBuffer, _gasBufferBps);
+    }
+
+    /// @notice M-12 FIX: Apply minimum gas limit and safety buffer
+    /// @param gasLimit Requested gas limit
+    /// @return Effective gas limit with buffer applied
+    function _applyGasLimitWithBuffer(uint256 gasLimit) internal view returns (uint256) {
+        // Enforce minimum gas limit
+        uint256 effectiveLimit = gasLimit < minGasLimit ? minGasLimit : gasLimit;
+        // Add safety buffer
+        effectiveLimit = effectiveLimit + (effectiveLimit * gasBufferBps / 10000);
+        return effectiveLimit;
+    }
+
     function _addressToBytes32(address _addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(_addr)));
     }
@@ -216,6 +260,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
 /// @title LayerZeroReceiver
 /// @notice OApp-compatible receiver for LayerZero V2 messages
 /// @dev Implements lzReceive to process incoming cross-chain messages
+///      M-12 FIX: Added message replay protection using GUID
 contract LayerZeroReceiver {
     /// @notice LayerZero V2 Endpoint
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
@@ -234,8 +279,17 @@ contract LayerZeroReceiver {
     /// @notice Owner
     address public owner;
 
+    /// @notice M-12 FIX: Track processed message GUIDs to prevent replay attacks
+    /// @dev LayerZero provides unique GUIDs for each message
+    mapping(bytes32 => bool) public processedMessages;
+
     /// @notice Events
     event MessageReceived(uint32 indexed srcEid, bytes32 sender, uint256 sourceChainId, address originalSender);
+    /// @notice M-12 FIX: Event emitted when a message is processed
+    event MessageProcessed(bytes32 indexed guid, uint32 indexed srcEid, bytes32 sender);
+
+    /// @notice M-12 FIX: Error for replayed messages
+    error MessageAlreadyProcessed(bytes32 guid);
 
     constructor(address _endpoint, address _receiver) {
         endpoint = _endpoint;
@@ -262,9 +316,10 @@ contract LayerZeroReceiver {
 
     /// @notice LayerZero V2 receive function
     /// @dev Called by the endpoint when a message arrives
+    ///      M-12 FIX: Added GUID validation to prevent replay attacks
     function lzReceive(
         Origin calldata _origin,
-        bytes32, // _guid
+        bytes32 _guid,
         bytes calldata _message,
         address, // _executor
         bytes calldata // _extraData
@@ -274,6 +329,14 @@ contract LayerZeroReceiver {
         // Verify sender is trusted peer
         require(peers[_origin.srcEid] == _origin.sender, "Untrusted peer");
 
+        // M-12 FIX: Check for replay attack using LayerZero's unique GUID
+        if (processedMessages[_guid]) {
+            revert MessageAlreadyProcessed(_guid);
+        }
+
+        // M-12 FIX: Mark message as processed before external call (CEI pattern)
+        processedMessages[_guid] = true;
+
         // Decode message
         (uint256 sourceChainId, address originalSender, bytes memory payload) =
             abi.decode(_message, (uint256, address, bytes));
@@ -282,6 +345,7 @@ contract LayerZeroReceiver {
         require(eidToChainId[_origin.srcEid] == sourceChainId, "Chain mismatch");
 
         emit MessageReceived(_origin.srcEid, _origin.sender, sourceChainId, originalSender);
+        emit MessageProcessed(_guid, _origin.srcEid, _origin.sender);
 
         // Forward to receiver
         receiver.receiveMessage(sourceChainId, originalSender, payload);
@@ -301,6 +365,13 @@ contract LayerZeroReceiver {
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "Zero address");
         owner = newOwner;
+    }
+
+    /// @notice M-12 FIX: Check if a message GUID has been processed
+    /// @param guid The LayerZero message GUID to check
+    /// @return True if the message has been processed
+    function isMessageProcessed(bytes32 guid) external view returns (bool) {
+        return processedMessages[guid];
     }
 }
 

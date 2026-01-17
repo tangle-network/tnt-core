@@ -798,8 +798,10 @@ contract DelegationCriticalTest is DelegationTestHarness {
         delegation.removeSlasher(newSlasher);
         assertFalse(delegation.isSlasher(newSlasher));
 
-        // Set commission
+        // Set commission (M-10 FIX: now uses timelock)
         delegation.setOperatorCommission(500);
+        vm.warp(block.timestamp + 7 days + 1);
+        delegation.executeCommissionChange();
         assertEq(delegation.operatorCommissionBps(), 500);
 
         // Set delays

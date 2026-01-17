@@ -30,6 +30,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
 
     error OnlyTangleAllowed(address caller, address tangle);
     error OnlyBlueprintOwnerAllowed(address caller, address owner);
+    error AlreadyInitialized();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
@@ -79,7 +80,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     /// @inheritdoc IBlueprintServiceManager
     function onBlueprintCreated(uint64 _blueprintId, address owner, address _tangleCore) external virtual {
         // Can only be set once
-        require(tangleCore == address(0), "Already initialized");
+        if (tangleCore != address(0)) revert AlreadyInitialized();
 
         blueprintId = _blueprintId;
         blueprintOwner = owner;

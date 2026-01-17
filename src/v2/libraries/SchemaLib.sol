@@ -9,10 +9,17 @@ import { Errors } from "./Errors.sol";
 library SchemaLib {
     uint256 private constant NODE_HEADER_SIZE = 5;
 
+    // M-14 FIX: Add depth and size limits to prevent DoS via deeply nested or overly large schemas
+    uint256 private constant MAX_SCHEMA_DEPTH = 32;
+    uint256 private constant MAX_ARRAY_LENGTH = 65535;
+    uint256 private constant MAX_LIST_LENGTH = 10000;
+    uint256 private constant MAX_STRUCT_FIELDS = 256;
+
     struct ValidationContext {
         Types.SchemaTarget target;
         uint64 refId;
         uint64 auxId;
+        uint256 depth; // M-14 FIX: Track recursion depth
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -143,7 +150,8 @@ library SchemaLib {
             revert Errors.SchemaValidationFailed(uint8(target), refId, auxId, 0);
         }
 
-        ValidationContext memory ctx = ValidationContext({ target: target, refId: refId, auxId: auxId });
+        // M-14 FIX: Initialize depth tracking in context
+        ValidationContext memory ctx = ValidationContext({ target: target, refId: refId, auxId: auxId, depth: 0 });
 
         uint16 fieldCount = _readUint16(schema, 0);
         uint256 schemaCursor = 2;
@@ -179,6 +187,11 @@ library SchemaLib {
         ValidationContext memory ctx,
         uint256 path
     ) private pure returns (uint256) {
+        // M-14 FIX: Check recursion depth to prevent stack overflow attacks
+        if (ctx.depth >= MAX_SCHEMA_DEPTH) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+
         (
             Types.BlueprintFieldKind kind,
             uint16 arrayLength,
@@ -297,6 +310,8 @@ library SchemaLib {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }
 
+        // M-14 FIX: Increment depth for nested validation
+        ctx.depth++;
         uint256 consumed = _validateField(
             schema,
             childCursor,
@@ -306,6 +321,8 @@ library SchemaLib {
             ctx,
             _encodePath(path, 0)
         );
+        ctx.depth--;
+
         if (consumed != endCursor) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }
@@ -327,10 +344,18 @@ library SchemaLib {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }
 
+        // M-14 FIX: Validate array length bounds
+        if (arrayLength > MAX_ARRAY_LENGTH) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+
+        // M-14 FIX: Increment depth for nested validation
+        ctx.depth++;
         current = cursor;
         for (uint16 i = 0; i < arrayLength; ++i) {
             current = _validateField(schema, childCursor, data, current, limit, ctx, _encodePath(path, i));
         }
+        ctx.depth--;
     }
 
     function _validateList(
@@ -348,6 +373,14 @@ library SchemaLib {
         }
 
         (uint256 count, uint256 next) = _readCompactLength(data, cursor, limit, ctx, path);
+
+        // M-14 FIX: Validate list length to prevent DoS
+        if (count > MAX_LIST_LENGTH) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+
+        // M-14 FIX: Increment depth for nested validation
+        ctx.depth++;
         current = next;
         for (uint256 i = 0; i < count; ++i) {
             current = _validateField(
@@ -361,6 +394,7 @@ library SchemaLib {
                 _encodePath(path, uint16(i))
             );
         }
+        ctx.depth--;
     }
 
     function _validateStruct(
@@ -378,6 +412,13 @@ library SchemaLib {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }
 
+        // M-14 FIX: Validate struct field count to prevent DoS
+        if (childCount > MAX_STRUCT_FIELDS) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+
+        // M-14 FIX: Increment depth for nested validation
+        ctx.depth++;
         current = next;
         uint256 childStart = childCursor;
         for (uint16 i = 0; i < childCount; ++i) {
@@ -385,6 +426,7 @@ library SchemaLib {
             current = _validateField(schema, childStart, data, current, limit, ctx, _encodePath(path, i));
             childStart = childEnd;
         }
+        ctx.depth--;
 
         if (childStart != _nodeEnd(schema, childCursor, childCount, ctx, path)) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);

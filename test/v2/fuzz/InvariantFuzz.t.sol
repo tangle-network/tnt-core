@@ -91,9 +91,13 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         _registerTangleFacets(address(tangleProxy));
         vm.stopPrank();
 
-        // Grant slasher role
+        // Grant slasher role for slashing operations
         vm.prank(admin);
         restaking.addSlasher(address(tangleProxy));
+
+        // Grant tangle role for blueprint management operations
+        vm.prank(admin);
+        restaking.setTangle(address(tangleProxy));
 
         masterManager = new MasterBlueprintServiceManager(admin, address(tangleProxy));
         MBSMRegistry registryImpl = new MBSMRegistry();
@@ -207,7 +211,8 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashBps, keccak256("evidence"));
 
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);

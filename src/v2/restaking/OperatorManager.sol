@@ -163,6 +163,7 @@ abstract contract OperatorManager is DelegationStorage {
     }
 
     /// @notice Execute pending operator unstake
+    /// @return unstaked The amount that was unstaked
     function _executeOperatorUnstake() internal returns (uint256 unstaked) {
         Types.OperatorBondLessRequest storage request = _operatorBondLessRequests[msg.sender];
 
@@ -176,12 +177,14 @@ abstract contract OperatorManager is DelegationStorage {
 
         delete _operatorBondLessRequests[msg.sender];
 
-        if (_operatorBondToken == address(0)) {
+        // Cache storage variable to save gas
+        address bondToken = _operatorBondToken;
+        if (bondToken == address(0)) {
             // Transfer native tokens back
             (bool success,) = msg.sender.call{ value: unstaked }("");
-            require(success, "Transfer failed");
+            if (!success) revert DelegationErrors.TransferFailed();
         } else {
-            IERC20(_operatorBondToken).safeTransfer(msg.sender, unstaked);
+            IERC20(bondToken).safeTransfer(msg.sender, unstaked);
         }
 
         emit OperatorUnstakeExecuted(msg.sender, unstaked);
@@ -192,10 +195,25 @@ abstract contract OperatorManager is DelegationStorage {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Schedule leaving as operator
+    /// @dev M-10 FIX: Blocks exit if operator has active service commitments
     function _startLeaving() internal {
         Types.OperatorMetadata storage meta = _operatorMetadata[msg.sender];
         if (meta.status != Types.OperatorStatus.Active) {
             revert DelegationErrors.OperatorNotActive(msg.sender);
+        }
+
+        // M-10 FIX: Check for active services via Tangle core
+        if (_tangleCore != address(0)) {
+            // Query Tangle for operator's total active service count
+            (bool success, bytes memory data) = _tangleCore.staticcall(
+                abi.encodeWithSignature("getOperatorTotalActiveServices(address)", msg.sender)
+            );
+            if (success && data.length >= 32) {
+                uint256 activeServices = abi.decode(data, (uint256));
+                if (activeServices > 0) {
+                    revert DelegationErrors.OperatorHasActiveServices(msg.sender);
+                }
+            }
         }
 
         meta.status = Types.OperatorStatus.Leaving;
@@ -205,6 +223,7 @@ abstract contract OperatorManager is DelegationStorage {
     }
 
     /// @notice Complete leaving and withdraw all stake
+    /// @return stake The amount of stake returned to the operator
     function _completeLeaving() internal returns (uint256 stake) {
         Types.OperatorMetadata storage meta = _operatorMetadata[msg.sender];
         if (meta.status != Types.OperatorStatus.Leaving) {
@@ -219,12 +238,14 @@ abstract contract OperatorManager is DelegationStorage {
         meta.status = Types.OperatorStatus.Inactive;
         _operators.remove(msg.sender);
 
-        if (_operatorBondToken == address(0)) {
+        // Cache storage variable to save gas
+        address bondToken = _operatorBondToken;
+        if (bondToken == address(0)) {
             // Return stake
             (bool success,) = msg.sender.call{ value: stake }("");
-            require(success, "Transfer failed");
+            if (!success) revert DelegationErrors.TransferFailed();
         } else {
-            IERC20(_operatorBondToken).safeTransfer(msg.sender, stake);
+            IERC20(bondToken).safeTransfer(msg.sender, stake);
         }
 
         emit OperatorLeft(msg.sender);

@@ -483,12 +483,12 @@ abstract contract Jobs is Base {
         if (thresholdType == 0) {
             // CountBased: achieved = signerCount, required = threshold% of operatorCount
             achieved = stats.signerCount;
-            required = (uint256(stats.operatorCount) * thresholdBps) / 10000;
+            required = (uint256(stats.operatorCount) * thresholdBps) / BPS_DENOMINATOR;
             if (required == 0 && stats.operatorCount > 0) required = 1; // At least 1 signer required
         } else {
             // StakeWeighted: achieved = signerWeight, required = threshold% of totalWeight
             achieved = stats.signerWeight;
-            required = (stats.totalWeight * thresholdBps) / 10000;
+            required = (stats.totalWeight * thresholdBps) / BPS_DENOMINATOR;
             if (required == 0 && stats.totalWeight > 0) required = 1;
         }
     }
@@ -533,7 +533,7 @@ abstract contract Jobs is Base {
         uint64 serviceId,
         uint8 jobIndex
     ) private view returns (AggregationConfig memory config) {
-        config.thresholdBps = 6700; // Default 67%
+        config.thresholdBps = DEFAULT_AGGREGATION_THRESHOLD_BPS;
         config.thresholdType = 0;   // Default CountBased
 
         if (manager != address(0)) {

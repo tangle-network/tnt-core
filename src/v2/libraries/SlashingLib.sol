@@ -22,6 +22,11 @@ library SlashingLib {
     /// @dev Maximum dispute window (30 days)
     uint64 internal constant MAX_DISPUTE_WINDOW = 30 days;
 
+    /// @dev Buffer for timestamp manipulation protection (15 seconds)
+    /// Miners can manipulate block.timestamp within ~15 seconds, so we add this
+    /// buffer to prevent dispute window bypass attacks
+    uint64 internal constant TIMESTAMP_BUFFER = 15;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ENUMS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -282,7 +287,8 @@ library SlashingLib {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Check if a slash is ready to execute
-    /// @dev Only Pending slashes can be executed - Disputed slashes are blocked
+    /// @dev Only Pending slashes can be executed - Disputed slashes are blocked.
+    ///      Uses TIMESTAMP_BUFFER to protect against block timestamp manipulation.
     /// @param proposal The slash proposal
     /// @return True if ready
     function isExecutable(SlashProposal storage proposal) internal view returns (bool) {
@@ -290,8 +296,11 @@ library SlashingLib {
         if (proposal.status == SlashStatus.Disputed) {
             return false;
         }
+        // M-6 FIX: Add buffer to protect against timestamp manipulation
+        // Miners can adjust block.timestamp within ~15 seconds, so we require
+        // the timestamp to exceed executeAfter + buffer
         return proposal.status == SlashStatus.Pending &&
-               block.timestamp >= proposal.executeAfter;
+               block.timestamp >= proposal.executeAfter + TIMESTAMP_BUFFER;
     }
 
     /// @notice Mark a slash as executed

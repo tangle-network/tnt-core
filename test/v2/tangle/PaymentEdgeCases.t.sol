@@ -146,12 +146,11 @@ contract PaymentEdgeCasesTest is BaseTest {
     // ROUNDING AND PRECISION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function test_Payment_VerySmallAmount_RoundingHandled() public {
-        // 1 wei payment
-        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, 1);
-        _approveService(operator1, requestId);
-        // With 1 wei, most splits round to 0
-        // Just ensure no revert
+    function test_Payment_VerySmallAmount_RevertsWithMinimum() public {
+        // M-5 FIX: Payments below MINIMUM_PAYMENT_AMOUNT (100) should revert
+        uint256 payment = 1;
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentTooSmall.selector, payment, 100));
+        _requestServiceWithPayment(user1, blueprintId, operator1, payment);
     }
 
     function test_Payment_PrimeNumberAmount_RoundingHandled() public {

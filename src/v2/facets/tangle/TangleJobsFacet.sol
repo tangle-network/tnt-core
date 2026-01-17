@@ -28,9 +28,11 @@ contract TangleJobsFacet is JobsSubmission, IFacetSelectors {
         uint16[] memory exposures = new uint16[](operators.length);
         uint256 totalExposure = 0;
 
-        for (uint256 i = 0; i < operators.length; i++) {
+        uint256 operatorsLength = operators.length;
+        for (uint256 i = 0; i < operatorsLength;) {
             exposures[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
             totalExposure += exposures[i];
+            unchecked { ++i; }
         }
 
         ITanglePaymentsInternal(address(this)).distributePayment(

@@ -22,6 +22,10 @@ library Types {
     }
 
     /// @notice Blueprint - a template for services
+    /// @dev Struct is packed for optimal storage:
+    ///      Slot 0: owner (20 bytes)
+    ///      Slot 1: manager (20 bytes)
+    ///      Slot 2: createdAt (8) + operatorCount (4) + membership (1) + pricing (1) + active (1) = 15 bytes
     struct Blueprint {
         address owner;              // Can transfer ownership, update metadata
         address manager;            // IBlueprintServiceManager implementation (0 = none)
@@ -240,6 +244,12 @@ library Types {
         string rpcAddress;      // RPC endpoint URL
     }
 
+    /// @notice BLS public key for aggregated signature verification
+    /// @dev Stored as raw uint256[4] for efficient storage and comparison
+    struct BLSPubkey {
+        uint256[4] key;         // G2 point: [x0, x1, y0, y1]
+    }
+
     /// @notice Asset security requirement for a service request
     /// @dev Exposure percentages in basis points (10000 = 100%)
     struct AssetSecurityRequirement {
@@ -274,6 +284,12 @@ library Types {
     }
 
     /// @notice Service request - pending service awaiting approval
+    /// @dev Struct layout for storage optimization:
+    ///      Slot 0: blueprintId (8) + requester (20) = 28 bytes (could be tighter but crossing slot)
+    ///      Slot 1: createdAt (8) + ttl (8) + operatorCount (4) + approvalCount (4) = 24 bytes
+    ///      Slot 2: paymentToken (20) + membership (1) + minOperators (4) = 25 bytes
+    ///      Slot 3: paymentAmount (32)
+    ///      Slot 4: maxOperators (4) + rejected (1) = 5 bytes
     struct ServiceRequest {
         uint64 blueprintId;
         address requester;
@@ -290,6 +306,11 @@ library Types {
     }
 
     /// @notice Service - an active instance of a blueprint
+    /// @dev Struct layout for storage optimization:
+    ///      Slot 0: blueprintId (8) + owner (20) = 28 bytes
+    ///      Slot 1: createdAt (8) + ttl (8) + terminatedAt (8) = 24 bytes
+    ///      Slot 2: lastPaymentAt (8) + operatorCount (4) + minOperators (4) + maxOperators (4) = 20 bytes
+    ///      Slot 3: membership (1) + pricing (1) + status (1) = 3 bytes
     struct Service {
         uint64 blueprintId;
         address owner;
@@ -306,6 +327,7 @@ library Types {
     }
 
     /// @notice Operator's participation in a service
+    /// @dev Packed into single storage slot: exposureBps (2) + joinedAt (8) + leftAt (8) + active (1) = 19 bytes
     struct ServiceOperator {
         uint16 exposureBps;   // Stake exposure in basis points
         uint64 joinedAt;      // When operator joined
@@ -318,6 +340,10 @@ library Types {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Job call - a unit of work submitted to a service
+    /// @dev Struct layout:
+    ///      Slot 0: jobIndex (1) + caller (20) + createdAt (8) + resultCount (4) = 33 bytes (crosses slot)
+    ///      Slot 1: payment (32)
+    ///      Slot 2: completed (1)
     struct JobCall {
         uint8 jobIndex;        // Which job in the blueprint
         address caller;

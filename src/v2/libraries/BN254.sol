@@ -93,6 +93,10 @@ library BN254 {
         input[3] = p2.y;
 
         bool success;
+        // Assembly is required to call the bn256Add precompile at address 0x06
+        // Input: 4 uint256 values (2 G1 points) = 0x80 bytes
+        // Output: 2 uint256 values (1 G1 point) = 0x40 bytes
+        // sub(gas(), 2000) reserves gas for post-call operations
         assembly {
             success := staticcall(sub(gas(), 2000), 6, input, 0x80, r, 0x40)
         }
@@ -113,6 +117,10 @@ library BN254 {
         input[2] = s;
 
         bool success;
+        // Assembly is required to call the bn256ScalarMul precompile at address 0x07
+        // Input: 3 uint256 values (1 G1 point + scalar) = 0x60 bytes
+        // Output: 2 uint256 values (1 G1 point) = 0x40 bytes
+        // sub(gas(), 2000) reserves gas for post-call operations
         assembly {
             success := staticcall(sub(gas(), 2000), 7, input, 0x60, r, 0x40)
         }
@@ -127,6 +135,211 @@ library BN254 {
             return p; // Point at infinity
         }
         return Types.BN254G1Point(p.x, P_MOD - (p.y % P_MOD));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // G2 OPERATIONS (Extension Field Arithmetic)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Add two G2 points using extension field arithmetic
+    /// @dev G2 is defined over Fp2 = Fp[i]/(i^2 + 1), so we need complex addition
+    /// @param p1 First G2 point
+    /// @param p2 Second G2 point
+    /// @return r The sum p1 + p2
+    function addG2(
+        Types.BN254G2Point memory p1,
+        Types.BN254G2Point memory p2
+    ) internal pure returns (Types.BN254G2Point memory r) {
+        // Handle point at infinity cases
+        if (isG2Infinity(p1)) return p2;
+        if (isG2Infinity(p2)) return p1;
+
+        // Check if points are the same (need to double)
+        if (
+            p1.x[0] == p2.x[0] && p1.x[1] == p2.x[1] && p1.y[0] == p2.y[0] && p1.y[1] == p2.y[1]
+        ) {
+            return doubleG2(p1);
+        }
+
+        // Check if points are inverses (result is infinity)
+        // -P = (x, -y) in G2
+        (uint256 negY0, uint256 negY1) = fp2Negate(p2.y[0], p2.y[1]);
+        if (p1.x[0] == p2.x[0] && p1.x[1] == p2.x[1] && p1.y[0] == negY0 && p1.y[1] == negY1) {
+            return Types.BN254G2Point([uint256(0), uint256(0)], [uint256(0), uint256(0)]);
+        }
+
+        // Standard point addition: lambda = (y2 - y1) / (x2 - x1)
+        // x3 = lambda^2 - x1 - x2
+        // y3 = lambda * (x1 - x3) - y1
+
+        // Compute y2 - y1 in Fp2
+        (uint256 dy0, uint256 dy1) = fp2Sub(p2.y[0], p2.y[1], p1.y[0], p1.y[1]);
+
+        // Compute x2 - x1 in Fp2
+        (uint256 dx0, uint256 dx1) = fp2Sub(p2.x[0], p2.x[1], p1.x[0], p1.x[1]);
+
+        // Compute lambda = dy / dx in Fp2
+        (uint256 lambda0, uint256 lambda1) = fp2Div(dy0, dy1, dx0, dx1);
+
+        // Compute lambda^2 in Fp2
+        (uint256 lambda2_0, uint256 lambda2_1) = fp2Mul(lambda0, lambda1, lambda0, lambda1);
+
+        // Compute x3 = lambda^2 - x1 - x2 in Fp2
+        (uint256 x3_0, uint256 x3_1) = fp2Sub(lambda2_0, lambda2_1, p1.x[0], p1.x[1]);
+        (x3_0, x3_1) = fp2Sub(x3_0, x3_1, p2.x[0], p2.x[1]);
+
+        // Compute y3 = lambda * (x1 - x3) - y1 in Fp2
+        (uint256 x1_x3_0, uint256 x1_x3_1) = fp2Sub(p1.x[0], p1.x[1], x3_0, x3_1);
+        (uint256 y3_0, uint256 y3_1) = fp2Mul(lambda0, lambda1, x1_x3_0, x1_x3_1);
+        (y3_0, y3_1) = fp2Sub(y3_0, y3_1, p1.y[0], p1.y[1]);
+
+        r.x[0] = x3_0;
+        r.x[1] = x3_1;
+        r.y[0] = y3_0;
+        r.y[1] = y3_1;
+    }
+
+    /// @notice Double a G2 point
+    /// @param p The G2 point to double
+    /// @return r The doubled point 2*p
+    function doubleG2(Types.BN254G2Point memory p) internal pure returns (Types.BN254G2Point memory r) {
+        if (isG2Infinity(p)) return p;
+
+        // Check if y = 0 (tangent is vertical, result is infinity)
+        if (p.y[0] == 0 && p.y[1] == 0) {
+            return Types.BN254G2Point([uint256(0), uint256(0)], [uint256(0), uint256(0)]);
+        }
+
+        // Point doubling: lambda = 3x^2 / 2y (for curve y^2 = x^3 + b)
+        // Note: For BN254 G2, the curve is y^2 = x^3 + b' where b' is in Fp2
+
+        // Compute 3x^2 in Fp2
+        (uint256 x2_0, uint256 x2_1) = fp2Mul(p.x[0], p.x[1], p.x[0], p.x[1]);
+        (uint256 three_x2_0, uint256 three_x2_1) = fp2MulScalar(x2_0, x2_1, 3);
+
+        // Compute 2y in Fp2
+        (uint256 two_y0, uint256 two_y1) = fp2MulScalar(p.y[0], p.y[1], 2);
+
+        // Compute lambda = 3x^2 / 2y in Fp2
+        (uint256 lambda0, uint256 lambda1) = fp2Div(three_x2_0, three_x2_1, two_y0, two_y1);
+
+        // Compute lambda^2 in Fp2
+        (uint256 lambda2_0, uint256 lambda2_1) = fp2Mul(lambda0, lambda1, lambda0, lambda1);
+
+        // Compute x3 = lambda^2 - 2x in Fp2
+        (uint256 two_x0, uint256 two_x1) = fp2MulScalar(p.x[0], p.x[1], 2);
+        (uint256 x3_0, uint256 x3_1) = fp2Sub(lambda2_0, lambda2_1, two_x0, two_x1);
+
+        // Compute y3 = lambda * (x - x3) - y in Fp2
+        (uint256 x_x3_0, uint256 x_x3_1) = fp2Sub(p.x[0], p.x[1], x3_0, x3_1);
+        (uint256 y3_0, uint256 y3_1) = fp2Mul(lambda0, lambda1, x_x3_0, x_x3_1);
+        (y3_0, y3_1) = fp2Sub(y3_0, y3_1, p.y[0], p.y[1]);
+
+        r.x[0] = x3_0;
+        r.x[1] = x3_1;
+        r.y[0] = y3_0;
+        r.y[1] = y3_1;
+    }
+
+    /// @notice Check if a G2 point is the point at infinity
+    function isG2Infinity(Types.BN254G2Point memory p) internal pure returns (bool) {
+        return p.x[0] == 0 && p.x[1] == 0 && p.y[0] == 0 && p.y[1] == 0;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FP2 ARITHMETIC (Extension Field: Fp2 = Fp[i]/(i^2 + 1))
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Add two Fp2 elements: (a0 + a1*i) + (b0 + b1*i)
+    function fp2Add(
+        uint256 a0,
+        uint256 a1,
+        uint256 b0,
+        uint256 b1
+    ) internal pure returns (uint256 c0, uint256 c1) {
+        c0 = addmod(a0, b0, P_MOD);
+        c1 = addmod(a1, b1, P_MOD);
+    }
+
+    /// @notice Subtract two Fp2 elements: (a0 + a1*i) - (b0 + b1*i)
+    function fp2Sub(
+        uint256 a0,
+        uint256 a1,
+        uint256 b0,
+        uint256 b1
+    ) internal pure returns (uint256 c0, uint256 c1) {
+        c0 = addmod(a0, P_MOD - (b0 % P_MOD), P_MOD);
+        c1 = addmod(a1, P_MOD - (b1 % P_MOD), P_MOD);
+    }
+
+    /// @notice Multiply two Fp2 elements: (a0 + a1*i) * (b0 + b1*i)
+    /// @dev Using i^2 = -1: result = (a0*b0 - a1*b1) + (a0*b1 + a1*b0)*i
+    function fp2Mul(
+        uint256 a0,
+        uint256 a1,
+        uint256 b0,
+        uint256 b1
+    ) internal pure returns (uint256 c0, uint256 c1) {
+        uint256 a0b0 = mulmod(a0, b0, P_MOD);
+        uint256 a1b1 = mulmod(a1, b1, P_MOD);
+        uint256 a0b1 = mulmod(a0, b1, P_MOD);
+        uint256 a1b0 = mulmod(a1, b0, P_MOD);
+
+        // c0 = a0*b0 - a1*b1 (using i^2 = -1)
+        c0 = addmod(a0b0, P_MOD - a1b1, P_MOD);
+        // c1 = a0*b1 + a1*b0
+        c1 = addmod(a0b1, a1b0, P_MOD);
+    }
+
+    /// @notice Multiply Fp2 element by a scalar
+    function fp2MulScalar(
+        uint256 a0,
+        uint256 a1,
+        uint256 s
+    ) internal pure returns (uint256 c0, uint256 c1) {
+        c0 = mulmod(a0, s, P_MOD);
+        c1 = mulmod(a1, s, P_MOD);
+    }
+
+    /// @notice Negate an Fp2 element: -(a0 + a1*i) = -a0 - a1*i
+    function fp2Negate(uint256 a0, uint256 a1) internal pure returns (uint256 c0, uint256 c1) {
+        c0 = a0 == 0 ? 0 : P_MOD - (a0 % P_MOD);
+        c1 = a1 == 0 ? 0 : P_MOD - (a1 % P_MOD);
+    }
+
+    /// @notice Compute the inverse of an Fp2 element
+    /// @dev For a = a0 + a1*i, a^(-1) = (a0 - a1*i) / (a0^2 + a1^2)
+    function fp2Inverse(uint256 a0, uint256 a1) internal pure returns (uint256 c0, uint256 c1) {
+        // Compute norm = a0^2 + a1^2 (using i^2 = -1)
+        uint256 a0_sq = mulmod(a0, a0, P_MOD);
+        uint256 a1_sq = mulmod(a1, a1, P_MOD);
+        uint256 norm = addmod(a0_sq, a1_sq, P_MOD);
+
+        // Compute norm^(-1) in Fp using Fermat's little theorem
+        uint256 normInv = expMod(norm, P_MOD - 2, P_MOD);
+
+        // a^(-1) = (a0 - a1*i) * normInv = (a0 * normInv) + (-a1 * normInv)*i
+        c0 = mulmod(a0, normInv, P_MOD);
+        c1 = mulmod(P_MOD - (a1 % P_MOD), normInv, P_MOD);
+    }
+
+    /// @notice Divide two Fp2 elements: a / b = a * b^(-1)
+    function fp2Div(
+        uint256 a0,
+        uint256 a1,
+        uint256 b0,
+        uint256 b1
+    ) internal pure returns (uint256 c0, uint256 c1) {
+        (uint256 bInv0, uint256 bInv1) = fp2Inverse(b0, b1);
+        return fp2Mul(a0, a1, bInv0, bInv1);
+    }
+
+    /// @notice Compare two G2 points for equality
+    function g2Eq(
+        Types.BN254G2Point memory p1,
+        Types.BN254G2Point memory p2
+    ) internal pure returns (bool) {
+        return p1.x[0] == p2.x[0] && p1.x[1] == p2.x[1] && p1.y[0] == p2.y[0] && p1.y[1] == p2.y[1];
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -162,6 +375,12 @@ library BN254 {
 
         uint256[1] memory result;
         bool success;
+        // Assembly is required to call the bn256Pairing precompile at address 0x08
+        // Input: Variable length array of (G1, G2) point pairs
+        //        add(input, 0x20) skips the array length prefix
+        //        mul(inputSize, 0x20) calculates total input bytes
+        // Output: Single uint256 (1 = pairing valid, 0 = invalid) = 0x20 bytes
+        // sub(gas(), 2000) reserves gas for post-call operations
         assembly {
             success := staticcall(
                 sub(gas(), 2000),

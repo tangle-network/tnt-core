@@ -768,28 +768,12 @@ contract PaymentsTest is BaseTest {
     // ROUNDING EDGE CASES
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function test_Payment_SmallAmountRounding() public {
-        // Very small payment to test rounding
-        uint256 payment = 1; // 1 wei
+    function test_Payment_SmallAmountRounding_RevertsWithMinimum() public {
+        // M-5 FIX: Payments below MINIMUM_PAYMENT_AMOUNT (100) should revert
+        uint256 payment = 1; // 1 wei - below minimum
 
-        uint256 developerBefore = developer.balance;
-        uint256 treasuryBefore = treasury.balance;
-        uint256 distributorBefore = address(serviceFeeDistributor).balance;
-
-        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
-        vm.prank(operator1);
-        tangle.approveService(requestId, 0);
-
-        // With 1 wei: developer/protocol/operator shares round down to 0
-        // All goes to restaker remainder handling
-        assertEq(developer.balance, developerBefore, "developer cannot receive fractional wei");
-        assertEq(treasury.balance, treasuryBefore, "treasury cannot receive fractional wei");
-        assertEq(tangle.pendingRewards(operator1), 0, "operator share rounds down to zero");
-        assertEq(
-            address(serviceFeeDistributor).balance,
-            distributorBefore + payment,
-            "restaker share is forwarded to ServiceFeeDistributor"
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentTooSmall.selector, payment, 100));
+        _requestServiceWithPayment(user1, blueprintId, operator1, payment);
     }
 
     function test_Payment_OddAmountDistribution() public {

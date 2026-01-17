@@ -6,6 +6,7 @@ import { RestakingFacetBase } from "../../restaking/RestakingFacetBase.sol";
 import { Types } from "../../libraries/Types.sol";
 import { IAssetAdapter } from "../../restaking/adapters/IAssetAdapter.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
+import { DelegationErrors } from "../../restaking/DelegationErrors.sol";
 
 /// @title RestakingAssetsFacet
 /// @notice Facet for asset and adapter management
@@ -16,9 +17,13 @@ contract RestakingAssetsFacet is RestakingFacetBase, IFacetSelectors {
     event AdapterRegistered(address indexed token, address indexed adapter);
     event AdapterRemoved(address indexed token);
     event RequireAdaptersUpdated(bool required);
+    // M-8 FIX: Events for adapter migration
+    event AdapterMigrationStarted(address indexed token, address indexed oldAdapter, address indexed newAdapter);
+    event AdapterMigrationCompleted(address indexed token, address indexed newAdapter);
+    event AdapterMigrationCancelled(address indexed token);
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](7);
+        selectorList = new bytes4[](11);
         selectorList[0] = this.enableAsset.selector;
         selectorList[1] = this.disableAsset.selector;
         selectorList[2] = this.getAssetConfig.selector;
@@ -26,6 +31,11 @@ contract RestakingAssetsFacet is RestakingFacetBase, IFacetSelectors {
         selectorList[4] = this.removeAdapter.selector;
         selectorList[5] = this.setRequireAdapters.selector;
         selectorList[6] = this.enableAssetWithAdapter.selector;
+        // M-8 FIX: Add migration selectors
+        selectorList[7] = this.startAdapterMigration.selector;
+        selectorList[8] = this.completeAdapterMigration.selector;
+        selectorList[9] = this.cancelAdapterMigration.selector;
+        selectorList[10] = this.isAdapterMigrationInProgress.selector;
     }
 
     /// @notice Enable an ERC20 token for staking
@@ -149,5 +159,80 @@ contract RestakingAssetsFacet is RestakingFacetBase, IFacetSelectors {
         _enabledErc20s.add(token);
 
         emit AssetEnabled(token, _minOperatorStake, _minDelegation);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M-8 FIX: ADAPTER MIGRATION FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Start an adapter migration for a token
+    /// @dev This pauses deposits/withdrawals for the token until migration is complete
+    /// @param token The token address
+    /// @param newAdapter The new adapter address (can be address(0) to remove adapter)
+    function startAdapterMigration(address token, address newAdapter) external onlyRole(ASSET_MANAGER_ROLE) {
+        require(token != address(0), "Cannot migrate native");
+        if (_adapterMigrationInProgress[token]) {
+            revert DelegationErrors.AdapterMigrationAlreadyPending(token);
+        }
+
+        // Verify new adapter supports the token (if not removing)
+        if (newAdapter != address(0)) {
+            require(
+                IAssetAdapter(newAdapter).supportsAsset(token),
+                "Adapter doesn't support token"
+            );
+        }
+
+        _adapterMigrationInProgress[token] = true;
+        _pendingAdapter[token] = newAdapter;
+
+        emit AdapterMigrationStarted(token, _assetAdapters[token], newAdapter);
+    }
+
+    /// @notice Complete an adapter migration
+    /// @dev Admin should verify all pending withdrawals are processed before completing
+    /// @param token The token address
+    function completeAdapterMigration(address token) external onlyRole(ASSET_MANAGER_ROLE) {
+        if (!_adapterMigrationInProgress[token]) {
+            revert DelegationErrors.NoAdapterMigrationPending(token);
+        }
+
+        address newAdapter = _pendingAdapter[token];
+
+        // Update the adapter
+        if (newAdapter == address(0)) {
+            delete _assetAdapters[token];
+            emit AdapterRemoved(token);
+        } else {
+            _assetAdapters[token] = newAdapter;
+            emit AdapterRegistered(token, newAdapter);
+        }
+
+        // Clear migration state
+        _adapterMigrationInProgress[token] = false;
+        delete _pendingAdapter[token];
+
+        emit AdapterMigrationCompleted(token, newAdapter);
+    }
+
+    /// @notice Cancel an adapter migration
+    /// @param token The token address
+    function cancelAdapterMigration(address token) external onlyRole(ASSET_MANAGER_ROLE) {
+        if (!_adapterMigrationInProgress[token]) {
+            revert DelegationErrors.NoAdapterMigrationPending(token);
+        }
+
+        _adapterMigrationInProgress[token] = false;
+        delete _pendingAdapter[token];
+
+        emit AdapterMigrationCancelled(token);
+    }
+
+    /// @notice Check if an adapter migration is in progress for a token
+    /// @param token The token address
+    /// @return inProgress True if migration is in progress
+    /// @return pendingAdapter The pending adapter address
+    function isAdapterMigrationInProgress(address token) external view returns (bool inProgress, address pendingAdapter) {
+        return (_adapterMigrationInProgress[token], _pendingAdapter[token]);
     }
 }

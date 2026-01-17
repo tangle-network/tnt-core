@@ -115,12 +115,13 @@ contract DelegationStorageLibrariesTest is Test {
     }
 
     function test_depositTracksNativeAndErc20Modes() public {
+        // M-9 FIX: MIN_LOCK_AMOUNT = 1e16 for locked deposits
         harness.configureAsset(Types.AssetKind.Native, address(0), true, 1, 0);
-        harness.depositAsset(Types.AssetKind.Native, address(0), 5, Types.LockMultiplier.OneMonth);
+        harness.depositAsset(Types.AssetKind.Native, address(0), 1e16, Types.LockMultiplier.OneMonth);
 
         Types.Deposit memory nativeDep =
             harness.getDeposit(address(this), Types.AssetKind.Native, address(0));
-        assertEq(nativeDep.amount, 5);
+        assertEq(nativeDep.amount, 1e16);
         assertEq(nativeDep.delegatedAmount, 0);
         assertEq(harness.getLockCount(address(this), Types.AssetKind.Native, address(0)), 1);
 

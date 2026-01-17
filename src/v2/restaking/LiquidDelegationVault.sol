@@ -185,16 +185,12 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Use forceApprove to handle tokens like USDT that require resetting to 0 first
         asset.forceApprove(address(restaking), assets);
 
-        if (isNative) {
-            // For native: need to unwrap and deposit
-            // Assuming WETH interface
-            // IWETH(address(asset)).withdraw(assets);
-            // restaking.deposit{value: assets}();
-            // For now, just deposit the ERC20
-            restaking.depositERC20(address(asset), assets);
-        } else {
-            restaking.depositERC20(address(asset), assets);
-        }
+        // NOTE: Native ETH handling via WETH is not yet implemented.
+        // TODO: Add IWETH unwrap support when native ETH restaking is enabled.
+        //       This would require: IWETH(address(asset)).withdraw(assets);
+        //       followed by: restaking.deposit{value: assets}();
+        // For now, all assets (including wrapped native) are deposited as ERC20.
+        restaking.depositERC20(address(asset), assets);
 
         // Delegate to operator with blueprint selection
         restaking.delegateWithOptions(operator, address(asset), assets, selectionMode, _blueprintIds);

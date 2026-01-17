@@ -174,6 +174,25 @@ interface IRestaking {
     /// @param blueprintId The blueprint to remove
     function removeBlueprintForOperator(address operator, uint64 blueprintId) external;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M-9 FIX: PENDING SLASH TRACKING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Increment pending slash count for an operator
+    /// @dev Called by Tangle when a slash is proposed
+    /// @param operator The operator with a new pending slash
+    function incrementPendingSlash(address operator) external;
+
+    /// @notice Decrement pending slash count for an operator
+    /// @dev Called by Tangle when a slash is executed or cancelled
+    /// @param operator The operator whose pending slash was resolved
+    function decrementPendingSlash(address operator) external;
+
+    /// @notice Get pending slash count for an operator
+    /// @param operator The operator to query
+    /// @return count Number of pending slashes
+    function getPendingSlashCount(address operator) external view returns (uint64);
+
 }
 
 /// @title IRestakingAdmin
@@ -187,6 +206,10 @@ interface IRestakingAdmin {
     /// @notice Remove an authorized slasher
     /// @param slasher Address to remove
     function removeSlasher(address slasher) external;
+
+    /// @notice Set the Tangle contract for blueprint management
+    /// @param tangle Address of the Tangle contract
+    function setTangle(address tangle) external;
 
     /// @notice Update minimum operator stake
     /// @param amount New minimum

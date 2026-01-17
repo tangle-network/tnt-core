@@ -11,12 +11,16 @@ contract RestakingSlashingFacet is RestakingFacetBase, IFacetSelectors {
     event RoundAdvanced(uint64 indexed round);
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](5);
+        selectorList = new bytes4[](8);
         selectorList[0] = this.slashForBlueprint.selector;
         selectorList[1] = this.slashForService.selector;
         selectorList[2] = this.slash.selector;
         selectorList[3] = this.advanceRound.selector;
         selectorList[4] = this.snapshotOperator.selector;
+        // M-9 FIX: Pending slash tracking functions
+        selectorList[5] = this.incrementPendingSlash.selector;
+        selectorList[6] = this.decrementPendingSlash.selector;
+        selectorList[7] = this.getPendingSlashCount.selector;
     }
 
     /// @notice Slash operator for a specific blueprint
@@ -75,5 +79,30 @@ contract RestakingSlashingFacet is RestakingFacetBase, IFacetSelectors {
     /// @notice Take snapshot of operator state
     function snapshotOperator(address operator) external {
         _snapshotOperator(operator);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M-9 FIX: PENDING SLASH TRACKING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Increment pending slash count for an operator
+    /// @dev Called by Tangle when a slash is proposed
+    /// @param operator The operator with a new pending slash
+    function incrementPendingSlash(address operator) external onlyRole(SLASHER_ROLE) {
+        _incrementPendingSlash(operator);
+    }
+
+    /// @notice Decrement pending slash count for an operator
+    /// @dev Called by Tangle when a slash is executed or cancelled
+    /// @param operator The operator whose pending slash was resolved
+    function decrementPendingSlash(address operator) external onlyRole(SLASHER_ROLE) {
+        _decrementPendingSlash(operator);
+    }
+
+    /// @notice Get pending slash count for an operator
+    /// @param operator The operator to query
+    /// @return count Number of pending slashes
+    function getPendingSlashCount(address operator) external view override returns (uint64) {
+        return _operatorPendingSlashCount[operator];
     }
 }

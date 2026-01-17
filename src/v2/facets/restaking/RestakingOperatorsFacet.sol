@@ -55,14 +55,14 @@ contract RestakingOperatorsFacet is RestakingFacetBase, IFacetSelectors {
     /// @notice Add blueprint support for an operator (called by Tangle on registration)
     /// @param operator The operator address
     /// @param blueprintId The blueprint to add
-    function addBlueprintForOperator(address operator, uint64 blueprintId) external onlyRole(SLASHER_ROLE) {
+    function addBlueprintForOperator(address operator, uint64 blueprintId) external onlyRole(TANGLE_ROLE) {
         _addBlueprintForOperator(operator, blueprintId);
     }
 
     /// @notice Remove blueprint support for an operator (called by Tangle on unregistration)
     /// @param operator The operator address
     /// @param blueprintId The blueprint to remove
-    function removeBlueprintForOperator(address operator, uint64 blueprintId) external onlyRole(SLASHER_ROLE) {
+    function removeBlueprintForOperator(address operator, uint64 blueprintId) external onlyRole(TANGLE_ROLE) {
         _removeBlueprintForOperator(operator, blueprintId);
     }
 

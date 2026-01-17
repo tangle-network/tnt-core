@@ -95,6 +95,11 @@ abstract contract DepositManager is DelegationStorage {
     /// @param amount Amount to deposit
     /// @return shares Amount of shares (equals amount for direct deposits)
     function _handleErc20Deposit(address token, uint256 amount) internal returns (uint256 shares) {
+        // M-8 FIX: Check if adapter migration is in progress
+        if (_adapterMigrationInProgress[token]) {
+            revert DelegationErrors.AdapterMigrationInProgress(token);
+        }
+
         address adapter = _assetAdapters[token];
 
         if (adapter != address(0)) {
@@ -135,6 +140,10 @@ abstract contract DepositManager is DelegationStorage {
         // Handle lock if specified
         if (lockMultiplier != Types.LockMultiplier.None) {
             _validateLockMultiplier(lockMultiplier);
+            // M-9 FIX: Enforce minimum lock amount to prevent multiplier bypass via small deposits
+            if (amount < MIN_LOCK_AMOUNT) {
+                revert DelegationErrors.BelowMinimumLockAmount(MIN_LOCK_AMOUNT, amount);
+            }
             uint64 lockDuration = _getLockDuration(lockMultiplier);
             _depositLocks[msg.sender][assetHash].push(Types.LockInfo({
                 amount: amount,
@@ -199,7 +208,8 @@ abstract contract DepositManager is DelegationStorage {
         Types.Asset[] memory readyAssets = new Types.Asset[](requests.length);
         uint256[] memory readyAmounts = new uint256[](requests.length);
 
-        for (uint256 i = 0; i < requests.length; i++) {
+        uint256 requestsLength = requests.length;
+        for (uint256 i = 0; i < requestsLength;) {
             if (currentRound >= requests[i].requestedRound + leaveDelegatorsDelay) {
                 isReady[i] = true;
                 readyAssets[readyCount] = requests[i].asset;
@@ -207,18 +217,20 @@ abstract contract DepositManager is DelegationStorage {
                 totalWithdrawn += requests[i].amount;
                 readyCount++;
             }
+            unchecked { ++i; }
         }
 
         // Remove processed requests from storage while preserving FIFO semantics
         if (readyCount > 0) {
             uint256 writeIndex = 0;
-            for (uint256 i = 0; i < requests.length; i++) {
+            for (uint256 i = 0; i < requestsLength;) {
                 if (!isReady[i]) {
                     if (writeIndex != i) {
                         requests[writeIndex] = requests[i];
                     }
                     writeIndex++;
                 }
+                unchecked { ++i; }
             }
             while (requests.length > writeIndex) {
                 requests.pop();
@@ -227,7 +239,7 @@ abstract contract DepositManager is DelegationStorage {
 
         // Second pass: perform all transfers and harvest expired locks
         // (INTERACTIONS - after all state changes)
-        for (uint256 i = 0; i < readyCount; i++) {
+        for (uint256 i = 0; i < readyCount;) {
             // Opportunistically harvest expired locks for this asset
             _harvestExpiredLocks(msg.sender, readyAssets[i]);
 
@@ -242,6 +254,7 @@ abstract contract DepositManager is DelegationStorage {
                 config.currentDeposits = 0;
             }
             emit Withdrawn(msg.sender, readyAssets[i].token, readyAmounts[i]);
+            unchecked { ++i; }
         }
     }
 
@@ -270,10 +283,12 @@ abstract contract DepositManager is DelegationStorage {
         bytes32 assetHash
     ) internal view returns (uint256 locked) {
         Types.LockInfo[] storage locks = _depositLocks[delegator][assetHash];
-        for (uint256 i = 0; i < locks.length; i++) {
+        uint256 locksLength = locks.length;
+        for (uint256 i = 0; i < locksLength;) {
             if (locks[i].expiryBlock > block.number) {
                 locked += locks[i].amount;
             }
+            unchecked { ++i; }
         }
     }
 

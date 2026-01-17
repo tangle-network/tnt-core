@@ -182,7 +182,8 @@ contract SlashingTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         vm.prank(operator1);
@@ -223,7 +224,8 @@ contract SlashingTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(managedServiceId, operator1, 1000, keccak256("hook"));
 
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         uint64[] memory ids = new uint64[](1);
         ids[0] = slashId;
         tangle.executeSlashBatch(ids);
@@ -252,7 +254,8 @@ contract SlashingTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 2000, keccak256("evidence"));
 
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
@@ -278,7 +281,8 @@ contract SlashingTest is BaseTest {
         vm.prank(operator1);
         tangle.disputeSlash(slashId, "disputed");
 
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
 
         vm.expectRevert(abi.encodeWithSelector(Errors.SlashNotExecutable.selector, slashId));
         tangle.executeSlash(slashId);
@@ -288,7 +292,8 @@ contract SlashingTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         vm.expectRevert(abi.encodeWithSelector(Errors.SlashNotExecutable.selector, slashId));
@@ -299,8 +304,8 @@ contract SlashingTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
-        // Warp to exactly when execution becomes possible
-        vm.warp(block.timestamp + 7 days);
+        // M-6 FIX: Warp to exactly when execution becomes possible (executeAfter + TIMESTAMP_BUFFER)
+        vm.warp(block.timestamp + 7 days + 15);
 
         // Should be executable
         tangle.executeSlash(slashId);
@@ -313,7 +318,8 @@ contract SlashingTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
 
         // Random address can execute after window
         vm.prank(address(0xdead));
@@ -365,7 +371,8 @@ contract SlashingTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         vm.prank(admin);
@@ -416,7 +423,8 @@ contract SlashingTest is BaseTest {
         uint64 slashId2 = tangle.proposeSlash(serviceId, operator1, slashBps2, keccak256("e2"));
         vm.stopPrank();
 
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
 
         tangle.executeSlash(slashId1);
         tangle.executeSlash(slashId2);

@@ -126,14 +126,25 @@ contract MultiAssetDelegation is
 
     receive() external payable {}
 
+    /// @notice Delegate call to target facet using low-level assembly
+    /// @dev Assembly is used here for gas efficiency and to properly forward
+    ///      all calldata and return data. The pattern:
+    ///      1. Copy all calldata to memory starting at position 0
+    ///      2. Execute delegatecall to target with full calldata
+    ///      3. Copy all return data to memory starting at position 0
+    ///      4. Revert with return data if call failed, otherwise return with return data
     function _delegateTo(address target) private {
         assembly {
+            // Copy calldata to memory at position 0
             calldatacopy(0, 0, calldatasize())
+            // Execute delegatecall: gas, target address, input offset, input size, output offset, output size
             let result := delegatecall(gas(), target, 0, calldatasize(), 0, 0)
+            // Copy return data to memory at position 0
             returndatacopy(0, 0, returndatasize())
+            // Branch based on call result
             switch result
-            case 0 { revert(0, returndatasize()) }
-            default { return(0, returndatasize()) }
+            case 0 { revert(0, returndatasize()) }  // Call failed: revert with return data
+            default { return(0, returndatasize()) } // Call succeeded: return with return data
         }
     }
 

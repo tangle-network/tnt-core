@@ -26,6 +26,8 @@ abstract contract ServicesLifecycle is Base {
     event ExitScheduled(uint64 indexed serviceId, address indexed operator, uint64 executeAfter);
     event ExitCanceled(uint64 indexed serviceId, address indexed operator);
     event ExitForced(uint64 indexed serviceId, address indexed operator, address indexed forcer);
+    // M-15 FIX: Event for tracking service fee distributor call failures
+    event ServiceFeeDistributorCallFailed(uint64 indexed serviceId, string operation, bytes reason);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE LIFECYCLE
@@ -41,11 +43,25 @@ abstract contract ServicesLifecycle is Base {
         svc.status = Types.ServiceStatus.Terminated;
         svc.terminatedAt = uint64(block.timestamp);
 
+        // Decrement active service count for all operators in this service
+        uint64 blueprintId = svc.blueprintId;
+        uint256 operatorSetLength = _serviceOperatorSet[serviceId].length();
+        for (uint256 i = 0; i < operatorSetLength; i++) {
+            address operator = _serviceOperatorSet[serviceId].at(i);
+            if (_operatorActiveServiceCount[blueprintId][operator] > 0) {
+                _operatorActiveServiceCount[blueprintId][operator]--;
+            }
+        }
+
         emit ServiceTerminated(serviceId);
 
         // Refund remaining streamed payments to the service owner
+        // M-15 FIX: Emit event on external call failure
         if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onServiceTerminated(serviceId, svc.owner) {} catch {}
+            try IServiceFeeDistributor(_serviceFeeDistributor).onServiceTerminated(serviceId, svc.owner) {}
+            catch (bytes memory reason) {
+                emit ServiceFeeDistributorCallFailed(serviceId, "onServiceTerminated", reason);
+            }
         }
 
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
@@ -129,6 +145,9 @@ abstract contract ServicesLifecycle is Base {
         });
         _serviceOperatorSet[serviceId].add(msg.sender);
         svc.operatorCount++;
+
+        // Track active service count per blueprint for operator unregistration checks
+        _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
 
         emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
 
@@ -215,6 +234,9 @@ abstract contract ServicesLifecycle is Base {
         });
         _serviceOperatorSet[serviceId].add(msg.sender);
         svc.operatorCount++;
+
+        // Track active service count per blueprint for operator unregistration checks
+        _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
 
         emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
 
@@ -407,14 +429,23 @@ abstract contract ServicesLifecycle is Base {
         }
 
         // Drip streaming payments BEFORE removing operator (ensures fair distribution)
+        // M-15 FIX: Emit event on external call failure
         if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) {} catch {}
+            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) {}
+            catch (bytes memory reason) {
+                emit ServiceFeeDistributorCallFailed(serviceId, "onOperatorLeaving", reason);
+            }
         }
 
         opData.active = false;
         opData.leftAt = uint64(block.timestamp);
         _serviceOperatorSet[serviceId].remove(operator);
         svc.operatorCount--;
+
+        // Decrement active service count for operator unregistration checks
+        if (_operatorActiveServiceCount[svc.blueprintId][operator] > 0) {
+            _operatorActiveServiceCount[svc.blueprintId][operator]--;
+        }
 
         emit OperatorLeftService(serviceId, operator);
 
@@ -449,14 +480,23 @@ abstract contract ServicesLifecycle is Base {
         // Don't check exit queue - this bypasses normal exit process
 
         // Drip streaming payments before removal
+        // M-15 FIX: Emit event on external call failure
         if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) {} catch {}
+            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) {}
+            catch (bytes memory reason) {
+                emit ServiceFeeDistributorCallFailed(serviceId, "onOperatorLeaving", reason);
+            }
         }
 
         opData.active = false;
         opData.leftAt = uint64(block.timestamp);
         _serviceOperatorSet[serviceId].remove(operator);
         svc.operatorCount--;
+
+        // Decrement active service count for operator unregistration checks
+        if (_operatorActiveServiceCount[svc.blueprintId][operator] > 0) {
+            _operatorActiveServiceCount[svc.blueprintId][operator]--;
+        }
 
         // Clear any pending exit request
         delete _exitRequests[serviceId][operator];

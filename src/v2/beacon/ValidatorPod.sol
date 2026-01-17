@@ -98,7 +98,7 @@ contract ValidatorPod is ReentrancyGuard {
     event CheckpointFinalized(uint64 indexed timestamp, int256 sharesDeltaGwei);
     event NonBeaconChainETHWithdrawn(address indexed recipient, uint256 amount);
     event BeaconChainSlashingFactorDecreased(uint64 oldFactor, uint64 newFactor);
-    event ProofSubmitterUpdated(address oldSubmitter, address newSubmitter);
+    event ProofSubmitterUpdated(address indexed oldSubmitter, address indexed newSubmitter);
     event ValidatorBalanceUpdated(bytes32 indexed pubkeyHash, uint64 oldBalance, uint64 newBalance);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -258,8 +258,12 @@ contract ValidatorPod is ReentrancyGuard {
         }
 
         // Verify withdrawal credentials point to this pod
+        // C-2 FIX: Accept both 0x01 and 0x02 (Pectra) withdrawal credential prefixes.
+        // The podWithdrawalCredentials stores the 0x01 version, but Pectra-era validators
+        // may use 0x02 prefix for compounding validators (EIP-7251).
         bytes32 credentials = BeaconChainProofs.getWithdrawalCredentials(proof.validatorFields);
-        if (credentials != podWithdrawalCredentials) {
+        bytes32 expectedCreds02 = ValidatorTypes.computeWithdrawalCredentials02(address(this));
+        if (credentials != podWithdrawalCredentials && credentials != expectedCreds02) {
             revert InvalidWithdrawalCredentials();
         }
 

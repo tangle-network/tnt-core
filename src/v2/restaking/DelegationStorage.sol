@@ -19,6 +19,14 @@ abstract contract DelegationStorage {
     uint256 public constant PRECISION = 1e18;
     uint256 public constant BPS_DENOMINATOR = 10000;
 
+    // C-1 FIX: Virtual shares/assets offset to prevent first depositor inflation attack.
+    // Following OpenZeppelin ERC4626 pattern. The offset makes it economically infeasible
+    // for an attacker to inflate the exchange rate via donation attacks.
+    // With these values, attacker would need to donate VIRTUAL_SHARES tokens to gain
+    // any meaningful inflation, making the attack unprofitable.
+    uint256 public constant VIRTUAL_SHARES = 1e8;
+    uint256 public constant VIRTUAL_ASSETS = 1;
+
     // Lock durations in seconds
     uint64 public constant LOCK_ONE_MONTH = 30 days;
     uint64 public constant LOCK_TWO_MONTHS = 60 days;
@@ -32,6 +40,10 @@ abstract contract DelegationStorage {
     uint16 public constant MULTIPLIER_THREE_MONTHS = 13000;
     uint16 public constant MULTIPLIER_SIX_MONTHS = 16000;
 
+    // M-9 FIX: Minimum lock amount to prevent lock multiplier bypass via small deposits
+    // Set to 0.01 ETH (1e16 wei) equivalent to prevent dust attacks while remaining accessible
+    uint256 public constant MIN_LOCK_AMOUNT = 1e16;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ROLES
     // ═══════════════════════════════════════════════════════════════════════════
@@ -39,6 +51,7 @@ abstract contract DelegationStorage {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant SLASHER_ROLE = keccak256("SLASHER_ROLE");
     bytes32 public constant ASSET_MANAGER_ROLE = keccak256("ASSET_MANAGER_ROLE");
+    bytes32 public constant TANGLE_ROLE = keccak256("TANGLE_ROLE");
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ROUND MANAGEMENT
@@ -73,6 +86,16 @@ abstract contract DelegationStorage {
     /// @notice Operator commission rate in basis points
     uint16 public operatorCommissionBps;
 
+    // M-10 FIX: Commission change timelock to protect existing delegations
+    /// @notice Timelock delay for commission changes (7 days)
+    uint64 public constant COMMISSION_CHANGE_DELAY = 7 days;
+
+    /// @notice Pending commission change value (0 means no pending change)
+    uint16 internal _pendingCommissionBps;
+
+    /// @notice Timestamp when pending commission change can be executed
+    uint64 internal _commissionChangeExecuteAfter;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ASSET CONFIGURATION
     // ═══════════════════════════════════════════════════════════════════════════
@@ -97,6 +120,13 @@ abstract contract DelegationStorage {
     /// @notice Whether to require adapters for all ERC20 deposits
     /// @dev When true, deposits revert if no adapter is registered
     bool public requireAdapters;
+
+    /// @notice M-8 FIX: Tracks whether an adapter migration is in progress for a token
+    /// @dev When true, new deposits/withdrawals for this token are paused
+    mapping(address => bool) internal _adapterMigrationInProgress;
+
+    /// @notice M-8 FIX: Pending adapter address during migration
+    mapping(address => address) internal _pendingAdapter;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // OPERATOR STORAGE
@@ -171,6 +201,10 @@ abstract contract DelegationStorage {
     /// @notice Per-operator reward pools: operator => assetHash => pool
     /// @dev This is the "All mode" pool - delegators with All mode get rewards/slashes from ALL blueprints
     mapping(address => mapping(bytes32 => Types.OperatorRewardPool)) internal _rewardPools;
+
+    /// @notice M-7 FIX: Accumulated dust from rounding in reward distributions
+    /// @dev token address => accumulated dust amount (address(0) for native token)
+    mapping(address => uint256) internal _accumulatedDust;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT EXPOSURE TRACKING
@@ -278,6 +312,23 @@ abstract contract DelegationStorage {
     /// @notice ERC20 token used for operator bond requirements (TNT)
     address internal _operatorBondToken;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M-9 FIX: PENDING SLASH TRACKING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Count of pending slashes per operator (used to block withdrawals during pending slashes)
+    /// @dev Incremented when slash is proposed, decremented when executed or cancelled
+    mapping(address => uint64) internal _operatorPendingSlashCount;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M-10 FIX: TANGLE CORE REFERENCE FOR ACTIVE SERVICE CHECKS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Reference to Tangle core contract for querying active services
+    /// @dev Used to check if operator has active service commitments before exit
+    address internal _tangleCore;
+
     /// @notice Reserved storage gap for future upgrades
-    uint256[46] private _gap;
+    /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
+    uint256[48] private __gap;
 }

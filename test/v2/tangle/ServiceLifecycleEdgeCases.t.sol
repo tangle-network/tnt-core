@@ -236,20 +236,35 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         assertEq(uint8(svc.status), uint8(Types.ServiceStatus.Active));
     }
 
-    function test_ServiceWithMaxTTL() public {
+    function test_ServiceWithMaxTTL_RevertsAboveMaximum() public {
         address[] memory ops = new address[](1);
         ops[0] = operator1;
         address[] memory callers = new address[](0);
 
+        // M-1 FIX: TTL above MAX_SERVICE_TTL (365 days) should revert
         uint64 maxTTL = type(uint64).max;
+        uint64 maximum = 365 days;
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, maxTTL, address(0), 0);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TTLAboveMaximum.selector, maxTTL, maximum));
+        tangle.requestService(blueprintId, ops, "", callers, maxTTL, address(0), 0);
+    }
+
+    function test_ServiceWithValidMaxTTL() public {
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        // Use the actual maximum TTL (365 days)
+        uint64 validMaxTTL = 365 days;
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, validMaxTTL, address(0), 0);
 
         _approveService(operator1, requestId);
 
         Types.Service memory svc = tangle.getService(0);
-        assertEq(svc.ttl, maxTTL);
+        assertEq(svc.ttl, validMaxTTL);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

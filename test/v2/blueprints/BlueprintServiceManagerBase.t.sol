@@ -52,7 +52,7 @@ contract BlueprintServiceManagerBaseTest is Test {
     }
 
     function test_OnBlueprintCreated_CannotBeCalledTwice() public {
-        vm.expectRevert("Already initialized");
+        vm.expectRevert(BlueprintServiceManagerBase.AlreadyInitialized.selector);
         bsm.onBlueprintCreated(1, blueprintOwner, tangle);
     }
 

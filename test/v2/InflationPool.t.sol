@@ -74,6 +74,9 @@ contract InflationPoolTest is Test {
         tnt.approve(address(pool), POOL_FUNDING);
         pool.fund(POOL_FUNDING);
 
+        // M-16 FIX: Set minStakeEpochs to 0 for testing (otherwise operators need to wait 1 epoch)
+        pool.setMinStakeEpochs(0);
+
         vm.stopPrank();
     }
 

@@ -278,7 +278,8 @@ contract ArbitrumCrossChainMessengerTest is Test {
         assertEq(ticket.maxSubmissionCost, 0.01 ether, "submission");
         assertEq(ticket.excessFeeRefundAddress, sender, "fee refund");
         assertEq(ticket.callValueRefundAddress, sender, "call refund");
-        assertEq(ticket.gasLimit, 500_000, "gasLimit");
+        // M-12 FIX: Gas limit includes 10% buffer, so 500_000 * 1.1 = 550_000
+        assertEq(ticket.gasLimit, 550_000, "gasLimit");
         assertEq(ticket.data, expectedData, "payload");
         assertEq(inbox.lastValue(), 0.2 ether, "msg.value");
         assertEq(messageId, bytes32(uint256(1)));
@@ -292,7 +293,8 @@ contract ArbitrumCrossChainMessengerTest is Test {
     function test_estimateFee_UsesSubmissionCostAndGasLimit() public {
         inbox.setSubmissionFee(0.01 ether);
         uint256 fee = messenger.estimateFee(42161, payload, 100_000);
-        assertEq(fee, 0.01 ether + 100_000 * messenger.l2MaxFeePerGas());
+        // M-12 FIX: Gas limit includes 10% buffer, so 100_000 * 1.1 = 110_000
+        assertEq(fee, 0.01 ether + 110_000 * messenger.l2MaxFeePerGas());
     }
 
     function test_onlyOwnerCanAdjustGasPrice() public {
@@ -365,7 +367,8 @@ contract BaseCrossChainMessengerTest is Test {
         );
         assertEq(baseMessenger.lastTarget(), target);
         assertEq(baseMessenger.lastMessage(), expectedData);
-        assertEq(baseMessenger.lastGasLimit(), 120_000);
+        // M-12 FIX: Gas limit includes 10% buffer, so 120_000 * 1.1 = 132_000
+        assertEq(baseMessenger.lastGasLimit(), 132_000);
         assertEq(baseMessenger.lastValue(), 0.5 ether);
         assertTrue(messageId != bytes32(0));
     }
@@ -442,7 +445,8 @@ contract HyperlaneCrossChainMessengerTest is Test {
         MockInterchainGasPaymaster.Payment memory payment = igp.getLastPayment();
         assertEq(payment.messageId, messageId);
         assertEq(payment.destinationDomain, 42161);
-        assertEq(payment.gasAmount, 150_000);
+        // M-12 FIX: Gas limit includes 10% buffer, so 150_000 * 1.1 = 165_000
+        assertEq(payment.gasAmount, 165_000);
         assertEq(payment.refundAddress, sender);
         assertEq(payment.value, 0.01 ether);
         assertEq(sender.balance, balanceBefore - 0.06 ether);

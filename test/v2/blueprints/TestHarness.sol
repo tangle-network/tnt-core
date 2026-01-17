@@ -126,9 +126,13 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         _registerTangleFacets();
         vm.stopPrank();
 
-        // Grant slasher role
+        // Grant slasher role for slashing operations
         vm.prank(admin);
         restaking.addSlasher(address(tangleProxy));
+
+        // Grant tangle role for blueprint management operations
+        vm.prank(admin);
+        restaking.setTangle(address(tangleProxy));
 
         masterManager = new MasterBlueprintServiceManager(admin, address(tangle));
         MBSMRegistry registryImpl = new MBSMRegistry();
@@ -362,8 +366,8 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
 
     /// @notice Execute a slash (after dispute window)
     function executeSlash(uint64 slashId) public {
-        // Fast forward past dispute window
-        vm.warp(block.timestamp + 7 days + 1);
+        // Fast forward past dispute window (+ TIMESTAMP_BUFFER for M-6 fix)
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
     }
 

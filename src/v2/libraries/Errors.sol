@@ -99,6 +99,9 @@ library Errors {
     /// @notice Gossip key already registered for blueprint
     error DuplicateOperatorKey(uint64 blueprintId, bytes32 keyHash);
 
+    /// @notice Operator cannot unregister while having active services
+    error OperatorHasActiveServices(uint64 blueprintId, address operator);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -141,6 +144,21 @@ library Errors {
 
     /// @notice Invalid TTL value
     error InvalidTTL(uint64 ttl);
+
+    /// @notice TTL below minimum
+    error TTLBelowMinimum(uint64 ttl, uint64 minimum);
+
+    /// @notice TTL above maximum
+    error TTLAboveMaximum(uint64 ttl, uint64 maximum);
+
+    /// @notice Service request expired
+    error ServiceRequestExpired(uint64 requestId);
+
+    /// @notice Blueprint metadata is locked
+    error BlueprintMetadataLocked(uint64 blueprintId);
+
+    /// @notice Quote timestamp is too old
+    error QuoteTimestampTooOld(address operator, uint64 timestamp, uint64 maxAge);
 
     /// @notice No security requirements provided
     error NoSecurityRequirements();
@@ -213,6 +231,9 @@ library Errors {
     /// @notice Slash amount exceeds stake
     error SlashExceedsStake(address operator, uint256 slashAmount, uint256 stake);
 
+    /// @notice M-6 FIX: Slash percentage exceeds maximum (100%)
+    error SlashBpsExceedsMax(uint16 slashBps, uint16 maxBps);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE MANAGER
     // ═══════════════════════════════════════════════════════════════════════════
@@ -270,6 +291,9 @@ error QuoteTTLMismatch(address operator, uint64 expectedTtl, uint64 quotedTtl);
 
     /// @notice Invalid payment split (doesn't sum to 100%)
     error InvalidPaymentSplit();
+
+    /// @notice Payment amount too small to distribute without excessive rounding loss
+    error PaymentTooSmall(uint256 amount, uint256 minimumRequired);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SLASHING
@@ -339,6 +363,12 @@ error QuoteTTLMismatch(address operator, uint64 expectedTtl, uint64 quotedTtl);
     /// @notice Invalid G2 point in public key
     error InvalidG2Point();
 
+    /// @notice Provided aggregated pubkey does not match expected pubkey from registered operator keys
+    error AggregatedPubkeyMismatch();
+
+    /// @notice Operator has no BLS public key registered for this service
+    error OperatorBlsPubkeyNotRegistered(uint64 serviceId, address operator);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EXIT QUEUE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -370,4 +400,18 @@ error QuoteTTLMismatch(address operator, uint64 expectedTtl, uint64 quotedTtl);
 
     /// @notice Selector already registered to a different facet
     error SelectorAlreadyRegistered(bytes4 selector, address existingFacet);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BEACON CHAIN PROOFS (M-11)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Beacon chain proof is too old (exceeds MAX_PROOF_AGE)
+    error ProofTooOld(uint64 proofTimestamp, uint64 currentTimestamp, uint256 maxAge);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CROSS-CHAIN MESSAGING (M-12)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Cross-chain message has already been processed (replay protection)
+    error MessageAlreadyProcessed(bytes32 messageId);
 }

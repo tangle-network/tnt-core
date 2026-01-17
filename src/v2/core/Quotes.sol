@@ -9,6 +9,7 @@ import { Errors } from "../libraries/Errors.sol";
 import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { SignatureLib } from "../libraries/SignatureLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
+import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
 /// @title Quotes
 /// @notice RFQ system for instant service creation from signed quotes
@@ -151,6 +152,9 @@ abstract contract Quotes is Base {
         uint64 blueprintId,
         uint64 ttl
     ) private returns (uint256 totalCost) {
+        // M-4 fix: Validate quote timestamps for staleness
+        _validateQuoteTimestamps(quotes);
+
         (totalCost,) = SignatureLib.verifyQuoteBatch(
             _usedQuotes,
             _domainSeparator,
@@ -158,6 +162,22 @@ abstract contract Quotes is Base {
             blueprintId,
             ttl
         );
+    }
+
+    /// @notice Validate that quote timestamps are not too old (M-4 fix)
+    function _validateQuoteTimestamps(Types.SignedQuote[] calldata quotes) private view {
+        uint64 maxAge = _maxQuoteAge > 0 ? _maxQuoteAge : ProtocolConfig.MAX_QUOTE_AGE;
+        uint64 minTimestamp = uint64(block.timestamp) - maxAge;
+
+        for (uint256 i = 0; i < quotes.length; i++) {
+            if (quotes[i].details.timestamp < minTimestamp) {
+                revert Errors.QuoteTimestampTooOld(
+                    quotes[i].operator,
+                    quotes[i].details.timestamp,
+                    maxAge
+                );
+            }
+        }
     }
 
     function _activateQuoteService(
@@ -364,6 +384,9 @@ abstract contract Quotes is Base {
         uint64 blueprintId,
         uint64 ttl
     ) private returns (uint256 totalCost) {
+        // M-4 fix: Validate quote timestamps for staleness
+        _validateQuoteTimestamps(quotes);
+
         (totalCost,) = SignatureLib.verifyQuoteBatch(
             _usedQuotes,
             _domainSeparator,

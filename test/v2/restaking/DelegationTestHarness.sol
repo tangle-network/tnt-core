@@ -230,8 +230,10 @@ abstract contract DelegationTestHarness is Test {
         // Enable ERC20 tokens
         delegation.enableAsset(address(token), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
         delegation.enableAsset(address(token2), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
-        // Add slasher
+        // Add slasher role
         delegation.addSlasher(slasher);
+        // Add tangle role for blueprint management
+        delegation.setTangle(slasher);
         vm.stopPrank();
     }
 

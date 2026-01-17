@@ -33,6 +33,9 @@ abstract contract Operators is Base {
 
     event OperatorUnregistered(uint64 indexed blueprintId, address indexed operator);
 
+    /// @notice Emitted when blueprint metadata is locked (M-2 fix)
+    event BlueprintMetadataLocked(uint64 indexed blueprintId);
+
     /// @notice Emitted when an operator updates their preferences
     event OperatorPreferencesUpdated(
         uint64 indexed blueprintId,
@@ -182,6 +185,12 @@ abstract contract Operators is Base {
         _blueprintOperators[blueprintId].add(msg.sender);
         bp.operatorCount++;
 
+        // M-2 fix: Lock metadata on first operator registration
+        if (bp.operatorCount == 1 && !_blueprintMetadataLocked[blueprintId]) {
+            _blueprintMetadataLocked[blueprintId] = true;
+            emit BlueprintMetadataLocked(blueprintId);
+        }
+
         // Add blueprint to operator's restaking profile for delegation exposure
         _restaking.addBlueprintForOperator(msg.sender, blueprintId);
 
@@ -190,6 +199,7 @@ abstract contract Operators is Base {
     }
 
     /// @notice Unregister from a blueprint
+    /// @dev Reverts if operator has any active services for this blueprint
     function unregisterOperator(uint64 blueprintId) external {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         Types.OperatorRegistration storage reg = _operatorRegistrations[blueprintId][msg.sender];
@@ -197,6 +207,11 @@ abstract contract Operators is Base {
 
         if (reg.registeredAt == 0) {
             revert Errors.OperatorNotRegistered(blueprintId, msg.sender);
+        }
+
+        // Prevent unregistration if operator has active services for this blueprint
+        if (_operatorActiveServiceCount[blueprintId][msg.sender] > 0) {
+            revert Errors.OperatorHasActiveServices(blueprintId, msg.sender);
         }
 
         // Call manager hook
@@ -284,6 +299,22 @@ abstract contract Operators is Base {
         }
 
         emit OperatorPreferencesUpdated(blueprintId, msg.sender, prefs.ecdsaPublicKey, prefs.rpcAddress);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M-10 FIX: ACTIVE SERVICE QUERIES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Get total count of active services for an operator across all blueprints
+    /// @dev Sums _operatorActiveServiceCount across all blueprints the operator is registered for
+    /// @param operator The operator address
+    /// @return count Total number of active services the operator is part of
+    function getOperatorTotalActiveServices(address operator) external view returns (uint256 count) {
+        // Iterate through all blueprints to sum active service counts
+        // This is O(n) where n is the number of blueprints, but typically small
+        for (uint64 i = 0; i < _blueprintCount; i++) {
+            count += _operatorActiveServiceCount[i][operator];
+        }
     }
 
 }

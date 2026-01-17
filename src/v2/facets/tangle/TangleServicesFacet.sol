@@ -15,10 +15,25 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](3);
+        selectorList = new bytes4[](6);
         selectorList[0] = this.approveService.selector;
         selectorList[1] = bytes4(keccak256("approveServiceWithCommitments(uint64,((uint8,address),uint16)[])"));
         selectorList[2] = this.rejectService.selector;
+        selectorList[3] = this.approveServiceWithBls.selector;
+        selectorList[4] = bytes4(keccak256("approveServiceWithCommitmentsAndBls(uint64,((uint8,address),uint16)[],uint256[4])"));
+        selectorList[5] = this.getOperatorBlsPubkey.selector;
+    }
+
+    /// @notice Get operator's BLS public key for a service
+    /// @param serviceId The service ID
+    /// @param operator The operator address
+    /// @return blsPubkey The BLS G2 public key [x0, x1, y0, y1], all zeros if not registered
+    function getOperatorBlsPubkey(uint64 serviceId, address operator) external view returns (uint256[4] memory blsPubkey) {
+        Types.BLSPubkey storage stored = _serviceOperatorBlsPubkeys[serviceId][operator];
+        blsPubkey[0] = stored.key[0];
+        blsPubkey[1] = stored.key[1];
+        blsPubkey[2] = stored.key[2];
+        blsPubkey[3] = stored.key[3];
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -33,6 +48,9 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
 
         _createServiceRecord(serviceId, req, bp);
         _persistServiceSecurity(serviceId, requestId);
+
+        // Transfer BLS pubkeys from request to service for aggregated signature verification
+        _transferBlsPubkeysToService(requestId, serviceId);
 
         (uint16[] memory exposures, uint256 totalExposure) = _assignOperatorsFromRequest(serviceId, requestId);
 
@@ -106,6 +124,7 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     ) private returns (uint16[] memory exposures, uint256 totalExposure) {
         address[] storage requestOperators = _requestOperators[requestId];
         exposures = new uint16[](requestOperators.length);
+        uint64 blueprintId = _serviceRequests[requestId].blueprintId;
 
         for (uint256 i = 0; i < requestOperators.length; i++) {
             address op = requestOperators[i];
@@ -120,6 +139,9 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
             });
             _serviceOperatorSet[serviceId].add(op);
             totalExposure += exposure;
+
+            // Track active service count per blueprint for operator unregistration checks
+            _operatorActiveServiceCount[blueprintId][op]++;
         }
     }
 
@@ -205,6 +227,34 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         operators = new address[](requestOperators.length);
         for (uint256 i = 0; i < requestOperators.length; i++) {
             operators[i] = requestOperators[i];
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLS PUBKEY STORAGE IMPLEMENTATIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Store BLS pubkey for an operator in the request
+    function _storeRequestBlsPubkey(
+        uint64 requestId,
+        address operator,
+        uint256[4] memory blsPubkey
+    ) internal override {
+        _requestOperatorBlsPubkeys[requestId][operator] = Types.BLSPubkey({
+            key: blsPubkey
+        });
+    }
+
+    /// @notice Transfer BLS pubkeys from request to service (called during activation)
+    function _transferBlsPubkeysToService(uint64 requestId, uint64 serviceId) internal override {
+        address[] storage requestOperators = _requestOperators[requestId];
+        for (uint256 i = 0; i < requestOperators.length; i++) {
+            address op = requestOperators[i];
+            Types.BLSPubkey storage reqKey = _requestOperatorBlsPubkeys[requestId][op];
+            // Only transfer if non-zero
+            if (reqKey.key[0] != 0 || reqKey.key[1] != 0 || reqKey.key[2] != 0 || reqKey.key[3] != 0) {
+                _serviceOperatorBlsPubkeys[serviceId][op] = reqKey;
+            }
         }
     }
 }

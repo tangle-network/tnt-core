@@ -118,6 +118,11 @@ contract MockRestaking is IRestaking {
 
     function addBlueprintForOperator(address, uint64) external override {}
     function removeBlueprintForOperator(address, uint64) external override {}
+
+    // M-9 FIX: Pending slash tracking (no-op for mock)
+    function incrementPendingSlash(address) external override {}
+    function decrementPendingSlash(address) external override {}
+    function getPendingSlashCount(address) external pure override returns (uint64) { return 0; }
 }
 
 /// @title ExposureManagerTest

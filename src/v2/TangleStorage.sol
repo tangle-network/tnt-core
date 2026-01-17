@@ -22,6 +22,18 @@ abstract contract TangleStorage {
 
     uint16 internal constant BPS_DENOMINATOR = 10_000;
 
+    /// @notice Conversion factor from basis points to percent (100 bps = 1%)
+    uint16 internal constant BPS_TO_PERCENT = 100;
+
+    /// @notice Maximum percent value (100%)
+    uint8 internal constant MAX_PERCENT = 100;
+
+    /// @notice Default BLS aggregation threshold (67%)
+    uint16 internal constant DEFAULT_AGGREGATION_THRESHOLD_BPS = 6700;
+
+    /// @notice Default TNT minimum exposure (10%)
+    uint16 internal constant DEFAULT_TNT_MIN_EXPOSURE_BPS = 1000;
+
     // Default payment split (can be changed by admin)
     uint16 internal constant DEFAULT_DEVELOPER_BPS = 2000;  // 20%
     uint16 internal constant DEFAULT_PROTOCOL_BPS = 2000;   // 20%
@@ -144,6 +156,9 @@ abstract contract TangleStorage {
     /// @notice Request ID => Operator => Security commitments
     mapping(uint64 => mapping(address => Types.AssetSecurityCommitment[])) internal _requestSecurityCommitments;
 
+    /// @notice Request ID => Operator => BLS public key (stored during approval, transferred to service on activation)
+    mapping(uint64 => mapping(address => Types.BLSPubkey)) internal _requestOperatorBlsPubkeys;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE STORAGE (Slot 36-50)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -172,6 +187,10 @@ abstract contract TangleStorage {
     /// @notice Service ID => Operator => Asset hash => Commitment exposure bps (persisted on activation)
     /// @dev Asset hash = keccak256(abi.encode(asset.kind, asset.token))
     mapping(uint64 => mapping(address => mapping(bytes32 => uint16))) internal _serviceSecurityCommitmentBps;
+
+    /// @notice Service ID => Operator => BLS public key for aggregated signature verification
+    /// @dev Stored when operator approves service with BLS key, used to verify aggregated signatures
+    mapping(uint64 => mapping(address => Types.BLSPubkey)) internal _serviceOperatorBlsPubkeys;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // JOB STORAGE (Slot 51-60)
@@ -290,10 +309,44 @@ abstract contract TangleStorage {
     mapping(address => EnumerableSet.AddressSet) internal _pendingRewardTokens;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // OPERATOR SERVICE TRACKING (Slot 121-125)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Blueprint ID => Operator => Count of active services
+    /// @dev Used to prevent operators from unregistering while having active services
+    mapping(uint64 => mapping(address => uint32)) internal _operatorActiveServiceCount;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SERVICE REQUEST TTL CONFIGURATION (Slot 126-130)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Minimum TTL for service requests (0 = use protocol default)
+    uint64 internal _minServiceTtl;
+
+    /// @notice Maximum TTL for service requests (0 = use protocol default)
+    uint64 internal _maxServiceTtl;
+
+    /// @notice Grace period for request expiry (0 = use protocol default)
+    /// @dev Operators have this additional time to approve after request expiry
+    uint64 internal _requestExpiryGracePeriod;
+
+    /// @notice Maximum age for quote timestamps (0 = use protocol default)
+    /// @dev Quotes with timestamps older than this are rejected
+    uint64 internal _maxQuoteAge;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT METADATA LOCK (Slot 131-135)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Blueprint ID => Whether metadata is locked (cannot be updated)
+    /// @dev Set to true when first operator registers for the blueprint
+    mapping(uint64 => bool) internal _blueprintMetadataLocked;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
-    /// @dev When adding new storage, decrease this gap accordingly
-    uint256[38] private _gap;
+    /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
+    uint256[50] private __gap;
 }

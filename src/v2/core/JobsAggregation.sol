@@ -55,7 +55,7 @@ abstract contract JobsAggregation is Base {
         AggregationConfig memory config = _getAggregationConfig(bp.manager, serviceId, job.jobIndex);
         _enforceAggregationThreshold(serviceId, callId, signerBitmap, config);
 
-        _verifyAggregatedSignature(serviceId, callId, output, aggregatedSignature, aggregatedPubkey);
+        _verifyAggregatedSignature(serviceId, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey);
 
         _finalizeAggregatedResult(
             svc,
@@ -212,12 +212,12 @@ abstract contract JobsAggregation is Base {
         if (thresholdType == 0) {
             // CountBased: achieved = signerCount, required = threshold% of operatorCount
             achieved = stats.signerCount;
-            required = (uint256(stats.operatorCount) * thresholdBps) / 10000;
+            required = (uint256(stats.operatorCount) * thresholdBps) / BPS_DENOMINATOR;
             if (required == 0 && stats.operatorCount > 0) required = 1; // At least 1 signer required
         } else {
             // StakeWeighted: achieved = signerWeight, required = threshold% of totalWeight
             achieved = stats.signerWeight;
-            required = (stats.totalWeight * thresholdBps) / 10000;
+            required = (stats.totalWeight * thresholdBps) / BPS_DENOMINATOR;
             if (required == 0 && stats.totalWeight > 0) required = 1;
         }
     }
@@ -262,7 +262,7 @@ abstract contract JobsAggregation is Base {
         uint64 serviceId,
         uint8 jobIndex
     ) private view returns (AggregationConfig memory config) {
-        config.thresholdBps = 6700; // Default 67%
+        config.thresholdBps = DEFAULT_AGGREGATION_THRESHOLD_BPS;
         config.thresholdType = 0;   // Default CountBased
 
         if (manager != address(0)) {
@@ -296,19 +296,72 @@ abstract contract JobsAggregation is Base {
         uint64 serviceId,
         uint64 callId,
         bytes calldata output,
+        uint256 signerBitmap,
         uint256[2] calldata aggregatedSignature,
         uint256[4] calldata aggregatedPubkey
     ) private view {
         Types.BN254G1Point memory sig = Types.BN254G1Point(aggregatedSignature[0], aggregatedSignature[1]);
-        Types.BN254G2Point memory pubkey = Types.BN254G2Point(
+        Types.BN254G2Point memory providedPubkey = Types.BN254G2Point(
             [aggregatedPubkey[0], aggregatedPubkey[1]],
             [aggregatedPubkey[2], aggregatedPubkey[3]]
         );
 
+        // CRITICAL: Verify that the provided aggregated pubkey matches the expected pubkey
+        // computed from the registered BLS keys of the operators indicated in signerBitmap
+        Types.BN254G2Point memory expectedPubkey = _computeExpectedAggregatedPubkey(serviceId, signerBitmap);
+        if (!BN254.g2Eq(providedPubkey, expectedPubkey)) {
+            revert Errors.AggregatedPubkeyMismatch();
+        }
+
         bytes memory message = abi.encodePacked(serviceId, callId, keccak256(output));
-        if (!BN254.verifyAggregatedBls(message, sig, pubkey)) {
+        if (!BN254.verifyAggregatedBls(message, sig, providedPubkey)) {
             revert Errors.InvalidBLSSignature();
         }
+    }
+
+    /// @notice Compute the expected aggregated public key from registered operator BLS keys
+    /// @dev Iterates through the signerBitmap and aggregates (adds) the BLS pubkeys of signers
+    /// @param serviceId The service ID
+    /// @param signerBitmap Bitmap indicating which operators signed
+    /// @return aggregatedPubkey The aggregated G2 public key
+    function _computeExpectedAggregatedPubkey(
+        uint64 serviceId,
+        uint256 signerBitmap
+    ) private view returns (Types.BN254G2Point memory aggregatedPubkey) {
+        address[] memory operators = _getServiceOperatorList(serviceId);
+        bool firstKey = true;
+
+        for (uint256 i = 0; i < operators.length; i++) {
+            if ((signerBitmap >> i) & 1 == 1) {
+                // This operator is marked as a signer in the bitmap
+                Types.BLSPubkey storage storedKey = _serviceOperatorBlsPubkeys[serviceId][operators[i]];
+
+                // Verify the operator has a BLS key registered for this service
+                // A key is considered "not registered" if all components are zero
+                if (
+                    storedKey.key[0] == 0 && storedKey.key[1] == 0 &&
+                    storedKey.key[2] == 0 && storedKey.key[3] == 0
+                ) {
+                    revert Errors.OperatorBlsPubkeyNotRegistered(serviceId, operators[i]);
+                }
+
+                Types.BN254G2Point memory operatorPubkey = Types.BN254G2Point(
+                    [storedKey.key[0], storedKey.key[1]],
+                    [storedKey.key[2], storedKey.key[3]]
+                );
+
+                if (firstKey) {
+                    aggregatedPubkey = operatorPubkey;
+                    firstKey = false;
+                } else {
+                    // Add this operator's pubkey to the aggregated pubkey
+                    aggregatedPubkey = BN254.addG2(aggregatedPubkey, operatorPubkey);
+                }
+            }
+        }
+
+        // If no signers were found (empty bitmap with all inactive operators),
+        // the aggregatedPubkey will be all zeros (point at infinity)
     }
 
     function _jobSchema(

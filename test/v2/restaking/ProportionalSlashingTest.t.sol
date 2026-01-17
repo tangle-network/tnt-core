@@ -343,10 +343,12 @@ contract ProportionalSlashingTest is Test {
         _setupOperatorWithDelegators();
 
         // Calculate expected new exchange rate after slash
-        // Original: 50 ETH totalAssets, 50 shares (1:1 ratio)
-        // After: 45 ETH totalAssets, 50 shares
-        // New rate = 45 * 1e18 / 50 = 0.9e18
-        uint256 expectedNewRate = (45 ether * PRECISION) / 50 ether;
+        // With C-1 virtual shares fix: shares = amount * VIRTUAL_SHARES (1e8)
+        // Original: 50 ETH totalAssets, 50e26 shares (with 1e8 virtual offset)
+        // After: 45 ETH totalAssets, 50e26 shares
+        // New rate = 45e18 * 1e18 / 50e26 = 9e9
+        uint256 VIRTUAL_SHARES = 1e8;
+        uint256 expectedNewRate = (45 ether * PRECISION) / (50 ether * VIRTUAL_SHARES);
 
         // Expect main Slashed event with new exchange rate
         vm.expectEmit(true, true, true, true);

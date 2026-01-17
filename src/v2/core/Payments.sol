@@ -12,6 +12,12 @@ import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol
 
 /// @title Payments
 /// @notice Payment distribution, escrow, and rewards
+/// @dev TIMESTAMP ASSUMPTIONS:
+///      - block.timestamp is used for subscription billing intervals and TTL checks
+///      - Miners can manipulate timestamps by ~15 seconds on Ethereum
+///      - This tolerance is acceptable for billing intervals (typically hours/days)
+///      - For critical time-sensitive operations, consider using block numbers instead
+///      - TTL expiry and subscription intervals use timestamps for user-friendliness
 abstract contract Payments is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
     using PaymentLib for PaymentLib.ServiceEscrow;
@@ -68,14 +74,16 @@ abstract contract Payments is Base {
     /// @return totalBilled Total amount billed across all services
     /// @return billedCount Number of services successfully billed
     function billSubscriptionBatch(uint64[] calldata serviceIds) external nonReentrant returns (uint256 totalBilled, uint256 billedCount) {
-        if (serviceIds.length == 0) revert Errors.ZeroAmount();
+        uint256 serviceIdsLength = serviceIds.length;
+        if (serviceIdsLength == 0) revert Errors.ZeroAmount();
 
-        for (uint256 i = 0; i < serviceIds.length; i++) {
+        for (uint256 i = 0; i < serviceIdsLength;) {
             if (_tryBillSubscription(serviceIds[i])) {
                 Types.BlueprintConfig storage bpConfig = _blueprintConfigs[_services[serviceIds[i]].blueprintId];
                 totalBilled += bpConfig.subscriptionRate;
                 billedCount++;
             }
+            unchecked { ++i; }
         }
     }
 
@@ -83,18 +91,21 @@ abstract contract Payments is Base {
     /// @param serviceIds Array of service IDs to check
     /// @return billable Array of service IDs that can be billed
     function getBillableServices(uint64[] calldata serviceIds) external view returns (uint64[] memory billable) {
-        uint64[] memory temp = new uint64[](serviceIds.length);
+        uint256 serviceIdsLength = serviceIds.length;
+        uint64[] memory temp = new uint64[](serviceIdsLength);
         uint256 count = 0;
 
-        for (uint256 i = 0; i < serviceIds.length; i++) {
+        for (uint256 i = 0; i < serviceIdsLength;) {
             if (_isBillable(serviceIds[i])) {
                 temp[count++] = serviceIds[i];
             }
+            unchecked { ++i; }
         }
 
         billable = new uint64[](count);
-        for (uint256 i = 0; i < count; i++) {
+        for (uint256 i = 0; i < count;) {
             billable[i] = temp[i];
+            unchecked { ++i; }
         }
     }
 
@@ -130,12 +141,14 @@ abstract contract Payments is Base {
         svc.lastPaymentAt = uint64(block.timestamp);
 
         address[] memory operators = _serviceOperatorSet[serviceId].values();
-        uint16[] memory exposures = new uint16[](operators.length);
+        uint256 operatorsLength = operators.length;
+        uint16[] memory exposures = new uint16[](operatorsLength);
         uint256 totalExposure = 0;
 
-        for (uint256 i = 0; i < operators.length; i++) {
+        for (uint256 i = 0; i < operatorsLength;) {
             exposures[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
             totalExposure += exposures[i];
+            unchecked { ++i; }
         }
 
         _distributePayment(serviceId, svc.blueprintId, token, rate, operators, exposures, totalExposure);
@@ -158,12 +171,14 @@ abstract contract Payments is Base {
         svc.lastPaymentAt = uint64(block.timestamp);
 
         address[] memory operators = _serviceOperatorSet[serviceId].values();
-        uint16[] memory exposures = new uint16[](operators.length);
+        uint256 operatorsLen = operators.length;
+        uint16[] memory exposures = new uint16[](operatorsLen);
         uint256 totalExposure = 0;
 
-        for (uint256 i = 0; i < operators.length; i++) {
+        for (uint256 i = 0; i < operatorsLen;) {
             exposures[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
             totalExposure += exposures[i];
+            unchecked { ++i; }
         }
 
         _distributePayment(serviceId, svc.blueprintId, token, rate, operators, exposures, totalExposure);
@@ -206,8 +221,10 @@ abstract contract Payments is Base {
 
     /// @notice Claim pending rewards for multiple tokens
     function claimRewardsBatch(address[] calldata tokens) external nonReentrant {
-        for (uint256 i = 0; i < tokens.length; i++) {
+        uint256 tokensLength = tokens.length;
+        for (uint256 i = 0; i < tokensLength;) {
             _claimRewardsToken(msg.sender, tokens[i], false);
+            unchecked { ++i; }
         }
     }
 
@@ -233,9 +250,11 @@ abstract contract Payments is Base {
     /// @notice Return the set of tokens with non-zero pending operator rewards for an account
     function rewardTokens(address account) external view returns (address[] memory tokens) {
         EnumerableSet.AddressSet storage set = _pendingRewardTokens[account];
-        tokens = new address[](set.length());
-        for (uint256 i = 0; i < tokens.length; i++) {
+        uint256 setLength = set.length();
+        tokens = new address[](setLength);
+        for (uint256 i = 0; i < setLength;) {
             tokens[i] = set.at(i);
+            unchecked { ++i; }
         }
     }
 
@@ -254,15 +273,19 @@ abstract contract Payments is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Set payment split
+    /// @param split The new payment split configuration
     function setPaymentSplit(Types.PaymentSplit calldata split) external onlyRole(ADMIN_ROLE) {
         PaymentLib.validateSplit(split);
         _paymentSplit = split;
+        emit PaymentSplitUpdated(split.developerBps, split.protocolBps, split.operatorBps, split.restakerBps);
     }
 
     /// @notice Set treasury
+    /// @param treasury_ The new treasury address
     function setTreasury(address payable treasury_) external onlyRole(ADMIN_ROLE) {
         if (treasury_ == address(0)) revert Errors.ZeroAddress();
         _treasury = treasury_;
+        emit TreasuryUpdated(treasury_);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -305,6 +328,9 @@ abstract contract Payments is Base {
         uint256 totalExposure
     ) internal {
         if (amount == 0) return;
+
+        // M-5 FIX: Validate payment amount is sufficient to prevent rounding to zero
+        PaymentLib.validatePaymentAmount(amount, _paymentSplit, operators.length);
 
         Types.Blueprint storage bp = _blueprints[blueprintId];
         Types.Service storage svc = _services[serviceId];
@@ -350,7 +376,8 @@ abstract contract Payments is Base {
                 totalExposure
             );
 
-            for (uint256 i = 0; i < opPayments.length; i++) {
+            uint256 opPaymentsLength = opPayments.length;
+            for (uint256 i = 0; i < opPaymentsLength;) {
                 PaymentLib.addPendingReward(
                     _pendingRewards,
                     opPayments[i].operator,
@@ -370,6 +397,7 @@ abstract contract Payments is Base {
                         opPayments[i].restakerShare
                     );
                 }
+                unchecked { ++i; }
             }
         }
     }

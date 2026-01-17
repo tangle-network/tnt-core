@@ -66,7 +66,8 @@ contract SlashingFuzzTest is BaseTest {
         // Propose and execute slash
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(svcId, operator2, slashBps, keccak256("fuzz"));
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         // Verify balances after
@@ -141,7 +142,8 @@ contract SlashingFuzzTest is BaseTest {
         // Slash
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(svcId, operator3, slashBps, keccak256("multi"));
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         // Verify
@@ -212,7 +214,8 @@ contract SlashingFuzzTest is BaseTest {
         assertEq(proposal.effectiveSlashBps, expectedEffective, "Effective bps scaled");
 
         // Execute and verify balance
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         uint256 stakeAfter = restaking.getOperatorSelfStake(operator2);
@@ -253,7 +256,8 @@ contract SlashingFuzzTest is BaseTest {
         }
 
         // Execute all
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         for (uint8 i = 0; i < slashCount; i++) {
             tangle.executeSlash(slashIds[i]);
         }

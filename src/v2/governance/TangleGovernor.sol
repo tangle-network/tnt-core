@@ -11,6 +11,7 @@ import { GovernorTimelockControlUpgradeable } from "@openzeppelin/contracts-upgr
 import { TimelockControllerUpgradeable } from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { IVotes } from "@openzeppelin/contracts/governance/utils/IVotes.sol";
+import { Errors } from "../libraries/Errors.sol";
 
 /// @title TangleGovernor
 /// @notice On-chain governance for the Tangle Protocol
@@ -39,6 +40,16 @@ contract TangleGovernor is
     GovernorTimelockControlUpgradeable,
     UUPSUpgradeable
 {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M-14 FIX: PROPOSAL VALIDATION CONSTANTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Maximum number of actions per proposal
+    uint256 public constant MAX_PROPOSAL_ACTIONS = 50;
+
+    /// @notice Maximum ETH value per single action (100,000 ETH - safety bound)
+    uint256 public constant MAX_ACTION_VALUE = 100_000 ether;
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -130,6 +141,40 @@ contract TangleGovernor is
         return super.proposalThreshold();
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M-14 FIX: PROPOSAL VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Override propose to add validation for targets and values
+    /// @dev M-14 FIX: Validates that:
+    ///      - No zero address targets
+    ///      - Values are within bounds
+    ///      - Number of actions is reasonable
+    function propose(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        string memory description
+    ) public override returns (uint256) {
+        // M-14 FIX: Validate proposal action count
+        if (targets.length == 0) revert Errors.InvalidState();
+        if (targets.length > MAX_PROPOSAL_ACTIONS) revert Errors.InvalidState();
+        if (targets.length != values.length || targets.length != calldatas.length) {
+            revert Errors.LengthMismatch();
+        }
+
+        // M-14 FIX: Validate each action
+        for (uint256 i = 0; i < targets.length; i++) {
+            // No zero address targets
+            if (targets[i] == address(0)) revert Errors.ZeroAddress();
+
+            // Value bounds check
+            if (values[i] > MAX_ACTION_VALUE) revert Errors.InvalidState();
+        }
+
+        return super.propose(targets, values, calldatas, description);
+    }
+
     function _queueOperations(
         uint256 proposalId,
         address[] memory targets,
@@ -151,6 +196,11 @@ contract TangleGovernor is
         bytes[] memory calldatas,
         bytes32 descriptionHash
     ) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) {
+        // M-16 FIX: OpenZeppelin's GovernorTimelockControlUpgradeable already validates:
+        // - Proposal must be in executable state
+        // - Timelock operation must exist and be ready
+        // - Arrays must match the original proposal
+        // The parent implementation provides sufficient protection against execution bypasses.
         super._executeOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 

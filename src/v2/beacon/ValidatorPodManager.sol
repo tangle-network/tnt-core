@@ -445,12 +445,14 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
             _isDelegator[operator][delegator] = false;
             // Remove from array (swap and pop)
             address[] storage delegators = _operatorDelegators[operator];
-            for (uint256 i = 0; i < delegators.length; i++) {
+            uint256 delegatorsLength = delegators.length;
+            for (uint256 i = 0; i < delegatorsLength;) {
                 if (delegators[i] == delegator) {
-                    delegators[i] = delegators[delegators.length - 1];
+                    delegators[i] = delegators[delegatorsLength - 1];
                     delegators.pop();
                     break;
                 }
+                unchecked { ++i; }
             }
         }
     }
@@ -727,7 +729,8 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
             if (delegatedBefore > 0) {
                 // Iterate through all delegators and reduce proportionally
                 address[] storage delegators = _operatorDelegators[operator];
-                for (uint256 i = 0; i < delegators.length; i++) {
+                uint256 delegatorsLength = delegators.length;
+                for (uint256 i = 0; i < delegatorsLength;) {
                     address delegator = delegators[i];
                     uint256 delegatorStake = delegations[delegator][operator];
 
@@ -744,6 +747,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
 
                         emit DelegatorSlashed(delegator, operator, delegatorSlash);
                     }
+                    unchecked { ++i; }
                 }
             }
             operatorDelegatedStake[operator] -= amount;
@@ -765,6 +769,28 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     /// @dev No-op for ValidatorPodManager - blueprint tracking not needed
     function removeBlueprintForOperator(address, uint64) external override {
         // No-op: ValidatorPodManager doesn't track blueprint-specific pools
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M-9 FIX: PENDING SLASH TRACKING (NO-OP for ValidatorPodManager)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IRestaking
+    /// @dev No-op for ValidatorPodManager - pending slash tracking handled differently
+    function incrementPendingSlash(address) external override {
+        // No-op: ValidatorPodManager uses different withdrawal model
+    }
+
+    /// @inheritdoc IRestaking
+    /// @dev No-op for ValidatorPodManager - pending slash tracking handled differently
+    function decrementPendingSlash(address) external override {
+        // No-op: ValidatorPodManager uses different withdrawal model
+    }
+
+    /// @inheritdoc IRestaking
+    /// @dev Returns 0 for ValidatorPodManager - pending slash tracking handled differently
+    function getPendingSlashCount(address) external pure override returns (uint64) {
+        return 0; // ValidatorPodManager doesn't track pending slashes this way
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

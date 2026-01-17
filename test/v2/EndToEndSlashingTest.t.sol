@@ -71,7 +71,8 @@ contract EndToEndSlashingTest is BaseTest {
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Pending), "Proposal: Pending");
 
         // Execute slash after dispute window
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         // Verify proposal status updated
@@ -141,7 +142,8 @@ contract EndToEndSlashingTest is BaseTest {
         // D1->Op1 loses: 4 * 10/20 = 2 ETH
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(0, operator1, 2000, keccak256("op1_fault"));
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         // Verify Op1 pool slashed
@@ -198,7 +200,8 @@ contract EndToEndSlashingTest is BaseTest {
         assertEq(proposal.slashBps, challengeBSM.CHALLENGE_SLASH_BPS(), "Slash bps = 1000 (CHALLENGE_SLASH_BPS)");
 
         // Execute slash
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         // Verify proportional slashing: 30 ETH total, 3 ETH slash
@@ -309,7 +312,8 @@ contract EndToEndSlashingTest is BaseTest {
         assertEq(proposal.slashBps, 6000, "Proposed: 6000 bps");
         assertEq(proposal.effectiveSlashBps, 3000, "Effective: 3000 bps (50%)");
 
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         // Only 3 ETH actually slashed
@@ -333,7 +337,8 @@ contract EndToEndSlashingTest is BaseTest {
         // Slash to go below minimum (50%)
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(0, operator1, 5000, keccak256("ev"));
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         // Verify operator deactivated - new delegations fail
@@ -370,7 +375,8 @@ contract EndToEndSlashingTest is BaseTest {
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Disputed));
 
         // Try to execute after window - should fail
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         vm.expectRevert(abi.encodeWithSelector(Errors.SlashNotExecutable.selector, slashId));
         tangle.executeSlash(slashId);
 
@@ -401,7 +407,8 @@ contract EndToEndSlashingTest is BaseTest {
         // Propose and execute slash for 30% (3 ETH)
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 3000, keccak256("evidence"));
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
         // Verify metrics recorder was called with correct values
@@ -439,7 +446,8 @@ contract EndToEndSlashingTest is BaseTest {
         vm.stopPrank();
 
         // Execute batch
-        vm.warp(block.timestamp + 7 days + 1);
+        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlashBatch(slashIds);
 
         // Verify all 3 slashes recorded in metrics

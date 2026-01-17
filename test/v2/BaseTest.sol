@@ -95,9 +95,13 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         _registerTangleFacets();
         vm.stopPrank();
 
-        // Setup: grant slasher role to tangle
+        // Setup: grant slasher role to tangle for slashing operations
         vm.prank(admin);
         restaking.addSlasher(address(tangleProxy));
+
+        // Setup: grant tangle role for blueprint management operations
+        vm.prank(admin);
+        restaking.setTangle(address(tangleProxy));
 
         // Deploy master blueprint service manager and registry
         masterManager = new MasterBlueprintServiceManager(admin, address(tangle));

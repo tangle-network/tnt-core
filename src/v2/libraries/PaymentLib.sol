@@ -18,6 +18,36 @@ library PaymentLib {
 
     uint16 internal constant BPS_DENOMINATOR = 10_000;
 
+    /// @notice Minimum payment amount required to ensure all recipients receive non-zero amounts
+    /// @dev This ensures that when split 4 ways (developer, protocol, operator, restaker) at minimum
+    ///      splits (e.g., 10% each), each party receives at least 1 wei.
+    ///      Calculation: 10000 / min_bps_per_party = 10000 / 1000 = 10 (for 10% minimum split)
+    ///      We use 100 as a conservative minimum to handle edge cases.
+    uint256 internal constant MINIMUM_PAYMENT_AMOUNT = 100;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROUNDING HELPERS (M-5 FIX)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice M-5 FIX: Round up division to capture dust for final recipient
+    /// @dev Uses ceiling division: (a + b - 1) / b
+    /// @param numerator The numerator
+    /// @param denominator The denominator (must be > 0)
+    /// @return result The ceiling of numerator / denominator
+    function divUp(uint256 numerator, uint256 denominator) internal pure returns (uint256 result) {
+        // Note: denominator > 0 is assumed (validated by caller)
+        result = (numerator + denominator - 1) / denominator;
+    }
+
+    /// @notice M-5 FIX: Calculate basis points share with rounding up
+    /// @dev Used for final recipient to capture dust
+    /// @param amount Total amount to split
+    /// @param bps Basis points (out of 10000)
+    /// @return share The rounded-up share
+    function bpsShareRoundUp(uint256 amount, uint16 bps) internal pure returns (uint256 share) {
+        share = divUp(amount * bps, BPS_DENOMINATOR);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -73,6 +103,8 @@ library PaymentLib {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Calculate payment split amounts
+    /// @dev M-5 FIX: Uses floor division for first N-1 recipients, then gives remainder
+    ///      to final recipient (restaker) to capture all dust from rounding.
     /// @param amount Total payment amount
     /// @param split Payment split configuration
     /// @return amounts Calculated amounts for each recipient type
@@ -80,14 +112,18 @@ library PaymentLib {
         uint256 amount,
         Types.PaymentSplit memory split
     ) internal pure returns (PaymentAmounts memory amounts) {
+        // M-5 FIX: Floor division for first three recipients
         amounts.developerAmount = (amount * split.developerBps) / BPS_DENOMINATOR;
         amounts.protocolAmount = (amount * split.protocolBps) / BPS_DENOMINATOR;
         amounts.operatorAmount = (amount * split.operatorBps) / BPS_DENOMINATOR;
-        // Restaker gets remainder to avoid dust from rounding
+        // M-5 FIX: Final recipient (restaker) gets remainder to capture all rounding dust
+        // This ensures no dust is lost: sum of all amounts == original amount
         amounts.restakerAmount = amount - amounts.developerAmount - amounts.protocolAmount - amounts.operatorAmount;
     }
 
     /// @notice Calculate weighted operator payments based on exposure
+    /// @dev M-5 FIX: Uses floor division for first N-1 operators, then gives remainder
+    ///      to final operator to capture all dust from rounding.
     /// @param totalOperatorAmount Total amount for all operators
     /// @param totalRestakerAmount Total amount for all restakers
     /// @param operators Array of operator addresses
@@ -113,7 +149,7 @@ library PaymentLib {
         for (uint256 i = 0; i < operators.length; i++) {
             uint256 exposure = exposures[i];
 
-            // Last operator gets remainder to handle rounding
+            // M-5 FIX: Last operator gets remainder to capture all rounding dust
             if (i == operators.length - 1) {
                 payments[i] = OperatorPayment({
                     operator: operators[i],
@@ -141,6 +177,7 @@ library PaymentLib {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Collect payment from sender
+    /// @dev M-5 FIX: Validates minimum payment to prevent dust-only payments
     /// @param token Payment token (address(0) for native)
     /// @param amount Amount to collect
     /// @param msgValue msg.value for native payments
@@ -150,6 +187,11 @@ library PaymentLib {
         uint256 msgValue
     ) internal {
         if (amount == 0) return;
+
+        // M-5 FIX: Reject dust-only payments that would be too small to distribute meaningfully
+        if (amount < MINIMUM_PAYMENT_AMOUNT) {
+            revert Errors.PaymentTooSmall(amount, MINIMUM_PAYMENT_AMOUNT);
+        }
 
         if (token == address(0)) {
             if (msgValue < amount) {
@@ -292,5 +334,47 @@ library PaymentLib {
         if (total != BPS_DENOMINATOR) {
             revert Errors.InvalidPaymentSplit();
         }
+    }
+
+    /// @notice Validate payment amount is sufficient for distribution
+    /// @dev Reverts if amount would result in zero payments to any recipient
+    /// @param amount The payment amount to validate
+    /// @param split The payment split configuration
+    /// @param operatorCount Number of operators to distribute to
+    function validatePaymentAmount(
+        uint256 amount,
+        Types.PaymentSplit memory split,
+        uint256 operatorCount
+    ) internal pure {
+        if (amount == 0) return; // Zero payments are allowed (no-op)
+
+        // Check minimum amount to ensure non-zero payments
+        if (amount < MINIMUM_PAYMENT_AMOUNT) {
+            revert Errors.PaymentTooSmall(amount, MINIMUM_PAYMENT_AMOUNT);
+        }
+
+        // Ensure each non-zero split recipient gets at least 1 wei
+        if (split.developerBps > 0 && (amount * split.developerBps) / BPS_DENOMINATOR == 0) {
+            revert Errors.PaymentTooSmall(amount, (BPS_DENOMINATOR + split.developerBps - 1) / split.developerBps);
+        }
+        if (split.protocolBps > 0 && (amount * split.protocolBps) / BPS_DENOMINATOR == 0) {
+            revert Errors.PaymentTooSmall(amount, (BPS_DENOMINATOR + split.protocolBps - 1) / split.protocolBps);
+        }
+
+        // For operators, ensure each operator gets at least 1 wei if there are operators
+        if (operatorCount > 0 && split.operatorBps > 0) {
+            uint256 operatorAmount = (amount * split.operatorBps) / BPS_DENOMINATOR;
+            if (operatorAmount / operatorCount == 0) {
+                // Calculate minimum: need operatorCount wei in operator pool
+                uint256 minForOperators = (operatorCount * BPS_DENOMINATOR + split.operatorBps - 1) / split.operatorBps;
+                revert Errors.PaymentTooSmall(amount, minForOperators);
+            }
+        }
+    }
+
+    /// @notice Get the minimum payment constant
+    /// @return The minimum payment amount
+    function getMinimumPaymentAmount() internal pure returns (uint256) {
+        return MINIMUM_PAYMENT_AMOUNT;
     }
 }

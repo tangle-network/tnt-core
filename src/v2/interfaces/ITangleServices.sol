@@ -83,6 +83,26 @@ interface ITangleServices {
         Types.AssetSecurityCommitment[] calldata commitments
     ) external;
 
+    /// @notice Approve a service request with BLS public key for aggregated signature verification
+    /// @param requestId The service request ID
+    /// @param restakingPercent The restaking percentage (0-100)
+    /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
+    function approveServiceWithBls(
+        uint64 requestId,
+        uint8 restakingPercent,
+        uint256[4] calldata blsPubkey
+    ) external;
+
+    /// @notice Approve a service request with both security commitments and BLS public key
+    /// @param requestId The service request ID
+    /// @param commitments Security commitments matching the request requirements
+    /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
+    function approveServiceWithCommitmentsAndBls(
+        uint64 requestId,
+        Types.AssetSecurityCommitment[] calldata commitments,
+        uint256[4] calldata blsPubkey
+    ) external;
+
     /// @notice Reject a service request (as operator)
     function rejectService(uint64 requestId) external;
 
@@ -248,4 +268,10 @@ interface ITangleServices {
 
     /// @notice Get current service count
     function serviceCount() external view returns (uint64);
+
+    /// @notice Get operator's BLS public key for a service
+    /// @param serviceId The service ID
+    /// @param operator The operator address
+    /// @return blsPubkey The BLS G2 public key [x0, x1, y0, y1], all zeros if not registered
+    function getOperatorBlsPubkey(uint64 serviceId, address operator) external view returns (uint256[4] memory blsPubkey);
 }

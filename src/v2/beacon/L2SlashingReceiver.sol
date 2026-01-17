@@ -55,8 +55,8 @@ contract L2SlashingReceiver is ICrossChainReceiver {
         uint64 slashingFactor
     );
 
-    event AuthorizedSenderUpdated(uint256 chainId, address sender, bool authorized);
-    event MessengerUpdated(address oldMessenger, address newMessenger);
+    event AuthorizedSenderUpdated(uint256 indexed chainId, address indexed sender, bool authorized);
+    event MessengerUpdated(address indexed oldMessenger, address indexed newMessenger);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTANTS

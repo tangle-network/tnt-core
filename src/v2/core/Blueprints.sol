@@ -18,12 +18,16 @@ abstract contract Blueprints is Base {
     event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
     event BlueprintDeactivated(uint64 indexed blueprintId);
+    /// @notice Emitted when blueprint metadata is locked (M-2 fix)
+    event BlueprintMetadataLocked(uint64 indexed blueprintId);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Create blueprint from encoded definition containing schemas and job metadata
+    /// @param def The blueprint definition containing metadata, schemas, sources, and configuration
+    /// @return blueprintId The newly created blueprint's ID
     function createBlueprint(Types.BlueprintDefinition calldata def)
         external
         whenNotPaused
@@ -73,6 +77,8 @@ abstract contract Blueprints is Base {
     }
 
     /// @notice Retrieve the original blueprint definition
+    /// @param blueprintId The blueprint ID to query
+    /// @return definition The complete blueprint definition
     function getBlueprintDefinition(uint64 blueprintId)
         external
         view
@@ -84,16 +90,32 @@ abstract contract Blueprints is Base {
     }
 
     /// @notice Update blueprint metadata
+    /// @dev Reverts if metadata is locked (operators have registered) (M-2 fix)
+    /// @param blueprintId The blueprint ID to update
+    /// @param metadataUri The new metadata URI (IPFS/HTTPS pointer)
     function updateBlueprint(uint64 blueprintId, string calldata metadataUri) external {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (bp.owner != msg.sender) {
             revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
         }
+        // M-2 fix: Check if metadata is locked
+        if (_blueprintMetadataLocked[blueprintId]) {
+            revert Errors.BlueprintMetadataLocked(blueprintId);
+        }
         _blueprintMetadataUri[blueprintId] = metadataUri;
         emit BlueprintUpdated(blueprintId, metadataUri);
     }
 
+    /// @notice Check if blueprint metadata is locked
+    /// @param blueprintId The blueprint ID to check
+    /// @return True if metadata cannot be updated, false otherwise
+    function isBlueprintMetadataLocked(uint64 blueprintId) external view returns (bool) {
+        return _blueprintMetadataLocked[blueprintId];
+    }
+
     /// @notice Transfer blueprint ownership
+    /// @param blueprintId The blueprint ID to transfer
+    /// @param newOwner The address of the new owner (cannot be zero)
     function transferBlueprint(uint64 blueprintId, address newOwner) external {
         if (newOwner == address(0)) revert Errors.ZeroAddress();
 
@@ -107,7 +129,8 @@ abstract contract Blueprints is Base {
         emit BlueprintTransferred(blueprintId, oldOwner, newOwner);
     }
 
-    /// @notice Deactivate a blueprint
+    /// @notice Deactivate a blueprint, preventing new services from being created
+    /// @param blueprintId The blueprint ID to deactivate
     function deactivateBlueprint(uint64 blueprintId) external {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (bp.owner != msg.sender) {

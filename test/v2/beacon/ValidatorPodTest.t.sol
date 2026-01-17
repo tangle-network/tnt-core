@@ -5,6 +5,7 @@ import {BeaconTestBase} from "./BeaconTestBase.sol";
 import {ValidatorPod} from "../../../src/v2/beacon/ValidatorPod.sol";
 import {ValidatorPodManager} from "../../../src/v2/beacon/ValidatorPodManager.sol";
 import {ValidatorTypes} from "../../../src/v2/beacon/ValidatorTypes.sol";
+import {BeaconChainProofs} from "../../../src/v2/beacon/BeaconChainProofs.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {console2} from "forge-std/Test.sol";
 
@@ -670,8 +671,8 @@ contract ValidatorPodTest is BeaconTestBase {
         });
 
         // Should revert because validator is not active in the pod
-        // (will fail state root proof first, but tests the flow)
-        vm.expectRevert(ValidatorPod.ProofVerificationFailed.selector);
+        // M-11 FIX: Now reverts with InvalidStateRoot when beaconStateRoot is zero
+        vm.expectRevert(BeaconChainProofs.InvalidStateRoot.selector);
         pod.verifyStaleBalance(timestamp, stateRootProof, validatorProof);
     }
 }

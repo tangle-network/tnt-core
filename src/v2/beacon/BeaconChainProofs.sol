@@ -62,6 +62,22 @@ library BeaconChainProofs {
     /// @notice Number of validators per balance leaf (4 x 8-byte balances = 32 bytes)
     uint256 internal constant VALIDATORS_PER_BALANCE_LEAF = 4;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONSTANTS - PROOF AGE LIMITS (M-11 FIX)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Maximum age for beacon chain proofs (8192 slots = ~1 day)
+    /// @dev EIP-4788 stores beacon block roots for 8191 slots (~27 hours).
+    ///      We use 8192 slots (~1 day) as a conservative limit.
+    ///      Proofs older than this should be rejected to prevent replay attacks.
+    uint256 internal constant MAX_PROOF_AGE_SLOTS = 8192;
+
+    /// @notice Seconds per slot on the beacon chain (12 seconds)
+    uint256 internal constant SECONDS_PER_SLOT = 12;
+
+    /// @notice Maximum proof age in seconds (~1 day = 8192 * 12 = 98304 seconds)
+    uint256 internal constant MAX_PROOF_AGE = MAX_PROOF_AGE_SLOTS * SECONDS_PER_SLOT;
+
     /// @notice Generalized index for validator container root in beacon state
     /// @dev Formula: (1 << BEACON_STATE_TREE_HEIGHT) | VALIDATOR_LIST_INDEX
     ///      = (1 << 5) | 11 = 32 | 11 = 43
@@ -81,6 +97,34 @@ library BeaconChainProofs {
     error ProofVerificationFailed();
     error InvalidWithdrawalCredentials();
     error EmptyProof();
+    /// @notice M-11 FIX: Beacon block root is zero (invalid or genesis block)
+    error InvalidBeaconBlockRoot();
+    /// @notice M-11 FIX: State root is zero (invalid proof data)
+    error InvalidStateRoot();
+    /// @notice M-11 FIX: Proof timestamp is too old (exceeds MAX_PROOF_AGE)
+    error ProofTooOld(uint64 proofTimestamp, uint64 currentTimestamp);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PROOF AGE VALIDATION (M-11 FIX)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Validate that a proof timestamp is not too old
+    /// @param proofTimestamp The timestamp of the beacon block the proof is against
+    /// @param currentTimestamp The current block timestamp
+    /// @dev Reverts with ProofTooOld if the proof exceeds MAX_PROOF_AGE
+    function validateProofAge(uint64 proofTimestamp, uint64 currentTimestamp) internal pure {
+        if (currentTimestamp > proofTimestamp + MAX_PROOF_AGE) {
+            revert ProofTooOld(proofTimestamp, currentTimestamp);
+        }
+    }
+
+    /// @notice Check if a proof timestamp is within the valid age range
+    /// @param proofTimestamp The timestamp of the beacon block the proof is against
+    /// @param currentTimestamp The current block timestamp
+    /// @return True if the proof is not too old
+    function isProofAgeValid(uint64 proofTimestamp, uint64 currentTimestamp) internal pure returns (bool) {
+        return currentTimestamp <= proofTimestamp + MAX_PROOF_AGE;
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE ROOT VERIFICATION
@@ -90,10 +134,23 @@ library BeaconChainProofs {
     /// @param beaconBlockRoot The beacon block root to verify against
     /// @param stateRootProof The proof containing state root and merkle proof
     /// @return True if verification succeeds
+    /// @dev M-11 FIX: Added validation for zero beacon block root (genesis block edge case)
+    ///      and zero state root to prevent invalid proof acceptance
     function verifyStateRoot(
         bytes32 beaconBlockRoot,
         ValidatorTypes.StateRootProof calldata stateRootProof
     ) internal pure returns (bool) {
+        // M-11 FIX: Reject zero beacon block root (could be genesis block or invalid root)
+        // EIP-4788 returns 0 for timestamps before the fork or invalid timestamps
+        if (beaconBlockRoot == bytes32(0)) {
+            revert InvalidBeaconBlockRoot();
+        }
+
+        // M-11 FIX: Reject zero state root as it indicates invalid proof data
+        if (stateRootProof.beaconStateRoot == bytes32(0)) {
+            revert InvalidStateRoot();
+        }
+
         // State root is at index 3 in the beacon block header
         // Proof length should be BEACON_BLOCK_HEADER_TREE_HEIGHT * 32 bytes
         if (stateRootProof.proof.length != BEACON_BLOCK_HEADER_TREE_HEIGHT * 32) {

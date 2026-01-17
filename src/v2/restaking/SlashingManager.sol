@@ -98,7 +98,47 @@ abstract contract SlashingManager is RewardsManager {
     mapping(uint64 => mapping(address => uint64)) public blueprintSlashCount;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // M-9 FIX: PENDING SLASH TRACKING
+    // ═══════════════════════════════════════════════════════════════════════════
+    // These functions are called by Tangle core to track pending slashes.
+    // When an operator has pending slashes, delegators cannot withdraw.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    event PendingSlashIncremented(address indexed operator, uint64 newCount);
+    event PendingSlashDecremented(address indexed operator, uint64 newCount);
+
+    /// @notice Increment pending slash count for an operator
+    /// @dev Called by Tangle when a slash is proposed
+    /// @param operator The operator with a new pending slash
+    function _incrementPendingSlash(address operator) internal {
+        _operatorPendingSlashCount[operator]++;
+        emit PendingSlashIncremented(operator, _operatorPendingSlashCount[operator]);
+    }
+
+    /// @notice Decrement pending slash count for an operator
+    /// @dev Called by Tangle when a slash is executed or cancelled
+    /// @param operator The operator whose pending slash was resolved
+    function _decrementPendingSlash(address operator) internal {
+        if (_operatorPendingSlashCount[operator] > 0) {
+            _operatorPendingSlashCount[operator]--;
+            emit PendingSlashDecremented(operator, _operatorPendingSlashCount[operator]);
+        }
+    }
+
+    /// @notice Get pending slash count for an operator
+    /// @param operator The operator to query
+    /// @return count Number of pending slashes
+    function getPendingSlashCount(address operator) external view virtual returns (uint64) {
+        return _operatorPendingSlashCount[operator];
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // O(1) SLASHING
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NOTE: Slashing is O(1) because we use share-based accounting (ERC4626 pattern).
+    // Instead of iterating through all delegators, we reduce totalAssets in the pool.
+    // Each delegator's shares remain constant, but the exchange rate (totalAssets/totalShares)
+    // decreases, effectively slashing everyone proportionally without iteration.
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Slash an operator for a specific blueprint - O(1) operation
@@ -150,7 +190,7 @@ abstract contract SlashingManager is RewardsManager {
         }
 
         uint256 erc20Count = _enabledErc20s.length();
-        for (uint256 i = 0; i < erc20Count; i++) {
+        for (uint256 i = 0; i < erc20Count;) {
             address token = _enabledErc20s.at(i);
             Types.Asset memory asset = Types.Asset(Types.AssetKind.ERC20, token);
             bytes32 assetHash = _assetHash(asset);
@@ -169,6 +209,7 @@ abstract contract SlashingManager is RewardsManager {
                 totalSlashed += assetSlashed;
                 slashed = true;
             }
+            unchecked { ++i; }
         }
 
         if (!slashed) return 0;
@@ -218,10 +259,14 @@ abstract contract SlashingManager is RewardsManager {
             : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
 
         uint256 totalSlashed = 0;
-        for (uint256 i = 0; i < commitments.length; i++) {
+        uint256 commitmentsLength = commitments.length;
+        for (uint256 i = 0; i < commitmentsLength;) {
             Types.AssetSecurityCommitment calldata commitment = commitments[i];
             uint256 effectiveBps = (uint256(slashBps) * commitment.exposureBps) / BPS_DENOMINATOR;
-            if (effectiveBps == 0) continue;
+            if (effectiveBps == 0) {
+                unchecked { ++i; }
+                continue;
+            }
 
             bytes32 assetHash = _assetHash(commitment.asset);
             uint256 assetSlashed = _slashBlueprintPoolsForAsset(
@@ -236,6 +281,7 @@ abstract contract SlashingManager is RewardsManager {
                 meta
             );
             totalSlashed += assetSlashed;
+            unchecked { ++i; }
         }
 
         if (totalSlashed == 0) return 0;
@@ -290,7 +336,7 @@ abstract contract SlashingManager is RewardsManager {
         uint256 totalSlashed = actualOperatorSlash + actualAllSlash;
 
         uint256 bpCount = _operatorBlueprints[operator].length();
-        for (uint256 i = 0; i < bpCount; i++) {
+        for (uint256 i = 0; i < bpCount;) {
             uint64 blueprintId = uint64(_operatorBlueprints[operator].at(i));
             Types.OperatorRewardPool storage bpPool = _blueprintPools[operator][blueprintId][assetHash];
             bool fixedHasDelegators = bpPool.totalShares > 0;
@@ -302,6 +348,7 @@ abstract contract SlashingManager is RewardsManager {
             if (_serviceFeeDistributor != address(0) && fixedHasDelegators && actualFixedSlash > 0) {
                 try IServiceFeeDistributor(_serviceFeeDistributor).onFixedModeSlashed(operator, blueprintId, asset, slashBps) {} catch {}
             }
+            unchecked { ++i; }
         }
 
         if (totalSlashed == 0) return 0;
@@ -529,10 +576,13 @@ abstract contract SlashingManager is RewardsManager {
         bytes32 assetHash
     ) internal view returns (uint256 totalShares) {
         Types.BondInfoDelegator[] storage delegations = _delegations[delegator];
-        for (uint256 i = 0; i < delegations.length; i++) {
+        uint256 delegationsLength = delegations.length;
+        for (uint256 i = 0; i < delegationsLength;) {
             Types.BondInfoDelegator storage d = delegations[i];
-            if (d.operator != operator || _assetHash(d.asset) != assetHash) continue;
-            totalShares += d.shares;
+            if (d.operator == operator && _assetHash(d.asset) == assetHash) {
+                totalShares += d.shares;
+            }
+            unchecked { ++i; }
         }
     }
 
@@ -573,7 +623,9 @@ abstract contract SlashingManager is RewardsManager {
     /// @param operator Operator to snapshot
     function _snapshotOperator(address operator) internal {
         Types.OperatorMetadata storage meta = _operatorMetadata[operator];
-        require(meta.status == Types.OperatorStatus.Active, "Not active");
+        if (meta.status != Types.OperatorStatus.Active) {
+            revert DelegationErrors.OperatorNotActive(operator);
+        }
 
         bytes32 bondHash = _operatorBondToken == address(0)
             ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))

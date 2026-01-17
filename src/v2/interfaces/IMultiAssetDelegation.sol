@@ -6,6 +6,18 @@ import { SlashingManager } from "../restaking/SlashingManager.sol";
 
 /// @title IMultiAssetDelegation
 /// @notice Full interface for the multi-asset restaking contract
+/// @dev INTERFACE STRUCTURE:
+///      This interface is intentionally comprehensive to maintain backward compatibility.
+///      Logically, it can be viewed as composed of these segments:
+///      - Operator Functions: registration, staking, blueprint management
+///      - Deposit Functions: native/ERC20 deposits with optional locks
+///      - Delegation Functions: delegate/undelegate with blueprint selection
+///      - Slashing: slash functions and related queries
+///      - Asset Management: enable/disable assets, adapters
+///      - View Functions: read-only queries for state
+///      - Admin Functions: protocol configuration
+///      Future versions may split into focused sub-interfaces (e.g., IOperatorManager,
+///      IDepositManager, IDelegationManager) for better composability.
 interface IMultiAssetDelegation {
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -273,7 +285,12 @@ interface IMultiAssetDelegation {
 
     function addSlasher(address slasher) external;
     function removeSlasher(address slasher) external;
+    function setTangle(address tangle) external;
     function setOperatorCommission(uint16 bps) external;
+    // M-10 FIX: Commission change timelock functions
+    function executeCommissionChange() external;
+    function cancelCommissionChange() external;
+    function getPendingCommissionChange() external view returns (uint16 pendingBps, uint64 executeAfter);
     function setOperatorBondToken(address token) external;
     function setDelays(uint64 delegationBondLessDelay, uint64 leaveDelegatorsDelay, uint64 leaveOperatorsDelay) external;
     function setRewardsManager(address manager) external;

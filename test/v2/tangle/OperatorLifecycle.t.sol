@@ -120,6 +120,35 @@ contract OperatorLifecycleTest is BaseTest {
         tangle.unregisterOperator(blueprintId);
     }
 
+    function test_UnregisterOperator_RevertHasActiveServices() public {
+        _registerForBlueprint(operator1, blueprintId);
+
+        // Request and approve a service
+        uint64 requestId = _requestService(user1, blueprintId, operator1);
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        // Verify service is active
+        uint64 serviceId = tangle.serviceCount() - 1;
+        assertTrue(tangle.isServiceActive(serviceId));
+
+        // Now try to unregister - should fail because operator has active services
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.OperatorHasActiveServices.selector, blueprintId, operator1));
+        tangle.unregisterOperator(blueprintId);
+
+        // Terminate the service
+        vm.prank(user1);
+        tangle.terminateService(serviceId);
+
+        // Now unregistration should succeed
+        vm.prank(operator1);
+        tangle.unregisterOperator(blueprintId);
+
+        Types.OperatorRegistration memory reg = tangle.getOperatorRegistration(blueprintId, operator1);
+        assertEq(reg.active, false);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE APPROVAL
     // ═══════════════════════════════════════════════════════════════════════════
@@ -621,9 +650,12 @@ contract OperatorLifecycleTest is BaseTest {
         operators[0] = operator1;
         address[] memory callers = new address[](0);
 
+        // M-1 FIX: Use valid TTL (minimum is 1 hour = 3600 seconds)
+        uint64 validTtl = 1 hours;
+
         vm.prank(user1);
         uint64 requestId = tangle.requestService(
-            blueprintId, operators, "", callers, 100, address(0), 0 // 100 block TTL
+            blueprintId, operators, "", callers, validTtl, address(0), 0
         );
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -632,7 +664,7 @@ contract OperatorLifecycleTest is BaseTest {
         assertTrue(tangle.isServiceActive(serviceId));
 
         Types.Service memory svc = tangle.getService(serviceId);
-        assertEq(svc.ttl, 100);
+        assertEq(svc.ttl, validTtl);
         assertGt(svc.createdAt, 0);
     }
 }

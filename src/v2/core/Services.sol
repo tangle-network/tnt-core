@@ -10,9 +10,16 @@ import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { SchemaLib } from "../libraries/SchemaLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
+import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
 /// @title Services
 /// @notice Service request, approval, and lifecycle management
+/// @dev TIMESTAMP ASSUMPTIONS:
+///      - block.timestamp is used for service TTL, operator commitments, and exit queues
+///      - Miners can manipulate timestamps by ~15 seconds on Ethereum
+///      - Exit queue durations are typically hours/days, making manipulation impact negligible
+///      - For sub-minute precision requirements, consider using block numbers
+///      - createdAt, joinedAt, leftAt, scheduledAt all use timestamps for readability
 abstract contract Services is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -398,10 +405,27 @@ abstract contract Services is Base {
     // SERVICE APPROVAL
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice Check if a service request has expired (with grace period) (M-3 fix)
+    /// @dev Returns true if the request is past its TTL + grace period
+    function _isRequestExpired(Types.ServiceRequest storage req) private view returns (bool) {
+        // TTL of 0 means no expiration
+        if (req.ttl == 0) return false;
+
+        uint64 gracePeriod = _requestExpiryGracePeriod > 0
+            ? _requestExpiryGracePeriod
+            : ProtocolConfig.REQUEST_EXPIRY_GRACE_PERIOD;
+
+        uint64 expiryWithGrace = req.createdAt + req.ttl + gracePeriod;
+        return block.timestamp > expiryWithGrace;
+    }
+
     /// @notice Approve a service request
     function approveService(uint64 requestId, uint8 restakingPercent) external whenNotPaused nonReentrant {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
+
+        // M-3 fix: Check if request has expired (with grace period)
+        if (_isRequestExpired(req)) revert Errors.ServiceRequestExpired(requestId);
 
         if (!_restaking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
@@ -451,6 +475,9 @@ abstract contract Services is Base {
     ) external whenNotPaused nonReentrant {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
+
+        // M-3 fix: Check if request has expired (with grace period)
+        if (_isRequestExpired(req)) revert Errors.ServiceRequestExpired(requestId);
 
         if (!_restaking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
@@ -586,6 +613,16 @@ abstract contract Services is Base {
         svc.status = Types.ServiceStatus.Terminated;
         svc.terminatedAt = uint64(block.timestamp);
 
+        // Decrement active service count for all operators in this service
+        uint64 blueprintId = svc.blueprintId;
+        uint256 operatorSetLength = _serviceOperatorSet[serviceId].length();
+        for (uint256 i = 0; i < operatorSetLength; i++) {
+            address operator = _serviceOperatorSet[serviceId].at(i);
+            if (_operatorActiveServiceCount[blueprintId][operator] > 0) {
+                _operatorActiveServiceCount[blueprintId][operator]--;
+            }
+        }
+
         emit ServiceTerminated(serviceId);
 
         // Refund remaining streamed payments to the service owner
@@ -593,7 +630,7 @@ abstract contract Services is Base {
             try IServiceFeeDistributor(_serviceFeeDistributor).onServiceTerminated(serviceId, svc.owner) {} catch {}
         }
 
-        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
+        Types.Blueprint storage bp = _blueprints[blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
                 bp.manager,
@@ -603,7 +640,10 @@ abstract contract Services is Base {
     }
 
     /// @notice Add permitted caller
+    /// @param serviceId The service ID
+    /// @param caller The caller address to add
     function addPermittedCaller(uint64 serviceId, address caller) external {
+        if (caller == address(0)) revert Errors.ZeroAddress();
         Types.Service storage svc = _getService(serviceId);
         if (svc.owner != msg.sender) {
             revert Errors.NotServiceOwner(serviceId, msg.sender);
@@ -612,7 +652,10 @@ abstract contract Services is Base {
     }
 
     /// @notice Remove permitted caller
+    /// @param serviceId The service ID
+    /// @param caller The caller address to remove
     function removePermittedCaller(uint64 serviceId, address caller) external {
+        if (caller == address(0)) revert Errors.ZeroAddress();
         Types.Service storage svc = _getService(serviceId);
         if (svc.owner != msg.sender) {
             revert Errors.NotServiceOwner(serviceId, msg.sender);
@@ -674,6 +717,9 @@ abstract contract Services is Base {
         });
         _serviceOperatorSet[serviceId].add(msg.sender);
         svc.operatorCount++;
+
+        // Track active service count per blueprint for operator unregistration checks
+        _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
 
         emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
 
@@ -760,6 +806,9 @@ abstract contract Services is Base {
         });
         _serviceOperatorSet[serviceId].add(msg.sender);
         svc.operatorCount++;
+
+        // Track active service count per blueprint for operator unregistration checks
+        _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
 
         emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
 
@@ -956,6 +1005,11 @@ abstract contract Services is Base {
         _serviceOperatorSet[serviceId].remove(operator);
         svc.operatorCount--;
 
+        // Decrement active service count for operator unregistration checks
+        if (_operatorActiveServiceCount[svc.blueprintId][operator] > 0) {
+            _operatorActiveServiceCount[svc.blueprintId][operator]--;
+        }
+
         emit OperatorLeftService(serviceId, operator);
 
         // Notify manager of successful leave
@@ -997,6 +1051,11 @@ abstract contract Services is Base {
         opData.leftAt = uint64(block.timestamp);
         _serviceOperatorSet[serviceId].remove(operator);
         svc.operatorCount--;
+
+        // Decrement active service count for operator unregistration checks
+        if (_operatorActiveServiceCount[svc.blueprintId][operator] > 0) {
+            _operatorActiveServiceCount[svc.blueprintId][operator]--;
+        }
 
         // Clear any pending exit request
         delete _exitRequests[serviceId][operator];

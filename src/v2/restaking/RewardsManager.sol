@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { DelegationManagerLib } from "./DelegationManagerLib.sol";
 import { Types } from "../libraries/Types.sol";
 import { DelegationErrors } from "./DelegationErrors.sol";
@@ -9,7 +11,18 @@ import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol
 
 /// @title RewardsManager
 /// @notice Tracks pool totals for slashing/exchange-rate accounting and forwards delegation updates to external reward systems.
+/// @dev M-7 FIX: Includes dust tracking and sweep functionality to handle rounding in reward distributions.
 abstract contract RewardsManager is DelegationManagerLib {
+    using SafeERC20 for IERC20;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EVENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Emitted when dust is accumulated from rounding
+    event DustAccumulated(address indexed token, uint256 amount, uint256 totalDust);
+
+    /// @notice Emitted when accumulated dust is swept to treasury
+    event DustSwept(address indexed token, address indexed recipient, uint256 amount);
     // ═══════════════════════════════════════════════════════════════════════════
     // DELEGATION HOOK
     // ═══════════════════════════════════════════════════════════════════════════
@@ -230,5 +243,130 @@ abstract contract RewardsManager is DelegationManagerLib {
             ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
             : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
         return _rewardPools[operator][bondHash];
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // M-7 FIX: DUST MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Accumulate dust from rounding in reward calculations
+    /// @dev Called internally when rounding produces leftover amounts
+    /// @param token The token address (address(0) for native)
+    /// @param amount The dust amount to accumulate
+    function _accumulateDust(address token, uint256 amount) internal {
+        if (amount == 0) return;
+        _accumulatedDust[token] += amount;
+        emit DustAccumulated(token, amount, _accumulatedDust[token]);
+    }
+
+    /// @notice Get accumulated dust for a token
+    /// @param token The token address (address(0) for native)
+    /// @return The accumulated dust amount
+    function getAccumulatedDust(address token) external view returns (uint256) {
+        return _accumulatedDust[token];
+    }
+
+    /// @notice Sweep accumulated dust to a recipient (admin only)
+    /// @dev This function should be called by an admin facet that checks ADMIN_ROLE
+    /// @param token The token address (address(0) for native)
+    /// @param recipient The address to receive the dust
+    /// @return amount The amount of dust swept
+    function _sweepDust(address token, address recipient) internal returns (uint256 amount) {
+        amount = _accumulatedDust[token];
+        if (amount == 0) return 0;
+
+        _accumulatedDust[token] = 0;
+
+        if (token == address(0)) {
+            (bool success,) = payable(recipient).call{value: amount}("");
+            if (!success) revert DelegationErrors.TransferFailed();
+        } else {
+            IERC20(token).safeTransfer(recipient, amount);
+        }
+
+        emit DustSwept(token, recipient, amount);
+    }
+
+    /// @notice M-7 FIX: Calculate proportional shares for batch distribution with dust tracking
+    /// @dev Calculates amount per recipient based on shares, accumulates dust from rounding.
+    ///      Uses floor division for N-1 recipients, remainder to final recipient.
+    /// @param totalAmount Total amount to distribute
+    /// @param shares Array of shares for each recipient
+    /// @param totalShares Sum of all shares
+    /// @param token Token address for dust tracking (address(0) for native)
+    /// @return amounts Array of amounts for each recipient (includes dust for final)
+    function _calculateBatchDistribution(
+        uint256 totalAmount,
+        uint256[] memory shares,
+        uint256 totalShares,
+        address token
+    ) internal returns (uint256[] memory amounts) {
+        if (shares.length == 0 || totalShares == 0 || totalAmount == 0) {
+            return new uint256[](shares.length);
+        }
+
+        amounts = new uint256[](shares.length);
+        uint256 distributed = 0;
+
+        for (uint256 i = 0; i < shares.length; i++) {
+            if (i == shares.length - 1) {
+                // M-7 FIX: Final recipient gets remainder to capture all rounding dust
+                amounts[i] = totalAmount - distributed;
+            } else {
+                // Floor division for all but last recipient
+                amounts[i] = (totalAmount * shares[i]) / totalShares;
+                distributed += amounts[i];
+            }
+        }
+
+        // Track any dust that would be lost in integer division (for accounting purposes)
+        // Note: In the above logic, dust is given to the final recipient, so this is informational
+        uint256 theoreticalSum = 0;
+        for (uint256 i = 0; i < shares.length; i++) {
+            theoreticalSum += (totalAmount * shares[i]) / totalShares;
+        }
+        uint256 dust = totalAmount - theoreticalSum;
+        if (dust > 0) {
+            // Emit event for tracking but don't accumulate (final recipient gets it)
+            emit DustAccumulated(token, dust, _accumulatedDust[token]);
+        }
+
+        return amounts;
+    }
+
+    /// @notice M-7 FIX: Distribute rewards with explicit dust handling
+    /// @dev For cases where dust should accumulate in protocol rather than going to last recipient
+    /// @param totalAmount Total amount to distribute
+    /// @param shares Array of shares for each recipient
+    /// @param totalShares Sum of all shares
+    /// @param token Token address for dust tracking
+    /// @return amounts Array of amounts for each recipient
+    /// @return dustAmount Amount of dust accumulated
+    function _calculateBatchDistributionWithDustAccumulation(
+        uint256 totalAmount,
+        uint256[] memory shares,
+        uint256 totalShares,
+        address token
+    ) internal returns (uint256[] memory amounts, uint256 dustAmount) {
+        if (shares.length == 0 || totalShares == 0 || totalAmount == 0) {
+            return (new uint256[](shares.length), 0);
+        }
+
+        amounts = new uint256[](shares.length);
+        uint256 distributed = 0;
+
+        // Use floor division for all recipients
+        for (uint256 i = 0; i < shares.length; i++) {
+            amounts[i] = (totalAmount * shares[i]) / totalShares;
+            distributed += amounts[i];
+        }
+
+        // M-7 FIX: Accumulate dust from rounding
+        dustAmount = totalAmount - distributed;
+        if (dustAmount > 0) {
+            _accumulateDust(token, dustAmount);
+        }
+
+        return (amounts, dustAmount);
     }
 }

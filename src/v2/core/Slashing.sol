@@ -18,13 +18,23 @@ abstract contract Slashing is Base {
     // SLASH PROPOSAL
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Propose a slash
+    /// @notice Propose a slash against an operator
+    /// @param serviceId The service ID the operator is being slashed for
+    /// @param operator The operator address to slash
+    /// @param slashBps The slash amount in basis points (0-10000)
+    /// @param evidence Evidence hash (e.g., IPFS CID) supporting the slash reason
+    /// @return slashId The newly created slash proposal ID
     function proposeSlash(
         uint64 serviceId,
         address operator,
         uint16 slashBps,
         bytes32 evidence
     ) external returns (uint64 slashId) {
+        // M-6 FIX: Validate slashBps does not exceed 100% (10000 bps)
+        if (slashBps > BPS_DENOMINATOR) {
+            revert Errors.SlashBpsExceedsMax(slashBps, BPS_DENOMINATOR);
+        }
+
         Types.Service storage svc = _getService(serviceId);
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
 
@@ -61,14 +71,17 @@ abstract contract Slashing is Base {
             false
         );
 
+        // M-9 FIX: Increment pending slash count to block delegator withdrawals
+        _restaking.incrementPendingSlash(operator);
+
         if (bp.manager != address(0)) {
             uint16 slashPercentBps = cappedSlashBps;
             if (slashPercentBps > BPS_DENOMINATOR) slashPercentBps = BPS_DENOMINATOR;
 
             // Convert to uint8 for hook (hook uses 0-100 percent, so we convert from bps)
             // forge-lint: disable-next-line(unsafe-typecast)
-            uint8 slashPercent = uint8(slashPercentBps / 100);
-            if (slashPercent > 100) slashPercent = 100;
+            uint8 slashPercent = uint8(slashPercentBps / BPS_TO_PERCENT);
+            if (slashPercent > MAX_PERCENT) slashPercent = MAX_PERCENT;
 
             _tryCallManager(
                 bp.manager,
@@ -83,17 +96,23 @@ abstract contract Slashing is Base {
         uint64 blueprintId
     ) internal view returns (uint16 exposureBps) {
         Types.AssetSecurityRequirement[] storage reqs = _serviceSecurityRequirements[serviceId];
-        if (reqs.length == 0) return BPS_DENOMINATOR;
-        if (_serviceFeeDistributor == address(0)) {
+        uint256 reqsLength = reqs.length;
+        if (reqsLength == 0) return BPS_DENOMINATOR;
+
+        // L-12 FIX: Cache storage reads
+        address serviceFeeDistributor = _serviceFeeDistributor;
+
+        if (serviceFeeDistributor == address(0)) {
             uint256 sum;
             uint256 count;
-            for (uint256 i = 0; i < reqs.length; i++) {
+            for (uint256 i = 0; i < reqsLength;) {
                 Types.Asset memory asset = reqs[i].asset;
                 // forge-lint: disable-next-line(asm-keccak256)
                 bytes32 assetHash = keccak256(abi.encode(asset.kind, asset.token));
                 uint16 committed = _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
                 sum += committed;
                 count++;
+                unchecked { ++i; }
             }
             if (count == 0) return BPS_DENOMINATOR;
             exposureBps = uint16(sum / count);
@@ -101,32 +120,44 @@ abstract contract Slashing is Base {
             return exposureBps;
         }
 
-        IPriceOracle oracle = IPriceOracle(_priceOracle);
-        bool useOracle = _priceOracle != address(0);
+        // L-12 FIX: Cache storage reads
+        address priceOracleAddr = _priceOracle;
+        IPriceOracle oracle = IPriceOracle(priceOracleAddr);
+        bool useOracle = priceOracleAddr != address(0);
 
         uint256 weightedCommitted; // scaled down by BPS_DENOMINATOR to avoid overflow
         uint256 totalWeight;
-        for (uint256 i = 0; i < reqs.length; i++) {
+        for (uint256 i = 0; i < reqsLength;) {
             Types.Asset memory asset = reqs[i].asset;
             // forge-lint: disable-next-line(asm-keccak256)
             bytes32 assetHash = keccak256(abi.encode(asset.kind, asset.token));
             uint16 committed = _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
-            if (committed == 0) continue;
+            if (committed == 0) {
+                unchecked { ++i; }
+                continue;
+            }
 
             (uint256 allScore, uint256 fixedScore) =
-                IServiceFeeDistributor(_serviceFeeDistributor).getPoolScore(operator, blueprintId, asset);
+                IServiceFeeDistributor(serviceFeeDistributor).getPoolScore(operator, blueprintId, asset);
             uint256 totalScore = allScore + fixedScore;
-            if (totalScore == 0) continue;
+            if (totalScore == 0) {
+                unchecked { ++i; }
+                continue;
+            }
 
             uint256 weight = totalScore;
             if (useOracle) {
                 address token = asset.kind == Types.AssetKind.Native ? address(0) : asset.token;
                 weight = oracle.toUSD(token, totalScore);
             }
-            if (weight == 0) continue;
+            if (weight == 0) {
+                unchecked { ++i; }
+                continue;
+            }
 
             weightedCommitted += Math.mulDiv(weight, committed, BPS_DENOMINATOR);
             totalWeight += weight;
+            unchecked { ++i; }
         }
 
         if (totalWeight == 0) return BPS_DENOMINATOR;
@@ -138,7 +169,9 @@ abstract contract Slashing is Base {
     // DISPUTE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Dispute a pending slash
+    /// @notice Dispute a pending slash within the dispute window
+    /// @param slashId The slash proposal ID to dispute
+    /// @param reason A human-readable reason for the dispute
     function disputeSlash(uint64 slashId, string calldata reason) external {
         SlashingLib.SlashProposal storage proposal = _slashProposals[slashId];
 
@@ -178,6 +211,9 @@ abstract contract Slashing is Base {
 
         SlashingLib.markExecuted(_slashProposals, slashId, actualSlashed);
 
+        // M-9 FIX: Decrement pending slash count to allow delegator withdrawals
+        _restaking.decrementPendingSlash(proposal.operator);
+
         // Record slash for metrics tracking (affects rewards distribution)
         _recordSlash(proposal.operator, proposal.serviceId, actualSlashed);
 
@@ -188,8 +224,8 @@ abstract contract Slashing is Base {
 
             // Convert to uint8 for hook (hook uses 0-100 percent, so we convert from bps)
             // forge-lint: disable-next-line(unsafe-typecast)
-            uint8 slashPercent = uint8(slashPercentBps / 100);
-            if (slashPercent > 100) slashPercent = 100;
+            uint8 slashPercent = uint8(slashPercentBps / BPS_TO_PERCENT);
+            if (slashPercent > MAX_PERCENT) slashPercent = MAX_PERCENT;
 
             _tryCallManager(
                 bp.manager,
@@ -224,6 +260,9 @@ abstract contract Slashing is Base {
 
             SlashingLib.markExecuted(_slashProposals, slashIds[i], actualSlashed);
 
+            // M-9 FIX: Decrement pending slash count to allow delegator withdrawals
+            _restaking.decrementPendingSlash(proposal.operator);
+
             // Record slash for metrics tracking (affects rewards distribution)
             _recordSlash(proposal.operator, proposal.serviceId, actualSlashed);
 
@@ -235,8 +274,8 @@ abstract contract Slashing is Base {
             if (bp.manager != address(0)) {
                 uint16 slashPercentBps = proposal.effectiveSlashBps;
                 // forge-lint: disable-next-line(unsafe-typecast)
-                uint8 slashPercent = uint8(slashPercentBps / 100);
-                if (slashPercent > 100) slashPercent = 100;
+                uint8 slashPercent = uint8(slashPercentBps / BPS_TO_PERCENT);
+                if (slashPercent > MAX_PERCENT) slashPercent = MAX_PERCENT;
 
                 _tryCallManager(
                     bp.manager,
@@ -273,19 +312,32 @@ abstract contract Slashing is Base {
     // CANCELLATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Cancel a slash
+    /// @notice Cancel a pending slash proposal
+    /// @dev Only callable by SLASH_ADMIN_ROLE
+    /// @param slashId The slash proposal ID to cancel
+    /// @param reason A human-readable reason for the cancellation
     function cancelSlash(uint64 slashId, string calldata reason) external {
         if (!hasRole(SLASH_ADMIN_ROLE, msg.sender)) {
             revert Errors.NotSlashCanceller(slashId, msg.sender);
         }
+
+        // M-9 FIX: Get operator before cancelling (proposal may be cleared)
+        address operator = _slashProposals[slashId].operator;
+
         SlashingLib.cancelSlash(_slashProposals, slashId, msg.sender, reason);
+
+        // M-9 FIX: Decrement pending slash count to allow delegator withdrawals
+        _restaking.decrementPendingSlash(operator);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Update slashing config
+    /// @notice Update slashing configuration
+    /// @param disputeWindow The dispute window duration in seconds
+    /// @param instantSlashEnabled Whether instant slashing (bypassing dispute) is enabled
+    /// @param maxSlashBps Maximum slash amount in basis points (0-10000)
     function setSlashConfig(
         uint64 disputeWindow,
         bool instantSlashEnabled,
@@ -298,6 +350,9 @@ abstract contract Slashing is Base {
     // VIEW
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice Get details of a slash proposal
+    /// @param slashId The slash proposal ID to query
+    /// @return The slash proposal struct with all details
     function getSlashProposal(uint64 slashId) external view returns (SlashingLib.SlashProposal memory) {
         return _slashProposals[slashId];
     }
