@@ -12,6 +12,8 @@ import {LayerZeroCrossChainMessenger} from "../../src/v2/beacon/bridges/LayerZer
 
 error MissingEnv(string key);
 error AddressNotAllowlisted(string key, address provided, address expected);
+error BridgeContractNotFound(string name, address addr);
+error BridgeContractInvalid(string name, address addr);
 
 /// @title DeployBeaconSlashingL1
 /// @notice Deploy script for L1 beacon chain restaking and slashing infrastructure
@@ -235,6 +237,10 @@ contract DeployBeaconSlashingL1 is Script {
             revert("Unsupported chain for Hyperlane (set L1_HYPERLANE_MAILBOX and L1_HYPERLANE_IGP to override)");
         }
 
+        // Verify bridge contracts exist before deployment
+        _verifyBridgeContract("Hyperlane Mailbox", mailbox);
+        _verifyBridgeContract("Hyperlane IGP", igp);
+
         HyperlaneCrossChainMessenger messenger = new HyperlaneCrossChainMessenger(
             mailbox,
             igp
@@ -269,6 +275,9 @@ contract DeployBeaconSlashingL1 is Script {
         if (endpoint == address(0)) {
             revert("Unsupported chain for LayerZero (set L1_LAYERZERO_ENDPOINT to override)");
         }
+
+        // Verify bridge contract exists before deployment
+        _verifyBridgeContract("LayerZero Endpoint", endpoint);
 
         LayerZeroCrossChainMessenger messenger = new LayerZeroCrossChainMessenger(endpoint);
         console2.log("LayerZeroCrossChainMessenger:", address(messenger));
@@ -371,6 +380,16 @@ contract DeployBeaconSlashingL1 is Script {
                 revert AddressNotAllowlisted(key, candidate, allowed);
             }
         } catch {}
+    }
+
+    /// @notice Verify bridge contract exists and has code
+    function _verifyBridgeContract(string memory name, address addr) internal view {
+        if (addr == address(0)) revert BridgeContractNotFound(name, addr);
+        uint256 codeSize;
+        assembly {
+            codeSize := extcodesize(addr)
+        }
+        if (codeSize == 0) revert BridgeContractNotFound(name, addr);
     }
 }
 

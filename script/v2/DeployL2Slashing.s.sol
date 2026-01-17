@@ -10,6 +10,7 @@ import {LayerZeroReceiver} from "../../src/v2/beacon/bridges/LayerZeroCrossChain
 
 error MissingEnv(string key);
 error AddressNotAllowlisted(string key, address provided, address expected);
+error BridgeContractNotFound(string name, address addr);
 
 abstract contract EnvUtils is Script {
     function _requireEnvUint(string memory key) internal returns (uint256 value) {
@@ -45,6 +46,16 @@ abstract contract EnvUtils is Script {
                 revert AddressNotAllowlisted(key, candidate, allowed);
             }
         } catch {}
+    }
+
+    /// @notice Verify bridge contract exists and has code
+    function _verifyBridgeContract(string memory name, address addr) internal view {
+        if (addr == address(0)) revert BridgeContractNotFound(name, addr);
+        uint256 codeSize;
+        assembly {
+            codeSize := extcodesize(addr)
+        }
+        if (codeSize == 0) revert BridgeContractNotFound(name, addr);
     }
 }
 
@@ -254,6 +265,9 @@ contract DeployL2Slashing is EnvUtils {
         address mailbox = vm.envOr("HYPERLANE_MAILBOX", _defaultHyperlaneMailbox(block.chainid));
         if (mailbox == address(0)) revert MissingEnv("HYPERLANE_MAILBOX");
 
+        // Verify bridge contract exists before deployment
+        _verifyBridgeContract("Hyperlane Mailbox", mailbox);
+
         HyperlaneReceiver hyperlaneReceiver = new HyperlaneReceiver(mailbox, address(receiverContract));
 
         // HyperlaneReceiver expects the "sender" to be the origin contract that dispatched the message (the messenger).
@@ -276,6 +290,9 @@ contract DeployL2Slashing is EnvUtils {
     ) internal returns (address) {
         address endpoint = vm.envOr("LAYERZERO_ENDPOINT", _defaultLayerZeroEndpoint(block.chainid));
         if (endpoint == address(0)) revert MissingEnv("LAYERZERO_ENDPOINT");
+
+        // Verify bridge contract exists before deployment
+        _verifyBridgeContract("LayerZero Endpoint", endpoint);
 
         LayerZeroReceiver lzReceiver = new LayerZeroReceiver(endpoint, address(receiverContract));
 
