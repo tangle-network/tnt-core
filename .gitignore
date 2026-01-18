@@ -52,3 +52,6 @@ script/tanglepod-cli/tanglepod-cli
 
 # Local developer scratch
 .local/
+
+# Claude Code
+.claude/
