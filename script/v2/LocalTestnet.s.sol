@@ -234,6 +234,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         // Configure cross-references
         IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
         restaking.addSlasher(tangleProxy);
+        restaking.setTangle(tangleProxy);
 
         Tangle tangle = Tangle(payable(tangleProxy));
         tangle.setOperatorStatusRegistry(statusRegistry);

@@ -218,6 +218,7 @@ contract DeployV2 is DeployScriptBase {
         _verifyProxy(tangleProxy, admin, "Tangle");
 
         IMultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
+        IMultiAssetDelegation(payable(restakingProxy)).setTangle(tangleProxy);
 
         MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(admin, tangleProxy);
         MBSMRegistry registryImpl = new MBSMRegistry();
@@ -228,7 +229,7 @@ contract DeployV2 is DeployScriptBase {
         mbsmRegistry.addVersion(address(masterManager));
         Tangle(payable(tangleProxy)).setMBSMRegistry(address(mbsmRegistry));
 
-        console2.log("Granted SLASHER_ROLE to Tangle");
+        console2.log("Granted SLASHER_ROLE and TANGLE_ROLE to Tangle");
         Tangle(payable(tangleProxy)).setOperatorStatusRegistry(statusRegistry);
         console2.log("Set OperatorStatusRegistry on Tangle");
 

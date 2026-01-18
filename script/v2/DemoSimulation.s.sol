@@ -338,6 +338,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         // Configure cross-references
         restaking.addSlasher(tangleProxy);
         restaking.addSlasher(slasher);
+        restaking.setTangle(tangleProxy);
         Tangle(payable(tangleProxy)).setOperatorStatusRegistry(address(statusRegistry));
         Tangle(payable(tangleProxy)).setTntToken(address(tnt));
         restaking.enableAsset(address(tnt), 1 ether, 7, 0, 10_000);

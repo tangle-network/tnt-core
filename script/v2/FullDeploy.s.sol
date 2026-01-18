@@ -1172,7 +1172,7 @@ contract FullDeploy is DeployV2 {
         IERC20 tnt = IERC20(tntToken);
         require(tnt.balanceOf(deployer) >= requiredBalance, "Insufficient TNT balance for migration");
 
-        SP1ZKVerifier verifier = new SP1ZKVerifier(migration.sp1VerifierGateway, migration.programVKey, deployer);
+        SP1ZKVerifier verifier = new SP1ZKVerifier(migration.sp1VerifierGateway, migration.programVKey);
         // Treasury for unclaimed token sweep - use configured treasury or fallback to global treasury
         address sweepTreasury = migration.treasuryRecipient != address(0) ? migration.treasuryRecipient : treasury;
         if (sweepTreasury == address(0)) sweepTreasury = deployer; // Final fallback
