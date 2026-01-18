@@ -17,14 +17,14 @@ forge soldeer update
 # Build contracts
 forge build
 
-# Run all tests (REQUIRED - prevents stack overflow on macOS)
-./scripts/run_forge_tests.sh forge test
+# Run all tests
+forge test
 
 # Run specific test file
-./scripts/run_forge_tests.sh forge test --match-path test/v2/Tangle.t.sol
+forge test --match-path test/v2/Tangle.t.sol
 
 # Run single test function
-./scripts/run_forge_tests.sh forge test --match-test testServiceRequest
+forge test --match-test testServiceRequest
 
 # Coverage
 ./coverage.sh
@@ -32,8 +32,6 @@ forge build
 # Format
 forge fmt
 ```
-
-**Important**: Never run `forge test` directly - always use the wrapper script which sets stack limits to prevent overflows.
 
 ### Indexer (TypeScript/Envio)
 
