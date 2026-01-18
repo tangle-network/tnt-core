@@ -122,6 +122,13 @@ library DelegationErrors {
     error OperatorHasActiveServices(address operator);
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ACCESS CONTROL ERRORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @dev H-1 FIX: Generic unauthorized access error
+    error Unauthorized();
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // ROUTER ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
 

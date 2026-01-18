@@ -149,4 +149,13 @@ contract MultiAssetDelegation is
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(ADMIN_ROLE) { }
+
+    /// @notice H-1 FIX: Reset pending slash count when it drifts from actual pending slashes
+    /// @dev Admin-only recovery function for when count becomes inconsistent
+    /// @param operator The operator to reset
+    /// @param count The correct pending slash count
+    function resetPendingSlashCount(address operator, uint64 count) external override onlyRole(ADMIN_ROLE) {
+        _operatorPendingSlashCount[operator] = count;
+        emit PendingSlashCountReset(operator, count);
+    }
 }

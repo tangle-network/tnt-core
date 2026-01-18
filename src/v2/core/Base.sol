@@ -139,6 +139,9 @@ abstract contract Base is
     /// @param admin Admin address
     /// @param restaking_ Restaking module address
     /// @param treasury_ Protocol treasury address
+    /// @dev H-5 SECURITY: After deployment, DEFAULT_ADMIN_ROLE should be transferred to a
+    ///      TangleTimelock contract to enforce governance delays on critical admin operations.
+    ///      Failure to do so leaves the protocol vulnerable to instant malicious admin actions.
     // forge-lint: disable-next-line(mixed-case-function)
     function __Base_init(
         address admin,
@@ -154,6 +157,7 @@ abstract contract Base is
         __ReentrancyGuard_init();
         __AccessControl_init();
 
+        // H-5 WARNING: Transfer DEFAULT_ADMIN_ROLE to TangleTimelock post-deployment
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(PAUSER_ROLE, admin);
@@ -650,6 +654,9 @@ abstract contract Base is
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MANAGER HOOKS
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WARNING: Blueprint managers are trusted contracts. A malicious manager
+    // can manipulate state during callbacks. Only register audited managers.
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Call manager with revert on failure

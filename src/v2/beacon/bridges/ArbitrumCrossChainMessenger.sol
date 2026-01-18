@@ -65,6 +65,8 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     event MinGasLimitUpdated(uint256 oldLimit, uint256 newLimit);
     event GasBufferUpdated(uint256 oldBuffer, uint256 newBuffer);
 
+    /// @dev SECURITY: For production, owner should be a timelock or multisig.
+    /// Critical parameters (minGasLimit, gasBufferBps) affect cross-chain security.
     constructor(address _inbox) {
         inbox = IArbitrumInbox(_inbox);
         owner = msg.sender;

@@ -79,6 +79,8 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
     error InsufficientMsgValue(uint256 required, uint256 provided);
     error RefundFailed();
 
+    /// @dev SECURITY: For production, owner should be a timelock or multisig.
+    /// Critical parameters (minGasLimit, gasBufferBps) affect cross-chain security.
     constructor(address _mailbox, address _igp) {
         mailbox = IHyperlaneMailbox(_mailbox);
         igp = IInterchainGasPaymaster(_igp);

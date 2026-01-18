@@ -22,7 +22,7 @@ contract RestakingAdminFacet is RestakingFacetBase, IFacetSelectors {
     event CommissionChangeCancelled(uint16 cancelledBps);
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](15);
+        selectorList = new bytes4[](16);
         selectorList[0] = this.addSlasher.selector;
         selectorList[1] = this.removeSlasher.selector;
         selectorList[2] = this.setOperatorCommission.selector;
@@ -40,6 +40,8 @@ contract RestakingAdminFacet is RestakingFacetBase, IFacetSelectors {
         selectorList[13] = this.getPendingCommissionChange.selector;
         // M-7 FIX: Dust sweep function
         selectorList[14] = this.sweepDust.selector;
+        // H-1 FIX: Pending slash count recovery
+        selectorList[15] = this.resetPendingSlashCount.selector;
     }
 
     /// @notice Add a slasher
@@ -53,7 +55,9 @@ contract RestakingAdminFacet is RestakingFacetBase, IFacetSelectors {
     }
 
     /// @notice Set the Tangle contract for blueprint management
-    /// @dev M-10 FIX: Also stores reference for active service queries
+    /// @dev CRITICAL: Tangle address has broad write access (slashing, blueprint management).
+    /// Only set to the verified Tangle core contract. Consider timelock for changes.
+    /// M-10 FIX: Also stores reference for active service queries
     /// @param tangle Address of the Tangle contract
     function setTangle(address tangle) external onlyRole(ADMIN_ROLE) {
         _grantRole(TANGLE_ROLE, tangle);
@@ -185,5 +189,14 @@ contract RestakingAdminFacet is RestakingFacetBase, IFacetSelectors {
     function sweepDust(address token, address recipient) external onlyRole(ADMIN_ROLE) returns (uint256 amount) {
         require(recipient != address(0), "Invalid recipient");
         return _sweepDust(token, recipient);
+    }
+
+    /// @notice H-1 FIX: Reset pending slash count when it drifts from actual pending slashes
+    /// @dev Admin-only recovery function for when count becomes inconsistent
+    /// @param operator The operator to reset
+    /// @param count The correct pending slash count
+    function resetPendingSlashCount(address operator, uint64 count) external override onlyRole(ADMIN_ROLE) {
+        _operatorPendingSlashCount[operator] = count;
+        emit PendingSlashCountReset(operator, count);
     }
 }

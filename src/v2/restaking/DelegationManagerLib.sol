@@ -424,6 +424,13 @@ abstract contract DelegationManagerLib is OperatorManager {
         while (i < requests.length) {
             Types.BondLessRequest storage req = requests[i];
 
+            // M-5 FIX: Skip requests for operators with pending slashes
+            // This prevents delegators from front-running slash execution at unstake time
+            if (_operatorPendingSlashCount[req.operator] > 0) {
+                i++;
+                continue;
+            }
+
             if (currentRound >= req.requestedRound + delegationBondLessDelay) {
                 bytes32 assetHash = _assetHash(req.asset);
                 uint256 amountToReturn = 0;

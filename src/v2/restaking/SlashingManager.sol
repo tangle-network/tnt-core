@@ -106,6 +106,7 @@ abstract contract SlashingManager is RewardsManager {
 
     event PendingSlashIncremented(address indexed operator, uint64 newCount);
     event PendingSlashDecremented(address indexed operator, uint64 newCount);
+    event PendingSlashCountReset(address indexed operator, uint64 newCount);
 
     /// @notice Increment pending slash count for an operator
     /// @dev Called by Tangle when a slash is proposed
@@ -130,6 +131,18 @@ abstract contract SlashingManager is RewardsManager {
     /// @return count Number of pending slashes
     function getPendingSlashCount(address operator) external view virtual returns (uint64) {
         return _operatorPendingSlashCount[operator];
+    }
+
+    /// @notice H-1 FIX: Reset pending slash count when it drifts from actual pending slashes
+    /// @dev Admin-only recovery function for when count becomes inconsistent.
+    ///      Default implementation reverts - must be overridden with access control.
+    /// @param operator The operator to reset
+    /// @param count The correct pending slash count
+    function resetPendingSlashCount(address operator, uint64 count) external virtual {
+        // Silence unused variable warnings - this default reverts for security
+        operator;
+        count;
+        revert DelegationErrors.Unauthorized();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -263,6 +276,11 @@ abstract contract SlashingManager is RewardsManager {
         for (uint256 i = 0; i < commitmentsLength;) {
             Types.AssetSecurityCommitment calldata commitment = commitments[i];
             uint256 effectiveBps = (uint256(slashBps) * commitment.exposureBps) / BPS_DENOMINATOR;
+            // M-19 FIX: Ensure minimum 1 bps if both inputs are non-zero
+            // This prevents rounding to zero when small percentages are multiplied
+            if (slashBps > 0 && commitment.exposureBps > 0 && effectiveBps == 0) {
+                effectiveBps = 1;
+            }
             if (effectiveBps == 0) {
                 unchecked { ++i; }
                 continue;
@@ -335,7 +353,11 @@ abstract contract SlashingManager is RewardsManager {
         uint256 totalFixedSlash = 0;
         uint256 totalSlashed = actualOperatorSlash + actualAllSlash;
 
+        // H-6 FIX: Collect callback data during loop, execute after state updates
         uint256 bpCount = _operatorBlueprints[operator].length();
+        uint64[] memory callbackBlueprintIds = new uint64[](bpCount);
+        uint256 callbackCount = 0;
+
         for (uint256 i = 0; i < bpCount;) {
             uint64 blueprintId = uint64(_operatorBlueprints[operator].at(i));
             Types.OperatorRewardPool storage bpPool = _blueprintPools[operator][blueprintId][assetHash];
@@ -345,8 +367,10 @@ abstract contract SlashingManager is RewardsManager {
             totalFixedSlash += actualFixedSlash;
             totalSlashed += actualFixedSlash;
 
-            if (_serviceFeeDistributor != address(0) && fixedHasDelegators && actualFixedSlash > 0) {
-                try IServiceFeeDistributor(_serviceFeeDistributor).onFixedModeSlashed(operator, blueprintId, asset, slashBps) {} catch {}
+            // Collect callback data instead of making external call during iteration
+            if (fixedHasDelegators && actualFixedSlash > 0) {
+                callbackBlueprintIds[callbackCount] = blueprintId;
+                unchecked { ++callbackCount; }
             }
             unchecked { ++i; }
         }
@@ -367,8 +391,15 @@ abstract contract SlashingManager is RewardsManager {
             evidence: evidence
         });
 
-        if (_serviceFeeDistributor != address(0) && allHasDelegators && actualAllSlash > 0) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onAllModeSlashed(operator, asset, slashBps) {} catch {}
+        // H-6 FIX: Execute all callbacks AFTER state updates complete
+        if (_serviceFeeDistributor != address(0)) {
+            if (allHasDelegators && actualAllSlash > 0) {
+                try IServiceFeeDistributor(_serviceFeeDistributor).onAllModeSlashed(operator, asset, slashBps) {} catch {}
+            }
+            for (uint256 i = 0; i < callbackCount;) {
+                try IServiceFeeDistributor(_serviceFeeDistributor).onFixedModeSlashed(operator, callbackBlueprintIds[i], asset, slashBps) {} catch {}
+                unchecked { ++i; }
+            }
         }
 
         uint256 minStake = _assetConfigs[assetHash].minOperatorStake;
@@ -614,6 +645,15 @@ abstract contract SlashingManager is RewardsManager {
     function getSlashCountForBlueprint(uint64 blueprintId, address operator) external view returns (uint64) {
         return blueprintSlashCount[blueprintId][operator];
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STORAGE GAP
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @dev Reserved storage gap for future upgrades.
+    /// SlashingManager uses ~6 storage slots (slashHistory, nextSlashId, serviceSlashCount,
+    /// blueprintSlashCount, plus inherited state). Gap size: 50 - 6 = 44 slots.
+    uint256[44] private __slashingGap;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ROUND SNAPSHOTS (for historical slashing)

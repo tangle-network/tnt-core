@@ -234,6 +234,8 @@ contract InflationPool is
     error ZeroAddress();
     /// @notice M-16 FIX: Participant hasn't met minimum stake duration
     error MinStakeDurationNotMet(address participant, uint256 registeredEpoch, uint256 currentEpoch, uint256 minEpochs);
+    /// @notice M-6 FIX: minStakeEpochs must be at least 1
+    error MinStakeEpochsTooLow();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -1022,8 +1024,10 @@ contract InflationPool is
     }
 
     /// @notice M-16 FIX: Set minimum stake epochs before rewards can be earned
-    /// @param newMinEpochs Minimum number of epochs (0 to disable, max 52 for ~1 year with weekly epochs)
+    /// @param newMinEpochs Minimum number of epochs (1-52, ~1 week to ~1 year with weekly epochs)
     function setMinStakeEpochs(uint256 newMinEpochs) external onlyRole(ADMIN_ROLE) {
+        // M-6 FIX: Enforce minimum of 1 epoch to prevent flash stake attacks
+        if (newMinEpochs < 1) revert MinStakeEpochsTooLow();
         // Cap at reasonable maximum to prevent admin abuse
         if (newMinEpochs > 52) revert InvalidEpochLength();
         minStakeEpochs = newMinEpochs;

@@ -37,6 +37,8 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     error UnauthorizedSender();
     error InvalidPayload();
     error SlashingFailed();
+    error SenderNotPending();
+    error SenderActivationTooEarly(uint256 activationTime);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -56,6 +58,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     );
 
     event AuthorizedSenderUpdated(uint256 indexed chainId, address indexed sender, bool authorized);
+    event AuthorizedSenderScheduled(uint256 indexed chainId, address indexed sender, uint256 activationTime);
     event MessengerUpdated(address indexed oldMessenger, address indexed newMessenger);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -64,6 +67,9 @@ contract L2SlashingReceiver is ICrossChainReceiver {
 
     /// @notice Message type for beacon chain slashing
     bytes4 public constant SLASH_MESSAGE_TYPE = bytes4(keccak256("BEACON_SLASH"));
+
+    /// @notice H-4 FIX: Delay before new authorized senders become active
+    uint256 public constant SENDER_ACTIVATION_DELAY = 2 days;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
@@ -80,6 +86,10 @@ contract L2SlashingReceiver is ICrossChainReceiver {
 
     /// @notice Authorized senders per source chain (chainId => sender => authorized)
     mapping(uint256 => mapping(address => bool)) public authorizedSenders;
+
+    /// @notice H-4 FIX: Pending authorized senders with activation timestamp
+    /// @dev chainId => sender => activation timestamp (0 means not pending)
+    mapping(uint256 => mapping(address => uint256)) public pendingAuthorizedSenders;
 
     /// @notice Nonce for deduplication (sourceChain => sender => nonce => processed)
     mapping(uint256 => mapping(address => mapping(uint256 => bool))) public processedNonces;
@@ -200,14 +210,35 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     // ADMIN
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Authorize a sender from a source chain
+    /// @notice H-4 FIX: Schedule authorization of a sender (subject to timelock)
+    /// @dev For revoking authorization, takes effect immediately
     function setAuthorizedSender(
         uint256 chainId,
         address sender,
         bool authorized
     ) external onlyOwner {
-        authorizedSenders[chainId][sender] = authorized;
-        emit AuthorizedSenderUpdated(chainId, sender, authorized);
+        if (!authorized) {
+            // Revocation is immediate
+            authorizedSenders[chainId][sender] = false;
+            pendingAuthorizedSenders[chainId][sender] = 0;
+            emit AuthorizedSenderUpdated(chainId, sender, false);
+        } else {
+            // Authorization is timelocked
+            uint256 activationTime = block.timestamp + SENDER_ACTIVATION_DELAY;
+            pendingAuthorizedSenders[chainId][sender] = activationTime;
+            emit AuthorizedSenderScheduled(chainId, sender, activationTime);
+        }
+    }
+
+    /// @notice H-4 FIX: Activate a pending authorized sender after delay
+    function activateAuthorizedSender(uint256 chainId, address sender) external onlyOwner {
+        uint256 activationTime = pendingAuthorizedSenders[chainId][sender];
+        if (activationTime == 0) revert SenderNotPending();
+        if (block.timestamp < activationTime) revert SenderActivationTooEarly(activationTime);
+
+        authorizedSenders[chainId][sender] = true;
+        pendingAuthorizedSenders[chainId][sender] = 0;
+        emit AuthorizedSenderUpdated(chainId, sender, true);
     }
 
     /// @notice Update the messenger address

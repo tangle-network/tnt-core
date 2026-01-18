@@ -23,6 +23,11 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     // CONSTANTS & IMMUTABLES
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice M-20 FIX: Virtual shares/assets offset to prevent first-depositor inflation attack
+    /// @dev Following OpenZeppelin ERC4626 pattern, consistent with DelegationManagerLib
+    uint256 internal constant VIRTUAL_SHARES = 1e3;
+    uint256 internal constant VIRTUAL_ASSETS = 1e3;
+
     /// @notice The underlying restaking contract
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IMultiAssetDelegation public immutable restaking;
@@ -134,28 +139,21 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     }
 
     /// @notice Convert assets to shares
+    /// @dev M-20 FIX: Uses virtual offset to prevent first-depositor inflation attack
     /// @param assets Amount of assets
     /// @return shares Number of shares
     function convertToShares(uint256 assets) public view returns (uint256 shares) {
-        uint256 supply = totalSupply();
-        uint256 total = totalAssets();
-
-        if (supply == 0 || total == 0) {
-            return assets; // 1:1 for first deposit
-        }
-        return assets.mulDiv(supply, total, Math.Rounding.Floor);
+        // M-20 FIX: Virtual offset prevents inflation attack by ensuring well-defined exchange rate
+        return assets.mulDiv(totalSupply() + VIRTUAL_SHARES, totalAssets() + VIRTUAL_ASSETS, Math.Rounding.Floor);
     }
 
     /// @notice Convert shares to assets
+    /// @dev M-20 FIX: Uses virtual offset to prevent first-depositor inflation attack
     /// @param shares Number of shares
     /// @return assets Amount of assets
     function convertToAssets(uint256 shares) public view returns (uint256 assets) {
-        uint256 supply = totalSupply();
-
-        if (supply == 0) {
-            return shares; // 1:1 for empty vault
-        }
-        return shares.mulDiv(totalAssets(), supply, Math.Rounding.Floor);
+        // M-20 FIX: Virtual offset prevents inflation attack by ensuring well-defined exchange rate
+        return shares.mulDiv(totalAssets() + VIRTUAL_ASSETS, totalSupply() + VIRTUAL_SHARES, Math.Rounding.Floor);
     }
 
     /// @notice Get blueprint IDs for this vault

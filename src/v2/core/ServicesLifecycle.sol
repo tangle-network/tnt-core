@@ -458,8 +458,10 @@ abstract contract ServicesLifecycle is Base {
         }
     }
 
-    /// @notice Force remove an operator from a service
-    /// @dev Only callable by the blueprint manager. Useful for removing misbehaving operators.
+    /// @notice Force remove operator from service - EMERGENCY USE ONLY
+    /// @dev WARNING: Bypasses exit queue and minimum operator checks.
+    /// Blueprint managers should use this sparingly as it can degrade service.
+    /// Only callable by the blueprint manager.
     /// @param serviceId The service ID
     /// @param operator The operator to remove
     function forceRemoveOperator(uint64 serviceId, address operator) external nonReentrant {

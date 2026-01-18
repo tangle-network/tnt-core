@@ -19,6 +19,9 @@ abstract contract Slashing is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Propose a slash against an operator
+    /// @dev Trust model: Service owners, blueprint owners, and slashing origins can propose.
+    /// Operators should verify service/blueprint ownership before joining.
+    /// Dispute window provides protection against malicious proposals.
     /// @param serviceId The service ID the operator is being slashed for
     /// @param operator The operator address to slash
     /// @param slashBps The slash amount in basis points (0-10000)
@@ -40,6 +43,8 @@ abstract contract Slashing is Base {
 
         bool authorized = msg.sender == svc.owner || msg.sender == bp.owner;
         if (!authorized && bp.manager != address(0)) {
+            // The slashing origin returned by blueprint manager is trusted.
+            // Operators should audit blueprint manager code before registering.
             try IBlueprintServiceManager(bp.manager).querySlashingOrigin(serviceId) returns (address origin) {
                 authorized = msg.sender == origin;
             } catch {}

@@ -9,12 +9,16 @@ library Types {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Membership model for a service
+    /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
+    /// Changing order will corrupt existing storage. Fixed=0, Dynamic=1.
     enum MembershipModel {
         Fixed,      // Operators are fixed at service creation
         Dynamic     // Operators can join/leave after service activation
     }
 
     /// @notice Pricing model for service payments
+    /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
+    /// Changing order will corrupt existing storage. PayOnce=0, Subscription=1, EventDriven=2.
     enum PricingModel {
         PayOnce,        // Single payment at service request
         Subscription,   // Recurring payments per interval
@@ -277,6 +281,8 @@ library Types {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Service status
+    /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
+    /// Changing order will corrupt existing storage. Pending=0, Active=1, Terminated=2.
     enum ServiceStatus {
         Pending,     // Waiting for operator approvals
         Active,      // Running
@@ -378,6 +384,8 @@ library Types {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Asset type for multi-asset support
+    /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
+    /// Changing order will corrupt existing storage. Native=0, ERC20=1.
     enum AssetKind {
         Native,     // Native token (ETH)
         ERC20       // ERC20 token
@@ -449,6 +457,8 @@ library Types {
     }
 
     /// @notice Operator status
+    /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
+    /// Changing order will corrupt existing storage. Active=0, Inactive=1, Leaving=2.
     enum OperatorStatus {
         Active,
         Inactive,
