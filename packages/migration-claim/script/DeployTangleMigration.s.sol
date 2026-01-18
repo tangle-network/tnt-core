@@ -26,6 +26,12 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  *   SP1_VERIFIER         - SP1 Verifier Gateway address (default: Base gateway)
  *   PROGRAM_VKEY         - SP1 program verification key
  *   USE_MOCK_VERIFIER    - Set to "true" for testing without real ZK proofs
+ *   TREASURY_RECIPIENT   - Address to receive treasury allocation (vested)
+ *   TREASURY_AMOUNT      - Treasury allocation in wei (0% unlocked, 100% vested)
+ *   FOUNDATION_RECIPIENT - Address to receive foundation allocation
+ *   FOUNDATION_AMOUNT    - Foundation allocation in wei (2% of total supply unlocked, rest vested)
+ *   LIQUIDITY_OPS_RECIPIENT - Address to receive liquidity ops allocation
+ *   LIQUIDITY_OPS_AMOUNT    - Liquidity ops allocation in wei (100% liquid)
  *
  * Usage:
  *   # Use the deploy-migration.sh wrapper script which reads from distribution.json:
@@ -71,8 +77,10 @@ contract DeployTangleMigration is Script {
         uint256 treasuryAmount = vm.envOr("TREASURY_AMOUNT", uint256(0));
         address foundationRecipient = _envAddressOrZero("FOUNDATION_RECIPIENT");
         uint256 foundationAmount = vm.envOr("FOUNDATION_AMOUNT", uint256(0));
+        address liquidityOpsRecipient = _envAddressOrZero("LIQUIDITY_OPS_RECIPIENT");
+        uint256 liquidityOpsAmount = vm.envOr("LIQUIDITY_OPS_AMOUNT", uint256(0));
 
-        uint256 totalSupply = substrateAllocation + evmAllocation + treasuryAmount + foundationAmount;
+        uint256 totalSupply = substrateAllocation + evmAllocation + treasuryAmount + foundationAmount + liquidityOpsAmount;
 
         bool useMockVerifier = vm.envOr("USE_MOCK_VERIFIER", false);
         address sp1VerifierAddr = vm.envOr("SP1_VERIFIER", SP1_VERIFIER_BASE);
@@ -95,6 +103,11 @@ contract DeployTangleMigration is Script {
             console.log("Foundation Allocation (wei):", foundationAmount);
             console.log("Foundation Allocation (TNT):", foundationAmount / 1e18);
             console.log("Foundation Recipient:", foundationRecipient);
+        }
+        if (liquidityOpsAmount > 0) {
+            console.log("Liquidity Ops Allocation (wei):", liquidityOpsAmount);
+            console.log("Liquidity Ops Allocation (TNT):", liquidityOpsAmount / 1e18);
+            console.log("Liquidity Ops Recipient:", liquidityOpsRecipient);
         }
         console.log("Total Supply (TNT):", totalSupply / 1e18);
         console.log("Use Mock Verifier:", useMockVerifier);
@@ -194,12 +207,13 @@ contract DeployTangleMigration is Script {
             console.log("   Cliff: 12 months, Linear: 24 months (3 years total)");
         }
 
-        // 9. Optional: Foundation allocation (1% unlocked, 99% vested with 12-month cliff + 24-month linear)
+        // 9. Optional: Foundation allocation (2% of total supply unlocked, rest vested with 12-month cliff + 24-month linear)
         if (foundationAmount > 0) {
             require(foundationRecipient != address(0), "FOUNDATION_RECIPIENT required when FOUNDATION_AMOUNT > 0");
 
-            // Foundation: 1% unlocked immediately, 99% vested
-            uint256 foundationUnlocked = (foundationAmount * 100) / 10_000; // 1%
+            // Foundation: 2% of TOTAL SUPPLY unlocked immediately, rest vested
+            uint256 foundationUnlocked = (totalSupply * 200) / 10_000; // 2% of total supply
+            require(foundationUnlocked <= foundationAmount, "Foundation allocation too small for 2% total supply unlock");
             uint256 foundationVested = foundationAmount - foundationUnlocked;
 
             // Transfer unlocked portion directly
@@ -216,12 +230,23 @@ contract DeployTangleMigration is Script {
             );
             require(tntToken.transfer(foundationVesting, foundationVested), "Foundation vesting transfer failed");
 
-            console.log("\n6. Foundation Allocation (1% unlocked, 99% vested):");
+            console.log("\n6. Foundation Allocation (2% of total supply unlocked):");
             console.log("   Total:", foundationAmount / 1e18, "TNT");
-            console.log("   Unlocked (1%):", foundationUnlocked / 1e18, "TNT to", foundationRecipient);
-            console.log("   Vested (99%):", foundationVested / 1e18, "TNT");
+            console.log("   Unlocked (2% of total supply):", foundationUnlocked / 1e18, "TNT to", foundationRecipient);
+            console.log("   Vested:", foundationVested / 1e18, "TNT");
             console.log("   Vesting contract:", foundationVesting);
             console.log("   Cliff: 12 months, Linear: 24 months (3 years total)");
+        }
+
+        // 10. Optional: Liquidity Ops allocation (100% liquid for liquidity/operational expenses)
+        if (liquidityOpsAmount > 0) {
+            require(liquidityOpsRecipient != address(0), "LIQUIDITY_OPS_RECIPIENT required when LIQUIDITY_OPS_AMOUNT > 0");
+
+            // Liquidity Ops: 100% unlocked immediately
+            require(tntToken.transfer(liquidityOpsRecipient, liquidityOpsAmount), "Liquidity Ops transfer failed");
+
+            console.log("\n7. Liquidity Ops Allocation (100% liquid):");
+            console.log("   Total:", liquidityOpsAmount / 1e18, "TNT to", liquidityOpsRecipient);
         }
 
         vm.stopBroadcast();

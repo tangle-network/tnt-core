@@ -14,10 +14,11 @@ import {TNTVestingFactory} from "./lockups/TNTVestingFactory.sol";
 /// @dev Substrate address holders must prove key ownership via ZK proof to claim
 ///
 /// Vesting Schedule (default 3 years total):
-/// - 2% unlocked immediately at claim
+/// - 2% unlocked immediately at claim (0% for restricted accounts)
 /// - 12-month cliff (no vesting during this period)
-/// - 98% vested linearly over 24 months after cliff
+/// - 98-100% vested linearly over 24 months after cliff
 /// - Configurable: deploy new TNTVestingFactory with custom cliff/vesting durations
+/// - Restricted accounts (investors/team) can be marked via setRestrictedUnlock() for 0% TGE unlock
 contract TangleMigration is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -66,6 +67,9 @@ contract TangleMigration is Ownable, ReentrancyGuard {
     /// @notice Factory that deploys per-beneficiary vesting contracts
     TNTVestingFactory public vestingFactory;
 
+    /// @notice Accounts with restricted unlock (0% at TGE, e.g., investors/team)
+    mapping(bytes32 => bool) public restrictedUnlock;
+
     // ═══════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════
@@ -88,6 +92,7 @@ contract TangleMigration is Ownable, ReentrancyGuard {
     event VestingConfigUpdated(address vestingFactory, uint64 cliffDuration, uint64 vestingDuration, uint16 unlockedBps);
     event AdminClaimed(bytes32 indexed pubkey, address indexed recipient, uint256 amount);
     event UnclaimedSweptToTreasury(address indexed treasury, uint256 amount);
+    event RestrictedUnlockSet(bytes32[] pubkeys, bool restricted);
 
     // ═══════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -111,6 +116,7 @@ contract TangleMigration is Ownable, ReentrancyGuard {
     error MerkleRootLocked();
     error ZKVerifierLocked();
     error ETHTransferFailed();
+    error RestrictedUnlockLocked();
 
     // ═══════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -315,6 +321,18 @@ contract TangleMigration is Ownable, ReentrancyGuard {
         );
     }
 
+    /// @notice Mark accounts as restricted (0% unlocked at TGE, full vesting)
+    /// @dev Use for investors/team accounts. Only callable before first claim.
+    /// @param pubkeys Array of Substrate pubkeys to mark
+    /// @param restricted True to restrict (0% unlock), false to use default
+    function setRestrictedUnlock(bytes32[] calldata pubkeys, bool restricted) external onlyOwner {
+        if (totalClaimed != 0) revert RestrictedUnlockLocked();
+        for (uint256 i = 0; i < pubkeys.length; i++) {
+            restrictedUnlock[pubkeys[i]] = restricted;
+        }
+        emit RestrictedUnlockSet(pubkeys, restricted);
+    }
+
     /// @notice Pause or unpause claims
     /// @param _paused True to pause, false to unpause
     function setPaused(bool _paused) external onlyOwner {
@@ -369,7 +387,9 @@ contract TangleMigration is Ownable, ReentrancyGuard {
         totalClaimed += amount;
 
         // Calculate unlocked vs vested amounts
-        uint256 unlockedAmount = (amount * unlockedBps) / 10_000;
+        // Restricted accounts (investors/team) get 0% unlocked
+        uint16 effectiveUnlockedBps = restrictedUnlock[pubkey] ? 0 : unlockedBps;
+        uint256 unlockedAmount = (amount * effectiveUnlockedBps) / 10_000;
         uint256 vestedAmount = amount - unlockedAmount;
 
         // Transfer unlocked portion directly

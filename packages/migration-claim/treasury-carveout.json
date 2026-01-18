@@ -1,6 +1,7 @@
 {
   "label": "substrate-module-accounts",
-  "amount": "41844468761091374585756819",
+  "amount": "36844468761091374585756819",
+  "note": "Original 41,844,469 TNT minus 5,000,000 TNT for Liquidity Ops",
   "accounts": [
     {
       "ss58": "tgESRfUwSzo4gtPRvcSGjVaSj6BRgiXiiz5UoH8W9TNQYw7Tm",
