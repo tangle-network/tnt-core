@@ -199,6 +199,7 @@ library Types {
         BlueprintFieldKind kind;
         uint16 arrayLength;
         BlueprintFieldType[] children;
+        string name;
     }
 
     /// @notice Primitive kinds supported within blueprint schemas

@@ -78,6 +78,7 @@ abstract contract BlueprintDefinitionHelper {
         fields[0].kind = Types.BlueprintFieldKind.Bool;
         fields[0].arrayLength = 0;
         fields[0].children = new Types.BlueprintFieldType[](0);
+        fields[0].name = "flag";
         return SchemaLib.encodeSchema(fields);
     }
 
@@ -86,9 +87,12 @@ abstract contract BlueprintDefinitionHelper {
         for (uint256 i = 0; i < fields.length; ++i) {
             fields[i].arrayLength = 0;
             fields[i].children = new Types.BlueprintFieldType[](0);
+            fields[i].name = "";
         }
         fields[0].kind = Types.BlueprintFieldKind.Bool;
+        fields[0].name = "flag";
         fields[1].kind = Types.BlueprintFieldKind.Uint32;
+        fields[1].name = "value";
         return SchemaLib.encodeSchema(fields);
     }
 
@@ -96,11 +100,14 @@ abstract contract BlueprintDefinitionHelper {
     function _requestStructBoolUint16Schema() internal pure returns (bytes memory) {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.Struct;
+        fields[0].name = "data";
         fields[0].children = new Types.BlueprintFieldType[](2);
         fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
         fields[0].children[0].children = new Types.BlueprintFieldType[](0);
+        fields[0].children[0].name = "flag";
         fields[0].children[1].kind = Types.BlueprintFieldKind.Uint16;
         fields[0].children[1].children = new Types.BlueprintFieldType[](0);
+        fields[0].children[1].name = "value";
         return SchemaLib.encodeSchema(fields);
     }
 
@@ -108,9 +115,11 @@ abstract contract BlueprintDefinitionHelper {
     function _requestListOfBoolSchema() internal pure returns (bytes memory) {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.List;
+        fields[0].name = "flags";
         fields[0].children = new Types.BlueprintFieldType[](1);
         fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
         fields[0].children[0].children = new Types.BlueprintFieldType[](0);
+        fields[0].children[0].name = "";
         return SchemaLib.encodeSchema(fields);
     }
 
@@ -119,9 +128,11 @@ abstract contract BlueprintDefinitionHelper {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.Array;
         fields[0].arrayLength = length;
+        fields[0].name = "bools";
         fields[0].children = new Types.BlueprintFieldType[](1);
         fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
         fields[0].children[0].children = new Types.BlueprintFieldType[](0);
+        fields[0].children[0].name = "";
         return SchemaLib.encodeSchema(fields);
     }
 
@@ -129,9 +140,11 @@ abstract contract BlueprintDefinitionHelper {
     function _optionalBoolFieldSchema() internal pure returns (bytes memory) {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.Optional;
+        fields[0].name = "optionalFlag";
         fields[0].children = new Types.BlueprintFieldType[](1);
         fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
         fields[0].children[0].children = new Types.BlueprintFieldType[](0);
+        fields[0].children[0].name = "";
         return SchemaLib.encodeSchema(fields);
     }
 
