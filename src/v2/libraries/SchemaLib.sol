@@ -15,6 +15,9 @@ library SchemaLib {
     uint256 private constant MAX_LIST_LENGTH = 10000;
     uint256 private constant MAX_STRUCT_FIELDS = 256;
 
+    // Schema version constant for TLV format
+    uint8 internal constant SCHEMA_VERSION = 0x02; // TLV format with field names
+
     struct ValidationContext {
         Types.SchemaTarget target;
         uint64 refId;
@@ -26,7 +29,7 @@ library SchemaLib {
     // SCHEMA ENCODING
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Encode a schema tree into canonical bytes
+    /// @notice Encode a schema tree into canonical bytes (version 2 format with field names)
     function encodeSchema(Types.BlueprintFieldType[] memory source) internal pure returns (bytes memory) {
         if (source.length == 0) {
             return bytes("");
@@ -35,20 +38,53 @@ library SchemaLib {
             revert Errors.SchemaTooLarge();
         }
 
-        uint256 totalNodes = _countNodes(source);
-        bytes memory out = new bytes(2 + totalNodes * NODE_HEADER_SIZE);
-        _writeUint16(out, 0, uint16(source.length));
+        // Calculate total size including version byte and names
+        uint256 totalSize = 1 + 2; // version byte + field_count
+        totalSize += _calculateEncodedSize(source);
 
-        uint256 cursor = 2;
+        bytes memory out = new bytes(totalSize);
+
+        // Write version byte
+        out[0] = bytes1(SCHEMA_VERSION);
+
+        // Write field count
+        _writeUint16(out, 1, uint16(source.length));
+
+        uint256 cursor = 3;
         for (uint256 i = 0; i < source.length; ++i) {
             cursor = _writeField(out, cursor, source[i]);
         }
         return out;
     }
 
-    function _countNodes(Types.BlueprintFieldType[] memory source) private pure returns (uint256 count) {
-        for (uint256 i = 0; i < source.length; ++i) {
-            count += 1 + _countNodes(source[i].children);
+    function _calculateEncodedSize(Types.BlueprintFieldType[] memory fields) private pure returns (uint256 size) {
+        for (uint256 i = 0; i < fields.length; ++i) {
+            size += _calculateFieldSize(fields[i]);
+        }
+    }
+
+    function _calculateFieldSize(Types.BlueprintFieldType memory field) private pure returns (uint256 size) {
+        // Header (5 bytes) + name length encoding + name bytes
+        size = NODE_HEADER_SIZE;
+        uint256 nameLen = bytes(field.name).length;
+        size += _compactLengthSize(nameLen);
+        size += nameLen;
+
+        // Add children recursively
+        for (uint256 i = 0; i < field.children.length; ++i) {
+            size += _calculateFieldSize(field.children[i]);
+        }
+    }
+
+    function _compactLengthSize(uint256 len) private pure returns (uint256) {
+        if (len < 0x80) {
+            return 1;
+        } else if (len < 0x4000) {
+            return 2;
+        } else if (len < 0x200000) {
+            return 3;
+        } else {
+            return 4;
         }
     }
 
@@ -61,12 +97,63 @@ library SchemaLib {
             revert Errors.SchemaTooLarge();
         }
 
+        // Write 5-byte header
         _writeHeader(out, cursor, field);
         cursor += NODE_HEADER_SIZE;
+
+        // Write field name
+        cursor = _writeCompactString(out, cursor, field.name);
+
+        // Write children recursively
         for (uint256 i = 0; i < field.children.length; ++i) {
             cursor = _writeField(out, cursor, field.children[i]);
         }
         return cursor;
+    }
+
+    function _writeCompactString(
+        bytes memory out,
+        uint256 cursor,
+        string memory str
+    ) private pure returns (uint256) {
+        bytes memory strBytes = bytes(str);
+        uint256 len = strBytes.length;
+
+        // Write compact length
+        cursor = _writeCompactLength(out, cursor, len);
+
+        // Write string bytes
+        for (uint256 i = 0; i < len; ++i) {
+            out[cursor + i] = strBytes[i];
+        }
+
+        return cursor + len;
+    }
+
+    function _writeCompactLength(
+        bytes memory out,
+        uint256 cursor,
+        uint256 len
+    ) private pure returns (uint256) {
+        if (len < 0x80) {
+            out[cursor] = bytes1(uint8(len));
+            return cursor + 1;
+        } else if (len < 0x4000) {
+            out[cursor] = bytes1(uint8(0x80 | (len >> 8)));
+            out[cursor + 1] = bytes1(uint8(len & 0xFF));
+            return cursor + 2;
+        } else if (len < 0x200000) {
+            out[cursor] = bytes1(uint8(0xC0 | (len >> 16)));
+            out[cursor + 1] = bytes1(uint8((len >> 8) & 0xFF));
+            out[cursor + 2] = bytes1(uint8(len & 0xFF));
+            return cursor + 3;
+        } else {
+            out[cursor] = bytes1(uint8(0xE0 | (len >> 24)));
+            out[cursor + 1] = bytes1(uint8((len >> 16) & 0xFF));
+            out[cursor + 2] = bytes1(uint8((len >> 8) & 0xFF));
+            out[cursor + 3] = bytes1(uint8(len & 0xFF));
+            return cursor + 4;
+        }
     }
 
     function _writeHeader(bytes memory out, uint256 offset, Types.BlueprintFieldType memory field) private pure {
@@ -146,15 +233,27 @@ library SchemaLib {
         uint64 refId,
         uint64 auxId
     ) private pure {
-        if (schema.length < 2) {
+        if (schema.length < 3) {
             revert Errors.SchemaValidationFailed(uint8(target), refId, auxId, 0);
         }
 
-        // M-14 FIX: Initialize depth tracking in context
-        ValidationContext memory ctx = ValidationContext({ target: target, refId: refId, auxId: auxId, depth: 0 });
+        // Verify schema version byte
+        uint8 version = uint8(schema[0]);
+        if (version != SCHEMA_VERSION) {
+            revert Errors.InvalidSchemaVersion(SCHEMA_VERSION, version);
+        }
 
-        uint16 fieldCount = _readUint16(schema, 0);
-        uint256 schemaCursor = 2;
+        // M-14 FIX: Initialize depth tracking in context
+        ValidationContext memory ctx = ValidationContext({
+            target: target,
+            refId: refId,
+            auxId: auxId,
+            depth: 0
+        });
+
+        uint16 fieldCount = _readUint16(schema, 1);
+        uint256 schemaCursor = 3; // 1 byte version + 2 bytes field count
+
         uint256 cursor = 0;
         uint256 payloadLength = payload.length;
 
@@ -478,6 +577,63 @@ library SchemaLib {
         arrayLength = _readUint16(schema, cursor + 1);
         childCount = _readUint16(schema, cursor + 3);
         next = cursor + NODE_HEADER_SIZE;
+
+        // Skip field name (always present in v2 format)
+        (uint256 nameLen, uint256 afterName) = _readSchemaCompactLength(schema, next, ctx, path);
+        next = afterName + nameLen; // Skip name bytes
+    }
+
+    /// @dev Read compact length from schema bytes (different from payload compact length)
+    function _readSchemaCompactLength(
+        bytes memory schema,
+        uint256 cursor,
+        ValidationContext memory ctx,
+        uint256 path
+    ) private pure returns (uint256 value, uint256 next) {
+        if (cursor >= schema.length) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+
+        uint8 first = uint8(schema[cursor]);
+        cursor += 1;
+
+        if (first & 0x80 == 0) {
+            value = first;
+            next = cursor;
+            return (value, next);
+        }
+
+        if (first & 0xC0 == 0x80) {
+            if (cursor >= schema.length) {
+                revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+            }
+            uint8 second = uint8(schema[cursor]);
+            cursor += 1;
+            value = ((uint256(first) & 0x3F) << 8) | uint256(second);
+            next = cursor;
+            return (value, next);
+        }
+
+        if (first & 0xE0 == 0xC0) {
+            if (cursor + 2 > schema.length) {
+                revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+            }
+            value = ((uint256(first) & 0x1F) << 16) |
+                    (uint256(uint8(schema[cursor])) << 8) |
+                    uint256(uint8(schema[cursor + 1]));
+            next = cursor + 2;
+            return (value, next);
+        }
+
+        // 4-byte encoding
+        if (cursor + 3 > schema.length) {
+            revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
+        }
+        value = ((uint256(first) & 0x0F) << 24) |
+                (uint256(uint8(schema[cursor])) << 16) |
+                (uint256(uint8(schema[cursor + 1])) << 8) |
+                uint256(uint8(schema[cursor + 2]));
+        next = cursor + 3;
     }
 
     function _readUint16(bytes memory data, uint256 offset) private pure returns (uint16) {

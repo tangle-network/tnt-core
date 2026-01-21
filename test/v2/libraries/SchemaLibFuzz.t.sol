@@ -215,6 +215,7 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
         fields[0].kind = Types.BlueprintFieldKind.String;
         fields[0].children = new Types.BlueprintFieldType[](0);
         fields[0].arrayLength = 0;
+        fields[0].name = "text";
 
         bytes memory schema = SchemaLib.encodeSchema(fields);
         harness.setRegistrationSchema(schema);
@@ -318,9 +319,12 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.Struct;
         fields[0].arrayLength = 0;
+        fields[0].name = "data";
         fields[0].children = new Types.BlueprintFieldType[](2);
         fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
+        fields[0].children[0].name = "flag";
         fields[0].children[1].kind = Types.BlueprintFieldKind.Uint32;
+        fields[0].children[1].name = "value";
         fields[0].children[0].children = new Types.BlueprintFieldType[](0);
         fields[0].children[1].children = new Types.BlueprintFieldType[](0);
         return SchemaLib.encodeSchema(fields);
@@ -330,8 +334,10 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.List;
         fields[0].arrayLength = 0;
+        fields[0].name = "flags";
         fields[0].children = new Types.BlueprintFieldType[](1);
         fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
+        fields[0].children[0].name = "";
         fields[0].children[0].children = new Types.BlueprintFieldType[](0);
         return SchemaLib.encodeSchema(fields);
     }
@@ -340,8 +346,10 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
         Types.BlueprintFieldType[] memory fields = new Types.BlueprintFieldType[](1);
         fields[0].kind = Types.BlueprintFieldKind.Array;
         fields[0].arrayLength = length;
+        fields[0].name = "bools";
         fields[0].children = new Types.BlueprintFieldType[](1);
         fields[0].children[0].kind = Types.BlueprintFieldKind.Bool;
+        fields[0].children[0].name = "";
         fields[0].children[0].children = new Types.BlueprintFieldType[](0);
         return SchemaLib.encodeSchema(fields);
     }

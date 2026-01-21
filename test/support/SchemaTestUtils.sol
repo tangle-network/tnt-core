@@ -80,6 +80,7 @@ library SchemaTestUtils {
             field.kind = Types.BlueprintFieldKind.FixedBytes;
             field.arrayLength = uint16((nextSeed & 0x1F) + 1);
             field.children = new Types.BlueprintFieldType[](0);
+            field.name = "";
             nextSeed = _nextSeed(nextSeed);
         } else if (variant == 5) {
             field = _scalarField(Types.BlueprintFieldKind.Address);
@@ -89,16 +90,19 @@ library SchemaTestUtils {
             field.kind = Types.BlueprintFieldKind.Optional;
             field.children = new Types.BlueprintFieldType[](1);
             field.children[0] = child;
+            field.name = "";
         } else if (variant == 7) {
             Types.BlueprintFieldType memory child;
             (child, nextSeed) = _buildFieldDefinition(nextSeed, depth + 1);
             field.kind = Types.BlueprintFieldKind.List;
             field.children = new Types.BlueprintFieldType[](1);
             field.children[0] = child;
+            field.name = "";
         } else if (variant == 8) {
             uint8 childCount = uint8((nextSeed & 0x03) + 2);
             field.kind = Types.BlueprintFieldKind.Struct;
             field.children = new Types.BlueprintFieldType[](childCount);
+            field.name = "";
             nextSeed = _nextSeed(nextSeed);
             for (uint8 i = 0; i < childCount; ++i) {
                 Types.BlueprintFieldType memory child;
@@ -112,6 +116,7 @@ library SchemaTestUtils {
             field.arrayLength = uint16((nextSeed & 0x03) + 1);
             field.children = new Types.BlueprintFieldType[](1);
             field.children[0] = child;
+            field.name = "";
             nextSeed = _nextSeed(nextSeed);
         } else if (variant == 10) {
             field = _scalarField(Types.BlueprintFieldKind.Bytes32);
@@ -297,6 +302,7 @@ library SchemaTestUtils {
         field.kind = kind;
         field.arrayLength = 0;
         field.children = new Types.BlueprintFieldType[](0);
+        field.name = "";
     }
 
     function _randomBytes(uint256 length, uint256 seed) private pure returns (bytes memory data) {

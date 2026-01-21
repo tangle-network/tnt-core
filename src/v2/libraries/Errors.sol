@@ -40,6 +40,9 @@ library Errors {
     /// @notice Schema field kind is not supported
     error UnsupportedFieldKind(uint8 kind);
 
+    /// @notice Schema version byte is not the expected version
+    error InvalidSchemaVersion(uint8 expected, uint8 actual);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT
     // ═══════════════════════════════════════════════════════════════════════════
