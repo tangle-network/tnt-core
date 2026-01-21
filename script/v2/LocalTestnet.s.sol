@@ -7,8 +7,8 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { ITangleFull } from "../../src/v2/interfaces/ITangle.sol";
 import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
-import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
-import { OperatorStatusRegistry } from "../../src/v2/restaking/OperatorStatusRegistry.sol";
+import { MultiAssetDelegation } from "../../src/v2/staking/MultiAssetDelegation.sol";
+import { OperatorStatusRegistry } from "../../src/v2/staking/OperatorStatusRegistry.sol";
 import { TangleToken } from "../../src/v2/governance/TangleToken.sol";
 import { MasterBlueprintServiceManager } from "../../src/v2/MasterBlueprintServiceManager.sol";
 import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
@@ -17,8 +17,8 @@ import { BlueprintDefinitionHelper } from "../../test/support/BlueprintDefinitio
 import { MockToken } from "../../test/v2/mocks/MockToken.sol";
 import { ValidatorPodManager } from "../../src/v2/beacon/ValidatorPodManager.sol";
 import { MockBeaconOracle } from "../../src/v2/beacon/BeaconRootReceiver.sol";
-import { LiquidDelegationFactory } from "../../src/v2/restaking/LiquidDelegationFactory.sol";
-import { LiquidDelegationVault } from "../../src/v2/restaking/LiquidDelegationVault.sol";
+import { LiquidDelegationFactory } from "../../src/v2/staking/LiquidDelegationFactory.sol";
+import { LiquidDelegationVault } from "../../src/v2/staking/LiquidDelegationVault.sol";
 import { TangleMetrics } from "../../src/v2/rewards/TangleMetrics.sol";
 import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
 import { InflationPool } from "../../src/v2/rewards/InflationPool.sol";
@@ -37,13 +37,13 @@ import { TangleQuotesFacet } from "../../src/v2/facets/tangle/TangleQuotesFacet.
 import { TangleQuotesExtensionFacet } from "../../src/v2/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
 import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFacet.sol";
-import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
-import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
-import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
-import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
-import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
-import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
+import { StakingOperatorsFacet } from "../../src/v2/facets/staking/StakingOperatorsFacet.sol";
+import { StakingDepositsFacet } from "../../src/v2/facets/staking/StakingDepositsFacet.sol";
+import { StakingDelegationsFacet } from "../../src/v2/facets/staking/StakingDelegationsFacet.sol";
+import { StakingSlashingFacet } from "../../src/v2/facets/staking/StakingSlashingFacet.sol";
+import { StakingAssetsFacet } from "../../src/v2/facets/staking/StakingAssetsFacet.sol";
+import { StakingViewsFacet } from "../../src/v2/facets/staking/StakingViewsFacet.sol";
+import { StakingAdminFacet } from "../../src/v2/facets/staking/StakingAdminFacet.sol";
 
 /// @title LocalTestnetSetup
 /// @notice Deploy and setup a complete local testnet environment for integration testing
@@ -65,7 +65,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     // Deployed contracts
     address public tangleProxy;
-    address public restakingProxy;
+    address public stakingProxy;
     address public statusRegistry;
     TangleToken public tntToken;
 
@@ -150,7 +150,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         console2.log("\n=== Local Testnet Ready ===");
         console2.log("Tangle:", tangleProxy);
-        console2.log("MultiAssetDelegation:", restakingProxy);
+        console2.log("MultiAssetDelegation:", stakingProxy);
         console2.log("OperatorStatusRegistry:", statusRegistry);
         console2.log("Blueprint ID:", blueprintId);
         console2.log("Service ID:", serviceId);
@@ -189,21 +189,21 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
 
         // Deploy MultiAssetDelegation
-        MultiAssetDelegation restakingImpl = new MultiAssetDelegation();
-        bytes memory restakingInit = abi.encodeCall(
+        MultiAssetDelegation stakingImpl = new MultiAssetDelegation();
+        bytes memory stakingInit = abi.encodeCall(
             MultiAssetDelegation.initialize,
             (deployer, 1 ether, 0.1 ether, 1000) // minOpStake, minDelegation, commissionBps
         );
-        restakingProxy = address(new ERC1967Proxy(address(restakingImpl), restakingInit));
-        console2.log("MultiAssetDelegation:", restakingProxy);
+        stakingProxy = address(new ERC1967Proxy(address(stakingImpl), stakingInit));
+        console2.log("MultiAssetDelegation:", stakingProxy);
 
         // Deploy Tangle
         Tangle tangleImpl = new Tangle();
-        bytes memory tangleInit = abi.encodeCall(Tangle.initialize, (deployer, restakingProxy, payable(deployer)));
+        bytes memory tangleInit = abi.encodeCall(Tangle.initialize, (deployer, stakingProxy, payable(deployer)));
         tangleProxy = address(new ERC1967Proxy(address(tangleImpl), tangleInit));
         console2.log("Tangle:", tangleProxy);
 
-        _registerRestakingFacets(restakingProxy);
+        _registerStakingFacets(stakingProxy);
         _registerTangleFacets(tangleProxy);
 
         // Deploy OperatorStatusRegistry
@@ -232,9 +232,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         _distributeTntToken(deployer, deployedNewTNT);
 
         // Configure cross-references
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
-        restaking.addSlasher(tangleProxy);
-        restaking.setTangle(tangleProxy);
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
+        staking.addSlasher(tangleProxy);
+        staking.setTangle(tangleProxy);
 
         Tangle tangle = Tangle(payable(tangleProxy));
         tangle.setOperatorStatusRegistry(statusRegistry);
@@ -308,7 +308,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         serviceFeeDistributor = address(
             new ERC1967Proxy(
                 address(distImpl),
-                abi.encodeCall(ServiceFeeDistributor.initialize, (deployer, restakingProxy, tangleProxy, priceOracle))
+                abi.encodeCall(ServiceFeeDistributor.initialize, (deployer, stakingProxy, tangleProxy, priceOracle))
             )
         );
         console2.log("ServiceFeeDistributor:", serviceFeeDistributor);
@@ -332,15 +332,15 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         // Grant recorder role to protocol contracts
         TangleMetrics(metrics).grantRecorderRole(tangleProxy);
-        TangleMetrics(metrics).grantRecorderRole(restakingProxy);
+        TangleMetrics(metrics).grantRecorderRole(stakingProxy);
         TangleMetrics(metrics).grantRecorderRole(statusRegistry);
 
-        // Wire RewardVaults into restaking + grant manager roles
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
-        restaking.setRewardsManager(rewardVaults);
+        // Wire RewardVaults into staking + grant manager roles
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
+        staking.setRewardsManager(rewardVaults);
         RewardVaults vaults = RewardVaults(rewardVaults);
         bytes32 rmRole = vaults.REWARDS_MANAGER_ROLE();
-        if (!vaults.hasRole(rmRole, restakingProxy)) vaults.grantRole(rmRole, restakingProxy);
+        if (!vaults.hasRole(rmRole, stakingProxy)) vaults.grantRole(rmRole, stakingProxy);
         if (!vaults.hasRole(rmRole, inflationPool)) vaults.grantRole(rmRole, inflationPool);
 
         // Wire fee distributor into Tangle + restaking
@@ -348,7 +348,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         if (priceOracle != address(0)) {
             Tangle(payable(tangleProxy)).setPriceOracle(priceOracle);
         }
-        restaking.setServiceFeeDistributor(serviceFeeDistributor);
+        staking.setServiceFeeDistributor(serviceFeeDistributor);
 
         // Wire restaker inflation to ServiceFeeDistributor
         InflationPool(payable(inflationPool)).setRestakerInflationConfig(tangleProxy, serviceFeeDistributor);
@@ -382,7 +382,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         // Use conservative caps to avoid overflow in RewardVaults math.
         uint256 depositCap = 1_000_000 ether;
 
-        // Native (address(0)) + all configured restaking assets
+        // Native (address(0)) + all configured staking assets
         vaults.createVault(address(0), depositCap);
         vaults.createVault(address(tntToken), depositCap);
         vaults.createVault(address(usdc), depositCap);
@@ -436,7 +436,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             vm.startPrank(deployer);
         }
 
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
 
         // Deploy stablecoins (6 decimals for USDC/USDT)
         usdc = new MockToken("USD Coin", "USDC", 6);
@@ -458,18 +458,18 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         eigen = new MockToken("Eigenlayer", "EIGEN", 18);
         console2.log("EIGEN:", address(eigen));
 
-        // Enable all tokens as restaking assets
+        // Enable all tokens as staking assets
         // Parameters: token, minOperatorStake, minDelegation, depositCap, rewardMultiplierBps
-        restaking.enableAsset(address(usdc), 0, 0, 0, 10_000);
-        restaking.enableAsset(address(usdt), 0, 0, 0, 10_000);
-        restaking.enableAsset(address(dai), 0, 0, 0, 10_000);
-        restaking.enableAsset(address(weth), 0, 0, 0, 12_000); // 1.2x multiplier for WETH
-        restaking.enableAsset(address(stETH), 0, 0, 0, 15_000); // 1.5x multiplier for stETH
-        restaking.enableAsset(address(wstETH), 0, 0, 0, 15_000); // 1.5x multiplier for wstETH
-        restaking.enableAsset(address(eigen), 0, 0, 0, 20_000); // 2x multiplier for EIGEN
-        restaking.enableAsset(address(tntToken), 0, 0, 0, 10_000); // TNT native token
-        restaking.setOperatorBondToken(address(tntToken));
-        console2.log("All tokens enabled as restaking assets");
+        staking.enableAsset(address(usdc), 0, 0, 0, 10_000);
+        staking.enableAsset(address(usdt), 0, 0, 0, 10_000);
+        staking.enableAsset(address(dai), 0, 0, 0, 10_000);
+        staking.enableAsset(address(weth), 0, 0, 0, 12_000); // 1.2x multiplier for WETH
+        staking.enableAsset(address(stETH), 0, 0, 0, 15_000); // 1.5x multiplier for stETH
+        staking.enableAsset(address(wstETH), 0, 0, 0, 15_000); // 1.5x multiplier for wstETH
+        staking.enableAsset(address(eigen), 0, 0, 0, 20_000); // 2x multiplier for EIGEN
+        staking.enableAsset(address(tntToken), 0, 0, 0, 10_000); // TNT native token
+        staking.setOperatorBondToken(address(tntToken));
+        console2.log("All tokens enabled as staking assets");
 
         // Mint tokens to test accounts (use large amounts for testing)
         address[] memory accounts = new address[](10);
@@ -509,7 +509,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     function _registerOperatorsRestaking() internal {
         console2.log("\n=== Registering Operators in Restaking ===");
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
         uint256 operatorBond = 100 ether; // 100 TNT bond
 
         // Operator 1 registers with TNT stake (bond token is TNT)
@@ -518,8 +518,8 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         } else {
             vm.startPrank(operator1);
         }
-        tntToken.approve(restakingProxy, operatorBond);
-        restaking.registerOperatorWithAsset(address(tntToken), operatorBond);
+        tntToken.approve(stakingProxy, operatorBond);
+        staking.registerOperatorWithAsset(address(tntToken), operatorBond);
         console2.log("Operator1 registered with 100 TNT stake");
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -533,8 +533,8 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         } else {
             vm.startPrank(operator2);
         }
-        tntToken.approve(restakingProxy, operatorBond);
-        restaking.registerOperatorWithAsset(address(tntToken), operatorBond);
+        tntToken.approve(stakingProxy, operatorBond);
+        staking.registerOperatorWithAsset(address(tntToken), operatorBond);
         console2.log("Operator2 registered with 100 TNT stake");
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -608,7 +608,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     function _delegatorStake() internal {
         console2.log("\n=== Delegator Staking ===");
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
 
         if (useBroadcastKeys) {
             vm.startBroadcast(DELEGATOR_KEY);
@@ -617,11 +617,11 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
 
         // Deposit and delegate 5 ETH to operator1
-        restaking.depositAndDelegate{ value: 5 ether }(operator1);
+        staking.depositAndDelegate{ value: 5 ether }(operator1);
         console2.log("Delegated 5 ETH to Operator1");
 
         // Deposit and delegate 5 ETH to operator2
-        restaking.depositAndDelegate{ value: 5 ether }(operator2);
+        staking.depositAndDelegate{ value: 5 ether }(operator2);
         console2.log("Delegated 5 ETH to Operator2");
 
         if (useBroadcastKeys) {
@@ -633,7 +633,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     function _delegatorStakeERC20() internal {
         console2.log("\n=== Delegator ERC20 Staking ===");
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
         uint64[] memory emptyBlueprints = new uint64[](0);
 
         if (useBroadcastKeys) {
@@ -643,9 +643,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
 
         // Deposit and delegate USDC
-        usdc.approve(restakingProxy, type(uint256).max);
-        restaking.depositERC20(address(usdc), 10_000 * 10 ** 6); // 10k USDC
-        restaking.delegateWithOptions(
+        usdc.approve(stakingProxy, type(uint256).max);
+        staking.depositERC20(address(usdc), 10_000 * 10 ** 6); // 10k USDC
+        staking.delegateWithOptions(
             operator1, address(usdc), 5000 * 10 ** 6, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
         console2.log("Deposited 10k USDC, delegated 5k to Operator1");
@@ -653,12 +653,12 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         // Deposit and delegate TNT to enable TNT restaker incentive testing.
         uint256 tntBalance = tntToken.balanceOf(delegator);
         if (tntBalance >= 2000 ether) {
-            tntToken.approve(restakingProxy, type(uint256).max);
-            restaking.depositERC20(address(tntToken), 2000 ether);
-            restaking.delegateWithOptions(
+            tntToken.approve(stakingProxy, type(uint256).max);
+            staking.depositERC20(address(tntToken), 2000 ether);
+            staking.delegateWithOptions(
                 operator1, address(tntToken), 1000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
             );
-            restaking.delegateWithOptions(
+            staking.delegateWithOptions(
                 operator2, address(tntToken), 1000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
             );
             console2.log("Deposited 2000 TNT, delegated 1000 to each operator");
@@ -667,49 +667,49 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
 
         // Deposit and delegate USDT
-        usdt.approve(restakingProxy, type(uint256).max);
-        restaking.depositERC20(address(usdt), 10_000 * 10 ** 6); // 10k USDT
-        restaking.delegateWithOptions(
+        usdt.approve(stakingProxy, type(uint256).max);
+        staking.depositERC20(address(usdt), 10_000 * 10 ** 6); // 10k USDT
+        staking.delegateWithOptions(
             operator2, address(usdt), 5000 * 10 ** 6, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
         console2.log("Deposited 10k USDT, delegated 5k to Operator2");
 
         // Deposit and delegate DAI
-        dai.approve(restakingProxy, type(uint256).max);
-        restaking.depositERC20(address(dai), 10_000 ether); // 10k DAI
-        restaking.delegateWithOptions(
+        dai.approve(stakingProxy, type(uint256).max);
+        staking.depositERC20(address(dai), 10_000 ether); // 10k DAI
+        staking.delegateWithOptions(
             operator1, address(dai), 5000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
         console2.log("Deposited 10k DAI, delegated 5k to Operator1");
 
         // Deposit and delegate WETH
-        weth.approve(restakingProxy, type(uint256).max);
-        restaking.depositERC20(address(weth), 10 ether); // 10 WETH
-        restaking.delegateWithOptions(
+        weth.approve(stakingProxy, type(uint256).max);
+        staking.depositERC20(address(weth), 10 ether); // 10 WETH
+        staking.delegateWithOptions(
             operator2, address(weth), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
         console2.log("Deposited 10 WETH, delegated 5 to Operator2");
 
         // Deposit and delegate stETH
-        stETH.approve(restakingProxy, type(uint256).max);
-        restaking.depositERC20(address(stETH), 10 ether); // 10 stETH
-        restaking.delegateWithOptions(
+        stETH.approve(stakingProxy, type(uint256).max);
+        staking.depositERC20(address(stETH), 10 ether); // 10 stETH
+        staking.delegateWithOptions(
             operator1, address(stETH), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
         console2.log("Deposited 10 stETH, delegated 5 to Operator1");
 
         // Deposit and delegate wstETH
-        wstETH.approve(restakingProxy, type(uint256).max);
-        restaking.depositERC20(address(wstETH), 10 ether); // 10 wstETH
-        restaking.delegateWithOptions(
+        wstETH.approve(stakingProxy, type(uint256).max);
+        staking.depositERC20(address(wstETH), 10 ether); // 10 wstETH
+        staking.delegateWithOptions(
             operator2, address(wstETH), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
         console2.log("Deposited 10 wstETH, delegated 5 to Operator2");
 
         // Deposit and delegate EIGEN
-        eigen.approve(restakingProxy, type(uint256).max);
-        restaking.depositERC20(address(eigen), 100 ether); // 100 EIGEN
-        restaking.delegateWithOptions(
+        eigen.approve(stakingProxy, type(uint256).max);
+        staking.depositERC20(address(eigen), 100 ether); // 100 EIGEN
+        staking.delegateWithOptions(
             operator1, address(eigen), 50 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
         console2.log("Deposited 100 EIGEN, delegated 50 to Operator1");
@@ -760,7 +760,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         } else {
             vm.startPrank(operator1);
         }
-        tangle.approveService(requestId, 50); // 50% restaking exposure
+        tangle.approveService(requestId, 50); // 50% staking exposure
         console2.log("Operator1 approved service");
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -773,7 +773,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         } else {
             vm.startPrank(operator2);
         }
-        tangle.approveService(requestId, 50); // 50% restaking exposure
+        tangle.approveService(requestId, 50); // 50% staking exposure
         console2.log("Operator2 approved service");
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -879,8 +879,8 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
 
         // Deploy liquid delegation factory
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
-        liquidFactory = new LiquidDelegationFactory(restaking);
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
+        liquidFactory = new LiquidDelegationFactory(staking);
         console2.log("LiquidDelegationFactory:", address(liquidFactory));
 
         // Create vaults (anyone can create vaults, keeping within deployer broadcast)
@@ -987,15 +987,15 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         router.registerFacet(address(new TangleSlashingFacet()));
     }
 
-    function _registerRestakingFacets(address restakingProxy_) internal {
-        MultiAssetDelegation router = MultiAssetDelegation(payable(restakingProxy_));
-        router.registerFacet(address(new RestakingOperatorsFacet()));
-        router.registerFacet(address(new RestakingDepositsFacet()));
-        router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingSlashingFacet()));
-        router.registerFacet(address(new RestakingAssetsFacet()));
-        router.registerFacet(address(new RestakingViewsFacet()));
-        router.registerFacet(address(new RestakingAdminFacet()));
+    function _registerStakingFacets(address stakingProxy_) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(stakingProxy_));
+        router.registerFacet(address(new StakingOperatorsFacet()));
+        router.registerFacet(address(new StakingDepositsFacet()));
+        router.registerFacet(address(new StakingDelegationsFacet()));
+        router.registerFacet(address(new StakingSlashingFacet()));
+        router.registerFacet(address(new StakingAssetsFacet()));
+        router.registerFacet(address(new StakingViewsFacet()));
+        router.registerFacet(address(new StakingAdminFacet()));
     }
 }
 

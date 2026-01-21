@@ -1,0 +1,5 @@
+{
+  "dependencies/forge-std": {
+    "rev": "7117c90c8cf6c68e5acce4f09a6b24715cea4de6"
+  }
+}

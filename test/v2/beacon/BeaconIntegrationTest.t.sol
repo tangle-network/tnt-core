@@ -9,7 +9,7 @@ import {BeaconChainProofs} from "../../../src/v2/beacon/BeaconChainProofs.sol";
 import {console2} from "forge-std/Test.sol";
 
 /// @title BeaconIntegrationTest
-/// @notice Integration tests for the full beacon chain restaking flow
+/// @notice Integration tests for the full beacon chain staking flow
 /// @dev Tests end-to-end scenarios including proof verification, checkpoints, and slashing
 contract BeaconIntegrationTest is BeaconTestBase {
     uint256 private constant POD_CREATION_GAS_BUDGET = 4_500_000;

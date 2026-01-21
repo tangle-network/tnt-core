@@ -3,7 +3,7 @@
 
 ```solidity
 library Types {
-    struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 restakerBps; }
+    struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; }
 }
 ```*/
 #[allow(
@@ -19,7 +19,7 @@ pub mod Types {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 restakerBps; }
+struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -31,7 +31,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
         #[allow(missing_docs)]
         pub operatorBps: u16,
         #[allow(missing_docs)]
-        pub restakerBps: u16,
+        pub stakerBps: u16,
     }
     #[allow(
         non_camel_case_types,
@@ -70,7 +70,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     value.developerBps,
                     value.protocolBps,
                     value.operatorBps,
-                    value.restakerBps,
+                    value.stakerBps,
                 )
             }
         }
@@ -82,7 +82,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     developerBps: tuple.0,
                     protocolBps: tuple.1,
                     operatorBps: tuple.2,
-                    restakerBps: tuple.3,
+                    stakerBps: tuple.3,
                 }
             }
         }
@@ -106,7 +106,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     > as alloy_sol_types::SolType>::tokenize(&self.operatorBps),
                     <alloy::sol_types::sol_data::Uint<
                         16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.restakerBps),
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakerBps),
                 )
             }
             #[inline]
@@ -181,7 +181,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "PaymentSplit(uint16 developerBps,uint16 protocolBps,uint16 operatorBps,uint16 restakerBps)",
+                    "PaymentSplit(uint16 developerBps,uint16 protocolBps,uint16 operatorBps,uint16 stakerBps)",
                 )
             }
             #[inline]
@@ -211,7 +211,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         16,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.restakerBps)
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.stakerBps)
                         .0,
                 ]
                     .concat()
@@ -240,7 +240,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     + <alloy::sol_types::sol_data::Uint<
                         16,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.restakerBps,
+                        &rust.stakerBps,
                     )
             }
             #[inline]
@@ -272,7 +272,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                 <alloy::sol_types::sol_data::Uint<
                     16,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.restakerBps,
+                    &rust.stakerBps,
                     out,
                 );
             }
@@ -418,7 +418,7 @@ library Types {
         uint16 developerBps;
         uint16 protocolBps;
         uint16 operatorBps;
-        uint16 restakerBps;
+        uint16 stakerBps;
     }
 }
 
@@ -429,7 +429,7 @@ interface ITangleAdmin {
     function metricsRecorder() external view returns (address);
     function operatorStatusRegistry() external view returns (address);
     function pause() external;
-    function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 restakerBps);
+    function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
     function priceOracle() external view returns (address);
     function rewardVaults() external view returns (address);
     function serviceFeeDistributor() external view returns (address);
@@ -440,9 +440,9 @@ interface ITangleAdmin {
     function setOperatorStatusRegistry(address registry) external;
     function setPaymentSplit(Types.PaymentSplit memory split) external;
     function setPriceOracle(address oracle) external;
-    function setRestaking(address restaking) external;
     function setRewardVaults(address vaults) external;
     function setServiceFeeDistributor(address distributor) external;
+    function setStaking(address staking) external;
     function setTntPaymentDiscountBps(uint16 discountBps) external;
     function setTntToken(address token) external;
     function setTreasury(address treasury) external;
@@ -549,7 +549,7 @@ interface ITangleAdmin {
         "internalType": "uint16"
       },
       {
-        "name": "restakerBps",
+        "name": "stakerBps",
         "type": "uint16",
         "internalType": "uint16"
       }
@@ -685,7 +685,7 @@ interface ITangleAdmin {
             "internalType": "uint16"
           },
           {
-            "name": "restakerBps",
+            "name": "stakerBps",
             "type": "uint16",
             "internalType": "uint16"
           }
@@ -701,19 +701,6 @@ interface ITangleAdmin {
     "inputs": [
       {
         "name": "oracle",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setRestaking",
-    "inputs": [
-      {
-        "name": "restaking",
         "type": "address",
         "internalType": "address"
       }
@@ -740,6 +727,19 @@ interface ITangleAdmin {
     "inputs": [
       {
         "name": "distributor",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setStaking",
+    "inputs": [
+      {
+        "name": "staking",
         "type": "address",
         "internalType": "address"
       }
@@ -1744,7 +1744,7 @@ function pause() external;
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `paymentSplit()` and selector `0xaac7416b`.
 ```solidity
-function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 restakerBps);
+function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1762,7 +1762,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
         #[allow(missing_docs)]
         pub operatorBps: u16,
         #[allow(missing_docs)]
-        pub restakerBps: u16,
+        pub stakerBps: u16,
     }
     #[allow(
         non_camel_case_types,
@@ -1834,7 +1834,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                         value.developerBps,
                         value.protocolBps,
                         value.operatorBps,
-                        value.restakerBps,
+                        value.stakerBps,
                     )
                 }
             }
@@ -1846,7 +1846,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                         developerBps: tuple.0,
                         protocolBps: tuple.1,
                         operatorBps: tuple.2,
-                        restakerBps: tuple.3,
+                        stakerBps: tuple.3,
                     }
                 }
             }
@@ -1867,7 +1867,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                     > as alloy_sol_types::SolType>::tokenize(&self.operatorBps),
                     <alloy::sol_types::sol_data::Uint<
                         16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.restakerBps),
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakerBps),
                 )
             }
         }
@@ -3400,150 +3400,6 @@ function setPriceOracle(address oracle) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setRestaking(address)` and selector `0x99ff3654`.
-```solidity
-function setRestaking(address restaking) external;
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setRestakingCall {
-        #[allow(missing_docs)]
-        pub restaking: alloy::sol_types::private::Address,
-    }
-    ///Container type for the return parameters of the [`setRestaking(address)`](setRestakingCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setRestakingReturn {}
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setRestakingCall> for UnderlyingRustTuple<'_> {
-                fn from(value: setRestakingCall) -> Self {
-                    (value.restaking,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setRestakingCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { restaking: tuple.0 }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setRestakingReturn> for UnderlyingRustTuple<'_> {
-                fn from(value: setRestakingReturn) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setRestakingReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
-                }
-            }
-        }
-        impl setRestakingReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setRestakingCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
-                ()
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for setRestakingCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = setRestakingReturn;
-            type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setRestaking(address)";
-            const SELECTOR: [u8; 4] = [153u8, 255u8, 54u8, 84u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.restaking,
-                    ),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                setRestakingReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setRewardVaults(address)` and selector `0x43a6307d`.
 ```solidity
 function setRewardVaults(address vaults) external;
@@ -3819,6 +3675,150 @@ function setServiceFeeDistributor(address distributor) external;
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 setServiceFeeDistributorReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `setStaking(address)` and selector `0x8ff39099`.
+```solidity
+function setStaking(address staking) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setStakingCall {
+        #[allow(missing_docs)]
+        pub staking: alloy::sol_types::private::Address,
+    }
+    ///Container type for the return parameters of the [`setStaking(address)`](setStakingCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setStakingReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setStakingCall> for UnderlyingRustTuple<'_> {
+                fn from(value: setStakingCall) -> Self {
+                    (value.staking,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setStakingCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { staking: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setStakingReturn> for UnderlyingRustTuple<'_> {
+                fn from(value: setStakingReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setStakingReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl setStakingReturn {
+            fn _tokenize(
+                &self,
+            ) -> <setStakingCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for setStakingCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = setStakingReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "setStaking(address)";
+            const SELECTOR: [u8; 4] = [143u8, 243u8, 144u8, 153u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.staking,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                setStakingReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -4892,11 +4892,11 @@ function unpause() external;
         #[allow(missing_docs)]
         setPriceOracle(setPriceOracleCall),
         #[allow(missing_docs)]
-        setRestaking(setRestakingCall),
-        #[allow(missing_docs)]
         setRewardVaults(setRewardVaultsCall),
         #[allow(missing_docs)]
         setServiceFeeDistributor(setServiceFeeDistributorCall),
+        #[allow(missing_docs)]
+        setStaking(setStakingCall),
         #[allow(missing_docs)]
         setTntPaymentDiscountBps(setTntPaymentDiscountBpsCall),
         #[allow(missing_docs)]
@@ -4937,7 +4937,7 @@ function unpause() external;
             [132u8, 86u8, 203u8, 89u8],
             [137u8, 58u8, 136u8, 205u8],
             [142u8, 180u8, 53u8, 165u8],
-            [153u8, 255u8, 54u8, 84u8],
+            [143u8, 243u8, 144u8, 153u8],
             [158u8, 189u8, 101u8, 173u8],
             [159u8, 180u8, 61u8, 76u8],
             [170u8, 199u8, 65u8, 107u8],
@@ -4967,7 +4967,7 @@ function unpause() external;
             ::core::stringify!(pause),
             ::core::stringify!(setTntPaymentDiscountBps),
             ::core::stringify!(defaultTntMinExposureBps),
-            ::core::stringify!(setRestaking),
+            ::core::stringify!(setStaking),
             ::core::stringify!(rewardVaults),
             ::core::stringify!(setTntToken),
             ::core::stringify!(paymentSplit),
@@ -4997,7 +4997,7 @@ function unpause() external;
             <pauseCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <defaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <setRestakingCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setStakingCall as alloy_sol_types::SolCall>::SIGNATURE,
             <rewardVaultsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTntTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <paymentSplitCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -5086,14 +5086,14 @@ function unpause() external;
                 Self::setPriceOracle(_) => {
                     <setPriceOracleCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::setRestaking(_) => {
-                    <setRestakingCall as alloy_sol_types::SolCall>::SELECTOR
-                }
                 Self::setRewardVaults(_) => {
                     <setRewardVaultsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::setServiceFeeDistributor(_) => {
                     <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::setStaking(_) => {
+                    <setStakingCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::setTntPaymentDiscountBps(_) => {
                     <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SELECTOR
@@ -5309,15 +5309,15 @@ function unpause() external;
                     defaultTntMinExposureBps
                 },
                 {
-                    fn setRestaking(
+                    fn setStaking(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setRestakingCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                        <setStakingCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
                             )
-                            .map(ITangleAdminCalls::setRestaking)
+                            .map(ITangleAdminCalls::setStaking)
                     }
-                    setRestaking
+                    setStaking
                 },
                 {
                     fn rewardVaults(
@@ -5622,15 +5622,15 @@ function unpause() external;
                     defaultTntMinExposureBps
                 },
                 {
-                    fn setRestaking(
+                    fn setStaking(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setRestakingCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                        <setStakingCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(ITangleAdminCalls::setRestaking)
+                            .map(ITangleAdminCalls::setStaking)
                     }
-                    setRestaking
+                    setStaking
                 },
                 {
                     fn rewardVaults(
@@ -5828,11 +5828,6 @@ function unpause() external;
                         inner,
                     )
                 }
-                Self::setRestaking(inner) => {
-                    <setRestakingCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::setRewardVaults(inner) => {
                     <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -5842,6 +5837,9 @@ function unpause() external;
                     <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
+                }
+                Self::setStaking(inner) => {
+                    <setStakingCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::setTntPaymentDiscountBps(inner) => {
                     <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -5976,12 +5974,6 @@ function unpause() external;
                         out,
                     )
                 }
-                Self::setRestaking(inner) => {
-                    <setRestakingCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::setRewardVaults(inner) => {
                     <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -5990,6 +5982,12 @@ function unpause() external;
                 }
                 Self::setServiceFeeDistributor(inner) => {
                     <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::setStaking(inner) => {
+                    <setStakingCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -6312,13 +6310,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, setPriceOracleCall, N> {
             self.call_builder(&setPriceOracleCall { oracle })
         }
-        ///Creates a new call builder for the [`setRestaking`] function.
-        pub fn setRestaking(
-            &self,
-            restaking: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<&P, setRestakingCall, N> {
-            self.call_builder(&setRestakingCall { restaking })
-        }
         ///Creates a new call builder for the [`setRewardVaults`] function.
         pub fn setRewardVaults(
             &self,
@@ -6336,6 +6327,13 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     distributor,
                 },
             )
+        }
+        ///Creates a new call builder for the [`setStaking`] function.
+        pub fn setStaking(
+            &self,
+            staking: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, setStakingCall, N> {
+            self.call_builder(&setStakingCall { staking })
         }
         ///Creates a new call builder for the [`setTntPaymentDiscountBps`] function.
         pub fn setTntPaymentDiscountBps(

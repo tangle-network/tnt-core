@@ -7,7 +7,7 @@
   "core": {
     "deploy": true,
     "tangle": "0x0000000000000000000000000000000000000000",
-    "restaking": "0x0000000000000000000000000000000000000000",
+    "staking": "0x0000000000000000000000000000000000000000",
     "statusRegistry": "0x0000000000000000000000000000000000000000",
     "minOperatorStake": 1000000000000000000,
     "minDelegation": 100000000000000000,
@@ -40,7 +40,7 @@
     ]
   },
   "guards": {
-    "pauseRestaking": false,
+    "pauseStaking": false,
     "pauseTangle": false,
     "requireAdapters": false,
     "delegatorDelay": 7,

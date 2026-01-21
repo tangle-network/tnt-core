@@ -3,14 +3,14 @@ pragma solidity ^0.8.26;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import { RestakingFacetBase } from "../../restaking/RestakingFacetBase.sol";
-import { DelegationErrors } from "../../restaking/DelegationErrors.sol";
+import { StakingFacetBase } from "../../staking/StakingFacetBase.sol";
+import { DelegationErrors } from "../../staking/DelegationErrors.sol";
 import { Types } from "../../libraries/Types.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 
-/// @title RestakingDelegationsFacet
+/// @title StakingDelegationsFacet
 /// @notice Facet for delegation lifecycle
-contract RestakingDelegationsFacet is RestakingFacetBase, IFacetSelectors {
+contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {

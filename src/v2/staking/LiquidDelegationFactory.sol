@@ -18,9 +18,9 @@ contract LiquidDelegationFactory is Ownable {
     // STATE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice The underlying restaking contract
+    /// @notice The underlying staking contract
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    IMultiAssetDelegation public immutable restaking;
+    IMultiAssetDelegation public immutable staking;
 
     /// @notice Mapping: vaultKey => vault address
     /// @dev vaultKey = keccak256(operator, asset, blueprintIds)
@@ -60,8 +60,8 @@ contract LiquidDelegationFactory is Ownable {
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════════
 
-    constructor(IMultiAssetDelegation _restaking) Ownable(msg.sender) {
-        restaking = _restaking;
+    constructor(IMultiAssetDelegation _staking) Ownable(msg.sender) {
+        staking = _staking;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -79,7 +79,7 @@ contract LiquidDelegationFactory is Ownable {
         uint64[] calldata blueprintIds
     ) external returns (address vault) {
         // Verify operator is active
-        if (!restaking.isOperatorActive(operator)) {
+        if (!staking.isOperatorActive(operator)) {
             revert OperatorNotActive();
         }
 
@@ -100,7 +100,7 @@ contract LiquidDelegationFactory is Ownable {
 
         // Deploy vault
         vault = address(new LiquidDelegationVault(
-            restaking,
+            staking,
             operator,
             IERC20(asset),
             blueprintIds,

@@ -25,7 +25,7 @@
         │                       │                       │
         ▼                       ▼                       ▼
 ┌───────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  IRestaking   │     │  IBlueprintHook │     │   Protocol      │
+│   IStaking    │     │  IBlueprintHook │     │   Protocol      │
 │   (abstract)  │     │  (per-blueprint)│     │   Treasury      │
 └───────────────┘     └─────────────────┘     └─────────────────┘
         ▲
@@ -34,7 +34,7 @@
 │       │                   │                    │                 │
 │  ┌────┴────┐       ┌──────┴──────┐      ┌─────┴─────┐          │
 │  │ Native  │       │ EigenLayer  │      │ Symbiotic │          │
-│  │Restaking│       │  Restaking  │      │ Restaking │          │
+│  │ Staking │       │   Staking   │      │  Staking  │          │
 │  └─────────┘       └─────────────┘      └───────────┘          │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -47,7 +47,7 @@
 - **Simple mental model** - One place for all protocol logic
 - **Upgradeable** - UUPS pattern allows fixes
 
-### Abstract Restaking
+### Abstract Staking
 - **Pluggable backends** - Native, EigenLayer, Symbiotic, future protocols
 - **Clean interface** - Core protocol doesn't care about stake implementation
 - **Easy migration** - Switch backends without core changes
@@ -132,7 +132,7 @@ Developer calls: createBlueprint(definition)
 ### 2. Register Operator
 ```
 Operator calls: registerOperator(blueprintId, preferences)
-  → Checks operator has stake via IRestaking
+  → Checks operator has stake via IStaking
   → Records registration
   → Emits OperatorRegistered(blueprintId, operator, preferences)
   → Calls hook.onRegister() if hook != 0
@@ -193,7 +193,7 @@ User Payment (requestService)
 ┌───────────────────────────────────────────────────────────┐
 │                    Payment Split                          │
 │  ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌──────────────┐  │
-│  │Developer│ │Protocol │ │Operators │ │  Restakers   │  │
+│  │Developer│ │Protocol │ │Operators │ │   Stakers    │  │
 │  │  50%    │ │  10%    │ │   20%    │ │     20%      │  │
 │  └────┬────┘ └────┬────┘ └────┬─────┘ └──────┬───────┘  │
 │       │           │           │              │          │
@@ -231,7 +231,7 @@ Evidence submitted (by anyone or hook)
         │
         ▼
 ┌───────────────┐
-│IRestaking     │
+│IStaking       │
 │.slash(op,amt) │
 └───────┬───────┘
         │
@@ -266,12 +266,12 @@ src/
 ├── Tangle.sol              # Core protocol
 ├── interfaces/
 │   ├── ITangle.sol         # Core interface
-│   ├── IRestaking.sol      # Staking abstraction
+│   ├── IStaking.sol        # Staking abstraction
 │   └── IBlueprintHook.sol  # Hook interface
-├── restaking/
-│   ├── NativeRestaking.sol
-│   ├── EigenLayerRestaking.sol
-│   └── SymbioticRestaking.sol
+├── staking/
+│   ├── MultiAssetDelegation.sol
+│   ├── EigenLayerStaking.sol
+│   └── SymbioticStaking.sol
 └── libraries/
     ├── Types.sol           # Shared types
     └── Errors.sol          # Custom errors

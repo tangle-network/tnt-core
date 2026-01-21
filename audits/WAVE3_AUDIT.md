@@ -116,7 +116,7 @@ Deep security audit using static analysis (Slither) and 6 specialized agents cov
 
 1. **Trust Model Complexity**: Blueprint managers have significant power over operators. Document trust assumptions clearly.
 
-2. **Cross-Contract State**: Tangle and Restaking share state but have separate reentrancy guards. Consider unified lock.
+2. **Cross-Contract State**: Tangle and Staking share state but have separate reentrancy guards. Consider unified lock.
 
 3. **Oracle Dependency**: Price oracle used in slashing creates manipulation surface. Consider fallback mechanisms.
 

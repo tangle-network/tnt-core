@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-01-21
+
+### Changed
+
+- **BREAKING**: Renamed `IRestaking` to `IStaking` interface
+- **BREAKING**: Renamed `restaking` module to `staking`
+- **BREAKING**: Renamed `PaymentSplit.restakerBps` to `stakerBps`
+- Updated all bindings from TNT Core contracts with restaking→staking terminology refactoring
+
 ## [0.6.1] - 2026-01-17
 
 ### Changed
@@ -151,13 +160,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ITangleOperators` - Operator registration and status
 - `ITangleSlashing` - Slashing mechanism
 - `ITangleRewards` - Reward distribution
-- `MultiAssetDelegation` - Multi-asset restaking and delegation
+- `MultiAssetDelegation` - Multi-asset staking and delegation
 - `IBlueprintServiceManager` - Blueprint service manager interface
 - `IOperatorStatusRegistry` - Operator status tracking
 - Raw ABI JSON exports via `abi` module
 - `TNT_CORE_VERSION` constant for commit tracking
 
-[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.6.1...HEAD
+[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.7.0...HEAD
 [0.1.0]: https://github.com/tangle-network/tnt-core/releases/tag/bindings-v0.1.0
 [0.4.1]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.4.0...bindings-v0.4.1
 [0.4.2]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.4.1...bindings-v0.4.2
@@ -178,3 +187,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.5.6]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.5.5...bindings-v0.5.6
 [0.6.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.5.6...bindings-v0.6.0
 [0.6.1]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.6.0...bindings-v0.6.1
+[0.7.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.6.1...bindings-v0.7.0

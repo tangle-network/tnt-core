@@ -4,10 +4,10 @@ pragma solidity ^0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/Test.sol";
 
-import {IAssetAdapter} from "../../../src/v2/restaking/adapters/IAssetAdapter.sol";
-import {StandardAssetAdapter} from "../../../src/v2/restaking/adapters/StandardAssetAdapter.sol";
-import {RebasingAssetAdapter} from "../../../src/v2/restaking/adapters/RebasingAssetAdapter.sol";
-import {AssetAdapterFactory} from "../../../src/v2/restaking/adapters/AssetAdapterFactory.sol";
+import {IAssetAdapter} from "../../../src/v2/staking/adapters/IAssetAdapter.sol";
+import {StandardAssetAdapter} from "../../../src/v2/staking/adapters/StandardAssetAdapter.sol";
+import {RebasingAssetAdapter} from "../../../src/v2/staking/adapters/RebasingAssetAdapter.sol";
+import {AssetAdapterFactory} from "../../../src/v2/staking/adapters/AssetAdapterFactory.sol";
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 

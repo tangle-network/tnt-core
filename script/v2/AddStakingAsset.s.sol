@@ -49,24 +49,24 @@ abstract contract BasicEnv is Script {
     }
 }
 
-/// @title AddRestakingAsset
+/// @title AddStakingAsset
 /// @notice Helper forge script to register new ERC20 assets with MultiAssetDelegation.enableAsset
 /// @dev Usage:
 ///      PRIVATE_KEY=<pk> RESTAKING=<delegation> ASSET_TOKEN=<token>
 ///      MIN_OPERATOR_STAKE=1e18 MIN_DELEGATION=1e17 DEPOSIT_CAP=0 REWARD_MULTIPLIER_BPS=10000
-///      forge script script/v2/AddRestakingAsset.s.sol:AddRestakingAsset --rpc-url <rpc> --broadcast
-contract AddRestakingAsset is BasicEnv {
+///      forge script script/v2/AddStakingAsset.s.sol:AddStakingAsset --rpc-url <rpc> --broadcast
+contract AddStakingAsset is BasicEnv {
     function run() external {
         uint256 deployerPk = _requireUint("PRIVATE_KEY");
-        address payable restaking = payable(_requireAddress("RESTAKING"));
+        address payable staking = payable(_requireAddress("STAKING"));
         address asset = _requireAddress("ASSET_TOKEN");
         uint256 minOperatorStake = _envUint("MIN_OPERATOR_STAKE", 0);
         uint256 minDelegation = _envUint("MIN_DELEGATION", 0);
         uint256 depositCap = _envUint("DEPOSIT_CAP", 0);
         uint16 rewardMultiplierBps = uint16(_envUint("REWARD_MULTIPLIER_BPS", 10_000));
 
-        console2.log("=== Adding Restaking Asset ===");
-        console2.log("Restaking:", restaking);
+        console2.log("=== Adding Staking Asset ===");
+        console2.log("Staking:", staking);
         console2.log("Token:", asset);
         console2.log("Min Operator Stake:", minOperatorStake);
         console2.log("Min Delegation:", minDelegation);
@@ -74,7 +74,7 @@ contract AddRestakingAsset is BasicEnv {
         console2.log("Reward Multiplier (bps):", rewardMultiplierBps);
 
         vm.startBroadcast(deployerPk);
-        IMultiAssetDelegation(restaking)
+        IMultiAssetDelegation(staking)
             .enableAsset(asset, minOperatorStake, minDelegation, depositCap, rewardMultiplierBps);
         vm.stopBroadcast();
 

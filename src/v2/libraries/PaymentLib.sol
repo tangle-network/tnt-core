@@ -330,7 +330,7 @@ library PaymentLib {
         uint256 total = uint256(split.developerBps) +
                        uint256(split.protocolBps) +
                        uint256(split.operatorBps) +
-                       uint256(split.restakerBps);
+                       uint256(split.stakerBps);
         if (total != BPS_DENOMINATOR) {
             revert Errors.InvalidPaymentSplit();
         }

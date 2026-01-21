@@ -66,9 +66,9 @@ contract StakeRequirementTests is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_RegisterOperator_WithDefaultMinStake_Success() public {
-        // Register with restaking at minimum stake
+        // Register with staking at minimum stake
         vm.prank(operator1);
-        restaking.registerOperator{ value: MIN_OPERATOR_STAKE }();
+        staking.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         // Create blueprint without BSM
         vm.prank(developer);
@@ -81,10 +81,10 @@ contract StakeRequirementTests is BaseTest {
     }
 
     function test_RegisterOperator_BelowDefaultMinStake_Reverts() public {
-        // Register with restaking at below minimum (shouldn't be possible with restaking's own checks)
+        // Register with staking at below minimum (shouldn't be possible with restaking's own checks)
         // But we test the Tangle contract's check by using a higher custom minimum
         vm.prank(operator1);
-        restaking.registerOperator{ value: MIN_OPERATOR_STAKE }();
+        staking.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         // Create blueprint with BSM requiring higher stake
         mockBsm.setMinStakeRequirement(5 ether, false); // Custom 5 ETH minimum
@@ -100,9 +100,9 @@ contract StakeRequirementTests is BaseTest {
     }
 
     function test_RegisterOperator_WithCustomBSMMinStake_Success() public {
-        // Register with restaking at 10 ETH
+        // Register with staking at 10 ETH
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         // Create blueprint with BSM requiring 5 ETH
         mockBsm.setMinStakeRequirement(5 ether, false);
@@ -118,7 +118,7 @@ contract StakeRequirementTests is BaseTest {
     function test_RegisterOperator_BSMUsesDefaultStake_Success() public {
         // Register with minimum stake
         vm.prank(operator1);
-        restaking.registerOperator{ value: MIN_OPERATOR_STAKE }();
+        staking.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         // Create blueprint with BSM using default stake (useDefault=true)
         mockBsm.setMinStakeRequirement(10 ether, true); // High value but useDefault=true
@@ -134,7 +134,7 @@ contract StakeRequirementTests is BaseTest {
     function test_RegisterOperator_BSMReturnsZeroCustomStake_UsesDefault() public {
         // Register with minimum stake
         vm.prank(operator1);
-        restaking.registerOperator{ value: MIN_OPERATOR_STAKE }();
+        staking.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         // Create blueprint with BSM returning 0 for custom stake
         mockBsm.setMinStakeRequirement(0, false);
@@ -154,7 +154,7 @@ contract StakeRequirementTests is BaseTest {
     function test_JoinService_StakeRevalidated_Success() public {
         // Setup: operator1 with high stake, create dynamic service
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         mockBsm.setMinStakeRequirement(5 ether, false);
         vm.prank(developer);
@@ -186,7 +186,7 @@ contract StakeRequirementTests is BaseTest {
 
         // operator2 registers with sufficient stake and joins
         vm.prank(operator2);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         _directRegisterOperator(operator2, blueprintId, "");
 
@@ -199,7 +199,7 @@ contract StakeRequirementTests is BaseTest {
     function test_JoinService_StakeRevalidation_Reverts_AfterSlash() public {
         // Setup: operator1 creates service
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         mockBsm.setMinStakeRequirement(5 ether, false);
         vm.prank(developer);
@@ -230,13 +230,13 @@ contract StakeRequirementTests is BaseTest {
 
         // operator2 registers with 6 ETH (above minimum)
         vm.prank(operator2);
-        restaking.registerOperator{ value: 6 ether }();
+        staking.registerOperator{ value: 6 ether }();
 
         _directRegisterOperator(operator2, blueprintId, "");
 
         // Slash operator2 to below minimum
         vm.prank(address(tangle));
-        restaking.slash(operator2, 0, 5000, keccak256("test"));
+        staking.slash(operator2, 0, 5000, keccak256("test"));
 
         // Now operator2 has ~3 ETH, below 5 ETH minimum
         // Try to join service should fail
@@ -252,9 +252,9 @@ contract StakeRequirementTests is BaseTest {
     function test_RequestService_MinOperators_Success() public {
         // Setup operators
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         vm.prank(operator2);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         // Create blueprint requiring minimum 2 operators
         vm.prank(developer);
@@ -287,7 +287,7 @@ contract StakeRequirementTests is BaseTest {
     function test_RequestService_BelowMinOperators_Reverts() public {
         // Setup operator
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         // Create blueprint requiring minimum 3 operators
         vm.prank(developer);
@@ -317,13 +317,13 @@ contract StakeRequirementTests is BaseTest {
     function test_RequestService_AboveMaxOperators_Reverts() public {
         // Setup 4 operators
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         vm.prank(operator2);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         vm.prank(operator3);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         vm.prank(operator4);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         // Create blueprint with max 2 operators
         vm.prank(developer);
@@ -357,11 +357,11 @@ contract StakeRequirementTests is BaseTest {
     function test_RequestService_MaxOperatorsZero_NoLimit() public {
         // Setup 3 operators
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         vm.prank(operator2);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         vm.prank(operator3);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         // Create blueprint with maxOperators=0 (no limit)
         vm.prank(developer);
@@ -394,7 +394,7 @@ contract StakeRequirementTests is BaseTest {
     function test_RequestService_MinOperatorsZero_DefaultsToOne() public {
         // Setup operator
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         // Create blueprint with minOperators=0 (should default to 1)
         vm.prank(developer);
@@ -427,7 +427,7 @@ contract StakeRequirementTests is BaseTest {
     function test_FundService_ExcessETH_Refunded() public {
         // Setup subscription service
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         vm.prank(developer);
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
@@ -476,7 +476,7 @@ contract StakeRequirementTests is BaseTest {
     function test_FundService_ExactAmount_NoRefund() public {
         // Setup subscription service
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         vm.prank(developer);
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
@@ -524,7 +524,7 @@ contract StakeRequirementTests is BaseTest {
     function test_FundService_ZeroExcess_Works() public {
         // Setup subscription service
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         vm.prank(developer);
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
@@ -568,9 +568,9 @@ contract StakeRequirementTests is BaseTest {
 
     function test_OperatorCount_ExactlyAtMin() public {
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         vm.prank(operator2);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         vm.prank(developer);
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
@@ -600,7 +600,7 @@ contract StakeRequirementTests is BaseTest {
     function test_StakeRequirement_ExactlyAtMinimum() public {
         // Register with exactly the custom minimum
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         mockBsm.setMinStakeRequirement(5 ether, false);
         vm.prank(developer);
@@ -615,7 +615,7 @@ contract StakeRequirementTests is BaseTest {
     function test_StakeRequirement_OneWeiBelow() public {
         // Register with one wei below the custom minimum
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether - 1 }();
+        staking.registerOperator{ value: 5 ether - 1 }();
 
         mockBsm.setMinStakeRequirement(5 ether, false);
         vm.prank(developer);

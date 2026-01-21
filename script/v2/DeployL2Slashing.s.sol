@@ -86,7 +86,7 @@ contract DeployL2Slashing is EnvUtils {
         uint256 deployerPrivateKey = _requireEnvUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         address admin = _envAddressOrDefault("ADMIN", deployer);
-        address restaking = _requireEnvAddress("RESTAKING");
+        address staking = _requireEnvAddress("STAKING");
         uint256 sourceChainId = vm.envOr("SOURCE_CHAIN_ID", ETHEREUM_SEPOLIA);
         address l1Connector = vm.envOr("L1_CONNECTOR", address(0));
         address messengerOverride = vm.envOr("MOCK_MESSENGER", deployer);
@@ -94,7 +94,7 @@ contract DeployL2Slashing is EnvUtils {
         address l1Messenger = vm.envOr("L1_MESSENGER", address(0));
 
         _enforceAllowlist("ADMIN_ALLOWLIST", admin);
-        _enforceAllowlist("RESTAKING_ALLOWLIST", restaking);
+        _enforceAllowlist("STAKING_ALLOWLIST", staking);
         if (l1Connector != address(0)) {
             _enforceAllowlist("L1_CONNECTOR_ALLOWLIST", l1Connector);
         }
@@ -107,7 +107,7 @@ contract DeployL2Slashing is EnvUtils {
         console2.log("=== L2 Slashing Receiver Deployment ===");
         console2.log("Deployer:", deployer);
         console2.log("Admin:", admin);
-        console2.log("Restaking:", restaking);
+        console2.log("Staking:", staking);
         console2.log("Source Chain ID:", sourceChainId);
         if (bridge != BridgeProtocol.DirectMessenger) {
             console2.log("L1 Messenger:", l1Messenger);
@@ -122,7 +122,7 @@ contract DeployL2Slashing is EnvUtils {
             deployerPrivateKey,
             deployer,
             admin,
-            restaking,
+            staking,
             sourceChainId,
             l1Connector,
             messengerOverride,
@@ -134,7 +134,7 @@ contract DeployL2Slashing is EnvUtils {
             _envStringOrEmpty("L2_SLASHING_MANIFEST"),
             bridge,
             admin,
-            restaking,
+            staking,
             sourceChainId,
             l1Connector,
             l1Messenger,
@@ -162,7 +162,7 @@ contract DeployL2Slashing is EnvUtils {
         BridgeProtocol bridge,
         address deployer,
         address admin,
-        address restaking,
+        address staking,
         uint256 sourceChainId,
         address l1Connector,
         address messengerOverride
@@ -171,7 +171,7 @@ contract DeployL2Slashing is EnvUtils {
         returns (address slasher, address receiver)
     {
         _enforceAllowlist("ADMIN_ALLOWLIST", admin);
-        _enforceAllowlist("RESTAKING_ALLOWLIST", restaking);
+        _enforceAllowlist("STAKING_ALLOWLIST", staking);
         if (l1Connector != address(0)) {
             _enforceAllowlist("L1_CONNECTOR_ALLOWLIST", l1Connector);
         }
@@ -184,7 +184,7 @@ contract DeployL2Slashing is EnvUtils {
             0,
             deployer == address(0) ? msg.sender : deployer,
             admin,
-            restaking,
+            staking,
             sourceChainId,
             l1Connector,
             messengerOverride,
@@ -198,7 +198,7 @@ contract DeployL2Slashing is EnvUtils {
         uint256 deployerPrivateKey,
         address deployer,
         address admin,
-        address restaking,
+        address staking,
         uint256 sourceChainId,
         address l1Connector,
         address messengerOverride,
@@ -214,7 +214,7 @@ contract DeployL2Slashing is EnvUtils {
             vm.startPrank(deployer);
         }
 
-        TangleL2Slasher slasherContract = new TangleL2Slasher(restaking, admin);
+        TangleL2Slasher slasherContract = new TangleL2Slasher(staking, admin);
         slasher = address(slasherContract);
         console2.log("TangleL2Slasher:", slasher);
 
@@ -372,7 +372,7 @@ contract DeployL2Slashing is EnvUtils {
         string memory path,
         BridgeProtocol bridge,
         address admin,
-        address restaking,
+        address staking,
         uint256 sourceChainId,
         address l1Connector,
         address l1Messenger,
@@ -394,7 +394,7 @@ contract DeployL2Slashing is EnvUtils {
         }
         vm.serializeUint(root, "chainId", block.chainid);
         vm.serializeAddress(root, "admin", admin);
-        vm.serializeAddress(root, "restaking", restaking);
+        vm.serializeAddress(root, "staking", staking);
         vm.serializeUint(root, "sourceChainId", sourceChainId);
         vm.serializeAddress(root, "l1Connector", l1Connector);
         vm.serializeAddress(root, "l1Messenger", l1Messenger);

@@ -8,7 +8,7 @@ import {TangleL2Slasher} from "../../../src/v2/beacon/TangleL2Slasher.sol";
 import {ICrossChainMessenger, ICrossChainReceiver} from "../../../src/v2/beacon/interfaces/ICrossChainMessenger.sol";
 import {ValidatorPodManager} from "../../../src/v2/beacon/ValidatorPodManager.sol";
 import {MockBeaconOracle} from "../../../src/v2/beacon/BeaconRootReceiver.sol";
-import { IRestaking } from "../../../src/v2/interfaces/IRestaking.sol";
+import { IStaking } from "../../../src/v2/interfaces/IStaking.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 
 /// @title MockCrossChainMessenger
@@ -95,9 +95,9 @@ contract MockCrossChainMessenger is ICrossChainMessenger {
     }
 }
 
-/// @title MockRestaking
-/// @notice Mock restaking contract for testing
-contract MockRestaking is IRestaking {
+/// @title MockStaking
+/// @notice Mock staking contract for testing
+contract MockStaking is IStaking {
     mapping(address => uint256) public operatorStakes;
     mapping(address => bool) public operators;
     mapping(address => bool) public slashers;
@@ -204,7 +204,7 @@ contract CrossChainSlashingTest is Test {
     L2SlashingReceiver public receiver;
     TangleL2Slasher public slasher;
     MockCrossChainMessenger public messenger;
-    MockRestaking public restaking;
+    MockStaking public staking;
     ValidatorPodManager public podManager;
     MockBeaconOracle public beaconOracle;
 
@@ -250,13 +250,13 @@ contract CrossChainSlashingTest is Test {
         connector.registerPodOperator(pod1, operator1);
         vm.stopPrank();
 
-        // Deploy mock restaking for L2
-        restaking = new MockRestaking();
-        restaking.registerOperator(operator1, INITIAL_STAKE);
+        // Deploy mock staking for L2
+        staking = new MockStaking();
+        staking.registerOperator(operator1, INITIAL_STAKE);
 
         // Deploy L2 slasher
         vm.prank(admin);
-        slasher = new TangleL2Slasher(address(restaking), admin);
+        slasher = new TangleL2Slasher(address(staking), admin);
 
         // Deploy L2 receiver
         receiver = new L2SlashingReceiver(address(slasher), address(messenger));
@@ -265,10 +265,13 @@ contract CrossChainSlashingTest is Test {
         vm.prank(admin);
         slasher.setAuthorizedCaller(address(receiver), true);
 
-        restaking.addSlasher(address(slasher));
+        staking.addSlasher(address(slasher));
 
-        // Authorize connector as sender for receiver
+        // Authorize connector as sender for receiver (H-4 FIX: requires timelock)
         receiver.setAuthorizedSender(ETH_CHAIN_ID, address(connector), true);
+        // Warp past the 2-day activation delay and activate
+        vm.warp(block.timestamp + 2 days + 1);
+        receiver.activateAuthorizedSender(ETH_CHAIN_ID, address(connector));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -509,8 +512,8 @@ contract CrossChainSlashingTest is Test {
         receiver.receiveMessage(ETH_CHAIN_ID, address(connector), payload);
 
         // Check slash was executed
-        assertEq(restaking.lastSlashedOperator(), operator1);
-        assertEq(restaking.lastSlashAmount(), (INITIAL_STAKE * slashBps) / 10_000);
+        assertEq(staking.lastSlashedOperator(), operator1);
+        assertEq(staking.lastSlashAmount(), (INITIAL_STAKE * slashBps) / 10_000);
     }
 
     function test_receiveMessage_RevertUnauthorizedMessenger() public {
@@ -546,10 +549,10 @@ contract CrossChainSlashingTest is Test {
         vm.prank(address(messenger));
         receiver.receiveMessage(ETH_CHAIN_ID, address(connector), payload);
 
-        assertEq(restaking.lastSlashAmount(), (INITIAL_STAKE * slashBps) / 10_000);
+        assertEq(staking.lastSlashAmount(), (INITIAL_STAKE * slashBps) / 10_000);
 
         // Reset to check replay is ignored
-        restaking.registerOperator(operator1, INITIAL_STAKE);
+        staking.registerOperator(operator1, INITIAL_STAKE);
 
         // Second delivery with same nonce is silently ignored
         vm.prank(address(messenger));
@@ -569,11 +572,11 @@ contract CrossChainSlashingTest is Test {
             abi.encode(operator1, uint16(1000), 0.9e18, 0, pod1)
         );
 
-        uint256 previousSlash = restaking.lastSlashAmount();
+        uint256 previousSlash = staking.lastSlashAmount();
         vm.prank(address(messenger));
         receiver.receiveMessage(ETH_CHAIN_ID, address(connector), payload);
 
-        assertEq(restaking.lastSlashAmount(), previousSlash, "Slashing should be skipped while paused");
+        assertEq(staking.lastSlashAmount(), previousSlash, "Slashing should be skipped while paused");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -588,7 +591,7 @@ contract CrossChainSlashingTest is Test {
         slasher.slashOperator(operator1, slashBps, reason);
 
         uint256 expected = (INITIAL_STAKE * slashBps) / 10_000;
-        assertEq(restaking.operatorStakes(operator1), INITIAL_STAKE - expected);
+        assertEq(staking.operatorStakes(operator1), INITIAL_STAKE - expected);
         assertEq(slasher.totalBeaconSlashed(operator1), expected);
     }
 
@@ -624,11 +627,11 @@ contract CrossChainSlashingTest is Test {
         assertEq(slasher.getSlashableStake(operator1), INITIAL_STAKE);
     }
 
-    function test_slasher_setRestakingUpdatesReference() public {
-        MockRestaking newRestaking = new MockRestaking();
+    function test_slasher_setStakingUpdatesReference() public {
+        MockStaking newStaking = new MockStaking();
         vm.prank(admin);
-        slasher.setRestaking(address(newRestaking));
-        assertEq(address(slasher.restaking()), address(newRestaking));
+        slasher.setStaking(address(newStaking));
+        assertEq(address(slasher.staking()), address(newStaking));
     }
 
     function test_slasher_getRemainingSlashableStake() public {
@@ -780,9 +783,17 @@ contract CrossChainSlashingTest is Test {
     function test_receiver_setAuthorizedSender() public {
         address newSender = makeAddr("newSender");
 
+        // H-4 FIX: Authorization now requires timelock
         receiver.setAuthorizedSender(ETH_CHAIN_ID, newSender, true);
+        // Not authorized yet - only scheduled
+        assertFalse(receiver.authorizedSenders(ETH_CHAIN_ID, newSender));
+
+        // Warp past activation delay and activate
+        vm.warp(block.timestamp + 2 days + 1);
+        receiver.activateAuthorizedSender(ETH_CHAIN_ID, newSender);
         assertTrue(receiver.authorizedSenders(ETH_CHAIN_ID, newSender));
 
+        // Revocation is immediate (no timelock)
         receiver.setAuthorizedSender(ETH_CHAIN_ID, newSender, false);
         assertFalse(receiver.authorizedSenders(ETH_CHAIN_ID, newSender));
     }

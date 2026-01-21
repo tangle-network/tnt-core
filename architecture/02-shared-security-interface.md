@@ -1,6 +1,6 @@
 # Shared Security Interface
 
-The core abstraction enabling protocol-agnostic restaking.
+The core abstraction enabling protocol-agnostic staking.
 
 ## Interface Design
 

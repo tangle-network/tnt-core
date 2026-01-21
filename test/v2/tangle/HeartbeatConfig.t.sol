@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import {BaseTest} from "../BaseTest.sol";
 import {BlueprintServiceManagerBase} from "../../../src/v2/BlueprintServiceManagerBase.sol";
-import {IOperatorStatusRegistry} from "../../../src/v2/restaking/OperatorStatusRegistry.sol";
+import {IOperatorStatusRegistry} from "../../../src/v2/staking/OperatorStatusRegistry.sol";
 
 contract MockStatusRegistry is IOperatorStatusRegistry {
     bool public registerCalled;

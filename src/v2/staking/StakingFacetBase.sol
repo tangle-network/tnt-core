@@ -8,9 +8,9 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 import { SlashingManager } from "./SlashingManager.sol";
 import { DepositManager } from "./DepositManager.sol";
 
-/// @title RestakingFacetBase
-/// @notice Shared base to align storage layout for restaking facets
-abstract contract RestakingFacetBase is
+/// @title StakingFacetBase
+/// @notice Shared base to align storage layout for staking facets
+abstract contract StakingFacetBase is
     AccessControlUpgradeable,
     PausableUpgradeable,
     ReentrancyGuardUpgradeable,

@@ -38,14 +38,14 @@ contract PaymentFuzzTest is BaseTest {
         uint16 devBps = 5000;
         uint16 protoBps = 1000;
         uint16 opBps = 2000;
-        uint16 restakerBps = 2000;
+        uint16 stakerBps = 2000;
 
         // Set the payment split
         Types.PaymentSplit memory split = Types.PaymentSplit({
             developerBps: devBps,
             protocolBps: protoBps,
             operatorBps: opBps,
-            restakerBps: restakerBps
+            stakerBps: stakerBps
         });
         vm.prank(admin);
         tangle.setPaymentSplit(split);

@@ -81,7 +81,7 @@ contract TangleCore is
         uint16 developerBps;      // Basis points to developer (e.g., 5000 = 50%)
         uint16 protocolBps;       // Basis points to protocol
         uint16 operatorBps;       // Basis points to operators
-        uint16 restakerBps;       // Basis points to restakers
+        uint16 stakerBps;         // Basis points to stakers
         address payable protocolTreasury;
     }
 
@@ -129,7 +129,7 @@ contract TangleCore is
             developerBps: 5000,   // 50%
             protocolBps: 1000,    // 10%
             operatorBps: 2000,    // 20%
-            restakerBps: 2000,    // 20%
+            stakerBps: 2000,      // 20%
             protocolTreasury: payable(admin)
         });
     }
@@ -173,7 +173,7 @@ contract TangleCore is
 
     // Operator registration
     // ---------------------
-    // - Operators must meet the restaking self-stake minimum before registering.
+    // - Operators must meet the staking self-stake minimum before registering.
 
     /// @notice Register operator to a blueprint
     /// @param blueprintId The blueprint to register for
@@ -268,15 +268,15 @@ contract TangleCore is
     }
 
     /// @notice Approve a service request (operator)
-    function approveService(uint64 requestId, uint8 restakingPercent) external whenNotPaused {
-        (uint64 blueprintId, bool allApproved) = serviceManager.approve(requestId, msg.sender, restakingPercent);
+    function approveService(uint64 requestId, uint8 stakingPercent) external whenNotPaused {
+        (uint64 blueprintId, bool allApproved) = serviceManager.approve(requestId, msg.sender, stakingPercent);
 
         address manager = blueprintRegistry.getManager(blueprintId);
         if (manager != address(0)) {
             IBlueprintServiceManager(manager).onApprove(
                 _toOperatorPreferences(msg.sender, ""),
                 requestId,
-                restakingPercent
+                stakingPercent
             );
         }
 
@@ -506,7 +506,7 @@ contract TangleCore is
         uint256 developerAmount = (amount * config.developerBps) / 10000;
         uint256 protocolAmount = (amount * config.protocolBps) / 10000;
         uint256 operatorAmount = (amount * config.operatorBps) / 10000;
-        uint256 restakerAmount = amount - developerAmount - protocolAmount - operatorAmount;
+        uint256 stakerAmount = amount - developerAmount - protocolAmount - operatorAmount;
 
         // Get developer address from hook
         address payable developerAddress = manager != address(0)
@@ -517,9 +517,9 @@ contract TangleCore is
         _transferPayment(developerAddress, paymentAsset, developerAmount);
         _transferPayment(config.protocolTreasury, paymentAsset, protocolAmount);
 
-        // Operator + Restaker amounts go to rewards distributor
-        _transferPayment(payable(address(rewardsDistributor)), paymentAsset, operatorAmount + restakerAmount);
-        rewardsDistributor.notifyServicePayment(serviceId, operatorAmount, restakerAmount, paymentAsset);
+        // Operator + Staker amounts go to rewards distributor
+        _transferPayment(payable(address(rewardsDistributor)), paymentAsset, operatorAmount + stakerAmount);
+        rewardsDistributor.notifyServicePayment(serviceId, operatorAmount, stakerAmount, paymentAsset);
     }
 
     function _transferPayment(address payable to, address asset, uint256 amount) internal {
@@ -590,7 +590,7 @@ contract TangleCore is
 
     function setPaymentConfig(PaymentConfig calldata config) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(
-            config.developerBps + config.protocolBps + config.operatorBps + config.restakerBps == 10000,
+            config.developerBps + config.protocolBps + config.operatorBps + config.stakerBps == 10000,
             "Must sum to 100%"
         );
         paymentConfig = config;
@@ -821,7 +821,7 @@ contract ServiceManager {
         emit ServiceRequested(requestId, blueprintId, requester);
     }
 
-    function approve(uint64 requestId, address operator, uint8 /* restakingPercent */)
+    function approve(uint64 requestId, address operator, uint8 /* stakingPercent */)
         external
         returns (uint64 blueprintId, bool allApproved)
     {
@@ -1048,7 +1048,7 @@ contract RewardsDistributor {
     event RewardRecorded(address indexed operator, uint64 indexed serviceId, uint256 operatorShare, uint256 delegatorShare);
     event OperatorRewardsClaimed(address indexed operator, address asset, uint256 amount);
     event DelegatorRewardsClaimed(address indexed delegator, address indexed operator, uint256 amount);
-    event ServicePaymentReceived(uint64 indexed serviceId, uint256 operatorAmount, uint256 restakerAmount);
+    event ServicePaymentReceived(uint64 indexed serviceId, uint256 operatorAmount, uint256 stakerAmount);
 
     modifier onlyCore() {
         require(msg.sender == core, "Only core");
@@ -1086,12 +1086,12 @@ contract RewardsDistributor {
     function notifyServicePayment(
         uint64 serviceId,
         uint256 operatorAmount,
-        uint256 restakerAmount,
+        uint256 stakerAmount,
         address asset
     ) external onlyCore {
         // This amount is for distribution to all service operators and their delegators
         // Implementation would distribute based on service operator set
-        emit ServicePaymentReceived(serviceId, operatorAmount, restakerAmount);
+        emit ServicePaymentReceived(serviceId, operatorAmount, stakerAmount);
     }
 
     /// @notice Operator claims their commission rewards

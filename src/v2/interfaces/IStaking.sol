@@ -3,8 +3,8 @@ pragma solidity ^0.8.26;
 
 import { Types } from "../libraries/Types.sol";
 
-/// @title IRestaking
-/// @notice Abstract interface for restaking/shared security protocols
+/// @title IStaking
+/// @notice Abstract interface for staking/shared security protocols
 /// @dev Implement this to integrate with native staking, EigenLayer, Symbiotic, etc.
 ///
 /// Design principles:
@@ -12,7 +12,7 @@ import { Types } from "../libraries/Types.sol";
 /// - Read-heavy - most operations are queries
 /// - Write-light - only slash() modifies state
 /// - No assumptions about underlying implementation
-interface IRestaking {
+interface IStaking {
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -195,10 +195,10 @@ interface IRestaking {
 
 }
 
-/// @title IRestakingAdmin
-/// @notice Admin functions for restaking implementations
+/// @title IStakingAdmin
+/// @notice Admin functions for staking implementations
 /// @dev Separated to keep main interface clean
-interface IRestakingAdmin {
+interface IStakingAdmin {
     /// @notice Add an authorized slasher
     /// @param slasher Address to authorize
     function addSlasher(address slasher) external;

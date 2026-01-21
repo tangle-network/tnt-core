@@ -16,7 +16,7 @@ import { Tangle } from "../../src/v2/Tangle.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { ITangleAdmin } from "../../src/v2/interfaces/ITangle.sol";
 import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
-import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
+import { MultiAssetDelegation } from "../../src/v2/staking/MultiAssetDelegation.sol";
 import { RewardVaults } from "../../src/v2/rewards/RewardVaults.sol";
 import { TangleMetrics } from "../../src/v2/rewards/TangleMetrics.sol";
 import { InflationPool } from "../../src/v2/rewards/InflationPool.sol";
@@ -49,7 +49,7 @@ contract FullDeploy is DeployV2 {
     struct CoreConfig {
         bool deploy;
         address tangle;
-        address restaking;
+        address staking;
         address statusRegistry;
         uint256 minOperatorStake;
         uint256 minDelegation;
@@ -172,7 +172,7 @@ contract FullDeploy is DeployV2 {
         address timelock;
         address multisig;
         address tangle;
-        address restaking;
+        address staking;
         address statusRegistry;
         address tntToken;
         address metrics;
@@ -220,7 +220,7 @@ contract FullDeploy is DeployV2 {
 
         _applyCoreOverrides(cfg.core);
 
-        (address restaking, address tangle, address statusRegistry) =
+        (address staking, address tangle, address statusRegistry) =
             _resolveCore(cfg.core, deployerKey, deployer, admin, treasury);
 
         vm.startBroadcast(deployerKey);
@@ -231,7 +231,7 @@ contract FullDeploy is DeployV2 {
         address priceOracle = cfg.incentives.priceOracle;
         address serviceFeeDistributor = cfg.incentives.serviceFeeDistributor;
         if (cfg.incentives.deployServiceFeeDistributor) {
-            serviceFeeDistributor = _deployServiceFeeDistributorProxy(admin, restaking, tangle, priceOracle);
+            serviceFeeDistributor = _deployServiceFeeDistributorProxy(admin, staking, tangle, priceOracle);
         }
 
         address streamingPaymentManager = cfg.incentives.streamingPaymentManager;
@@ -240,14 +240,14 @@ contract FullDeploy is DeployV2 {
         }
 
         _substituteTntSentinel(cfg.restakeAssets, cfg.incentives.vaults, tntToken);
-        _configureRestaking(restaking, cfg.restakeAssets);
-        _applyRewardsManager(restaking, rewardVaults, inflationPool);
-        _wireServiceFeeDistributor(restaking, tangle, serviceFeeDistributor, streamingPaymentManager, priceOracle);
+        _configureRestaking(staking, cfg.restakeAssets);
+        _applyRewardsManager(staking, rewardVaults, inflationPool);
+        _wireServiceFeeDistributor(staking, tangle, serviceFeeDistributor, streamingPaymentManager, priceOracle);
         _configureRewardVaults(rewardVaults, cfg.incentives.vaults);
         _configureInflationPool(inflationPool, cfg.incentives, metrics, rewardVaults, tangle, serviceFeeDistributor);
         _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
-        _configureOperatorBondToken(restaking, tntToken);
-        _applyGuards(restaking, tangle, cfg.guards);
+        _configureOperatorBondToken(staking, tntToken);
+        _applyGuards(staking, tangle, cfg.guards);
         if (migration.deploy) {
             migration = _deployMigration(migration, tntToken, deployer, timelock, treasury);
         }
@@ -258,7 +258,7 @@ contract FullDeploy is DeployV2 {
             timelock,
             multisig,
             tangle,
-            restaking,
+            staking,
             tntToken,
             metrics,
             rewardVaults,
@@ -269,7 +269,7 @@ contract FullDeploy is DeployV2 {
         );
         vm.stopBroadcast();
 
-        _runSmokeTests(restaking, tangle, rewardVaults, cfg.restakeAssets, cfg.guards);
+        _runSmokeTests(staking, tangle, rewardVaults, cfg.restakeAssets, cfg.guards);
 
         DeploymentArtifacts memory artifacts = DeploymentArtifacts({
             network: bytes(cfg.network).length == 0 ? "unknown" : cfg.network,
@@ -280,7 +280,7 @@ contract FullDeploy is DeployV2 {
             timelock: timelock,
             multisig: multisig,
             tangle: tangle,
-            restaking: restaking,
+            staking: staking,
             statusRegistry: statusRegistry,
             tntToken: tntToken,
             metrics: metrics,
@@ -300,7 +300,7 @@ contract FullDeploy is DeployV2 {
 
         console2.log("\nDeployment complete.");
         console2.log("  Tangle:", tangle);
-        console2.log("  Restaking:", restaking);
+        console2.log("  Restaking:", staking);
         if (rewardVaults != address(0)) {
             console2.log("  RewardVaults:", rewardVaults);
         }
@@ -345,7 +345,7 @@ contract FullDeploy is DeployV2 {
 
         if (jsonBlob.keyExists(".core.deploy")) cfg.core.deploy = jsonBlob.readBool(".core.deploy");
         if (jsonBlob.keyExists(".core.tangle")) cfg.core.tangle = jsonBlob.readAddress(".core.tangle");
-        if (jsonBlob.keyExists(".core.restaking")) cfg.core.restaking = jsonBlob.readAddress(".core.restaking");
+        if (jsonBlob.keyExists(".core.staking")) cfg.core.staking = jsonBlob.readAddress(".core.staking");
         if (jsonBlob.keyExists(".core.statusRegistry")) cfg.core.statusRegistry = jsonBlob.readAddress(".core.statusRegistry");
         if (jsonBlob.keyExists(".core.minOperatorStake")) {
             cfg.core.minOperatorStake = jsonBlob.readUint(".core.minOperatorStake");
@@ -586,18 +586,18 @@ contract FullDeploy is DeployV2 {
         address treasury
     )
         internal
-        returns (address restaking, address tangle, address statusRegistry)
+        returns (address staking, address tangle, address statusRegistry)
     {
-        bool needsDeploy = core.deploy || core.restaking == address(0) || core.tangle == address(0);
+        bool needsDeploy = core.deploy || core.staking == address(0) || core.tangle == address(0);
         if (needsDeploy) {
             console2.log("Deploying core stack...");
-            (restaking,, tangle,, statusRegistry) = _deployCore(deployerKey, deployer, admin, treasury, true);
+            (staking,, tangle,, statusRegistry) = _deployCore(deployerKey, deployer, admin, treasury, true);
         } else {
-            restaking = core.restaking;
+            staking = core.staking;
             tangle = core.tangle;
             statusRegistry = core.statusRegistry;
-            if (restaking == address(0) || tangle == address(0)) {
-                revert("core.restaking and core.tangle must be set when deploy=false");
+            if (staking == address(0) || tangle == address(0)) {
+                revert("core.staking and core.tangle must be set when deploy=false");
             }
         }
     }
@@ -699,7 +699,7 @@ contract FullDeploy is DeployV2 {
 
     function _deployServiceFeeDistributorProxy(
         address admin,
-        address restaking,
+        address staking,
         address tangle,
         address oracle
     ) internal returns (address proxy) {
@@ -707,7 +707,7 @@ contract FullDeploy is DeployV2 {
         proxy = address(
             new ERC1967Proxy(
                 address(impl),
-                abi.encodeCall(ServiceFeeDistributor.initialize, (admin, restaking, tangle, oracle))
+                abi.encodeCall(ServiceFeeDistributor.initialize, (admin, staking, tangle, oracle))
             )
         );
         console2.log("Deployed ServiceFeeDistributor:", proxy);
@@ -732,10 +732,10 @@ contract FullDeploy is DeployV2 {
     // CONFIGURATION TASKS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _configureRestaking(address restakingAddr, RestakeAssetConfig[] memory assets) internal {
-        if (restakingAddr == address(0)) return;
+    function _configureRestaking(address stakingAddr, RestakeAssetConfig[] memory assets) internal {
+        if (stakingAddr == address(0)) return;
 
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingAddr));
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingAddr));
         for (uint256 i = 0; i < assets.length; i++) {
             RestakeAssetConfig memory asset = assets[i];
             if (asset.token == address(0)) {
@@ -743,7 +743,7 @@ contract FullDeploy is DeployV2 {
                 continue;
             }
 
-            Types.AssetConfig memory existing = restaking.getAssetConfig(asset.token);
+            Types.AssetConfig memory existing = staking.getAssetConfig(asset.token);
             if (existing.enabled) {
                 console2.log("Asset already enabled:", asset.symbol);
                 continue;
@@ -751,7 +751,7 @@ contract FullDeploy is DeployV2 {
 
             uint16 multiplier = asset.rewardMultiplierBps == 0 ? uint16(10_000) : asset.rewardMultiplierBps;
             if (asset.adapter != address(0)) {
-                restaking.enableAssetWithAdapter(
+                staking.enableAssetWithAdapter(
                     asset.token,
                     asset.adapter,
                     asset.minOperatorStake,
@@ -760,7 +760,7 @@ contract FullDeploy is DeployV2 {
                     multiplier
                 );
             } else {
-                restaking.enableAsset(
+                staking.enableAsset(
                     asset.token, asset.minOperatorStake, asset.minDelegation, asset.depositCap, multiplier
                 );
             }
@@ -769,10 +769,10 @@ contract FullDeploy is DeployV2 {
         }
     }
 
-    function _applyRewardsManager(address restakingAddr, address rewardVaultsAddr, address inflationPoolAddr) internal {
-        if (restakingAddr == address(0) || rewardVaultsAddr == address(0)) return;
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingAddr));
-        restaking.setRewardsManager(rewardVaultsAddr);
+    function _applyRewardsManager(address stakingAddr, address rewardVaultsAddr, address inflationPoolAddr) internal {
+        if (stakingAddr == address(0) || rewardVaultsAddr == address(0)) return;
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingAddr));
+        staking.setRewardsManager(rewardVaultsAddr);
         console2.log("Set RewardVaults manager on restaking");
 
         // RewardVaults is called by:
@@ -781,8 +781,8 @@ contract FullDeploy is DeployV2 {
         RewardVaults vaultsContract = RewardVaults(rewardVaultsAddr);
         bytes32 role = vaultsContract.REWARDS_MANAGER_ROLE();
 
-        if (!vaultsContract.hasRole(role, restakingAddr)) {
-            vaultsContract.grantRole(role, restakingAddr);
+        if (!vaultsContract.hasRole(role, stakingAddr)) {
+            vaultsContract.grantRole(role, stakingAddr);
             console2.log("Granted RewardVaults manager role to restaking");
         }
         if (inflationPoolAddr != address(0) && !vaultsContract.hasRole(role, inflationPoolAddr)) {
@@ -891,20 +891,20 @@ contract FullDeploy is DeployV2 {
         }
     }
 
-    function _configureOperatorBondToken(address restakingAddr, address tntToken) internal {
-        if (restakingAddr == address(0) || tntToken == address(0)) return;
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingAddr));
-        Types.AssetConfig memory cfg = restaking.getAssetConfig(tntToken);
+    function _configureOperatorBondToken(address stakingAddr, address tntToken) internal {
+        if (stakingAddr == address(0) || tntToken == address(0)) return;
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingAddr));
+        Types.AssetConfig memory cfg = staking.getAssetConfig(tntToken);
         if (!cfg.enabled) {
             console2.log("Skipped operator bond token: TNT asset not enabled");
             return;
         }
-        restaking.setOperatorBondToken(tntToken);
+        staking.setOperatorBondToken(tntToken);
         console2.log("Configured operator bond token:", tntToken);
     }
 
     function _wireServiceFeeDistributor(
-        address restakingAddr,
+        address stakingAddr,
         address tangleAddr,
         address distributor,
         address streamingMgr,
@@ -912,8 +912,8 @@ contract FullDeploy is DeployV2 {
     ) internal {
         if (distributor == address(0)) {
             if (tangleAddr != address(0)) {
-                (, , , uint16 restakerBps) = ITangleAdmin(tangleAddr).paymentSplit();
-                require(restakerBps == 0, "ServiceFeeDistributor required when restakerBps > 0");
+                (, , , uint16 stakerBps) = ITangleAdmin(tangleAddr).paymentSplit();
+                require(stakerBps == 0, "ServiceFeeDistributor required when stakerBps > 0");
             }
             return;
         }
@@ -923,8 +923,8 @@ contract FullDeploy is DeployV2 {
                 Tangle(payable(tangleAddr)).setPriceOracle(oracle);
             }
         }
-        if (restakingAddr != address(0)) {
-            IMultiAssetDelegation(payable(restakingAddr)).setServiceFeeDistributor(distributor);
+        if (stakingAddr != address(0)) {
+            IMultiAssetDelegation(payable(stakingAddr)).setServiceFeeDistributor(distributor);
         }
         if (streamingMgr != address(0)) {
             ServiceFeeDistributor(payable(distributor)).setStreamingManager(streamingMgr);
@@ -932,17 +932,17 @@ contract FullDeploy is DeployV2 {
         }
     }
 
-    function _applyGuards(address restakingAddr, address tangleAddr, GuardsConfig memory guards) internal {
-        if (restakingAddr != address(0)) {
-            IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingAddr));
+    function _applyGuards(address stakingAddr, address tangleAddr, GuardsConfig memory guards) internal {
+        if (stakingAddr != address(0)) {
+            IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingAddr));
             if (guards.requireAdapters) {
-                restaking.setRequireAdapters(true);
+                staking.setRequireAdapters(true);
             }
             if (guards.delegatorDelay != 0 || guards.operatorDelay != 0 || guards.bondLessDelay != 0) {
-                restaking.setDelays(guards.bondLessDelay, guards.delegatorDelay, guards.operatorDelay);
+                staking.setDelays(guards.bondLessDelay, guards.delegatorDelay, guards.operatorDelay);
             }
             if (guards.pauseRestaking) {
-                restaking.pause();
+                staking.pause();
             }
         }
 
@@ -957,7 +957,7 @@ contract FullDeploy is DeployV2 {
         address timelock,
         address multisig,
         address tangleAddr,
-        address restakingAddr,
+        address stakingAddr,
         address tntToken,
         address metricsAddr,
         address rewardVaultsAddr,
@@ -989,16 +989,16 @@ contract FullDeploy is DeployV2 {
             }
         }
 
-        if (restakingAddr != address(0)) {
-            MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingAddr));
-            _grantRole(restakingAddr, bytes32(0), timelock);
-            _grantRole(restakingAddr, restaking.ADMIN_ROLE(), timelock);
-            _grantRole(restakingAddr, restaking.ASSET_MANAGER_ROLE(), multisig);
+        if (stakingAddr != address(0)) {
+            MultiAssetDelegation staking = MultiAssetDelegation(payable(stakingAddr));
+            _grantRole(stakingAddr, bytes32(0), timelock);
+            _grantRole(stakingAddr, staking.ADMIN_ROLE(), timelock);
+            _grantRole(stakingAddr, staking.ASSET_MANAGER_ROLE(), multisig);
 
             if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
-                _revokeRole(restakingAddr, bytes32(0), bootstrapAdmin);
-                _revokeRole(restakingAddr, restaking.ADMIN_ROLE(), bootstrapAdmin);
-                _revokeRole(restakingAddr, restaking.ASSET_MANAGER_ROLE(), bootstrapAdmin);
+                _revokeRole(stakingAddr, bytes32(0), bootstrapAdmin);
+                _revokeRole(stakingAddr, staking.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(stakingAddr, staking.ASSET_MANAGER_ROLE(), bootstrapAdmin);
             }
         }
 
@@ -1271,7 +1271,7 @@ contract FullDeploy is DeployV2 {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function _runSmokeTests(
-        address restakingAddr,
+        address stakingAddr,
         address tangleAddr,
         address rewardVaultsAddr,
         RestakeAssetConfig[] memory assets,
@@ -1280,18 +1280,18 @@ contract FullDeploy is DeployV2 {
         internal
         view
     {
-        if (restakingAddr != address(0)) {
-            IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingAddr));
+        if (stakingAddr != address(0)) {
+            IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingAddr));
             for (uint256 i = 0; i < assets.length; i++) {
                 RestakeAssetConfig memory asset = assets[i];
                 if (asset.token == address(0)) continue;
-                Types.AssetConfig memory cfg = restaking.getAssetConfig(asset.token);
+                Types.AssetConfig memory cfg = staking.getAssetConfig(asset.token);
                 if (!cfg.enabled) {
                     revert(string.concat("Asset disabled: ", asset.symbol));
                 }
             }
             if (rewardVaultsAddr != address(0)) {
-                require(restaking.rewardsManager() == rewardVaultsAddr, "Rewards manager mismatch");
+                require(staking.rewardsManager() == rewardVaultsAddr, "Rewards manager mismatch");
             }
         }
 
@@ -1334,7 +1334,7 @@ contract FullDeploy is DeployV2 {
                 _addrToString(artifacts.tangle),
                 "\",",
                 "\"restaking\":\"",
-                _addrToString(artifacts.restaking),
+                _addrToString(artifacts.staking),
                 "\",",
                 "\"statusRegistry\":\"",
                 _addrToString(artifacts.statusRegistry),

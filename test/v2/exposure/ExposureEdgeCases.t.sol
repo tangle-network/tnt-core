@@ -7,10 +7,10 @@ import {ExposureTypes} from "../../../src/v2/exposure/ExposureTypes.sol";
 import {ExposureCalculator} from "../../../src/v2/exposure/ExposureCalculator.sol";
 import {Types} from "../../../src/v2/libraries/Types.sol";
 import {SlashingLib} from "../../../src/v2/libraries/SlashingLib.sol";
-import {IRestaking} from "../../../src/v2/interfaces/IRestaking.sol";
+import {IStaking} from "../../../src/v2/interfaces/IStaking.sol";
 
-/// @notice Mock restaking for testing
-contract MockRestakingEdge is IRestaking {
+/// @notice Mock staking for testing
+contract MockStakingEdge is IStaking {
     mapping(address => bool) public operators;
     mapping(address => uint256) public stakes;
     mapping(address => uint256) public delegatedStakes;
@@ -63,7 +63,7 @@ contract MockRestakingEdge is IRestaking {
 /// @notice Comprehensive edge case and boundary testing for exposure system
 contract ExposureEdgeCasesTest is Test {
     ExposureManager public manager;
-    MockRestakingEdge public restaking;
+    MockStakingEdge public staking;
 
     address public operator1;
     address public operator2;
@@ -77,16 +77,16 @@ contract ExposureEdgeCasesTest is Test {
         operator2 = makeAddr("operator2");
         operator3 = makeAddr("operator3");
 
-        restaking = new MockRestakingEdge();
-        restaking.setOperator(operator1, true);
-        restaking.setOperator(operator2, true);
-        restaking.setOperator(operator3, true);
+        staking = new MockStakingEdge();
+        staking.setOperator(operator1, true);
+        staking.setOperator(operator2, true);
+        staking.setOperator(operator3, true);
 
-        restaking.setStake(operator1, 100 ether);
-        restaking.setStake(operator2, 1000 ether);
-        restaking.setStake(operator3, 1 wei);
+        staking.setStake(operator1, 100 ether);
+        staking.setStake(operator2, 1000 ether);
+        staking.setStake(operator3, 1 wei);
 
-        manager = new ExposureManager(address(restaking));
+        manager = new ExposureManager(address(staking));
 
         nativeAsset = Types.Asset(Types.AssetKind.Native, address(0));
         erc20Asset = Types.Asset(Types.AssetKind.ERC20, makeAddr("token"));
@@ -175,8 +175,8 @@ contract ExposureEdgeCasesTest is Test {
     function test_ExposedAmount_LargeStake_NoOverflow() public {
         // Set up operator with max uint128 stake
         address bigOperator = makeAddr("bigOperator");
-        restaking.setOperator(bigOperator, true);
-        restaking.setStake(bigOperator, type(uint128).max);
+        staking.setOperator(bigOperator, true);
+        staking.setStake(bigOperator, type(uint128).max);
 
         (uint256 delegated, uint256 exposed) =
             manager.calculateExposedAmount(bigOperator, nativeAsset, 10000);
@@ -187,8 +187,8 @@ contract ExposureEdgeCasesTest is Test {
 
     function test_ExposedAmount_LargeStake_HalfExposure() public {
         address bigOperator = makeAddr("bigOperator");
-        restaking.setOperator(bigOperator, true);
-        restaking.setStake(bigOperator, type(uint128).max);
+        staking.setOperator(bigOperator, true);
+        staking.setStake(bigOperator, type(uint128).max);
 
         (uint256 delegated, uint256 exposed) =
             manager.calculateExposedAmount(bigOperator, nativeAsset, 5000);
@@ -504,31 +504,31 @@ contract ExposureEdgeCasesTest is Test {
     // MOCK RESTAKING COVERAGE (unused helpers)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function test_MockRestakingEdge_HelperCoverage() public {
+    function test_MockStakingEdge_HelperCoverage() public {
         address tempOperator = makeAddr("tempOperator");
-        restaking.setOperator(tempOperator, true);
-        restaking.setStake(tempOperator, 42 ether);
-        restaking.setDelegatedStake(tempOperator, 84 ether);
+        staking.setOperator(tempOperator, true);
+        staking.setStake(tempOperator, 42 ether);
+        staking.setDelegatedStake(tempOperator, 84 ether);
 
-        assertTrue(restaking.isOperator(tempOperator));
-        assertTrue(restaking.isOperatorActive(tempOperator));
-        assertEq(restaking.getOperatorStake(tempOperator), 42 ether);
-        assertEq(restaking.getOperatorSelfStake(tempOperator), 42 ether);
-        assertEq(restaking.getOperatorDelegatedStake(tempOperator), 84 ether);
-        assertEq(restaking.getDelegation(tempOperator, operator1), 0);
-        assertEq(restaking.getTotalDelegation(tempOperator), 0);
-        assertEq(restaking.minOperatorStake(), 0);
-        assertTrue(restaking.meetsStakeRequirement(tempOperator, 1 ether));
+        assertTrue(staking.isOperator(tempOperator));
+        assertTrue(staking.isOperatorActive(tempOperator));
+        assertEq(staking.getOperatorStake(tempOperator), 42 ether);
+        assertEq(staking.getOperatorSelfStake(tempOperator), 42 ether);
+        assertEq(staking.getOperatorDelegatedStake(tempOperator), 84 ether);
+        assertEq(staking.getDelegation(tempOperator, operator1), 0);
+        assertEq(staking.getTotalDelegation(tempOperator), 0);
+        assertEq(staking.minOperatorStake(), 0);
+        assertTrue(staking.meetsStakeRequirement(tempOperator, 1 ether));
         assertEq(
-            restaking.slashForBlueprint(tempOperator, 1, 2, 5000, keccak256("bp-slash")),
+            staking.slashForBlueprint(tempOperator, 1, 2, 5000, keccak256("bp-slash")),
             5000
         );
-        assertEq(restaking.slash(tempOperator, 3, 4000, keccak256("plain-slash")), 4000);
-        assertFalse(restaking.isSlasher(tempOperator));
+        assertEq(staking.slash(tempOperator, 3, 4000, keccak256("plain-slash")), 4000);
+        assertFalse(staking.isSlasher(tempOperator));
 
         // The reward notifiers are no-ops but should remain callable
-        restaking.notifyRewardForBlueprint(tempOperator, 1, 1, 1 ether);
-        restaking.notifyReward(tempOperator, 1, 1 ether);
+        staking.notifyRewardForBlueprint(tempOperator, 1, 1, 1 ether);
+        staking.notifyReward(tempOperator, 1, 1 ether);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

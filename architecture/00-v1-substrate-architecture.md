@@ -2,7 +2,7 @@
 
 ## Overview
 
-Tangle is a Substrate-based restaking protocol where:
+Tangle is a Substrate-based staking protocol where:
 - **Operators** stake assets and register to provide off-chain services
 - **Developers** deploy Blueprints (service templates) that operators can run
 - **Customers** request service instances, pay for them, and submit jobs

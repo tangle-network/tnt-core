@@ -377,7 +377,7 @@ library Types {
         uint16 developerBps;   // To blueprint owner
         uint16 protocolBps;    // To protocol treasury
         uint16 operatorBps;    // To service operators (weighted by exposure)
-        uint16 restakerBps;    // To delegators/restakers
+        uint16 stakerBps;      // To delegators/stakers
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

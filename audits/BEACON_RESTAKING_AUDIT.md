@@ -1,14 +1,14 @@
-# Beacon Native Restaking Audit: Tangle vs EigenLayer
+# Beacon Native Staking Audit: Tangle vs EigenLayer
 
 **Date:** 2026-01-17
 **Auditor:** Claude Opus 4.5
-**Scope:** Native ETH restaking architecture comparison and deployment verification
+**Scope:** Native ETH staking architecture comparison and deployment verification
 
 ---
 
 ## Executive Summary
 
-Tangle's beacon native restaking system is architecturally similar to EigenLayer's EigenPod design with several key differences optimized for L2 deployment. The core cryptographic verification and checkpoint system are sound. However, **critical gaps exist in the deployment scripts** for L2 deployment with L1 beacon chain requirements.
+Tangle's beacon native staking system is architecturally similar to EigenLayer's EigenPod design with several key differences optimized for L2 deployment. The core cryptographic verification and checkpoint system are sound. However, **critical gaps exist in the deployment scripts** for L2 deployment with L1 beacon chain requirements.
 
 | Category | Status |
 |----------|--------|
@@ -89,7 +89,7 @@ BeaconChainProofs.verifyBalanceContainer(stateRootProof.beaconStateRoot, balance
 EigenLayer has **limited L2 support**:
 - Core protocol runs on Ethereum mainnet only
 - L2 deployments (Base) only support task verification
-- No native ETH restaking from L2s
+- No native ETH staking from L2s
 - Uses Succinct Labs beacon oracle for off-chain relay
 
 ### 2.2 Tangle Approach
@@ -372,7 +372,7 @@ Usage:
 
 ## 9. Conclusion
 
-Tangle's beacon native restaking architecture is **fundamentally sound** and correctly implements the EigenLayer-style EigenPod pattern with additional cross-chain capabilities. The core cryptographic verification (withdrawal credentials, balance proofs, slashing factors) is correct following the security audit fixes.
+Tangle's beacon native staking architecture is **fundamentally sound** and correctly implements the EigenLayer-style EigenPod pattern with additional cross-chain capabilities. The core cryptographic verification (withdrawal credentials, balance proofs, slashing factors) is correct following the security audit fixes.
 
 The **primary risk area** is deployment orchestration. The separation of L1 beacon infrastructure from L2 core protocol is architecturally correct but requires careful multi-phase deployment. Teams deploying this should:
 

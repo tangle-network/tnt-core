@@ -50,7 +50,7 @@ contract SlashingTest is BaseTest {
         blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://slashing-test", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         _directRegisterOperator(operator1, blueprintId, "");
 
@@ -249,7 +249,7 @@ contract SlashingTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_ExecuteSlash_AfterDisputeWindow() public {
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
 
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 2000, keccak256("evidence"));
@@ -261,7 +261,7 @@ contract SlashingTest is BaseTest {
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Executed));
 
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeAfter = staking.getOperatorSelfStake(operator1);
         assertEq(stakeAfter, stakeBefore - 2 ether);
     }
 
@@ -414,7 +414,7 @@ contract SlashingTest is BaseTest {
     }
 
     function test_MultipleSlashProposals_ExecuteAll() public {
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
         uint16 slashBps1 = 1000;
         uint16 slashBps2 = 2000;
 
@@ -429,7 +429,7 @@ contract SlashingTest is BaseTest {
         tangle.executeSlash(slashId1);
         tangle.executeSlash(slashId2);
 
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeAfter = staking.getOperatorSelfStake(operator1);
         uint256 afterFirst = stakeBefore - ((stakeBefore * slashBps1) / 10_000);
         uint256 expectedAfter = afterFirst - ((afterFirst * slashBps2) / 10_000);
         assertEq(stakeAfter, expectedAfter);

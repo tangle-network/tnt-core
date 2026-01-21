@@ -5,17 +5,17 @@ import { Test, console2 } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
-import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
-import { DelegationErrors } from "../../src/v2/restaking/DelegationErrors.sol";
+import { MultiAssetDelegation } from "../../src/v2/staking/MultiAssetDelegation.sol";
+import { DelegationErrors } from "../../src/v2/staking/DelegationErrors.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { MockERC20 } from "./mocks/MockERC20.sol";
-import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
-import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
-import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
-import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
-import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
-import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
+import { StakingOperatorsFacet } from "../../src/v2/facets/staking/StakingOperatorsFacet.sol";
+import { StakingDepositsFacet } from "../../src/v2/facets/staking/StakingDepositsFacet.sol";
+import { StakingDelegationsFacet } from "../../src/v2/facets/staking/StakingDelegationsFacet.sol";
+import { StakingSlashingFacet } from "../../src/v2/facets/staking/StakingSlashingFacet.sol";
+import { StakingAssetsFacet } from "../../src/v2/facets/staking/StakingAssetsFacet.sol";
+import { StakingViewsFacet } from "../../src/v2/facets/staking/StakingViewsFacet.sol";
+import { StakingAdminFacet } from "../../src/v2/facets/staking/StakingAdminFacet.sol";
 
 contract MultiAssetDelegationTest is Test {
     IMultiAssetDelegation public delegation;
@@ -74,13 +74,13 @@ contract MultiAssetDelegationTest is Test {
     function _registerFacets(address proxy) internal {
         MultiAssetDelegation router = MultiAssetDelegation(payable(proxy));
         vm.startPrank(admin);
-        router.registerFacet(address(new RestakingOperatorsFacet()));
-        router.registerFacet(address(new RestakingDepositsFacet()));
-        router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingSlashingFacet()));
-        router.registerFacet(address(new RestakingAssetsFacet()));
-        router.registerFacet(address(new RestakingViewsFacet()));
-        router.registerFacet(address(new RestakingAdminFacet()));
+        router.registerFacet(address(new StakingOperatorsFacet()));
+        router.registerFacet(address(new StakingDepositsFacet()));
+        router.registerFacet(address(new StakingDelegationsFacet()));
+        router.registerFacet(address(new StakingSlashingFacet()));
+        router.registerFacet(address(new StakingAssetsFacet()));
+        router.registerFacet(address(new StakingViewsFacet()));
+        router.registerFacet(address(new StakingAdminFacet()));
         vm.stopPrank();
     }
 

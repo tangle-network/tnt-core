@@ -55,7 +55,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 
 ### 1) Deploy protocol core on Base Sepolia
 - Run `script/v2/FullDeploy.s.sol:FullDeploy` on Base Sepolia.
-- Output: manifest at `.manifest.path` (e.g. `deployments/base-sepolia-holesky/latest.json`) containing `tangle`, `restaking`, `tntToken`, and incentives addresses.
+- Output: manifest at `.manifest.path` (e.g. `deployments/base-sepolia-holesky/latest.json`) containing `tangle`, `staking`, `tntToken`, and incentives addresses.
 
 ### 2) Deploy beacon slashing infra on Holesky (without L2 wiring)
 - Run `script/v2/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1Holesky` (or `...HoleskyLayerZero`) on Holesky with:

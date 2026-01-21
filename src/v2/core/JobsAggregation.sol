@@ -239,7 +239,7 @@ abstract contract JobsAggregation is Base {
         for (uint256 i = 0; i < operators.length; i++) {
             Types.ServiceOperator storage svcOp = _serviceOperators[serviceId][operators[i]];
             if (!svcOp.active) continue;
-            if (!_restaking.isOperatorActive(operators[i])) continue;
+            if (!_staking.isOperatorActive(operators[i])) continue;
 
             stats.operatorCount++;
             uint256 weight = thresholdType == 1 ? uint256(svcOp.exposureBps) : 1;

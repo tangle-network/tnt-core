@@ -1127,7 +1127,7 @@ library Types {
     struct NativeSource { BlueprintFetcherKind fetcher; string artifactUri; string entrypoint; }
     struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
     struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
-    struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 restakerBps; }
+    struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; }
     struct QuoteDetails { uint64 blueprintId; uint64 ttlBlocks; uint256 totalCost; uint64 timestamp; uint64 expiry; AssetSecurityCommitment[] securityCommitments; }
     struct Service { uint64 blueprintId; address owner; uint64 createdAt; uint64 ttl; uint64 terminatedAt; uint64 lastPaymentAt; uint32 operatorCount; uint32 minOperators; uint32 maxOperators; MembershipModel membership; PricingModel pricing; ServiceStatus status; }
     struct ServiceOperator { uint16 exposureBps; uint64 joinedAt; uint64 leftAt; bool active; }
@@ -7400,7 +7400,7 @@ struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 restakerBps; }
+struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -7412,7 +7412,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
         #[allow(missing_docs)]
         pub operatorBps: u16,
         #[allow(missing_docs)]
-        pub restakerBps: u16,
+        pub stakerBps: u16,
     }
     #[allow(
         non_camel_case_types,
@@ -7451,7 +7451,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     value.developerBps,
                     value.protocolBps,
                     value.operatorBps,
-                    value.restakerBps,
+                    value.stakerBps,
                 )
             }
         }
@@ -7463,7 +7463,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     developerBps: tuple.0,
                     protocolBps: tuple.1,
                     operatorBps: tuple.2,
-                    restakerBps: tuple.3,
+                    stakerBps: tuple.3,
                 }
             }
         }
@@ -7487,7 +7487,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     > as alloy_sol_types::SolType>::tokenize(&self.operatorBps),
                     <alloy::sol_types::sol_data::Uint<
                         16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.restakerBps),
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakerBps),
                 )
             }
             #[inline]
@@ -7562,7 +7562,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "PaymentSplit(uint16 developerBps,uint16 protocolBps,uint16 operatorBps,uint16 restakerBps)",
+                    "PaymentSplit(uint16 developerBps,uint16 protocolBps,uint16 operatorBps,uint16 stakerBps)",
                 )
             }
             #[inline]
@@ -7592,7 +7592,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         16,
-                    > as alloy_sol_types::SolType>::eip712_data_word(&self.restakerBps)
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.stakerBps)
                         .0,
                 ]
                     .concat()
@@ -7621,7 +7621,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     + <alloy::sol_types::sol_data::Uint<
                         16,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.restakerBps,
+                        &rust.stakerBps,
                     )
             }
             #[inline]
@@ -7653,7 +7653,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                 <alloy::sol_types::sol_data::Uint<
                     16,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.restakerBps,
+                    &rust.stakerBps,
                     out,
                 );
             }
@@ -10192,7 +10192,7 @@ library Types {
         uint16 developerBps;
         uint16 protocolBps;
         uint16 operatorBps;
-        uint16 restakerBps;
+        uint16 stakerBps;
     }
     struct QuoteDetails {
         uint64 blueprintId;
@@ -10279,8 +10279,8 @@ interface ITangleFull {
     event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
 
     function addPermittedCaller(uint64 serviceId, address caller) external;
-    function approveService(uint64 requestId, uint8 restakingPercent) external;
-    function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256[4] memory blsPubkey) external;
+    function approveService(uint64 requestId, uint8 stakingPercent) external;
+    function approveServiceWithBls(uint64 requestId, uint8 stakingPercent, uint256[4] memory blsPubkey) external;
     function approveServiceWithCommitments(uint64 requestId, Types.AssetSecurityCommitment[] memory commitments) external;
     function approveServiceWithCommitmentsAndBls(uint64 requestId, Types.AssetSecurityCommitment[] memory commitments, uint256[4] memory blsPubkey) external;
     function billSubscription(uint64 serviceId) external;
@@ -10346,7 +10346,7 @@ interface ITangleFull {
     function metricsRecorder() external view returns (address);
     function operatorStatusRegistry() external view returns (address);
     function pause() external;
-    function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 restakerBps);
+    function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
     function pendingRewards(address account) external view returns (uint256);
     function pendingRewards(address account, address token) external view returns (uint256);
     function preRegister(uint64 blueprintId) external;
@@ -10371,10 +10371,10 @@ interface ITangleFull {
     function setOperatorStatusRegistry(address registry) external;
     function setPaymentSplit(Types.PaymentSplit memory split) external;
     function setPriceOracle(address oracle) external;
-    function setRestaking(address restaking) external;
     function setRewardVaults(address vaults) external;
     function setServiceFeeDistributor(address distributor) external;
     function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps) external;
+    function setStaking(address staking) external;
     function setTntPaymentDiscountBps(uint16 discountBps) external;
     function setTntToken(address token) external;
     function setTreasury(address treasury) external;
@@ -10425,7 +10425,7 @@ interface ITangleFull {
         "internalType": "uint64"
       },
       {
-        "name": "restakingPercent",
+        "name": "stakingPercent",
         "type": "uint8",
         "internalType": "uint8"
       }
@@ -10443,7 +10443,7 @@ interface ITangleFull {
         "internalType": "uint64"
       },
       {
-        "name": "restakingPercent",
+        "name": "stakingPercent",
         "type": "uint8",
         "internalType": "uint8"
       },
@@ -13205,7 +13205,7 @@ interface ITangleFull {
         "internalType": "uint16"
       },
       {
-        "name": "restakerBps",
+        "name": "stakerBps",
         "type": "uint16",
         "internalType": "uint16"
       }
@@ -13744,7 +13744,7 @@ interface ITangleFull {
             "internalType": "uint16"
           },
           {
-            "name": "restakerBps",
+            "name": "stakerBps",
             "type": "uint16",
             "internalType": "uint16"
           }
@@ -13760,19 +13760,6 @@ interface ITangleFull {
     "inputs": [
       {
         "name": "oracle",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setRestaking",
-    "inputs": [
-      {
-        "name": "restaking",
         "type": "address",
         "internalType": "address"
       }
@@ -13824,6 +13811,19 @@ interface ITangleFull {
         "name": "maxSlashBps",
         "type": "uint16",
         "internalType": "uint16"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setStaking",
+    "inputs": [
+      {
+        "name": "staking",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -17614,7 +17614,7 @@ function addPermittedCaller(uint64 serviceId, address caller) external;
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `approveService(uint64,uint8)` and selector `0x614823b2`.
 ```solidity
-function approveService(uint64 requestId, uint8 restakingPercent) external;
+function approveService(uint64 requestId, uint8 stakingPercent) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -17622,7 +17622,7 @@ function approveService(uint64 requestId, uint8 restakingPercent) external;
         #[allow(missing_docs)]
         pub requestId: u64,
         #[allow(missing_docs)]
-        pub restakingPercent: u8,
+        pub stakingPercent: u8,
     }
     ///Container type for the return parameters of the [`approveService(uint64,uint8)`](approveServiceCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -17660,7 +17660,7 @@ function approveService(uint64 requestId, uint8 restakingPercent) external;
             #[doc(hidden)]
             impl ::core::convert::From<approveServiceCall> for UnderlyingRustTuple<'_> {
                 fn from(value: approveServiceCall) -> Self {
-                    (value.requestId, value.restakingPercent)
+                    (value.requestId, value.stakingPercent)
                 }
             }
             #[automatically_derived]
@@ -17669,7 +17669,7 @@ function approveService(uint64 requestId, uint8 restakingPercent) external;
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         requestId: tuple.0,
-                        restakingPercent: tuple.1,
+                        stakingPercent: tuple.1,
                     }
                 }
             }
@@ -17745,7 +17745,7 @@ function approveService(uint64 requestId, uint8 restakingPercent) external;
                     > as alloy_sol_types::SolType>::tokenize(&self.requestId),
                     <alloy::sol_types::sol_data::Uint<
                         8,
-                    > as alloy_sol_types::SolType>::tokenize(&self.restakingPercent),
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakingPercent),
                 )
             }
             #[inline]
@@ -17774,7 +17774,7 @@ function approveService(uint64 requestId, uint8 restakingPercent) external;
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `approveServiceWithBls(uint64,uint8,uint256[4])` and selector `0x9926fbec`.
 ```solidity
-function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256[4] memory blsPubkey) external;
+function approveServiceWithBls(uint64 requestId, uint8 stakingPercent, uint256[4] memory blsPubkey) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -17782,7 +17782,7 @@ function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256
         #[allow(missing_docs)]
         pub requestId: u64,
         #[allow(missing_docs)]
-        pub restakingPercent: u8,
+        pub stakingPercent: u8,
         #[allow(missing_docs)]
         pub blsPubkey: [alloy::sol_types::private::primitives::aliases::U256; 4usize],
     }
@@ -17831,7 +17831,7 @@ function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256
             impl ::core::convert::From<approveServiceWithBlsCall>
             for UnderlyingRustTuple<'_> {
                 fn from(value: approveServiceWithBlsCall) -> Self {
-                    (value.requestId, value.restakingPercent, value.blsPubkey)
+                    (value.requestId, value.stakingPercent, value.blsPubkey)
                 }
             }
             #[automatically_derived]
@@ -17841,7 +17841,7 @@ function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         requestId: tuple.0,
-                        restakingPercent: tuple.1,
+                        stakingPercent: tuple.1,
                         blsPubkey: tuple.2,
                     }
                 }
@@ -17924,7 +17924,7 @@ function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256
                     > as alloy_sol_types::SolType>::tokenize(&self.requestId),
                     <alloy::sol_types::sol_data::Uint<
                         8,
-                    > as alloy_sol_types::SolType>::tokenize(&self.restakingPercent),
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakingPercent),
                     <alloy::sol_types::sol_data::FixedArray<
                         alloy::sol_types::sol_data::Uint<256>,
                         4usize,
@@ -28457,7 +28457,7 @@ function pause() external;
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `paymentSplit()` and selector `0xaac7416b`.
 ```solidity
-function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 restakerBps);
+function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -28475,7 +28475,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
         #[allow(missing_docs)]
         pub operatorBps: u16,
         #[allow(missing_docs)]
-        pub restakerBps: u16,
+        pub stakerBps: u16,
     }
     #[allow(
         non_camel_case_types,
@@ -28547,7 +28547,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                         value.developerBps,
                         value.protocolBps,
                         value.operatorBps,
-                        value.restakerBps,
+                        value.stakerBps,
                     )
                 }
             }
@@ -28559,7 +28559,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                         developerBps: tuple.0,
                         protocolBps: tuple.1,
                         operatorBps: tuple.2,
-                        restakerBps: tuple.3,
+                        stakerBps: tuple.3,
                     }
                 }
             }
@@ -28580,7 +28580,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                     > as alloy_sol_types::SolType>::tokenize(&self.operatorBps),
                     <alloy::sol_types::sol_data::Uint<
                         16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.restakerBps),
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakerBps),
                 )
             }
         }
@@ -32608,150 +32608,6 @@ function setPriceOracle(address oracle) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setRestaking(address)` and selector `0x99ff3654`.
-```solidity
-function setRestaking(address restaking) external;
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setRestakingCall {
-        #[allow(missing_docs)]
-        pub restaking: alloy::sol_types::private::Address,
-    }
-    ///Container type for the return parameters of the [`setRestaking(address)`](setRestakingCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct setRestakingReturn {}
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setRestakingCall> for UnderlyingRustTuple<'_> {
-                fn from(value: setRestakingCall) -> Self {
-                    (value.restaking,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setRestakingCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { restaking: tuple.0 }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<setRestakingReturn> for UnderlyingRustTuple<'_> {
-                fn from(value: setRestakingReturn) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setRestakingReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {}
-                }
-            }
-        }
-        impl setRestakingReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setRestakingCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
-                ()
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for setRestakingCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = setRestakingReturn;
-            type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setRestaking(address)";
-            const SELECTOR: [u8; 4] = [153u8, 255u8, 54u8, 84u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.restaking,
-                    ),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                setRestakingReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setRewardVaults(address)` and selector `0x43a6307d`.
 ```solidity
 function setRewardVaults(address vaults) external;
@@ -33195,6 +33051,150 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 setSlashConfigReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `setStaking(address)` and selector `0x8ff39099`.
+```solidity
+function setStaking(address staking) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setStakingCall {
+        #[allow(missing_docs)]
+        pub staking: alloy::sol_types::private::Address,
+    }
+    ///Container type for the return parameters of the [`setStaking(address)`](setStakingCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setStakingReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setStakingCall> for UnderlyingRustTuple<'_> {
+                fn from(value: setStakingCall) -> Self {
+                    (value.staking,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setStakingCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { staking: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setStakingReturn> for UnderlyingRustTuple<'_> {
+                fn from(value: setStakingReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setStakingReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl setStakingReturn {
+            fn _tokenize(
+                &self,
+            ) -> <setStakingCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for setStakingCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = setStakingReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "setStaking(address)";
+            const SELECTOR: [u8; 4] = [143u8, 243u8, 144u8, 153u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.staking,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                setStakingReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -35948,13 +35948,13 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         setPriceOracle(setPriceOracleCall),
         #[allow(missing_docs)]
-        setRestaking(setRestakingCall),
-        #[allow(missing_docs)]
         setRewardVaults(setRewardVaultsCall),
         #[allow(missing_docs)]
         setServiceFeeDistributor(setServiceFeeDistributorCall),
         #[allow(missing_docs)]
         setSlashConfig(setSlashConfigCall),
+        #[allow(missing_docs)]
+        setStaking(setStakingCall),
         #[allow(missing_docs)]
         setTntPaymentDiscountBps(setTntPaymentDiscountBpsCall),
         #[allow(missing_docs)]
@@ -36060,11 +36060,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [138u8, 76u8, 247u8, 99u8],
             [141u8, 63u8, 101u8, 190u8],
             [142u8, 180u8, 53u8, 165u8],
+            [143u8, 243u8, 144u8, 153u8],
             [144u8, 158u8, 172u8, 36u8],
             [147u8, 243u8, 221u8, 175u8],
             [151u8, 14u8, 8u8, 254u8],
             [153u8, 38u8, 251u8, 236u8],
-            [153u8, 255u8, 54u8, 84u8],
             [157u8, 204u8, 90u8, 147u8],
             [158u8, 189u8, 101u8, 173u8],
             [159u8, 180u8, 61u8, 76u8],
@@ -36176,11 +36176,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(transferBlueprint),
             ::core::stringify!(blueprintOperatorCount),
             ::core::stringify!(defaultTntMinExposureBps),
+            ::core::stringify!(setStaking),
             ::core::stringify!(updateOperatorPreferences),
             ::core::stringify!(getBillableServices),
             ::core::stringify!(fundService),
             ::core::stringify!(approveServiceWithBls),
-            ::core::stringify!(setRestaking),
             ::core::stringify!(getExitRequest),
             ::core::stringify!(rewardVaults),
             ::core::stringify!(setTntToken),
@@ -36292,11 +36292,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <transferBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintOperatorCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <defaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setStakingCall as alloy_sol_types::SolCall>::SIGNATURE,
             <updateOperatorPreferencesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getBillableServicesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <fundServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <approveServiceWithBlsCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <setRestakingCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getExitRequestCall as alloy_sol_types::SolCall>::SIGNATURE,
             <rewardVaultsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTntTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -36648,9 +36648,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 Self::setPriceOracle(_) => {
                     <setPriceOracleCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::setRestaking(_) => {
-                    <setRestakingCall as alloy_sol_types::SolCall>::SELECTOR
-                }
                 Self::setRewardVaults(_) => {
                     <setRewardVaultsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -36659,6 +36656,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::setSlashConfig(_) => {
                     <setSlashConfigCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::setStaking(_) => {
+                    <setStakingCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::setTntPaymentDiscountBps(_) => {
                     <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SELECTOR
@@ -37416,6 +37416,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     defaultTntMinExposureBps
                 },
                 {
+                    fn setStaking(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <setStakingCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::setStaking)
+                    }
+                    setStaking
+                },
+                {
                     fn updateOperatorPreferences(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -37458,17 +37469,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::approveServiceWithBls)
                     }
                     approveServiceWithBls
-                },
-                {
-                    fn setRestaking(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <setRestakingCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleFullCalls::setRestaking)
-                    }
-                    setRestaking
                 },
                 {
                     fn getExitRequest(
@@ -38673,6 +38673,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     defaultTntMinExposureBps
                 },
                 {
+                    fn setStaking(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <setStakingCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::setStaking)
+                    }
+                    setStaking
+                },
+                {
                     fn updateOperatorPreferences(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -38715,17 +38726,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::approveServiceWithBls)
                     }
                     approveServiceWithBls
-                },
-                {
-                    fn setRestaking(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <setRestakingCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleFullCalls::setRestaking)
-                    }
-                    setRestaking
                 },
                 {
                     fn getExitRequest(
@@ -39680,11 +39680,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         inner,
                     )
                 }
-                Self::setRestaking(inner) => {
-                    <setRestakingCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::setRewardVaults(inner) => {
                     <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -39699,6 +39694,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     <setSlashConfigCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
+                }
+                Self::setStaking(inner) => {
+                    <setStakingCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::setTntPaymentDiscountBps(inner) => {
                     <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -40332,12 +40330,6 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         out,
                     )
                 }
-                Self::setRestaking(inner) => {
-                    <setRestakingCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::setRewardVaults(inner) => {
                     <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -40352,6 +40344,12 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::setSlashConfig(inner) => {
                     <setSlashConfigCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::setStaking(inner) => {
+                    <setStakingCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -41209,12 +41207,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         pub fn approveService(
             &self,
             requestId: u64,
-            restakingPercent: u8,
+            stakingPercent: u8,
         ) -> alloy_contract::SolCallBuilder<&P, approveServiceCall, N> {
             self.call_builder(
                 &approveServiceCall {
                     requestId,
-                    restakingPercent,
+                    stakingPercent,
                 },
             )
         }
@@ -41222,13 +41220,13 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         pub fn approveServiceWithBls(
             &self,
             requestId: u64,
-            restakingPercent: u8,
+            stakingPercent: u8,
             blsPubkey: [alloy::sol_types::private::primitives::aliases::U256; 4usize],
         ) -> alloy_contract::SolCallBuilder<&P, approveServiceWithBlsCall, N> {
             self.call_builder(
                 &approveServiceWithBlsCall {
                     requestId,
-                    restakingPercent,
+                    stakingPercent,
                     blsPubkey,
                 },
             )
@@ -42208,13 +42206,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, setPriceOracleCall, N> {
             self.call_builder(&setPriceOracleCall { oracle })
         }
-        ///Creates a new call builder for the [`setRestaking`] function.
-        pub fn setRestaking(
-            &self,
-            restaking: alloy::sol_types::private::Address,
-        ) -> alloy_contract::SolCallBuilder<&P, setRestakingCall, N> {
-            self.call_builder(&setRestakingCall { restaking })
-        }
         ///Creates a new call builder for the [`setRewardVaults`] function.
         pub fn setRewardVaults(
             &self,
@@ -42247,6 +42238,13 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     maxSlashBps,
                 },
             )
+        }
+        ///Creates a new call builder for the [`setStaking`] function.
+        pub fn setStaking(
+            &self,
+            staking: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, setStakingCall, N> {
+            self.call_builder(&setStakingCall { staking })
         }
         ///Creates a new call builder for the [`setTntPaymentDiscountBps`] function.
         pub fn setTntPaymentDiscountBps(

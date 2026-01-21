@@ -48,8 +48,8 @@ contract SlashingFuzzTest is BaseTest {
         _registerForBlueprint(operator2, blueprintId);
 
         vm.startPrank(delegator1);
-        restaking.deposit{ value: d1Stake }();
-        restaking.delegate(operator2, d1Stake);
+        staking.deposit{ value: d1Stake }();
+        staking.delegate(operator2, d1Stake);
         vm.stopPrank();
 
         // Create service
@@ -59,8 +59,8 @@ contract SlashingFuzzTest is BaseTest {
         uint64 svcId = tangle.serviceCount() - 1;
 
         // Record balances before
-        uint256 opBefore = restaking.getOperatorSelfStake(operator2);
-        uint256 d1Before = restaking.getDelegation(delegator1, operator2);
+        uint256 opBefore = staking.getOperatorSelfStake(operator2);
+        uint256 d1Before = staking.getDelegation(delegator1, operator2);
         uint256 totalBefore = opBefore + d1Before;
 
         // Propose and execute slash
@@ -71,8 +71,8 @@ contract SlashingFuzzTest is BaseTest {
         tangle.executeSlash(slashId);
 
         // Verify balances after
-        uint256 opAfter = restaking.getOperatorSelfStake(operator2);
-        uint256 d1After = restaking.getDelegation(delegator1, operator2);
+        uint256 opAfter = staking.getOperatorSelfStake(operator2);
+        uint256 d1After = staking.getDelegation(delegator1, operator2);
         uint256 totalAfter = opAfter + d1After;
 
         // Total slashed should equal bps of total stake
@@ -120,13 +120,13 @@ contract SlashingFuzzTest is BaseTest {
         _registerForBlueprint(operator3, blueprintId);
 
         vm.startPrank(delegator1);
-        restaking.deposit{ value: d1Stake }();
-        restaking.delegate(operator3, d1Stake);
+        staking.deposit{ value: d1Stake }();
+        staking.delegate(operator3, d1Stake);
         vm.stopPrank();
 
         vm.startPrank(delegator2);
-        restaking.deposit{ value: d2Stake }();
-        restaking.delegate(operator3, d2Stake);
+        staking.deposit{ value: d2Stake }();
+        staking.delegate(operator3, d2Stake);
         vm.stopPrank();
 
         uint64 reqId = _requestService(user1, blueprintId, operator3);
@@ -135,9 +135,9 @@ contract SlashingFuzzTest is BaseTest {
         uint64 svcId = tangle.serviceCount() - 1;
 
         // Record before
-        uint256 opBefore = restaking.getOperatorSelfStake(operator3);
-        uint256 d1Before = restaking.getDelegation(delegator1, operator3);
-        uint256 d2Before = restaking.getDelegation(delegator2, operator3);
+        uint256 opBefore = staking.getOperatorSelfStake(operator3);
+        uint256 d1Before = staking.getDelegation(delegator1, operator3);
+        uint256 d2Before = staking.getDelegation(delegator2, operator3);
 
         // Slash
         vm.prank(user1);
@@ -147,9 +147,9 @@ contract SlashingFuzzTest is BaseTest {
         tangle.executeSlash(slashId);
 
         // Verify
-        uint256 opAfter = restaking.getOperatorSelfStake(operator3);
-        uint256 d1After = restaking.getDelegation(delegator1, operator3);
-        uint256 d2After = restaking.getDelegation(delegator2, operator3);
+        uint256 opAfter = staking.getOperatorSelfStake(operator3);
+        uint256 d1After = staking.getDelegation(delegator1, operator3);
+        uint256 d2After = staking.getDelegation(delegator2, operator3);
 
         uint256 opSlashed = opBefore - opAfter;
         uint256 d1Slashed = d1Before - d1After;
@@ -200,7 +200,7 @@ contract SlashingFuzzTest is BaseTest {
         tangle.approveService(reqId, 0);
         uint64 svcId = tangle.serviceCount() - 1;
 
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator2);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator2);
 
         // Propose slash
         vm.prank(user1);
@@ -218,7 +218,7 @@ contract SlashingFuzzTest is BaseTest {
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator2);
+        uint256 stakeAfter = staking.getOperatorSelfStake(operator2);
         uint256 actualSlashed = stakeBefore - stakeAfter;
 
         // Only effective amount should be slashed
@@ -235,7 +235,7 @@ contract SlashingFuzzTest is BaseTest {
         slashCount = uint8(bound(uint256(slashCount), 1, 5));
         uint16 slashBpsPerRound = 500;
 
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
         uint64[] memory slashIds = new uint64[](slashCount);
 
         // Create all slash proposals
@@ -263,7 +263,7 @@ contract SlashingFuzzTest is BaseTest {
         }
 
         // Verify cumulative effect
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeAfter = staking.getOperatorSelfStake(operator1);
         uint256 actualSlashed = stakeBefore - stakeAfter;
 
         uint256 expectedStake = stakeBefore;
@@ -291,7 +291,7 @@ contract SlashingFuzzTest is BaseTest {
         vm.prank(admin);
         tangle.setSlashConfig(disputeWindow, false, 10000);
 
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
         uint256 proposalTime = block.timestamp;
 
         vm.prank(user1);
@@ -308,7 +308,7 @@ contract SlashingFuzzTest is BaseTest {
         tangle.executeSlash(slashId);
 
         // Balance unchanged
-        assertEq(restaking.getOperatorSelfStake(operator1), stakeBefore, "Balance unchanged before window");
+        assertEq(staking.getOperatorSelfStake(operator1), stakeBefore, "Balance unchanged before window");
 
         // Execute exactly at window end - should succeed
         vm.warp(proposalTime + disputeWindow);
@@ -316,7 +316,7 @@ contract SlashingFuzzTest is BaseTest {
 
         // Balance now reduced
         uint256 expectedSlash = (stakeBefore * 1000) / 10_000;
-        assertEq(restaking.getOperatorSelfStake(operator1), stakeBefore - expectedSlash, "Balance reduced after execute");
+        assertEq(staking.getOperatorSelfStake(operator1), stakeBefore - expectedSlash, "Balance reduced after execute");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

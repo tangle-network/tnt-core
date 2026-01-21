@@ -214,7 +214,7 @@ abstract contract JobsSubmission is Base {
         if (!_serviceOperators[serviceId][msg.sender].active) {
             revert Errors.OperatorNotInService(serviceId, msg.sender);
         }
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
         if (job.completed) {

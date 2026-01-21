@@ -5,7 +5,7 @@ import {Test, Vm} from "forge-std/Test.sol";
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import {OperatorStatusRegistry, IOperatorStatusRegistry} from "../../../src/v2/restaking/OperatorStatusRegistry.sol";
+import {OperatorStatusRegistry, IOperatorStatusRegistry} from "../../../src/v2/staking/OperatorStatusRegistry.sol";
 import {IMetricsRecorder} from "../../../src/v2/interfaces/IMetricsRecorder.sol";
 
 contract MockMetricsRecorder is IMetricsRecorder {

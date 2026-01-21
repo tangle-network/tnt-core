@@ -4,7 +4,7 @@
 
 ### 1. Shared Security Agnosticism
 
-The protocol MUST NOT be coupled to any specific restaking mechanism. A clean abstraction layer allows:
+The protocol MUST NOT be coupled to any specific staking mechanism. A clean abstraction layer allows:
 
 - **Native Tangle Staking** - Our own multi-asset delegation system
 - **EigenLayer** - ETH restaking, existing operator set

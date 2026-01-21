@@ -62,7 +62,7 @@
     ]
   },
   "guards": {
-    "pauseRestaking": false,
+    "pauseStaking": false,
     "pauseTangle": false,
     "requireAdapters": false,
     "delegatorDelay": 7,

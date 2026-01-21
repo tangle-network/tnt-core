@@ -6,8 +6,8 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
-import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
-import { OperatorStatusRegistry } from "../../src/v2/restaking/OperatorStatusRegistry.sol";
+import { MultiAssetDelegation } from "../../src/v2/staking/MultiAssetDelegation.sol";
+import { OperatorStatusRegistry } from "../../src/v2/staking/OperatorStatusRegistry.sol";
 import { TangleToken } from "../../src/v2/governance/TangleToken.sol";
 import { MasterBlueprintServiceManager } from "../../src/v2/MasterBlueprintServiceManager.sol";
 import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
@@ -25,13 +25,13 @@ import { TangleQuotesFacet } from "../../src/v2/facets/tangle/TangleQuotesFacet.
 import { TangleQuotesExtensionFacet } from "../../src/v2/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
 import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFacet.sol";
-import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
-import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
-import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
-import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
-import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
-import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
+import { StakingOperatorsFacet } from "../../src/v2/facets/staking/StakingOperatorsFacet.sol";
+import { StakingDepositsFacet } from "../../src/v2/facets/staking/StakingDepositsFacet.sol";
+import { StakingDelegationsFacet } from "../../src/v2/facets/staking/StakingDelegationsFacet.sol";
+import { StakingSlashingFacet } from "../../src/v2/facets/staking/StakingSlashingFacet.sol";
+import { StakingAssetsFacet } from "../../src/v2/facets/staking/StakingAssetsFacet.sol";
+import { StakingViewsFacet } from "../../src/v2/facets/staking/StakingViewsFacet.sol";
+import { StakingAdminFacet } from "../../src/v2/facets/staking/StakingAdminFacet.sol";
 import { ServiceFeeDistributor } from "../../src/v2/rewards/ServiceFeeDistributor.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 
@@ -145,8 +145,8 @@ contract DeployV2 is DeployScriptBase {
         console2.log("Treasury:", treasury);
 
         (
-            address restakingProxy,
-            address restakingImpl,
+            address stakingProxy,
+            address stakingImpl,
             address tangleProxy,
             address tangleImpl,
             address statusRegistry
@@ -156,7 +156,7 @@ contract DeployV2 is DeployScriptBase {
         console2.log("\n=== Deployment Summary ===");
         console2.log("Chain ID:", block.chainid);
         console2.log("Tangle:", tangleProxy);
-        console2.log("MultiAssetDelegation:", restakingProxy);
+        console2.log("MultiAssetDelegation:", stakingProxy);
         console2.log("OperatorStatusRegistry:", statusRegistry);
     }
 
@@ -167,14 +167,14 @@ contract DeployV2 is DeployScriptBase {
         address treasury
     )
         external
-        returns (address restakingProxy, address tangleProxy, address statusRegistry)
+        returns (address stakingProxy, address tangleProxy, address statusRegistry)
     {
         address deployerAddr = deployer == address(0) ? msg.sender : deployer;
         admin = _requireNonZero(admin == address(0) ? deployerAddr : admin, "ADMIN");
         treasury = _requireNonZero(treasury == address(0) ? deployerAddr : treasury, "TREASURY");
         _enforceAllowlist("ADMIN_ALLOWLIST", "ADMIN", admin);
         _enforceAllowlist("TREASURY_ALLOWLIST", "TREASURY", treasury);
-        (restakingProxy,, tangleProxy,, statusRegistry) = _deployCore(0, deployerAddr, admin, treasury, false);
+        (stakingProxy,, tangleProxy,, statusRegistry) = _deployCore(0, deployerAddr, admin, treasury, false);
     }
 
     function _deployCore(
@@ -186,8 +186,8 @@ contract DeployV2 is DeployScriptBase {
     )
         internal
         returns (
-            address restakingProxy,
-            address restakingImpl,
+            address stakingProxy,
+            address stakingImpl,
             address tangleProxy,
             address tangleImpl,
             address statusRegistry
@@ -199,26 +199,26 @@ contract DeployV2 is DeployScriptBase {
             vm.startPrank(deployer);
         }
 
-        (restakingProxy, restakingImpl) = deployMultiAssetDelegation(admin);
-        console2.log("MultiAssetDelegation implementation:", restakingImpl);
-        console2.log("MultiAssetDelegation proxy:", restakingProxy);
+        (stakingProxy, stakingImpl) = deployMultiAssetDelegation(admin);
+        console2.log("MultiAssetDelegation implementation:", stakingImpl);
+        console2.log("MultiAssetDelegation proxy:", stakingProxy);
 
-        (tangleProxy, tangleImpl) = deployTangle(admin, restakingProxy, treasury);
+        (tangleProxy, tangleImpl) = deployTangle(admin, stakingProxy, treasury);
         console2.log("Tangle implementation:", tangleImpl);
         console2.log("Tangle proxy:", tangleProxy);
 
-        _registerRestakingFacets(restakingProxy);
+        _registerStakingFacets(stakingProxy);
         _registerTangleFacets(tangleProxy);
 
         statusRegistry = deployOperatorStatusRegistry(tangleProxy, admin);
         console2.log("OperatorStatusRegistry:", statusRegistry);
 
         // Verify proxy deployments
-        _verifyProxy(restakingProxy, admin, "MultiAssetDelegation");
+        _verifyProxy(stakingProxy, admin, "MultiAssetDelegation");
         _verifyProxy(tangleProxy, admin, "Tangle");
 
-        IMultiAssetDelegation(payable(restakingProxy)).addSlasher(tangleProxy);
-        IMultiAssetDelegation(payable(restakingProxy)).setTangle(tangleProxy);
+        IMultiAssetDelegation(payable(stakingProxy)).addSlasher(tangleProxy);
+        IMultiAssetDelegation(payable(stakingProxy)).setTangle(tangleProxy);
 
         MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(admin, tangleProxy);
         MBSMRegistry registryImpl = new MBSMRegistry();
@@ -234,8 +234,8 @@ contract DeployV2 is DeployScriptBase {
         console2.log("Set OperatorStatusRegistry on Tangle");
 
         _ensureTntToken(admin);
-        _configureTntDefaults(tangleProxy, restakingProxy);
-        _configureServiceFeeDistributor(admin, restakingProxy, tangleProxy);
+        _configureTntDefaults(tangleProxy, stakingProxy);
+        _configureServiceFeeDistributor(admin, stakingProxy, tangleProxy);
 
         if (broadcast) {
             vm.stopBroadcast();
@@ -244,9 +244,9 @@ contract DeployV2 is DeployScriptBase {
         }
     }
 
-    function _configureTntDefaults(address tangleProxy, address restakingProxy) internal {
+    function _configureTntDefaults(address tangleProxy, address stakingProxy) internal {
         Tangle tangle = Tangle(payable(tangleProxy));
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
 
         address tnt = _envAddressIfSet("TNT_TOKEN");
         if (tnt == address(0)) {
@@ -256,12 +256,12 @@ contract DeployV2 is DeployScriptBase {
         tangle.setTntToken(tnt);
         console2.log("Configured TNT token:", tnt);
         if (tnt != address(0)) {
-            Types.AssetConfig memory cfg = restaking.getAssetConfig(tnt);
+            Types.AssetConfig memory cfg = staking.getAssetConfig(tnt);
             if (!cfg.enabled) {
-                restaking.enableAsset(tnt, minOperatorStake, minDelegation, 0, 10_000);
-                console2.log("Enabled TNT as restaking asset");
+                staking.enableAsset(tnt, minOperatorStake, minDelegation, 0, 10_000);
+                console2.log("Enabled TNT as staking asset");
             }
-            restaking.setOperatorBondToken(tnt);
+            staking.setOperatorBondToken(tnt);
             console2.log("Configured operator bond token:", tnt);
         }
 
@@ -286,9 +286,9 @@ contract DeployV2 is DeployScriptBase {
         }
     }
 
-    function _configureServiceFeeDistributor(address admin, address restakingProxy, address tangleProxy) internal {
+    function _configureServiceFeeDistributor(address admin, address stakingProxy, address tangleProxy) internal {
         Tangle tangle = Tangle(payable(tangleProxy));
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
 
         address distributor = _envAddressIfSet("SERVICE_FEE_DISTRIBUTOR");
         address oracle = _envAddressIfSet("PRICE_ORACLE");
@@ -297,7 +297,7 @@ contract DeployV2 is DeployScriptBase {
             ServiceFeeDistributor impl = new ServiceFeeDistributor();
             ERC1967Proxy proxy = new ERC1967Proxy(
                 address(impl),
-                abi.encodeCall(ServiceFeeDistributor.initialize, (admin, restakingProxy, tangleProxy, oracle))
+                abi.encodeCall(ServiceFeeDistributor.initialize, (admin, stakingProxy, tangleProxy, oracle))
             );
             distributor = address(proxy);
             console2.log("Deployed ServiceFeeDistributor proxy:", distributor);
@@ -306,7 +306,7 @@ contract DeployV2 is DeployScriptBase {
         }
 
         tangle.setServiceFeeDistributor(distributor);
-        restaking.setServiceFeeDistributor(distributor);
+        staking.setServiceFeeDistributor(distributor);
 
         if (oracle != address(0)) {
             tangle.setPriceOracle(oracle);
@@ -357,7 +357,7 @@ contract DeployV2 is DeployScriptBase {
 
     function deployTangle(
         address admin,
-        address restaking,
+        address staking,
         address treasury
     )
         internal
@@ -368,7 +368,7 @@ contract DeployV2 is DeployScriptBase {
         impl = address(implementation);
 
         // Deploy proxy
-        bytes memory initData = abi.encodeCall(Tangle.initialize, (admin, restaking, payable(treasury)));
+        bytes memory initData = abi.encodeCall(Tangle.initialize, (admin, staking, payable(treasury)));
 
         ERC1967Proxy proxyContract = new ERC1967Proxy(impl, initData);
         proxy = address(proxyContract);
@@ -390,15 +390,15 @@ contract DeployV2 is DeployScriptBase {
         router.registerFacet(address(new TangleSlashingFacet()));
     }
 
-    function _registerRestakingFacets(address restakingProxy) internal {
-        MultiAssetDelegation router = MultiAssetDelegation(payable(restakingProxy));
-        router.registerFacet(address(new RestakingOperatorsFacet()));
-        router.registerFacet(address(new RestakingDepositsFacet()));
-        router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingSlashingFacet()));
-        router.registerFacet(address(new RestakingAssetsFacet()));
-        router.registerFacet(address(new RestakingViewsFacet()));
-        router.registerFacet(address(new RestakingAdminFacet()));
+    function _registerStakingFacets(address stakingProxy) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(stakingProxy));
+        router.registerFacet(address(new StakingOperatorsFacet()));
+        router.registerFacet(address(new StakingDepositsFacet()));
+        router.registerFacet(address(new StakingDelegationsFacet()));
+        router.registerFacet(address(new StakingSlashingFacet()));
+        router.registerFacet(address(new StakingAssetsFacet()));
+        router.registerFacet(address(new StakingViewsFacet()));
+        router.registerFacet(address(new StakingAdminFacet()));
     }
 
     function deployOperatorStatusRegistry(address tangleCore, address owner) internal returns (address) {
@@ -436,9 +436,9 @@ contract UpgradeTangle is DeployScriptBase {
 contract UpgradeMultiAssetDelegation is DeployScriptBase {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address restakingProxy = vm.envAddress("RESTAKING_PROXY");
+        address stakingProxy = vm.envAddress("RESTAKING_PROXY");
 
-        console2.log("Upgrading MultiAssetDelegation proxy:", restakingProxy);
+        console2.log("Upgrading MultiAssetDelegation proxy:", stakingProxy);
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -447,7 +447,7 @@ contract UpgradeMultiAssetDelegation is DeployScriptBase {
         console2.log("New implementation:", address(newImplementation));
 
         // Upgrade
-        MultiAssetDelegation(payable(restakingProxy)).upgradeToAndCall(address(newImplementation), "");
+        MultiAssetDelegation(payable(stakingProxy)).upgradeToAndCall(address(newImplementation), "");
         console2.log("Upgrade complete");
 
         vm.stopBroadcast();

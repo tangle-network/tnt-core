@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { DelegationTestHarness, MockERC20 } from "./DelegationTestHarness.sol";
-import { DelegationErrors } from "../../../src/v2/restaking/DelegationErrors.sol";
+import { DelegationErrors } from "../../../src/v2/staking/DelegationErrors.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 
 /// @title BlueprintSelectionTest

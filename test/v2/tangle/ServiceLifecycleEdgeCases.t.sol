@@ -380,9 +380,9 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         address unregisteredOp = makeAddr("unregistered");
         vm.deal(unregisteredOp, 10 ether);
         vm.prank(unregisteredOp);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
-        // Operator is registered with restaking but not for this blueprint
+        // Operator is registered with staking but not for this blueprint
         vm.prank(unregisteredOp);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotRegistered.selector, dynamicBlueprintId, unregisteredOp));
         tangle.joinService(serviceId, 10000);
