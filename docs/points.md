@@ -14,7 +14,7 @@ All reward programs are defined in `indexer/src/points/programs.ts`. Each entry 
 | `operator-service` | Joining a service | OPERATOR | 15 |
 | `operator-service-hourly` | Staying in services (hourly, √active services) | OPERATOR | 1 |
 | `operator-hourly` | General operator uptime (stake-based) | OPERATOR | 1 |
-| `delegator-deposit` | Depositing restaking assets | DELEGATOR | 5 |
+| `delegator-deposit` | Depositing staking assets | DELEGATOR | 5 |
 | `delegation` | Delegating stake (MultiAsset + native pods) | DELEGATOR | 8 |
 | `restaker-vault` | Staking via reward vaults or liquid delegation vaults | DELEGATOR | 6 |
 | `native-pod` | Creating validator pods | DELEGATOR | 25 |

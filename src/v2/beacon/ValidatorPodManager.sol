@@ -3,15 +3,15 @@ pragma solidity ^0.8.26;
 
 import { IBeaconOracle } from "./IBeaconOracle.sol";
 import { ValidatorPod } from "./ValidatorPod.sol";
-import { IRestaking } from "../interfaces/IRestaking.sol";
+import { IStaking } from "../interfaces/IStaking.sol";
 import { Types } from "../libraries/Types.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title ValidatorPodManager
-/// @notice Factory and manager for ValidatorPods, implements IRestaking for Tangle integration
+/// @notice Factory and manager for ValidatorPods, implements IStaking for Tangle integration
 /// @dev Creates pods for users, tracks shares, handles delegation to operators
-contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
+contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     uint256 public constant BPS_DENOMINATOR = 10_000;
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE - CORE
@@ -589,32 +589,32 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     // IRESTAKING IMPLEMENTATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function isOperator(address operator) external view override returns (bool) {
         return _operators[operator];
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function isOperatorActive(address operator) external view override returns (bool) {
         return _operators[operator] && operatorStake[operator] >= minOperatorStakeAmount;
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function getOperatorStake(address operator) external view override returns (uint256) {
         return operatorStake[operator] + operatorDelegatedStake[operator];
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function getOperatorSelfStake(address operator) external view override returns (uint256) {
         return operatorStake[operator];
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function getOperatorDelegatedStake(address operator) external view override returns (uint256) {
         return operatorDelegatedStake[operator];
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function getOperatorDelegatedStakeForAsset(
         address operator,
         Types.Asset calldata asset
@@ -623,7 +623,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         return operatorDelegatedStake[operator];
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function getOperatorStakeForAsset(
         address operator,
         Types.Asset calldata asset
@@ -632,7 +632,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         return operatorStake[operator] + operatorDelegatedStake[operator];
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function getDelegation(
         address delegator,
         address operator
@@ -640,7 +640,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         return delegations[delegator][operator];
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function getTotalDelegation(address delegator) external view override returns (uint256) {
         // Simplified - in production would need to track this
         int256 shares = podOwnerShares[delegator];
@@ -648,12 +648,12 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         return shares > 0 ? uint256(shares) : 0;
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function minOperatorStake() external view override returns (uint256) {
         return minOperatorStakeAmount;
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function meetsStakeRequirement(
         address operator,
         uint256 required
@@ -661,7 +661,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         return operatorStake[operator] + operatorDelegatedStake[operator] >= required;
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function slashForBlueprint(
         address operator,
         uint64 /*blueprintId*/,
@@ -676,7 +676,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         emit OperatorSlashed(operator, serviceId, slashBps, evidence);
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function slashForService(
         address operator,
         uint64 /*blueprintId*/,
@@ -692,7 +692,7 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         emit OperatorSlashed(operator, serviceId, slashBps, evidence);
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function slash(
         address operator,
         uint64 serviceId,
@@ -754,18 +754,18 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
         }
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     function isSlasher(address account) external view override returns (bool) {
         return _slashers[account];
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     /// @dev No-op for ValidatorPodManager - blueprint tracking not needed
     function addBlueprintForOperator(address, uint64) external override {
         // No-op: ValidatorPodManager doesn't track blueprint-specific pools
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     /// @dev No-op for ValidatorPodManager - blueprint tracking not needed
     function removeBlueprintForOperator(address, uint64) external override {
         // No-op: ValidatorPodManager doesn't track blueprint-specific pools
@@ -775,19 +775,19 @@ contract ValidatorPodManager is IRestaking, Ownable, ReentrancyGuard {
     // M-9 FIX: PENDING SLASH TRACKING (NO-OP for ValidatorPodManager)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     /// @dev No-op for ValidatorPodManager - pending slash tracking handled differently
     function incrementPendingSlash(address) external override {
         // No-op: ValidatorPodManager uses different withdrawal model
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     /// @dev No-op for ValidatorPodManager - pending slash tracking handled differently
     function decrementPendingSlash(address) external override {
         // No-op: ValidatorPodManager uses different withdrawal model
     }
 
-    /// @inheritdoc IRestaking
+    /// @inheritdoc IStaking
     /// @dev Returns 0 for ValidatorPodManager - pending slash tracking handled differently
     function getPendingSlashCount(address) external pure override returns (uint64) {
         return 0; // ValidatorPodManager doesn't track pending slashes this way

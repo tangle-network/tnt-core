@@ -7,8 +7,8 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {Tangle} from "../../src/v2/Tangle.sol";
 import { ITangleFull } from "../../src/v2/interfaces/ITangle.sol";
 import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
-import {MultiAssetDelegation} from "../../src/v2/restaking/MultiAssetDelegation.sol";
-import {OperatorStatusRegistry} from "../../src/v2/restaking/OperatorStatusRegistry.sol";
+import {MultiAssetDelegation} from "../../src/v2/staking/MultiAssetDelegation.sol";
+import {OperatorStatusRegistry} from "../../src/v2/staking/OperatorStatusRegistry.sol";
 import {TangleToken} from "../../src/v2/governance/TangleToken.sol";
 import {MasterBlueprintServiceManager} from "../../src/v2/MasterBlueprintServiceManager.sol";
 import {MBSMRegistry} from "../../src/v2/MBSMRegistry.sol";
@@ -26,13 +26,13 @@ import { TangleQuotesFacet } from "../../src/v2/facets/tangle/TangleQuotesFacet.
 import { TangleQuotesExtensionFacet } from "../../src/v2/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
 import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFacet.sol";
-import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
-import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
-import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
-import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
-import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
-import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
+import { StakingOperatorsFacet } from "../../src/v2/facets/staking/StakingOperatorsFacet.sol";
+import { StakingDepositsFacet } from "../../src/v2/facets/staking/StakingDepositsFacet.sol";
+import { StakingDelegationsFacet } from "../../src/v2/facets/staking/StakingDelegationsFacet.sol";
+import { StakingSlashingFacet } from "../../src/v2/facets/staking/StakingSlashingFacet.sol";
+import { StakingAssetsFacet } from "../../src/v2/facets/staking/StakingAssetsFacet.sol";
+import { StakingViewsFacet } from "../../src/v2/facets/staking/StakingViewsFacet.sol";
+import { StakingAdminFacet } from "../../src/v2/facets/staking/StakingAdminFacet.sol";
 
 /// @title DemoERC20
 /// @notice Simple ERC20 for demo purposes
@@ -142,7 +142,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
 
     // Deployed contracts
     ITangleFull public tangle;
-    IMultiAssetDelegation public restaking;
+    IMultiAssetDelegation public staking;
     OperatorStatusRegistry public statusRegistry;
     TangleToken public tnt;
     DemoERC20 public usdc;
@@ -185,15 +185,15 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         router.registerFacet(address(new TangleSlashingFacet()));
     }
 
-    function _registerRestakingFacets(address restakingProxy) internal {
-        MultiAssetDelegation router = MultiAssetDelegation(payable(restakingProxy));
-        router.registerFacet(address(new RestakingOperatorsFacet()));
-        router.registerFacet(address(new RestakingDepositsFacet()));
-        router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingSlashingFacet()));
-        router.registerFacet(address(new RestakingAssetsFacet()));
-        router.registerFacet(address(new RestakingViewsFacet()));
-        router.registerFacet(address(new RestakingAdminFacet()));
+    function _registerStakingFacets(address stakingProxy) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(stakingProxy));
+        router.registerFacet(address(new StakingOperatorsFacet()));
+        router.registerFacet(address(new StakingDepositsFacet()));
+        router.registerFacet(address(new StakingDelegationsFacet()));
+        router.registerFacet(address(new StakingSlashingFacet()));
+        router.registerFacet(address(new StakingAssetsFacet()));
+        router.registerFacet(address(new StakingViewsFacet()));
+        router.registerFacet(address(new StakingAdminFacet()));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -299,23 +299,23 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         vm.startBroadcast(ADMIN_KEY);
 
         // Deploy MultiAssetDelegation
-        MultiAssetDelegation restakingImpl = new MultiAssetDelegation();
-        bytes memory restakingInit = abi.encodeCall(
+        MultiAssetDelegation stakingImpl = new MultiAssetDelegation();
+        bytes memory stakingInit = abi.encodeCall(
             MultiAssetDelegation.initialize,
             (admin, 1 ether, 7, 1000) // minOpStake, roundDelay, commissionBps
         );
-        address restakingProxy = address(new ERC1967Proxy(address(restakingImpl), restakingInit));
-        restaking = IMultiAssetDelegation(payable(restakingProxy));
-        console2.log("  MultiAssetDelegation:", restakingProxy);
+        address stakingProxy = address(new ERC1967Proxy(address(stakingImpl), stakingInit));
+        staking = IMultiAssetDelegation(payable(stakingProxy));
+        console2.log("  MultiAssetDelegation:", stakingProxy);
 
         // Deploy Tangle
         Tangle tangleImpl = new Tangle();
-        bytes memory tangleInit = abi.encodeCall(Tangle.initialize, (admin, restakingProxy, payable(admin)));
+        bytes memory tangleInit = abi.encodeCall(Tangle.initialize, (admin, stakingProxy, payable(admin)));
         address tangleProxy = address(new ERC1967Proxy(address(tangleImpl), tangleInit));
         tangle = ITangleFull(payable(tangleProxy));
         console2.log("  Tangle:", tangleProxy);
 
-        _registerRestakingFacets(restakingProxy);
+        _registerStakingFacets(stakingProxy);
         _registerTangleFacets(tangleProxy);
 
         // Deploy OperatorStatusRegistry
@@ -336,13 +336,13 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         console2.log("  WETH:", address(weth));
 
         // Configure cross-references
-        restaking.addSlasher(tangleProxy);
-        restaking.addSlasher(slasher);
-        restaking.setTangle(tangleProxy);
+        staking.addSlasher(tangleProxy);
+        staking.addSlasher(slasher);
+        staking.setTangle(tangleProxy);
         Tangle(payable(tangleProxy)).setOperatorStatusRegistry(address(statusRegistry));
         Tangle(payable(tangleProxy)).setTntToken(address(tnt));
-        restaking.enableAsset(address(tnt), 1 ether, 7, 0, 10_000);
-        restaking.setOperatorBondToken(address(tnt));
+        staking.enableAsset(address(tnt), 1 ether, 7, 0, 10_000);
+        staking.setOperatorBondToken(address(tnt));
 
         // Deploy and configure MBSM
         MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(admin, tangleProxy);
@@ -363,8 +363,8 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         vm.startBroadcast(ADMIN_KEY);
 
         // Enable assets in restaking
-        restaking.enableAsset(address(usdc), 100e18, 10e18, 0, 10000);
-        restaking.enableAsset(address(weth), 0.1 ether, 0.01 ether, 0, 10000);
+        staking.enableAsset(address(usdc), 100e18, 10e18, 0, 10000);
+        staking.enableAsset(address(weth), 0.1 ether, 0.01 ether, 0, 10000);
 
         // Distribute TNT to operators for incentives
         for (uint256 i = 0; i < operators.length; i++) {
@@ -383,13 +383,13 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
     }
 
     function _registerOperatorsInRestaking() internal {
-        console2.log("[Setup] Registering operators in restaking...");
+        console2.log("[Setup] Registering operators in staking...");
 
         for (uint256 i = 0; i < operators.length; i++) {
             uint256 stake = 5 ether + (i * 1 ether); // Varying stakes
 
             vm.startBroadcast(operatorKeys[i]);
-            restaking.registerOperator{value: stake}();
+            staking.registerOperator{value: stake}();
             vm.stopBroadcast();
 
             console2.log("  Operator registered with stake:", stake / 1e18);
@@ -497,7 +497,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
 
             for (uint256 j = 0; j < numDelegations; j++) {
                 address op = operators[(i + j) % operators.length];
-                restaking.depositAndDelegate{value: amountPerDelegation}(op);
+                staking.depositAndDelegate{value: amountPerDelegation}(op);
                 totalDelegations++;
             }
 
@@ -535,7 +535,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
             _submitHeartbeats(tick);
         }
 
-        // Every 7 ticks: advance restaking round
+        // Every 7 ticks: advance staking round
         if (tick % 7 == 0) {
             _advanceRound();
         }
@@ -597,7 +597,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         uint256 amount = 0.5 ether + ((tick % 10) * 0.1 ether);
 
         vm.startBroadcast(delegatorKeys[delegatorIndex]);
-        try restaking.depositAndDelegate{value: amount}(operators[operatorIndex]) {
+        try staking.depositAndDelegate{value: amount}(operators[operatorIndex]) {
             totalDelegations++;
             totalDeposits++;
         } catch {}
@@ -613,8 +613,8 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         // Alternate between USDC and WETH
         if (tick % 8 < 4) {
             uint256 amount = 100e18 + (tick * 10e18);
-            try usdc.approve(address(restaking), amount) {} catch {}
-            try restaking.depositAndDelegateWithOptions(
+            try usdc.approve(address(staking), amount) {} catch {}
+            try staking.depositAndDelegateWithOptions(
                 operators[operatorIndex],
                 address(usdc),
                 amount,
@@ -626,8 +626,8 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
             } catch {}
         } else {
             uint256 amount = 0.1 ether + (tick * 0.01 ether);
-            try weth.approve(address(restaking), amount) {} catch {}
-            try restaking.depositAndDelegateWithOptions(
+            try weth.approve(address(staking), amount) {} catch {}
+            try staking.depositAndDelegateWithOptions(
                 operators[operatorIndex],
                 address(weth),
                 amount,
@@ -665,7 +665,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
 
     function _advanceRound() internal {
         vm.startBroadcast(ADMIN_KEY);
-        try restaking.advanceRound() {} catch {}
+        try staking.advanceRound() {} catch {}
         vm.stopBroadcast();
     }
 
@@ -674,14 +674,14 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         uint256 operatorIndex = (tick / 10) % operators.length;
 
         vm.startBroadcast(delegatorKeys[delegatorIndex]);
-        try restaking.scheduleDelegatorUnstake(operators[operatorIndex], address(0), 0.1 ether) {} catch {}
+        try staking.scheduleDelegatorUnstake(operators[operatorIndex], address(0), 0.1 ether) {} catch {}
         vm.stopBroadcast();
     }
 
     function _executeUnstakes() internal {
         for (uint256 i = 0; i < delegators.length; i++) {
             vm.startBroadcast(delegatorKeys[i]);
-            try restaking.executeDelegatorUnstake() {} catch {}
+            try staking.executeDelegatorUnstake() {} catch {}
             vm.stopBroadcast();
         }
     }
@@ -690,8 +690,8 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         uint256 operatorIndex = tick % operators.length;
         uint256 rewardAmount = 0.1 ether + (tick * 0.01 ether);
 
-        // Fund restaking contract for rewards
-        vm.deal(address(restaking), address(restaking).balance + rewardAmount);
+        // Fund staking contract for rewards
+        vm.deal(address(staking), address(staking).balance + rewardAmount);
 
         vm.startBroadcast(ADMIN_KEY);
         // Restaking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
@@ -703,7 +703,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         uint256 operatorIndex = (tick / 20) % operators.length;
         uint256 slashAmount = 0.1 ether;
         bytes32 evidence = keccak256(abi.encodePacked("slash_evidence", tick));
-        uint256 stake = restaking.getOperatorStake(operators[operatorIndex]);
+        uint256 stake = staking.getOperatorStake(operators[operatorIndex]);
         uint16 slashBps = stake == 0 ? 0 : uint16((slashAmount * 10_000) / stake);
         if (slashBps > 10_000) slashBps = 10_000;
 
@@ -744,7 +744,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         console2.log("========================================");
         console2.log("\nContract Addresses:");
         console2.log("  Tangle:", address(tangle));
-        console2.log("  MultiAssetDelegation:", address(restaking));
+        console2.log("  MultiAssetDelegation:", address(staking));
         console2.log("  OperatorStatusRegistry:", address(statusRegistry));
         console2.log("  TNT Token:", address(tnt));
         console2.log("  USDC:", address(usdc));

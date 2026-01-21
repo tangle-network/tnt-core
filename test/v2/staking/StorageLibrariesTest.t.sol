@@ -4,11 +4,11 @@ pragma solidity ^0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import {DelegationErrors} from "../../../src/v2/restaking/DelegationErrors.sol";
-import {DepositManager} from "../../../src/v2/restaking/DepositManager.sol";
+import {DelegationErrors} from "../../../src/v2/staking/DelegationErrors.sol";
+import {DepositManager} from "../../../src/v2/staking/DepositManager.sol";
 import {RewardVaults} from "../../../src/v2/rewards/RewardVaults.sol";
-import {SlashingManager} from "../../../src/v2/restaking/SlashingManager.sol";
-import {MultiAssetDelegation} from "../../../src/v2/restaking/MultiAssetDelegation.sol";
+import {SlashingManager} from "../../../src/v2/staking/SlashingManager.sol";
+import {MultiAssetDelegation} from "../../../src/v2/staking/MultiAssetDelegation.sol";
 import {DelegationTestHarness} from "./DelegationTestHarness.sol";
 import {Types} from "../../../src/v2/libraries/Types.sol";
 

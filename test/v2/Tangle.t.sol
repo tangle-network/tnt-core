@@ -523,7 +523,7 @@ contract TangleTest is BaseTest {
             developerBps: 6000,
             protocolBps: 500,
             operatorBps: 1750,
-            restakerBps: 1750
+            stakerBps: 1750
         });
 
         vm.prank(admin);
@@ -541,7 +541,7 @@ contract TangleTest is BaseTest {
             developerBps: 5000,
             protocolBps: 5000,
             operatorBps: 5000,
-            restakerBps: 5000
+            stakerBps: 5000
         });
 
         vm.prank(admin);

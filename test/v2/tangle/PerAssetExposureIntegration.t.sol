@@ -35,7 +35,7 @@ contract PerAssetExposureIntegrationTest is BaseTest {
             address(impl),
             abi.encodeCall(
                 ServiceFeeDistributor.initialize,
-                (admin, address(restaking), address(tangle), address(oracle))
+                (admin, address(staking), address(tangle), address(oracle))
             )
         );
         distributor = ServiceFeeDistributor(payable(address(proxy)));
@@ -43,10 +43,10 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         vm.startPrank(admin);
         tangle.setServiceFeeDistributor(address(distributor));
         tangle.setPriceOracle(address(oracle));
-        restaking.setServiceFeeDistributor(address(distributor));
+        staking.setServiceFeeDistributor(address(distributor));
 
         // Enable stake ERC20 asset in restaking
-        restaking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        staking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
         vm.stopPrank();
 
         // Setup blueprint + operator
@@ -62,12 +62,12 @@ contract PerAssetExposureIntegrationTest is BaseTest {
 
         // Delegator1 stakes native
         vm.prank(delegator1);
-        restaking.depositAndDelegate{ value: 10 ether }(operator1);
+        staking.depositAndDelegate{ value: 10 ether }(operator1);
 
         // Delegator2 stakes ERC20
         vm.startPrank(delegator2);
-        stakeToken.approve(address(restaking), 10 ether);
-        restaking.depositAndDelegateWithOptions(
+        stakeToken.approve(address(staking), 10 ether);
+        staking.depositAndDelegateWithOptions(
             operator1,
             address(stakeToken),
             10 ether,

@@ -7,10 +7,10 @@ import {ExposureTypes} from "../../../src/v2/exposure/ExposureTypes.sol";
 import {ExposureCalculator} from "../../../src/v2/exposure/ExposureCalculator.sol";
 import {MockPriceOracle} from "./MockPriceOracle.sol";
 import {Types} from "../../../src/v2/libraries/Types.sol";
-import {IRestaking} from "../../../src/v2/interfaces/IRestaking.sol";
+import {IStaking} from "../../../src/v2/interfaces/IStaking.sol";
 
-/// @notice Mock restaking contract for testing
-contract MockRestaking is IRestaking {
+/// @notice Mock staking contract for testing
+contract MockStaking is IStaking {
     mapping(address => bool) public operators;
     mapping(address => uint256) public stakes;
     mapping(address => uint256) public delegatedStakes;
@@ -129,7 +129,7 @@ contract MockRestaking is IRestaking {
 /// @notice Tests for the ExposureManager contract
 contract ExposureManagerTest is Test {
     ExposureManager public manager;
-    MockRestaking public restaking;
+    MockStaking public staking;
 
     address public operator1;
     address public operator2;
@@ -152,23 +152,23 @@ contract ExposureManagerTest is Test {
         token2 = makeAddr("token2");
 
         // Deploy mock restaking
-        restaking = new MockRestaking();
+        staking = new MockStaking();
 
         // Setup operators
-        restaking.setOperator(operator1, true);
-        restaking.setOperator(operator2, true);
-        restaking.setOperator(operator3, true);
+        staking.setOperator(operator1, true);
+        staking.setOperator(operator2, true);
+        staking.setOperator(operator3, true);
 
         // Setup stakes
-        restaking.setStake(operator1, 100 ether);
-        restaking.setStake(operator2, 200 ether);
-        restaking.setStake(operator3, 50 ether);
+        staking.setStake(operator1, 100 ether);
+        staking.setStake(operator2, 200 ether);
+        staking.setStake(operator3, 50 ether);
 
-        restaking.setDelegatedStake(operator1, 50 ether);
-        restaking.setDelegatedStake(operator2, 100 ether);
+        staking.setDelegatedStake(operator1, 50 ether);
+        staking.setDelegatedStake(operator2, 100 ether);
 
         // Deploy exposure manager
-        manager = new ExposureManager(address(restaking));
+        manager = new ExposureManager(address(staking));
 
         // Setup assets
         nativeAsset = Types.Asset(Types.AssetKind.Native, address(0));
@@ -449,8 +449,8 @@ contract ExposureManagerTest is Test {
     function test_ValidateCommitments_NoDelegation() public {
         // Set up an operator with no stake
         address noStakeOperator = makeAddr("noStakeOperator");
-        restaking.setOperator(noStakeOperator, true);
-        restaking.setStake(noStakeOperator, 0);
+        staking.setOperator(noStakeOperator, true);
+        staking.setStake(noStakeOperator, 0);
 
         Types.AssetSecurityRequirement[] memory requirements =
             new Types.AssetSecurityRequirement[](1);

@@ -62,8 +62,8 @@ fn gen_bindings() -> Result<()> {
                 "src/v2/interfaces/ITangle.sol",
                 "src/v2/interfaces/ITangleBlueprints.sol",
                 "src/v2/interfaces/IBlueprintServiceManager.sol",
-                "src/v2/restaking/OperatorStatusRegistry.sol",
-                "src/v2/restaking/MultiAssetDelegation.sol",
+                "src/v2/staking/OperatorStatusRegistry.sol",
+                "src/v2/staking/MultiAssetDelegation.sol",
             ]),
         "forge build",
     )?;

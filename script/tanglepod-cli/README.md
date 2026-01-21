@@ -4,7 +4,7 @@ Command-line tool for generating beacon chain proofs for TanglePod contracts.
 
 ## Who Is This For?
 
-**Ethereum validators who want to restake** their beacon chain ETH through Tangle's restaking protocol. Similar to EigenLayer's `eigenpod-proofs-generation` tool.
+**Ethereum validators who want to restake** their beacon chain ETH through Tangle's staking protocol. Similar to EigenLayer's `eigenpod-proofs-generation` tool.
 
 **Use cases:**
 - **Stakers**: Prove your validators' withdrawal credentials point to your TanglePod
@@ -44,7 +44,7 @@ Check validator status using beaconcha.in API (no beacon node required):
 
 ### credentials
 
-Generate withdrawal credential proofs for restaking validators:
+Generate withdrawal credential proofs for staking validators:
 
 ```bash
 ./tanglepod-cli credentials \

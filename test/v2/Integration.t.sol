@@ -24,23 +24,23 @@ contract IntegrationTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://test-blueprint", address(0)));
         assertEq(tangle.blueprintCount(), 1);
 
-        // Step 2: Operators register in restaking with stake
+        // Step 2: Operators register in staking with stake
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         vm.prank(operator2);
-        restaking.registerOperator{ value: 3 ether }();
+        staking.registerOperator{ value: 3 ether }();
 
         // Step 3: Delegators deposit and delegate to operators
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 10 ether }();
-        restaking.delegate(operator1, 5 ether);
-        restaking.delegate(operator2, 5 ether);
+        staking.deposit{ value: 10 ether }();
+        staking.delegate(operator1, 5 ether);
+        staking.delegate(operator2, 5 ether);
         vm.stopPrank();
 
         vm.startPrank(delegator2);
-        restaking.deposit{ value: 20 ether }();
-        restaking.delegate(operator1, 15 ether);
-        restaking.delegate(operator2, 5 ether);
+        staking.deposit{ value: 20 ether }();
+        staking.delegate(operator1, 15 ether);
+        staking.delegate(operator2, 5 ether);
         vm.stopPrank();
 
         // Step 4: Operators register for the blueprint
@@ -111,9 +111,9 @@ contract IntegrationTest is BaseTest {
 
         // Register operators
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         vm.prank(operator2);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         _directRegisterOperator(operator1, blueprintId, "");
         _directRegisterOperator(operator2, blueprintId, "");
@@ -171,11 +171,11 @@ contract IntegrationTest is BaseTest {
 
         // Register all operators
         vm.prank(operator1);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         vm.prank(operator2);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         vm.prank(operator3);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
 
         _directRegisterOperator(operator1, blueprintId, "");
         _directRegisterOperator(operator2, blueprintId, "");
@@ -258,7 +258,7 @@ contract IntegrationTest is BaseTest {
 
         // Setup operator
         vm.prank(operator1);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Request service with enough funds for multiple billing cycles
@@ -299,7 +299,7 @@ contract IntegrationTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://slashing-test", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Create a service first (required for slashing)
@@ -307,7 +307,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
         assertEq(stakeBefore, 10 ether);
 
         // Service owner can propose slash
@@ -321,7 +321,7 @@ contract IntegrationTest is BaseTest {
         tangle.executeSlash(slashId);
 
         // Verify slash was executed
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeAfter = staking.getOperatorSelfStake(operator1);
         assertEq(stakeAfter, 8 ether, "Operator stake should be reduced by slash amount");
     }
 
@@ -332,7 +332,7 @@ contract IntegrationTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://multi-job", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -372,7 +372,7 @@ contract IntegrationTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://batch", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -415,7 +415,7 @@ contract IntegrationTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://callers", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Request service (owner becomes permitted caller automatically)
@@ -457,7 +457,7 @@ contract IntegrationTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://terminate", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -488,7 +488,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(developer);
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://test", address(0)));
 
-        // operator1 hasn't registered in restaking - cannot register for blueprint
+        // operator1 hasn't registered in staking - cannot register for blueprint
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotActive.selector, operator1));
         tangle.registerOperator(blueprintId, "", "");
@@ -505,7 +505,7 @@ contract IntegrationTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://refund", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint256 payment = 5 ether;
@@ -526,14 +526,14 @@ contract IntegrationTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://test", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
 
         // operator2 (not in request) tries to approve
         vm.prank(operator2);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         vm.prank(operator2);
         vm.expectRevert(Errors.Unauthorized.selector);
         tangle.approveService(requestId, 0);
@@ -560,7 +560,7 @@ contract CustomServiceManagerTest is BaseTest {
 
         // Setup operator
         vm.prank(operator1);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Verify onRegister was called
@@ -588,7 +588,7 @@ contract CustomServiceManagerTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rejecting", address(rejectingManager)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 2 ether }();
+        staking.registerOperator{ value: 2 ether }();
 
         // Should revert because manager rejects - wrapped in ManagerReverted
         vm.prank(operator1);
@@ -716,7 +716,7 @@ contract MultiAssetSecurityTest is BaseTest {
 
         // Setup operator
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Create security requirements
@@ -754,7 +754,7 @@ contract MultiAssetSecurityTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://multi-asset", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Create multi-asset security requirements
@@ -794,7 +794,7 @@ contract MultiAssetSecurityTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://no-req", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](0);
@@ -812,7 +812,7 @@ contract MultiAssetSecurityTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://invalid", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // min > max is invalid
@@ -837,7 +837,7 @@ contract MultiAssetSecurityTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://commit", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Request with security requirements
@@ -876,7 +876,7 @@ contract MultiAssetSecurityTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://below-min", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
@@ -912,7 +912,7 @@ contract MultiAssetSecurityTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://above-max", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
@@ -948,7 +948,7 @@ contract MultiAssetSecurityTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://missing", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Request requires two assets
@@ -990,7 +990,7 @@ contract MultiAssetSecurityTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://dup-commit", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
@@ -1029,11 +1029,11 @@ contract MultiAssetSecurityTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://multi-op", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         vm.prank(operator2);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator2, blueprintId, "");
 
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
@@ -1162,7 +1162,7 @@ contract RFQTest is BaseTest {
 
         // Setup operator
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Create signed quote
@@ -1212,11 +1212,11 @@ contract RFQTest is BaseTest {
 
         // Setup both operators
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         vm.prank(operator2);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator2, blueprintId, "");
 
         uint64 ttl = 100;
@@ -1275,7 +1275,7 @@ contract RFQTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-refund", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
@@ -1314,7 +1314,7 @@ contract RFQTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-expired", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
@@ -1351,7 +1351,7 @@ contract RFQTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-badsig", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
@@ -1386,7 +1386,7 @@ contract RFQTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-mismatch", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
@@ -1421,7 +1421,7 @@ contract RFQTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-ttl", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -1455,7 +1455,7 @@ contract RFQTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-dup", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;
@@ -1495,7 +1495,7 @@ contract RFQTest is BaseTest {
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-pay", address(0)));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 ttl = 100;

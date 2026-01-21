@@ -77,7 +77,7 @@ abstract contract Slashing is Base {
         );
 
         // M-9 FIX: Increment pending slash count to block delegator withdrawals
-        _restaking.incrementPendingSlash(operator);
+        _staking.incrementPendingSlash(operator);
 
         if (bp.manager != address(0)) {
             uint16 slashPercentBps = cappedSlashBps;
@@ -206,7 +206,7 @@ abstract contract Slashing is Base {
         Types.Service storage svc = _services[proposal.serviceId];
 
         // Use blueprint-aware slashing - only affects delegators exposed to this blueprint
-        actualSlashed = _restaking.slashForBlueprint(
+        actualSlashed = _staking.slashForBlueprint(
             proposal.operator,
             svc.blueprintId,
             proposal.serviceId,
@@ -217,7 +217,7 @@ abstract contract Slashing is Base {
         SlashingLib.markExecuted(_slashProposals, slashId, actualSlashed);
 
         // M-9 FIX: Decrement pending slash count to allow delegator withdrawals
-        _restaking.decrementPendingSlash(proposal.operator);
+        _staking.decrementPendingSlash(proposal.operator);
 
         // Record slash for metrics tracking (affects rewards distribution)
         _recordSlash(proposal.operator, proposal.serviceId, actualSlashed);
@@ -255,7 +255,7 @@ abstract contract Slashing is Base {
             Types.Service storage svc = _services[proposal.serviceId];
 
             // Use blueprint-aware slashing
-            uint256 actualSlashed = _restaking.slashForBlueprint(
+            uint256 actualSlashed = _staking.slashForBlueprint(
                 proposal.operator,
                 svc.blueprintId,
                 proposal.serviceId,
@@ -266,7 +266,7 @@ abstract contract Slashing is Base {
             SlashingLib.markExecuted(_slashProposals, slashIds[i], actualSlashed);
 
             // M-9 FIX: Decrement pending slash count to allow delegator withdrawals
-            _restaking.decrementPendingSlash(proposal.operator);
+            _staking.decrementPendingSlash(proposal.operator);
 
             // Record slash for metrics tracking (affects rewards distribution)
             _recordSlash(proposal.operator, proposal.serviceId, actualSlashed);
@@ -332,7 +332,7 @@ abstract contract Slashing is Base {
         SlashingLib.cancelSlash(_slashProposals, slashId, msg.sender, reason);
 
         // M-9 FIX: Decrement pending slash count to allow delegator withdrawals
-        _restaking.decrementPendingSlash(operator);
+        _staking.decrementPendingSlash(operator);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

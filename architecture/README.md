@@ -1,14 +1,10 @@
-# Tangle v2: EVM-Native Protocol Architecture
+# Tangle v2: EVM-Native Staking Protocol Architecture
 
-Production-ready EVM-native restaking protocol for Tempo L1.
-
-## Status: COMPLETE
-
-**926 tests passing** - See [PROGRESS.md](./PROGRESS.md) for details.
+Production-ready EVM-native staking protocol for Tempo L1.
 
 ## Design Principles
 
-1. **Shared Security Agnostic** - Abstract interfaces for any restaking protocol
+1. **Shared Security Agnostic** - Abstract interfaces for any staking protocol
 2. **Gas Optimized** - O(1) share accounting, packed structs, batch operations
 3. **Modern Solidity** - Foundry, Solidity 0.8.26, comprehensive fuzz testing
 4. **SDK Compatible** - Rust bindings via `forge bind`
@@ -18,15 +14,13 @@ Production-ready EVM-native restaking protocol for Tempo L1.
 | # | Document | Description |
 |---|----------|-------------|
 | 00 | [V1 Substrate Architecture](./00-v1-substrate-architecture.md) | Legacy Substrate architecture (historical reference) |
-| 01 | [Design Principles](./01-design-principles.md) | Core principles and considerations |
-| 02 | [Shared Security Interface](./02-shared-security-interface.md) | Protocol-agnostic restaking abstraction |
+| 01 | [Design Principles](./01-design-principles.md) | Core principles and L3 considerations |
+| 02 | [Shared Security Interface](./02-shared-security-interface.md) | Protocol-agnostic staking abstraction |
 | 03 | [Protocol Contracts](./03-protocol-contracts.md) | Core Solidity contracts |
-| 04 | [SDK Updates](./04-sdk-updates.md) | Blueprint SDK changes |
-| 05 | [Implementation Plan](./05-implementation-plan.md) | Build order and milestones |
-| 06 | [Beacon Chain Restaking](./06-beacon-chain-validator-restaking.md) | Validator pod system |
+| 04 | [SDK Updates](./04-sdk-updates.md) | Blueprint SDK EVM-first architecture |
+| 06 | [Beacon Chain Staking](./06-beacon-chain-validator-staking.md) | Validator pod system |
 | -- | [Design](./DESIGN.md) | Architecture design document |
 | -- | [Slashing](./SLASHING_ARCHITECTURE.md) | Slashing system architecture |
-| -- | [Progress](./PROGRESS.md) | Implementation status |
 
 ## Repository Structure
 
@@ -44,10 +38,14 @@ src/v2/
 ├── interfaces/
 │   ├── ITangle.sol                 # Main interface
 │   ├── ITangleFull.sol             # Complete interface
-│   ├── IRestaking.sol              # Staking abstraction
+│   ├── IStaking.sol                # Staking abstraction
 │   └── IBlueprintServiceManager.sol # Hook interface
-├── restaking/
-│   └── MultiAssetDelegation.sol    # Native staking with share accounting
+├── staking/
+│   ├── MultiAssetDelegation.sol    # Native staking with share accounting
+│   ├── DelegationManagerLib.sol    # Delegation logic
+│   ├── OperatorManager.sol         # Operator lifecycle
+│   ├── SlashingManager.sol         # Slashing execution
+│   └── LiquidDelegationVault.sol   # ERC-7540 liquid staking
 ├── rewards/
 │   └── InflationPool.sol           # Pre-funded reward distribution
 ├── governance/

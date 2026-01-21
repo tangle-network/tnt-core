@@ -47,7 +47,7 @@ interface IBlueprintHook {
     ) external payable returns (bool accept);
 
     /// @notice Called when an operator approves a service request
-    function onServiceApprove(uint64 requestId, address operator, uint8 restakingPercent) external;
+    function onServiceApprove(uint64 requestId, address operator, uint8 stakingPercent) external;
 
     /// @notice Called when an operator rejects a service request
     function onServiceReject(uint64 requestId, address operator) external;

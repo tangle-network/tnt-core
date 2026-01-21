@@ -13,7 +13,7 @@ interface IBlueprintServiceManager {
     function getRequiredResultCount(uint64 serviceId, uint8 jobIndex) external view returns (uint32 required);
     function getSlashingWindow(uint64 serviceId) external view returns (bool useDefault, uint64 window);
     function onAggregatedResult(uint64 serviceId, uint8 job, uint64 jobCallId, bytes memory output, uint256 signerBitmap, uint256[2] memory aggregatedSignature, uint256[4] memory aggregatedPubkey) external;
-    function onApprove(address operator, uint64 requestId, uint8 restakingPercent) external payable;
+    function onApprove(address operator, uint64 requestId, uint8 stakingPercent) external payable;
     function onBlueprintCreated(uint64 blueprintId, address owner, address tangleCore) external;
     function onExitCanceled(uint64 serviceId, address operator) external;
     function onExitScheduled(uint64 serviceId, address operator, uint64 executeAfter) external;
@@ -324,7 +324,7 @@ interface IBlueprintServiceManager {
         "internalType": "uint64"
       },
       {
-        "name": "restakingPercent",
+        "name": "stakingPercent",
         "type": "uint8",
         "internalType": "uint8"
       }
@@ -2651,7 +2651,7 @@ function onAggregatedResult(uint64 serviceId, uint8 job, uint64 jobCallId, bytes
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `onApprove(address,uint64,uint8)` and selector `0xb159eb34`.
 ```solidity
-function onApprove(address operator, uint64 requestId, uint8 restakingPercent) external payable;
+function onApprove(address operator, uint64 requestId, uint8 stakingPercent) external payable;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2661,7 +2661,7 @@ function onApprove(address operator, uint64 requestId, uint8 restakingPercent) e
         #[allow(missing_docs)]
         pub requestId: u64,
         #[allow(missing_docs)]
-        pub restakingPercent: u8,
+        pub stakingPercent: u8,
     }
     ///Container type for the return parameters of the [`onApprove(address,uint64,uint8)`](onApproveCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -2700,7 +2700,7 @@ function onApprove(address operator, uint64 requestId, uint8 restakingPercent) e
             #[doc(hidden)]
             impl ::core::convert::From<onApproveCall> for UnderlyingRustTuple<'_> {
                 fn from(value: onApproveCall) -> Self {
-                    (value.operator, value.requestId, value.restakingPercent)
+                    (value.operator, value.requestId, value.stakingPercent)
                 }
             }
             #[automatically_derived]
@@ -2710,7 +2710,7 @@ function onApprove(address operator, uint64 requestId, uint8 restakingPercent) e
                     Self {
                         operator: tuple.0,
                         requestId: tuple.1,
-                        restakingPercent: tuple.2,
+                        stakingPercent: tuple.2,
                     }
                 }
             }
@@ -2788,7 +2788,7 @@ function onApprove(address operator, uint64 requestId, uint8 restakingPercent) e
                     > as alloy_sol_types::SolType>::tokenize(&self.requestId),
                     <alloy::sol_types::sol_data::Uint<
                         8,
-                    > as alloy_sol_types::SolType>::tokenize(&self.restakingPercent),
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakingPercent),
                 )
             }
             #[inline]
@@ -8068,13 +8068,13 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
             operator: alloy::sol_types::private::Address,
             requestId: u64,
-            restakingPercent: u8,
+            stakingPercent: u8,
         ) -> alloy_contract::SolCallBuilder<&P, onApproveCall, N> {
             self.call_builder(
                 &onApproveCall {
                     operator,
                     requestId,
-                    restakingPercent,
+                    stakingPercent,
                 },
             )
         }

@@ -322,7 +322,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
 
     /// @inheritdoc IBlueprintServiceManager
     function getMinOperatorStake() external view virtual returns (bool useDefault, uint256 minStake) {
-        return (true, 0); // Use protocol default from restaking module
+        return (true, 0); // Use protocol default from staking module
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

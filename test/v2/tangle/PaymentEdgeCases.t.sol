@@ -75,7 +75,7 @@ contract PaymentEdgeCasesTest is BaseTest {
         serviceFeeDistributor = new MockServiceFeeDistributor();
         vm.startPrank(admin);
         tangle.setServiceFeeDistributor(address(serviceFeeDistributor));
-        restaking.setServiceFeeDistributor(address(serviceFeeDistributor));
+        staking.setServiceFeeDistributor(address(serviceFeeDistributor));
         vm.stopPrank();
 
         // Deploy mock token (constructor initializes with default name/symbol)
@@ -315,7 +315,7 @@ contract PaymentEdgeCasesTest is BaseTest {
             developerBps: 0,
             protocolBps: 10000,
             operatorBps: 0,
-            restakerBps: 0
+            stakerBps: 0
         });
 
         vm.prank(admin);
@@ -335,7 +335,7 @@ contract PaymentEdgeCasesTest is BaseTest {
             developerBps: 0,
             protocolBps: 0,
             operatorBps: 10000,
-            restakerBps: 0
+            stakerBps: 0
         });
 
         vm.prank(admin);
@@ -352,7 +352,7 @@ contract PaymentEdgeCasesTest is BaseTest {
             developerBps: 2000,
             protocolBps: 2000,
             operatorBps: 2000,
-            restakerBps: 2000
+            stakerBps: 2000
         }); // Total = 80%
 
         vm.prank(admin);

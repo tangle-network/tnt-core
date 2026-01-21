@@ -2,15 +2,15 @@
 pragma solidity ^0.8.26;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { RestakingFacetBase } from "../../restaking/RestakingFacetBase.sol";
+import { StakingFacetBase } from "../../staking/StakingFacetBase.sol";
 import { Types } from "../../libraries/Types.sol";
-import { IAssetAdapter } from "../../restaking/adapters/IAssetAdapter.sol";
+import { IAssetAdapter } from "../../staking/adapters/IAssetAdapter.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
-import { DelegationErrors } from "../../restaking/DelegationErrors.sol";
+import { DelegationErrors } from "../../staking/DelegationErrors.sol";
 
-/// @title RestakingAssetsFacet
+/// @title StakingAssetsFacet
 /// @notice Facet for asset and adapter management
-contract RestakingAssetsFacet is RestakingFacetBase, IFacetSelectors {
+contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
     event AssetEnabled(address indexed token, uint256 minOperatorStake, uint256 minDelegation);
     event AssetDisabled(address indexed token);

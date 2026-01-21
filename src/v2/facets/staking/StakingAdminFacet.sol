@@ -5,14 +5,14 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { RestakingFacetBase } from "../../restaking/RestakingFacetBase.sol";
+import { StakingFacetBase } from "../../staking/StakingFacetBase.sol";
 import { Types } from "../../libraries/Types.sol";
-import { DelegationErrors } from "../../restaking/DelegationErrors.sol";
+import { DelegationErrors } from "../../staking/DelegationErrors.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 
-/// @title RestakingAdminFacet
-/// @notice Facet for restaking admin controls
-contract RestakingAdminFacet is RestakingFacetBase, IFacetSelectors {
+/// @title StakingAdminFacet
+/// @notice Facet for staking admin controls
+contract StakingAdminFacet is StakingFacetBase, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeERC20 for IERC20;
 
@@ -164,7 +164,7 @@ contract RestakingAdminFacet is RestakingFacetBase, IFacetSelectors {
     }
 
     /// @notice Rescue tokens accidentally sent to this contract
-    /// @dev Only allows rescuing tokens that are NOT registered restaking assets
+    /// @dev Only allows rescuing tokens that are NOT registered staking assets
     /// @param token The ERC20 token to rescue
     /// @param to The recipient address
     /// @param amount The amount to rescue
@@ -172,7 +172,7 @@ contract RestakingAdminFacet is RestakingFacetBase, IFacetSelectors {
         require(to != address(0), "Invalid recipient");
         require(amount > 0, "Invalid amount");
 
-        // Prevent rescuing registered restaking assets (user funds)
+        // Prevent rescuing registered staking assets (user funds)
         require(!_enabledErc20s.contains(token), "Cannot rescue registered asset");
 
         // Also check if there's an adapter registered for this token

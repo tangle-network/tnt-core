@@ -1,14 +1,14 @@
-# Beacon Chain Validator Restaking Implementation Plan
+# Beacon Chain Validator Staking Implementation Plan
 
 ## Executive Summary
 
-This document outlines the implementation of **Ethereum Beacon Chain Native Restaking** for Tangle Protocol deployed on **Base L2** (or any OP Stack L2 like Tempo). Ethereum validators can restake their ETH by pointing their withdrawal credentials to Tangle's ValidatorPod contracts.
+This document outlines the implementation of **Ethereum Beacon Chain Native Staking** for Tangle Protocol deployed on **Base L2** (or any OP Stack L2 like Tempo). Ethereum validators can stake their ETH by pointing their withdrawal credentials to Tangle's ValidatorPod contracts.
 
 **Architecture**: Minimal L1 footprint (beacon root relay only) + Full L2 deployment
 
-**Key Difference from Current "Native Restaking":**
+**Key Difference from Current "Native Staking":**
 - **Current**: Direct smart contract deposits of L2 native tokens
-- **New**: Ethereum mainnet validators restaking their 32 ETH via withdrawal credential proofs
+- **New**: Ethereum mainnet validators staking their 32 ETH via withdrawal credential proofs
 
 ---
 
@@ -42,10 +42,10 @@ This document outlines the implementation of **Ethereum Beacon Chain Native Rest
 │  └───────────────────────────┬─────────────────────────────┘   │
 │                              │                                   │
 │  ┌───────────────────────────▼─────────────────────────────┐   │
-│  │    ValidatorPodManager.sol (Factory + IRestaking)        │   │
+│  │    ValidatorPodManager.sol (Factory + IStaking)        │   │
 │  │    ├── createPod() - Deploy user's ValidatorPod          │   │
 │  │    ├── recordBeaconChainEthBalanceUpdate()               │   │
-│  │    └── Implements IRestaking for Tangle integration      │   │
+│  │    └── Implements IStaking for Tangle integration      │   │
 │  └───────────────────────────┬─────────────────────────────┘   │
 │                              │                                   │
 │  ┌───────────────────────────▼─────────────────────────────┐   │
@@ -79,7 +79,7 @@ This document outlines the implementation of **Ethereum Beacon Chain Native Rest
 
 ---
 
-## 1. Background: How EigenLayer Native Restaking Works
+## 1. Background: EigenLayer Native Staking Reference
 
 ### 1.1 Withdrawal Credentials Overview
 
@@ -87,7 +87,7 @@ Ethereum validators have immutable withdrawal credentials:
 - **0x00 (BLS)**: Legacy format, can be changed once to 0x01
 - **0x01 (Execution)**: Points to an Ethereum address, immutable once set
 
-For native restaking, validators change their withdrawal credentials to point to a **ValidatorPod** smart contract.
+For native staking, validators change their withdrawal credentials to point to a **ValidatorPod** smart contract.
 
 ### 1.2 EigenLayer Architecture
 
@@ -176,11 +176,11 @@ test/v2/beacon/
 
 ### 2.2 Integration with Existing System
 
-The beacon chain module will implement `IRestaking`, allowing it to plug into Tangle's existing infrastructure:
+The beacon chain module will implement `IStaking`, allowing it to plug into Tangle's existing infrastructure:
 
 ```solidity
-// ValidatorPodManager implements IRestaking
-contract ValidatorPodManager is IRestaking {
+// ValidatorPodManager implements IStaking
+contract ValidatorPodManager is IStaking {
     // Operator queries delegate to underlying pod shares
     function getOperatorStake(address operator) external view returns (uint256) {
         return _podOwnerShares[operator] + _operatorDelegations[operator];
@@ -294,7 +294,7 @@ contract ValidatorPod {
     ValidatorPodManager public immutable podManager;
     IBeaconOracle public immutable beaconOracle;
 
-    bool public hasRestaked;  // True after first successful credential verification
+    bool public hasStaked;  // True after first successful credential verification
 
     // Validator tracking
     mapping(bytes32 pubkeyHash => ValidatorInfo) public validatorInfo;
@@ -306,14 +306,14 @@ contract ValidatorPod {
 
     struct ValidatorInfo {
         uint64 validatorIndex;
-        uint64 restakedBalanceGwei;
+        uint64 stakedBalanceGwei;
         uint64 lastCheckpointedAt;
         ValidatorStatus status;
     }
 
     enum ValidatorStatus {
         INACTIVE,           // Not yet verified
-        ACTIVE,             // Verified and restaked
+        ACTIVE,             // Verified and staked
         WITHDRAWN           // Fully exited
     }
 
@@ -359,15 +359,15 @@ contract ValidatorPod {
     // ═══════════════════════════════════════════════════════════════
 
     function getValidatorInfo(bytes32 pubkeyHash) external view returns (ValidatorInfo memory);
-    function getTotalRestakedGwei() external view returns (uint64);
-    function withdrawableRestakedGwei() external view returns (uint64);
+    function getTotalStakedGwei() external view returns (uint64);
+    function withdrawableStakedGwei() external view returns (uint64);
 }
 ```
 
 ### 3.3 ValidatorPodManager.sol
 
 ```solidity
-contract ValidatorPodManager is IRestaking, Ownable {
+contract ValidatorPodManager is IStaking, Ownable {
     // ═══════════════════════════════════════════════════════════════
     // STATE
     // ═══════════════════════════════════════════════════════════════
@@ -428,7 +428,7 @@ contract ValidatorPodManager is IRestaking, Ownable {
     function undelegate(address operator, uint256 shares) external;
 
     // ═══════════════════════════════════════════════════════════════
-    // IRESTAKING IMPLEMENTATION
+    // ISTAKING IMPLEMENTATION
     // ═══════════════════════════════════════════════════════════════
 
     function isOperator(address operator) external view returns (bool);
@@ -516,9 +516,9 @@ contract ValidatorPodTest is Test {
 ### 4.2 Integration Tests
 
 ```solidity
-// test/v2/beacon/ValidatorRestakingE2E.t.sol
-contract ValidatorRestakingE2ETest is Test {
-    function test_fullRestakingFlow() external {
+// test/v2/beacon/ValidatorStakingE2E.t.sol
+contract ValidatorStakingE2ETest is Test {
+    function test_fullStakingFlow() external {
         // 1. Create pod
         // 2. Verify withdrawal credentials
         // 3. Start checkpoint
@@ -579,8 +579,8 @@ The beacon chain module is **completely separate**:
 If/when ready to integrate:
 
 ```solidity
-// Option 1: Register ValidatorPodManager as an IRestaking implementation
-tangle.setRestakingModule(address(validatorPodManager));
+// Option 1: Register ValidatorPodManager as an IStaking implementation
+tangle.setStakingModule(address(validatorPodManager));
 
 // Option 2: Use alongside MultiAssetDelegation
 // Operators can have stake from both:
@@ -603,8 +603,8 @@ tangle.setRestakingModule(address(validatorPodManager));
 - [ ] `ValidatorPodManager.sol` - Factory and share tracking
 - [ ] Integration tests
 
-### Phase 3: IRestaking Implementation
-- [ ] Implement IRestaking interface on ValidatorPodManager
+### Phase 3: IStaking Implementation
+- [ ] Implement IStaking interface on ValidatorPodManager
 - [ ] Delegation mechanics
 - [ ] Slashing integration
 
@@ -621,7 +621,7 @@ tangle.setRestakingModule(address(validatorPodManager));
 |--------|------------|----------------------|
 | Deployment | Mainnet only | L2/L3 via oracle bridge |
 | Oracle | EIP-4788 native | Pluggable (mock for testing) |
-| Share System | DelegationManager | IRestaking interface |
+| Share System | DelegationManager | IStaking interface |
 | Slashing | Via slasher contracts | Via Tangle core |
 | Integration | Standalone | Plugs into blueprint system |
 
@@ -648,7 +648,7 @@ tangle.setRestakingModule(address(validatorPodManager));
 
 ## 10. References
 
-- [EigenLayer Native Restaking Guide](https://medium.com/@jenpaff/eigenlayer-native-restaking-under-the-hood-an-in-depth-guide-to-native-restaking-on-eigenlayer-70b5ae6d9e55)
+- [EigenLayer Native Staking Guide](https://medium.com/@jenpaff/eigenlayer-native-restaking-under-the-hood-an-in-depth-guide-to-native-restaking-on-eigenlayer-70b5ae6d9e55)
 - [EigenLayer Contracts (Layr-Labs)](https://github.com/Layr-Labs/eigenlayer-contracts)
 - [EigenPod Documentation](https://docs.eigenlayer.xyz/restaking-guides/restaking-user-guide/native-restaking/)
 - [EIP-4788: Beacon Block Root in EVM](https://eips.ethereum.org/EIPS/eip-4788)

@@ -74,8 +74,9 @@ contract InflationPoolTest is Test {
         tnt.approve(address(pool), POOL_FUNDING);
         pool.fund(POOL_FUNDING);
 
-        // M-16 FIX: Set minStakeEpochs to 0 for testing (otherwise operators need to wait 1 epoch)
-        pool.setMinStakeEpochs(0);
+        // M-16 FIX: Set minStakeEpochs to minimum allowed value (1) for testing
+        // Note: M-6 FIX enforces minimum of 1 epoch to prevent flash stake attacks
+        pool.setMinStakeEpochs(1);
 
         vm.stopPrank();
     }
@@ -329,8 +330,15 @@ contract InflationPoolTest is Test {
         metrics.recordJobCompletion(operator1, 1, 1, true);
         metrics.recordHeartbeat(operator1, 1, uint64(block.timestamp));
 
-        // Distribute epoch
-        vm.warp(block.timestamp + EPOCH_LENGTH + 1);
+        // M-16 FIX: Operators need to be registered for minStakeEpochs (1) before receiving rewards.
+        // Distribute epoch 1 first (operator registered in epoch 1, not yet eligible)
+        InflationPool.EpochData memory epoch1 = pool.getEpoch(pool.currentEpoch());
+        vm.warp(epoch1.endTimestamp + 1);
+        pool.distributeEpoch();
+
+        // Distribute epoch 2 (operator now eligible for rewards)
+        InflationPool.EpochData memory epoch2 = pool.getEpoch(pool.currentEpoch());
+        vm.warp(epoch2.endTimestamp + 1);
         pool.distributeEpoch();
 
         // Operator should have pending rewards
@@ -362,7 +370,15 @@ contract InflationPoolTest is Test {
         metrics.recordJobCompletion(operator2, 1, 0, true);
         metrics.recordJobCompletion(operator2, 1, 1, true);
 
-        vm.warp(block.timestamp + EPOCH_LENGTH + 1);
+        // M-16 FIX: Operators need to be registered for minStakeEpochs (1) before receiving rewards.
+        // Distribute epoch 1 first (operators registered in epoch 1, not yet eligible)
+        InflationPool.EpochData memory epoch1 = pool.getEpoch(pool.currentEpoch());
+        vm.warp(epoch1.endTimestamp + 1);
+        pool.distributeEpoch();
+
+        // Distribute epoch 2 (operators now eligible for rewards)
+        InflationPool.EpochData memory epoch2 = pool.getEpoch(pool.currentEpoch());
+        vm.warp(epoch2.endTimestamp + 1);
         pool.distributeEpoch();
 
         uint256 pending1 = pool.pendingOperatorRewards(operator1);
@@ -383,7 +399,15 @@ contract InflationPoolTest is Test {
         // Customer pays fees
         metrics.recordPayment(customer1, 1, address(0), 100 ether);
 
-        vm.warp(block.timestamp + EPOCH_LENGTH + 1);
+        // M-16 FIX: Customers need to be registered for minStakeEpochs (1) before receiving rewards.
+        // Distribute epoch 1 first (customer registered in epoch 1, not yet eligible)
+        InflationPool.EpochData memory epoch1 = pool.getEpoch(pool.currentEpoch());
+        vm.warp(epoch1.endTimestamp + 1);
+        pool.distributeEpoch();
+
+        // Distribute epoch 2 (customer now eligible for rewards)
+        InflationPool.EpochData memory epoch2 = pool.getEpoch(pool.currentEpoch());
+        vm.warp(epoch2.endTimestamp + 1);
         pool.distributeEpoch();
 
         uint256 pending = pool.pendingCustomerRewards(customer1);
@@ -556,6 +580,10 @@ contract InflationPoolTest is Test {
 
     function test_MultiEpochWeightAccounting() public {
         _activateAllRewardStreams();
+
+        // M-16 FIX: Participants need to be registered for minStakeEpochs (1) before receiving rewards.
+        // Distribute a warmup epoch so participants become eligible for subsequent epochs.
+        _distributeCurrentEpoch();
 
         vm.prank(admin);
         pool.setWeights(6000, 1000, 1000, 2000, 0); // 60/10/10/20/0

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { DelegationTestHarness } from "../restaking/DelegationTestHarness.sol";
+import { DelegationTestHarness } from "../staking/DelegationTestHarness.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 
 /// @notice Full stack scenario that deterministically simulates deposits, delegations,

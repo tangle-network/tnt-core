@@ -79,7 +79,7 @@ uint256 public constant VIRTUAL_ASSETS = 1;
 **Status:** Mitigated by O(1) share-based slashing via exchange rate manipulation.
 
 ### H-6: SLASHER_ROLE Separation [VERIFIED CORRECT]
-**Location:** `IRestaking.sol`, `SlashingManager.sol`
+**Location:** `IStaking.sol`, `SlashingManager.sol`
 **Status:** Roles properly separated.
 
 ### H-7: Facet Selector Overwrite Protection [VERIFIED CORRECT]
@@ -221,13 +221,13 @@ Added appropriate indexing to events.
 ## Files Modified
 
 ### Core Protocol
-- `src/v2/restaking/DelegationStorage.sol`
-- `src/v2/restaking/DelegationManagerLib.sol`
-- `src/v2/restaking/DepositManager.sol`
-- `src/v2/restaking/SlashingManager.sol`
-- `src/v2/restaking/OperatorManager.sol`
-- `src/v2/restaking/RewardsManager.sol`
-- `src/v2/restaking/MultiAssetDelegation.sol`
+- `src/v2/staking/DelegationStorage.sol`
+- `src/v2/staking/DelegationManagerLib.sol`
+- `src/v2/staking/DepositManager.sol`
+- `src/v2/staking/SlashingManager.sol`
+- `src/v2/staking/OperatorManager.sol`
+- `src/v2/staking/RewardsManager.sol`
+- `src/v2/staking/MultiAssetDelegation.sol`
 - `src/v2/libraries/Types.sol`
 - `src/v2/libraries/BN254.sol`
 - `src/v2/libraries/Errors.sol`
@@ -270,14 +270,14 @@ Added appropriate indexing to events.
 - `src/v2/rewards/InflationPool.sol`
 
 ### Facets
-- `src/v2/facets/restaking/RestakingAdminFacet.sol`
-- `src/v2/facets/restaking/RestakingAssetsFacet.sol`
-- `src/v2/facets/restaking/RestakingOperatorsFacet.sol`
+- `src/v2/facets/staking/StakingAdminFacet.sol`
+- `src/v2/facets/staking/StakingAssetsFacet.sol`
+- `src/v2/facets/staking/StakingOperatorsFacet.sol`
 - `src/v2/facets/tangle/TangleServicesFacet.sol`
 
 ### Interfaces
 - `src/v2/interfaces/IMultiAssetDelegation.sol`
-- `src/v2/interfaces/IRestaking.sol`
+- `src/v2/interfaces/IStaking.sol`
 - `src/v2/interfaces/ITangleServices.sol`
 
 ---

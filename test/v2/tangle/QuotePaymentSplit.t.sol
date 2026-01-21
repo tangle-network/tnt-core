@@ -99,7 +99,7 @@ contract QuotePaymentSplitTest is BaseTest {
         serviceFeeDistributor = new MockServiceFeeDistributor();
         vm.startPrank(admin);
         tangle.setServiceFeeDistributor(address(serviceFeeDistributor));
-        restaking.setServiceFeeDistributor(address(serviceFeeDistributor));
+        staking.setServiceFeeDistributor(address(serviceFeeDistributor));
         vm.stopPrank();
 
         operator1 = vm.addr(OPERATOR_PK);

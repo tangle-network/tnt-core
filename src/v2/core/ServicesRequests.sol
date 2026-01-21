@@ -195,7 +195,7 @@ abstract contract ServicesRequests is Base {
             if (_operatorRegistrations[blueprintId][operators[i]].registeredAt == 0) {
                 revert Errors.OperatorNotRegistered(blueprintId, operators[i]);
             }
-            if (!_restaking.isOperatorActive(operators[i])) {
+            if (!_staking.isOperatorActive(operators[i])) {
                 revert Errors.OperatorNotActive(operators[i]);
             }
             if (exposures[i] > BPS_DENOMINATOR) {

@@ -1,5 +1,5 @@
 import { registerTangleHandlers } from "./handlers/tangle";
-import { registerRestakingHandlers } from "./handlers/restaking";
+import { registerRestakingHandlers } from "./handlers/staking";
 import { registerRewardVaultHandlers } from "./handlers/rewardVaults";
 import { registerBlueprintManagerHandlers } from "./handlers/blueprintManager";
 import { registerCreditHandlers } from "./handlers/credits";

@@ -34,9 +34,9 @@ interface ITangle is
 /// @title ITangleAdmin
 /// @notice Admin functions for Tangle protocol
 interface ITangleAdmin {
-    /// @notice Set the restaking module
-    /// @param restaking The IRestaking implementation
-    function setRestaking(address restaking) external;
+    /// @notice Set the staking module
+    /// @param staking The IStaking implementation
+    function setStaking(address staking) external;
 
     /// @notice Set the protocol treasury
     /// @param treasury The treasury address
@@ -47,7 +47,7 @@ interface ITangleAdmin {
     function setPaymentSplit(Types.PaymentSplit calldata split) external;
 
     /// @notice Get the current payment split
-    function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 restakerBps);
+    function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
 
     /// @notice Pause the protocol
     function pause() external;

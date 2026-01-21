@@ -112,8 +112,8 @@ interface IBlueprintServiceManager {
     /// @notice Called when an operator approves a service request
     /// @param operator The approving operator
     /// @param requestId The request ID
-    /// @param restakingPercent Percentage of stake committed to this service (0-100)
-    function onApprove(address operator, uint64 requestId, uint8 restakingPercent) external payable;
+    /// @param stakingPercent Percentage of stake committed to this service (0-100)
+    function onApprove(address operator, uint64 requestId, uint8 stakingPercent) external payable;
 
     /// @notice Called when an operator rejects a service request
     /// @param operator The rejecting operator
@@ -323,7 +323,7 @@ interface IBlueprintServiceManager {
 
     /// @notice Get the minimum stake required for operators to register for this blueprint
     /// @dev Called during operator registration to validate stake requirements
-    /// @return useDefault True to use protocol default from restaking module
+    /// @return useDefault True to use protocol default from staking module
     /// @return minStake Custom minimum stake amount (only used if useDefault=false)
     function getMinOperatorStake() external view returns (bool useDefault, uint256 minStake);
 }

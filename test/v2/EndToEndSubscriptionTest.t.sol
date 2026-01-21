@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import { BaseTest } from "./BaseTest.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { Errors } from "../../src/v2/libraries/Errors.sol";
-import { DelegationErrors } from "../../src/v2/restaking/DelegationErrors.sol";
+import { DelegationErrors } from "../../src/v2/staking/DelegationErrors.sol";
 import { IBlueprintServiceManager } from "../../src/v2/interfaces/IBlueprintServiceManager.sol";
 import { BlueprintServiceManagerBase } from "../../src/v2/BlueprintServiceManagerBase.sol";
 
@@ -23,13 +23,13 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         // Step 2: Operator registers and stakes
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Step 3: Delegator stakes with operator
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 10 ether }();
-        restaking.delegate(operator1, 10 ether);
+        staking.deposit{ value: 10 ether }();
+        staking.delegate(operator1, 10 ether);
         vm.stopPrank();
 
         // Step 4: Customer requests service with payment
@@ -79,7 +79,7 @@ contract EndToEndSubscriptionTest is BaseTest {
             _createBlueprintWithConfigAsSender("ipfs://exhaustion-test", address(0), config);
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Only fund 2 months of subscription
@@ -135,15 +135,15 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         // Register all operators
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         vm.prank(operator2);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator2, blueprintId, "");
 
         vm.prank(operator3);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator3, blueprintId, "");
 
         // Start with just operator1
@@ -227,19 +227,19 @@ contract EndToEndSubscriptionTest is BaseTest {
             _createBlueprintWithConfigAsSender("ipfs://proportional-rewards", address(0), config);
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Delegator1: 10 ETH (1/4 of total delegations)
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 10 ether }();
-        restaking.delegate(operator1, 10 ether);
+        staking.deposit{ value: 10 ether }();
+        staking.delegate(operator1, 10 ether);
         vm.stopPrank();
 
         // Delegator2: 30 ETH (3/4 of total delegations)
         vm.startPrank(delegator2);
-        restaking.deposit{ value: 30 ether }();
-        restaking.delegate(operator1, 30 ether);
+        staking.deposit{ value: 30 ether }();
+        staking.delegate(operator1, 30 ether);
         vm.stopPrank();
 
         // Request service
@@ -286,7 +286,7 @@ contract EndToEndSubscriptionTest is BaseTest {
             _createBlueprintWithConfigAsSender("ipfs://termination", address(0), config);
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Fund 6 months

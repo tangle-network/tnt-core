@@ -15,7 +15,7 @@ import { DelegationErrors } from "./DelegationErrors.sol";
 import { IFacetSelectors } from "../interfaces/IFacetSelectors.sol";
 
 /// @title MultiAssetDelegation
-/// @notice Router contract for multi-asset restaking
+/// @notice Router contract for multi-asset staking
 contract MultiAssetDelegation is
     Initializable,
     UUPSUpgradeable,

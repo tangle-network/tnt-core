@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { RestakingFacetBase } from "../../restaking/RestakingFacetBase.sol";
+import { StakingFacetBase } from "../../staking/StakingFacetBase.sol";
 import { Types } from "../../libraries/Types.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 
-/// @title RestakingSlashingFacet
+/// @title StakingSlashingFacet
 /// @notice Facet for slashing and round management
-contract RestakingSlashingFacet is RestakingFacetBase, IFacetSelectors {
+contract StakingSlashingFacet is StakingFacetBase, IFacetSelectors {
     event RoundAdvanced(uint64 indexed round);
 
     function selectors() external pure returns (bytes4[] memory selectorList) {

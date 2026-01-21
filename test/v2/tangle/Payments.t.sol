@@ -21,7 +21,7 @@ contract PaymentsTest is BaseTest {
         serviceFeeDistributor = new MockServiceFeeDistributor();
         vm.startPrank(admin);
         tangle.setServiceFeeDistributor(address(serviceFeeDistributor));
-        restaking.setServiceFeeDistributor(address(serviceFeeDistributor));
+        staking.setServiceFeeDistributor(address(serviceFeeDistributor));
         vm.stopPrank();
 
         // Deploy mock token and fund users (constructor initializes with default name/symbol)
@@ -58,7 +58,7 @@ contract PaymentsTest is BaseTest {
             developerBps: 4000,
             protocolBps: 2000,
             operatorBps: 2500,
-            restakerBps: 1500
+            stakerBps: 1500
         });
 
         vm.prank(admin);
@@ -76,7 +76,7 @@ contract PaymentsTest is BaseTest {
             developerBps: 4000,
             protocolBps: 2000,
             operatorBps: 2500,
-            restakerBps: 1500
+            stakerBps: 1500
         });
 
         vm.prank(user1);
@@ -89,7 +89,7 @@ contract PaymentsTest is BaseTest {
             developerBps: 5000,
             protocolBps: 5000,
             operatorBps: 5000,
-            restakerBps: 5000
+            stakerBps: 5000
         });
 
         vm.prank(admin);
@@ -102,7 +102,7 @@ contract PaymentsTest is BaseTest {
             developerBps: 10000,
             protocolBps: 0,
             operatorBps: 0,
-            restakerBps: 0
+            stakerBps: 0
         });
 
         vm.prank(admin);
@@ -194,7 +194,7 @@ contract PaymentsTest is BaseTest {
             developerBps: 0,
             protocolBps: 10000,
             operatorBps: 0,
-            restakerBps: 0
+            stakerBps: 0
         }));
         vm.stopPrank();
 
@@ -224,7 +224,7 @@ contract PaymentsTest is BaseTest {
             developerBps: 9500,
             protocolBps: 500,
             operatorBps: 0,
-            restakerBps: 0
+            stakerBps: 0
         }));
         vm.stopPrank();
 

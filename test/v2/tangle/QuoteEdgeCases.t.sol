@@ -327,10 +327,10 @@ contract QuoteEdgeCasesTest is BaseTest {
         uint256 unregisteredKey = 0xDEAD;
         address unregisteredOp = vm.addr(unregisteredKey); // Derive address from key
 
-        // Register with restaking but not for blueprint
+        // Register with staking but not for blueprint
         vm.deal(unregisteredOp, 10 ether);
         vm.prank(unregisteredOp);
-        restaking.registerOperator{ value: 5 ether }();
+        staking.registerOperator{ value: 5 ether }();
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
 

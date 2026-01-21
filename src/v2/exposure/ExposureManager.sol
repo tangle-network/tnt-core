@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Types} from "../libraries/Types.sol";
-import {IRestaking} from "../interfaces/IRestaking.sol";
+import {IStaking} from "../interfaces/IStaking.sol";
 import {IExposureManager} from "./IExposureManager.sol";
 import {ExposureTypes} from "./ExposureTypes.sol";
 
@@ -23,9 +23,9 @@ contract ExposureManager is IExposureManager {
     // STATE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice The restaking contract for delegation queries
+    /// @notice The staking contract for delegation queries
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    IRestaking public immutable restaking;
+    IStaking public immutable staking;
 
     /// @notice Operator global exposure configs
     mapping(address => ExposureTypes.OperatorExposureConfig) public operatorConfigs;
@@ -41,9 +41,9 @@ contract ExposureManager is IExposureManager {
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════════
 
-    constructor(address _restaking) {
-        require(_restaking != address(0), "Zero address");
-        restaking = IRestaking(_restaking);
+    constructor(address _staking) {
+        require(_staking != address(0), "Zero address");
+        staking = IStaking(_staking);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -132,7 +132,7 @@ contract ExposureManager is IExposureManager {
         Types.AssetSecurityCommitment[] calldata commitments
     ) external view override returns (bool valid, ExposureTypes.CommitmentValidationResult memory result) {
         // 1. Check operator is registered
-        if (!restaking.isOperator(operator)) {
+        if (!staking.isOperator(operator)) {
             return (false, ExposureTypes.CommitmentValidationResult({
                 valid: false,
                 reason: "Not an operator",
@@ -360,7 +360,7 @@ contract ExposureManager is IExposureManager {
         address operator,
         Types.Asset memory asset
     ) internal view returns (uint256) {
-        return restaking.getOperatorStakeForAsset(operator, asset);
+        return staking.getOperatorStakeForAsset(operator, asset);
     }
 
     function _hashAsset(Types.Asset memory asset) internal pure returns (bytes32) {

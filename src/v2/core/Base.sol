@@ -13,11 +13,11 @@ import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { SignatureLib } from "../libraries/SignatureLib.sol";
 import { SlashingLib } from "../libraries/SlashingLib.sol";
-import { IRestaking } from "../interfaces/IRestaking.sol";
+import { IStaking } from "../interfaces/IStaking.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { IMetricsRecorder } from "../interfaces/IMetricsRecorder.sol";
 import { IMBSMRegistry } from "../interfaces/IMBSMRegistry.sol";
-import { IOperatorStatusRegistry } from "../restaking/OperatorStatusRegistry.sol";
+import { IOperatorStatusRegistry } from "../staking/OperatorStatusRegistry.sol";
 import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
 /// @title Base
@@ -99,8 +99,8 @@ abstract contract Base is
     /// @param developerBps Developer share in basis points
     /// @param protocolBps Protocol share in basis points
     /// @param operatorBps Operator share in basis points
-    /// @param restakerBps Restaker share in basis points
-    event PaymentSplitUpdated(uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 restakerBps);
+    /// @param stakerBps Staker share in basis points
+    event PaymentSplitUpdated(uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
 
     /// @notice Emitted when the protocol treasury address is updated
     /// @param treasury The new treasury address
@@ -137,7 +137,7 @@ abstract contract Base is
 
     /// @notice Initialize the contract
     /// @param admin Admin address
-    /// @param restaking_ Restaking module address
+    /// @param staking_ Restaking module address
     /// @param treasury_ Protocol treasury address
     /// @dev H-5 SECURITY: After deployment, DEFAULT_ADMIN_ROLE should be transferred to a
     ///      TangleTimelock contract to enforce governance delays on critical admin operations.
@@ -145,10 +145,10 @@ abstract contract Base is
     // forge-lint: disable-next-line(mixed-case-function)
     function __Base_init(
         address admin,
-        address restaking_,
+        address staking_,
         address payable treasury_
     ) internal onlyInitializing {
-        if (admin == address(0) || restaking_ == address(0) || treasury_ == address(0)) {
+        if (admin == address(0) || staking_ == address(0) || treasury_ == address(0)) {
             revert Errors.ZeroAddress();
         }
 
@@ -164,7 +164,7 @@ abstract contract Base is
         _grantRole(UPGRADER_ROLE, admin);
         _grantRole(SLASH_ADMIN_ROLE, admin);
 
-        _restaking = IRestaking(restaking_);
+        _staking = IStaking(staking_);
         _treasury = treasury_;
 
         _maxBlueprintsPerOperator = ProtocolConfig.MAX_BLUEPRINTS_PER_OPERATOR;
@@ -176,7 +176,7 @@ abstract contract Base is
             developerBps: DEFAULT_DEVELOPER_BPS,
             protocolBps: DEFAULT_PROTOCOL_BPS,
             operatorBps: DEFAULT_OPERATOR_BPS,
-            restakerBps: DEFAULT_RESTAKER_BPS
+            stakerBps: DEFAULT_STAKER_BPS
         });
 
         // Initialize EIP-712 domain separator

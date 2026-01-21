@@ -8,7 +8,7 @@ import {ValidatorTypes} from "../../../src/v2/beacon/ValidatorTypes.sol";
 import {MockBeaconOracle} from "../../../src/v2/beacon/BeaconRootReceiver.sol";
 
 /// @title BeaconTestBase
-/// @notice Base test contract for beacon chain restaking tests
+/// @notice Base test contract for beacon chain staking tests
 abstract contract BeaconTestBase is Test {
     function assertEq(
         ValidatorTypes.ValidatorStatus left,

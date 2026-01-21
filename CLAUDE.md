@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-tnt-core is Tangle's EVM-native restaking protocol for creating service blueprints. It contains Solidity smart contracts, a TypeScript Envio indexer, and Rust bindings.
+tnt-core is Tangle's EVM-native staking protocol for creating service blueprints. It contains Solidity smart contracts, a TypeScript Envio indexer, and Rust bindings.
 
 ## Build & Test Commands
 
@@ -74,12 +74,12 @@ src/v2/core/
 └── Quotes.sol             # Quote verification
 ```
 
-### Restaking Layer
+### Staking Layer
 
-Pluggable restaking backend via `IRestaking` interface:
+Pluggable staking backend via `IStaking` interface:
 
 ```
-src/v2/restaking/
+src/v2/staking/
 ├── MultiAssetDelegation.sol    # Native O(1) share accounting
 ├── OperatorManager.sol         # Operator status tracking
 ├── SlashingManager.sol         # Slashing execution
@@ -113,7 +113,7 @@ src/v2/governance/
 
 ### Beacon Chain Integration
 
-Native ETH restaking via validator pods:
+Native ETH staking via validator pods:
 
 ```
 src/v2/beacon/
@@ -127,7 +127,7 @@ src/v2/beacon/
 
 Tests are in `test/v2/` and use `BaseTest.sol` as the foundation. Key test patterns:
 
-- Unit tests: `test/v2/tangle/`, `test/v2/restaking/`, `test/v2/blueprints/`
+- Unit tests: `test/v2/tangle/`, `test/v2/staking/`, `test/v2/blueprints/`
 - Integration: `test/v2/Integration.t.sol`, `test/v2/scenario/FullStackScenario.t.sol`
 - Fuzz tests: `test/v2/fuzz/`
 - Beacon tests: `test/v2/beacon/`

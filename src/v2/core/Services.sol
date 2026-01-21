@@ -210,7 +210,7 @@ abstract contract Services is Base {
             if (_operatorRegistrations[blueprintId][operators[i]].registeredAt == 0) {
                 revert Errors.OperatorNotRegistered(blueprintId, operators[i]);
             }
-            if (!_restaking.isOperatorActive(operators[i])) {
+            if (!_staking.isOperatorActive(operators[i])) {
                 revert Errors.OperatorNotActive(operators[i]);
             }
             if (exposures[i] > BPS_DENOMINATOR) {
@@ -420,14 +420,14 @@ abstract contract Services is Base {
     }
 
     /// @notice Approve a service request
-    function approveService(uint64 requestId, uint8 restakingPercent) external whenNotPaused nonReentrant {
+    function approveService(uint64 requestId, uint8 stakingPercent) external whenNotPaused nonReentrant {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
         // M-3 fix: Check if request has expired (with grace period)
         if (_isRequestExpired(req)) revert Errors.ServiceRequestExpired(requestId);
 
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
         bool isOperator = false;
@@ -459,7 +459,7 @@ abstract contract Services is Base {
         if (bp.manager != address(0)) {
             _tryCallManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, restakingPercent))
+                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
             );
         }
 
@@ -479,7 +479,7 @@ abstract contract Services is Base {
         // M-3 fix: Check if request has expired (with grace period)
         if (_isRequestExpired(req)) revert Errors.ServiceRequestExpired(requestId);
 
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
         bool isOperator = false;
@@ -510,11 +510,11 @@ abstract contract Services is Base {
         emit ServiceApproved(requestId, msg.sender);
 
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
-        uint8 restakingPercent = commitments.length > 0 ? uint8(commitments[0].exposureBps / 100) : 100;
+        uint8 stakingPercent = commitments.length > 0 ? uint8(commitments[0].exposureBps / 100) : 100;
         if (bp.manager != address(0)) {
             _tryCallManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, restakingPercent))
+                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
             );
         }
 
@@ -566,7 +566,7 @@ abstract contract Services is Base {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
         bool isOperator = false;
@@ -688,7 +688,7 @@ abstract contract Services is Base {
 
         // Validate minimum stake requirement (re-check in case operator withdrew after registration)
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
-        uint256 minStake = _restaking.minOperatorStake();
+        uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
             try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
                 if (!useDefault && customMin > 0) {
@@ -696,8 +696,8 @@ abstract contract Services is Base {
                 }
             } catch {}
         }
-        if (!_restaking.meetsStakeRequirement(msg.sender, minStake)) {
-            revert Errors.InsufficientStake(msg.sender, minStake, _restaking.getOperatorStake(msg.sender));
+        if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
+            revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
         }
 
         // Check if manager allows this operator to join
@@ -777,7 +777,7 @@ abstract contract Services is Base {
 
         // Validate minimum stake requirement (re-check in case operator withdrew after registration)
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
-        uint256 minStake = _restaking.minOperatorStake();
+        uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
             try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
                 if (!useDefault && customMin > 0) {
@@ -785,8 +785,8 @@ abstract contract Services is Base {
                 }
             } catch {}
         }
-        if (!_restaking.meetsStakeRequirement(msg.sender, minStake)) {
-            revert Errors.InsufficientStake(msg.sender, minStake, _restaking.getOperatorStake(msg.sender));
+        if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
+            revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
         }
 
         // Check if manager allows this operator to join

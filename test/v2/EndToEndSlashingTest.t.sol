@@ -5,7 +5,7 @@ import { BaseTest } from "./BaseTest.sol";
 import { Types } from "../../src/v2/libraries/Types.sol";
 import { Errors } from "../../src/v2/libraries/Errors.sol";
 import { SlashingLib } from "../../src/v2/libraries/SlashingLib.sol";
-import { DelegationErrors } from "../../src/v2/restaking/DelegationErrors.sol";
+import { DelegationErrors } from "../../src/v2/staking/DelegationErrors.sol";
 import { IBlueprintServiceManager } from "../../src/v2/interfaces/IBlueprintServiceManager.sol";
 import { BlueprintServiceManagerBase } from "../../src/v2/BlueprintServiceManagerBase.sol";
 import { ITangle, ITangleFull } from "../../src/v2/interfaces/ITangle.sol";
@@ -28,24 +28,24 @@ contract EndToEndSlashingTest is BaseTest {
 
         // Operator: 10 ETH
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Delegator1: 20 ETH, Delegator2: 30 ETH (total pool = 60 ETH)
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 20 ether }();
-        restaking.delegate(operator1, 20 ether);
+        staking.deposit{ value: 20 ether }();
+        staking.delegate(operator1, 20 ether);
         vm.stopPrank();
 
         vm.startPrank(delegator2);
-        restaking.deposit{ value: 30 ether }();
-        restaking.delegate(operator1, 30 ether);
+        staking.deposit{ value: 30 ether }();
+        staking.delegate(operator1, 30 ether);
         vm.stopPrank();
 
         // Record ALL balances before slash
-        uint256 opBefore = restaking.getOperatorSelfStake(operator1);
-        uint256 d1Before = restaking.getDelegation(delegator1, operator1);
-        uint256 d2Before = restaking.getDelegation(delegator2, operator1);
+        uint256 opBefore = staking.getOperatorSelfStake(operator1);
+        uint256 d1Before = staking.getDelegation(delegator1, operator1);
+        uint256 d2Before = staking.getDelegation(delegator2, operator1);
         uint256 totalBefore = opBefore + d1Before + d2Before;
 
         assertEq(opBefore, 10 ether, "Pre: Op=10 ETH");
@@ -86,9 +86,9 @@ contract EndToEndSlashingTest is BaseTest {
         // D1: 5 * 20/50 = 2 ETH slashed → 18 ETH remaining
         // D2: 5 * 30/50 = 3 ETH slashed → 27 ETH remaining
 
-        uint256 opAfter = restaking.getOperatorSelfStake(operator1);
-        uint256 d1After = restaking.getDelegation(delegator1, operator1);
-        uint256 d2After = restaking.getDelegation(delegator2, operator1);
+        uint256 opAfter = staking.getOperatorSelfStake(operator1);
+        uint256 d1After = staking.getDelegation(delegator1, operator1);
+        uint256 d2After = staking.getDelegation(delegator2, operator1);
         uint256 totalAfter = opAfter + d1After + d2After;
 
         assertEq(opAfter, 9 ether, "Post: Op=9 ETH (slashed 1)");
@@ -105,25 +105,25 @@ contract EndToEndSlashingTest is BaseTest {
 
         // Op1: 10 ETH, Op2: 8 ETH
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         vm.prank(operator2);
-        restaking.registerOperator{ value: 8 ether }();
+        staking.registerOperator{ value: 8 ether }();
         _directRegisterOperator(operator2, blueprintId, "");
 
         // D1 delegates 10 ETH to each operator
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 20 ether }();
-        restaking.delegate(operator1, 10 ether);
-        restaking.delegate(operator2, 10 ether);
+        staking.deposit{ value: 20 ether }();
+        staking.delegate(operator1, 10 ether);
+        staking.delegate(operator2, 10 ether);
         vm.stopPrank();
 
         // Record ALL balances
-        uint256 op1Before = restaking.getOperatorSelfStake(operator1);
-        uint256 op2Before = restaking.getOperatorSelfStake(operator2);
-        uint256 d1ToOp1Before = restaking.getDelegation(delegator1, operator1);
-        uint256 d1ToOp2Before = restaking.getDelegation(delegator1, operator2);
+        uint256 op1Before = staking.getOperatorSelfStake(operator1);
+        uint256 op2Before = staking.getOperatorSelfStake(operator2);
+        uint256 d1ToOp1Before = staking.getDelegation(delegator1, operator1);
+        uint256 d1ToOp2Before = staking.getDelegation(delegator1, operator2);
 
         // Create service with both operators
         address[] memory ops = new address[](2);
@@ -147,12 +147,12 @@ contract EndToEndSlashingTest is BaseTest {
         tangle.executeSlash(slashId);
 
         // Verify Op1 pool slashed
-        assertEq(restaking.getOperatorSelfStake(operator1), 8 ether, "Op1: 10-2=8 ETH");
-        assertEq(restaking.getDelegation(delegator1, operator1), 8 ether, "D1->Op1: 10-2=8 ETH");
+        assertEq(staking.getOperatorSelfStake(operator1), 8 ether, "Op1: 10-2=8 ETH");
+        assertEq(staking.getDelegation(delegator1, operator1), 8 ether, "D1->Op1: 10-2=8 ETH");
 
         // Verify Op2 pool UNCHANGED
-        assertEq(restaking.getOperatorSelfStake(operator2), op2Before, "Op2: unchanged");
-        assertEq(restaking.getDelegation(delegator1, operator2), d1ToOp2Before, "D1->Op2: unchanged");
+        assertEq(staking.getOperatorSelfStake(operator2), op2Before, "Op2: unchanged");
+        assertEq(staking.getDelegation(delegator1, operator2), d1ToOp2Before, "D1->Op2: unchanged");
     }
 
     /// @notice Challenge flow: verify invalid square result and slash signers
@@ -162,12 +162,12 @@ contract EndToEndSlashingTest is BaseTest {
         uint64 blueprintId = _createBlueprintAsSender("ipfs://square", address(challengeBSM));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 20 ether }();
-        restaking.delegate(operator1, 20 ether);
+        staking.deposit{ value: 20 ether }();
+        staking.delegate(operator1, 20 ether);
         vm.stopPrank();
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -180,8 +180,8 @@ contract EndToEndSlashingTest is BaseTest {
         uint64 callId = tangle.submitJob(serviceId, 0, abi.encode(uint256(5)));
 
         // Record balances before challenge
-        uint256 opBefore = restaking.getOperatorSelfStake(operator1);
-        uint256 d1Before = restaking.getDelegation(delegator1, operator1);
+        uint256 opBefore = staking.getOperatorSelfStake(operator1);
+        uint256 d1Before = staking.getDelegation(delegator1, operator1);
 
         // Operator submits WRONG result: 26 instead of 25
         vm.prank(operator1);
@@ -207,8 +207,8 @@ contract EndToEndSlashingTest is BaseTest {
         // Verify proportional slashing: 30 ETH total, 3 ETH slash
         // Op: 3 * 10/30 = 1 ETH → 9 ETH
         // D1: 3 * 20/30 = 2 ETH → 18 ETH
-        assertEq(restaking.getOperatorSelfStake(operator1), 9 ether, "Op: 10-1=9 ETH");
-        assertEq(restaking.getDelegation(delegator1, operator1), 18 ether, "D1: 20-2=18 ETH");
+        assertEq(staking.getOperatorSelfStake(operator1), 9 ether, "Op: 10-1=9 ETH");
+        assertEq(staking.getDelegation(delegator1, operator1), 18 ether, "D1: 20-2=18 ETH");
     }
 
     /// @notice Valid result cannot be challenged
@@ -217,7 +217,7 @@ contract EndToEndSlashingTest is BaseTest {
         uint64 blueprintId = _createBlueprintAsSender("ipfs://square", address(challengeBSM));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -246,7 +246,7 @@ contract EndToEndSlashingTest is BaseTest {
         uint64 blueprintId = _createBlueprintAsSender("ipfs://cumulative", address(0));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -260,28 +260,28 @@ contract EndToEndSlashingTest is BaseTest {
         uint64 slash1 = tangle.proposeSlash(0, operator1, 3000, keccak256("e1"));
         vm.warp(baseTime + 8 days);
         tangle.executeSlash(slash1);
-        assertEq(restaking.getOperatorSelfStake(operator1), 7 ether, "After slash1: 7 ETH");
+        assertEq(staking.getOperatorSelfStake(operator1), 7 ether, "After slash1: 7 ETH");
 
         // Second slash: 50% of 7 ETH = 3.5 ETH slashed
         vm.prank(user1);
         uint64 slash2 = tangle.proposeSlash(0, operator1, 5000, keccak256("e2"));
         vm.warp(baseTime + 16 days);
         tangle.executeSlash(slash2);
-        assertEq(restaking.getOperatorSelfStake(operator1), 3.5 ether, "After slash2: 3.5 ETH");
+        assertEq(staking.getOperatorSelfStake(operator1), 3.5 ether, "After slash2: 3.5 ETH");
 
         // Third slash: 75% of 3.5 ETH = 2.625 ETH slashed
         vm.prank(user1);
         uint64 slash3 = tangle.proposeSlash(0, operator1, 7500, keccak256("e3"));
         vm.warp(baseTime + 24 days);
         tangle.executeSlash(slash3);
-        assertEq(restaking.getOperatorSelfStake(operator1), 0.875 ether, "After slash3: 0.875 ETH");
+        assertEq(staking.getOperatorSelfStake(operator1), 0.875 ether, "After slash3: 0.875 ETH");
 
         // Fourth slash: 100% (caps at remaining 1 ETH)
         vm.prank(user1);
         uint64 slash4 = tangle.proposeSlash(0, operator1, 10_000, keccak256("e4"));
         vm.warp(baseTime + 32 days);
         tangle.executeSlash(slash4);
-        assertEq(restaking.getOperatorSelfStake(operator1), 0, "After slash4: 0 ETH (capped)");
+        assertEq(staking.getOperatorSelfStake(operator1), 0, "After slash4: 0 ETH (capped)");
     }
 
     /// @notice Slashing with exposure scaling
@@ -290,7 +290,7 @@ contract EndToEndSlashingTest is BaseTest {
         uint64 blueprintId = _createBlueprintAsSender("ipfs://exposure", address(0));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         // Create service with 50% exposure
@@ -317,7 +317,7 @@ contract EndToEndSlashingTest is BaseTest {
         tangle.executeSlash(slashId);
 
         // Only 3 ETH actually slashed
-        assertEq(restaking.getOperatorSelfStake(operator1), 7 ether, "Post: 10-3=7 ETH");
+        assertEq(staking.getOperatorSelfStake(operator1), 7 ether, "Post: 10-3=7 ETH");
     }
 
     /// @notice Slashing below minimum deactivates operator
@@ -327,7 +327,7 @@ contract EndToEndSlashingTest is BaseTest {
 
         // Register with exactly minimum + buffer
         vm.prank(operator1);
-        restaking.registerOperator{ value: MIN_OPERATOR_STAKE + 0.5 ether }();
+        staking.registerOperator{ value: MIN_OPERATOR_STAKE + 0.5 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -343,9 +343,9 @@ contract EndToEndSlashingTest is BaseTest {
 
         // Verify operator deactivated - new delegations fail
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 5 ether }();
+        staking.deposit{ value: 5 ether }();
         vm.expectRevert(abi.encodeWithSelector(DelegationErrors.OperatorNotActive.selector, operator1));
-        restaking.delegate(operator1, 5 ether);
+        staking.delegate(operator1, 5 ether);
         vm.stopPrank();
     }
 
@@ -355,14 +355,14 @@ contract EndToEndSlashingTest is BaseTest {
         uint64 blueprintId = _createBlueprintAsSender("ipfs://dispute", address(0));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
 
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(0, operator1, 2000, keccak256("ev"));
@@ -381,7 +381,7 @@ contract EndToEndSlashingTest is BaseTest {
         tangle.executeSlash(slashId);
 
         // Stake unchanged
-        assertEq(restaking.getOperatorSelfStake(operator1), stakeBefore, "Stake unchanged after dispute");
+        assertEq(staking.getOperatorSelfStake(operator1), stakeBefore, "Stake unchanged after dispute");
     }
 
     /// @notice Verify slashing is recorded in metrics recorder (for rewards deduction)
@@ -396,7 +396,7 @@ contract EndToEndSlashingTest is BaseTest {
         uint64 blueprintId = _createBlueprintAsSender("ipfs://metrics", address(0));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
@@ -429,7 +429,7 @@ contract EndToEndSlashingTest is BaseTest {
         uint64 blueprintId = _createBlueprintAsSender("ipfs://batch-metrics", address(0));
 
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         _directRegisterOperator(operator1, blueprintId, "");
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);

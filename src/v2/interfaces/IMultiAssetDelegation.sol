@@ -2,10 +2,10 @@
 pragma solidity ^0.8.26;
 
 import { Types } from "../libraries/Types.sol";
-import { SlashingManager } from "../restaking/SlashingManager.sol";
+import { SlashingManager } from "../staking/SlashingManager.sol";
 
 /// @title IMultiAssetDelegation
-/// @notice Full interface for the multi-asset restaking contract
+/// @notice Full interface for the multi-asset staking contract
 /// @dev INTERFACE STRUCTURE:
 ///      This interface is intentionally comprehensive to maintain backward compatibility.
 ///      Logically, it can be viewed as composed of these segments:

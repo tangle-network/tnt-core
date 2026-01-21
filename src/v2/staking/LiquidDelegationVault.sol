@@ -28,9 +28,9 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     uint256 internal constant VIRTUAL_SHARES = 1e3;
     uint256 internal constant VIRTUAL_ASSETS = 1e3;
 
-    /// @notice The underlying restaking contract
+    /// @notice The underlying staking contract
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    IMultiAssetDelegation public immutable restaking;
+    IMultiAssetDelegation public immutable staking;
 
     /// @notice The operator this vault delegates to
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
@@ -58,7 +58,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     /// @notice Redeem request state
     struct RedeemRequestData {
         uint256 shares; // Shares to redeem
-        uint256 unstakeShares; // Shares scheduled in restaking bond-less request
+        uint256 unstakeShares; // Shares scheduled in staking bond-less request
         uint64 requestedRound; // Round when requested
         bool claimed; // Whether claimed
     }
@@ -98,14 +98,14 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Create a new liquid delegation vault
-    /// @param _restaking The restaking contract
+    /// @param _staking The staking contract
     /// @param _operator The operator to delegate to
     /// @param _asset The underlying asset (WETH for native)
     /// @param _blueprints Blueprint IDs (empty for All mode)
     /// @param _name Token name
     /// @param _symbol Token symbol
     constructor(
-        IMultiAssetDelegation _restaking,
+        IMultiAssetDelegation _staking,
         address _operator,
         IERC20 _asset,
         uint64[] memory _blueprints,
@@ -114,7 +114,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     )
         ERC20(_name, _symbol)
     {
-        restaking = _restaking;
+        staking = _staking;
         operator = _operator;
         asset = _asset;
         isNative = address(_asset) == address(0);
@@ -135,7 +135,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     /// @dev Returns the operator's delegated stake from this vault's perspective
     function totalAssets() public view returns (uint256) {
         // Get our delegation to this operator
-        return restaking.getDelegation(address(this), operator);
+        return staking.getDelegation(address(this), operator);
     }
 
     /// @notice Convert assets to shares
@@ -179,19 +179,19 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Transfer assets from sender
         asset.safeTransferFrom(msg.sender, address(this), assets);
 
-        // Approve and deposit into restaking
+        // Approve and deposit into staking
         // Use forceApprove to handle tokens like USDT that require resetting to 0 first
-        asset.forceApprove(address(restaking), assets);
+        asset.forceApprove(address(staking), assets);
 
         // NOTE: Native ETH handling via WETH is not yet implemented.
-        // TODO: Add IWETH unwrap support when native ETH restaking is enabled.
+        // TODO: Add IWETH unwrap support when native ETH staking is enabled.
         //       This would require: IWETH(address(asset)).withdraw(assets);
-        //       followed by: restaking.deposit{value: assets}();
+        //       followed by: staking.deposit{value: assets}();
         // For now, all assets (including wrapped native) are deposited as ERC20.
-        restaking.depositERC20(address(asset), assets);
+        staking.depositERC20(address(asset), assets);
 
         // Delegate to operator with blueprint selection
-        restaking.delegateWithOptions(operator, address(asset), assets, selectionMode, _blueprintIds);
+        staking.delegateWithOptions(operator, address(asset), assets, selectionMode, _blueprintIds);
 
         // Mint liquid shares to receiver
         _mint(receiver, shares);
@@ -212,10 +212,10 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Use deposit logic
         asset.safeTransferFrom(msg.sender, address(this), assets);
         // Use forceApprove to handle tokens like USDT that require resetting to 0 first
-        asset.forceApprove(address(restaking), assets);
+        asset.forceApprove(address(staking), assets);
 
-        restaking.depositERC20(address(asset), assets);
-        restaking.delegateWithOptions(operator, address(asset), assets, selectionMode, _blueprintIds);
+        staking.depositERC20(address(asset), assets);
+        staking.delegateWithOptions(operator, address(asset), assets, selectionMode, _blueprintIds);
 
         _mint(receiver, shares);
 
@@ -254,16 +254,16 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Calculate assets at current exchange rate (for scheduling)
         uint256 assets = convertToAssets(shares);
 
-        // Mirror restaking's unstake share calculation so we can execute the exact bond-less request later.
-        uint256 unstakeShares = restaking.previewDelegatorUnstakeShares(operator, address(asset), assets);
+        // Mirror staking's unstake share calculation so we can execute the exact bond-less request later.
+        uint256 unstakeShares = staking.previewDelegatorUnstakeShares(operator, address(asset), assets);
 
-        uint64 requestRound = uint64(restaking.currentRound());
+        uint64 requestRound = uint64(staking.currentRound());
 
         // Burn shares from owner
         _burn(owner, shares);
 
-        // Schedule unstake in underlying restaking contract
-        restaking.scheduleDelegatorUnstake(operator, address(asset), assets);
+        // Schedule unstake in underlying staking contract
+        staking.scheduleDelegatorUnstake(operator, address(asset), assets);
 
         // Create request record
         requestId = _nextRequestId[controller]++;
@@ -283,9 +283,9 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
         if (req.claimed) return 0;
 
-        uint64 currentRound = uint64(restaking.currentRound());
-        uint64 delay = uint64(restaking.delegationBondLessDelay());
-        uint64 withdrawDelay = uint64(restaking.leaveDelegatorsDelay());
+        uint64 currentRound = uint64(staking.currentRound());
+        uint64 delay = uint64(staking.delegationBondLessDelay());
+        uint64 withdrawDelay = uint64(staking.leaveDelegatorsDelay());
         if (withdrawDelay > delay) delay = withdrawDelay;
 
         // If not yet claimable, it's still pending
@@ -301,9 +301,9 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
         if (req.claimed) return 0;
 
-        uint64 currentRound = uint64(restaking.currentRound());
-        uint64 delay = uint64(restaking.delegationBondLessDelay());
-        uint64 withdrawDelay = uint64(restaking.leaveDelegatorsDelay());
+        uint64 currentRound = uint64(staking.currentRound());
+        uint64 delay = uint64(staking.delegationBondLessDelay());
+        uint64 withdrawDelay = uint64(staking.leaveDelegatorsDelay());
         if (withdrawDelay > delay) delay = withdrawDelay;
 
         // If past delay, it's claimable
@@ -340,9 +340,9 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
         if (req.claimed) revert AlreadyClaimed();
 
-        uint64 currentRound = uint64(restaking.currentRound());
-        uint64 delay = uint64(restaking.delegationBondLessDelay());
-        uint64 withdrawDelay = uint64(restaking.leaveDelegatorsDelay());
+        uint64 currentRound = uint64(staking.currentRound());
+        uint64 delay = uint64(staking.delegationBondLessDelay());
+        uint64 withdrawDelay = uint64(staking.leaveDelegatorsDelay());
         if (withdrawDelay > delay) delay = withdrawDelay;
 
         if (currentRound < req.requestedRound + delay) {
@@ -353,7 +353,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         req.claimed = true;
 
         // Execute the exact bond-less request and withdraw the resulting assets directly to the receiver.
-        assets = restaking.executeDelegatorUnstakeAndWithdraw(
+        assets = staking.executeDelegatorUnstakeAndWithdraw(
             operator,
             address(asset),
             req.unstakeShares,
@@ -367,9 +367,9 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     /// @notice Find a claimable request matching shares
     function _findClaimableRequest(address controller, uint256 shares) internal view returns (uint256 requestId) {
         uint256 nextId = _nextRequestId[controller];
-        uint64 currentRound = uint64(restaking.currentRound());
-        uint64 delay = uint64(restaking.delegationBondLessDelay());
-        uint64 withdrawDelay = uint64(restaking.leaveDelegatorsDelay());
+        uint64 currentRound = uint64(staking.currentRound());
+        uint64 delay = uint64(staking.delegationBondLessDelay());
+        uint64 withdrawDelay = uint64(staking.leaveDelegatorsDelay());
         if (withdrawDelay > delay) delay = withdrawDelay;
 
         for (uint256 i = 0; i < nextId; i++) {

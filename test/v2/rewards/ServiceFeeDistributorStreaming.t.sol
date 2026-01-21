@@ -37,7 +37,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         ServiceFeeDistributor impl = new ServiceFeeDistributor();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
-            abi.encodeCall(ServiceFeeDistributor.initialize, (admin, address(restaking), address(tangle), address(oracle)))
+            abi.encodeCall(ServiceFeeDistributor.initialize, (admin, address(staking), address(tangle), address(oracle)))
         );
         distributor = ServiceFeeDistributor(payable(address(proxy)));
 
@@ -54,8 +54,8 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         distributor.setStreamingManager(address(streamingManager));
         tangle.setServiceFeeDistributor(address(distributor));
         tangle.setPriceOracle(address(oracle));
-        restaking.setServiceFeeDistributor(address(distributor));
-        restaking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        staking.setServiceFeeDistributor(address(distributor));
+        staking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
         vm.stopPrank();
 
         // Create blueprint with TTL pricing
@@ -77,7 +77,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
 
         // Setup delegator with stake
         vm.prank(delegator1);
-        restaking.depositAndDelegate{ value: 10 ether }(operator1);
+        staking.depositAndDelegate{ value: 10 ether }(operator1);
 
         payToken.mint(user1, 1_000 ether);
     }
@@ -193,7 +193,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
 
         // Setup delegator for operator2
         vm.prank(delegator2);
-        restaking.depositAndDelegate{ value: 10 ether }(operator2);
+        staking.depositAndDelegate{ value: 10 ether }(operator2);
 
         uint64 serviceId = _createServiceWithTTLAndOperators(100 ether);
 
@@ -231,7 +231,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
 
         // New delegator joins - this should trigger drip for the operator
         vm.prank(delegator2);
-        restaking.depositAndDelegate{ value: 10 ether }(operator1);
+        staking.depositAndDelegate{ value: 10 ether }(operator1);
 
         // Check that stream was dripped
         (,,,,, uint256 distributed,,,) = streamingManager.getStreamingPayment(serviceId, operator1);
@@ -249,7 +249,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
 
         // New delegator joins (triggers drip)
         vm.prank(delegator2);
-        restaking.depositAndDelegate{ value: 10 ether }(operator1);
+        staking.depositAndDelegate{ value: 10 ether }(operator1);
 
         // Advance to 100%
         vm.warp(block.timestamp + TTL / 2);
@@ -472,7 +472,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         _registerOperator(operator2, 5 ether);
         _registerForBlueprint(operator2, blueprintId);
         vm.prank(delegator2);
-        restaking.depositAndDelegate{ value: 10 ether }(operator2);
+        staking.depositAndDelegate{ value: 10 ether }(operator2);
 
         uint64 serviceId = _createServiceWithTTLAndOperators(100 ether);
 

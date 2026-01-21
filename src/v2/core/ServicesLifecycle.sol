@@ -116,7 +116,7 @@ abstract contract ServicesLifecycle is Base {
 
         // Validate minimum stake requirement (re-check in case operator withdrew after registration)
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
-        uint256 minStake = _restaking.minOperatorStake();
+        uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
             try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
                 if (!useDefault && customMin > 0) {
@@ -124,8 +124,8 @@ abstract contract ServicesLifecycle is Base {
                 }
             } catch {}
         }
-        if (!_restaking.meetsStakeRequirement(msg.sender, minStake)) {
-            revert Errors.InsufficientStake(msg.sender, minStake, _restaking.getOperatorStake(msg.sender));
+        if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
+            revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
         }
 
         // Check if manager allows this operator to join
@@ -205,7 +205,7 @@ abstract contract ServicesLifecycle is Base {
 
         // Validate minimum stake requirement (re-check in case operator withdrew after registration)
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
-        uint256 minStake = _restaking.minOperatorStake();
+        uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
             try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
                 if (!useDefault && customMin > 0) {
@@ -213,8 +213,8 @@ abstract contract ServicesLifecycle is Base {
                 }
             } catch {}
         }
-        if (!_restaking.meetsStakeRequirement(msg.sender, minStake)) {
-            revert Errors.InsufficientStake(msg.sender, minStake, _restaking.getOperatorStake(msg.sender));
+        if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
+            revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
         }
 
         // Check if manager allows this operator to join

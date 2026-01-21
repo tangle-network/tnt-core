@@ -47,7 +47,7 @@ async fn main() -> eyre::Result<()> {
 | `ITangleOperators` | Operator registration and status |
 | `ITangleSlashing` | Slashing mechanism |
 | `ITangleRewards` | Reward distribution |
-| `IMultiAssetDelegation` | Multi-asset restaking and delegation (facet ABI) |
+| `IMultiAssetDelegation` | Multi-asset staking and delegation (facet ABI) |
 | `MultiAssetDelegation` | Router/diamond management ABI |
 | `IBlueprintServiceManager` | Blueprint service manager interface |
 | `IOperatorStatusRegistry` | Operator status tracking |

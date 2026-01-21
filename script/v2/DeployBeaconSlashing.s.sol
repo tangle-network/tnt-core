@@ -16,7 +16,7 @@ error BridgeContractNotFound(string name, address addr);
 error BridgeContractInvalid(string name, address addr);
 
 /// @title DeployBeaconSlashingL1
-/// @notice Deploy script for L1 beacon chain restaking and slashing infrastructure
+/// @notice Deploy script for L1 beacon chain staking and slashing infrastructure
 /// @dev Deploys to Ethereum mainnet/testnet
 contract DeployBeaconSlashingL1 is Script {
     // Configuration

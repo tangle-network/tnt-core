@@ -9,9 +9,9 @@ contract SchemaValidationTest is BaseTest {
     function test_OperatorRegistrationSchemaMismatch() public {
         uint64 blueprintId = _blueprintWithSchemas(_boolSchema(), _emptySchema(), _emptySchema());
 
-        // Register on restaking (required prerequisite)
+        // Register on staking (required prerequisite)
         vm.prank(operator1);
-        restaking.registerOperator{ value: MIN_OPERATOR_STAKE }();
+        staking.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         // Missing payload should revert
         vm.prank(operator1);
@@ -135,7 +135,7 @@ contract SchemaValidationTest is BaseTest {
 
     function _registerOperatorWithPayload(address operator, uint64 blueprintId, bytes memory payload) private {
         vm.prank(operator);
-        restaking.registerOperator{ value: MIN_OPERATOR_STAKE }();
+        staking.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         vm.prank(operator);
         tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 0), "http://localhost:8545", payload);

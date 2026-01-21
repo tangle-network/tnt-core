@@ -378,7 +378,7 @@ abstract contract Jobs is Base {
         if (!_serviceOperators[serviceId][msg.sender].active) {
             revert Errors.OperatorNotInService(serviceId, msg.sender);
         }
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
         if (job.completed) {
@@ -510,7 +510,7 @@ abstract contract Jobs is Base {
         for (uint256 i = 0; i < operators.length; i++) {
             Types.ServiceOperator storage svcOp = _serviceOperators[serviceId][operators[i]];
             if (!svcOp.active) continue;
-            if (!_restaking.isOperatorActive(operators[i])) continue;
+            if (!_staking.isOperatorActive(operators[i])) continue;
 
             stats.operatorCount++;
             uint256 weight = thresholdType == 1 ? uint256(svcOp.exposureBps) : 1;

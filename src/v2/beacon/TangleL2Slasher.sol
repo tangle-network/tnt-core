@@ -2,18 +2,18 @@
 pragma solidity ^0.8.26;
 
 import {IL2Slasher} from "./L2SlashingReceiver.sol";
-import {IRestaking} from "../interfaces/IRestaking.sol";
+import {IStaking} from "../interfaces/IStaking.sol";
 import {Types} from "../libraries/Types.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title TangleL2Slasher
-/// @notice Implementation of IL2Slasher that integrates with Tangle's restaking system
+/// @notice Implementation of IL2Slasher that integrates with Tangle's staking system
 /// @dev Receives cross-chain slashing messages and executes them via MultiAssetDelegation
 ///
 /// Architecture:
 /// 1. L2SlashingReceiver receives cross-chain message from L1
 /// 2. L2SlashingReceiver calls this contract's slashOperator()
-/// 3. This contract validates and routes to IRestaking.slash()
+/// 3. This contract validates and routes to IStaking.slash()
 /// 4. MultiAssetDelegation executes O(1) proportional slashing
 contract TangleL2Slasher is IL2Slasher, Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
@@ -38,7 +38,7 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
     );
 
     event AuthorizedCallerUpdated(address indexed caller, bool authorized);
-    event RestakingUpdated(address indexed oldRestaking, address indexed newRestaking);
+    event StakingUpdated(address indexed oldRestaking, address indexed newRestaking);
     event SlashingPausedUpdated(bool paused);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -53,8 +53,8 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
     // STATE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice The Tangle restaking contract (MultiAssetDelegation)
-    IRestaking public restaking;
+    /// @notice The Tangle staking contract (MultiAssetDelegation)
+    IStaking public staking;
 
     /// @notice Authorized callers (L2SlashingReceiver addresses)
     mapping(address => bool) public authorizedCallers;
@@ -74,7 +74,7 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
 
     constructor(address _restaking, address _owner) Ownable(_owner) {
         if (_restaking == address(0)) revert ZeroAddress();
-        restaking = IRestaking(_restaking);
+        staking = IStaking(_restaking);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -125,8 +125,8 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
             reason
         ));
 
-        // Execute slash through restaking contract
-        uint256 actualSlashed = restaking.slash(
+        // Execute slash through staking contract
+        uint256 actualSlashed = staking.slash(
             operator,
             BEACON_SLASH_SERVICE_ID,
             slashBps,
@@ -147,7 +147,7 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
 
     /// @inheritdoc IL2Slasher
     function getSlashableStake(address operator) public view returns (uint256) {
-        return restaking.getOperatorStakeForAsset(
+        return staking.getOperatorStakeForAsset(
             operator,
             Types.Asset({ kind: Types.AssetKind.Native, token: address(0) })
         );
@@ -164,12 +164,12 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
         emit AuthorizedCallerUpdated(caller, authorized);
     }
 
-    /// @notice Update the restaking contract
-    function setRestaking(address _restaking) external onlyOwner {
+    /// @notice Update the staking contract
+    function setStaking(address _restaking) external onlyOwner {
         if (_restaking == address(0)) revert ZeroAddress();
-        address old = address(restaking);
-        restaking = IRestaking(_restaking);
-        emit RestakingUpdated(old, _restaking);
+        address old = address(staking);
+        staking = IStaking(_restaking);
+        emit StakingUpdated(old, _restaking);
     }
 
     /// @notice Pause/unpause slashing (emergency brake)

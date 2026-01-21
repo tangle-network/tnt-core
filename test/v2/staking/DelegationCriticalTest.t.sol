@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import { Test, console2 } from "forge-std/Test.sol";
 import { DelegationTestHarness, MockERC20, ReentrantERC20, ReentrantReceiver, FailingERC20 } from "./DelegationTestHarness.sol";
 import { IMultiAssetDelegation } from "../../../src/v2/interfaces/IMultiAssetDelegation.sol";
-import { DelegationErrors } from "../../../src/v2/restaking/DelegationErrors.sol";
+import { DelegationErrors } from "../../../src/v2/staking/DelegationErrors.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 
 /// @title DelegationCriticalTest

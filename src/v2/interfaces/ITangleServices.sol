@@ -74,7 +74,7 @@ interface ITangleServices {
     ) external payable returns (uint64 requestId);
 
     /// @notice Approve a service request (as operator) - simple version
-    function approveService(uint64 requestId, uint8 restakingPercent) external;
+    function approveService(uint64 requestId, uint8 stakingPercent) external;
 
     /// @notice Approve a service request with multi-asset security commitments
     /// @dev Commitments must match the security requirements specified in the request
@@ -85,11 +85,11 @@ interface ITangleServices {
 
     /// @notice Approve a service request with BLS public key for aggregated signature verification
     /// @param requestId The service request ID
-    /// @param restakingPercent The restaking percentage (0-100)
+    /// @param stakingPercent The staking percentage (0-100)
     /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
     function approveServiceWithBls(
         uint64 requestId,
-        uint8 restakingPercent,
+        uint8 stakingPercent,
         uint256[4] calldata blsPubkey
     ) external;
 

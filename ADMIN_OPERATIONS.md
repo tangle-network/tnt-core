@@ -1,6 +1,6 @@
 # Admin Operations Guide
 
-This document covers administrative operations for the Tangle restaking protocol, including asset onboarding, adapter management, and governance workflows.
+This document covers administrative operations for the Tangle staking protocol, including asset onboarding, adapter management, and governance workflows.
 
 ## Asset Onboarding
 
@@ -17,7 +17,7 @@ MIN_OPERATOR_STAKE=1000000000000000000 \
 MIN_DELEGATION=100000000000000000 \
 DEPOSIT_CAP=0 \
 REWARD_MULTIPLIER_BPS=10000 \
-forge script script/v2/AddRestakingAsset.s.sol:AddRestakingAsset \
+forge script script/v2/AddStakingAsset.s.sol:AddStakingAsset \
   --rpc-url <rpc_url> \
   --broadcast
 ```
@@ -117,7 +117,7 @@ For mainnet deployments with governance:
 
 ```
 1. Submit Proposal
-   └─► "Add stETH as restaking asset with RebasingAssetAdapter"
+   └─► "Add stETH as staking asset with RebasingAssetAdapter"
 
 2. Community Review (3-7 days)
    └─► Security team audits adapter code
@@ -198,7 +198,7 @@ forge script script/v2/LocalTestnet.s.sol:LocalTestnetSetup \
 
 ### Testing Rebasing Behavior
 
-See `test/v2/restaking/AssetAdapterTest.t.sol` for examples of:
+See `test/v2/staking/AssetAdapterTest.t.sol` for examples of:
 - Simulating rebases with `MockRebasingToken`
 - Testing multi-depositor scenarios
 - Verifying share calculations
@@ -208,7 +208,7 @@ See `test/v2/restaking/AssetAdapterTest.t.sol` for examples of:
 | Script | Purpose |
 |--------|---------|
 | `script/v2/Deploy.s.sol` | Deploy core contracts |
-| `script/v2/AddRestakingAsset.s.sol` | Add new asset to whitelist |
+| `script/v2/AddStakingAsset.s.sol` | Add new asset to whitelist |
 | `script/v2/LocalTestnet.s.sol` | Full local dev environment |
 
 ## FAQ

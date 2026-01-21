@@ -151,7 +151,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ITangleOperators` - Operator registration and status
 - `ITangleSlashing` - Slashing mechanism
 - `ITangleRewards` - Reward distribution
-- `MultiAssetDelegation` - Multi-asset restaking and delegation
+- `MultiAssetDelegation` - Multi-asset staking and delegation
 - `IBlueprintServiceManager` - Blueprint service manager interface
 - `IOperatorStatusRegistry` - Operator status tracking
 - Raw ABI JSON exports via `abi` module

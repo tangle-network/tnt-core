@@ -7,7 +7,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Tangle } from "../../../src/v2/Tangle.sol";
 import { ITangleFull } from "../../../src/v2/interfaces/ITangle.sol";
 import { IMultiAssetDelegation } from "../../../src/v2/interfaces/IMultiAssetDelegation.sol";
-import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
+import { MultiAssetDelegation } from "../../../src/v2/staking/MultiAssetDelegation.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 import { MasterBlueprintServiceManager } from "../../../src/v2/MasterBlueprintServiceManager.sol";
 import { MBSMRegistry } from "../../../src/v2/MBSMRegistry.sol";
@@ -24,13 +24,13 @@ import { TangleQuotesFacet } from "../../../src/v2/facets/tangle/TangleQuotesFac
 import { TangleQuotesExtensionFacet } from "../../../src/v2/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
 import { TangleSlashingFacet } from "../../../src/v2/facets/tangle/TangleSlashingFacet.sol";
-import { RestakingOperatorsFacet } from "../../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
-import { RestakingDepositsFacet } from "../../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
-import { RestakingDelegationsFacet } from "../../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingSlashingFacet } from "../../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
-import { RestakingAssetsFacet } from "../../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
-import { RestakingViewsFacet } from "../../../src/v2/facets/restaking/RestakingViewsFacet.sol";
-import { RestakingAdminFacet } from "../../../src/v2/facets/restaking/RestakingAdminFacet.sol";
+import { StakingOperatorsFacet } from "../../../src/v2/facets/staking/StakingOperatorsFacet.sol";
+import { StakingDepositsFacet } from "../../../src/v2/facets/staking/StakingDepositsFacet.sol";
+import { StakingDelegationsFacet } from "../../../src/v2/facets/staking/StakingDelegationsFacet.sol";
+import { StakingSlashingFacet } from "../../../src/v2/facets/staking/StakingSlashingFacet.sol";
+import { StakingAssetsFacet } from "../../../src/v2/facets/staking/StakingAssetsFacet.sol";
+import { StakingViewsFacet } from "../../../src/v2/facets/staking/StakingViewsFacet.sol";
+import { StakingAdminFacet } from "../../../src/v2/facets/staking/StakingAdminFacet.sol";
 
 import { MockServiceFeeDistributor } from "../mocks/MockServiceFeeDistributor.sol";
 
@@ -43,7 +43,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
     // ═══════════════════════════════════════════════════════════════════════════
 
     ITangleFull public tangle;
-    IMultiAssetDelegation public restaking;
+    IMultiAssetDelegation public staking;
     ERC1967Proxy public tangleProxy;
     ERC1967Proxy public restakingProxy;
     MasterBlueprintServiceManager public masterManager;
@@ -101,7 +101,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         Tangle tangleImpl = new Tangle();
         MultiAssetDelegation restakingImpl = new MultiAssetDelegation();
 
-        // Deploy restaking proxy
+        // Deploy staking proxy
         restakingProxy = new ERC1967Proxy(
             address(restakingImpl),
             abi.encodeCall(
@@ -109,30 +109,30 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
                 (admin, 1 ether, 0.1 ether, 1000)
             )
         );
-        restaking = IMultiAssetDelegation(payable(address(restakingProxy)));
+        staking = IMultiAssetDelegation(payable(address(restakingProxy)));
 
         // Deploy tangle proxy
         tangleProxy = new ERC1967Proxy(
             address(tangleImpl),
             abi.encodeCall(
                 Tangle.initialize,
-                (admin, address(restaking), payable(treasury))
+                (admin, address(staking), payable(treasury))
             )
         );
         tangle = ITangleFull(payable(address(tangleProxy)));
 
         vm.startPrank(admin);
-        _registerRestakingFacets();
+        _registerStakingFacets();
         _registerTangleFacets();
         vm.stopPrank();
 
         // Grant slasher role for slashing operations
         vm.prank(admin);
-        restaking.addSlasher(address(tangleProxy));
+        staking.addSlasher(address(tangleProxy));
 
         // Grant tangle role for blueprint management operations
         vm.prank(admin);
-        restaking.setTangle(address(tangleProxy));
+        staking.setTangle(address(tangleProxy));
 
         masterManager = new MasterBlueprintServiceManager(admin, address(tangle));
         MBSMRegistry registryImpl = new MBSMRegistry();
@@ -152,7 +152,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         MockServiceFeeDistributor distributor = new MockServiceFeeDistributor();
         vm.startPrank(admin);
         tangle.setServiceFeeDistributor(address(distributor));
-        restaking.setServiceFeeDistributor(address(distributor));
+        staking.setServiceFeeDistributor(address(distributor));
         vm.stopPrank();
     }
 
@@ -172,15 +172,15 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         router.registerFacet(address(new TangleSlashingFacet()));
     }
 
-    function _registerRestakingFacets() internal {
+    function _registerStakingFacets() internal {
         MultiAssetDelegation router = MultiAssetDelegation(payable(address(restakingProxy)));
-        router.registerFacet(address(new RestakingOperatorsFacet()));
-        router.registerFacet(address(new RestakingDepositsFacet()));
-        router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingSlashingFacet()));
-        router.registerFacet(address(new RestakingAssetsFacet()));
-        router.registerFacet(address(new RestakingViewsFacet()));
-        router.registerFacet(address(new RestakingAdminFacet()));
+        router.registerFacet(address(new StakingOperatorsFacet()));
+        router.registerFacet(address(new StakingDepositsFacet()));
+        router.registerFacet(address(new StakingDelegationsFacet()));
+        router.registerFacet(address(new StakingSlashingFacet()));
+        router.registerFacet(address(new StakingAssetsFacet()));
+        router.registerFacet(address(new StakingViewsFacet()));
+        router.registerFacet(address(new StakingAdminFacet()));
     }
 
     function _fundActors() internal {
@@ -194,11 +194,11 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
 
     function _registerOperatorsWithRestaking() internal {
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         vm.prank(operator2);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
         vm.prank(operator3);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -357,7 +357,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         address operator,
         uint256 amount
     ) public returns (uint64 slashId) {
-        uint256 stake = restaking.getOperatorStake(operator);
+        uint256 stake = staking.getOperatorStake(operator);
         uint16 slashBps = stake == 0 ? 0 : uint16((amount * 10_000) / stake);
         if (slashBps > 10_000) slashBps = 10_000;
         vm.prank(serviceOwner);

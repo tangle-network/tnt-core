@@ -4,7 +4,7 @@ This document describes how slashing works across the Ethereum beacon chain and 
 
 ## Overview
 
-There are **two independent sources of slashing** in the Tangle restaking system:
+There are **two independent sources of slashing** in the Tangle staking system:
 
 1. **Beacon Chain Slashing** - Validators penalized on Ethereum for misbehavior (inactivity, double-signing)
 2. **Tangle L2 Slashing** - Operators penalized on Tangle for blueprint/service failures
@@ -50,7 +50,7 @@ These must work together to ensure operators can't escape slashing by having ass
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  ┌────────────────────┐    ┌────────────────────────────────────┐  │
-│  │  Blueprint Services │    │         RestakingManager           │  │
+│  │  Blueprint Services │    │         StakingManager           │  │
 │  │                     │    │                                    │  │
 │  │  - Job execution    │───▶│  - L1 stake mirror (via oracle)   │  │
 │  │  - Slashing reports │    │  - Operator registration          │  │
@@ -245,9 +245,9 @@ function slashFromL2(
 }
 ```
 
-### L2 RestakingManager Interface
+### L2 StakingManager Interface
 ```solidity
-interface IL2RestakingManager {
+interface IL2StakingManager {
     function getEffectiveStake(address operator) external view returns (uint256);
     function reportSlashing(address operator, uint256 amount, bytes32 evidence) external;
     function syncFromL1(bytes calldata stateProof) external;

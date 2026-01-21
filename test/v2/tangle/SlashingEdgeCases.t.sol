@@ -39,7 +39,7 @@ contract SlashingEdgeCasesTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_SlashBpsExceedsMax_CapsAtMax() public {
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
         assertEq(stakeBefore, 10 ether);
 
         vm.prank(admin);
@@ -52,7 +52,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeAfter = staking.getOperatorSelfStake(operator1);
         assertEq(stakeAfter, 5 ether, "Operator stake should be cut by maxSlashBps");
     }
 
@@ -87,13 +87,13 @@ contract SlashingEdgeCasesTest is BaseTest {
         // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
 
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
 
         tangle.executeSlash(slashId1);
         tangle.executeSlash(slashId2);
         tangle.executeSlash(slashId3);
 
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeAfter = staking.getOperatorSelfStake(operator1);
         uint256 afterFirst = stakeBefore - ((stakeBefore * 1000) / 10_000);
         uint256 afterSecond = afterFirst - ((afterFirst * 2000) / 10_000);
         uint256 expectedAfter = afterSecond - ((afterSecond * 3000) / 10_000);
@@ -117,14 +117,14 @@ contract SlashingEdgeCasesTest is BaseTest {
         // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
 
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
 
         // Execute all in the same block
         tangle.executeSlash(slashId1);
         tangle.executeSlash(slashId2);
         tangle.executeSlash(slashId3);
 
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeAfter = staking.getOperatorSelfStake(operator1);
         uint256 afterFirst = stakeBefore - ((stakeBefore * 1000) / 10_000);
         uint256 afterSecond = afterFirst - ((afterFirst * 1000) / 10_000);
         uint256 expectedAfter = afterSecond - ((afterSecond * 1000) / 10_000);
@@ -138,11 +138,11 @@ contract SlashingEdgeCasesTest is BaseTest {
     function test_SlashWithPendingDelegatorUnstake() public {
         // Add delegation
         vm.prank(delegator1);
-        restaking.depositAndDelegate{ value: 10 ether }(operator1);
+        staking.depositAndDelegate{ value: 10 ether }(operator1);
 
         // Schedule unstake
         vm.prank(delegator1);
-        restaking.scheduleDelegatorUnstake(operator1, address(0), 5 ether);
+        staking.scheduleDelegatorUnstake(operator1, address(0), 5 ether);
 
         // Now slash
         vm.prank(user1);
@@ -160,7 +160,7 @@ contract SlashingEdgeCasesTest is BaseTest {
     function test_SlashWithPendingOperatorUnstake() public {
         // Operator schedules to unstake some self-stake
         vm.prank(operator1);
-        restaking.scheduleOperatorUnstake(3 ether);
+        staking.scheduleOperatorUnstake(3 ether);
 
         // Slash before unstake executes
         vm.prank(user1);
@@ -271,7 +271,7 @@ contract SlashingEdgeCasesTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_CumulativeSlashing_ReducesStakeCorrectly() public {
-        uint256 initialStake = restaking.getOperatorSelfStake(operator1);
+        uint256 initialStake = staking.getOperatorSelfStake(operator1);
         assertEq(initialStake, 10 ether);
 
         // Propose all slashes at once (at same timestamp)
@@ -290,7 +290,7 @@ contract SlashingEdgeCasesTest is BaseTest {
             tangle.executeSlash(slashIds[i]);
         }
 
-        uint256 finalStake = restaking.getOperatorSelfStake(operator1);
+        uint256 finalStake = staking.getOperatorSelfStake(operator1);
         uint256 expected = initialStake;
         for (uint256 i = 0; i < 5; i++) {
             expected -= (expected * 1000) / 10_000;
@@ -299,7 +299,7 @@ contract SlashingEdgeCasesTest is BaseTest {
     }
 
     function test_CumulativeSlashing_UntilDepleted() public {
-        uint256 initialStake = restaking.getOperatorSelfStake(operator1);
+        uint256 initialStake = staking.getOperatorSelfStake(operator1);
         assertEq(initialStake, 10 ether);
 
         // Propose repeated full slashes at once
@@ -319,7 +319,7 @@ contract SlashingEdgeCasesTest is BaseTest {
             // After all stake is depleted, further slashes cap at remaining stake (0)
         }
 
-        assertEq(restaking.getOperatorSelfStake(operator1), 0, "All stake should be slashed");
+        assertEq(staking.getOperatorSelfStake(operator1), 0, "All stake should be slashed");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -457,13 +457,13 @@ contract SlashingEdgeCasesTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1, keccak256("evidence"));
 
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
 
         // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeAfter = staking.getOperatorSelfStake(operator1);
         uint256 expectedSlash = (stakeBefore * 1) / 10_000;
         assertEq(stakeAfter, stakeBefore - expectedSlash, "Should slash 1 bps of stake");
     }

@@ -9294,8 +9294,8 @@ interface ITangle {
     event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
 
     function addPermittedCaller(uint64 serviceId, address caller) external;
-    function approveService(uint64 requestId, uint8 restakingPercent) external;
-    function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256[4] memory blsPubkey) external;
+    function approveService(uint64 requestId, uint8 stakingPercent) external;
+    function approveServiceWithBls(uint64 requestId, uint8 stakingPercent, uint256[4] memory blsPubkey) external;
     function approveServiceWithCommitments(uint64 requestId, Types.AssetSecurityCommitment[] memory commitments) external;
     function approveServiceWithCommitmentsAndBls(uint64 requestId, Types.AssetSecurityCommitment[] memory commitments, uint256[4] memory blsPubkey) external;
     function billSubscription(uint64 serviceId) external;
@@ -9405,7 +9405,7 @@ interface ITangle {
         "internalType": "uint64"
       },
       {
-        "name": "restakingPercent",
+        "name": "stakingPercent",
         "type": "uint8",
         "internalType": "uint8"
       }
@@ -9423,7 +9423,7 @@ interface ITangle {
         "internalType": "uint64"
       },
       {
-        "name": "restakingPercent",
+        "name": "stakingPercent",
         "type": "uint8",
         "internalType": "uint8"
       },
@@ -15668,7 +15668,7 @@ function addPermittedCaller(uint64 serviceId, address caller) external;
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `approveService(uint64,uint8)` and selector `0x614823b2`.
 ```solidity
-function approveService(uint64 requestId, uint8 restakingPercent) external;
+function approveService(uint64 requestId, uint8 stakingPercent) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -15676,7 +15676,7 @@ function approveService(uint64 requestId, uint8 restakingPercent) external;
         #[allow(missing_docs)]
         pub requestId: u64,
         #[allow(missing_docs)]
-        pub restakingPercent: u8,
+        pub stakingPercent: u8,
     }
     ///Container type for the return parameters of the [`approveService(uint64,uint8)`](approveServiceCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -15714,7 +15714,7 @@ function approveService(uint64 requestId, uint8 restakingPercent) external;
             #[doc(hidden)]
             impl ::core::convert::From<approveServiceCall> for UnderlyingRustTuple<'_> {
                 fn from(value: approveServiceCall) -> Self {
-                    (value.requestId, value.restakingPercent)
+                    (value.requestId, value.stakingPercent)
                 }
             }
             #[automatically_derived]
@@ -15723,7 +15723,7 @@ function approveService(uint64 requestId, uint8 restakingPercent) external;
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         requestId: tuple.0,
-                        restakingPercent: tuple.1,
+                        stakingPercent: tuple.1,
                     }
                 }
             }
@@ -15799,7 +15799,7 @@ function approveService(uint64 requestId, uint8 restakingPercent) external;
                     > as alloy_sol_types::SolType>::tokenize(&self.requestId),
                     <alloy::sol_types::sol_data::Uint<
                         8,
-                    > as alloy_sol_types::SolType>::tokenize(&self.restakingPercent),
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakingPercent),
                 )
             }
             #[inline]
@@ -15828,7 +15828,7 @@ function approveService(uint64 requestId, uint8 restakingPercent) external;
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `approveServiceWithBls(uint64,uint8,uint256[4])` and selector `0x9926fbec`.
 ```solidity
-function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256[4] memory blsPubkey) external;
+function approveServiceWithBls(uint64 requestId, uint8 stakingPercent, uint256[4] memory blsPubkey) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -15836,7 +15836,7 @@ function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256
         #[allow(missing_docs)]
         pub requestId: u64,
         #[allow(missing_docs)]
-        pub restakingPercent: u8,
+        pub stakingPercent: u8,
         #[allow(missing_docs)]
         pub blsPubkey: [alloy::sol_types::private::primitives::aliases::U256; 4usize],
     }
@@ -15885,7 +15885,7 @@ function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256
             impl ::core::convert::From<approveServiceWithBlsCall>
             for UnderlyingRustTuple<'_> {
                 fn from(value: approveServiceWithBlsCall) -> Self {
-                    (value.requestId, value.restakingPercent, value.blsPubkey)
+                    (value.requestId, value.stakingPercent, value.blsPubkey)
                 }
             }
             #[automatically_derived]
@@ -15895,7 +15895,7 @@ function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         requestId: tuple.0,
-                        restakingPercent: tuple.1,
+                        stakingPercent: tuple.1,
                         blsPubkey: tuple.2,
                     }
                 }
@@ -15978,7 +15978,7 @@ function approveServiceWithBls(uint64 requestId, uint8 restakingPercent, uint256
                     > as alloy_sol_types::SolType>::tokenize(&self.requestId),
                     <alloy::sol_types::sol_data::Uint<
                         8,
-                    > as alloy_sol_types::SolType>::tokenize(&self.restakingPercent),
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakingPercent),
                     <alloy::sol_types::sol_data::FixedArray<
                         alloy::sol_types::sol_data::Uint<256>,
                         4usize,
@@ -32473,12 +32473,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         pub fn approveService(
             &self,
             requestId: u64,
-            restakingPercent: u8,
+            stakingPercent: u8,
         ) -> alloy_contract::SolCallBuilder<&P, approveServiceCall, N> {
             self.call_builder(
                 &approveServiceCall {
                     requestId,
-                    restakingPercent,
+                    stakingPercent,
                 },
             )
         }
@@ -32486,13 +32486,13 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         pub fn approveServiceWithBls(
             &self,
             requestId: u64,
-            restakingPercent: u8,
+            stakingPercent: u8,
             blsPubkey: [alloy::sol_types::private::primitives::aliases::U256; 4usize],
         ) -> alloy_contract::SolCallBuilder<&P, approveServiceWithBlsCall, N> {
             self.call_builder(
                 &approveServiceWithBlsCall {
                     requestId,
-                    restakingPercent,
+                    stakingPercent,
                     blsPubkey,
                 },
             )

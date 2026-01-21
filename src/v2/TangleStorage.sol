@@ -5,7 +5,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { Types } from "./libraries/Types.sol";
 import { PaymentLib } from "./libraries/PaymentLib.sol";
 import { SlashingLib } from "./libraries/SlashingLib.sol";
-import { IRestaking } from "./interfaces/IRestaking.sol";
+import { IStaking } from "./interfaces/IStaking.sol";
 import { IMBSMRegistry } from "./interfaces/IMBSMRegistry.sol";
 import { ProtocolConfig } from "./config/ProtocolConfig.sol";
 
@@ -38,7 +38,7 @@ abstract contract TangleStorage {
     uint16 internal constant DEFAULT_DEVELOPER_BPS = 2000;  // 20%
     uint16 internal constant DEFAULT_PROTOCOL_BPS = 2000;   // 20%
     uint16 internal constant DEFAULT_OPERATOR_BPS = 4000;   // 40%
-    uint16 internal constant DEFAULT_RESTAKER_BPS = 2000;   // 20%
+    uint16 internal constant DEFAULT_STAKER_BPS = 2000;   // 20%
 
     // Default exit queue configuration
     uint64 internal constant DEFAULT_MIN_COMMITMENT_DURATION = ProtocolConfig.MIN_COMMITMENT_DURATION;
@@ -48,8 +48,8 @@ abstract contract TangleStorage {
     // PROTOCOL CONFIGURATION (Slot 0-10)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Restaking module for stake management
-    IRestaking internal _restaking;
+    /// @notice Staking module for stake management
+    IStaking internal _staking;
 
     /// @notice Protocol treasury address
     address payable internal _treasury;

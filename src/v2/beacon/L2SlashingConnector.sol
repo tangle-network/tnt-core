@@ -6,7 +6,7 @@ import {ICrossChainMessenger} from "./interfaces/ICrossChainMessenger.sol";
 
 /// @title L2SlashingConnector
 /// @notice Connects beacon chain slashing events to Tangle L2 slashing mechanism
-/// @dev This contract bridges between beacon chain native restaking and Tangle's L2 slashing
+/// @dev This contract bridges between beacon chain native staking and Tangle's L2 slashing
 ///
 /// Architecture:
 /// 1. Beacon chain slashing is detected via ValidatorPod.verifyStaleBalance()

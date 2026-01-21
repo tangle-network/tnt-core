@@ -56,7 +56,7 @@ abstract contract Operators is Base {
         // Validate blueprint exists and is active
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
 
@@ -101,7 +101,7 @@ abstract contract Operators is Base {
         if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
 
         // Must be active in restaking
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
 
@@ -128,7 +128,7 @@ abstract contract Operators is Base {
         }
 
         // Validate minimum stake requirement
-        uint256 minStake = _restaking.minOperatorStake();
+        uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
             try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
                 if (!useDefault && customMin > 0) {
@@ -136,8 +136,8 @@ abstract contract Operators is Base {
                 }
             } catch {}
         }
-        if (!_restaking.meetsStakeRequirement(msg.sender, minStake)) {
-            revert Errors.InsufficientStake(msg.sender, minStake, _restaking.getOperatorStake(msg.sender));
+        if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
+            revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
         }
 
         SchemaLib.validatePayload(
@@ -191,8 +191,8 @@ abstract contract Operators is Base {
             emit BlueprintMetadataLocked(blueprintId);
         }
 
-        // Add blueprint to operator's restaking profile for delegation exposure
-        _restaking.addBlueprintForOperator(msg.sender, blueprintId);
+        // Add blueprint to operator's staking profile for delegation exposure
+        _staking.addBlueprintForOperator(msg.sender, blueprintId);
 
         _recordBlueprintRegistration(blueprintId, msg.sender);
         emit OperatorRegistered(blueprintId, msg.sender, ecdsaPublicKey, rpcAddressCopy);
@@ -239,8 +239,8 @@ abstract contract Operators is Base {
             _operatorBlueprintCounts[msg.sender] -= 1;
         }
 
-        // Remove blueprint from operator's restaking profile
-        _restaking.removeBlueprintForOperator(msg.sender, blueprintId);
+        // Remove blueprint from operator's staking profile
+        _staking.removeBlueprintForOperator(msg.sender, blueprintId);
 
         emit OperatorUnregistered(blueprintId, msg.sender);
     }

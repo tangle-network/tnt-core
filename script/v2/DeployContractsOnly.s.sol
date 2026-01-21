@@ -6,8 +6,8 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 
 import { Tangle } from "../../src/v2/Tangle.sol";
 import { IMultiAssetDelegation } from "../../src/v2/interfaces/IMultiAssetDelegation.sol";
-import { MultiAssetDelegation } from "../../src/v2/restaking/MultiAssetDelegation.sol";
-import { OperatorStatusRegistry } from "../../src/v2/restaking/OperatorStatusRegistry.sol";
+import { MultiAssetDelegation } from "../../src/v2/staking/MultiAssetDelegation.sol";
+import { OperatorStatusRegistry } from "../../src/v2/staking/OperatorStatusRegistry.sol";
 import { MasterBlueprintServiceManager } from "../../src/v2/MasterBlueprintServiceManager.sol";
 import { MBSMRegistry } from "../../src/v2/MBSMRegistry.sol";
 
@@ -23,14 +23,14 @@ import { TangleQuotesFacet } from "../../src/v2/facets/tangle/TangleQuotesFacet.
 import { TangleQuotesExtensionFacet } from "../../src/v2/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
 import { TangleSlashingFacet } from "../../src/v2/facets/tangle/TangleSlashingFacet.sol";
-import { RestakingOperatorsFacet } from "../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
-import { RestakingDepositsFacet } from "../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
-import { RestakingDelegationsFacet } from "../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
+import { StakingOperatorsFacet } from "../../src/v2/facets/staking/StakingOperatorsFacet.sol";
+import { StakingDepositsFacet } from "../../src/v2/facets/staking/StakingDepositsFacet.sol";
+import { StakingDelegationsFacet } from "../../src/v2/facets/staking/StakingDelegationsFacet.sol";
 // RestakingRewardsFacet removed - no longer exists
-import { RestakingSlashingFacet } from "../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
-import { RestakingAssetsFacet } from "../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
-import { RestakingViewsFacet } from "../../src/v2/facets/restaking/RestakingViewsFacet.sol";
-import { RestakingAdminFacet } from "../../src/v2/facets/restaking/RestakingAdminFacet.sol";
+import { StakingSlashingFacet } from "../../src/v2/facets/staking/StakingSlashingFacet.sol";
+import { StakingAssetsFacet } from "../../src/v2/facets/staking/StakingAssetsFacet.sol";
+import { StakingViewsFacet } from "../../src/v2/facets/staking/StakingViewsFacet.sol";
+import { StakingAdminFacet } from "../../src/v2/facets/staking/StakingAdminFacet.sol";
 
 /// @title DeployContractsOnly
 /// @notice Deploys ONLY the core contracts without creating any blueprints, services, or operators
@@ -41,7 +41,7 @@ contract DeployContractsOnly is Script {
 
     address deployer;
     address public tangleProxy;
-    address public restakingProxy;
+    address public stakingProxy;
     address public statusRegistry;
 
     function run() external {
@@ -53,22 +53,22 @@ contract DeployContractsOnly is Script {
         vm.startBroadcast(DEPLOYER_KEY);
 
         // 1. Deploy MultiAssetDelegation (Restaking)
-        MultiAssetDelegation restakingImpl = new MultiAssetDelegation();
-        bytes memory restakingInit = abi.encodeCall(
+        MultiAssetDelegation stakingImpl = new MultiAssetDelegation();
+        bytes memory stakingInit = abi.encodeCall(
             MultiAssetDelegation.initialize,
             (deployer, 1 ether, 0.1 ether, 1000) // minOpStake=1ETH, minDelegation=0.1ETH, commissionBps=10%
         );
-        restakingProxy = address(new ERC1967Proxy(address(restakingImpl), restakingInit));
-        console2.log("MultiAssetDelegation:", restakingProxy);
+        stakingProxy = address(new ERC1967Proxy(address(stakingImpl), stakingInit));
+        console2.log("MultiAssetDelegation:", stakingProxy);
 
         // 2. Deploy Tangle
         Tangle tangleImpl = new Tangle();
-        bytes memory tangleInit = abi.encodeCall(Tangle.initialize, (deployer, restakingProxy, payable(deployer)));
+        bytes memory tangleInit = abi.encodeCall(Tangle.initialize, (deployer, stakingProxy, payable(deployer)));
         tangleProxy = address(new ERC1967Proxy(address(tangleImpl), tangleInit));
         console2.log("Tangle:", tangleProxy);
 
         // 3. Register facets for Restaking
-        _registerRestakingFacets(restakingProxy);
+        _registerStakingFacets(stakingProxy);
 
         // 4. Register facets for Tangle
         _registerTangleFacets(tangleProxy);
@@ -78,9 +78,9 @@ contract DeployContractsOnly is Script {
         console2.log("OperatorStatusRegistry:", statusRegistry);
 
         // 6. Configure cross-references
-        IMultiAssetDelegation restaking = IMultiAssetDelegation(payable(restakingProxy));
-        restaking.addSlasher(tangleProxy);
-        restaking.setTangle(tangleProxy);
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
+        staking.addSlasher(tangleProxy);
+        staking.setTangle(tangleProxy);
 
         Tangle tangle = Tangle(payable(tangleProxy));
         tangle.setOperatorStatusRegistry(statusRegistry);
@@ -100,22 +100,22 @@ contract DeployContractsOnly is Script {
 
         console2.log("\n=== Deployment Complete ===");
         console2.log("Tangle:                  ", tangleProxy);
-        console2.log("MultiAssetDelegation:    ", restakingProxy);
+        console2.log("MultiAssetDelegation:    ", stakingProxy);
         console2.log("OperatorStatusRegistry:  ", statusRegistry);
         console2.log("\nNo blueprints, services, or operators created.");
         console2.log("Use CLI or cast to register operators and create blueprints.");
     }
 
-    function _registerRestakingFacets(address proxy) internal {
+    function _registerStakingFacets(address proxy) internal {
         MultiAssetDelegation mad = MultiAssetDelegation(payable(proxy));
-        mad.registerFacet(address(new RestakingOperatorsFacet()));
-        mad.registerFacet(address(new RestakingDepositsFacet()));
-        mad.registerFacet(address(new RestakingDelegationsFacet()));
+        mad.registerFacet(address(new StakingOperatorsFacet()));
+        mad.registerFacet(address(new StakingDepositsFacet()));
+        mad.registerFacet(address(new StakingDelegationsFacet()));
         // RestakingRewardsFacet removed - no longer exists
-        mad.registerFacet(address(new RestakingSlashingFacet()));
-        mad.registerFacet(address(new RestakingAssetsFacet()));
-        mad.registerFacet(address(new RestakingViewsFacet()));
-        mad.registerFacet(address(new RestakingAdminFacet()));
+        mad.registerFacet(address(new StakingSlashingFacet()));
+        mad.registerFacet(address(new StakingAssetsFacet()));
+        mad.registerFacet(address(new StakingViewsFacet()));
+        mad.registerFacet(address(new StakingAdminFacet()));
     }
 
     function _registerTangleFacets(address proxy) internal {

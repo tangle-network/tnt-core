@@ -7,7 +7,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Tangle } from "../../../src/v2/Tangle.sol";
 import { ITangleFull } from "../../../src/v2/interfaces/ITangle.sol";
 import { IMultiAssetDelegation } from "../../../src/v2/interfaces/IMultiAssetDelegation.sol";
-import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
+import { MultiAssetDelegation } from "../../../src/v2/staking/MultiAssetDelegation.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
 import { Errors } from "../../../src/v2/libraries/Errors.sol";
 import { SlashingLib } from "../../../src/v2/libraries/SlashingLib.sol";
@@ -27,13 +27,13 @@ import { TangleQuotesFacet } from "../../../src/v2/facets/tangle/TangleQuotesFac
 import { TangleQuotesExtensionFacet } from "../../../src/v2/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../../../src/v2/facets/tangle/TanglePaymentsFacet.sol";
 import { TangleSlashingFacet } from "../../../src/v2/facets/tangle/TangleSlashingFacet.sol";
-import { RestakingOperatorsFacet } from "../../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
-import { RestakingDepositsFacet } from "../../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
-import { RestakingDelegationsFacet } from "../../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingSlashingFacet } from "../../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
-import { RestakingAssetsFacet } from "../../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
-import { RestakingViewsFacet } from "../../../src/v2/facets/restaking/RestakingViewsFacet.sol";
-import { RestakingAdminFacet } from "../../../src/v2/facets/restaking/RestakingAdminFacet.sol";
+import { StakingOperatorsFacet } from "../../../src/v2/facets/staking/StakingOperatorsFacet.sol";
+import { StakingDepositsFacet } from "../../../src/v2/facets/staking/StakingDepositsFacet.sol";
+import { StakingDelegationsFacet } from "../../../src/v2/facets/staking/StakingDelegationsFacet.sol";
+import { StakingSlashingFacet } from "../../../src/v2/facets/staking/StakingSlashingFacet.sol";
+import { StakingAssetsFacet } from "../../../src/v2/facets/staking/StakingAssetsFacet.sol";
+import { StakingViewsFacet } from "../../../src/v2/facets/staking/StakingViewsFacet.sol";
+import { StakingAdminFacet } from "../../../src/v2/facets/staking/StakingAdminFacet.sol";
 
 import { MockServiceFeeDistributor } from "../mocks/MockServiceFeeDistributor.sol";
 
@@ -41,7 +41,7 @@ import { MockServiceFeeDistributor } from "../mocks/MockServiceFeeDistributor.so
 /// @notice Critical invariant tests for the system
 contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     ITangleFull public tangle;
-    IMultiAssetDelegation public restaking;
+    IMultiAssetDelegation public staking;
     MasterBlueprintServiceManager public masterManager;
     MBSMRegistry public mbsmRegistry;
 
@@ -66,38 +66,38 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         Tangle tangleImpl = new Tangle();
         MultiAssetDelegation restakingImpl = new MultiAssetDelegation();
 
-        // Deploy restaking proxy
-        ERC1967Proxy restakingProxy = new ERC1967Proxy(
+        // Deploy staking proxy
+        ERC1967Proxy stakingProxy = new ERC1967Proxy(
             address(restakingImpl),
             abi.encodeCall(
                 MultiAssetDelegation.initialize,
                 (admin, 1 ether, 0.1 ether, 1000)
             )
         );
-        restaking = IMultiAssetDelegation(payable(address(restakingProxy)));
+        staking = IMultiAssetDelegation(payable(address(stakingProxy)));
 
         // Deploy tangle proxy
         ERC1967Proxy tangleProxy = new ERC1967Proxy(
             address(tangleImpl),
             abi.encodeCall(
                 Tangle.initialize,
-                (admin, address(restaking), payable(treasury))
+                (admin, address(staking), payable(treasury))
             )
         );
         tangle = ITangleFull(payable(address(tangleProxy)));
 
         vm.startPrank(admin);
-        _registerRestakingFacets(address(restakingProxy));
+        _registerStakingFacets(address(stakingProxy));
         _registerTangleFacets(address(tangleProxy));
         vm.stopPrank();
 
         // Grant slasher role for slashing operations
         vm.prank(admin);
-        restaking.addSlasher(address(tangleProxy));
+        staking.addSlasher(address(tangleProxy));
 
         // Grant tangle role for blueprint management operations
         vm.prank(admin);
-        restaking.setTangle(address(tangleProxy));
+        staking.setTangle(address(tangleProxy));
 
         masterManager = new MasterBlueprintServiceManager(admin, address(tangleProxy));
         MBSMRegistry registryImpl = new MBSMRegistry();
@@ -116,7 +116,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         MockServiceFeeDistributor distributor = new MockServiceFeeDistributor();
         vm.startPrank(admin);
         tangle.setServiceFeeDistributor(address(distributor));
-        restaking.setServiceFeeDistributor(address(distributor));
+        staking.setServiceFeeDistributor(address(distributor));
         vm.stopPrank();
 
         // Fund actors
@@ -128,11 +128,11 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
 
         // Setup basic infrastructure
         vm.prank(operator1);
-        restaking.registerOperator{ value: 100 ether }();
+        staking.registerOperator{ value: 100 ether }();
         vm.prank(operator2);
-        restaking.registerOperator{ value: 100 ether }();
+        staking.registerOperator{ value: 100 ether }();
         vm.prank(operator3);
-        restaking.registerOperator{ value: 100 ether }();
+        staking.registerOperator{ value: 100 ether }();
 
         vm.prank(developer);
         blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://invariant", address(0)));
@@ -206,7 +206,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     function testFuzz_Invariant_StakeNeverNegative(uint16 slashBps) public {
         slashBps = uint16(bound(uint256(slashBps), 1, 10000));
 
-        uint256 stakeBefore = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
 
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashBps, keccak256("evidence"));
@@ -215,7 +215,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
-        uint256 stakeAfter = restaking.getOperatorSelfStake(operator1);
+        uint256 stakeAfter = staking.getOperatorSelfStake(operator1);
 
         // INVARIANT: stake >= 0 (always true for uint, but verify reasonable behavior)
         assertLe(stakeAfter, stakeBefore, "Stake increased after slash");
@@ -262,7 +262,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
                 op = makeAddr(string(abi.encodePacked("op", uint256(i))));
                 vm.deal(op, 10 ether);
                 vm.prank(op);
-                restaking.registerOperator{ value: 5 ether }();
+                staking.registerOperator{ value: 5 ether }();
             }
 
             if (i >= 3) {
@@ -307,13 +307,13 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         devBps = uint16(bound(uint256(devBps), 0, 10000));
         protoBps = uint16(bound(uint256(protoBps), 0, 10000 - devBps));
         opBps = uint16(bound(uint256(opBps), 0, 10000 - devBps - protoBps));
-        uint16 restakerBps = 10000 - devBps - protoBps - opBps;
+        uint16 stakerBps = 10000 - devBps - protoBps - opBps;
 
         Types.PaymentSplit memory split = Types.PaymentSplit({
             developerBps: devBps,
             protocolBps: protoBps,
             operatorBps: opBps,
-            restakerBps: restakerBps
+            stakerBps: stakerBps
         });
 
         // Should always succeed if sum is exactly 10000
@@ -328,16 +328,16 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         uint16 devBps,
         uint16 protoBps,
         uint16 opBps,
-        uint16 restakerBps
+        uint16 stakerBps
     ) public {
         // Test that invalid splits are rejected
-        uint256 total = uint256(devBps) + uint256(protoBps) + uint256(opBps) + uint256(restakerBps);
+        uint256 total = uint256(devBps) + uint256(protoBps) + uint256(opBps) + uint256(stakerBps);
 
         Types.PaymentSplit memory split = Types.PaymentSplit({
             developerBps: devBps,
             protocolBps: protoBps,
             operatorBps: opBps,
-            restakerBps: restakerBps
+            stakerBps: stakerBps
         });
 
         if (total != 10000) {
@@ -578,14 +578,14 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         router.registerFacet(address(new TangleSlashingFacet()));
     }
 
-    function _registerRestakingFacets(address restakingProxy) internal {
-        MultiAssetDelegation router = MultiAssetDelegation(payable(restakingProxy));
-        router.registerFacet(address(new RestakingOperatorsFacet()));
-        router.registerFacet(address(new RestakingDepositsFacet()));
-        router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingSlashingFacet()));
-        router.registerFacet(address(new RestakingAssetsFacet()));
-        router.registerFacet(address(new RestakingViewsFacet()));
-        router.registerFacet(address(new RestakingAdminFacet()));
+    function _registerStakingFacets(address stakingProxy) internal {
+        MultiAssetDelegation router = MultiAssetDelegation(payable(stakingProxy));
+        router.registerFacet(address(new StakingOperatorsFacet()));
+        router.registerFacet(address(new StakingDepositsFacet()));
+        router.registerFacet(address(new StakingDelegationsFacet()));
+        router.registerFacet(address(new StakingSlashingFacet()));
+        router.registerFacet(address(new StakingAssetsFacet()));
+        router.registerFacet(address(new StakingViewsFacet()));
+        router.registerFacet(address(new StakingAdminFacet()));
     }
 }

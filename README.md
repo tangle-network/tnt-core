@@ -1,6 +1,6 @@
 # tnt-core
 
-This repo contains interfaces and abstractions for using Tangle's restaking infrastructure for the creation of new
+This repo contains interfaces and abstractions for using Tangle's staking infrastructure for the creation of new
 service blueprints. The service blueprint is a set of smart contracts that define the rules of the service and allow the blueprint developer to customize the service to their needs, how it is used, how it is paid for, and how it is managed.
 
 ## Getting Started
@@ -43,7 +43,7 @@ Every deployment must register at least one Master Blueprint Service Manager (MB
 - Local developers can bootstrap Anvil with `scripts/local-env/start-local-env.sh`, which wraps the same entrypoint using `deploy/config/local.anvil.json`.
 - Set `TNT_TOKEN` when reusing an existing TNT deployment. The deployment scripts, migration helpers, inflation setup, and governance deployer reuse that single address instead of spinning up duplicate tokens; leave it unset to auto-deploy a fresh `TangleToken`.
 
-Operator onboarding requires only the restaking self-stake minimum.
+Operator onboarding requires only the staking self-stake minimum.
 
 A starter `deploy.env.example` file is included—copy it to `.env`, fill in the TNT token address (and other fields), then run the deploy script.
 
@@ -57,7 +57,7 @@ A starter `deploy.env.example` file is included—copy it to `.env`, fill in the
 An Envio indexer is included under `indexer/` to track on-chain protocol data. The handler stack is now modular:
 
 - `indexer/src/EventHandlers.ts` is a tiny registry that wires every contract-specific module.
-- `indexer/src/handlers/*.ts` group logic by domain (`tangle`, `restaking`, `rewardVaults`, `blueprintManager`, `credits`, `hourly`, `liquidDelegation`, `validatorPods`).
+- `indexer/src/handlers/*.ts` group logic by domain (`tangle`, `staking`, `rewardVaults`, `blueprintManager`, `credits`, `hourly`, `liquidDelegation`, `validatorPods`).
 - `indexer/src/lib/handlerUtils.ts` centralises common helpers (entity upsert helpers, ID builders, etc.).
 - Incentive logic lives under `indexer/src/points/` (`programs.ts` for program definitions, `awards.ts` for reusable award helpers, `participation.ts` for hourly ticking).
 

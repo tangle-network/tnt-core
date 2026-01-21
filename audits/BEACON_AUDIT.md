@@ -1,4 +1,4 @@
-# Beacon Chain Validator Restaking - Security Audit
+# Beacon Chain Validator Staking - Security Audit
 
 **Date**: December 2024
 **Status**: BETA - All critical issues fixed, production-ready with caveats

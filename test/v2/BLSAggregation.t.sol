@@ -601,10 +601,10 @@ contract BLSAggregationTest is BaseTest {
         vm.prank(user1);
         uint64 callId = tangle.submitJob(serviceId, 0, "test");
 
-        // Deactivate operator2 at the restaking layer (e.g., starts leaving),
+        // Deactivate operator2 at the staking layer (e.g., starts leaving),
         // so it should no longer be counted towards the aggregation threshold.
         vm.prank(operator2);
-        restaking.startLeaving();
+        staking.startLeaving();
 
         // Bitmap includes operator2 (bit 1) but if inactive, shouldn't count
         uint256 twoSigners = 0x3; // bits 0 and 1
@@ -622,7 +622,7 @@ contract BLSAggregationTest is BaseTest {
         uint64 callId = tangle.submitJob(serviceId, 0, "test input");
 
         vm.prank(operator1);
-        restaking.startLeaving();
+        staking.startLeaving();
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotActive.selector, operator1));

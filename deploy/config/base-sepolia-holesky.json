@@ -16,7 +16,7 @@
     "deploy": true,
     "_todo_core_addresses": "TODO: set core proxies if reusing an existing deployment",
     "tangle": "0x0000000000000000000000000000000000000000",
-    "restaking": "0x0000000000000000000000000000000000000000",
+    "staking": "0x0000000000000000000000000000000000000000",
     "statusRegistry": "0x0000000000000000000000000000000000000000",
     "minOperatorStake": 1000000000000000000,
     "minDelegation": 100000000000000000,
@@ -166,7 +166,7 @@
   },
   "_todo_guards": "TODO: revisit guard rails (pauses, delays, adapter requirements) before mainnet parity",
   "guards": {
-    "pauseRestaking": false,
+    "pauseStaking": false,
     "pauseTangle": false,
     "_todo_require_adapters": "TODO: set true only once adapters exist for every ERC20 asset (otherwise ERC20 deposits revert)",
     "requireAdapters": false,

@@ -35,8 +35,8 @@ contract ServiceFeeDistributor is
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant PRECISION = 1e18;
 
-    /// @notice Authoritative restaking contract that emits delegation-change hooks.
-    address public restaking;
+    /// @notice Authoritative staking contract that emits delegation-change hooks.
+    address public staking;
 
     /// @notice Tangle contract (source of service requirements + per-asset operator commitments + treasury).
     address public tangle;
@@ -111,7 +111,7 @@ contract ServiceFeeDistributor is
     mapping(address => EnumerableSet.AddressSet) private _delegatorOperators; // delegator => operators
     mapping(address => mapping(address => EnumerableSet.Bytes32Set)) private _delegatorAssets; // delegator => operator => assetHashes
 
-    event RestakingConfigured(address indexed restaking);
+    event StakingConfigured(address indexed restaking);
     event TangleConfigured(address indexed tangle);
     event PriceOracleConfigured(address indexed oracle);
     event InflationPoolConfigured(address indexed pool);
@@ -137,7 +137,7 @@ contract ServiceFeeDistributor is
 
     event Claimed(address indexed account, address indexed token, uint256 amount);
 
-    error NotRestaking();
+    error NotStaking();
     error NotTangle();
     error NotInflationPool();
     error InvalidModeChange();
@@ -150,7 +150,7 @@ contract ServiceFeeDistributor is
 
     function initialize(
         address admin,
-        address restaking_,
+        address staking_,
         address tangle_,
         address oracle_
     ) external initializer {
@@ -162,18 +162,18 @@ contract ServiceFeeDistributor is
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
 
-        restaking = restaking_;
+        staking = staking_;
         tangle = tangle_;
         priceOracle = IPriceOracle(oracle_);
 
-        emit RestakingConfigured(restaking_);
+        emit StakingConfigured(staking_);
         emit TangleConfigured(tangle_);
         emit PriceOracleConfigured(oracle_);
     }
 
-    function setRestaking(address restaking_) external onlyRole(ADMIN_ROLE) {
-        restaking = restaking_;
-        emit RestakingConfigured(restaking_);
+    function setStaking(address staking_) external onlyRole(ADMIN_ROLE) {
+        staking = staking_;
+        emit StakingConfigured(staking_);
     }
 
     function setTangle(address tangle_) external onlyRole(ADMIN_ROLE) {
@@ -223,7 +223,7 @@ contract ServiceFeeDistributor is
         uint256[] calldata blueprintAmounts,
         uint16 lockMultiplierBps
     ) external override {
-        if (msg.sender != restaking) revert NotRestaking();
+        if (msg.sender != staking) revert NotStaking();
 
         // IMPORTANT: Drip all active streams for this operator BEFORE score changes
         // This ensures rewards are distributed with the scores that were active
@@ -275,7 +275,7 @@ contract ServiceFeeDistributor is
             _delegatorAssets[delegator][operator].add(assetHash);
         }
 
-        // Sync Fixed blueprint set from restaking payload (authoritative).
+        // Sync Fixed blueprint set from staking payload (authoritative).
         if (newMode == 2) {
             _setFixedBlueprints(delegator, operator, assetHash, blueprintIds);
         }
@@ -322,7 +322,7 @@ contract ServiceFeeDistributor is
         Types.Asset calldata asset,
         uint16 slashBps
     ) external override {
-        if (msg.sender != restaking) revert NotRestaking();
+        if (msg.sender != staking) revert NotStaking();
         if (slashBps == 0) return;
         if (slashBps > BPS_DENOMINATOR) slashBps = uint16(BPS_DENOMINATOR);
 
@@ -337,7 +337,7 @@ contract ServiceFeeDistributor is
         Types.Asset calldata asset,
         uint16 slashBps
     ) external override {
-        if (msg.sender != restaking) revert NotRestaking();
+        if (msg.sender != staking) revert NotStaking();
         if (slashBps == 0) return;
         if (slashBps > BPS_DENOMINATOR) slashBps = uint16(BPS_DENOMINATOR);
 
@@ -353,7 +353,7 @@ contract ServiceFeeDistributor is
         uint64[] calldata blueprintIds,
         uint256[] calldata blueprintAmounts
     ) external override {
-        if (msg.sender != restaking) revert NotRestaking();
+        if (msg.sender != staking) revert NotStaking();
 
         // Drip before score changes
         _dripOperatorStreams(operator);

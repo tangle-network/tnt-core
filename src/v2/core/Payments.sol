@@ -277,7 +277,7 @@ abstract contract Payments is Base {
     function setPaymentSplit(Types.PaymentSplit calldata split) external onlyRole(ADMIN_ROLE) {
         PaymentLib.validateSplit(split);
         _paymentSplit = split;
-        emit PaymentSplitUpdated(split.developerBps, split.protocolBps, split.operatorBps, split.restakerBps);
+        emit PaymentSplitUpdated(split.developerBps, split.protocolBps, split.operatorBps, split.stakerBps);
     }
 
     /// @notice Set treasury
@@ -293,7 +293,7 @@ abstract contract Payments is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function paymentSplit() external view returns (uint16, uint16, uint16, uint16) {
-        return (_paymentSplit.developerBps, _paymentSplit.protocolBps, _paymentSplit.operatorBps, _paymentSplit.restakerBps);
+        return (_paymentSplit.developerBps, _paymentSplit.protocolBps, _paymentSplit.operatorBps, _paymentSplit.stakerBps);
     }
 
     function treasury() external view returns (address payable) {

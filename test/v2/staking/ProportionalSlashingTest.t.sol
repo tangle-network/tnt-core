@@ -3,22 +3,22 @@ pragma solidity ^0.8.26;
 
 import { Test, console2 } from "forge-std/Test.sol";
 import { IMultiAssetDelegation } from "../../../src/v2/interfaces/IMultiAssetDelegation.sol";
-import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
+import { MultiAssetDelegation } from "../../../src/v2/staking/MultiAssetDelegation.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
-import { DelegationErrors } from "../../../src/v2/restaking/DelegationErrors.sol";
+import { DelegationErrors } from "../../../src/v2/staking/DelegationErrors.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { RestakingOperatorsFacet } from "../../../src/v2/facets/restaking/RestakingOperatorsFacet.sol";
-import { RestakingDepositsFacet } from "../../../src/v2/facets/restaking/RestakingDepositsFacet.sol";
-import { RestakingDelegationsFacet } from "../../../src/v2/facets/restaking/RestakingDelegationsFacet.sol";
-import { RestakingSlashingFacet } from "../../../src/v2/facets/restaking/RestakingSlashingFacet.sol";
-import { RestakingAssetsFacet } from "../../../src/v2/facets/restaking/RestakingAssetsFacet.sol";
-import { RestakingViewsFacet } from "../../../src/v2/facets/restaking/RestakingViewsFacet.sol";
-import { RestakingAdminFacet } from "../../../src/v2/facets/restaking/RestakingAdminFacet.sol";
+import { StakingOperatorsFacet } from "../../../src/v2/facets/staking/StakingOperatorsFacet.sol";
+import { StakingDepositsFacet } from "../../../src/v2/facets/staking/StakingDepositsFacet.sol";
+import { StakingDelegationsFacet } from "../../../src/v2/facets/staking/StakingDelegationsFacet.sol";
+import { StakingSlashingFacet } from "../../../src/v2/facets/staking/StakingSlashingFacet.sol";
+import { StakingAssetsFacet } from "../../../src/v2/facets/staking/StakingAssetsFacet.sol";
+import { StakingViewsFacet } from "../../../src/v2/facets/staking/StakingViewsFacet.sol";
+import { StakingAdminFacet } from "../../../src/v2/facets/staking/StakingAdminFacet.sol";
 
 /// @title ProportionalSlashingTest
 /// @notice Tests for O(1) share-based proportional slashing
 contract ProportionalSlashingTest is Test {
-    IMultiAssetDelegation public restaking;
+    IMultiAssetDelegation public staking;
 
     // Test accounts
     address public admin = makeAddr("admin");
@@ -64,7 +64,7 @@ contract ProportionalSlashingTest is Test {
             (admin, MIN_OPERATOR_STAKE, 0, 1000) // 10% commission
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        restaking = IMultiAssetDelegation(payable(address(proxy)));
+        staking = IMultiAssetDelegation(payable(address(proxy)));
 
         _registerFacets(address(proxy));
 
@@ -77,19 +77,19 @@ contract ProportionalSlashingTest is Test {
 
         // Grant slasher role
         vm.prank(admin);
-        restaking.addSlasher(slasher);
+        staking.addSlasher(slasher);
     }
 
     function _registerFacets(address proxy) internal {
         MultiAssetDelegation router = MultiAssetDelegation(payable(proxy));
         vm.startPrank(admin);
-        router.registerFacet(address(new RestakingOperatorsFacet()));
-        router.registerFacet(address(new RestakingDepositsFacet()));
-        router.registerFacet(address(new RestakingDelegationsFacet()));
-        router.registerFacet(address(new RestakingSlashingFacet()));
-        router.registerFacet(address(new RestakingAssetsFacet()));
-        router.registerFacet(address(new RestakingViewsFacet()));
-        router.registerFacet(address(new RestakingAdminFacet()));
+        router.registerFacet(address(new StakingOperatorsFacet()));
+        router.registerFacet(address(new StakingDepositsFacet()));
+        router.registerFacet(address(new StakingDelegationsFacet()));
+        router.registerFacet(address(new StakingSlashingFacet()));
+        router.registerFacet(address(new StakingAssetsFacet()));
+        router.registerFacet(address(new StakingViewsFacet()));
+        router.registerFacet(address(new StakingAdminFacet()));
         vm.stopPrank();
     }
 
@@ -99,9 +99,9 @@ contract ProportionalSlashingTest is Test {
         _setupOperatorWithDelegators();
 
         // Total stake = 60 ETH (10 operator + 20 d1 + 30 d2)
-        uint256 totalStake = restaking.getOperatorSelfStake(operator1) +
-                             restaking.getDelegation(delegator1, operator1) +
-                             restaking.getDelegation(delegator2, operator1);
+        uint256 totalStake = staking.getOperatorSelfStake(operator1) +
+                             staking.getDelegation(delegator1, operator1) +
+                             staking.getDelegation(delegator2, operator1);
         assertEq(totalStake, 60 ether, "Total stake should be 60 ETH");
 
         // Slash 10% of total
@@ -113,17 +113,17 @@ contract ProportionalSlashingTest is Test {
         // D1: 5 * 20/50 = 2 ETH
         // D2: 5 * 30/50 = 3 ETH
 
-        uint256 operatorBefore = restaking.getOperatorSelfStake(operator1);
-        uint256 d1Before = restaking.getDelegation(delegator1, operator1);
-        uint256 d2Before = restaking.getDelegation(delegator2, operator1);
+        uint256 operatorBefore = staking.getOperatorSelfStake(operator1);
+        uint256 d1Before = staking.getDelegation(delegator1, operator1);
+        uint256 d2Before = staking.getDelegation(delegator2, operator1);
 
         // Execute slash
         vm.prank(slasher);
-        restaking.slash(operator1, 0, slashBps, keccak256("test_evidence"));
+        staking.slash(operator1, 0, slashBps, keccak256("test_evidence"));
 
-        uint256 operatorAfter = restaking.getOperatorSelfStake(operator1);
-        uint256 d1After = restaking.getDelegation(delegator1, operator1);
-        uint256 d2After = restaking.getDelegation(delegator2, operator1);
+        uint256 operatorAfter = staking.getOperatorSelfStake(operator1);
+        uint256 d1After = staking.getDelegation(delegator1, operator1);
+        uint256 d2After = staking.getDelegation(delegator2, operator1);
 
         // Verify proportional slashing
         uint256 operatorSlashed = operatorBefore - operatorAfter;
@@ -148,15 +148,15 @@ contract ProportionalSlashingTest is Test {
         uint16 slashBps = 1000;
 
         // Get exchange rate before slash
-        Types.OperatorRewardPool memory poolBefore = restaking.getOperatorRewardPool(operator1);
+        Types.OperatorRewardPool memory poolBefore = staking.getOperatorRewardPool(operator1);
         uint256 rateBefore = (poolBefore.totalAssets * PRECISION) / poolBefore.totalShares;
 
         // Execute slash
         vm.prank(slasher);
-        restaking.slash(operator1, 0, slashBps, keccak256("test_evidence"));
+        staking.slash(operator1, 0, slashBps, keccak256("test_evidence"));
 
         // Get exchange rate after slash
-        Types.OperatorRewardPool memory poolAfter = restaking.getOperatorRewardPool(operator1);
+        Types.OperatorRewardPool memory poolAfter = staking.getOperatorRewardPool(operator1);
         uint256 rateAfter = (poolAfter.totalAssets * PRECISION) / poolAfter.totalShares;
 
         // Exchange rate should have decreased
@@ -172,18 +172,18 @@ contract ProportionalSlashingTest is Test {
     function test_Slashing_ReducesDelegatorBalances() public {
         _setupOperatorWithDelegators();
 
-        uint256 d1Before = restaking.getDelegation(delegator1, operator1);
-        uint256 d2Before = restaking.getDelegation(delegator2, operator1);
+        uint256 d1Before = staking.getDelegation(delegator1, operator1);
+        uint256 d2Before = staking.getDelegation(delegator2, operator1);
 
         assertEq(d1Before, 20 ether, "D1 should have 20 ETH delegated");
         assertEq(d2Before, 30 ether, "D2 should have 30 ETH delegated");
 
         // Slash 50% of total (30 ETH)
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 5000, keccak256("evidence"));
+        staking.slash(operator1, 0, 5000, keccak256("evidence"));
 
-        uint256 d1After = restaking.getDelegation(delegator1, operator1);
-        uint256 d2After = restaking.getDelegation(delegator2, operator1);
+        uint256 d1After = staking.getDelegation(delegator1, operator1);
+        uint256 d2After = staking.getDelegation(delegator2, operator1);
 
         // Both delegators should have reduced balances
         assertTrue(d1After < d1Before, "D1 balance should be reduced");
@@ -194,70 +194,70 @@ contract ProportionalSlashingTest is Test {
     function test_OperatorDelegatorsMapping_MaintainedCorrectly() public {
         // Register operator
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         // Initially no delegators
-        address[] memory delegators = restaking.getOperatorDelegators(operator1);
+        address[] memory delegators = staking.getOperatorDelegators(operator1);
         assertEq(delegators.length, 0, "Should have no delegators initially");
 
         // Delegator1 deposits and delegates
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 20 ether }();
-        restaking.delegate(operator1, 20 ether);
+        staking.deposit{ value: 20 ether }();
+        staking.delegate(operator1, 20 ether);
         vm.stopPrank();
 
-        delegators = restaking.getOperatorDelegators(operator1);
+        delegators = staking.getOperatorDelegators(operator1);
         assertEq(delegators.length, 1, "Should have 1 delegator");
         assertEq(delegators[0], delegator1, "Delegator1 should be in set");
 
         // Delegator2 deposits and delegates
         vm.startPrank(delegator2);
-        restaking.deposit{ value: 30 ether }();
-        restaking.delegate(operator1, 30 ether);
+        staking.deposit{ value: 30 ether }();
+        staking.delegate(operator1, 30 ether);
         vm.stopPrank();
 
-        delegators = restaking.getOperatorDelegators(operator1);
+        delegators = staking.getOperatorDelegators(operator1);
         assertEq(delegators.length, 2, "Should have 2 delegators");
     }
 
     /// @notice Test slashing with single delegator
     function test_Slashing_SingleDelegator() public {
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 10 ether }();
-        restaking.delegate(operator1, 10 ether);
+        staking.deposit{ value: 10 ether }();
+        staking.delegate(operator1, 10 ether);
         vm.stopPrank();
 
         // Slash 10% from total of 20 ETH
         // O(1) slashing: just reduces totalAssets, exchange rate drops
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 1000, keccak256("evidence"));
+        staking.slash(operator1, 0, 1000, keccak256("evidence"));
 
-        assertEq(restaking.getOperatorSelfStake(operator1), 9 ether, "Operator should have 9 ETH");
-        assertEq(restaking.getDelegation(delegator1, operator1), 9 ether, "Delegator should have 9 ETH");
+        assertEq(staking.getOperatorSelfStake(operator1), 9 ether, "Operator should have 9 ETH");
+        assertEq(staking.getDelegation(delegator1, operator1), 9 ether, "Delegator should have 9 ETH");
     }
 
     /// @notice Test slashing with three delegators
     function test_Slashing_ThreeDelegators() public {
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         // D1: 10 ETH, D2: 20 ETH, D3: 30 ETH = 60 ETH delegated
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 10 ether }();
-        restaking.delegate(operator1, 10 ether);
+        staking.deposit{ value: 10 ether }();
+        staking.delegate(operator1, 10 ether);
         vm.stopPrank();
 
         vm.startPrank(delegator2);
-        restaking.deposit{ value: 20 ether }();
-        restaking.delegate(operator1, 20 ether);
+        staking.deposit{ value: 20 ether }();
+        staking.delegate(operator1, 20 ether);
         vm.stopPrank();
 
         vm.startPrank(delegator3);
-        restaking.deposit{ value: 30 ether }();
-        restaking.delegate(operator1, 30 ether);
+        staking.deposit{ value: 30 ether }();
+        staking.delegate(operator1, 30 ether);
         vm.stopPrank();
 
         // Total = 70 ETH (10 op + 60 delegated)
@@ -269,42 +269,42 @@ contract ProportionalSlashingTest is Test {
         // D3: 6 * 30/60 = 3 ETH
 
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 1000, keccak256("evidence"));
+        staking.slash(operator1, 0, 1000, keccak256("evidence"));
 
-        assertEq(restaking.getOperatorSelfStake(operator1), 9 ether, "Operator should have 9 ETH");
-        assertEq(restaking.getDelegation(delegator1, operator1), 9 ether, "D1 should have 9 ETH");
-        assertEq(restaking.getDelegation(delegator2, operator1), 18 ether, "D2 should have 18 ETH");
-        assertEq(restaking.getDelegation(delegator3, operator1), 27 ether, "D3 should have 27 ETH");
+        assertEq(staking.getOperatorSelfStake(operator1), 9 ether, "Operator should have 9 ETH");
+        assertEq(staking.getDelegation(delegator1, operator1), 9 ether, "D1 should have 9 ETH");
+        assertEq(staking.getDelegation(delegator2, operator1), 18 ether, "D2 should have 18 ETH");
+        assertEq(staking.getDelegation(delegator3, operator1), 27 ether, "D3 should have 27 ETH");
     }
 
     /// @notice Test slashing doesn't affect other operators' delegators
     function test_Slashing_IsolatedToOperator() public {
         // Setup two operators with delegators
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         vm.prank(operator2);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         // D1 delegates to operator1
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 20 ether }();
-        restaking.delegate(operator1, 20 ether);
+        staking.deposit{ value: 20 ether }();
+        staking.delegate(operator1, 20 ether);
         vm.stopPrank();
 
         // D2 delegates to operator2
         vm.startPrank(delegator2);
-        restaking.deposit{ value: 20 ether }();
-        restaking.delegate(operator2, 20 ether);
+        staking.deposit{ value: 20 ether }();
+        staking.delegate(operator2, 20 ether);
         vm.stopPrank();
 
         // Slash operator1 only
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 2000, keccak256("evidence"));
+        staking.slash(operator1, 0, 2000, keccak256("evidence"));
 
         // Operator2 and D2 should be unaffected
-        assertEq(restaking.getOperatorSelfStake(operator2), 10 ether, "Operator2 should be unchanged");
-        assertEq(restaking.getDelegation(delegator2, operator2), 20 ether, "D2 delegation to op2 unchanged");
+        assertEq(staking.getOperatorSelfStake(operator2), 10 ether, "Operator2 should be unchanged");
+        assertEq(staking.getDelegation(delegator2, operator2), 20 ether, "D2 delegation to op2 unchanged");
     }
 
     /// @notice Test slashing caps at total stake
@@ -313,11 +313,11 @@ contract ProportionalSlashingTest is Test {
 
         // Try to slash full stake
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 10_000, keccak256("evidence"));
+        staking.slash(operator1, 0, 10_000, keccak256("evidence"));
 
-        uint256 totalAfter = restaking.getOperatorSelfStake(operator1) +
-                             restaking.getDelegation(delegator1, operator1) +
-                             restaking.getDelegation(delegator2, operator1);
+        uint256 totalAfter = staking.getOperatorSelfStake(operator1) +
+                             staking.getDelegation(delegator1, operator1) +
+                             staking.getDelegation(delegator2, operator1);
 
         // Total should be 0 (capped slash)
         assertEq(totalAfter, 0, "Total stake should be 0 after max slash");
@@ -327,14 +327,14 @@ contract ProportionalSlashingTest is Test {
     function test_DelegatorCount_MaintainedAfterSlashing() public {
         _setupOperatorWithDelegators();
 
-        uint256 countBefore = restaking.getOperatorDelegatorCount(operator1);
+        uint256 countBefore = staking.getOperatorDelegatorCount(operator1);
         assertEq(countBefore, 2, "Should have 2 delegators before slash");
 
         // Slash but not enough to remove delegators
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 1000, keccak256("evidence"));
+        staking.slash(operator1, 0, 1000, keccak256("evidence"));
 
-        uint256 countAfter = restaking.getOperatorDelegatorCount(operator1);
+        uint256 countAfter = staking.getOperatorDelegatorCount(operator1);
         assertEq(countAfter, 2, "Should still have 2 delegators after slash");
     }
 
@@ -356,21 +356,21 @@ contract ProportionalSlashingTest is Test {
         emit Slashed(operator1, 0, 0, assetHash, 1000, 1 ether, 5 ether, expectedNewRate);
 
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 1000, keccak256("evidence"));
+        staking.slash(operator1, 0, 1000, keccak256("evidence"));
     }
 
     /// @notice Test slashing operator with no delegators
     function test_Slashing_OperatorNoDelegators() public {
         // Register operator with stake but no delegators
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         // Slash 50%
         vm.prank(slasher);
-        restaking.slash(operator1, 0, 5000, keccak256("evidence"));
+        staking.slash(operator1, 0, 5000, keccak256("evidence"));
 
         // Only operator should be slashed
-        assertEq(restaking.getOperatorSelfStake(operator1), 5 ether, "Operator should have 5 ETH");
+        assertEq(staking.getOperatorSelfStake(operator1), 5 ether, "Operator should have 5 ETH");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -380,18 +380,18 @@ contract ProportionalSlashingTest is Test {
     function _setupOperatorWithDelegators() internal {
         // Operator with 10 ETH
         vm.prank(operator1);
-        restaking.registerOperator{ value: 10 ether }();
+        staking.registerOperator{ value: 10 ether }();
 
         // Delegator1 with 20 ETH
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 20 ether }();
-        restaking.delegate(operator1, 20 ether);
+        staking.deposit{ value: 20 ether }();
+        staking.delegate(operator1, 20 ether);
         vm.stopPrank();
 
         // Delegator2 with 30 ETH
         vm.startPrank(delegator2);
-        restaking.deposit{ value: 30 ether }();
-        restaking.delegate(operator1, 30 ether);
+        staking.deposit{ value: 30 ether }();
+        staking.delegate(operator1, 30 ether);
         vm.stopPrank();
     }
 }

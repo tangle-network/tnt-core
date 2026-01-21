@@ -9,7 +9,7 @@ import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockPriceOracle } from "../exposure/MockPriceOracle.sol";
 import { ServiceFeeDistributor } from "../../../src/v2/rewards/ServiceFeeDistributor.sol";
 import { Errors } from "../../../src/v2/libraries/Errors.sol";
-import { DelegationErrors } from "../../../src/v2/restaking/DelegationErrors.sol";
+import { DelegationErrors } from "../../../src/v2/staking/DelegationErrors.sol";
 import { IPriceOracle } from "../../../src/v2/oracles/interfaces/IPriceOracle.sol";
 
 contract ServiceFeeDistributorTest is BaseTest {
@@ -34,15 +34,15 @@ contract ServiceFeeDistributorTest is BaseTest {
         ServiceFeeDistributor impl = new ServiceFeeDistributor();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
-            abi.encodeCall(ServiceFeeDistributor.initialize, (admin, address(restaking), address(tangle), address(oracle)))
+            abi.encodeCall(ServiceFeeDistributor.initialize, (admin, address(staking), address(tangle), address(oracle)))
         );
         distributor = ServiceFeeDistributor(payable(address(proxy)));
 
         vm.startPrank(admin);
         tangle.setServiceFeeDistributor(address(distributor));
         tangle.setPriceOracle(address(oracle));
-        restaking.setServiceFeeDistributor(address(distributor));
-        restaking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        staking.setServiceFeeDistributor(address(distributor));
+        staking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
         vm.stopPrank();
 
         vm.prank(developer);
@@ -56,11 +56,11 @@ contract ServiceFeeDistributorTest is BaseTest {
         payTokenB.mint(user1, 1_000 ether);
 
         vm.prank(delegator1);
-        restaking.depositAndDelegate{ value: 10 ether }(operator1);
+        staking.depositAndDelegate{ value: 10 ether }(operator1);
 
         vm.startPrank(delegator2);
-        stakeToken.approve(address(restaking), 10 ether);
-        restaking.depositAndDelegateWithOptions(
+        stakeToken.approve(address(staking), 10 ether);
+        staking.depositAndDelegateWithOptions(
             operator1,
             address(stakeToken),
             10 ether,
@@ -203,9 +203,9 @@ contract ServiceFeeDistributorTest is BaseTest {
         bps[0] = 123;
 
         vm.startPrank(delegator1);
-        restaking.deposit{ value: 1 ether }();
+        staking.deposit{ value: 1 ether }();
         vm.expectRevert(DelegationErrors.SelectionModeMismatch.selector);
-        restaking.delegateWithOptions(operator1, address(0), 1 ether, Types.BlueprintSelectionMode.Fixed, bps);
+        staking.delegateWithOptions(operator1, address(0), 1 ether, Types.BlueprintSelectionMode.Fixed, bps);
         vm.stopPrank();
     }
 
@@ -227,7 +227,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         both[1] = blueprint2;
 
         vm.prank(fixedDelA);
-        restaking.depositAndDelegateWithOptions{ value: 12 ether }(
+        staking.depositAndDelegateWithOptions{ value: 12 ether }(
             operator2,
             address(0),
             12 ether,
@@ -239,7 +239,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         onlyFirst[0] = blueprintId;
 
         vm.prank(fixedDelB);
-        restaking.depositAndDelegateWithOptions{ value: 12 ether }(
+        staking.depositAndDelegateWithOptions{ value: 12 ether }(
             operator2,
             address(0),
             12 ether,
@@ -411,7 +411,7 @@ contract ServiceFeeDistributorTest is BaseTest {
 
         // Undelegate before claiming
         vm.prank(delegator1);
-        restaking.scheduleDelegatorUnstake(operator1, address(0), 5 ether);
+        staking.scheduleDelegatorUnstake(operator1, address(0), 5 ether);
 
         // Should still be able to claim rewards accumulated before undelegation
         uint256 d1Before = payTokenA.balanceOf(delegator1);
@@ -574,7 +574,7 @@ contract ServiceFeeDistributorTest is BaseTest {
 
         // Enable TNT as a staking asset
         vm.prank(admin);
-        restaking.enableAsset(address(tntToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        staking.enableAsset(address(tntToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
 
         // Set TNT score rate: 1 TNT = $1 score (10x boost vs market price)
         vm.prank(admin);
@@ -589,8 +589,8 @@ contract ServiceFeeDistributorTest is BaseTest {
         tntToken.mint(delegator3, 10 ether);
 
         vm.startPrank(delegator3);
-        tntToken.approve(address(restaking), 10 ether);
-        restaking.depositAndDelegateWithOptions(
+        tntToken.approve(address(staking), 10 ether);
+        staking.depositAndDelegateWithOptions(
             operator1,
             address(tntToken),
             10 ether,
@@ -663,7 +663,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         oracle.setPrice(address(tntToken), 0.1e18); // TNT = $0.10
 
         vm.prank(admin);
-        restaking.enableAsset(address(tntToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        staking.enableAsset(address(tntToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
 
         // First set TNT score rate, then disable it
         vm.startPrank(admin);

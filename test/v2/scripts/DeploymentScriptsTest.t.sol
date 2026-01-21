@@ -11,13 +11,13 @@ import {L2SlashingReceiver} from "../../../src/v2/beacon/L2SlashingReceiver.sol"
 import {TangleL2Slasher} from "../../../src/v2/beacon/TangleL2Slasher.sol";
 import {HyperlaneReceiver} from "../../../src/v2/beacon/bridges/HyperlaneCrossChainMessenger.sol";
 import {LayerZeroReceiver} from "../../../src/v2/beacon/bridges/LayerZeroCrossChainMessenger.sol";
-import { IRestaking } from "../../../src/v2/interfaces/IRestaking.sol";
+import { IStaking } from "../../../src/v2/interfaces/IStaking.sol";
 import { Types } from "../../../src/v2/libraries/Types.sol";
-import { MultiAssetDelegation } from "../../../src/v2/restaking/MultiAssetDelegation.sol";
+import { MultiAssetDelegation } from "../../../src/v2/staking/MultiAssetDelegation.sol";
 import { Tangle } from "../../../src/v2/Tangle.sol";
 
-/// @notice Minimal restaking stub so L2 slashing scripts can deploy their contracts
-contract MockRestaking is IRestaking {
+/// @notice Minimal staking stub so L2 slashing scripts can deploy their contracts
+contract MockStaking is IStaking {
     mapping(address => uint256) public operatorStake;
 
     function setStake(address operator, uint256 amount) external {
@@ -117,10 +117,10 @@ contract MockRestaking is IRestaking {
 contract DeployV2Harness is DeployV2 {
     function deployCoreNoPrank(address admin, address treasury)
         external
-        returns (address restakingProxy, address tangleProxy, address statusRegistry)
+        returns (address stakingProxy, address tangleProxy, address statusRegistry)
     {
         (
-            restakingProxy,
+            stakingProxy,
             ,
             tangleProxy,
             ,
@@ -160,7 +160,7 @@ contract DeployL2SlashingHarness is DeployL2Slashing {
     function deployNoPrank(
         BridgeProtocol bridge,
         address admin,
-        address restaking,
+        address staking,
         uint256 sourceChainId,
         address l1Connector,
         address messengerOverride
@@ -173,7 +173,7 @@ contract DeployL2SlashingHarness is DeployL2Slashing {
             0,
             admin,
             admin,
-            restaking,
+            staking,
             sourceChainId,
             l1Connector,
             messengerOverride,
@@ -197,16 +197,16 @@ contract DeploymentScriptsTest is Test {
         address admin = deployer;
         address treasury = deployer;
 
-        (address restakingProxy, address tangleProxy, address statusRegistry) =
+        (address stakingProxy, address tangleProxy, address statusRegistry) =
             script.deployCoreNoPrank(admin, treasury);
 
-        assertTrue(restakingProxy != address(0), "restaking proxy");
+        assertTrue(stakingProxy != address(0), "restaking proxy");
         assertTrue(tangleProxy != address(0), "tangle proxy");
         assertTrue(statusRegistry != address(0), "status registry");
 
-        MultiAssetDelegation restaking = MultiAssetDelegation(payable(restakingProxy));
-        bytes32 slasherRole = restaking.SLASHER_ROLE();
-        assertTrue(restaking.hasRole(slasherRole, tangleProxy), "tangle should be slasher");
+        MultiAssetDelegation staking = MultiAssetDelegation(payable(stakingProxy));
+        bytes32 slasherRole = staking.SLASHER_ROLE();
+        assertTrue(staking.hasRole(slasherRole, tangleProxy), "tangle should be slasher");
         assertEq(Tangle(payable(tangleProxy)).operatorStatusRegistry(), statusRegistry, "registry wired");
         assertTrue(Tangle(payable(tangleProxy)).tntToken() != address(0), "tnt token configured");
     }
@@ -214,6 +214,12 @@ contract DeploymentScriptsTest is Test {
     function testDeployBeaconSlashingScriptRunsHyperlane() public {
         uint256 originalChainId = block.chainid;
         vm.chainId(1); // ensure Hyperlane addresses resolve
+
+        // Etch dummy code at mainnet Hyperlane addresses so _verifyBridgeContract passes
+        address hyperlaneMailbox = 0xc005dc82818d67AF737725bD4bf75435d065D239;
+        address hyperlaneIgp = 0x6cA0B6D22da47f091B7613223cD4BB03a2d77918;
+        vm.etch(hyperlaneMailbox, hex"00");
+        vm.etch(hyperlaneIgp, hex"00");
 
         uint256 privateKey = 0xB0B;
         address deployer = vm.addr(privateKey);
@@ -243,6 +249,10 @@ contract DeploymentScriptsTest is Test {
     function testDeployBeaconSlashingScriptRunsLayerZero() public {
         uint256 originalChainId = block.chainid;
         vm.chainId(11155111); // Sepolia supported by both messengers
+
+        // Etch dummy code at Sepolia LayerZero endpoint so _verifyBridgeContract passes
+        address layerZeroEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+        vm.etch(layerZeroEndpoint, hex"00");
 
         uint256 privateKey = 0xCAFE;
         address deployer = vm.addr(privateKey);
@@ -274,8 +284,8 @@ contract DeploymentScriptsTest is Test {
         address deployer = vm.addr(privateKey);
         vm.deal(deployer, 1_000 ether);
 
-        MockRestaking restaking = new MockRestaking();
-        restaking.setStake(makeAddr("operator"), 32 ether);
+        MockStaking staking = new MockStaking();
+        staking.setStake(makeAddr("operator"), 32 ether);
 
         DeployL2SlashingHarness script = new DeployL2SlashingHarness();
         address admin = deployer;
@@ -284,7 +294,7 @@ contract DeploymentScriptsTest is Test {
         (address slasher, address receiver) = script.deployNoPrank(
             DeployL2Slashing.BridgeProtocol.DirectMessenger,
             admin,
-            address(restaking),
+            address(staking),
             11155111,
             address(0),
             messenger
@@ -302,11 +312,12 @@ contract DeploymentScriptsTest is Test {
         address deployer = vm.addr(privateKey);
         vm.deal(deployer, 1_000 ether);
 
-        MockRestaking restaking = new MockRestaking();
-        restaking.setStake(makeAddr("operator"), 32 ether);
+        MockStaking staking = new MockStaking();
+        staking.setStake(makeAddr("operator"), 32 ether);
 
-        // Provide Hyperlane mailbox via env
+        // Provide Hyperlane mailbox via env and etch code at address
         address mailbox = makeAddr("hyperlaneMailbox");
+        vm.etch(mailbox, hex"00"); // Etch dummy code so _verifyBridgeContract passes
         vm.setEnv("HYPERLANE_MAILBOX", vm.toString(mailbox));
         vm.setEnv("L1_MESSENGER", vm.toString(makeAddr("hyperlaneL1Messenger")));
 
@@ -317,7 +328,7 @@ contract DeploymentScriptsTest is Test {
         (address slasher, address receiver) = script.deployNoPrank(
             DeployL2Slashing.BridgeProtocol.Hyperlane,
             admin,
-            address(restaking),
+            address(staking),
             1,
             l1Connector,
             address(0)
@@ -335,11 +346,12 @@ contract DeploymentScriptsTest is Test {
         address deployer = vm.addr(privateKey);
         vm.deal(deployer, 1_000 ether);
 
-        MockRestaking restaking = new MockRestaking();
-        restaking.setStake(makeAddr("operator"), 32 ether);
+        MockStaking staking = new MockStaking();
+        staking.setStake(makeAddr("operator"), 32 ether);
 
-        // Provide LayerZero endpoint via env
+        // Provide LayerZero endpoint via env and etch code at address
         address endpoint = makeAddr("layerzeroEndpoint");
+        vm.etch(endpoint, hex"00"); // Etch dummy code so _verifyBridgeContract passes
         vm.setEnv("LAYERZERO_ENDPOINT", vm.toString(endpoint));
         vm.setEnv("L1_MESSENGER", vm.toString(makeAddr("layerzeroL1Messenger")));
         // Provide the source EID explicitly for the harness (chainId 1 => 30101).
@@ -352,7 +364,7 @@ contract DeploymentScriptsTest is Test {
         (address slasher, address receiver) = script.deployNoPrank(
             DeployL2Slashing.BridgeProtocol.LayerZero,
             admin,
-            address(restaking),
+            address(staking),
             1,
             l1Connector,
             address(0)

@@ -26,11 +26,11 @@ abstract contract ServicesApprovals is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Approve a service request
-    function approveService(uint64 requestId, uint8 restakingPercent) external whenNotPaused nonReentrant {
+    function approveService(uint64 requestId, uint8 stakingPercent) external whenNotPaused nonReentrant {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
         bool isOperator = false;
@@ -62,7 +62,7 @@ abstract contract ServicesApprovals is Base {
         if (bp.manager != address(0)) {
             _tryCallManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, restakingPercent))
+                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
             );
         }
 
@@ -81,17 +81,17 @@ abstract contract ServicesApprovals is Base {
 
     /// @notice Approve a service request with BLS public key for aggregated signature verification
     /// @param requestId The service request ID
-    /// @param restakingPercent The restaking percentage (0-100)
+    /// @param stakingPercent The staking percentage (0-100)
     /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
     function approveServiceWithBls(
         uint64 requestId,
-        uint8 restakingPercent,
+        uint8 stakingPercent,
         uint256[4] calldata blsPubkey
     ) external whenNotPaused nonReentrant {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
         bool isOperator = false;
@@ -126,7 +126,7 @@ abstract contract ServicesApprovals is Base {
         if (bp.manager != address(0)) {
             _tryCallManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, restakingPercent))
+                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
             );
         }
 
@@ -156,7 +156,7 @@ abstract contract ServicesApprovals is Base {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
         bool isOperator = false;
@@ -192,11 +192,11 @@ abstract contract ServicesApprovals is Base {
         emit ServiceApproved(requestId, msg.sender);
 
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
-        uint8 restakingPercent = commitments.length > 0 ? uint8(commitments[0].exposureBps / 100) : 100;
+        uint8 stakingPercent = commitments.length > 0 ? uint8(commitments[0].exposureBps / 100) : 100;
         if (bp.manager != address(0)) {
             _tryCallManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, restakingPercent))
+                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
             );
         }
 
@@ -265,7 +265,7 @@ abstract contract ServicesApprovals is Base {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
-        if (!_restaking.isOperatorActive(msg.sender)) {
+        if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }
         bool isOperator = false;

@@ -15,10 +15,10 @@ contract Tangle is Base {
     /// @notice Initialize the contract
     function initialize(
         address admin,
-        address restaking_,
+        address staking_,
         address payable treasury_
     ) external initializer {
-        __Base_init(admin, restaking_, treasury_);
+        __Base_init(admin, staking_, treasury_);
     }
 
     /// @notice Register selectors exposed by a facet

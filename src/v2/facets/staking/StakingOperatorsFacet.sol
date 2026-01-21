@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { RestakingFacetBase } from "../../restaking/RestakingFacetBase.sol";
+import { StakingFacetBase } from "../../staking/StakingFacetBase.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 
-/// @title RestakingOperatorsFacet
+/// @title StakingOperatorsFacet
 /// @notice Facet for operator lifecycle management
-contract RestakingOperatorsFacet is RestakingFacetBase, IFacetSelectors {
+contract StakingOperatorsFacet is StakingFacetBase, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
         selectorList = new bytes4[](10);
         selectorList[0] = this.registerOperator.selector;
