@@ -86,25 +86,37 @@ contract StakingOperatorsFacet is StakingFacetBase, IFacetSelectors {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Set delegation mode for your operator
-    /// @dev Default is Disabled (self-stake only). Open allows anyone to delegate.
+    /// @dev Changes take effect immediately for NEW delegations only.
+    ///      Existing delegations remain valid regardless of mode change.
+    ///      Default is Disabled (self-stake only) - lowest securities risk.
+    ///      - Disabled: Only operator can self-stake
+    ///      - Whitelist: Only approved addresses can delegate
+    ///      - Open: Anyone can delegate (highest securities risk)
     /// @param mode Delegation mode: Disabled (0), Whitelist (1), or Open (2)
     function setDelegationMode(Types.DelegationMode mode) external {
         _setDelegationMode(mode);
     }
 
     /// @notice Update delegation whitelist (batch)
-    /// @param delegators Array of delegator addresses
-    /// @param approved Whether to approve or revoke
+    /// @dev Whitelist only applies when delegation mode is set to Whitelist.
+    ///      Can be called regardless of current mode to pre-configure.
+    /// @param delegators Array of delegator addresses to update
+    /// @param approved True to approve for delegation, false to revoke
     function setDelegationWhitelist(address[] calldata delegators, bool approved) external {
         _setDelegationWhitelist(delegators, approved);
     }
 
     /// @notice Get operator's delegation mode
+    /// @param operator The operator address to query
+    /// @return The current delegation mode (Disabled=0, Whitelist=1, Open=2)
     function getDelegationMode(address operator) external view returns (Types.DelegationMode) {
         return _getDelegationMode(operator);
     }
 
     /// @notice Check if delegator is whitelisted for operator
+    /// @param operator The operator address
+    /// @param delegator The delegator address to check
+    /// @return True if delegator is on operator's whitelist
     function isWhitelisted(address operator, address delegator) external view returns (bool) {
         return _isWhitelisted(operator, delegator);
     }

@@ -323,23 +323,32 @@ abstract contract OperatorManager is DelegationStorage {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Set delegation mode for operator
-    /// @dev Only callable by the operator themselves
+    /// @dev Only callable by the operator themselves. Changes take effect immediately for
+    ///      NEW delegations only. Existing delegations remain valid regardless of mode change.
+    ///      This is intentional - changing mode to Disabled prevents new delegations but
+    ///      doesn't force-exit existing delegators.
     /// @param mode Delegation mode: Disabled (self-only), Whitelist, or Open
     function _setDelegationMode(Types.DelegationMode mode) internal {
         if (!_operators.contains(msg.sender)) {
             revert DelegationErrors.OperatorNotRegistered(msg.sender);
+        }
+        if (_operatorMetadata[msg.sender].status != Types.OperatorStatus.Active) {
+            revert DelegationErrors.OperatorNotActive(msg.sender);
         }
         _operatorDelegationMode[msg.sender] = mode;
         emit OperatorDelegationModeSet(msg.sender, mode);
     }
 
     /// @notice Update whitelist for an operator (batch)
-    /// @dev Only callable by the operator themselves
-    /// @param delegators Array of delegator addresses
-    /// @param approved Whether to approve or revoke
+    /// @dev Only callable by the operator themselves. Whitelist only applies when mode is Whitelist.
+    /// @param delegators Array of delegator addresses to update
+    /// @param approved True to approve, false to revoke
     function _setDelegationWhitelist(address[] calldata delegators, bool approved) internal {
         if (!_operators.contains(msg.sender)) {
             revert DelegationErrors.OperatorNotRegistered(msg.sender);
+        }
+        if (_operatorMetadata[msg.sender].status != Types.OperatorStatus.Active) {
+            revert DelegationErrors.OperatorNotActive(msg.sender);
         }
         for (uint256 i = 0; i < delegators.length;) {
             _operatorDelegationWhitelist[msg.sender][delegators[i]] = approved;
