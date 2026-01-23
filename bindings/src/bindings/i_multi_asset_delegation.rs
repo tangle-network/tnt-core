@@ -546,6 +546,7 @@ See the [wrapper's documentation](`SlashingManagerInstance`) for more details.*/
 library Types {
     type AssetKind is uint8;
     type BlueprintSelectionMode is uint8;
+    type DelegationMode is uint8;
     type LockMultiplier is uint8;
     type OperatorStatus is uint8;
     struct Asset { AssetKind kind; address token; }
@@ -819,6 +820,143 @@ pub mod Types {
         }
         #[automatically_derived]
         impl alloy_sol_types::EventTopic for BlueprintSelectionMode {
+            #[inline]
+            fn topic_preimage_length(rust: &Self::RustType) -> usize {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::topic_preimage_length(rust)
+            }
+            #[inline]
+            fn encode_topic_preimage(
+                rust: &Self::RustType,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, out)
+            }
+            #[inline]
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::encode_topic(rust)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct DelegationMode(u8);
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::private::SolTypeValue<DelegationMode> for u8 {
+            #[inline]
+            fn stv_to_tokens(
+                &self,
+            ) -> <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::Token<'_> {
+                alloy_sol_types::private::SolTypeValue::<
+                    alloy::sol_types::sol_data::Uint<8>,
+                >::stv_to_tokens(self)
+            }
+            #[inline]
+            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::tokenize(self)
+                    .0
+            }
+            #[inline]
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(self, out)
+            }
+            #[inline]
+            fn stv_abi_packed_encoded_size(&self) -> usize {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::abi_encoded_size(self)
+            }
+        }
+        impl DelegationMode {
+            /// The Solidity type name.
+            pub const NAME: &'static str = stringify!(@ name);
+            /// Convert from the underlying value type.
+            #[inline]
+            pub const fn from_underlying(value: u8) -> Self {
+                Self(value)
+            }
+            /// Return the underlying value.
+            #[inline]
+            pub const fn into_underlying(self) -> u8 {
+                self.0
+            }
+            /// Return the single encoding of this value, delegating to the
+            /// underlying type.
+            #[inline]
+            pub fn abi_encode(&self) -> alloy_sol_types::private::Vec<u8> {
+                <Self as alloy_sol_types::SolType>::abi_encode(&self.0)
+            }
+            /// Return the packed encoding of this value, delegating to the
+            /// underlying type.
+            #[inline]
+            pub fn abi_encode_packed(&self) -> alloy_sol_types::private::Vec<u8> {
+                <Self as alloy_sol_types::SolType>::abi_encode_packed(&self.0)
+            }
+        }
+        #[automatically_derived]
+        impl From<u8> for DelegationMode {
+            fn from(value: u8) -> Self {
+                Self::from_underlying(value)
+            }
+        }
+        #[automatically_derived]
+        impl From<DelegationMode> for u8 {
+            fn from(value: DelegationMode) -> Self {
+                value.into_underlying()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolType for DelegationMode {
+            type RustType = u8;
+            type Token<'a> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SOL_NAME: &'static str = Self::NAME;
+            const ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            #[inline]
+            fn valid_token(token: &Self::Token<'_>) -> bool {
+                Self::type_check(token).is_ok()
+            }
+            #[inline]
+            fn type_check(token: &Self::Token<'_>) -> alloy_sol_types::Result<()> {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::type_check(token)
+            }
+            #[inline]
+            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::detokenize(token)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::EventTopic for DelegationMode {
             #[inline]
             fn topic_preimage_length(rust: &Self::RustType) -> usize {
                 <alloy::sol_types::sol_data::Uint<
@@ -3817,6 +3955,7 @@ library SlashingManager {
 library Types {
     type AssetKind is uint8;
     type BlueprintSelectionMode is uint8;
+    type DelegationMode is uint8;
     type LockMultiplier is uint8;
     type OperatorStatus is uint8;
     struct Asset {
@@ -3916,6 +4055,7 @@ interface IMultiAssetDelegation {
     function addBlueprintToDelegation(uint256 delegationIndex, uint64 blueprintId) external;
     function addSlasher(address slasher) external;
     function advanceRound() external;
+    function canDelegate(address operator, address delegator) external view returns (bool);
     function cancelCommissionChange() external;
     function completeLeaving() external;
     function currentRound() external view returns (uint64);
@@ -3939,6 +4079,7 @@ interface IMultiAssetDelegation {
     function getAssetConfig(address token) external view returns (Types.AssetConfig memory);
     function getDelegation(address delegator, address operator) external view returns (uint256);
     function getDelegationBlueprints(address delegator, uint256 idx) external view returns (uint64[] memory);
+    function getDelegationMode(address operator) external view returns (Types.DelegationMode);
     function getDelegations(address delegator) external view returns (Types.BondInfoDelegator[] memory);
     function getDeposit(address delegator, address token) external view returns (Types.Deposit memory);
     function getLocks(address delegator, address token) external view returns (Types.LockInfo[] memory);
@@ -3966,6 +4107,7 @@ interface IMultiAssetDelegation {
     function isOperator(address operator) external view returns (bool);
     function isOperatorActive(address operator) external view returns (bool);
     function isSlasher(address account) external view returns (bool);
+    function isWhitelisted(address operator, address delegator) external view returns (bool);
     function leaveDelegatorsDelay() external view returns (uint64);
     function leaveOperatorsDelay() external view returns (uint64);
     function meetsStakeRequirement(address operator, uint256 required) external view returns (bool);
@@ -3991,6 +4133,8 @@ interface IMultiAssetDelegation {
     function scheduleWithdraw(address token, uint256 amount) external;
     function serviceFeeDistributor() external view returns (address);
     function setDelays(uint64 delegationBondLessDelay, uint64 leaveDelegatorsDelay, uint64 leaveOperatorsDelay) external;
+    function setDelegationMode(Types.DelegationMode mode) external;
+    function setDelegationWhitelist(address[] memory delegators, bool approved) external;
     function setOperatorBondToken(address token) external;
     function setOperatorCommission(uint16 bps) external;
     function setRequireAdapters(bool required) external;
@@ -4182,6 +4326,30 @@ interface IMultiAssetDelegation {
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "canDelegate",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "delegator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -4627,6 +4795,25 @@ interface IMultiAssetDelegation {
         "name": "",
         "type": "uint64[]",
         "internalType": "uint64[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDelegationMode",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "enum Types.DelegationMode"
       }
     ],
     "stateMutability": "view"
@@ -5418,6 +5605,30 @@ interface IMultiAssetDelegation {
   },
   {
     "type": "function",
+    "name": "isWhitelisted",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "delegator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "leaveDelegatorsDelay",
     "inputs": [],
     "outputs": [
@@ -5812,6 +6023,37 @@ interface IMultiAssetDelegation {
         "name": "leaveOperatorsDelay",
         "type": "uint64",
         "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDelegationMode",
+    "inputs": [
+      {
+        "name": "mode",
+        "type": "uint8",
+        "internalType": "enum Types.DelegationMode"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDelegationWhitelist",
+    "inputs": [
+      {
+        "name": "delegators",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "approved",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [],
@@ -12045,6 +12287,175 @@ function advanceRound() external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `canDelegate(address,address)` and selector `0x2aa81239`.
+```solidity
+function canDelegate(address operator, address delegator) external view returns (bool);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct canDelegateCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub delegator: alloy::sol_types::private::Address,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`canDelegate(address,address)`](canDelegateCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct canDelegateReturn {
+        #[allow(missing_docs)]
+        pub _0: bool,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::Address,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<canDelegateCall> for UnderlyingRustTuple<'_> {
+                fn from(value: canDelegateCall) -> Self {
+                    (value.operator, value.delegator)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for canDelegateCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        operator: tuple.0,
+                        delegator: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (bool,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<canDelegateReturn> for UnderlyingRustTuple<'_> {
+                fn from(value: canDelegateReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for canDelegateReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for canDelegateCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = bool;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "canDelegate(address,address)";
+            const SELECTOR: [u8; 4] = [42u8, 168u8, 18u8, 57u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.delegator,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: canDelegateReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: canDelegateReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `cancelCommissionChange()` and selector `0xdc71ef30`.
 ```solidity
 function cancelCommissionChange() external;
@@ -15767,6 +16178,160 @@ function getDelegationBlueprints(address delegator, uint256 idx) external view r
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(|r| {
                         let r: getDelegationBlueprintsReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getDelegationMode(address)` and selector `0x7bed797d`.
+```solidity
+function getDelegationMode(address operator) external view returns (Types.DelegationMode);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getDelegationModeCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getDelegationMode(address)`](getDelegationModeCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getDelegationModeReturn {
+        #[allow(missing_docs)]
+        pub _0: <Types::DelegationMode as alloy::sol_types::SolType>::RustType,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getDelegationModeCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getDelegationModeCall) -> Self {
+                    (value.operator,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getDelegationModeCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { operator: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (Types::DelegationMode,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                <Types::DelegationMode as alloy::sol_types::SolType>::RustType,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getDelegationModeReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getDelegationModeReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getDelegationModeReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getDelegationModeCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = <Types::DelegationMode as alloy::sol_types::SolType>::RustType;
+            type ReturnTuple<'a> = (Types::DelegationMode,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getDelegationMode(address)";
+            const SELECTOR: [u8; 4] = [123u8, 237u8, 121u8, 125u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (<Types::DelegationMode as alloy_sol_types::SolType>::tokenize(ret),)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getDelegationModeReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getDelegationModeReturn = r.into();
                         r._0
                     })
             }
@@ -20166,6 +20731,175 @@ function isSlasher(address account) external view returns (bool);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `isWhitelisted(address,address)` and selector `0xb6b35272`.
+```solidity
+function isWhitelisted(address operator, address delegator) external view returns (bool);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct isWhitelistedCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub delegator: alloy::sol_types::private::Address,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`isWhitelisted(address,address)`](isWhitelistedCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct isWhitelistedReturn {
+        #[allow(missing_docs)]
+        pub _0: bool,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                alloy::sol_types::private::Address,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<isWhitelistedCall> for UnderlyingRustTuple<'_> {
+                fn from(value: isWhitelistedCall) -> Self {
+                    (value.operator, value.delegator)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for isWhitelistedCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        operator: tuple.0,
+                        delegator: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (bool,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<isWhitelistedReturn> for UnderlyingRustTuple<'_> {
+                fn from(value: isWhitelistedReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for isWhitelistedReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for isWhitelistedCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = bool;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "isWhitelisted(address,address)";
+            const SELECTOR: [u8; 4] = [182u8, 179u8, 82u8, 114u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.delegator,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: isWhitelistedReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: isWhitelistedReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `leaveDelegatorsDelay()` and selector `0xdb8a173a`.
 ```solidity
 function leaveDelegatorsDelay() external view returns (uint64);
@@ -24074,6 +24808,325 @@ function setDelays(uint64 delegationBondLessDelay, uint64 leaveDelegatorsDelay, 
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `setDelegationMode(uint8)` and selector `0x7202f76a`.
+```solidity
+function setDelegationMode(Types.DelegationMode mode) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setDelegationModeCall {
+        #[allow(missing_docs)]
+        pub mode: <Types::DelegationMode as alloy::sol_types::SolType>::RustType,
+    }
+    ///Container type for the return parameters of the [`setDelegationMode(uint8)`](setDelegationModeCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setDelegationModeReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (Types::DelegationMode,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                <Types::DelegationMode as alloy::sol_types::SolType>::RustType,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setDelegationModeCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setDelegationModeCall) -> Self {
+                    (value.mode,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setDelegationModeCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { mode: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setDelegationModeReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setDelegationModeReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setDelegationModeReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl setDelegationModeReturn {
+            fn _tokenize(
+                &self,
+            ) -> <setDelegationModeCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for setDelegationModeCall {
+            type Parameters<'a> = (Types::DelegationMode,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = setDelegationModeReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "setDelegationMode(uint8)";
+            const SELECTOR: [u8; 4] = [114u8, 2u8, 247u8, 106u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <Types::DelegationMode as alloy_sol_types::SolType>::tokenize(
+                        &self.mode,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                setDelegationModeReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `setDelegationWhitelist(address[],bool)` and selector `0xc353c1f6`.
+```solidity
+function setDelegationWhitelist(address[] memory delegators, bool approved) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setDelegationWhitelistCall {
+        #[allow(missing_docs)]
+        pub delegators: alloy::sol_types::private::Vec<
+            alloy::sol_types::private::Address,
+        >,
+        #[allow(missing_docs)]
+        pub approved: bool,
+    }
+    ///Container type for the return parameters of the [`setDelegationWhitelist(address[],bool)`](setDelegationWhitelistCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setDelegationWhitelistReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+                alloy::sol_types::sol_data::Bool,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
+                bool,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setDelegationWhitelistCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setDelegationWhitelistCall) -> Self {
+                    (value.delegators, value.approved)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setDelegationWhitelistCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        delegators: tuple.0,
+                        approved: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setDelegationWhitelistReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setDelegationWhitelistReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setDelegationWhitelistReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl setDelegationWhitelistReturn {
+            fn _tokenize(
+                &self,
+            ) -> <setDelegationWhitelistCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for setDelegationWhitelistCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+                alloy::sol_types::sol_data::Bool,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = setDelegationWhitelistReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "setDelegationWhitelist(address[],bool)";
+            const SELECTOR: [u8; 4] = [195u8, 83u8, 193u8, 246u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Address,
+                    > as alloy_sol_types::SolType>::tokenize(&self.delegators),
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        &self.approved,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                setDelegationWhitelistReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setOperatorBondToken(address)` and selector `0x84f5ef65`.
 ```solidity
 function setOperatorBondToken(address token) external;
@@ -26194,6 +27247,8 @@ function unpause() external;
         #[allow(missing_docs)]
         advanceRound(advanceRoundCall),
         #[allow(missing_docs)]
+        canDelegate(canDelegateCall),
+        #[allow(missing_docs)]
         cancelCommissionChange(cancelCommissionChangeCall),
         #[allow(missing_docs)]
         completeLeaving(completeLeavingCall),
@@ -26239,6 +27294,8 @@ function unpause() external;
         getDelegation(getDelegationCall),
         #[allow(missing_docs)]
         getDelegationBlueprints(getDelegationBlueprintsCall),
+        #[allow(missing_docs)]
+        getDelegationMode(getDelegationModeCall),
         #[allow(missing_docs)]
         getDelegations(getDelegationsCall),
         #[allow(missing_docs)]
@@ -26294,6 +27351,8 @@ function unpause() external;
         #[allow(missing_docs)]
         isSlasher(isSlasherCall),
         #[allow(missing_docs)]
+        isWhitelisted(isWhitelistedCall),
+        #[allow(missing_docs)]
         leaveDelegatorsDelay(leaveDelegatorsDelayCall),
         #[allow(missing_docs)]
         leaveOperatorsDelay(leaveOperatorsDelayCall),
@@ -26344,6 +27403,10 @@ function unpause() external;
         #[allow(missing_docs)]
         setDelays(setDelaysCall),
         #[allow(missing_docs)]
+        setDelegationMode(setDelegationModeCall),
+        #[allow(missing_docs)]
+        setDelegationWhitelist(setDelegationWhitelistCall),
+        #[allow(missing_docs)]
         setOperatorBondToken(setOperatorBondTokenCall),
         #[allow(missing_docs)]
         setOperatorCommission(setOperatorCommissionCall),
@@ -26391,6 +27454,7 @@ function unpause() external;
             [32u8, 225u8, 178u8, 2u8],
             [35u8, 204u8, 39u8, 0u8],
             [38u8, 20u8, 35u8, 53u8],
+            [42u8, 168u8, 18u8, 57u8],
             [42u8, 205u8, 224u8, 152u8],
             [46u8, 64u8, 247u8, 251u8],
             [46u8, 230u8, 99u8, 184u8],
@@ -26419,9 +27483,11 @@ function unpause() external;
             [110u8, 195u8, 171u8, 103u8],
             [112u8, 128u8, 117u8, 40u8],
             [113u8, 237u8, 32u8, 182u8],
+            [114u8, 2u8, 247u8, 106u8],
             [114u8, 181u8, 3u8, 45u8],
             [123u8, 118u8, 254u8, 94u8],
             [123u8, 153u8, 150u8, 197u8],
+            [123u8, 237u8, 121u8, 125u8],
             [124u8, 111u8, 49u8, 88u8],
             [125u8, 249u8, 42u8, 218u8],
             [132u8, 86u8, 203u8, 89u8],
@@ -26438,11 +27504,13 @@ function unpause() external;
             [167u8, 250u8, 111u8, 152u8],
             [170u8, 198u8, 170u8, 156u8],
             [176u8, 223u8, 206u8, 6u8],
+            [182u8, 179u8, 82u8, 114u8],
             [185u8, 192u8, 76u8, 27u8],
             [186u8, 5u8, 187u8, 245u8],
             [191u8, 82u8, 116u8, 167u8],
             [191u8, 105u8, 2u8, 6u8],
             [195u8, 80u8, 130u8, 169u8],
+            [195u8, 83u8, 193u8, 246u8],
             [197u8, 80u8, 217u8, 56u8],
             [198u8, 183u8, 168u8, 19u8],
             [202u8, 221u8, 85u8, 12u8],
@@ -26495,6 +27563,7 @@ function unpause() external;
             ::core::stringify!(getOperatorDelegatedStakeForAsset),
             ::core::stringify!(addBlueprintToDelegation),
             ::core::stringify!(operatorAt),
+            ::core::stringify!(canDelegate),
             ::core::stringify!(registerOperator),
             ::core::stringify!(serviceFeeDistributor),
             ::core::stringify!(getOperatorMetadata),
@@ -26523,9 +27592,11 @@ function unpause() external;
             ::core::stringify!(getAssetConfig),
             ::core::stringify!(disableAsset),
             ::core::stringify!(previewDelegatorUnstakeShares),
+            ::core::stringify!(setDelegationMode),
             ::core::stringify!(getSlashCountForService),
             ::core::stringify!(setRequireAdapters),
             ::core::stringify!(getDelegationBlueprints),
+            ::core::stringify!(getDelegationMode),
             ::core::stringify!(operatorCount),
             ::core::stringify!(LOCK_TWO_MONTHS),
             ::core::stringify!(pause),
@@ -26542,11 +27613,13 @@ function unpause() external;
             ::core::stringify!(MULTIPLIER_THREE_MONTHS),
             ::core::stringify!(removeSlasher),
             ::core::stringify!(executeOperatorUnstake),
+            ::core::stringify!(isWhitelisted),
             ::core::stringify!(addBlueprintForOperator),
             ::core::stringify!(delegationBondLessDelay),
             ::core::stringify!(setTangle),
             ::core::stringify!(executeDelegatorUnstakeAndWithdraw),
             ::core::stringify!(getDeposit),
+            ::core::stringify!(setDelegationWhitelist),
             ::core::stringify!(getSlashCountForBlueprint),
             ::core::stringify!(getPendingCommissionChange),
             ::core::stringify!(snapshotOperator),
@@ -26599,6 +27672,7 @@ function unpause() external;
             <getOperatorDelegatedStakeForAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <addBlueprintToDelegationCall as alloy_sol_types::SolCall>::SIGNATURE,
             <operatorAtCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <canDelegateCall as alloy_sol_types::SolCall>::SIGNATURE,
             <registerOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <serviceFeeDistributorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorMetadataCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -26627,9 +27701,11 @@ function unpause() external;
             <getAssetConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <disableAssetCall as alloy_sol_types::SolCall>::SIGNATURE,
             <previewDelegatorUnstakeSharesCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setDelegationModeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashCountForServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setRequireAdaptersCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getDelegationBlueprintsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getDelegationModeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <operatorCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <LOCK_TWO_MONTHSCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pauseCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -26646,11 +27722,13 @@ function unpause() external;
             <MULTIPLIER_THREE_MONTHSCall as alloy_sol_types::SolCall>::SIGNATURE,
             <removeSlasherCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeOperatorUnstakeCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <isWhitelistedCall as alloy_sol_types::SolCall>::SIGNATURE,
             <addBlueprintForOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <delegationBondLessDelayCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTangleCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeDelegatorUnstakeAndWithdrawCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getDepositCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setDelegationWhitelistCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashCountForBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getPendingCommissionChangeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <snapshotOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -26713,7 +27791,7 @@ function unpause() external;
     impl alloy_sol_types::SolInterface for IMultiAssetDelegationCalls {
         const NAME: &'static str = "IMultiAssetDelegationCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 101usize;
+        const COUNT: usize = 106usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -26755,6 +27833,9 @@ function unpause() external;
                 }
                 Self::advanceRound(_) => {
                     <advanceRoundCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::canDelegate(_) => {
+                    <canDelegateCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::cancelCommissionChange(_) => {
                     <cancelCommissionChangeCall as alloy_sol_types::SolCall>::SELECTOR
@@ -26820,6 +27901,9 @@ function unpause() external;
                 }
                 Self::getDelegationBlueprints(_) => {
                     <getDelegationBlueprintsCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getDelegationMode(_) => {
+                    <getDelegationModeCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::getDelegations(_) => {
                     <getDelegationsCall as alloy_sol_types::SolCall>::SELECTOR
@@ -26900,6 +27984,9 @@ function unpause() external;
                 Self::isSlasher(_) => {
                     <isSlasherCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::isWhitelisted(_) => {
+                    <isWhitelistedCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::leaveDelegatorsDelay(_) => {
                     <leaveDelegatorsDelayCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -26972,6 +28059,12 @@ function unpause() external;
                 }
                 Self::setDelays(_) => {
                     <setDelaysCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::setDelegationMode(_) => {
+                    <setDelegationModeCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::setDelegationWhitelist(_) => {
+                    <setDelegationWhitelistCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::setOperatorBondToken(_) => {
                     <setOperatorBondTokenCall as alloy_sol_types::SolCall>::SELECTOR
@@ -27165,6 +28258,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::operatorAt)
                     }
                     operatorAt
+                },
+                {
+                    fn canDelegate(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <canDelegateCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::canDelegate)
+                    }
+                    canDelegate
                 },
                 {
                     fn registerOperator(
@@ -27473,6 +28577,17 @@ function unpause() external;
                     previewDelegatorUnstakeShares
                 },
                 {
+                    fn setDelegationMode(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <setDelegationModeCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::setDelegationMode)
+                    }
+                    setDelegationMode
+                },
+                {
                     fn getSlashCountForService(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -27504,6 +28619,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::getDelegationBlueprints)
                     }
                     getDelegationBlueprints
+                },
+                {
+                    fn getDelegationMode(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <getDelegationModeCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::getDelegationMode)
+                    }
+                    getDelegationMode
                 },
                 {
                     fn operatorCount(
@@ -27682,6 +28808,17 @@ function unpause() external;
                     executeOperatorUnstake
                 },
                 {
+                    fn isWhitelisted(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <isWhitelistedCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::isWhitelisted)
+                    }
+                    isWhitelisted
+                },
+                {
                     fn addBlueprintForOperator(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -27735,6 +28872,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::getDeposit)
                     }
                     getDeposit
+                },
+                {
+                    fn setDelegationWhitelist(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <setDelegationWhitelistCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::setDelegationWhitelist)
+                    }
+                    setDelegationWhitelist
                 },
                 {
                     fn getSlashCountForBlueprint(
@@ -28296,6 +29444,17 @@ function unpause() external;
                     operatorAt
                 },
                 {
+                    fn canDelegate(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <canDelegateCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::canDelegate)
+                    }
+                    canDelegate
+                },
+                {
                     fn registerOperator(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -28606,6 +29765,17 @@ function unpause() external;
                     previewDelegatorUnstakeShares
                 },
                 {
+                    fn setDelegationMode(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <setDelegationModeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::setDelegationMode)
+                    }
+                    setDelegationMode
+                },
+                {
                     fn getSlashCountForService(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -28637,6 +29807,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::getDelegationBlueprints)
                     }
                     getDelegationBlueprints
+                },
+                {
+                    fn getDelegationMode(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <getDelegationModeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::getDelegationMode)
+                    }
+                    getDelegationMode
                 },
                 {
                     fn operatorCount(
@@ -28817,6 +29998,17 @@ function unpause() external;
                     executeOperatorUnstake
                 },
                 {
+                    fn isWhitelisted(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <isWhitelistedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::isWhitelisted)
+                    }
+                    isWhitelisted
+                },
+                {
                     fn addBlueprintForOperator(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -28872,6 +30064,17 @@ function unpause() external;
                             .map(IMultiAssetDelegationCalls::getDeposit)
                     }
                     getDeposit
+                },
+                {
+                    fn setDelegationWhitelist(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <setDelegationWhitelistCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::setDelegationWhitelist)
+                    }
+                    setDelegationWhitelist
                 },
                 {
                     fn getSlashCountForBlueprint(
@@ -29348,6 +30551,11 @@ function unpause() external;
                         inner,
                     )
                 }
+                Self::canDelegate(inner) => {
+                    <canDelegateCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::cancelCommissionChange(inner) => {
                     <cancelCommissionChangeCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -29456,6 +30664,11 @@ function unpause() external;
                 }
                 Self::getDelegationBlueprints(inner) => {
                     <getDelegationBlueprintsCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::getDelegationMode(inner) => {
+                    <getDelegationModeCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -29586,6 +30799,11 @@ function unpause() external;
                 Self::isSlasher(inner) => {
                     <isSlasherCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
+                Self::isWhitelisted(inner) => {
+                    <isWhitelistedCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::leaveDelegatorsDelay(inner) => {
                     <leaveDelegatorsDelayCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -29704,6 +30922,16 @@ function unpause() external;
                 }
                 Self::setDelays(inner) => {
                     <setDelaysCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                }
+                Self::setDelegationMode(inner) => {
+                    <setDelegationModeCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::setDelegationWhitelist(inner) => {
+                    <setDelegationWhitelistCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::setOperatorBondToken(inner) => {
                     <setOperatorBondTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -29845,6 +31073,12 @@ function unpause() external;
                         out,
                     )
                 }
+                Self::canDelegate(inner) => {
+                    <canDelegateCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::cancelCommissionChange(inner) => {
                     <cancelCommissionChangeCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -29976,6 +31210,12 @@ function unpause() external;
                 }
                 Self::getDelegationBlueprints(inner) => {
                     <getDelegationBlueprintsCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getDelegationMode(inner) => {
+                    <getDelegationModeCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -30142,6 +31382,12 @@ function unpause() external;
                         out,
                     )
                 }
+                Self::isWhitelisted(inner) => {
+                    <isWhitelistedCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::leaveDelegatorsDelay(inner) => {
                     <leaveDelegatorsDelayCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -30285,6 +31531,18 @@ function unpause() external;
                 }
                 Self::setDelays(inner) => {
                     <setDelaysCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::setDelegationMode(inner) => {
+                    <setDelegationModeCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::setDelegationWhitelist(inner) => {
+                    <setDelegationWhitelistCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -31291,6 +32549,19 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, advanceRoundCall, N> {
             self.call_builder(&advanceRoundCall)
         }
+        ///Creates a new call builder for the [`canDelegate`] function.
+        pub fn canDelegate(
+            &self,
+            operator: alloy::sol_types::private::Address,
+            delegator: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, canDelegateCall, N> {
+            self.call_builder(
+                &canDelegateCall {
+                    operator,
+                    delegator,
+                },
+            )
+        }
         ///Creates a new call builder for the [`cancelCommissionChange`] function.
         pub fn cancelCommissionChange(
             &self,
@@ -31532,6 +32803,13 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     idx,
                 },
             )
+        }
+        ///Creates a new call builder for the [`getDelegationMode`] function.
+        pub fn getDelegationMode(
+            &self,
+            operator: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, getDelegationModeCall, N> {
+            self.call_builder(&getDelegationModeCall { operator })
         }
         ///Creates a new call builder for the [`getDelegations`] function.
         pub fn getDelegations(
@@ -31810,6 +33088,19 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, isSlasherCall, N> {
             self.call_builder(&isSlasherCall { account })
         }
+        ///Creates a new call builder for the [`isWhitelisted`] function.
+        pub fn isWhitelisted(
+            &self,
+            operator: alloy::sol_types::private::Address,
+            delegator: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, isWhitelistedCall, N> {
+            self.call_builder(
+                &isWhitelistedCall {
+                    operator,
+                    delegator,
+                },
+            )
+        }
         ///Creates a new call builder for the [`leaveDelegatorsDelay`] function.
         pub fn leaveDelegatorsDelay(
             &self,
@@ -32041,6 +33332,28 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     delegationBondLessDelay,
                     leaveDelegatorsDelay,
                     leaveOperatorsDelay,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`setDelegationMode`] function.
+        pub fn setDelegationMode(
+            &self,
+            mode: <Types::DelegationMode as alloy::sol_types::SolType>::RustType,
+        ) -> alloy_contract::SolCallBuilder<&P, setDelegationModeCall, N> {
+            self.call_builder(&setDelegationModeCall { mode })
+        }
+        ///Creates a new call builder for the [`setDelegationWhitelist`] function.
+        pub fn setDelegationWhitelist(
+            &self,
+            delegators: alloy::sol_types::private::Vec<
+                alloy::sol_types::private::Address,
+            >,
+            approved: bool,
+        ) -> alloy_contract::SolCallBuilder<&P, setDelegationWhitelistCall, N> {
+            self.call_builder(
+                &setDelegationWhitelistCall {
+                    delegators,
+                    approved,
                 },
             )
         }

@@ -114,6 +114,36 @@ interface IMultiAssetDelegation {
     function completeLeaving() external;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // OPERATOR DELEGATION CONFIG
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Set delegation mode for the operator
+    /// @param mode Delegation mode: Disabled (0), Whitelist (1), or Open (2)
+    function setDelegationMode(Types.DelegationMode mode) external;
+
+    /// @notice Update whitelist for the operator (batch)
+    /// @param delegators Array of delegator addresses to update
+    /// @param approved True to approve, false to revoke
+    function setDelegationWhitelist(address[] calldata delegators, bool approved) external;
+
+    /// @notice Get operator's delegation mode
+    /// @param operator Operator address
+    /// @return The current delegation mode
+    function getDelegationMode(address operator) external view returns (Types.DelegationMode);
+
+    /// @notice Check if delegator is whitelisted
+    /// @param operator Operator address
+    /// @param delegator Delegator address
+    /// @return True if whitelisted
+    function isWhitelisted(address operator, address delegator) external view returns (bool);
+
+    /// @notice Check if delegator can delegate to operator
+    /// @param operator Operator address
+    /// @param delegator Delegator address
+    /// @return True if delegation is allowed
+    function canDelegate(address operator, address delegator) external view returns (bool);
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // DEPOSIT FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 

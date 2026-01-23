@@ -9,7 +9,7 @@ import { Types } from "../../libraries/Types.sol";
 /// @notice Facet for operator lifecycle management
 contract StakingOperatorsFacet is StakingFacetBase, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](14);
+        selectorList = new bytes4[](15);
         selectorList[0] = this.registerOperator.selector;
         selectorList[1] = this.registerOperatorWithAsset.selector;
         selectorList[2] = this.increaseStake.selector;
@@ -24,6 +24,7 @@ contract StakingOperatorsFacet is StakingFacetBase, IFacetSelectors {
         selectorList[11] = this.setDelegationWhitelist.selector;
         selectorList[12] = this.getDelegationMode.selector;
         selectorList[13] = this.isWhitelisted.selector;
+        selectorList[14] = this.canDelegate.selector;
     }
 
     /// @notice Register as an operator with native stake
@@ -118,5 +119,13 @@ contract StakingOperatorsFacet is StakingFacetBase, IFacetSelectors {
     /// @return True if delegator is on operator's whitelist
     function isWhitelisted(address operator, address delegator) external view returns (bool) {
         return _isWhitelisted(operator, delegator);
+    }
+
+    /// @notice Check if delegator can delegate to operator
+    /// @param operator The operator address
+    /// @param delegator The delegator address to check
+    /// @return True if delegation is allowed based on operator's mode
+    function canDelegate(address operator, address delegator) external view returns (bool) {
+        return _canDelegate(operator, delegator);
     }
 }
