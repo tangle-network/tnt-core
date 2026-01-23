@@ -545,6 +545,7 @@ See the [wrapper's documentation](`SlashingManagerInstance`) for more details.*/
 ```solidity
 library Types {
     type BlueprintSelectionMode is uint8;
+    type DelegationMode is uint8;
     type LockMultiplier is uint8;
     struct OperatorSnapshot { uint256 stake; uint256 totalDelegated; }
 }
@@ -671,6 +672,143 @@ pub mod Types {
         }
         #[automatically_derived]
         impl alloy_sol_types::EventTopic for BlueprintSelectionMode {
+            #[inline]
+            fn topic_preimage_length(rust: &Self::RustType) -> usize {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::topic_preimage_length(rust)
+            }
+            #[inline]
+            fn encode_topic_preimage(
+                rust: &Self::RustType,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, out)
+            }
+            #[inline]
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::encode_topic(rust)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct DelegationMode(u8);
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::private::SolTypeValue<DelegationMode> for u8 {
+            #[inline]
+            fn stv_to_tokens(
+                &self,
+            ) -> <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::Token<'_> {
+                alloy_sol_types::private::SolTypeValue::<
+                    alloy::sol_types::sol_data::Uint<8>,
+                >::stv_to_tokens(self)
+            }
+            #[inline]
+            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::tokenize(self)
+                    .0
+            }
+            #[inline]
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(self, out)
+            }
+            #[inline]
+            fn stv_abi_packed_encoded_size(&self) -> usize {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::abi_encoded_size(self)
+            }
+        }
+        impl DelegationMode {
+            /// The Solidity type name.
+            pub const NAME: &'static str = stringify!(@ name);
+            /// Convert from the underlying value type.
+            #[inline]
+            pub const fn from_underlying(value: u8) -> Self {
+                Self(value)
+            }
+            /// Return the underlying value.
+            #[inline]
+            pub const fn into_underlying(self) -> u8 {
+                self.0
+            }
+            /// Return the single encoding of this value, delegating to the
+            /// underlying type.
+            #[inline]
+            pub fn abi_encode(&self) -> alloy_sol_types::private::Vec<u8> {
+                <Self as alloy_sol_types::SolType>::abi_encode(&self.0)
+            }
+            /// Return the packed encoding of this value, delegating to the
+            /// underlying type.
+            #[inline]
+            pub fn abi_encode_packed(&self) -> alloy_sol_types::private::Vec<u8> {
+                <Self as alloy_sol_types::SolType>::abi_encode_packed(&self.0)
+            }
+        }
+        #[automatically_derived]
+        impl From<u8> for DelegationMode {
+            fn from(value: u8) -> Self {
+                Self::from_underlying(value)
+            }
+        }
+        #[automatically_derived]
+        impl From<DelegationMode> for u8 {
+            fn from(value: DelegationMode) -> Self {
+                value.into_underlying()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolType for DelegationMode {
+            type RustType = u8;
+            type Token<'a> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SOL_NAME: &'static str = Self::NAME;
+            const ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            #[inline]
+            fn valid_token(token: &Self::Token<'_>) -> bool {
+                Self::type_check(token).is_ok()
+            }
+            #[inline]
+            fn type_check(token: &Self::Token<'_>) -> alloy_sol_types::Result<()> {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::type_check(token)
+            }
+            #[inline]
+            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::detokenize(token)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::EventTopic for DelegationMode {
             #[inline]
             fn topic_preimage_length(rust: &Self::RustType) -> usize {
                 <alloy::sol_types::sol_data::Uint<
@@ -1200,6 +1338,7 @@ library SlashingManager {
 
 library Types {
     type BlueprintSelectionMode is uint8;
+    type DelegationMode is uint8;
     type LockMultiplier is uint8;
     struct OperatorSnapshot {
         uint256 stake;
@@ -1241,12 +1380,14 @@ interface MultiAssetDelegation {
     event Initialized(uint64 version);
     event OperatorBlueprintAdded(address indexed operator, uint64 indexed blueprintId);
     event OperatorBlueprintRemoved(address indexed operator, uint64 indexed blueprintId);
+    event OperatorDelegationModeSet(address indexed operator, Types.DelegationMode mode);
     event OperatorLeavingScheduled(address indexed operator, uint64 readyRound);
     event OperatorLeft(address indexed operator);
     event OperatorRegistered(address indexed operator, uint256 stake);
     event OperatorStakeIncreased(address indexed operator, uint256 amount);
     event OperatorUnstakeExecuted(address indexed operator, uint256 amount);
     event OperatorUnstakeScheduled(address indexed operator, uint256 amount, uint64 readyRound);
+    event OperatorWhitelistUpdated(address indexed operator, address indexed delegator, bool approved);
     event Paused(address account);
     event PendingSlashCountReset(address indexed operator, uint64 newCount);
     event PendingSlashDecremented(address indexed operator, uint64 newCount);
@@ -2803,6 +2944,25 @@ interface MultiAssetDelegation {
   },
   {
     "type": "event",
+    "name": "OperatorDelegationModeSet",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "mode",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum Types.DelegationMode"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OperatorLeavingScheduled",
     "inputs": [
       {
@@ -2911,6 +3071,31 @@ interface MultiAssetDelegation {
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OperatorWhitelistUpdated",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "delegator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "approved",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -6701,6 +6886,124 @@ event OperatorBlueprintRemoved(address indexed operator, uint64 indexed blueprin
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `OperatorDelegationModeSet(address,uint8)` and selector `0x2caf79ac93ee4b3e93143f18702f2ffef06f964e98ff115c6783e4bd46b3c433`.
+```solidity
+event OperatorDelegationModeSet(address indexed operator, Types.DelegationMode mode);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct OperatorDelegationModeSet {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub mode: <Types::DelegationMode as alloy::sol_types::SolType>::RustType,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for OperatorDelegationModeSet {
+            type DataTuple<'a> = (Types::DelegationMode,);
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Address,
+            );
+            const SIGNATURE: &'static str = "OperatorDelegationModeSet(address,uint8)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                44u8, 175u8, 121u8, 172u8, 147u8, 238u8, 75u8, 62u8, 147u8, 20u8, 63u8,
+                24u8, 112u8, 47u8, 47u8, 254u8, 240u8, 111u8, 150u8, 78u8, 152u8, 255u8,
+                17u8, 92u8, 103u8, 131u8, 228u8, 189u8, 70u8, 179u8, 196u8, 51u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    operator: topics.1,
+                    mode: data.0,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <Types::DelegationMode as alloy_sol_types::SolType>::tokenize(
+                        &self.mode,
+                    ),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (Self::SIGNATURE_HASH.into(), self.operator.clone())
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.operator,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for OperatorDelegationModeSet {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&OperatorDelegationModeSet> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(
+                this: &OperatorDelegationModeSet,
+            ) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `OperatorLeavingScheduled(address,uint64)` and selector `0xfd47ed8e653fba5e6e9fcaa947419ca2334b3972ce196132ec69708574d6d35a`.
 ```solidity
 event OperatorLeavingScheduled(address indexed operator, uint64 readyRound);
@@ -7396,6 +7699,135 @@ event OperatorUnstakeScheduled(address indexed operator, uint256 amount, uint64 
             #[inline]
             fn from(
                 this: &OperatorUnstakeScheduled,
+            ) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `OperatorWhitelistUpdated(address,address,bool)` and selector `0x250e4672877b0d4f552e7abf31973d960221449eeb97ef9d5c304295e7b32e94`.
+```solidity
+event OperatorWhitelistUpdated(address indexed operator, address indexed delegator, bool approved);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct OperatorWhitelistUpdated {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub delegator: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub approved: bool,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for OperatorWhitelistUpdated {
+            type DataTuple<'a> = (alloy::sol_types::sol_data::Bool,);
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Address,
+            );
+            const SIGNATURE: &'static str = "OperatorWhitelistUpdated(address,address,bool)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                37u8, 14u8, 70u8, 114u8, 135u8, 123u8, 13u8, 79u8, 85u8, 46u8, 122u8,
+                191u8, 49u8, 151u8, 61u8, 150u8, 2u8, 33u8, 68u8, 158u8, 235u8, 151u8,
+                239u8, 157u8, 92u8, 48u8, 66u8, 149u8, 231u8, 179u8, 46u8, 148u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    operator: topics.1,
+                    delegator: topics.2,
+                    approved: data.0,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        &self.approved,
+                    ),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.operator.clone(),
+                    self.delegator.clone(),
+                )
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.operator,
+                );
+                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.delegator,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for OperatorWhitelistUpdated {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&OperatorWhitelistUpdated> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(
+                this: &OperatorWhitelistUpdated,
             ) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
@@ -21799,6 +22231,8 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         #[allow(missing_docs)]
         OperatorBlueprintRemoved(OperatorBlueprintRemoved),
         #[allow(missing_docs)]
+        OperatorDelegationModeSet(OperatorDelegationModeSet),
+        #[allow(missing_docs)]
         OperatorLeavingScheduled(OperatorLeavingScheduled),
         #[allow(missing_docs)]
         OperatorLeft(OperatorLeft),
@@ -21810,6 +22244,8 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         OperatorUnstakeExecuted(OperatorUnstakeExecuted),
         #[allow(missing_docs)]
         OperatorUnstakeScheduled(OperatorUnstakeScheduled),
+        #[allow(missing_docs)]
+        OperatorWhitelistUpdated(OperatorWhitelistUpdated),
         #[allow(missing_docs)]
         Paused(Paused),
         #[allow(missing_docs)]
@@ -21866,6 +22302,16 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 32u8, 56u8, 148u8, 7u8, 41u8, 148u8, 186u8, 100u8, 148u8, 170u8, 115u8,
                 69u8, 74u8, 4u8, 8u8, 225u8, 28u8, 51u8, 145u8, 64u8, 66u8, 124u8, 96u8,
                 9u8, 160u8, 37u8, 110u8, 31u8, 53u8, 149u8, 63u8, 66u8,
+            ],
+            [
+                37u8, 14u8, 70u8, 114u8, 135u8, 123u8, 13u8, 79u8, 85u8, 46u8, 122u8,
+                191u8, 49u8, 151u8, 61u8, 150u8, 2u8, 33u8, 68u8, 158u8, 235u8, 151u8,
+                239u8, 157u8, 92u8, 48u8, 66u8, 149u8, 231u8, 179u8, 46u8, 148u8,
+            ],
+            [
+                44u8, 175u8, 121u8, 172u8, 147u8, 238u8, 75u8, 62u8, 147u8, 20u8, 63u8,
+                24u8, 112u8, 47u8, 47u8, 254u8, 240u8, 111u8, 150u8, 78u8, 152u8, 255u8,
+                17u8, 92u8, 103u8, 131u8, 228u8, 189u8, 70u8, 179u8, 196u8, 51u8,
             ],
             [
                 47u8, 93u8, 161u8, 239u8, 179u8, 166u8, 142u8, 206u8, 150u8, 12u8, 170u8,
@@ -22029,6 +22475,8 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
             ::core::stringify!(OperatorLeft),
             ::core::stringify!(FacetSelectorSet),
             ::core::stringify!(PendingSlashIncremented),
+            ::core::stringify!(OperatorWhitelistUpdated),
+            ::core::stringify!(OperatorDelegationModeSet),
             ::core::stringify!(Slashed),
             ::core::stringify!(RoleGranted),
             ::core::stringify!(DustAccumulated),
@@ -22067,6 +22515,8 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
             <OperatorLeft as alloy_sol_types::SolEvent>::SIGNATURE,
             <FacetSelectorSet as alloy_sol_types::SolEvent>::SIGNATURE,
             <PendingSlashIncremented as alloy_sol_types::SolEvent>::SIGNATURE,
+            <OperatorWhitelistUpdated as alloy_sol_types::SolEvent>::SIGNATURE,
+            <OperatorDelegationModeSet as alloy_sol_types::SolEvent>::SIGNATURE,
             <Slashed as alloy_sol_types::SolEvent>::SIGNATURE,
             <RoleGranted as alloy_sol_types::SolEvent>::SIGNATURE,
             <DustAccumulated as alloy_sol_types::SolEvent>::SIGNATURE,
@@ -22123,7 +22573,7 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for MultiAssetDelegationEvents {
         const NAME: &'static str = "MultiAssetDelegationEvents";
-        const COUNT: usize = 35usize;
+        const COUNT: usize = 37usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -22251,6 +22701,15 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         .map(Self::OperatorBlueprintRemoved)
                 }
                 Some(
+                    <OperatorDelegationModeSet as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <OperatorDelegationModeSet as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::OperatorDelegationModeSet)
+                }
+                Some(
                     <OperatorLeavingScheduled as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
                 ) => {
                     <OperatorLeavingScheduled as alloy_sol_types::SolEvent>::decode_raw_log(
@@ -22301,6 +22760,15 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                             data,
                         )
                         .map(Self::OperatorUnstakeScheduled)
+                }
+                Some(
+                    <OperatorWhitelistUpdated as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <OperatorWhitelistUpdated as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::OperatorWhitelistUpdated)
                 }
                 Some(<Paused as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <Paused as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
@@ -22461,6 +22929,9 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 Self::OperatorBlueprintRemoved(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
+                Self::OperatorDelegationModeSet(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
                 Self::OperatorLeavingScheduled(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -22477,6 +22948,9 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
                 Self::OperatorUnstakeScheduled(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
+                Self::OperatorWhitelistUpdated(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
                 Self::Paused(inner) => {
@@ -22570,6 +23044,9 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 Self::OperatorBlueprintRemoved(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
+                Self::OperatorDelegationModeSet(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
                 Self::OperatorLeavingScheduled(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
@@ -22586,6 +23063,9 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::OperatorUnstakeScheduled(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
+                Self::OperatorWhitelistUpdated(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::Paused(inner) => {
@@ -23353,6 +23833,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::Event<&P, OperatorBlueprintRemoved, N> {
             self.event_filter::<OperatorBlueprintRemoved>()
         }
+        ///Creates a new event filter for the [`OperatorDelegationModeSet`] event.
+        pub fn OperatorDelegationModeSet_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, OperatorDelegationModeSet, N> {
+            self.event_filter::<OperatorDelegationModeSet>()
+        }
         ///Creates a new event filter for the [`OperatorLeavingScheduled`] event.
         pub fn OperatorLeavingScheduled_filter(
             &self,
@@ -23386,6 +23872,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::Event<&P, OperatorUnstakeScheduled, N> {
             self.event_filter::<OperatorUnstakeScheduled>()
+        }
+        ///Creates a new event filter for the [`OperatorWhitelistUpdated`] event.
+        pub fn OperatorWhitelistUpdated_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, OperatorWhitelistUpdated, N> {
+            self.event_filter::<OperatorWhitelistUpdated>()
         }
         ///Creates a new event filter for the [`Paused`] event.
         pub fn Paused_filter(&self) -> alloy_contract::Event<&P, Paused, N> {
