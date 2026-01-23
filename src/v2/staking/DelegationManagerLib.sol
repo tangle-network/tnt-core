@@ -156,6 +156,16 @@ abstract contract DelegationManagerLib is OperatorManager {
             revert DelegationErrors.OperatorNotActive(operator);
         }
 
+        // Check delegation mode permissions
+        if (!_canDelegate(operator, msg.sender)) {
+            Types.DelegationMode mode = _operatorDelegationMode[operator];
+            if (mode == Types.DelegationMode.Disabled) {
+                revert DelegationErrors.DelegationDisabled(operator);
+            } else {
+                revert DelegationErrors.DelegatorNotWhitelisted(operator, msg.sender);
+            }
+        }
+
         bytes32 assetHash = _assetHash(asset);
         Types.Deposit storage dep = _deposits[msg.sender][assetHash];
 
