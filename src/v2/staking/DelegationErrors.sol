@@ -45,6 +45,8 @@ library DelegationErrors {
     error InsufficientDelegation(uint256 available, uint256 requested);
     error InsufficientAvailableBalance(uint256 available, uint256 requested);
     error AmountLocked(uint256 locked, uint256 requested);
+    error DelegationDisabled(address operator);
+    error DelegatorNotWhitelisted(address operator, address delegator);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TIMING ERRORS

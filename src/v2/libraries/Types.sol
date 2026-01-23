@@ -466,6 +466,15 @@ library Types {
         Leaving     // Exit scheduled, waiting for delay
     }
 
+    /// @notice Operator delegation mode - controls who can delegate to this operator
+    /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
+    /// Disabled=0 (self-stake only), Whitelist=1, Open=2.
+    enum DelegationMode {
+        Disabled,   // Only operator can self-stake
+        Whitelist,  // Only approved addresses can delegate
+        Open        // Anyone can delegate
+    }
+
     /// @notice Operator metadata
     struct OperatorMetadata {
         uint256 stake;              // Self-stake amount

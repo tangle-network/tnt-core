@@ -328,7 +328,18 @@ abstract contract DelegationStorage {
     /// @dev Used to check if operator has active service commitments before exit
     address internal _tangleCore;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OPERATOR DELEGATION CONFIG
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Operator delegation mode: operator => DelegationMode
+    /// @dev Default is Disabled (self-stake only)
+    mapping(address => Types.DelegationMode) internal _operatorDelegationMode;
+
+    /// @notice Whitelist of approved delegators: operator => delegator => approved
+    mapping(address => mapping(address => bool)) internal _operatorDelegationWhitelist;
+
     /// @notice Reserved storage gap for future upgrades
     /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    uint256[48] private __gap;
+    uint256[46] private __gap;
 }

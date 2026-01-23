@@ -29,6 +29,8 @@ abstract contract OperatorManager is DelegationStorage {
     event OperatorLeft(address indexed operator);
     event OperatorBlueprintAdded(address indexed operator, uint64 indexed blueprintId);
     event OperatorBlueprintRemoved(address indexed operator, uint64 indexed blueprintId);
+    event OperatorDelegationModeSet(address indexed operator, Types.DelegationMode mode);
+    event OperatorWhitelistUpdated(address indexed operator, address indexed delegator, bool approved);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // REGISTRATION
@@ -314,5 +316,67 @@ abstract contract OperatorManager is DelegationStorage {
     /// @notice Get operator at index
     function _operatorAt(uint256 index) internal view returns (address) {
         return _operators.at(index);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DELEGATION CONFIG
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Set delegation mode for operator
+    /// @dev Only callable by the operator themselves. Changes take effect immediately for
+    ///      NEW delegations only. Existing delegations remain valid regardless of mode change.
+    ///      This is intentional - changing mode to Disabled prevents new delegations but
+    ///      doesn't force-exit existing delegators.
+    /// @param mode Delegation mode: Disabled (self-only), Whitelist, or Open
+    function _setDelegationMode(Types.DelegationMode mode) internal {
+        if (!_operators.contains(msg.sender)) {
+            revert DelegationErrors.OperatorNotRegistered(msg.sender);
+        }
+        if (_operatorMetadata[msg.sender].status != Types.OperatorStatus.Active) {
+            revert DelegationErrors.OperatorNotActive(msg.sender);
+        }
+        _operatorDelegationMode[msg.sender] = mode;
+        emit OperatorDelegationModeSet(msg.sender, mode);
+    }
+
+    /// @notice Update whitelist for an operator (batch)
+    /// @dev Only callable by the operator themselves. Whitelist only applies when mode is Whitelist.
+    /// @param delegators Array of delegator addresses to update
+    /// @param approved True to approve, false to revoke
+    function _setDelegationWhitelist(address[] calldata delegators, bool approved) internal {
+        if (!_operators.contains(msg.sender)) {
+            revert DelegationErrors.OperatorNotRegistered(msg.sender);
+        }
+        if (_operatorMetadata[msg.sender].status != Types.OperatorStatus.Active) {
+            revert DelegationErrors.OperatorNotActive(msg.sender);
+        }
+        for (uint256 i = 0; i < delegators.length;) {
+            _operatorDelegationWhitelist[msg.sender][delegators[i]] = approved;
+            emit OperatorWhitelistUpdated(msg.sender, delegators[i], approved);
+            unchecked { ++i; }
+        }
+    }
+
+    /// @notice Check if delegator can delegate to operator
+    /// @param operator Operator address
+    /// @param delegator Delegator address
+    function _canDelegate(address operator, address delegator) internal view returns (bool) {
+        Types.DelegationMode mode = _operatorDelegationMode[operator];
+        if (mode == Types.DelegationMode.Open) return true;
+        if (mode == Types.DelegationMode.Whitelist) {
+            return _operatorDelegationWhitelist[operator][delegator];
+        }
+        // Disabled: only operator can self-stake
+        return delegator == operator;
+    }
+
+    /// @notice Get operator's delegation mode
+    function _getDelegationMode(address operator) internal view returns (Types.DelegationMode) {
+        return _operatorDelegationMode[operator];
+    }
+
+    /// @notice Check if delegator is whitelisted
+    function _isWhitelisted(address operator, address delegator) internal view returns (bool) {
+        return _operatorDelegationWhitelist[operator][delegator];
     }
 }
