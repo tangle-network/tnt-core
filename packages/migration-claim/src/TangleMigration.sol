@@ -14,9 +14,9 @@ import {TNTVestingFactory} from "./lockups/TNTVestingFactory.sol";
 /// @dev Substrate address holders must prove key ownership via ZK proof to claim
 ///
 /// Vesting Schedule (default 3 years total):
-/// - 2% unlocked immediately at claim (0% for restricted accounts)
+/// - 10% unlocked immediately at claim (0% for restricted accounts)
 /// - 12-month cliff (no vesting during this period)
-/// - 98-100% vested linearly over 24 months after cliff
+/// - 90-100% vested linearly over 24 months after cliff
 /// - Configurable: deploy new TNTVestingFactory with custom cliff/vesting durations
 /// - Restricted accounts (investors/team) can be marked via setRestrictedUnlock() for 0% TGE unlock
 contract TangleMigration is Ownable, ReentrancyGuard {
@@ -28,7 +28,7 @@ contract TangleMigration is Ownable, ReentrancyGuard {
 
     uint64 public constant DEFAULT_CLIFF_DURATION = 365 days; // 12 months
     uint64 public constant DEFAULT_VESTING_DURATION = 730 days; // 24 months (total 36 months / 3 years)
-    uint16 public constant DEFAULT_UNLOCKED_BPS = 200; // 2%
+    uint16 public constant DEFAULT_UNLOCKED_BPS = 1000; // 10%
 
     // ═══════════════════════════════════════════════════════════════════════
     // STATE
