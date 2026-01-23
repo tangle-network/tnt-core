@@ -88,10 +88,9 @@ contract StakingOperatorsFacet is StakingFacetBase, IFacetSelectors {
     /// @notice Set delegation mode for your operator
     /// @dev Changes take effect immediately for NEW delegations only.
     ///      Existing delegations remain valid regardless of mode change.
-    ///      Default is Disabled (self-stake only) - lowest securities risk.
-    ///      - Disabled: Only operator can self-stake
+    ///      - Disabled: Only operator can self-stake (default)
     ///      - Whitelist: Only approved addresses can delegate
-    ///      - Open: Anyone can delegate (highest securities risk)
+    ///      - Open: Anyone can delegate
     /// @param mode Delegation mode: Disabled (0), Whitelist (1), or Open (2)
     function setDelegationMode(Types.DelegationMode mode) external {
         _setDelegationMode(mode);

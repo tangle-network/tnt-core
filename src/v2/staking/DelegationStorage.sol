@@ -333,7 +333,7 @@ abstract contract DelegationStorage {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Operator delegation mode: operator => DelegationMode
-    /// @dev Default is Disabled (self-stake only) for lowest securities risk
+    /// @dev Default is Disabled (self-stake only)
     mapping(address => Types.DelegationMode) internal _operatorDelegationMode;
 
     /// @notice Whitelist of approved delegators: operator => delegator => approved

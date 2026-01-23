@@ -470,9 +470,9 @@ library Types {
     /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
     /// Disabled=0 (self-stake only), Whitelist=1, Open=2.
     enum DelegationMode {
-        Disabled,   // Only operator can self-stake (lowest securities risk)
+        Disabled,   // Only operator can self-stake
         Whitelist,  // Only approved addresses can delegate
-        Open        // Anyone can delegate (highest securities risk)
+        Open        // Anyone can delegate
     }
 
     /// @notice Operator metadata
