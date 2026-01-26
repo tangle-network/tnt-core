@@ -252,6 +252,79 @@ run_local_testnet_setup() {
         --broadcast \
         --non-interactive \
         --slow
+
+    # Update indexer config with deployed contract addresses
+    update_indexer_config
+}
+
+update_indexer_config() {
+    log "Updating indexer config with deployed contract addresses..."
+
+    local BROADCAST_DIR="$ROOT_DIR/broadcast/LocalTestnet.s.sol/$ANVIL_CHAIN_ID"
+    local LATEST_BROADCAST
+    LATEST_BROADCAST=$(ls -t "$BROADCAST_DIR"/run-*.json 2>/dev/null | head -1)
+
+    if [[ -z "$LATEST_BROADCAST" ]]; then
+        log "WARNING: Could not find broadcast file, skipping config update"
+        return
+    fi
+
+    log "Using broadcast file: $LATEST_BROADCAST"
+
+    local CONFIG_FILE="$INDEXER_DIR/config.local.yaml"
+
+    if ! command -v jq >/dev/null 2>&1; then
+        log "WARNING: jq not installed, skipping automatic config update"
+        log "Install jq or manually update $CONFIG_FILE with deployed addresses"
+        return
+    fi
+
+    # Extract addresses by contract name from broadcast JSON
+    # For proxies, we match by deployment order (consistent with LocalTestnet.s.sol)
+    local STAKING_ADDR TANGLE_ADDR REGISTRY_ADDR MBSM_ADDR POD_MANAGER_ADDR
+    local LIQUID_FACTORY_ADDR REWARD_VAULTS_ADDR INFLATION_POOL_ADDR
+
+    # Get all proxy addresses in deployment order
+    local PROXIES
+    PROXIES=$(jq -r '[.transactions[] | select(.contractName == "ERC1967Proxy") | .contractAddress] | .[]' "$LATEST_BROADCAST" 2>/dev/null || true)
+
+    # Map proxies by order: 0=Staking, 1=Tangle, 2=TangleToken, etc.
+    STAKING_ADDR=$(echo "$PROXIES" | sed -n '1p')
+    TANGLE_ADDR=$(echo "$PROXIES" | sed -n '2p')
+
+    # Get named contracts directly
+    REGISTRY_ADDR=$(jq -r '.transactions[] | select(.contractName == "OperatorStatusRegistry") | .contractAddress' "$LATEST_BROADCAST" 2>/dev/null | head -1 || true)
+    MBSM_ADDR=$(jq -r '.transactions[] | select(.contractName == "MasterBlueprintServiceManager") | .contractAddress' "$LATEST_BROADCAST" 2>/dev/null | head -1 || true)
+    POD_MANAGER_ADDR=$(jq -r '.transactions[] | select(.contractName == "ValidatorPodManager") | .contractAddress' "$LATEST_BROADCAST" 2>/dev/null | head -1 || true)
+    LIQUID_FACTORY_ADDR=$(jq -r '.transactions[] | select(.contractName == "LiquidDelegationFactory") | .contractAddress' "$LATEST_BROADCAST" 2>/dev/null | head -1 || true)
+    REWARD_VAULTS_ADDR=$(jq -r '.transactions[] | select(.contractName == "RewardVaults") | .contractAddress' "$LATEST_BROADCAST" 2>/dev/null | head -1 || true)
+    INFLATION_POOL_ADDR=$(jq -r '.transactions[] | select(.contractName == "InflationPool") | .contractAddress' "$LATEST_BROADCAST" 2>/dev/null | head -1 || true)
+
+    # Update config file using sed - match address lines after contract name
+    update_contract_address() {
+        local name="$1" addr="$2"
+        [[ -z "$addr" || "$addr" == "null" ]] && return
+        # Convert to lowercase for consistency
+        addr=$(echo "$addr" | tr '[:upper:]' '[:lower:]')
+        # Update the address line following the contract name
+        sed -i.tmp "/- name: $name/,/address:/{s|\"0x[a-fA-F0-9]*\"|\"$addr\"|}" "$CONFIG_FILE"
+        log "  $name: $addr"
+    }
+
+    log "Updating contract addresses:"
+    update_contract_address "MultiAssetDelegation" "$STAKING_ADDR"
+    update_contract_address "Tangle" "$TANGLE_ADDR"
+    update_contract_address "OperatorStatusRegistry" "$REGISTRY_ADDR"
+    update_contract_address "MasterBlueprintServiceManager" "$MBSM_ADDR"
+    update_contract_address "ValidatorPodManager" "$POD_MANAGER_ADDR"
+    update_contract_address "LiquidDelegationFactory" "$LIQUID_FACTORY_ADDR"
+    update_contract_address "RewardVaults" "$REWARD_VAULTS_ADDR"
+    update_contract_address "InflationPool" "$INFLATION_POOL_ADDR"
+
+    # Clean up temp files
+    rm -f "$CONFIG_FILE.tmp" "$CONFIG_FILE.bak"
+
+    log "Indexer config update complete"
 }
 
 start_docker() {
@@ -440,11 +513,18 @@ show_summary() {
     log "  GraphQL API:    http://localhost:$HASURA_PORT/v1/graphql"
     log "  Hasura Console: http://localhost:$HASURA_PORT/console"
     log ""
-    log "Test Accounts (pre-funded):"
-    log "  Deployer:  0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-    log "  Operator1: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-    log "  Operator2: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
-    log "  Delegator: 0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+    log "Test Accounts (pre-funded with ETH + tokens):"
+    log "  Deployer:              0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+    log "  Operator1 (Disabled):  0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+    log "  Operator2 (Open):      0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+    log "  Operator3 (Whitelist): 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"
+    log "  Delegator:             0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+    log "  Whitelisted Delegator: 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
+    log ""
+    log "Delegation Modes:"
+    log "  Operator1: Disabled - only self-stake allowed"
+    log "  Operator2: Open     - anyone can delegate"
+    log "  Operator3: Whitelist - only whitelisted delegators (Account 5 whitelisted)"
     log ""
     log "What's running:"
     log "  ✓ Anvil (local EVM chain)"
@@ -456,7 +536,7 @@ show_summary() {
     log "  ✓ Core contracts (Tangle, MultiAssetDelegation, etc.)"
     log "  ✓ Mock tokens (USDC, USDT, DAI, WETH, stETH, wstETH, EIGEN)"
     log "  ✓ Incentive contracts (Metrics, RewardVaults, InflationPool)"
-    log "  ✓ 2 registered operators with stakes"
+    log "  ✓ 3 registered operators with different delegation modes"
     log "  ✓ 1 test blueprint"
     log "  ✓ 1 active service"
     log "  ✓ Delegations (ETH + ERC20)"

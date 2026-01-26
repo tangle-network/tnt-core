@@ -200,6 +200,7 @@ type Operator {
   restakingScheduledUnstakeAmount: BigInt
   restakingScheduledUnstakeRound: BigInt
   restakingUpdatedAt: BigInt
+  delegationMode: Int  # 0=Disabled, 1=Whitelist, 2=Open (null treated as 0=Disabled)
   registrations: [OperatorRegistration!]! @derivedFrom(field: "operator")
   intents: [OperatorIntent!]! @derivedFrom(field: "operator")
   memberships: [ServiceOperator!]! @derivedFrom(field: "operator")

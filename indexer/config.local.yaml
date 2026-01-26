@@ -1,6 +1,11 @@
 # yaml-language-server: $schema=./node_modules/envio/evm.schema.json
-# Local testnet configuration - matches addresses from LocalTestnet.s.sol
-# Deployed by Anvil's default deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+# Local testnet configuration for development with Anvil (chain ID 31337)
+#
+# NOTE: Contract addresses are automatically updated by start-local-dev.sh
+# after each deployment. The addresses below are placeholders that get replaced
+# with actual deployed addresses from the broadcast output.
+#
+# Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 name: tangle-indexer-local
 field_selection:
   transaction_fields:
@@ -14,7 +19,7 @@ networks:
     contracts:
       - name: Tangle
         address:
-          - "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"  # nonce 3
+          - "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9"  # nonce 3
         handler: src/EventHandlers.ts
         events:
           - event: AggregatedResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint256 signerBitmap, bytes output)
@@ -58,13 +63,13 @@ networks:
           - event: Upgraded(address indexed implementation)
       - name: MasterBlueprintServiceManager
         address:
-          - "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"  # nonce 7
+          - "0xc351628eb244ec633d5f21fbd6621e1a683b1181"  # nonce 7
         handler: src/EventHandlers.ts
         events:
           - event: BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition)
       - name: MultiAssetDelegation
         address:
-          - "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"  # nonce 1
+          - "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512"  # updated from broadcast
         handler: src/EventHandlers.ts
         events:
           - event: OperatorRegistered(address indexed operator, uint256 stake)
@@ -90,9 +95,11 @@ networks:
           - event: SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 totalSlashed, uint256 exchangeRateBefore, uint256 exchangeRateAfter)
           - event: RewardDistributed(address indexed operator, uint256 amount)
           - event: RewardClaimed(address indexed account, uint256 amount)
+          - event: OperatorDelegationModeSet(address indexed operator, uint8 mode)
+          - event: OperatorWhitelistUpdated(address indexed operator, address indexed delegator, bool approved)
       - name: OperatorStatusRegistry
         address:
-          - "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"  # nonce 4
+          - "0x99bba657f2bbc93c02d617f8ba121cb8fc104acf"  # nonce 4
         handler: src/EventHandlers.ts
         events:
           - event: HeartbeatReceived(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed operator, uint8 statusCode, uint256 timestamp)
@@ -104,7 +111,7 @@ networks:
           - event: SlashingTriggered(uint64 indexed serviceId, address indexed operator, string reason)
       - name: ValidatorPodManager
         address:
-          - "0xa85233c63b9ee964add6f2cffe00fd84eb32338f"
+          - "0x71089ba41e478702e1904692385be3972b2cbf9e"
         handler: src/EventHandlers.ts
         events:
           - event: PodCreated(address indexed owner, address indexed pod)
@@ -118,7 +125,7 @@ networks:
           - event: WithdrawalCompleted(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
       - name: LiquidDelegationFactory
         address:
-          - "0x4a679253410272dd5232b3ff7cf5dbb88f295319"
+          - "0xc66ab83418c20a65c3f8e83b3d11c8c3a6097b6f"
         handler: src/EventHandlers.ts
         events:
           - event: VaultCreated(address indexed vault, address indexed operator, address indexed asset, uint64[] blueprintIds, string name, string symbol)
@@ -134,7 +141,7 @@ networks:
           - event: Transfer(address indexed from, address indexed to, uint256 value)
       - name: RewardVaults
         address:
-          - "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82"
+          - "0xcbeaf3bde82155f56486fb5a1072cb8baaf547cc"
         handler: src/EventHandlers.ts
         events:
           - event: VaultCreated(address indexed asset, uint256 depositCap)
@@ -150,7 +157,7 @@ networks:
           - event: LockDurationsUpdated(uint256 oneMonth, uint256 twoMonths, uint256 threeMonths, uint256 sixMonths)
       - name: InflationPool
         address:
-          - "0x0b306bf915c4d645ff596e518faf3f9669b97016"
+          - "0x1fa02b2d6a771842690194cf62d91bdd92bfe28d"
         handler: src/EventHandlers.ts
         events:
           - event: OperatorRewardClaimed(address indexed operator, uint256 amount)
