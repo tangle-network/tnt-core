@@ -300,14 +300,20 @@ update_indexer_config() {
     REWARD_VAULTS_ADDR=$(jq -r '.transactions[] | select(.contractName == "RewardVaults") | .contractAddress' "$LATEST_BROADCAST" 2>/dev/null | head -1 || true)
     INFLATION_POOL_ADDR=$(jq -r '.transactions[] | select(.contractName == "InflationPool") | .contractAddress' "$LATEST_BROADCAST" 2>/dev/null | head -1 || true)
 
-    # Update config file using sed - match address lines after contract name
+    # Update config file using perl for cross-platform compatibility
     update_contract_address() {
         local name="$1" addr="$2"
         [[ -z "$addr" || "$addr" == "null" ]] && return
         # Convert to lowercase for consistency
         addr=$(echo "$addr" | tr '[:upper:]' '[:lower:]')
-        # Update the address line following the contract name
-        sed -i.tmp "/- name: $name/,/address:/{s|\"0x[a-fA-F0-9]*\"|\"$addr\"|}" "$CONFIG_FILE"
+        # Update the address line following the contract name using perl (macOS compatible)
+        perl -i -pe "
+            if (/- name: $name\$/) { \$found = 1 }
+            if (\$found && /^\\s+- \"0x[a-fA-F0-9]+\"/) {
+                s/\"0x[a-fA-F0-9]+\"/\"$addr\"/;
+                \$found = 0;
+            }
+        " "$CONFIG_FILE"
         log "  $name: $addr"
     }
 
