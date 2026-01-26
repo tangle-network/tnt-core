@@ -478,6 +478,23 @@ export function registerRestakingHandlers() {
     });
   });
 
+  MultiAssetDelegation.OperatorDelegationModeSet.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const operatorAddress = normalizeAddress(event.params.operator);
+    const operator = await ensureOperator(context, operatorAddress, timestamp);
+
+    context.Operator.set({
+      ...operator,
+      delegationMode: toNumber(event.params.mode),
+      restakingUpdatedAt: timestamp,
+    } as Operator);
+  });
+
+  MultiAssetDelegation.OperatorWhitelistUpdated.handler(async () => {
+    // No-op: Whitelist membership is checked via contract calls (canDelegate/isWhitelisted).
+    // This handler exists to acknowledge the event. Extend if whitelist analytics are needed.
+  });
+
   /* ────────────────────────────────────────────────────────────────────────────
      OPERATOR STATUS REGISTRY
      ────────────────────────────────────────────────────────────────────────── */
