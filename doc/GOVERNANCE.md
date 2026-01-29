@@ -16,10 +16,10 @@ Tangle.sol / MultiAssetDelegation.sol
 
 | Contract | Path | Purpose |
 |----------|------|---------|
-| TangleToken | `src/v2/governance/TangleToken.sol` | TNT governance token with ERC20Votes |
-| TangleGovernor | `src/v2/governance/TangleGovernor.sol` | On-chain voting and proposal management |
-| TangleTimelock | `src/v2/governance/TangleTimelock.sol` | Execution delay, holds protocol roles |
-| GovernanceDeployer | `src/v2/governance/GovernanceDeployer.sol` | Deployment helper |
+| TangleToken | `src/governance/TangleToken.sol` | TNT governance token with ERC20Votes |
+| TangleGovernor | `src/governance/TangleGovernor.sol` | On-chain voting and proposal management |
+| TangleTimelock | `src/governance/TangleTimelock.sol` | Execution delay, holds protocol roles |
+| GovernanceDeployer | `src/governance/GovernanceDeployer.sol` | Deployment helper |
 
 ## Parameters
 
@@ -291,9 +291,9 @@ RewardVaults (receives transfers)
 
 | Contract | Path | Purpose |
 |----------|------|---------|
-| InflationPool | `src/v2/rewards/InflationPool.sol` | Pre-funded pool for epoch-based distribution |
-| TangleMetrics | `src/v2/rewards/TangleMetrics.sol` | Records protocol activity events |
-| RewardVaults | `src/v2/rewards/RewardVaults.sol` | Vault-based reward distribution |
+| InflationPool | `src/rewards/InflationPool.sol` | Pre-funded pool for epoch-based distribution |
+| TangleMetrics | `src/rewards/TangleMetrics.sol` | Records protocol activity events |
+| RewardVaults | `src/rewards/RewardVaults.sol` | Vault-based reward distribution |
 
 ### Reward Triggers
 

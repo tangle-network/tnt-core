@@ -242,23 +242,23 @@ MockBeaconOracle beaconOracle = new MockBeaconOracle();
 
 ```bash
 # Phase 1: L2 Core Protocol
-forge script script/v2/FullDeploy.s.sol:FullDeploy \
+forge script script/FullDeploy.s.sol:FullDeploy \
   --rpc-url $L2_RPC --broadcast
 # Outputs: Tangle, MultiAssetDelegation addresses
 
 # Phase 2: L1 Beacon Infrastructure
-SKIP_CHAIN_CONFIG=true forge script script/v2/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1 \
+SKIP_CHAIN_CONFIG=true forge script script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1 \
   --rpc-url $L1_RPC --broadcast
 # Outputs: ValidatorPodManager, L2SlashingConnector addresses
 
 # Phase 3: L2 Slashing Receiver
 RESTAKING=<MultiAssetDelegation> L1_CONNECTOR=<L2SlashingConnector> \
-forge script script/v2/DeployL2Slashing.s.sol:DeployL2SlashingHyperlane \
+forge script script/DeployL2Slashing.s.sol:DeployL2SlashingHyperlane \
   --rpc-url $L2_RPC --broadcast
 # Outputs: L2SlashingReceiver address
 
 # Phase 4: Wire L1→L2
-L2_RECEIVER=<L2SlashingReceiver> forge script script/v2/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector \
+L2_RECEIVER=<L2SlashingReceiver> forge script script/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector \
   --rpc-url $L1_RPC --broadcast
 ```
 
@@ -342,8 +342,8 @@ The following tactical improvements were made:
 
 ### 8.2 Bridge Contract Verification
 Added runtime verification to deployment scripts:
-- `script/v2/DeployBeaconSlashing.s.sol` - verifies Hyperlane/LayerZero contracts exist before deployment
-- `script/v2/DeployL2Slashing.s.sol` - verifies bridge contracts on L2 before deployment
+- `script/DeployBeaconSlashing.s.sol` - verifies Hyperlane/LayerZero contracts exist before deployment
+- `script/DeployL2Slashing.s.sol` - verifies bridge contracts on L2 before deployment
 
 ```solidity
 function _verifyBridgeContract(string memory name, address addr) internal view {

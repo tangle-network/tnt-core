@@ -443,7 +443,7 @@ Validator 200000:
 
 ### L2SlashingConnector
 
-Location: `src/v2/beacon/L2SlashingConnector.sol`
+Location: `src/beacon/L2SlashingConnector.sol`
 
 Bridges beacon chain slashing to Tangle L2:
 - Monitors `beaconChainSlashingFactor` changes

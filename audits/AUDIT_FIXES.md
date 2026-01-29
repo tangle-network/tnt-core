@@ -221,64 +221,64 @@ Added appropriate indexing to events.
 ## Files Modified
 
 ### Core Protocol
-- `src/v2/staking/DelegationStorage.sol`
-- `src/v2/staking/DelegationManagerLib.sol`
-- `src/v2/staking/DepositManager.sol`
-- `src/v2/staking/SlashingManager.sol`
-- `src/v2/staking/OperatorManager.sol`
-- `src/v2/staking/RewardsManager.sol`
-- `src/v2/staking/MultiAssetDelegation.sol`
-- `src/v2/libraries/Types.sol`
-- `src/v2/libraries/BN254.sol`
-- `src/v2/libraries/Errors.sol`
-- `src/v2/libraries/PaymentLib.sol`
-- `src/v2/libraries/SlashingLib.sol`
-- `src/v2/libraries/SchemaLib.sol`
-- `src/v2/TangleStorage.sol`
-- `src/v2/Tangle.sol`
-- `src/v2/MBSMRegistry.sol`
-- `src/v2/config/ProtocolConfig.sol`
+- `src/staking/DelegationStorage.sol`
+- `src/staking/DelegationManagerLib.sol`
+- `src/staking/DepositManager.sol`
+- `src/staking/SlashingManager.sol`
+- `src/staking/OperatorManager.sol`
+- `src/staking/RewardsManager.sol`
+- `src/staking/MultiAssetDelegation.sol`
+- `src/libraries/Types.sol`
+- `src/libraries/BN254.sol`
+- `src/libraries/Errors.sol`
+- `src/libraries/PaymentLib.sol`
+- `src/libraries/SlashingLib.sol`
+- `src/libraries/SchemaLib.sol`
+- `src/TangleStorage.sol`
+- `src/Tangle.sol`
+- `src/MBSMRegistry.sol`
+- `src/config/ProtocolConfig.sol`
 
 ### Core Modules
-- `src/v2/core/Base.sol`
-- `src/v2/core/Blueprints.sol`
-- `src/v2/core/Jobs.sol`
-- `src/v2/core/JobsAggregation.sol`
-- `src/v2/core/Operators.sol`
-- `src/v2/core/Payments.sol`
-- `src/v2/core/Quotes.sol`
-- `src/v2/core/Services.sol`
-- `src/v2/core/ServicesApprovals.sol`
-- `src/v2/core/ServicesLifecycle.sol`
-- `src/v2/core/ServicesRequests.sol`
-- `src/v2/core/Slashing.sol`
+- `src/core/Base.sol`
+- `src/core/Blueprints.sol`
+- `src/core/Jobs.sol`
+- `src/core/JobsAggregation.sol`
+- `src/core/Operators.sol`
+- `src/core/Payments.sol`
+- `src/core/Quotes.sol`
+- `src/core/Services.sol`
+- `src/core/ServicesApprovals.sol`
+- `src/core/ServicesLifecycle.sol`
+- `src/core/ServicesRequests.sol`
+- `src/core/Slashing.sol`
 
 ### Beacon Chain
-- `src/v2/beacon/ValidatorPod.sol`
-- `src/v2/beacon/BeaconChainProofs.sol`
-- `src/v2/beacon/L2SlashingReceiver.sol`
-- `src/v2/beacon/bridges/ArbitrumCrossChainMessenger.sol`
-- `src/v2/beacon/bridges/BaseCrossChainMessenger.sol`
-- `src/v2/beacon/bridges/HyperlaneCrossChainMessenger.sol`
-- `src/v2/beacon/bridges/LayerZeroCrossChainMessenger.sol`
+- `src/beacon/ValidatorPod.sol`
+- `src/beacon/BeaconChainProofs.sol`
+- `src/beacon/L2SlashingReceiver.sol`
+- `src/beacon/bridges/ArbitrumCrossChainMessenger.sol`
+- `src/beacon/bridges/BaseCrossChainMessenger.sol`
+- `src/beacon/bridges/HyperlaneCrossChainMessenger.sol`
+- `src/beacon/bridges/LayerZeroCrossChainMessenger.sol`
 
 ### Governance
-- `src/v2/governance/TangleGovernor.sol`
-- `src/v2/governance/TangleTimelock.sol`
+- `src/governance/TangleGovernor.sol`
+- `src/governance/TangleTimelock.sol`
 
 ### Rewards
-- `src/v2/rewards/InflationPool.sol`
+- `src/rewards/InflationPool.sol`
 
 ### Facets
-- `src/v2/facets/staking/StakingAdminFacet.sol`
-- `src/v2/facets/staking/StakingAssetsFacet.sol`
-- `src/v2/facets/staking/StakingOperatorsFacet.sol`
-- `src/v2/facets/tangle/TangleServicesFacet.sol`
+- `src/facets/staking/StakingAdminFacet.sol`
+- `src/facets/staking/StakingAssetsFacet.sol`
+- `src/facets/staking/StakingOperatorsFacet.sol`
+- `src/facets/tangle/TangleServicesFacet.sol`
 
 ### Interfaces
-- `src/v2/interfaces/IMultiAssetDelegation.sol`
-- `src/v2/interfaces/IStaking.sol`
-- `src/v2/interfaces/ITangleServices.sol`
+- `src/interfaces/IMultiAssetDelegation.sol`
+- `src/interfaces/IStaking.sol`
+- `src/interfaces/ITangleServices.sol`
 
 ---
 

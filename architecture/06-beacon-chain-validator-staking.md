@@ -155,7 +155,7 @@ Beacon Block Root
 ### 2.1 New Module Structure
 
 ```
-src/v2/beacon/
+src/beacon/
 ├── BeaconChainProofs.sol       # Merkle proof verification library
 ├── ValidatorPod.sol            # Per-user pod (like EigenPod)
 ├── ValidatorPodManager.sol     # Factory + share accounting
@@ -163,7 +163,7 @@ src/v2/beacon/
 ├── MockBeaconOracle.sol        # For testing (simulates EIP-4788)
 └── ValidatorTypes.sol          # Beacon-specific types
 
-test/v2/beacon/
+test/beacon/
 ├── BeaconChainProofsTest.t.sol # Unit tests for proof library
 ├── ValidatorPodTest.t.sol      # Pod functionality tests
 ├── ValidatorPodManagerTest.t.sol
@@ -482,7 +482,7 @@ contract MockBeaconOracle is IBeaconOracle, Ownable {
 ### 4.1 Unit Tests
 
 ```solidity
-// test/v2/beacon/BeaconChainProofsTest.t.sol
+// test/beacon/BeaconChainProofsTest.t.sol
 contract BeaconChainProofsTest is Test {
     // Test Merkle proof verification
     function test_verifyStateRoot_validProof() external;
@@ -496,7 +496,7 @@ contract BeaconChainProofsTest is Test {
     function test_isValidatorSlashed() external;
 }
 
-// test/v2/beacon/ValidatorPodTest.t.sol
+// test/beacon/ValidatorPodTest.t.sol
 contract ValidatorPodTest is Test {
     // Credential verification
     function test_verifyWithdrawalCredentials_setsValidatorActive() external;
@@ -516,7 +516,7 @@ contract ValidatorPodTest is Test {
 ### 4.2 Integration Tests
 
 ```solidity
-// test/v2/beacon/ValidatorStakingE2E.t.sol
+// test/beacon/ValidatorStakingE2E.t.sol
 contract ValidatorStakingE2ETest is Test {
     function test_fullStakingFlow() external {
         // 1. Create pod
@@ -538,7 +538,7 @@ contract ValidatorStakingE2ETest is Test {
 Port key test utilities from EigenLayer:
 
 ```solidity
-// test/v2/beacon/BeaconTestHarness.sol
+// test/beacon/BeaconTestHarness.sol
 contract BeaconTestHarness is Test {
     using BeaconChainProofs for *;
 
@@ -569,8 +569,8 @@ contract BeaconTestHarness is Test {
 ### 5.1 No Changes to Core Contracts
 
 The beacon chain module is **completely separate**:
-- New directory: `src/v2/beacon/`
-- New test directory: `test/v2/beacon/`
+- New directory: `src/beacon/`
+- New test directory: `test/beacon/`
 - Does NOT modify `MultiAssetDelegation.sol`
 - Does NOT modify `Tangle.sol`
 

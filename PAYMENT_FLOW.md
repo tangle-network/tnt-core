@@ -36,7 +36,7 @@ ServiceFeeDistributor
 
 ### Operator Earnings (Service Payments)
 
-- **Where tracked:** `Tangle` (see `src/v2/core/Payments.sol`)
+- **Where tracked:** `Tangle` (see `src/core/Payments.sol`)
 - **Paid in:** same token used to pay for the service (ETH or ERC20)
 - **View:**
   - `tangle.pendingRewards(operator)` (native)
@@ -47,7 +47,7 @@ ServiceFeeDistributor
 
 ### Restaker Earnings (Service-Fee Restaker Share)
 
-- **Where tracked:** `ServiceFeeDistributor` (see `src/v2/rewards/ServiceFeeDistributor.sol`)
+- **Where tracked:** `ServiceFeeDistributor` (see `src/rewards/ServiceFeeDistributor.sol`)
 - **Paid in:** the service’s payment token (multi-token)
 - **How it allocates:** accumulated-per-score accounting (O(1) updates), using delegation score (principal × lockMultiplier), optionally USD-weighted via oracle.
 - **View (per token):** `ServiceFeeDistributor.pendingRewards(delegator, token)`

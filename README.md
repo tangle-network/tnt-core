@@ -30,11 +30,11 @@ Every deployment must register at least one Master Blueprint Service Manager (MB
 
 #### Full Deploy pipeline
 
-- The config-driven orchestrator lives at `script/v2/FullDeploy.s.sol`. Point `FULL_DEPLOY_CONFIG` at a JSON file under `deploy/config/` (see [`docs/full-deploy.md`](docs/full-deploy.md) for the schema) and run:
+- The config-driven orchestrator lives at `script/FullDeploy.s.sol`. Point `FULL_DEPLOY_CONFIG` at a JSON file under `deploy/config/` (see [`docs/full-deploy.md`](docs/full-deploy.md) for the schema) and run:
   ```bash
   export PRIVATE_KEY=0x...
   export FULL_DEPLOY_CONFIG=deploy/config/base-sepolia.example.json
-  forge script script/v2/FullDeploy.s.sol:FullDeploy --rpc-url $RPC_URL --broadcast --slow
+  forge script script/FullDeploy.s.sol:FullDeploy --rpc-url $RPC_URL --broadcast --slow
   ```
 - The script deploys or reuses the core stack, onboards restake assets, configures the inflation/reward modules, and writes a manifest/migration bundle under `deployments/`.
 - Additional skeleton profiles are staged for upcoming rollouts:

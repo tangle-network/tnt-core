@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Types } from "../../src/v2/libraries/Types.sol";
-import { SchemaLib } from "../../src/v2/libraries/SchemaLib.sol";
+import { Types } from "../../src/libraries/Types.sol";
+import { SchemaLib } from "../../src/libraries/SchemaLib.sol";
 
 /// @title SchemaTestUtils
 /// @notice Generates complex schema/payload pairs for fuzzing SchemaLib

@@ -17,7 +17,7 @@ MIN_OPERATOR_STAKE=1000000000000000000 \
 MIN_DELEGATION=100000000000000000 \
 DEPOSIT_CAP=0 \
 REWARD_MULTIPLIER_BPS=10000 \
-forge script script/v2/AddStakingAsset.s.sol:AddStakingAsset \
+forge script script/AddStakingAsset.s.sol:AddStakingAsset \
   --rpc-url <rpc_url> \
   --broadcast
 ```
@@ -189,7 +189,7 @@ MultiAssetDelegation(restaking).removeAdapter(tokenAddress);
 anvil --chain-id 31337
 
 # Deploy everything including mock tokens
-forge script script/v2/LocalTestnet.s.sol:LocalTestnetSetup \
+forge script script/LocalTestnet.s.sol:LocalTestnetSetup \
   --rpc-url http://127.0.0.1:8545 \
   --broadcast
 
@@ -198,7 +198,7 @@ forge script script/v2/LocalTestnet.s.sol:LocalTestnetSetup \
 
 ### Testing Rebasing Behavior
 
-See `test/v2/staking/AssetAdapterTest.t.sol` for examples of:
+See `test/staking/AssetAdapterTest.t.sol` for examples of:
 - Simulating rebases with `MockRebasingToken`
 - Testing multi-depositor scenarios
 - Verifying share calculations
@@ -207,9 +207,9 @@ See `test/v2/staking/AssetAdapterTest.t.sol` for examples of:
 
 | Script | Purpose |
 |--------|---------|
-| `script/v2/Deploy.s.sol` | Deploy core contracts |
-| `script/v2/AddStakingAsset.s.sol` | Add new asset to whitelist |
-| `script/v2/LocalTestnet.s.sol` | Full local dev environment |
+| `script/Deploy.s.sol` | Deploy core contracts |
+| `script/AddStakingAsset.s.sol` | Add new asset to whitelist |
+| `script/LocalTestnet.s.sol` | Full local dev environment |
 
 ## FAQ
 

@@ -21,7 +21,7 @@ forge build
 forge test
 
 # Run specific test file
-forge test --match-path test/v2/Tangle.t.sol
+forge test --match-path test/Tangle.t.sol
 
 # Run single test function
 forge test --match-test testServiceRequest
@@ -62,8 +62,8 @@ cargo xtask publish
 The protocol uses a mixin pattern where `Tangle.sol` composes all functionality:
 
 ```
-src/v2/Tangle.sol          # Main entry point, composes mixins
-src/v2/core/
+src/Tangle.sol          # Main entry point, composes mixins
+src/core/
 ├── Base.sol               # Shared state, access control, UUPS upgrade
 ├── Blueprints.sol         # Blueprint registration
 ├── Operators.sol          # Operator management
@@ -79,7 +79,7 @@ src/v2/core/
 Pluggable staking backend via `IStaking` interface:
 
 ```
-src/v2/staking/
+src/staking/
 ├── MultiAssetDelegation.sol    # Native O(1) share accounting
 ├── OperatorManager.sol         # Operator status tracking
 ├── SlashingManager.sol         # Slashing execution
@@ -90,9 +90,9 @@ src/v2/staking/
 ### Blueprint Service Managers
 
 ```
-src/v2/MasterBlueprintServiceManager.sol  # Manages MBSM versions
-src/v2/MBSMRegistry.sol                    # Version registry
-src/v2/BlueprintServiceManagerBase.sol     # Base for custom BSMs
+src/MasterBlueprintServiceManager.sol  # Manages MBSM versions
+src/MBSMRegistry.sol                    # Version registry
+src/BlueprintServiceManagerBase.sol     # Base for custom BSMs
 ```
 
 ### Key Abstractions
@@ -105,7 +105,7 @@ src/v2/BlueprintServiceManagerBase.sol     # Base for custom BSMs
 ### Governance
 
 ```
-src/v2/governance/
+src/governance/
 ├── TangleToken.sol      # ERC20Votes governance token
 ├── TangleGovernor.sol   # OpenZeppelin Governor
 └── TangleTimelock.sol   # Timelock controller
@@ -116,7 +116,7 @@ src/v2/governance/
 Native ETH staking via validator pods:
 
 ```
-src/v2/beacon/
+src/beacon/
 ├── ValidatorPod.sol           # Per-operator validator management
 ├── ValidatorPodManager.sol    # Pod factory
 ├── BeaconChainProofs.sol      # Merkle proof verification
@@ -125,21 +125,21 @@ src/v2/beacon/
 
 ## Testing
 
-Tests are in `test/v2/` and use `BaseTest.sol` as the foundation. Key test patterns:
+Tests are in `test/` and use `BaseTest.sol` as the foundation. Key test patterns:
 
-- Unit tests: `test/v2/tangle/`, `test/v2/staking/`, `test/v2/blueprints/`
-- Integration: `test/v2/Integration.t.sol`, `test/v2/scenario/FullStackScenario.t.sol`
-- Fuzz tests: `test/v2/fuzz/`
-- Beacon tests: `test/v2/beacon/`
+- Unit tests: `test/tangle/`, `test/staking/`, `test/blueprints/`
+- Integration: `test/Integration.t.sol`, `test/scenario/FullStackScenario.t.sol`
+- Fuzz tests: `test/fuzz/`
+- Beacon tests: `test/beacon/`
 
 ## Deployment
 
-Config-driven deployment via `script/v2/FullDeploy.s.sol`:
+Config-driven deployment via `script/FullDeploy.s.sol`:
 
 ```bash
 export PRIVATE_KEY=0x...
 export FULL_DEPLOY_CONFIG=deploy/config/base-sepolia.example.json
-forge script script/v2/FullDeploy.s.sol:FullDeploy --rpc-url $RPC_URL --broadcast --slow
+forge script script/FullDeploy.s.sol:FullDeploy --rpc-url $RPC_URL --broadcast --slow
 ```
 
 Local development:

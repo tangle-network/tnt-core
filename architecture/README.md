@@ -25,7 +25,7 @@ Production-ready EVM-native staking protocol for Tempo L1.
 ## Repository Structure
 
 ```
-src/v2/
+src/
 ├── Tangle.sol                      # Core protocol entry point
 ├── core/
 │   ├── Base.sol                    # Shared state, access control

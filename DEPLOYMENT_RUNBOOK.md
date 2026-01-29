@@ -2,14 +2,14 @@
 
 This repo uses Foundry scripts for deployment. The two “production” entrypoints are:
 
-- `script/v2/FullDeploy.s.sol:FullDeploy` (protocol core + optional incentives)
-- `script/v2/DeployBeaconSlashing.s.sol:*` + `script/v2/DeployL2Slashing.s.sol:*` (beacon-slashing cross-chain wiring)
+- `script/FullDeploy.s.sol:FullDeploy` (protocol core + optional incentives)
+- `script/DeployBeaconSlashing.s.sol:*` + `script/DeployL2Slashing.s.sol:*` (beacon-slashing cross-chain wiring)
 
 ## Script Inventory (what exists today)
 
 **Core / Incentives**
-- `script/v2/Deploy.s.sol:DeployV2`: deploys core stack (UUPS proxies) and optionally deploys `TangleToken` (TNT).
-- `script/v2/FullDeploy.s.sol:FullDeploy`: orchestrates `DeployV2` plus:
+- `script/Deploy.s.sol:DeployV2`: deploys core stack (UUPS proxies) and optionally deploys `TangleToken` (TNT).
+- `script/FullDeploy.s.sol:FullDeploy`: orchestrates `DeployV2` plus:
   - Restake asset enablement (with optional adapters)
   - Optional `TangleMetrics`, `RewardVaults`, `InflationPool`
   - Optional `Credits` (standalone Merkle-root credits claim registry; no token transfers)
@@ -17,26 +17,26 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
   - Wires permissions so `RewardVaults` can be called by `MultiAssetDelegation` and `InflationPool`
 
 **Beacon slashing (L1 → L2)**
-- `script/v2/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1*`: deploys:
+- `script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1*`: deploys:
   - `ValidatorPodManager`
   - `L2SlashingConnector`
   - bridge messenger (`HyperlaneCrossChainMessenger` or `LayerZeroCrossChainMessenger`)
   - Optional manifest output via `BEACON_SLASHING_MANIFEST`
   - Supports `SKIP_CHAIN_CONFIG=true` for two-step wiring (deploy first, configure later).
-- `script/v2/DeployL2Slashing.s.sol:DeployL2SlashingHyperlane` / `DeployL2SlashingLayerZero`:
+- `script/DeployL2Slashing.s.sol:DeployL2SlashingHyperlane` / `DeployL2SlashingLayerZero`:
   - deploys `TangleL2Slasher` + `L2SlashingReceiver`
   - deploys the *destination* receiver adapter (`HyperlaneReceiver` / `LayerZeroReceiver`)
   - sets `L2SlashingReceiver.messenger` to the adapter
   - optional manifest output via `L2_SLASHING_MANIFEST`
 
 **Local / E2E**
-- `script/v2/LocalTestnet.s.sol:LocalTestnetSetup`: local Anvil full stack (mock tokens, blueprints, pods).
+- `script/LocalTestnet.s.sol:LocalTestnetSetup`: local Anvil full stack (mock tokens, blueprints, pods).
 - `scripts/e2e-local.sh`: spins up Anvil + deploy + indexer.
   - Also deploys `Credits` and wires its address into the local indexer config automatically.
 
 **Token distribution**
-- `script/v2/DistributeTNT.s.sol:DistributeTNT`: batch ERC20 transfers from the deployer using `DISTRIBUTION_FILE` (example: `deploy/config/tnt-distribution.example.json`).
-- `script/v2/DistributeTNTWithLockup.s.sol:DistributeTNTWithLockup`: batch ERC20 transfers with a configurable unlocked/locked split and a per-recipient cliff lock.
+- `script/DistributeTNT.s.sol:DistributeTNT`: batch ERC20 transfers from the deployer using `DISTRIBUTION_FILE` (example: `deploy/config/tnt-distribution.example.json`).
+- `script/DistributeTNTWithLockup.s.sol:DistributeTNTWithLockup`: batch ERC20 transfers with a configurable unlocked/locked split and a per-recipient cliff lock.
 
 **Substrate → EVM migration (SP1 / ZK)**
 - `packages/migration-claim/`: Foundry subpackage containing `TangleMigration` + `SP1ZKVerifier` and scripts for generating Merkle roots/proofs from real snapshot data.
@@ -54,17 +54,17 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
   - If you are running Substrate→EVM migration, also decide the Merkle root source (`packages/migration-claim/merkle-tree.json` vs regenerated from snapshot) and the lock cliff date.
 
 ### 1) Deploy protocol core on Base Sepolia
-- Run `script/v2/FullDeploy.s.sol:FullDeploy` on Base Sepolia.
+- Run `script/FullDeploy.s.sol:FullDeploy` on Base Sepolia.
 - Output: manifest at `.manifest.path` (e.g. `deployments/base-sepolia-holesky/latest.json`) containing `tangle`, `staking`, `tntToken`, and incentives addresses.
 
 ### 2) Deploy beacon slashing infra on Holesky (without L2 wiring)
-- Run `script/v2/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1Holesky` (or `...HoleskyLayerZero`) on Holesky with:
+- Run `script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1Holesky` (or `...HoleskyLayerZero`) on Holesky with:
   - `SKIP_CHAIN_CONFIG=true`
   - `TANGLE_CHAIN_ID=84532` (destination chain id)
   - `BEACON_SLASHING_MANIFEST=deployments/base-sepolia-holesky/beacon-slashing.json`
 
 ### 3) Deploy L2 slashing receiver on Base Sepolia
-- Run `script/v2/DeployL2Slashing.s.sol:DeployL2SlashingHyperlane` (or `...LayerZero`) on Base Sepolia with:
+- Run `script/DeployL2Slashing.s.sol:DeployL2SlashingHyperlane` (or `...LayerZero`) on Base Sepolia with:
   - `RESTAKING=<restaking from FullDeploy manifest>`
   - `SOURCE_CHAIN_ID=17000`
   - `L1_CONNECTOR=<connector from Holesky manifest>`
@@ -73,7 +73,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
   - For LayerZero + Holesky: set `LAYERZERO_SOURCE_EID` (LayerZero EID for Holesky).
 
 ### 4) Wire Holesky connector → Base Sepolia receiver
-- Run `script/v2/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector` on Holesky with:
+- Run `script/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector` on Holesky with:
   - `CONNECTOR=<connector from Holesky manifest>`
   - `MESSENGER=<messenger from Holesky manifest>`
   - `TANGLE_CHAIN_ID=84532`
@@ -94,13 +94,13 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 ## Swapping Base for another chain (Arbitrum/Tempo/any EVM)
 
 **Core + incentives (`FullDeploy`)**
-- Chain-agnostic: run `script/v2/FullDeploy.s.sol:FullDeploy` against any EVM RPC, and create a matching `deploy/config/<network>.json` for addresses/policy.
+- Chain-agnostic: run `script/FullDeploy.s.sol:FullDeploy` against any EVM RPC, and create a matching `deploy/config/<network>.json` for addresses/policy.
 
 **Beacon slashing cross-chain (L1 ↔ L2)**
-- `script/v2/DeployL2Slashing.s.sol:*` already supports overrides for non-Base chains via env vars:
+- `script/DeployL2Slashing.s.sol:*` already supports overrides for non-Base chains via env vars:
   - `HYPERLANE_MAILBOX` (for Hyperlane receiver deployments)
   - `LAYERZERO_ENDPOINT` and `LAYERZERO_SOURCE_EID` (for LayerZero)
-- `script/v2/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1` supports deploying the L1 messenger on additional chains by setting:
+- `script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1` supports deploying the L1 messenger on additional chains by setting:
   - `L1_HYPERLANE_MAILBOX` + `L1_HYPERLANE_IGP` (Hyperlane)
   - `L1_LAYERZERO_ENDPOINT` (LayerZero)
 
@@ -121,7 +121,7 @@ Migration is handled by `FullDeploy` when `migration.deploy=true` in the config.
 
 If doing Substrate→EVM migration + EVM airdrop:
 - Substrate claims: deploy and fund `TangleMigration` from `packages/migration-claim/` using the Merkle root from `packages/migration-claim/merkle-tree.json` (and configure `unlockTimestamp`/`unlockedBps` *before the first claim* via `setLockConfig` if you need to override defaults).
-- EVM airdrop: use `packages/migration-claim/scripts/evmClaimsToDistribution.ts` to produce batched JSON files, then run `script/v2/DistributeTNTWithLockup.s.sol:DistributeTNTWithLockup` against each batch.
+- EVM airdrop: use `packages/migration-claim/scripts/evmClaimsToDistribution.ts` to produce batched JSON files, then run `script/DistributeTNTWithLockup.s.sol:DistributeTNTWithLockup` against each batch.
 
 ### Testnet (Base Sepolia) migration deploy (feature parity)
 
@@ -146,7 +146,7 @@ Notes:
 **Ready / in-repo**
 - Core + incentives deploy orchestration (`FullDeploy`) with JSON configs and manifest outputs.
 - Beacon slashing infra deployment on L1 and L2, including destination receiver adapters and manifests.
-- Targeted deployment-script tests: `test/v2/scripts/DeploymentScriptsTest.t.sol`.
+- Targeted deployment-script tests: `test/scripts/DeploymentScriptsTest.t.sol`.
 
 **Not production-complete yet (gaps)**
 - Mainnet configs (`deploy/config/base-mainnet.json`) still contain placeholder addresses and TODO policy values.
@@ -154,7 +154,7 @@ Notes:
   - `DistributeTNTWithLockup` for direct EVM lists (batched).
   - `packages/migration-claim` for Substrate→EVM Merkle+ZK claims with the same lock split.
   But these are not yet orchestrated by `FullDeploy` (they’re run as separate rollout steps).
-- Governance deployment is present as contracts (`src/v2/governance/GovernanceDeployer.sol`) but not integrated into `FullDeploy` (governor/timelock deployment is still separate; `FullDeploy` now supports role handoff to timelock/multisig if you wire them in the config).
+- Governance deployment is present as contracts (`src/governance/GovernanceDeployer.sol`) but not integrated into `FullDeploy` (governor/timelock deployment is still separate; `FullDeploy` now supports role handoff to timelock/multisig if you wire them in the config).
 - LayerZero Holesky EID is not hardcoded; you must provide `LAYERZERO_SOURCE_EID`.
 
 ## Rewards / Inflation (current model)
