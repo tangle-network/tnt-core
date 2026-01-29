@@ -59,11 +59,11 @@ fn gen_bindings() -> Result<()> {
             .arg("-j")
             .arg("0")
             .args([
-                "src/v2/interfaces/ITangle.sol",
-                "src/v2/interfaces/ITangleBlueprints.sol",
-                "src/v2/interfaces/IBlueprintServiceManager.sol",
-                "src/v2/staking/OperatorStatusRegistry.sol",
-                "src/v2/staking/MultiAssetDelegation.sol",
+                "src/interfaces/ITangle.sol",
+                "src/interfaces/ITangleBlueprints.sol",
+                "src/interfaces/IBlueprintServiceManager.sol",
+                "src/staking/OperatorStatusRegistry.sol",
+                "src/staking/MultiAssetDelegation.sol",
             ]),
         "forge build",
     )?;
