@@ -88,6 +88,8 @@ networks:
           - event: SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 totalSlashed, uint256 exchangeRateBefore, uint256 exchangeRateAfter)
           - event: RewardDistributed(address indexed operator, uint256 amount)
           - event: RewardClaimed(address indexed account, uint256 amount)
+          - event: OperatorDelegationModeSet(address indexed operator, uint8 mode)
+          - event: OperatorWhitelistUpdated(address indexed operator, address indexed delegator, bool approved)
       - name: OperatorStatusRegistry
         address:
           - "0x17746107e0b4cfaf4c96140f5e501bf10e740b65"

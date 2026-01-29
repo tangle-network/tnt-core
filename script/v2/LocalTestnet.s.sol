@@ -54,12 +54,16 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     uint256 constant DEPLOYER_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
     uint256 constant OPERATOR1_KEY = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
     uint256 constant OPERATOR2_KEY = 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a;
+    uint256 constant OPERATOR3_KEY = 0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a; // Account 4
     uint256 constant DELEGATOR_KEY = 0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6;
+    uint256 constant WHITELISTED_DELEGATOR_KEY = 0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba; // Account 5
 
     address deployer;
     address operator1;
     address operator2;
+    address operator3;
     address delegator;
+    address whitelistedDelegator;
 
     bool internal useBroadcastKeys;
 
@@ -117,21 +121,27 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         deployer = vm.addr(DEPLOYER_KEY);
         operator1 = vm.addr(OPERATOR1_KEY);
         operator2 = vm.addr(OPERATOR2_KEY);
+        operator3 = vm.addr(OPERATOR3_KEY);
         delegator = vm.addr(DELEGATOR_KEY);
+        whitelistedDelegator = vm.addr(WHITELISTED_DELEGATOR_KEY);
 
         // Dry runs don't have funded accounts by default.
         if (!useBroadcastKeys) {
             vm.deal(deployer, 10_000 ether);
             vm.deal(operator1, 10_000 ether);
             vm.deal(operator2, 10_000 ether);
+            vm.deal(operator3, 10_000 ether);
             vm.deal(delegator, 10_000 ether);
+            vm.deal(whitelistedDelegator, 10_000 ether);
         }
 
         console2.log("=== Accounts ===");
         console2.log("Deployer:", deployer);
         console2.log("Operator1:", operator1);
         console2.log("Operator2:", operator2);
+        console2.log("Operator3:", operator3);
         console2.log("Delegator:", delegator);
+        console2.log("Whitelisted Delegator:", whitelistedDelegator);
 
         _deployContracts();
         _deployIncentives();
@@ -139,6 +149,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         _configureRewardVaults();
         _deployPodManager();
         _registerOperatorsRestaking();
+        _setupDelegationModes();
         _deployLiquidDelegation();
         _registerPodManagerOperators();
         _createBlueprint();
@@ -171,11 +182,14 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("InflationPool:", inflationPool);
         console2.log("\n=== Liquid Delegation ===");
         console2.log("LiquidDelegationFactory:", address(liquidFactory));
-        console2.log("LiquidVault WETH (operator1):", liquidVaultETH);
+        console2.log("LiquidVault WETH (operator2):", liquidVaultETH);
         console2.log("LiquidVault USDC (operator2):", liquidVaultUSDC);
-        console2.log("\nOperators registered and staked");
-        console2.log("Delegator has delegated to both operators");
-        console2.log("Service is active and ready for jobs");
+        console2.log("\n=== Operators & Delegation Modes ===");
+        console2.log("Operator1:", operator1, "- Disabled (self-stake only)");
+        console2.log("Operator2:", operator2, "- Open (anyone can delegate)");
+        console2.log("Operator3:", operator3, "- Whitelist (whitelisted delegators only)");
+        console2.log("Whitelisted Delegator:", whitelistedDelegator);
+        console2.log("\nService is active and ready for jobs");
 
         return serviceId;
     }
@@ -541,6 +555,67 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         } else {
             vm.stopPrank();
         }
+
+        // Operator 3 registers with TNT stake
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR3_KEY);
+        } else {
+            vm.startPrank(operator3);
+        }
+        tntToken.approve(stakingProxy, operatorBond);
+        staking.registerOperatorWithAsset(address(tntToken), operatorBond);
+        console2.log("Operator3 registered with 100 TNT stake");
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+    }
+
+    function _setupDelegationModes() internal {
+        console2.log("\n=== Setting Up Delegation Modes ===");
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
+
+        // Operator 1: Disabled (default, no action needed)
+        // Mode 0 = Disabled - only operator can self-stake
+        console2.log("Operator1: Disabled (default)");
+
+        // Operator 2: Open (anyone can delegate)
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR2_KEY);
+        } else {
+            vm.startPrank(operator2);
+        }
+        staking.setDelegationMode(Types.DelegationMode.Open);
+        console2.log("Operator2: Open");
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+
+        // Operator 3: Whitelist (only whitelisted addresses can delegate)
+        if (useBroadcastKeys) {
+            vm.startBroadcast(OPERATOR3_KEY);
+        } else {
+            vm.startPrank(operator3);
+        }
+        staking.setDelegationMode(Types.DelegationMode.Whitelist);
+        // Whitelist Account 5 (whitelistedDelegator)
+        address[] memory toWhitelist = new address[](1);
+        toWhitelist[0] = whitelistedDelegator;
+        staking.setDelegationWhitelist(toWhitelist, true);
+        console2.log("Operator3: Whitelist (whitelisted:", whitelistedDelegator, ")");
+        if (useBroadcastKeys) {
+            vm.stopBroadcast();
+        } else {
+            vm.stopPrank();
+        }
+
+        console2.log("Delegation modes configured:");
+        console2.log("  Operator1 - Disabled: Only self-stake allowed");
+        console2.log("  Operator2 - Open: Anyone can delegate");
+        console2.log("  Operator3 - Whitelist: Only whitelisted delegators");
     }
 
     function _createBlueprint() internal {
@@ -616,13 +691,10 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             vm.startPrank(delegator);
         }
 
-        // Deposit and delegate 5 ETH to operator1
-        staking.depositAndDelegate{ value: 5 ether }(operator1);
-        console2.log("Delegated 5 ETH to Operator1");
-
-        // Deposit and delegate 5 ETH to operator2
-        staking.depositAndDelegate{ value: 5 ether }(operator2);
-        console2.log("Delegated 5 ETH to Operator2");
+        // Deposit and delegate 10 ETH to operator2 (Open mode - accepts delegations)
+        // Note: operator1 has Disabled mode, so we cannot delegate to it
+        staking.depositAndDelegate{ value: 10 ether }(operator2);
+        console2.log("Delegated 10 ETH to Operator2 (Open mode)");
 
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -636,6 +708,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
         uint64[] memory emptyBlueprints = new uint64[](0);
 
+        // Note: All delegations go to operator2 (Open mode) since operator1 has Disabled mode
         if (useBroadcastKeys) {
             vm.startBroadcast(DELEGATOR_KEY);
         } else {
@@ -646,9 +719,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         usdc.approve(stakingProxy, type(uint256).max);
         staking.depositERC20(address(usdc), 10_000 * 10 ** 6); // 10k USDC
         staking.delegateWithOptions(
-            operator1, address(usdc), 5000 * 10 ** 6, Types.BlueprintSelectionMode.All, emptyBlueprints
+            operator2, address(usdc), 5000 * 10 ** 6, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
-        console2.log("Deposited 10k USDC, delegated 5k to Operator1");
+        console2.log("Deposited 10k USDC, delegated 5k to Operator2");
 
         // Deposit and delegate TNT to enable TNT restaker incentive testing.
         uint256 tntBalance = tntToken.balanceOf(delegator);
@@ -656,12 +729,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             tntToken.approve(stakingProxy, type(uint256).max);
             staking.depositERC20(address(tntToken), 2000 ether);
             staking.delegateWithOptions(
-                operator1, address(tntToken), 1000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+                operator2, address(tntToken), 2000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
             );
-            staking.delegateWithOptions(
-                operator2, address(tntToken), 1000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
-            );
-            console2.log("Deposited 2000 TNT, delegated 1000 to each operator");
+            console2.log("Deposited 2000 TNT, delegated 2000 to Operator2");
         } else {
             console2.log("Skipping TNT delegation - insufficient TNT balance for delegator:", tntBalance);
         }
@@ -678,9 +748,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         dai.approve(stakingProxy, type(uint256).max);
         staking.depositERC20(address(dai), 10_000 ether); // 10k DAI
         staking.delegateWithOptions(
-            operator1, address(dai), 5000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+            operator2, address(dai), 5000 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
-        console2.log("Deposited 10k DAI, delegated 5k to Operator1");
+        console2.log("Deposited 10k DAI, delegated 5k to Operator2");
 
         // Deposit and delegate WETH
         weth.approve(stakingProxy, type(uint256).max);
@@ -694,9 +764,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         stETH.approve(stakingProxy, type(uint256).max);
         staking.depositERC20(address(stETH), 10 ether); // 10 stETH
         staking.delegateWithOptions(
-            operator1, address(stETH), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+            operator2, address(stETH), 5 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
-        console2.log("Deposited 10 stETH, delegated 5 to Operator1");
+        console2.log("Deposited 10 stETH, delegated 5 to Operator2");
 
         // Deposit and delegate wstETH
         wstETH.approve(stakingProxy, type(uint256).max);
@@ -710,9 +780,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         eigen.approve(stakingProxy, type(uint256).max);
         staking.depositERC20(address(eigen), 100 ether); // 100 EIGEN
         staking.delegateWithOptions(
-            operator1, address(eigen), 50 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
+            operator2, address(eigen), 50 ether, Types.BlueprintSelectionMode.All, emptyBlueprints
         );
-        console2.log("Deposited 100 EIGEN, delegated 50 to Operator1");
+        console2.log("Deposited 100 EIGEN, delegated 50 to Operator2");
 
         if (useBroadcastKeys) {
             vm.stopBroadcast();
@@ -872,6 +942,11 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     function _deployLiquidDelegation() internal {
         console2.log("\n=== Deploying Liquid Delegation ===");
+
+        // Note: Delegation modes are already configured in _setupDelegationModes()
+        // Liquid vaults use operator2 (Open mode) so they can accept delegations
+        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
+
         if (useBroadcastKeys) {
             vm.startBroadcast(DEPLOYER_KEY);
         } else {
@@ -879,15 +954,14 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
 
         // Deploy liquid delegation factory
-        IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
         liquidFactory = new LiquidDelegationFactory(staking);
         console2.log("LiquidDelegationFactory:", address(liquidFactory));
 
-        // Create vaults (anyone can create vaults, keeping within deployer broadcast)
+        // Create vaults for operator2 (Open mode - accepts delegations from anyone)
         // Note: LiquidDelegationVault uses ERC20 safeTransferFrom, so we use WETH instead of native ETH
         uint64[] memory emptyBlueprints = new uint64[](0);
-        liquidVaultETH = payable(liquidFactory.createVault(operator1, address(weth), emptyBlueprints));
-        console2.log("LiquidVault WETH (operator1):", liquidVaultETH);
+        liquidVaultETH = payable(liquidFactory.createVault(operator2, address(weth), emptyBlueprints));
+        console2.log("LiquidVault WETH (operator2):", liquidVaultETH);
 
         // Create USDC vault for operator2
         liquidVaultUSDC = payable(liquidFactory.createVault(operator2, address(usdc), emptyBlueprints));
