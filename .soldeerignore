@@ -1,0 +1,59 @@
+# Test and script files
+test/
+script/
+scripts/
+examples/
+
+# Build artifacts
+out/
+cache/
+broadcast/
+deployments/
+
+# Dependencies (users will install their own)
+dependencies/
+
+# Rust bindings and tooling
+bindings/
+fixtures/
+xtask/
+target/
+Cargo.toml
+Cargo.lock
+
+# Indexer
+indexer/
+
+# Subpackages and apps (separate projects)
+packages/
+apps/
+
+# Documentation
+*.md
+architecture/
+audits/
+doc/
+deploy/
+whitepaper/
+
+# CI and tooling
+.github/
+.vscode/
+.claude/
+.env*
+.gitignore
+.gitmodules
+
+# Coverage
+lcov.info
+coverage/
+coverage.sh
+
+# Misc
+node_modules/
+remappings.txt
+soldeer.lock
+flake.nix
+flake.lock
+foundry.lock
+.cargo/
