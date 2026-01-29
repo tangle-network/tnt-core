@@ -55,3 +55,9 @@ script/tanglepod-cli/tanglepod-cli
 
 # Claude Code
 .claude/
+
+# LaTeX auxiliary files
+*.aux
+*.log
+*.out
+*.toc
