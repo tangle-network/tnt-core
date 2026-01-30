@@ -1,0 +1,7 @@
+{
+  "label": "liquidity-ops",
+  "description": "Carved from treasury for liquidity and operational expenses (100% liquid at launch)",
+  "amount": "5000000000000000000000000",
+  "amountTNT": "5,000,000",
+  "source": "treasury"
+}

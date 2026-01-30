@@ -1,0 +1,536 @@
+use alloy_primitives::U256;
+use axum::{
+    extract::{ConnectInfo, Path, State},
+    http::{HeaderMap, StatusCode},
+    response::IntoResponse,
+    Json,
+};
+use std::net::SocketAddr;
+use tracing::{error, info, warn};
+use uuid::Uuid;
+
+use crate::cache::ProofCache;
+use crate::prover::check_already_claimed;
+use crate::queue::{EnqueueResult, JobQueue};
+use crate::rate_limit::{RateLimitResult, RateLimiter};
+use crate::signature::verify_signature;
+use crate::types::{
+    error_codes, AppState, HealthResponse, JobEntry, JobMessage, JobResponse, JobStatus,
+    ProveRequest, StatusResponse,
+};
+use crate::validation::{
+    cache_key, extract_client_ip, rate_limit_key_ip, rate_limit_key_pubkey, validate_request,
+};
+
+/// Submit a new proof generation job
+pub async fn submit_job(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Json(request): Json<ProveRequest>,
+) -> Result<Json<JobResponse>, (StatusCode, Json<StatusResponse>)> {
+    // 0. Extract client IP for rate limiting
+    let client_ip = extract_client_ip(
+        &headers,
+        Some(&addr.to_string()),
+        state.config.trust_proxy_headers,
+    );
+
+    // 1. Check IP-based rate limit FIRST (cheapest check, catches scanners/bots)
+    let ip_rate_limit_key = rate_limit_key_ip(&client_ip);
+    let ip_limiter = RateLimiter::new(
+        state.ip_rate_limits.clone(),
+        state.config.ip_rate_limit_window_seconds,
+        state.config.ip_rate_limit_max_requests,
+    );
+
+    match ip_limiter.check_and_update(&ip_rate_limit_key).await {
+        RateLimitResult::Limited { retry_after } => {
+            warn!(
+                "IP rate limited: {} (retry after {}s)",
+                client_ip, retry_after
+            );
+            return Err((
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(StatusResponse::failed_with_retry(
+                    error_codes::RATE_LIMITED,
+                    format!(
+                        "Too many requests from your IP. Please wait {} seconds.",
+                        retry_after
+                    ),
+                    retry_after,
+                )),
+            ));
+        }
+        RateLimitResult::Allowed => {}
+    }
+
+    // 2. Validate input format
+    let validated = validate_request(&request).map_err(|e| {
+        warn!("Invalid request: {}", e.message);
+        (
+            StatusCode::BAD_REQUEST,
+            Json(StatusResponse::failed(
+                error_codes::INVALID_INPUT,
+                e.message,
+            )),
+        )
+    })?;
+
+    // 3. Check eligibility by pubkey (handles different SS58 prefixes)
+    if !state.eligibility.is_eligible_by_pubkey(&validated.pubkey) {
+        warn!("Ineligible address: {}", request.ss58_address);
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(StatusResponse::failed(
+                error_codes::NOT_ELIGIBLE,
+                "This address is not eligible for migration claims".to_string(),
+            )),
+        ));
+    }
+
+    // 4. Verify amount matches the eligible balance (by pubkey)
+    let request_amount = U256::from_be_bytes(validated.amount);
+    if !state
+        .eligibility
+        .verify_amount_by_pubkey(&validated.pubkey, &request_amount)
+    {
+        warn!(
+            "Amount mismatch for {}: requested {} but eligible for different amount",
+            request.ss58_address, request_amount
+        );
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(StatusResponse::failed(
+                error_codes::AMOUNT_MISMATCH,
+                "Requested amount does not match the eligible balance".to_string(),
+            )),
+        ));
+    }
+
+    // 5. Verify signature (if enabled)
+    if state.config.verify_signatures {
+        if let Err(e) = verify_signature(
+            &validated.pubkey,
+            &validated.signature,
+            &validated.challenge,
+        ) {
+            warn!("Invalid signature for {}: {}", request.ss58_address, e);
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(StatusResponse::failed(
+                    error_codes::INVALID_SIGNATURE,
+                    "Signature verification failed. Please sign with the correct key.".to_string(),
+                )),
+            ));
+        }
+    }
+
+    // 6. Check per-pubkey rate limit (existing, for abuse prevention)
+    let rate_limit_key = rate_limit_key_pubkey(&validated.pubkey);
+    let rate_limiter = RateLimiter::new(
+        state.rate_limits.clone(),
+        state.config.rate_limit_window_seconds,
+        state.config.rate_limit_max_requests,
+    );
+
+    match rate_limiter.check_and_update(&rate_limit_key).await {
+        RateLimitResult::Limited { retry_after } => {
+            warn!(
+                "Rate limited: {} (retry after {}s)",
+                request.ss58_address, retry_after
+            );
+            return Err((
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(StatusResponse::failed_with_retry(
+                    error_codes::RATE_LIMITED,
+                    format!(
+                        "Too many requests. Please wait {} seconds before trying again.",
+                        retry_after
+                    ),
+                    retry_after,
+                )),
+            ));
+        }
+        RateLimitResult::Allowed => {}
+    }
+
+    // 7. Check cache for existing proof
+    let cache_key = cache_key(&request);
+    let proof_cache = ProofCache::new(state.cache.clone(), state.config.cache_ttl_seconds);
+
+    if let Some(cached) = proof_cache.get(&cache_key).await {
+        info!("Cache hit for {}", request.ss58_address);
+        // Return a synthetic completed job with the cached proof
+        let job_id = Uuid::new_v4().to_string();
+        {
+            let mut jobs = state.jobs.lock().await;
+            jobs.insert(
+                job_id.clone(),
+                JobEntry::new(JobStatus::Completed {
+                    zk_proof: cached.zk_proof,
+                    public_values: cached.public_values,
+                }),
+            );
+        }
+        return Ok(Json(JobResponse { job_id }));
+    }
+
+    // 8. Check if user has already claimed on-chain
+    if let Some(ref claim_config) = state.config.claim_contract {
+        match check_already_claimed(
+            claim_config,
+            &request.ss58_address,
+            state.config.rpc_timeout_seconds,
+        )
+        .await
+        {
+            Ok(true) => {
+                info!(
+                    "Rejecting request: {} has already claimed",
+                    request.ss58_address
+                );
+                return Err((
+                    StatusCode::CONFLICT,
+                    Json(StatusResponse::failed(
+                        error_codes::ALREADY_CLAIMED,
+                        "This address has already claimed tokens".to_string(),
+                    )),
+                ));
+            }
+            Ok(false) => {
+                // User hasn't claimed, proceed
+            }
+            Err(e) => {
+                error!(
+                    "Failed to check claim status for {}: {}",
+                    request.ss58_address, e
+                );
+                return Err((
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(StatusResponse::failed(
+                        error_codes::RPC_UNAVAILABLE,
+                        format!("Unable to verify claim status: {e}. Please try again."),
+                    )),
+                ));
+            }
+        }
+    }
+
+    // 9. Create job and try to enqueue
+    let job_id = Uuid::new_v4().to_string();
+
+    // Try to enqueue if we have a queue
+    if let (Some(sender), Some(queue_size)) =
+        (state.job_sender.as_ref(), state.queue_size.as_ref())
+    {
+        let queue = JobQueue::from_sender(
+            sender.clone(),
+            state.config.queue_capacity,
+            queue_size.clone(),
+        );
+
+        match queue
+            .try_enqueue(JobMessage {
+                job_id: job_id.clone(),
+                request: request.clone(),
+            })
+            .await
+        {
+            EnqueueResult::Queued => {
+                // Create pending job entry
+                {
+                    let mut jobs = state.jobs.lock().await;
+                    jobs.insert(job_id.clone(), JobEntry::new(JobStatus::Pending));
+                }
+                info!("Job {} queued for {}", job_id, request.ss58_address);
+            }
+            EnqueueResult::QueueFull => {
+                warn!("Queue full, rejecting job for {}", request.ss58_address);
+                return Err((
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(StatusResponse::failed(
+                        error_codes::QUEUE_FULL,
+                        "Server is at capacity. Please try again later.".to_string(),
+                    )),
+                ));
+            }
+        }
+    } else if state.job_sender.is_some() {
+        error!("Job sender configured but queue size counter is missing");
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(StatusResponse::failed(
+                error_codes::INTERNAL_ERROR,
+                "Server misconfiguration".to_string(),
+            )),
+        ));
+    } else {
+        // Legacy mode: spawn task directly (for backward compatibility during transition)
+        {
+            let mut jobs = state.jobs.lock().await;
+            jobs.insert(job_id.clone(), JobEntry::new(JobStatus::Pending));
+        }
+
+        let jobs = state.jobs.clone();
+        let cache = state.cache.clone();
+        let verify_proof = state.config.verify_proof;
+        let verify_onchain = state.config.verify_onchain.clone();
+        let prover_mode = state.config.prover_mode.clone();
+        let job_id_clone = job_id.clone();
+        let cache_key_clone = cache_key.clone();
+        let config = state.config.clone();
+        let ss58_address = request.ss58_address.clone();
+        let metrics = state.metrics.clone();
+
+        tokio::spawn(async move {
+            use crate::prover::generate_proof;
+            use crate::types::{now_ts, CachedProof};
+
+            // Update to running
+            {
+                let mut jobs = jobs.lock().await;
+                if let Some(entry) = jobs.get_mut(&job_id_clone) {
+                    entry.status = JobStatus::Running;
+                    entry.updated_at = now_ts();
+                }
+            }
+
+            // Generate proof with timeout
+            let timeout = std::time::Duration::from_secs(config.proof_timeout_seconds);
+            let prover_mode_clone = prover_mode.clone();
+            let handle = tokio::task::spawn_blocking(move || {
+                generate_proof(request, verify_proof, verify_onchain, &prover_mode_clone)
+            });
+            tokio::pin!(handle);
+            let result = tokio::select! {
+                biased;
+                res = &mut handle => Some(res),
+                _ = tokio::time::sleep(timeout) => None,
+            };
+            let timed_out = result.is_none();
+
+            let final_status = match result {
+                Some(Ok(Ok((zk_proof, public_values)))) => {
+                    metrics.record_completion();
+                    // Store in cache
+                    {
+                        let mut c = cache.lock().await;
+                        c.insert(
+                            cache_key_clone.clone(),
+                            CachedProof::new(zk_proof.clone(), public_values.clone()),
+                        );
+                    }
+                    JobStatus::Completed {
+                        zk_proof,
+                        public_values,
+                    }
+                }
+                Some(Ok(Err(err))) => {
+                    error!("Proof generation failed for job {}: {}", job_id_clone, err);
+                    JobStatus::Failed {
+                        error: format!("{}: {}", error_codes::PROOF_FAILED, err),
+                    }
+                }
+                Some(Err(join_err)) => {
+                    error!("Job {} panicked: {}", job_id_clone, join_err);
+                    JobStatus::Failed {
+                        error: format!("{}: task panicked", error_codes::INTERNAL_ERROR),
+                    }
+                }
+                None => {
+                    metrics.record_timeout();
+                    error!("Job {} timed out after {:?}", job_id_clone, timeout);
+                    JobStatus::Failed {
+                        error: format!(
+                            "{}: proof generation exceeded {} seconds",
+                            error_codes::TIMEOUT,
+                            timeout.as_secs()
+                        ),
+                    }
+                }
+            };
+
+            // Update job status
+            {
+                let mut jobs = jobs.lock().await;
+                if let Some(entry) = jobs.get_mut(&job_id_clone) {
+                    entry.status = final_status;
+                    entry.updated_at = now_ts();
+                }
+            }
+
+            if timed_out {
+                match handle.await {
+                    Ok(Ok((zk_proof, public_values))) => {
+                        metrics.record_completion();
+                        {
+                            let mut c = cache.lock().await;
+                            c.insert(
+                                cache_key_clone,
+                                CachedProof::new(zk_proof.clone(), public_values.clone()),
+                            );
+                        }
+                        let mut jobs = jobs.lock().await;
+                        if let Some(entry) = jobs.get_mut(&job_id_clone) {
+                            entry.status = JobStatus::Completed {
+                                zk_proof,
+                                public_values,
+                            };
+                            entry.updated_at = now_ts();
+                        }
+                    }
+                    Ok(Err(err)) => {
+                        error!(
+                            "Proof generation failed for job {} after timeout: {}",
+                            job_id_clone, err
+                        );
+                        let mut jobs = jobs.lock().await;
+                        if let Some(entry) = jobs.get_mut(&job_id_clone) {
+                            entry.status = JobStatus::Failed {
+                                error: format!("{}: {}", error_codes::PROOF_FAILED, err),
+                            };
+                            entry.updated_at = now_ts();
+                        }
+                    }
+                    Err(join_err) => {
+                        error!(
+                            "Job {} panicked after timeout: {}",
+                            job_id_clone, join_err
+                        );
+                        let mut jobs = jobs.lock().await;
+                        if let Some(entry) = jobs.get_mut(&job_id_clone) {
+                            entry.status = JobStatus::Failed {
+                                error: format!("{}: task panicked", error_codes::INTERNAL_ERROR),
+                            };
+                            entry.updated_at = now_ts();
+                        }
+                    }
+                }
+                metrics.decrement_timed_out_still_running();
+            }
+        });
+
+        info!("Job {} spawned for {}", job_id, ss58_address);
+    }
+
+    Ok(Json(JobResponse { job_id }))
+}
+
+/// Get job status
+pub async fn job_status(
+    State(state): State<AppState>,
+    Path(job_id): Path<String>,
+) -> Result<Json<StatusResponse>, (StatusCode, Json<StatusResponse>)> {
+    let jobs = state.jobs.lock().await;
+    match jobs.get(&job_id) {
+        Some(job) => Ok(Json(status_from_job(&job.status))),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(StatusResponse::failed(
+                error_codes::NOT_FOUND,
+                "Job not found".to_string(),
+            )),
+        )),
+    }
+}
+
+/// Health check endpoint
+pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
+    let jobs = state.jobs.lock().await;
+    let cache = state.cache.lock().await;
+
+    let queue_size = state
+        .queue_size
+        .as_ref()
+        .map(|counter| counter.load(std::sync::atomic::Ordering::SeqCst))
+        .unwrap_or(0);
+
+    let response = HealthResponse {
+        status: "ok".to_string(),
+        prover_mode: state.config.prover_mode.clone(),
+        verify_proof: state.config.verify_proof,
+        verify_onchain: state.config.verify_onchain.is_some(),
+        jobs: jobs.len(),
+        cache_size: cache.len(),
+        queue_size,
+        queue_capacity: state.config.queue_capacity,
+        proof_metrics: state.metrics.snapshot(),
+    };
+    (StatusCode::OK, Json(response))
+}
+
+/// Convert job status to response
+fn status_from_job(status: &JobStatus) -> StatusResponse {
+    match status {
+        JobStatus::Pending => StatusResponse::pending(),
+        JobStatus::Running => StatusResponse::running(),
+        JobStatus::Completed {
+            zk_proof,
+            public_values,
+        } => StatusResponse::completed(zk_proof.clone(), public_values.clone()),
+        JobStatus::Failed { error } => {
+            // Parse the error code from the error message if present
+            let (code, message) = if let Some(idx) = error.find(':') {
+                let code = &error[..idx];
+                let msg = error[idx + 1..].trim();
+                (code, msg.to_string())
+            } else {
+                (error_codes::PROOF_FAILED, error.clone())
+            };
+            StatusResponse::failed(code, message)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_status_from_job_pending() {
+        let status = JobStatus::Pending;
+        let resp = status_from_job(&status);
+        assert_eq!(resp.status, "pending");
+    }
+
+    #[test]
+    fn test_status_from_job_running() {
+        let status = JobStatus::Running;
+        let resp = status_from_job(&status);
+        assert_eq!(resp.status, "running");
+    }
+
+    #[test]
+    fn test_status_from_job_completed() {
+        let status = JobStatus::Completed {
+            zk_proof: "0x123".to_string(),
+            public_values: "0x456".to_string(),
+        };
+        let resp = status_from_job(&status);
+        assert_eq!(resp.status, "completed");
+        assert_eq!(resp.zk_proof, Some("0x123".to_string()));
+        assert_eq!(resp.public_values, Some("0x456".to_string()));
+    }
+
+    #[test]
+    fn test_status_from_job_failed_with_code() {
+        let status = JobStatus::Failed {
+            error: "timeout: proof generation exceeded 600 seconds".to_string(),
+        };
+        let resp = status_from_job(&status);
+        assert_eq!(resp.status, "failed");
+        assert_eq!(resp.code, Some("timeout".to_string()));
+        assert!(resp.error.unwrap().contains("600 seconds"));
+    }
+
+    #[test]
+    fn test_status_from_job_failed_without_code() {
+        let status = JobStatus::Failed {
+            error: "some error without code".to_string(),
+        };
+        let resp = status_from_job(&status);
+        assert_eq!(resp.status, "failed");
+        assert_eq!(resp.code, Some(error_codes::PROOF_FAILED.to_string()));
+    }
+}

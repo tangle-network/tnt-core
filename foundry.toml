@@ -8,9 +8,15 @@ libs = ["dependencies"]
 # optimizer = true (default)
 optimizer_runs = 200
 fs_permissions = [{ access = "read-write", path = "./" }]
-solc = "0.8.20"
-evm_version = "shanghai"
+solc = "0.8.26"
+evm_version = "cancun"
+via_ir = true
 allow_internal_expect_revert = true
+
+[profile.coverage]
+via_ir = true
+optimizer = true
+optimizer_runs = 200
 
 [profile.ci]
 verbosity = 4
@@ -36,12 +42,20 @@ depth = 120
 arbitrum_goerli = "${ARBITRUM_GOERLI_RPC}"
 arbitrum = "${ARBITRUM_RPC}"
 mainnet = "${MAINNET_RPC}"
+sepolia = "${SEPOLIA_RPC}"
+holesky = "${HOLESKY_RPC}"
+base = "${BASE_RPC}"
+base-sepolia = "${BASE_SEPOLIA_RPC}"
 tangle_local = "${TANGLE_LOCAL_RPC}"
 tangle_testnet = "${TANGLE_TESTNET_RPC}"
 tangle_mainnet = "${TANGLE_MAINNET_RPC}"
+tempo_testnet = "${TEMPO_TESTNET_RPC}"
+tempo_mainnet = "${TEMPO_MAINNET_RPC}"
 
 [etherscan]
 sepolia = { key = "${SEPOLIA_KEY}" }
+holesky = { key = "${HOLESKY_KEY}" }
+base = { key = "${BASE_KEY}" }
 base-sepolia = { key = "${BASE_SEPOLIA_KEY}" }
 tangle_testnet = { key = "${TANGLE_TESTNET_KEY}", url = "https://testnet-explorer.tangle.tools" }
 tangle_mainnet = { key = "${TANGLE_MAINNET_KEY}", url = "https://explorer.tangle.tools" }
@@ -49,3 +63,4 @@ tangle_mainnet = { key = "${TANGLE_MAINNET_KEY}", url = "https://explorer.tangle
 [dependencies]
 forge-std = "1.9.4"
 "@openzeppelin-contracts" = "5.1.0"
+"@openzeppelin-contracts-upgradeable" = "5.1.0"

@@ -1,0 +1,7 @@
+[workspace]
+members = ["bindings", "fixtures", "xtask"]
+resolver = "2"
+
+[profile.dev]
+
+[profile.release]

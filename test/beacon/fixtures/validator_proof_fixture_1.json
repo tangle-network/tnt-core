@@ -1,0 +1,41 @@
+{
+    "name": "Sample Mainnet Validator Proof - Slot 8000000",
+    "description": "Test fixture for verifying a validator's withdrawal credentials",
+    "network": "mainnet",
+    "slot": 8000000,
+
+    "beaconBlockRoot": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "beaconStateRoot": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+
+    "stateRootProof": [
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000000000000000000000000000003"
+    ],
+
+    "validatorIndex": 123456,
+
+    "validatorFields": [
+        "0x93247f2209abcdef93247f2209abcdef93247f2209abcdef93247f2209abcdef",
+        "0x010000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "0x0000000000000000000000000000000000000000000000000000000773594000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    ],
+
+    "validatorFieldsProof": [
+        "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000000000000000000000000000003"
+    ],
+
+    "expectedPubkeyHash": "0x93247f2209abcdef93247f2209abcdef93247f2209abcdef93247f2209abcdef",
+    "expectedEffectiveBalanceGwei": 32000000000,
+    "expectedWithdrawalCredentials": "0x010000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "expectedSlashed": false,
+
+    "notes": "This is a placeholder fixture. Replace with real mainnet/testnet data using eigenpod-proofs-generation CLI."
+}

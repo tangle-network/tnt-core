@@ -1,0 +1,98 @@
+{
+  "network": "base-sepolia",
+  "roles": {
+    "admin": "0x1111111111111111111111111111111111111111",
+    "treasury": "0x2222222222222222222222222222222222222222",
+    "timelock": "0x3333333333333333333333333333333333333333",
+    "multisig": "0x4444444444444444444444444444444444444444",
+    "revokeBootstrap": false
+  },
+  "core": {
+    "deploy": true,
+    "minOperatorStake": 2000000000000000000,
+    "minDelegation": 200000000000000000,
+    "operatorCommissionBps": 1200,
+    "maxBlueprintsPerOperator": 48
+  },
+  "restakeAssets": [
+    {
+      "symbol": "TNT",
+      "token": "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": 1000000000000000000,
+      "minDelegation": 100000000000000000,
+      "depositCap": 1000000000000000000000000,
+      "rewardMultiplierBps": 10000
+    },
+    {
+      "symbol": "USDC",
+      "token": "0x8EE2319bB88c4fa3C487Fd53D01fC9831F28237d",
+      "adapter": "0x0000000000000000000000000000000000000000",
+      "minOperatorStake": 0,
+      "minDelegation": 0,
+      "depositCap": 5000000000000,
+      "rewardMultiplierBps": 12000
+    }
+  ],
+  "incentives": {
+    "deployMetrics": false,
+    "metrics": "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+    "deployRewardVaults": true,
+    "vaultOperatorCommissionBps": 1500,
+    "deployInflationPool": true,
+    "epochLength": 604800,
+    "weights": {
+      "stakingBps": 5000,
+      "operatorsBps": 2500,
+      "customersBps": 1000,
+      "developersBps": 1500,
+      "restakersBps": 0
+    },
+    "vaults": [
+      {
+        "asset": "0x0000000000000000000000000000000000000000",
+        "depositCap": 1000000000000000000000000,
+        "active": true
+      },
+      {
+        "asset": "0x8EE2319bB88c4fa3C487Fd53D01fC9831F28237d",
+        "depositCap": 5000000000000,
+        "active": true
+      }
+    ]
+  },
+  "guards": {
+    "pauseStaking": false,
+    "pauseTangle": false,
+    "requireAdapters": false,
+    "delegatorDelay": 7,
+    "operatorDelay": 7,
+    "bondLessDelay": 7,
+    "maxBlueprintsPerOperator": 48
+  },
+  "manifest": {
+    "path": "deployments/base-sepolia/latest.json",
+    "logSummary": true
+  },
+  "migration": {
+    "deploy": true,
+    "emitArtifacts": true,
+    "useMockVerifier": false,
+    "artifactsPath": "deployments/base-sepolia/migration.json",
+    "merklePath": "packages/migration-claim/merkle-tree.json",
+    "evmClaimsPath": "packages/migration-claim/evm-claims.json",
+    "treasuryCarveoutPath": "packages/migration-claim/treasury-carveout.json",
+    "foundationCarveoutPath": "packages/migration-claim/foundation-carveout.json",
+    "migrationOwner": "0x3333333333333333333333333333333333333333",
+    "sp1VerifierGateway": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B",
+    "programVKey": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "treasuryRecipient": "0x2222222222222222222222222222222222222222",
+    "foundationRecipient": "0x5555555555555555555555555555555555555555",
+    "notes": "Copy these files into the dApp package post-deploy."
+  },
+  "credits": {
+    "deploy": true,
+    "owner": "0x3333333333333333333333333333333333333333",
+    "credits": "0x0000000000000000000000000000000000000000"
+  }
+}

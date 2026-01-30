@@ -1,0 +1,175 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+# Local testnet configuration for development with Anvil (chain ID 31337)
+#
+# NOTE: Contract addresses are automatically updated by start-local-dev.sh
+# after each deployment. The addresses below are placeholders that get replaced
+# with actual deployed addresses from the broadcast output.
+#
+# Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+name: tangle-indexer-local
+field_selection:
+  transaction_fields:
+    - hash
+    - from
+networks:
+  - id: 31337  # Anvil default chain ID for local development
+    start_block: 0
+    rpc_config:
+      url: http://127.0.0.1:8545
+    contracts:
+      - name: Tangle
+        address:
+          - "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9"  # nonce 3
+        handler: src/EventHandlers.ts
+        events:
+          - event: AggregatedResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint256 signerBitmap, bytes output)
+          - event: BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri)
+          - event: BlueprintDeactivated(uint64 indexed blueprintId)
+          - event: BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to)
+          - event: BlueprintUpdated(uint64 indexed blueprintId, string metadataUri)
+          - event: EscrowFunded(uint64 indexed serviceId, address indexed token, uint256 amount)
+          - event: ExitCanceled(uint64 indexed serviceId, address indexed operator)
+          - event: ExitForced(uint64 indexed serviceId, address indexed operator, address indexed forcer)
+          - event: ExitScheduled(uint64 indexed serviceId, address indexed operator, uint64 executeAfter)
+          - event: Initialized(uint64 version)
+          - event: JobCompleted(uint64 indexed serviceId, uint64 indexed callId)
+          - event: JobResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, address indexed operator, bytes output)
+          - event: JobSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint8 jobIndex, address caller, bytes inputs)
+          - event: OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps)
+          - event: OperatorLeftService(uint64 indexed serviceId, address indexed operator)
+          - event: OperatorPreRegistered(uint64 indexed blueprintId, address indexed operator)
+          - event: OperatorPreferencesUpdated(uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress)
+          - event: OperatorRegistered(uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress)
+          - event: OperatorUnregistered(uint64 indexed blueprintId, address indexed operator)
+          - event: Paused(address account)
+          - event: QuoteUsed(address indexed operator, bytes32 indexed quoteHash)
+          - event: RewardsClaimed(address indexed account, address indexed token, uint256 amount)
+          - event: RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+          - event: RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+          - event: RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+          - event: ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId)
+          - event: ServiceApproved(uint64 indexed requestId, address indexed operator)
+          - event: ServiceRejected(uint64 indexed requestId, address indexed operator)
+          - event: ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester)
+          - event: ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester)
+          - event: ServiceTerminated(uint64 indexed serviceId)
+          - event: SlashCancelled(uint64 indexed slashId, address indexed canceller, string reason)
+          - event: SlashConfigUpdated(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps)
+          - event: SlashDisputed(uint64 indexed slashId, address indexed disputer, string reason)
+          - event: SlashExecuted(uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, uint256 actualSlashed)
+          - event: SlashProposed(uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, address proposer, uint256 amount, uint256 effectiveAmount, bytes32 evidence, uint64 executeAfter)
+          - event: SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period)
+          - event: Unpaused(address account)
+          - event: Upgraded(address indexed implementation)
+      - name: MasterBlueprintServiceManager
+        address:
+          - "0xc351628eb244ec633d5f21fbd6621e1a683b1181"  # nonce 7
+        handler: src/EventHandlers.ts
+        events:
+          - event: BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition)
+      - name: MultiAssetDelegation
+        address:
+          - "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512"  # updated from broadcast
+        handler: src/EventHandlers.ts
+        events:
+          - event: OperatorRegistered(address indexed operator, uint256 stake)
+          - event: OperatorStakeIncreased(address indexed operator, uint256 amount)
+          - event: OperatorUnstakeScheduled(address indexed operator, uint256 amount, uint64 readyRound)
+          - event: OperatorUnstakeExecuted(address indexed operator, uint256 amount)
+          - event: OperatorLeavingScheduled(address indexed operator, uint64 readyRound)
+          - event: OperatorLeft(address indexed operator)
+          - event: OperatorBlueprintAdded(address indexed operator, uint64 indexed blueprintId)
+          - event: OperatorBlueprintRemoved(address indexed operator, uint64 indexed blueprintId)
+          - event: Deposited(address indexed delegator, address indexed token, uint256 amount, uint8 lock)
+          - event: WithdrawScheduled(address indexed delegator, address indexed token, uint256 amount, uint64 readyRound)
+          - event: Withdrawn(address indexed delegator, address indexed token, uint256 amount)
+          - event: Delegated(address indexed delegator, address indexed operator, address indexed token, uint256 amount, uint256 shares, uint8 selectionMode)
+          - event: DelegatorUnstakeScheduled(address indexed delegator, address indexed operator, address indexed token, uint256 shares, uint256 estimatedAmount, uint64 readyRound)
+          - event: DelegatorUnstakeExecuted(address indexed delegator, address indexed operator, address indexed token, uint256 shares, uint256 amount)
+          - event: BlueprintAddedToDelegation(address indexed delegator, uint256 indexed delegationIndex, uint64 blueprintId)
+          - event: BlueprintRemovedFromDelegation(address indexed delegator, uint256 indexed delegationIndex, uint64 blueprintId)
+          - event: AssetEnabled(address indexed token, uint256 minOperatorStake, uint256 minDelegation)
+          - event: AssetDisabled(address indexed token)
+          - event: RoundAdvanced(uint64 indexed round)
+          - event: Slashed(address indexed operator, uint64 indexed serviceId, uint256 operatorSlashed, uint256 delegatorsSlashed, uint256 newExchangeRate)
+          - event: SlashRecorded(address indexed operator, uint64 indexed slashId, uint256 totalSlashed, uint256 exchangeRateBefore, uint256 exchangeRateAfter)
+          - event: RewardDistributed(address indexed operator, uint256 amount)
+          - event: RewardClaimed(address indexed account, uint256 amount)
+          - event: OperatorDelegationModeSet(address indexed operator, uint8 mode)
+          - event: OperatorWhitelistUpdated(address indexed operator, address indexed delegator, bool approved)
+      - name: OperatorStatusRegistry
+        address:
+          - "0x99bba657f2bbc93c02d617f8ba121cb8fc104acf"  # nonce 4
+        handler: src/EventHandlers.ts
+        events:
+          - event: HeartbeatReceived(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed operator, uint8 statusCode, uint256 timestamp)
+          - event: OperatorWentOffline(uint64 indexed serviceId, address indexed operator, uint8 missedBeats)
+          - event: OperatorCameOnline(uint64 indexed serviceId, address indexed operator)
+          - event: StatusChanged(uint64 indexed serviceId, address indexed operator, uint8 oldStatus, uint8 newStatus)
+          - event: HeartbeatConfigUpdated(uint64 indexed serviceId, uint64 interval, uint8 maxMissed)
+          - event: MetricReported(uint64 indexed serviceId, address indexed operator, string metricName, uint256 value)
+          - event: SlashingTriggered(uint64 indexed serviceId, address indexed operator, string reason)
+      - name: ValidatorPodManager
+        address:
+          - "0x71089ba41e478702e1904692385be3972b2cbf9e"
+        handler: src/EventHandlers.ts
+        events:
+          - event: PodCreated(address indexed owner, address indexed pod)
+          - event: Delegated(address indexed delegator, address indexed operator, uint256 amount)
+          - event: Undelegated(address indexed delegator, address indexed operator, uint256 amount)
+          - event: SharesUpdated(address indexed owner, int256 sharesDelta, int256 newShares)
+          - event: OperatorRegistered(address indexed operator)
+          - event: OperatorDeregistered(address indexed operator)
+          - event: DelegatorSlashed(address indexed delegator, address indexed operator, uint256 amount)
+          - event: WithdrawalQueued(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
+          - event: WithdrawalCompleted(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
+      - name: LiquidDelegationFactory
+        address:
+          - "0xc66ab83418c20a65c3f8e83b3d11c8c3a6097b6f"
+        handler: src/EventHandlers.ts
+        events:
+          - event: VaultCreated(address indexed vault, address indexed operator, address indexed asset, uint64[] blueprintIds, string name, string symbol)
+      - name: LiquidDelegationVault
+        address: []
+        handler: src/EventHandlers.ts
+        events:
+          - event: Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)
+          - event: Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)
+          - event: RedeemRequest(address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares)
+          - event: RewardsHarvested(address indexed caller, uint256 amount)
+          - event: OperatorSet(address indexed controller, address indexed operator, bool approved)
+          - event: Transfer(address indexed from, address indexed to, uint256 value)
+      - name: RewardVaults
+        address:
+          - "0xcbeaf3bde82155f56486fb5a1072cb8baaf547cc"
+        handler: src/EventHandlers.ts
+        events:
+          - event: VaultCreated(address indexed asset, uint256 depositCap)
+          - event: VaultConfigUpdated(address indexed asset, uint256 depositCap)
+          - event: VaultDeactivated(address indexed asset)
+          - event: StakeRecorded(address indexed asset, address indexed delegator, address indexed operator, uint256 amount, uint8 lock)
+          - event: UnstakeRecorded(address indexed asset, address indexed delegator, address indexed operator, uint256 amount)
+          - event: RewardsDistributed(address indexed asset, address indexed operator, uint256 poolReward, uint256 commission)
+          - event: DelegatorRewardsClaimed(address indexed asset, address indexed delegator, address indexed operator, uint256 amount)
+          - event: OperatorCommissionClaimed(address indexed asset, address indexed operator, uint256 amount)
+          - event: DecayConfigUpdated(uint256 startBlock, uint256 rateBps)
+          - event: OperatorCommissionUpdated(uint16 newBps)
+          - event: LockDurationsUpdated(uint256 oneMonth, uint256 twoMonths, uint256 threeMonths, uint256 sixMonths)
+      - name: InflationPool
+        address:
+          - "0x1fa02b2d6a771842690194cf62d91bdd92bfe28d"
+        handler: src/EventHandlers.ts
+        events:
+          - event: OperatorRewardClaimed(address indexed operator, uint256 amount)
+          - event: CustomerRewardClaimed(address indexed customer, uint256 amount)
+          - event: DeveloperRewardClaimed(address indexed developer, uint256 amount)
+      - name: Credits
+        address:
+          # Deploy `packages/credits/src/Credits.sol` and set its address here when indexing credits locally.
+          - "0x162A433068F51e18b7d13932F27e66a3f99E6890"
+        handler: src/EventHandlers.ts
+        events:
+          - event: CreditsClaimed(address indexed account, uint256 amount, bytes32 offchainAccountId)
+unordered_multichain_mode: true
+preload_handlers: true
+address_format: lowercase

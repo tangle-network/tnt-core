@@ -1,345 +1,380 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
 
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-
-import "src/Permissions.sol";
-import "src/IBlueprintServiceManager.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { IBlueprintServiceManager } from "./interfaces/IBlueprintServiceManager.sol";
 
 /// @title BlueprintServiceManagerBase
-/// @author Tangle Network Team
-/// @dev This contract acts as a manager for the lifecycle of a Blueprint Instance,
-/// facilitating various stages such as registration, service requests, job execution,
-/// and job result handling. It is designed to be used by the service blueprint designer
-/// (gadget developer) and integrates with the RootChain for permissioned operations.
-/// Each function serves as a hook for different lifecycle events, and reverting any
-/// of these functions interrupts the process flow.
-contract BlueprintServiceManagerBase is IBlueprintServiceManager, RootChainEnabled {
+/// @notice Base implementation of IBlueprintServiceManager with sensible defaults
+/// @dev Blueprint developers inherit from this and override only the hooks they need.
+///      All hooks have safe default implementations that allow the operation to proceed.
+///
+/// Example usage:
+/// ```solidity
+/// contract MyAVSManager is BlueprintServiceManagerBase {
+///     // Only override what you need
+///     function onRegister(address operator, bytes calldata inputs)
+///         external payable override onlyFromTangle
+///     {
+///         // Custom registration logic
+///         require(customValidation(operator), "Invalid operator");
+///     }
+/// }
+/// ```
+contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     using EnumerableSet for EnumerableSet.AddressSet;
-    using Assets for Assets.Asset;
-    using Assets for address;
-    using Assets for bytes32;
 
-    /// @dev The Current Blueprint Id
-    uint256 public currentBlueprintId;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ERRORS
+    // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev The address of the owner of the blueprint
+    error OnlyTangleAllowed(address caller, address tangle);
+    error OnlyBlueprintOwnerAllowed(address caller, address owner);
+    error AlreadyInitialized();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice The Tangle core contract address
+    address public tangleCore;
+
+    /// @notice The blueprint ID this manager handles
+    uint64 public blueprintId;
+
+    /// @notice The blueprint owner
     address public blueprintOwner;
 
-    /// @dev a mapping between service id and permitted payment assets.
-    /// @dev serviceId => EnumerableSet of permitted payment assets.
-    /// @notice This mapping is used to store the permitted payment assets for each service.
+    /// @notice Permitted payment assets per service
+    /// @dev serviceId => set of permitted asset addresses
     mapping(uint64 => EnumerableSet.AddressSet) private _permittedPaymentAssets;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MODIFIERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Restricts function to calls from Tangle core
+    modifier onlyFromTangle() {
+        _onlyFromTangle();
+        _;
+    }
+
+    function _onlyFromTangle() internal view {
+        if (msg.sender != tangleCore) {
+            revert OnlyTangleAllowed(msg.sender, tangleCore);
+        }
+    }
+
+    /// @notice Restricts function to blueprint owner
+    modifier onlyBlueprintOwner() {
+        if (msg.sender != blueprintOwner) {
+            revert OnlyBlueprintOwnerAllowed(msg.sender, blueprintOwner);
+        }
+        _;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════
+
     /// @inheritdoc IBlueprintServiceManager
-    function onBlueprintCreated(uint64 blueprintId, address owner, address mbsm) external virtual onlyFromRootChain {
-        currentBlueprintId = blueprintId;
+    function onBlueprintCreated(uint64 _blueprintId, address owner, address _tangleCore) external virtual {
+        // Can only be set once
+        if (tangleCore != address(0)) revert AlreadyInitialized();
+
+        blueprintId = _blueprintId;
         blueprintOwner = owner;
-        masterBlueprintServiceManager = mbsm;
+        tangleCore = _tangleCore;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OPERATOR LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onRegister(address, bytes calldata) external payable virtual onlyFromTangle {
+        // Accept all registrations by default
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onRegister(
-        ServiceOperators.OperatorPreferences calldata operator,
-        bytes calldata registrationInputs
-    )
-        external
-        payable
-        virtual
-        onlyFromMaster
-    { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function onUnregister(ServiceOperators.OperatorPreferences calldata operator) external virtual onlyFromMaster { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function onUpdateRpcAddress(ServiceOperators.OperatorPreferences calldata operator)
-        external
-        payable
-        virtual
-        onlyFromMaster
-    { }
-    
-    /// @inheritdoc IBlueprintServiceManager
-    function getHeartbeatInterval(uint64 serviceId) external view virtual returns (bool useDefault, uint64 interval) {
-        // Uses the on-chain default interval by default
-        return (true, 0);
-    }
-    
-    /// @inheritdoc IBlueprintServiceManager
-    function getHeartbeatThreshold(uint64 serviceId) external view virtual returns (bool useDefault, uint8 threshold) {
-        // Uses the on-chain default threshold by default
-        return (true, 0);
-    }
-    
-    /// @inheritdoc IBlueprintServiceManager
-    function getSlashingWindow(uint64 serviceId) external view virtual returns (bool useDefault, uint64 window) {
-        // Uses the on-chain default window by default
-        return (true, 0);
+    function onUnregister(address) external virtual onlyFromTangle {
+        // No action by default
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onRequest(ServiceOperators.RequestParams calldata params) external payable virtual onlyFromMaster { }
+    function onUpdatePreferences(address, bytes calldata) external payable virtual onlyFromTangle {
+        // No action by default
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SERVICE CONFIGURATION QUERIES
+    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IBlueprintServiceManager
-    function onApprove(
-        ServiceOperators.OperatorPreferences calldata operator,
-        uint64 requestId,
-        uint8 restakingPercent
-    )
+    function getHeartbeatInterval(uint64) external view virtual returns (bool useDefault, uint64 interval) {
+        return (true, 0); // Use protocol default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function getHeartbeatThreshold(uint64) external view virtual returns (bool useDefault, uint8 threshold) {
+        return (true, 0); // Use protocol default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function getSlashingWindow(uint64) external view virtual returns (bool useDefault, uint64 window) {
+        return (true, 0); // Use protocol default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function getExitConfig(uint64) external view virtual returns (
+        bool useDefault,
+        uint64 minCommitmentDuration,
+        uint64 exitQueueDuration,
+        bool forceExitAllowed
+    ) {
+        // Use protocol defaults:
+        // - minCommitmentDuration: 1 day
+        // - exitQueueDuration: 7 days
+        // - forceExitAllowed: false
+        return (true, 0, 0, false);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SERVICE LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onRequest(uint64, address, address[] calldata, bytes calldata, uint64, address, uint256)
         external
         payable
         virtual
-        onlyFromMaster
-    { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function onReject(
-        ServiceOperators.OperatorPreferences calldata operator,
-        uint64 requestId
-    )
-        external
-        virtual
-        onlyFromMaster
-    { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function onServiceInitialized(
-        uint64 requestId,
-        uint64 serviceId,
-        address owner,
-        address[] calldata permittedCallers,
-        uint64 ttl
-    )
-        external
-        virtual
-        onlyFromMaster
-    { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function onJobCall(
-        uint64 serviceId,
-        uint8 job,
-        uint64 jobCallId,
-        bytes calldata inputs
-    )
-        external
-        payable
-        virtual
-        onlyFromMaster
-    { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function onJobResult(
-        uint64 serviceId,
-        uint8 job,
-        uint64 jobCallId,
-        ServiceOperators.OperatorPreferences calldata operator,
-        bytes calldata inputs,
-        bytes calldata outputs
-    )
-        external
-        payable
-        virtual
-        onlyFromMaster
-    { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function onServiceTermination(uint64 serviceId, address owner) external virtual onlyFromMaster { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function onUnappliedSlash(
-        uint64 serviceId,
-        bytes calldata offender,
-        uint8 slashPercent
-    )
-        external
-        virtual
-        onlyFromMaster
-    { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function onSlash(
-        uint64 serviceId,
-        bytes calldata offender,
-        uint8 slashPercent
-    )
-        external
-        virtual
-        onlyFromMaster
-    { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function canJoin(
-        uint64 serviceId,
-        ServiceOperators.OperatorPreferences calldata operator
-    )
-        external
-        view
-        virtual
-        onlyFromMaster
-        returns (bool allowed)
+        onlyFromTangle
     {
-        return false;
+        // Accept all requests by default
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onOperatorJoined(
-        uint64 serviceId,
-        ServiceOperators.OperatorPreferences calldata operator
-    )
-        external
-        virtual
-        onlyFromMaster
-    { }
+    function onApprove(address, uint64, uint8) external payable virtual onlyFromTangle {
+        // No action by default
+    }
 
     /// @inheritdoc IBlueprintServiceManager
-    function canLeave(
-        uint64 serviceId,
-        ServiceOperators.OperatorPreferences calldata operator
-    )
+    function onReject(address, uint64) external virtual onlyFromTangle {
+        // No action by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onServiceInitialized(uint64, uint64, uint64, address, address[] calldata, uint64)
         external
-        view
         virtual
-        onlyFromMaster
-        returns (bool allowed)
+        onlyFromTangle
     {
-        return false;
+        // No action by default
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onOperatorLeft(
-        uint64 serviceId,
-        ServiceOperators.OperatorPreferences calldata operator
-    )
+    function onServiceTermination(uint64, address) external virtual onlyFromTangle {
+        // No action by default
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DYNAMIC MEMBERSHIP
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function canJoin(uint64, address) external view virtual returns (bool) {
+        return true; // Allow all joins by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onOperatorJoined(uint64, address, uint16) external virtual onlyFromTangle {
+        // No action by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function canLeave(uint64, address) external view virtual returns (bool) {
+        return true; // Allow all leaves by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onOperatorLeft(uint64, address) external virtual onlyFromTangle {
+        // No action by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onExitScheduled(uint64, address, uint64) external virtual onlyFromTangle {
+        // No action by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onExitCanceled(uint64, address) external virtual onlyFromTangle {
+        // No action by default
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // JOB LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onJobCall(uint64, uint8, uint64, bytes calldata) external payable virtual onlyFromTangle {
+        // Accept all jobs by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onJobResult(uint64, uint8, uint64, address, bytes calldata, bytes calldata)
         external
+        payable
         virtual
-        onlyFromMaster
-    { }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function querySlashingOrigin(uint64) external view virtual returns (address slashingOrigin) {
-        return address(this);
-    }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function queryDisputeOrigin(uint64) external view virtual returns (address disputeOrigin) {
-        return address(this);
-    }
-
-    /// @inheritdoc IBlueprintServiceManager
-    function queryDeveloperPaymentAddress(uint64)
-        external
-        view
-        virtual
-        returns (address payable developerPaymentAddress)
+        onlyFromTangle
     {
-        return payable(blueprintOwner);
+        // Accept all results by default
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SLASHING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onUnappliedSlash(uint64, bytes calldata, uint8) external virtual onlyFromTangle {
+        // No action by default - slash proceeds after window
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function queryIsPaymentAssetAllowed(
-        uint64 serviceId,
-        Assets.Asset calldata asset
-    )
-        external
-        view
-        virtual
-        returns (bool isAllowed)
-    {
-        return _isAssetPermitted(serviceId, asset);
+    function onSlash(uint64, bytes calldata, uint8) external virtual onlyFromTangle {
+        // No action by default
     }
 
-    /**
-     * @notice Permits a specific asset for a given service.
-     * @dev Adds the asset to the set of permitted payment assets based on its kind.
-     * @param serviceId The ID of the service for which the asset is being permitted.
-     * @param asset The asset to be permitted, defined by its kind and data.
-     */
-    function _permitAsset(uint64 serviceId, Assets.Asset calldata asset) internal virtual returns (bool added) {
-        address assetAddress = asset.toAddress();
-        bool _added = _permittedPaymentAssets[serviceId].add(assetAddress);
-        return _added;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUTHORIZATION QUERIES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function querySlashingOrigin(uint64) external view virtual returns (address) {
+        return address(this); // This contract is the slashing authority by default
     }
 
-    /**
-     * @notice Revokes a previously permitted asset for a given service.
-     * @dev Removes the asset from the set of permitted payment assets based on its kind.
-     * @param serviceId The ID of the service for which the asset is being revoked.
-     * @param asset The asset to be revoked, defined by its kind and data.
-     */
-    function _revokeAsset(uint64 serviceId, Assets.Asset calldata asset) internal virtual returns (bool removed) {
-        address assetAddress = asset.toAddress();
-        bool _removed = _permittedPaymentAssets[serviceId].remove(assetAddress);
-        return _removed;
+    /// @inheritdoc IBlueprintServiceManager
+    function queryDisputeOrigin(uint64) external view virtual returns (address) {
+        return address(this); // This contract handles disputes by default
     }
 
-    /**
-     * @notice Clears all permitted assets for a given service.
-     * @dev Iterates through the set of permitted assets and removes each one.
-     * @param serviceId The ID of the service for which permitted assets are being cleared.
-     */
-    function _clearPermittedAssets(uint64 serviceId) internal virtual returns (bool cleared) {
-        EnumerableSet.AddressSet storage permittedAssets = _permittedPaymentAssets[serviceId];
-        uint256 length = permittedAssets.length();
-        while (length > 0) {
-            address assetAddress = permittedAssets.at(0);
-            permittedAssets.remove(assetAddress);
-            length = permittedAssets.length();
-        }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PAYMENT QUERIES
+    // ═══════════════════════════════════════════════════════════════════════════
 
-        // The set should be empty after clearing all permitted assets.
-        return permittedAssets.length() == 0;
+    /// @inheritdoc IBlueprintServiceManager
+    function queryDeveloperPaymentAddress(uint64) external view virtual returns (address payable) {
+        return payable(blueprintOwner); // Blueprint owner receives developer share by default
     }
 
-    /**
-     * @notice Retrieves all permitted assets for a given service as an array of addresses.
-     * @dev Converts the EnumerableSet of permitted assets to a dynamic array of addresses.
-     * @param serviceId The ID of the service for which permitted assets are being retrieved.
-     * @return assets An array of addresses representing the permitted assets.
-     */
-    function _getPermittedAssetsAsAddresses(uint64 serviceId) internal view virtual returns (address[] memory) {
-        EnumerableSet.AddressSet storage permittedAssets = _permittedPaymentAssets[serviceId];
-        address[] memory assets = new address[](permittedAssets.length());
-        for (uint256 i = 0; i < permittedAssets.length(); i++) {
-            assets[i] = permittedAssets.at(i);
-        }
-        return assets;
-    }
-
-    /**
-     * @notice Retrieves all permitted assets for a given service as an array of Asset structs.
-     * @dev Converts the EnumerableSet of permitted assets to a dynamic array of ServiceOperators.Asset.
-     * @param serviceId The ID of the service for which permitted assets are being retrieved.
-     * @return assets An array of ServiceOperators.Asset structs representing the permitted assets.
-     */
-    function _getPermittedAssets(uint64 serviceId) internal view virtual returns (Assets.Asset[] memory) {
-        EnumerableSet.AddressSet storage permittedAssets = _permittedPaymentAssets[serviceId];
-        Assets.Asset[] memory assets = new Assets.Asset[](permittedAssets.length());
-        for (uint256 i = 0; i < permittedAssets.length(); i++) {
-            address assetAddress = permittedAssets.at(i);
-            if (assetAddress == address(0)) {
-                continue;
-            }
-            assets[i] = assetAddress.toAsset();
-        }
-        return assets;
-    }
-
-    /**
-     * @notice Checks if a specific asset is permitted for a given service.
-     * @dev Determines if the asset is contained within the set of permitted payment assets based on its kind.
-     * @param serviceId The ID of the service to check.
-     * @param asset The asset to check, defined by its kind and data.
-     * @return isAllowed Boolean indicating whether the asset is permitted.
-     */
-    function _isAssetPermitted(uint64 serviceId, Assets.Asset calldata asset) internal view virtual returns (bool) {
-        // Native assets are always permitted.
-        if (asset.isNative()) {
+    /// @inheritdoc IBlueprintServiceManager
+    function queryIsPaymentAssetAllowed(uint64 serviceId, address asset) external view virtual returns (bool) {
+        // Native asset (address(0)) is always allowed
+        if (asset == address(0)) {
             return true;
-        } else {
-            address assetAddress = asset.toAddress();
-            return _permittedPaymentAssets[serviceId].contains(assetAddress);
         }
+
+        // If no specific assets configured, allow all
+        if (_permittedPaymentAssets[serviceId].length() == 0) {
+            return true;
+        }
+
+        // Check if asset is in permitted set
+        return _permittedPaymentAssets[serviceId].contains(asset);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // JOB CONFIGURATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function getRequiredResultCount(uint64, uint8) external view virtual returns (uint32) {
+        return 1; // Single result sufficient by default
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLS AGGREGATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function requiresAggregation(uint64, uint8) external view virtual returns (bool) {
+        return false; // No aggregation required by default
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function getAggregationThreshold(uint64, uint8) external view virtual returns (uint16, uint8) {
+        // Default: 67% count-based threshold (only used if requiresAggregation returns true)
+        return (6700, 0); // 67% threshold, CountBased
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onAggregatedResult(uint64, uint8, uint64, bytes calldata, uint256, uint256[2] calldata, uint256[4] calldata)
+        external
+        virtual
+        onlyFromTangle
+    {
+        // Accept all aggregated results by default
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STAKE REQUIREMENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function getMinOperatorStake() external view virtual returns (bool useDefault, uint256 minStake) {
+        return (true, 0); // Use protocol default from staking module
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INTERNAL HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Permit a payment asset for a service
+    /// @param serviceId The service ID
+    /// @param asset The asset address to permit
+    function _permitAsset(uint64 serviceId, address asset) internal virtual returns (bool) {
+        return _permittedPaymentAssets[serviceId].add(asset);
+    }
+
+    /// @notice Revoke a payment asset for a service
+    /// @param serviceId The service ID
+    /// @param asset The asset address to revoke
+    function _revokeAsset(uint64 serviceId, address asset) internal virtual returns (bool) {
+        return _permittedPaymentAssets[serviceId].remove(asset);
+    }
+
+    /// @notice Clear all permitted assets for a service
+    /// @param serviceId The service ID
+    function _clearPermittedAssets(uint64 serviceId) internal virtual {
+        EnumerableSet.AddressSet storage assets = _permittedPaymentAssets[serviceId];
+        while (assets.length() > 0) {
+            assets.remove(assets.at(0));
+        }
+    }
+
+    /// @notice Get all permitted assets for a service
+    /// @param serviceId The service ID
+    /// @return Array of permitted asset addresses
+    function _getPermittedAssets(uint64 serviceId) internal view virtual returns (address[] memory) {
+        return _permittedPaymentAssets[serviceId].values();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PAYMENT RECEIVER
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Accept native token payments (e.g., developer revenue)
+    /// @dev Override _onPaymentReceived to handle incoming payments
+    receive() external payable virtual {
+        _onPaymentReceived(address(0), msg.value);
+    }
+
+    /// @notice Hook called when native payments are received
+    /// @dev Override this in child contracts to handle revenue
+    /// @param token The token address (address(0) for native)
+    /// @param amount The amount received
+    function _onPaymentReceived(address token, uint256 amount) internal virtual {
+        // Default: do nothing, just accumulate
+        // Child contracts can override to distribute, buyback, etc.
     }
 }

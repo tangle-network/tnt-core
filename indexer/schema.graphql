@@ -1,0 +1,892 @@
+enum OperatorRegistrationStatus {
+  ACTIVE
+  UNREGISTERED
+}
+
+enum ServiceRequestStatus {
+  PENDING
+  ACTIVATED
+  CANCELLED
+}
+
+enum ServiceStatus {
+  ACTIVE
+  TERMINATED
+}
+
+enum SlashStatus {
+  PENDING
+  DISPUTED
+  EXECUTED
+  CANCELLED
+}
+
+enum RestakingOperatorStatus {
+  ACTIVE
+  LEAVING
+  INACTIVE
+}
+
+enum LockDuration {
+  NONE
+  ONE_MONTH
+  TWO_MONTHS
+  THREE_MONTHS
+  SIX_MONTHS
+}
+
+enum BlueprintSelectionMode {
+  ALL
+  FIXED
+}
+
+enum RequestStatus {
+  PENDING
+  READY
+  EXECUTED
+  CANCELLED
+}
+
+enum DelegationBalanceDeltaKind {
+  DELEGATE
+  UNSTAKE_EXECUTED
+}
+
+enum OperatorStakeChangeKind {
+  REGISTERED
+  STAKE_INCREASED
+  UNSTAKE_SCHEDULED
+  UNSTAKE_EXECUTED
+  LEAVING_SCHEDULED
+  LEFT
+}
+
+enum RewardDistributionKind {
+  POOL
+  DELEGATOR_CLAIM
+  OPERATOR_COMMISSION
+  INFLATION
+}
+
+enum RewardVaultEventType {
+  DECAY_UPDATED
+  COMMISSION_UPDATED
+  LOCK_DURATIONS_UPDATED
+}
+
+enum PointsProgramCategory {
+  OPERATOR
+  DELEGATOR
+  SERVICE
+  CREDIT
+  BONUS
+}
+
+enum PointsNetwork {
+  MAINNET
+  TESTNET
+  GENERIC
+}
+
+enum DelegationBlueprintAction {
+  ADDED
+  REMOVED
+}
+
+enum PriceSource {
+  COINGECKO
+  STATIC
+  DERIVED
+  FALLBACK
+}
+
+enum PriceSampleStatus {
+  SUCCESS
+  FAILURE
+  FALLBACK
+}
+
+enum OperatorLifecycleEventType {
+  WENT_OFFLINE
+  CAME_ONLINE
+  STATUS_CHANGED
+  SLASH_ALERT
+}
+
+enum CreditOpType {
+  CLAIM
+}
+
+type Blueprint {
+  id: ID!
+  blueprintId: BigInt!
+  owner: String!
+  manager: String
+  metadataUri: String
+  active: Boolean!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  operatorCount: BigInt!
+  services: [Service!]! @derivedFrom(field: "blueprint")
+  registrations: [OperatorRegistration!]! @derivedFrom(field: "blueprint")
+  requests: [ServiceRequest!]! @derivedFrom(field: "blueprint")
+  operatorBlueprints: [OperatorBlueprint!]! @derivedFrom(field: "blueprint")
+}
+
+type BlueprintDefinition {
+  id: ID!
+  blueprintId: BigInt!
+  owner: String!
+  encodedDefinition: String!
+  recordedAt: BigInt!
+  txHash: String!
+}
+
+type ValidatorPod {
+  id: ID!
+  owner: String!
+  createdAt: BigInt!
+  txHash: String!
+}
+
+type NativeOperator {
+  id: ID!
+  registered: Boolean!
+  registeredAt: BigInt
+  deregisteredAt: BigInt
+  totalDelegated: BigInt!
+  updatedAt: BigInt!
+}
+
+type ValidatorPodShareEvent {
+  id: ID!
+  owner: String!
+  sharesDelta: BigInt!
+  newShares: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type ValidatorPodWithdrawal {
+  id: ID!
+  withdrawalRoot: String!
+  staker: String!
+  shares: BigInt!
+  status: RequestStatus!
+  queuedAt: BigInt!
+  completedAt: BigInt
+  txHash: String!
+}
+
+type ValidatorPodSlash {
+  id: ID!
+  delegator: String!
+  operator: String!
+  amount: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type Operator {
+  id: ID!
+  ecdsaPublicKey: String
+  rpcAddress: String
+  createdAt: BigInt
+  updatedAt: BigInt
+  restakingStatus: RestakingOperatorStatus
+  restakingStake: BigInt
+  restakingDelegationCount: BigInt
+  restakingLeavingRound: BigInt
+  restakingScheduledUnstakeAmount: BigInt
+  restakingScheduledUnstakeRound: BigInt
+  restakingUpdatedAt: BigInt
+  delegationMode: Int  # 0=Disabled, 1=Whitelist, 2=Open (null treated as 0=Disabled)
+  registrations: [OperatorRegistration!]! @derivedFrom(field: "operator")
+  intents: [OperatorIntent!]! @derivedFrom(field: "operator")
+  memberships: [ServiceOperator!]! @derivedFrom(field: "operator")
+  jobResults: [JobResult!]! @derivedFrom(field: "operator")
+  stakeEvents: [OperatorStakeChange!]! @derivedFrom(field: "operator")
+  delegationPositions: [DelegationPosition!]! @derivedFrom(field: "operator")
+  heartbeats: [OperatorHeartbeat!]! @derivedFrom(field: "operator")
+  blueprintMemberships: [OperatorBlueprint!]! @derivedFrom(field: "operator")
+  liquidVaults: [LiquidDelegationVault!]! @derivedFrom(field: "operator")
+}
+
+type OperatorRegistration {
+  id: ID!
+  blueprint: Blueprint!
+  operator: Operator!
+  status: OperatorRegistrationStatus!
+  registeredAt: BigInt!
+  updatedAt: BigInt!
+  unregisteredAt: BigInt
+  ecdsaPublicKey: String
+  rpcAddress: String
+}
+
+type OperatorIntent {
+  id: ID!
+  blueprint: Blueprint!
+  operator: Operator!
+  createdAt: BigInt!
+  txHash: String!
+}
+
+type OperatorBlueprint {
+  id: ID!
+  operator: Operator!
+  blueprint: Blueprint!
+  addedAt: BigInt!
+  removedAt: BigInt
+  active: Boolean!
+}
+
+type ServiceRequest {
+  id: ID!
+  requestId: BigInt!
+  blueprint: Blueprint!
+  requester: String!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  status: ServiceRequestStatus!
+  approvalCount: BigInt!
+  approvedOperators: [String!]!
+  rejectedOperators: [String!]!
+  operatorCandidates: [String!]
+  securityRequirements: String
+  services: [Service!]! @derivedFrom(field: "request")
+}
+
+type Service {
+  id: ID!
+  serviceId: BigInt!
+  blueprint: Blueprint!
+  request: ServiceRequest
+  owner: String!
+  status: ServiceStatus!
+  createdAt: BigInt!
+  terminatedAt: BigInt
+  serviceOperators: [ServiceOperator!]! @derivedFrom(field: "service")
+  jobCalls: [JobCall!]! @derivedFrom(field: "service")
+}
+
+type ServiceOperator {
+  id: ID!
+  service: Service!
+  operator: Operator!
+  exposureBps: BigInt!
+  joinedAt: BigInt!
+  leftAt: BigInt
+  active: Boolean!
+  exitScheduledAt: BigInt
+  exitExecuteAfter: BigInt
+  exitCancelledAt: BigInt
+  exitForcedBy: String
+}
+
+type JobCall {
+  id: ID!
+  service: Service!
+  callId: BigInt!
+  jobIndex: Int!
+  caller: String!
+  inputs: String
+  createdAt: BigInt!
+  completed: Boolean!
+  completedAt: BigInt
+  results: [JobResult!]! @derivedFrom(field: "jobCall")
+}
+
+type JobResult {
+  id: ID!
+  jobCall: JobCall!
+  operator: Operator
+  output: String!
+  signerBitmap: BigInt
+  aggregated: Boolean!
+  submittedAt: BigInt!
+  txHash: String!
+}
+
+type EscrowBalance {
+  id: ID!
+  service: Service!
+  token: String!
+  totalFunded: BigInt!
+  totalBilled: BigInt!
+  lastFundedAt: BigInt
+  lastBilledAt: BigInt
+}
+
+type SubscriptionBilling {
+  id: ID!
+  service: Service!
+  amount: BigInt!
+  period: BigInt!
+  billedAt: BigInt!
+  txHash: String!
+}
+
+type RewardClaim {
+  id: ID!
+  account: String!
+  token: String!
+  amount: BigInt!
+  claimedAt: BigInt!
+  txHash: String!
+}
+
+type QuoteUsage {
+  id: ID!
+  operator: Operator!
+  quoteHash: String!
+  usedAt: BigInt!
+  txHash: String!
+}
+
+type SlashProposal {
+  id: ID!
+  slashId: BigInt!
+  service: Service
+  serviceId: BigInt!
+  operator: Operator
+  proposer: String!
+  amount: BigInt!
+  effectiveAmount: BigInt!
+  evidence: String
+  executeAfter: BigInt!
+  status: SlashStatus!
+  createdAt: BigInt!
+  disputedAt: BigInt
+  disputeReason: String
+  disputer: String
+  executedAt: BigInt
+  actualSlashed: BigInt
+  cancelledAt: BigInt
+  canceller: String
+  cancelReason: String
+}
+
+type SlashConfig {
+  id: ID!
+  disputeWindow: BigInt!
+  instantSlashEnabled: Boolean!
+  maxSlashBps: BigInt!
+  updatedAt: BigInt!
+}
+
+type ProtocolState {
+  id: ID!
+  paused: Boolean!
+  pausedAt: BigInt
+  pausedBy: String
+  version: BigInt
+  currentImplementation: String
+  lastUpdatedAt: BigInt
+}
+
+type Upgrade {
+  id: ID!
+  implementation: String!
+  upgradedAt: BigInt!
+  txHash: String!
+}
+
+type Role {
+  id: ID!
+  role: String!
+  adminRole: String
+  updatedAt: BigInt
+  members: [RoleAssignment!]! @derivedFrom(field: "roleRef")
+}
+
+type RoleAssignment {
+  id: ID!
+  roleRef: Role!
+  account: String!
+  active: Boolean!
+  grantedAt: BigInt!
+  revokedAt: BigInt
+  sender: String!
+}
+
+"""
+ERC20/LST assets enabled in MultiAssetDelegation. Populated from AssetEnabled/AssetDisabled events.
+"""
+type RestakingAsset {
+  id: ID!
+  token: String!
+  enabled: Boolean!
+  minOperatorStake: BigInt!
+  minDelegation: BigInt!
+  depositCap: BigInt
+  currentDeposits: BigInt!
+  rewardMultiplierBps: Int!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+"""
+Tracks the on-chain restaking round (MultiAssetDelegation.RoundAdvanced).
+"""
+type RestakingRound {
+  id: ID!
+  round: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+"""
+Historical stake deltas emitted from MultiAssetDelegation operator lifecycle events.
+"""
+type OperatorStakeChange {
+  id: ID!
+  operator: Operator!
+  kind: OperatorStakeChangeKind!
+  amount: BigInt
+  readyAtRound: BigInt
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type Delegator {
+  id: ID!
+  address: String!
+  totalDeposited: BigInt!
+  totalDelegated: BigInt!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  withdrawNonce: BigInt!
+  withdrawCursor: BigInt!
+  unstakeNonce: BigInt!
+  unstakeCursor: BigInt!
+  assetPositions: [DelegatorAssetPosition!]! @derivedFrom(field: "delegator")
+  delegations: [DelegationPosition!]! @derivedFrom(field: "delegator")
+  withdrawRequests: [WithdrawRequest!]! @derivedFrom(field: "delegator")
+  unstakeRequests: [DelegationUnstakeRequest!]! @derivedFrom(field: "delegator")
+  liquidVaultPositions: [LiquidVaultPosition!]! @derivedFrom(field: "account")
+}
+
+type DelegatorAssetPosition {
+  id: ID!
+  delegator: Delegator!
+  token: String!
+  totalDeposited: BigInt!
+  delegatedAmount: BigInt!
+  lockedAmount: BigInt!
+  lastUpdatedAt: BigInt!
+  locks: [DepositLock!]! @derivedFrom(field: "position")
+  withdrawRequests: [WithdrawRequest!]! @derivedFrom(field: "position")
+}
+
+type DepositLock {
+  id: ID!
+  position: DelegatorAssetPosition!
+  amount: BigInt!
+  duration: LockDuration!
+  expiryBlock: BigInt!
+}
+
+"""Withdraw request queue mirrored from MultiAssetDelegation.WithdrawScheduled/Withdrawn. readyAtRound matches the contract's executeAfter round."""
+type WithdrawRequest {
+  id: ID!
+  delegator: Delegator!
+  position: DelegatorAssetPosition!
+  token: String!
+  nonce: BigInt!
+  amount: BigInt!
+  requestedRound: BigInt!
+  readyAtRound: BigInt!
+  status: RequestStatus!
+  executedAt: BigInt
+}
+
+"""
+Per-operator delegation tracking mirroring RewardsManager storage.
+"""
+type DelegationPosition {
+  id: ID!
+  delegator: Delegator!
+  operator: Operator!
+  token: String!
+  shares: BigInt!
+  lastKnownAmount: BigInt!
+  blueprintSelection: BlueprintSelectionMode!
+  blueprintIds: [BigInt!]
+  createdAtRound: BigInt!
+  updatedAtRound: BigInt!
+  unstakeRequests: [DelegationUnstakeRequest!]! @derivedFrom(field: "position")
+}
+
+"""Delegator unstake queue from MultiAssetDelegation events; readyAtRound + blueprintSelection capture the contract's state."""
+type DelegationUnstakeRequest {
+  id: ID!
+  delegator: Delegator!
+  operator: Operator!
+  position: DelegationPosition
+  token: String!
+  nonce: BigInt!
+  shares: BigInt!
+  estimatedAmount: BigInt!
+  requestedRound: BigInt!
+  readyAtRound: BigInt!
+  status: RequestStatus!
+  executedAt: BigInt
+}
+
+"""
+Per-delegator, per-token running delegated amount derived from MultiAssetDelegation delegation events.
+
+This is designed to support stake×time style calculations off-chain (e.g., credits programs),
+without coupling those programs to core protocol contracts.
+"""
+type DelegationBalance {
+  id: ID!
+  delegator: String!
+  token: String!
+  amount: BigInt!
+  lastUpdatedAt: BigInt!
+  deltas: [DelegationBalanceDelta!]! @derivedFrom(field: "balance")
+}
+
+"""
+Historical delegation amount deltas. Negative `delta` values represent delegated stake reductions.
+"""
+type DelegationBalanceDelta {
+  id: ID!
+  balance: DelegationBalance!
+  delegator: String!
+  token: String!
+  kind: DelegationBalanceDeltaKind!
+  delta: BigInt!
+  amountAfter: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type RestakingSlash {
+  id: ID!
+  operator: Operator!
+  serviceId: BigInt!
+  operatorSlashed: BigInt!
+  delegatorsSlashed: BigInt!
+  exchangeRateAfter: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+type SlashRecord {
+  id: ID!
+  operator: Operator!
+  slashId: BigInt!
+  totalSlashed: BigInt!
+  exchangeRateBefore: BigInt!
+  exchangeRateAfter: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+type RewardVault {
+  id: ID!
+  asset: String!
+  depositCap: BigInt
+  active: Boolean!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  states: [RewardVaultState!]! @derivedFrom(field: "vault")
+  events: [RewardVaultEvent!]! @derivedFrom(field: "vault")
+}
+
+type RewardVaultState {
+  id: ID!
+  vault: RewardVault!
+  totalDeposits: BigInt!
+  totalScore: BigInt!
+  rewardsDistributed: BigInt!
+  updatedAt: BigInt!
+}
+
+type RewardDistribution {
+  id: ID!
+  kind: RewardDistributionKind!
+  asset: String!
+  operator: Operator
+  delegator: Delegator
+  amount: BigInt!
+  commission: BigInt
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type RestakingRewardClaim {
+  id: ID!
+  delegator: Delegator
+  operator: Operator
+  asset: String!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+  kind: RewardDistributionKind!
+}
+
+type OperatorHeartbeat {
+  id: ID!
+  operator: Operator!
+  serviceId: BigInt!
+  blueprintId: BigInt!
+  statusCode: Int!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type OperatorLifecycleEvent {
+  id: ID!
+  operator: Operator!
+  serviceId: BigInt!
+  eventType: OperatorLifecycleEventType!
+  statusCode: Int
+  missedBeats: Int
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type HeartbeatConfig {
+  id: ID!
+  serviceId: BigInt!
+  interval: BigInt!
+  maxMissed: Int!
+  updatedAt: BigInt!
+}
+
+type OperatorMetricSnapshot {
+  id: ID!
+  operator: Operator!
+  serviceId: BigInt!
+  metricName: String!
+  value: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type CreditBalance {
+  id: ID!
+  account: String!
+  amount: BigInt!
+  lastUpdatedAt: BigInt!
+  claimCount: BigInt!
+  firstClaimAt: BigInt
+  lastClaimAt: BigInt
+  operations: [CreditOperation!]! @derivedFrom(field: "balance")
+}
+
+type CreditOperation {
+  id: ID!
+  balance: CreditBalance!
+  operationType: CreditOpType!
+  from: String
+  to: String
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+  offchainAccountId: String
+  ledger: CreditLedger
+}
+
+type CreditLedger {
+  id: ID!
+  offchainAccountId: String!
+  totalClaimed: BigInt!
+  claimCount: BigInt!
+  lastClaimAt: BigInt!
+  claimers: [CreditLedgerAccount!]! @derivedFrom(field: "ledger")
+  operations: [CreditOperation!]! @derivedFrom(field: "ledger")
+}
+
+type CreditLedgerAccount {
+  id: ID!
+  ledger: CreditLedger!
+  account: String!
+  totalClaimed: BigInt!
+  claimCount: BigInt!
+  lastClaimAt: BigInt!
+}
+
+type PointsProgram {
+  id: ID!
+  name: String!
+  description: String
+  category: PointsProgramCategory!
+  network: PointsNetwork!
+  weight: Int!
+  createdAt: BigInt!
+  participationStates: [ParticipationState!]! @derivedFrom(field: "program")
+  hourlyTotals: [PointsHourlyTotal!]! @derivedFrom(field: "program")
+}
+
+type PointsAccount {
+  id: ID!
+  totalPoints: BigInt!
+  totalMainnetPoints: BigInt!
+  totalTestnetPoints: BigInt!
+  leaderboardPoints: BigInt!
+  updatedAt: BigInt!
+  events: [PointsEvent!]! @derivedFrom(field: "account")
+  snapshots: [PointsSnapshot!]! @derivedFrom(field: "account")
+}
+
+type PointsEvent {
+  id: ID!
+  account: PointsAccount!
+  program: PointsProgram!
+  amount: BigInt!
+  reason: String
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+  metadata: String
+}
+
+type PointsSnapshot {
+  id: ID!
+  account: PointsAccount!
+  program: PointsProgram
+  totalPoints: BigInt!
+  usdBasis: BigInt
+  liquidUsdBasis: BigInt
+  serviceUsdBasis: BigInt
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+"""
+Aggregated hourly USD totals per program for downstream API consumers.
+"""
+type PointsHourlyTotal {
+  id: ID!
+  program: PointsProgram!
+  hourTimestamp: BigInt!
+  usdBasis: BigInt!
+  liquidUsdBasis: BigInt!
+  serviceUsdBasis: BigInt!
+  updatedAt: BigInt!
+}
+
+type ParticipationState {
+  id: ID!
+  entityId: String!
+  program: PointsProgram!
+  category: PointsProgramCategory!
+  active: Boolean!
+  lastAwardAt: BigInt!
+}
+
+type DelegationBlueprintEvent {
+  id: ID!
+  delegator: String!
+  delegationIndex: BigInt!
+  blueprintId: BigInt!
+  action: DelegationBlueprintAction!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type RewardVaultEvent {
+  id: ID!
+  vault: RewardVault
+  eventType: RewardVaultEventType!
+  asset: String
+  valueA: BigInt
+  valueB: BigInt
+  valueC: BigInt
+  valueD: BigInt
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+"""
+ERC7540 vault wrapper deployed by LiquidDelegationFactory. Indexed via VaultCreated + ERC20 events.
+"""
+type LiquidDelegationVault {
+  id: ID!
+  address: String!
+  name: String!
+  symbol: String!
+  isNative: Boolean!
+  operator: Operator!
+  assetAddress: String!
+  asset: RestakingAsset
+  blueprintSelection: BlueprintSelectionMode!
+  blueprintIds: [BigInt!]!
+  totalAssets: BigInt!
+  totalShares: BigInt!
+  totalDepositors: BigInt!
+  pendingRedeemShares: BigInt!
+  harvestedRewards: BigInt!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  txHash: String!
+  positions: [LiquidVaultPosition!]! @derivedFrom(field: "vault")
+  redeemRequests: [LiquidRedeemRequest!]! @derivedFrom(field: "vault")
+}
+
+"""Share balances per depositor, including shares pending asynchronous redemption."""
+type LiquidVaultPosition {
+  id: ID!
+  vault: LiquidDelegationVault!
+  account: Delegator!
+  shares: BigInt!
+  pendingShares: BigInt!
+  pendingAssets: BigInt!
+  firstMintedAt: BigInt!
+  updatedAt: BigInt!
+}
+
+"""
+Async redemption requests emitted by LiquidDelegationVault::RedeemRequest.
+"""
+type LiquidRedeemRequest {
+  id: ID!
+  vault: LiquidDelegationVault!
+  controller: String!
+  owner: Delegator!
+  requestId: BigInt!
+  shares: BigInt!
+  estimatedAssets: BigInt!
+  requestedRound: BigInt!
+  claimed: Boolean!
+  claimer: String
+  createdAt: BigInt!
+  claimedAt: BigInt
+  txHash: String!
+}
+
+type AssetPrice {
+  id: ID!
+  asset: String!
+  symbol: String!
+  price: BigInt!
+  source: PriceSource!
+  blockNumber: BigInt!
+  updatedAt: BigInt!
+}
+
+type AssetPriceSample {
+  id: ID!
+  asset: String!
+  symbol: String!
+  price: BigInt
+  source: PriceSource!
+  status: PriceSampleStatus!
+  reason: String
+  blockNumber: BigInt!
+  fetchedAt: BigInt!
+}

@@ -1,0 +1,23 @@
+{
+  "name": "credits-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate-tree": "ts-node-esm generateMerkleTree.ts",
+    "compute-entitlements": "ts-node-esm computeEntitlementsFromIndexer.ts",
+    "run-epoch": "ts-node-esm runEpoch.ts",
+    "publish-root": "ts-node-esm publishRoot.ts",
+    "watch-claims": "ts-node-esm watchClaims.ts"
+  },
+  "dependencies": {
+    "@openzeppelin/merkle-tree": "^1.0.6",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.0.0"
+  }
+}

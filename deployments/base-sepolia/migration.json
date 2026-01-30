@@ -1,0 +1,10 @@
+{
+  "tntToken": "0xa9ffe787eea7f385dac8481cd8bdc3d9194aeb5a",
+  "tangleMigration": "0xd378d4ce9ed8ce23183cc3afe4d7991548e10c7b",
+  "zkVerifier": "0xc611ea4518206b90f215ff7594bbdace2552bb8e",
+  "sp1VerifierGateway": "0x397a5f7f3dbd538f23de225b51f532c34448da9b",
+  "programVKey": "0x000d74444f16d75f72527687a36c1bd4c49e6799816dac4989be3bc175e86fd7",
+  "merkleRoot": "0x54ec5497e0a2f43ec721c1ec5392cb224cf710b1210b579dcaefea002bb51adb",
+  "merklePath": "packages/migration-claim/merkle-tree.json",
+  "notes": "TODO: add rollout notes"
+}
