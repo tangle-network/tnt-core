@@ -1,6 +1,6 @@
 [package]
 name = "tnt-core-bindings"
-version = "0.8.0"
+version = "0.8.2"
 edition = "2021"
 rust-version = "1.81"
 description = "Rust bindings for TNT Core Solidity contracts (Tangle restaking protocol)"
