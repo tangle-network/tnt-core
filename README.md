@@ -118,9 +118,9 @@ contract MyBlueprint is BlueprintServiceManagerBase {
 
 ## Documentation
 
-- [Architecture Deep Dive](https://github.com/tangle-network/tnt-core/tree/main/architecture)
-- [Deployment Guide](https://github.com/tangle-network/tnt-core/blob/main/DEPLOYMENT_RUNBOOK.md)
-- [API Reference](https://github.com/tangle-network/tnt-core/tree/main/src/interfaces)
+- [Deployment Guide](https://github.com/tangle-network/tnt-core/blob/main/docs/DEPLOYMENT_RUNBOOK.md)
+- [Full Deploy Config](https://github.com/tangle-network/tnt-core/blob/main/docs/full-deploy.md)
+- [Interfaces](https://github.com/tangle-network/tnt-core/tree/main/src/interfaces)
 
 ## Rust Bindings
 

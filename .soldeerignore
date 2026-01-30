@@ -1,8 +1,6 @@
 # Test and script files
 test/
 script/
-scripts/
-examples/
 
 # Build artifacts
 out/
@@ -29,12 +27,9 @@ packages/
 apps/
 
 # Documentation (keep README.md for soldeer)
-ADMIN_OPERATIONS.md
-DEPLOYMENT_RUNBOOK.md
-PAYMENT_FLOW.md
+docs/
 CLAUDE.md
 CHANGELOG.md
-architecture/
 audits/
 doc/
 deploy/
