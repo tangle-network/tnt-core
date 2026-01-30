@@ -37,6 +37,17 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v0.3.0
+          cache: true
+
+      - name: Cache Solidity dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            dependencies
+            ~/.svm
+          key: ${{ runner.os }}-soldeer-${{ hashFiles('soldeer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-soldeer-
 
       - name: Install dependencies
         run: forge soldeer update -d

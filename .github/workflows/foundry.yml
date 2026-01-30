@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: forge-validation-${{ github.head_ref }}
+  group: forge-validation-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -16,12 +16,7 @@ env:
 
 jobs:
   foundry-check:
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-      fail-fast: true
-
-    name: Foundry project
+    name: Build & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +27,27 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v0.3.0
+          cache: true
+
+      - name: Cache Solidity dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            dependencies
+            ~/.svm
+          key: ${{ runner.os }}-soldeer-${{ hashFiles('soldeer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-soldeer-
+
+      - name: Cache Forge build
+        uses: actions/cache@v4
+        with:
+          path: |
+            cache
+            out
+          key: ${{ runner.os }}-forge-${{ hashFiles('src/**/*.sol', 'foundry.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-forge-
 
       - name: Install Solidity Dependencies
         run: forge soldeer update -d
@@ -60,6 +76,17 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v0.3.0
+          cache: true
+
+      - name: Cache Solidity dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            dependencies
+            ~/.svm
+          key: ${{ runner.os }}-soldeer-${{ hashFiles('soldeer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-soldeer-
 
       - name: Install Solidity Dependencies
         run: forge soldeer update -d
@@ -70,6 +97,8 @@ jobs:
       - name: Run Forge Coverage
         run: forge coverage --color always --report lcov
         id: coverage
+        env:
+          FOUNDRY_PROFILE: coverage
 
       - name: Report code coverage
         uses: zgosalvez/github-actions-report-lcov@v4

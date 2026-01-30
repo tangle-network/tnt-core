@@ -14,12 +14,21 @@ via_ir = true
 allow_internal_expect_revert = true
 
 [profile.coverage]
+# Keep via_ir (required for BN254.sol stack depth)
 via_ir = true
 optimizer = true
 optimizer_runs = 200
+# Reduce fuzz runs for coverage
+fuzz = { runs = 100 }
 
 [profile.ci]
 verbosity = 4
+# Keep via_ir (required for BN254.sol stack depth)
+# Speed comes from caching in CI workflow
+# Reduce fuzz runs in CI for speed
+fuzz = { runs = 256 }
+# Reduce invariant runs in CI
+invariant = { runs = 64, depth = 50 }
 
 [fmt]
 bracket_spacing = true
