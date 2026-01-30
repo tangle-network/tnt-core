@@ -28,8 +28,12 @@ indexer/
 packages/
 apps/
 
-# Documentation
-*.md
+# Documentation (keep README.md for soldeer)
+ADMIN_OPERATIONS.md
+DEPLOYMENT_RUNBOOK.md
+PAYMENT_FLOW.md
+CLAUDE.md
+CHANGELOG.md
 architecture/
 audits/
 doc/

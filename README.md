@@ -1,109 +1,135 @@
-# tnt-core
+# TNT Core
 
-This repo contains interfaces and abstractions for using Tangle's staking infrastructure for the creation of new
-service blueprints. The service blueprint is a set of smart contracts that define the rules of the service and allow the blueprint developer to customize the service to their needs, how it is used, how it is paid for, and how it is managed.
+Tangle Network's EVM-native staking and service blueprint protocol. Build decentralized services with customizable operator networks, multi-asset staking, and flexible payment models.
 
-## Getting Started
-
-## Usage
-
-Here's a list of the most frequently needed commands.
-
-### Install
-
-Install the dependencies
-```sh
-forge soldeer update
-```
-
-### Build
-
-Build the contracts:
-
-```sh
-forge build
-```
-
-### Deployment Notes
-
-Every deployment must register at least one Master Blueprint Service Manager (MBSM) version and configure it on `Tangle` before blueprint creation. The provided deploy scripts already deploy an `MBSMRegistry`, add the first version, and call `setMBSMRegistry` on the Tangle proxy. If you roll your own tooling, replicate those steps (or call `setMBSMRegistry` with an existing registry) before attempting `createBlueprint`; the call now enforces that dependency and will revert if the registry is unset.
-
-#### Full Deploy pipeline
-
-- The config-driven orchestrator lives at `script/FullDeploy.s.sol`. Point `FULL_DEPLOY_CONFIG` at a JSON file under `deploy/config/` (see [`docs/full-deploy.md`](docs/full-deploy.md) for the schema) and run:
-  ```bash
-  export PRIVATE_KEY=0x...
-  export FULL_DEPLOY_CONFIG=deploy/config/base-sepolia.example.json
-  forge script script/FullDeploy.s.sol:FullDeploy --rpc-url $RPC_URL --broadcast --slow
-  ```
-- The script deploys or reuses the core stack, onboards restake assets, configures the inflation/reward modules, and writes a manifest/migration bundle under `deployments/`.
-- Additional skeleton profiles are staged for upcoming rollouts:
-  - `deploy/config/base-sepolia-holesky.json` – Base Sepolia ↔ Holesky bridge rehearsal (placeholders + TODOs for every address).
-  - `deploy/config/base-mainnet.json` – Base mainnet deployment (with placeholder TNT/restake asset data).
-- Local developers can bootstrap Anvil with `scripts/local-env/start-local-env.sh`, which wraps the same entrypoint using `deploy/config/local.anvil.json`.
-- Set `TNT_TOKEN` when reusing an existing TNT deployment. The deployment scripts, migration helpers, inflation setup, and governance deployer reuse that single address instead of spinning up duplicate tokens; leave it unset to auto-deploy a fresh `TangleToken`.
-
-Operator onboarding requires only the staking self-stake minimum.
-
-A starter `deploy.env.example` file is included—copy it to `.env`, fill in the TNT token address (and other fields), then run the deploy script.
-
-### Integrator notes
-
-- Operator liveness is tracked via `OperatorStatusRegistry` heartbeats submitted by the operator runtime/CLI. Use `submitHeartbeat` for liveness proofs and read `isOnline`, `getOperatorStatus`, or `getLastHeartbeat` for status. There is no `setOperatorOnline` call in core.
-- `JobCompleted` emits only `(serviceId, callId)`. Derive `resultCount` from `getJobCall(serviceId, callId)`. Indexers must match the minimal event signatures configured in `indexer/config.yaml`.
-
-### Envio indexer
-
-An Envio indexer is included under `indexer/` to track on-chain protocol data. The handler stack is now modular:
-
-- `indexer/src/EventHandlers.ts` is a tiny registry that wires every contract-specific module.
-- `indexer/src/handlers/*.ts` group logic by domain (`tangle`, `staking`, `rewardVaults`, `blueprintManager`, `credits`, `hourly`, `liquidDelegation`, `validatorPods`).
-- `indexer/src/lib/handlerUtils.ts` centralises common helpers (entity upsert helpers, ID builders, etc.).
-- Incentive logic lives under `indexer/src/points/` (`programs.ts` for program definitions, `awards.ts` for reusable award helpers, `participation.ts` for hourly ticking).
-
-The schema is defined in `indexer/schema.graphql`, and contract coverage is configured in `indexer/config.yaml`. A detailed breakdown of point weights/programs lives in [`docs/points.md`](docs/points.md). To work on the indexer locally:
-
-```sh
-cd indexer
-npm install
-npm run codegen     # generates the ./generated package
-npm run dev         # starts the indexer with live auto-reload
-```
-
-- `npm run build` runs the TypeScript compiler so you can type-check handlers.
-- `npm run start` runs the compiled indexer once (useful in CI).
-- `npm run test` executes the lightweight points tests under `src/points/__tests__`.
-- Update/add contract stanzas in `indexer/config.yaml` before targeting another deployment, then re-run `npm run codegen`.
-
-#### Indexer incentives
-
-Points programs are defined in `indexer/src/points/programs.ts` and exposed via helper functions in `points/awards.ts`. The current coverage incentivises:
-
-- Developers – blueprint creation/definition events (`developer-blueprint`).
-- Customers – service requests/activations and recurring escrow top-ups (`customer-service` / `customer-escrow`).
-- Operators – stake, registration, hourly participation, and heartbeat uptime (`operator-registration`, `operator-stake`, `operator-hourly`, `operator-uptime`).
-- Restakers – deposits, delegations, and vault staking (`delegator-deposit`, `delegation`, `restaker-vault`).
-
-Contract modules call the award helpers, so adding a new incentive is as simple as wiring the relevant event to a helper (or introducing a new helper/program when needed).
-
-### Rust Bindings
-
-The `bindings/` crate provides Rust bindings for TNT Core contracts, published to crates.io as [`tnt-core-bindings`](https://crates.io/crates/tnt-core-bindings).
+## Installation
 
 ```bash
-# Regenerate bindings after contract changes
-cargo xtask gen-bindings
-
-# Bump version and publish
-cargo xtask bump-version 0.3.0
-cargo xtask publish
+forge soldeer install tnt-core~0.8.0
 ```
 
-See [xtask/README.md](xtask/README.md) for full documentation.
+Or add to `foundry.toml`:
+```toml
+[dependencies]
+tnt-core = "0.8.0"
+```
 
-### Additional Documentation
+## Quick Start
 
-- [Points & Pricing Pipeline](docs/points-pipeline.md) – covers the asset
-  registry policy, USD conversion flow, and the runbooks for updating assets or
-  responding to price API outages.
-- [Points Program Reference](docs/points.md) – lists every program, weight, and award helper.
+Create a custom blueprint by extending `BlueprintServiceManagerBase`:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+import { BlueprintServiceManagerBase } from "tnt-core/src/BlueprintServiceManagerBase.sol";
+
+contract MyBlueprint is BlueprintServiceManagerBase {
+    function onRequest(
+        uint64 requestId,
+        address requester,
+        address[] calldata operators,
+        bytes calldata requestInputs,
+        uint64 ttl,
+        address paymentAsset,
+        uint256 paymentAmount
+    ) external payable override onlyFromTangle {
+        // Validate service configuration
+        require(operators.length >= 3, "Need at least 3 operators");
+        // Custom logic here
+    }
+
+    function onJobResult(
+        uint64 serviceId,
+        uint8 job,
+        uint64 jobCallId,
+        address operator,
+        bytes calldata inputs,
+        bytes calldata outputs
+    ) external payable override onlyFromTangle {
+        // Process job results, verify outputs, distribute rewards
+    }
+}
+```
+
+## Core Contracts
+
+### Service Layer
+| Contract | Description |
+|----------|-------------|
+| `Tangle.sol` | Main entry point - composes all protocol functionality |
+| `BlueprintServiceManagerBase.sol` | Base contract for custom blueprints |
+| `MasterBlueprintServiceManager.sol` | Protocol-wide blueprint registry |
+| `MBSMRegistry.sol` | Versioned MBSM management |
+
+### Staking Layer
+| Contract | Description |
+|----------|-------------|
+| `MultiAssetDelegation.sol` | Multi-asset staking with O(1) share accounting |
+| `LiquidDelegationVault.sol` | ERC-7540 vault for liquid staking |
+| `OperatorStatusRegistry.sol` | Operator liveness tracking |
+
+### Key Interfaces
+| Interface | Description |
+|-----------|-------------|
+| `ITangle.sol` | Full Tangle interface |
+| `IBlueprintServiceManager.sol` | Blueprint hook interface |
+| `IMultiAssetDelegation.sol` | Staking interface |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Tangle                               │
+│  ┌─────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────────┐  │
+│  │Blueprints│ │ Services │ │   Jobs   │ │    Slashing     │  │
+│  └─────────┘ └──────────┘ └──────────┘ └─────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  MultiAssetDelegation                        │
+│  ┌─────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────────┐  │
+│  │Operators │ │ Deposits │ │Delegations│ │    Slashing     │  │
+│  └─────────┘ └──────────┘ └──────────┘ └─────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Blueprint Service Managers                      │
+│         (Your custom service logic goes here)                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Blueprint Lifecycle
+
+1. **Create Blueprint** - Developer deploys BSM and registers with Tangle
+2. **Operators Register** - Operators stake and register to serve the blueprint
+3. **Request Service** - Users request service instances with payment
+4. **Operators Approve** - Required operators approve the request
+5. **Service Active** - Jobs can be submitted and processed
+6. **Results & Rewards** - Operators submit results, rewards distributed
+
+## Payment Models
+
+- **PayOnce** - Single upfront payment
+- **Subscription** - Recurring billing from escrow
+- **EventBased** - Pay per job/event
+
+## Documentation
+
+- [Architecture Deep Dive](https://github.com/tangle-network/tnt-core/tree/main/architecture)
+- [Deployment Guide](https://github.com/tangle-network/tnt-core/blob/main/DEPLOYMENT_RUNBOOK.md)
+- [API Reference](https://github.com/tangle-network/tnt-core/tree/main/src/interfaces)
+
+## Rust Bindings
+
+```bash
+cargo add tnt-core-bindings
+```
+
+See [crates.io/crates/tnt-core-bindings](https://crates.io/crates/tnt-core-bindings)
+
+## License
+
+MIT
