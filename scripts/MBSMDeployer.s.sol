@@ -11,9 +11,10 @@ contract MBSMDeployerScript is Script {
     function run() public {
         vm.createSelectFork("tangle_local");
         vm.startBroadcast();
-        // TODO: Change this to the actual protocol fees receiver address
-        address payable protocolFeesReceiver = payable(address(0x0));
-        new MasterBlueprintServiceManager(protocolFeesReceiver);
+        // TODO: Change these to actual addresses
+        address admin = address(0x0);
+        address initialTangle = address(0x0);
+        new MasterBlueprintServiceManager(admin, initialTangle);
         vm.stopBroadcast();
 
         // vm.createSelectFork("base-sepolia");
