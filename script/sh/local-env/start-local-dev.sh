@@ -85,7 +85,8 @@ check_prerequisites() {
 }
 
 ensure_anvil() {
-    if lsof -iTCP:"$ANVIL_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    # Use nc instead of lsof - lsof can hang on macOS
+    if nc -z 127.0.0.1 "$ANVIL_PORT" 2>/dev/null; then
         log "Anvil already running on port $ANVIL_PORT"
         return
     fi
@@ -246,12 +247,14 @@ run_local_testnet_setup() {
     cd "$ROOT_DIR"
 
     # Run the LocalTestnetSetup script
+    # Note: -vvvv for verbose output so user can see deployment progress
+    # Removed --slow since Anvil auto-mines transactions immediately
     forge script script/v2/LocalTestnet.s.sol:LocalTestnetSetup \
         --rpc-url "$RPC_URL" \
         --private-key "$ANVIL_KEY" \
         --broadcast \
         --non-interactive \
-        --slow
+        -vvvv
 
     # Update indexer config with deployed contract addresses
     update_indexer_config
@@ -435,17 +438,18 @@ start_indexer() {
 wait_for_indexer_sync() {
     log "Waiting for indexer to sync..."
 
-    local retries=60
+    # Increase timeout to 180 seconds (indexer storage init can take 60+ seconds)
+    local retries=90
     local synced=false
 
     while [[ $retries -gt 0 ]]; do
-        # Query GraphQL to check if data exists
+        # Query GraphQL to check if data exists (using Operator entity from schema)
         local response
-        response=$(curl -s "http://localhost:$HASURA_PORT/v1/graphql" \
+        response=$(curl -s --max-time 5 "http://localhost:$HASURA_PORT/v1/graphql" \
             -H "Content-Type: application/json" \
             -d '{"query": "{ Operator(limit: 1) { id } }"}' 2>/dev/null || echo "{}")
 
-        if echo "$response" | grep -q '"id"'; then
+        if echo "$response" | grep -q '"Operator"'; then
             synced=true
             break
         fi
@@ -476,13 +480,12 @@ verify_setup() {
         -H "Content-Type: application/json" \
         -d '{"query": "{ Operator(limit: 5) { id restakingStatus } RestakingAsset(limit: 5) { id enabled } }"}')
 
-    if echo "$response" | grep -q '"Operator"'; then
+    if echo "$response" | grep -q '"data"'; then
+        # grep -c returns count (0 if no matches), || true prevents exit on no matches
         local operator_count
-        operator_count=$(echo "$response" | grep -o '"id"' | wc -l)
-        log "✓ GraphQL responding - found data"
-        log "  Query result preview:"
-        echo "$response" | head -c 500
-        echo ""
+        operator_count=$(echo "$response" | grep -c '"id"' || true)
+        log "✓ GraphQL responding (found $operator_count entities)"
+        log "  Response: $response"
     else
         log "⚠ GraphQL endpoint not returning expected data"
         log "  Response: $response"
@@ -502,8 +505,9 @@ clean_all() {
     rm -f "$INDEXER_DIR/generated/persisted_state.envio.json" || true
 
     # Kill any running processes on our ports
-    lsof -ti:"$ANVIL_PORT" | xargs kill -9 2>/dev/null || true
-    lsof -ti:"$HASURA_PORT" | xargs kill -9 2>/dev/null || true
+    # Use pkill instead of lsof which can hang on macOS
+    pkill -f "anvil.*--port.*$ANVIL_PORT" 2>/dev/null || true
+    pkill -f "hasura" 2>/dev/null || true
 
     log "Done. Run './start-local-dev.sh' to start fresh."
 }
