@@ -2,7 +2,7 @@ name: Auto review PRs
 
 on:
   pull_request:
-    types: [opened, ready_for_review, synchronize]
+    types: [opened, ready_for_review]
 
 jobs:
   auto-review:
