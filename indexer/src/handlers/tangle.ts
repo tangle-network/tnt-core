@@ -51,8 +51,10 @@ import {
   awardOperatorServiceJoin,
 } from "../points/awards";
 
-// Minimal ABI for decoding service request functions
-// Note: abitype requires unnamed tuple fields in human-readable format
+// Minimal ABI for decoding service request functions.
+// Note: abitype requires unnamed tuple fields in human-readable format.
+// The tuple syntax ((uint8,address),uint16,uint16)[] represents SecurityRequirement structs
+// but must use positional (unnamed) fields for viem's parseAbi to work correctly.
 const SERVICE_REQUEST_ABI = parseAbi([
   "function requestService(uint64 blueprintId, address[] operators, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount)",
   "function requestServiceWithExposure(uint64 blueprintId, address[] operators, uint16[] exposures, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount)",
@@ -61,7 +63,7 @@ const SERVICE_REQUEST_ABI = parseAbi([
 
 /**
  * Extracts the operators array from transaction input data.
- * The operators array is always the second argument (index 1) in all request functions.
+ * Validates the decoded function name and extracts operators from the correct position.
  */
 const extractOperatorsFromInput = (input: string | undefined): string[] => {
   if (!input) return [];
@@ -70,11 +72,22 @@ const extractOperatorsFromInput = (input: string | undefined): string[] => {
       abi: SERVICE_REQUEST_ABI,
       data: input as `0x${string}`,
     });
-    // operators is always the second argument (index 1) in all request functions
-    if (!decoded.args || decoded.args.length < 2) return [];
-    const operators = decoded.args[1] as string[];
-    return operators.map(normalizeAddress);
-  } catch {
+    // Validate we decoded a known function and extract operators by function name
+    switch (decoded.functionName) {
+      case "requestService":
+      case "requestServiceWithExposure":
+      case "requestServiceWithSecurity":
+        // operators is always the second argument (index 1) in all variants
+        if (!decoded.args || decoded.args.length < 2) return [];
+        return (decoded.args[1] as string[]).map(normalizeAddress);
+      default:
+        return [];
+    }
+  } catch (error) {
+    // Log for debugging but don't throw to maintain backward compatibility
+    console.warn(
+      `Failed to decode transaction input: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
     return [];
   }
 };

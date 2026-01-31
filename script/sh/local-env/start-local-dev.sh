@@ -13,6 +13,12 @@ set -euo pipefail
 # - Docker (PostgreSQL + Hasura)
 # - Envio indexer (fully synced)
 #
+# Requirements:
+# - Docker and docker compose
+# - Foundry (forge, anvil)
+# - Node.js and npm
+# - nc (netcat) for port checking
+#
 # Use this for dApp/indexer development. For testing deployment configs,
 # use test-full-deploy.sh instead.
 
@@ -506,8 +512,9 @@ clean_all() {
 
     # Kill any running processes on our ports
     # Use pkill instead of lsof which can hang on macOS
+    # Use specific patterns to avoid killing unrelated processes
     pkill -f "anvil.*--port.*$ANVIL_PORT" 2>/dev/null || true
-    pkill -f "hasura" 2>/dev/null || true
+    pkill -f "graphql-engine.*--server-port.*$HASURA_PORT" 2>/dev/null || true
 
     log "Done. Run './start-local-dev.sh' to start fresh."
 }
