@@ -1,4 +1,5 @@
 import { Tangle } from "generated";
+import { decodeFunctionData, parseAbi } from "viem";
 import type {
   Blueprint,
   EscrowBalance,
@@ -49,6 +50,34 @@ import {
   awardDeveloperBlueprint,
   awardOperatorServiceJoin,
 } from "../points/awards";
+
+// Minimal ABI for decoding service request functions
+// Note: abitype requires unnamed tuple fields in human-readable format
+const SERVICE_REQUEST_ABI = parseAbi([
+  "function requestService(uint64 blueprintId, address[] operators, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount)",
+  "function requestServiceWithExposure(uint64 blueprintId, address[] operators, uint16[] exposures, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount)",
+  "function requestServiceWithSecurity(uint64 blueprintId, address[] operators, ((uint8,address),uint16,uint16)[] securityRequirements, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount)",
+]);
+
+/**
+ * Extracts the operators array from transaction input data.
+ * The operators array is always the second argument (index 1) in all request functions.
+ */
+const extractOperatorsFromInput = (input: string | undefined): string[] => {
+  if (!input) return [];
+  try {
+    const decoded = decodeFunctionData({
+      abi: SERVICE_REQUEST_ABI,
+      data: input as `0x${string}`,
+    });
+    // operators is always the second argument (index 1) in all request functions
+    if (!decoded.args || decoded.args.length < 2) return [];
+    const operators = decoded.args[1] as string[];
+    return operators.map(normalizeAddress);
+  } catch {
+    return [];
+  }
+};
 
 export function registerTangleHandlers() {
   /* ────────────────────────────────────────────────────────────────────────────
@@ -317,6 +346,10 @@ export function registerTangleHandlers() {
   Tangle.ServiceRequested.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const id = toBigInt(event.params.requestId).toString();
+
+    // Extract operators from transaction input
+    const operatorCandidates = extractOperatorsFromInput(event.transaction?.input);
+
     const request: ServiceRequest = {
       id,
       requestId: toBigInt(event.params.requestId),
@@ -328,7 +361,7 @@ export function registerTangleHandlers() {
       approvalCount: 0n,
       approvedOperators: [],
       rejectedOperators: [],
-      operatorCandidates: [],
+      operatorCandidates,
       securityRequirements: undefined,
     } as ServiceRequest;
     context.ServiceRequest.set(request);
@@ -341,6 +374,10 @@ export function registerTangleHandlers() {
     const id = toBigInt(event.params.requestId).toString();
     const blueprintId = toBigInt(event.params.blueprintId).toString();
     const requester = normalizeAddress(event.params.requester);
+
+    // Extract operators from transaction input
+    const operatorCandidates = extractOperatorsFromInput(event.transaction?.input);
+
     let request = await context.ServiceRequest.get(id);
     const created = !request;
     if (!request) {
@@ -355,7 +392,7 @@ export function registerTangleHandlers() {
         approvalCount: 0n,
         approvedOperators: [],
         rejectedOperators: [],
-        operatorCandidates: [],
+        operatorCandidates,
         securityRequirements: undefined,
       } as ServiceRequest;
     }
@@ -363,6 +400,8 @@ export function registerTangleHandlers() {
       ...request,
       blueprint_id: blueprintId,
       requester: request.requester ?? requester,
+      // If we have new operator candidates and the existing list is empty, update it
+      operatorCandidates: request.operatorCandidates?.length ? request.operatorCandidates : operatorCandidates,
       updatedAt: timestamp,
     } as ServiceRequest;
     context.ServiceRequest.set(updated);

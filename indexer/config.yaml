@@ -5,6 +5,7 @@ field_selection:
   transaction_fields:
     - hash
     - from
+    - input
 networks:
   - id: 84532
     start_block: 0
