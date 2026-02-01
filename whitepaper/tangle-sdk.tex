@@ -1,0 +1,681 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{listings}
+
+\geometry{margin=1in}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    urlcolor=blue!70!black,
+    citecolor=blue!70!black,
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Tangle Blueprint SDK}
+\fancyhead[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\titleformat{\section}{\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+% Rust code styling
+\lstdefinestyle{rust}{
+    language=C,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue!70!black}\bfseries,
+    commentstyle=\color{green!50!black}\itshape,
+    stringstyle=\color{orange!80!black},
+    showstringspaces=false,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!5},
+    morekeywords={async,await,pub,fn,struct,impl,use,let,mut,const,trait,for,loop,if,else,match,Ok,Err,Some,None,Result,Self,self,move,where,type,dyn},
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+}
+
+\lstset{style=rust}
+
+\title{\textbf{Tangle Blueprint SDK}\\[0.5em]\large Developer Guide\\[1em]\normalsize Building Decentralized Services with Rust}
+\author{Tangle Foundation}
+\date{January 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+The Tangle Blueprint SDK provides the tooling for building decentralized services that interact with the Tangle protocol. This guide covers the SDK's architecture, design patterns, and the path from concept to deployed service. Written for developers familiar with Rust and blockchain concepts, it presents practical examples ranging from simple handlers to production-grade services including oracles, AI inference, keepers, and threshold cryptography.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%==============================================================================
+\section{Introduction}
+%==============================================================================
+
+Tangle enables developers to define computational services that run across a network of independent operators. The Blueprint SDK is the primary toolkit for building these services in Rust.
+
+This guide assumes familiarity with:
+\begin{itemize}[noitemsep]
+    \item Rust programming and async/await patterns
+    \item Basic blockchain concepts (transactions, events, contracts)
+    \item Cryptographic primitives (signatures, hashes)
+\end{itemize}
+
+\subsection{What You'll Build}
+
+A blueprint defines a service type. When deployed, operators register to provide that service, and customers create service instances by selecting operators and configuring parameters. Your blueprint code runs on operator infrastructure, processing jobs and submitting results.
+
+\subsection{Why Rust}
+
+The SDK is written in Rust for several reasons:
+
+\textbf{Performance} is critical for operators processing high-throughput workloads. Rust compiles to native code with zero-cost abstractions.
+
+\textbf{Safety} prevents memory errors and race conditions. For operator software handling valuable stake and sensitive data, safety is non-negotiable.
+
+\textbf{Async runtime} via Tokio provides efficient concurrent execution for handling blockchain events, P2P networking, and customer requests simultaneously.
+
+\textbf{WebAssembly compilation} enables portable execution for sandboxed environments.
+
+\textbf{Ecosystem compatibility} with blockchain tooling (alloy, libp2p, ark-bn254).
+
+%==============================================================================
+\section{Architecture Overview}
+%==============================================================================
+
+The SDK is organized into composable components.
+
+\subsection{Core Components}
+
+\textbf{Producers} generate job calls from external events:
+\begin{itemize}[noitemsep]
+    \item \texttt{TangleEvmProducer} watches blockchain events
+    \item \texttt{CronProducer} generates calls on schedules
+    \item Custom producers watch APIs, queues, or any event source
+\end{itemize}
+
+\textbf{Router} dispatches job calls to handlers. When a job arrives, the router examines the job index and invokes the corresponding function.
+
+\textbf{Handlers} implement job-specific logic. Each handler receives context (extractors) and returns a result. Handlers are async functions.
+
+\textbf{Consumer} submits results to the blockchain. For aggregated results, the consumer coordinates with other operators to collect signatures.
+
+\textbf{Background services} run alongside job processing:
+\begin{itemize}[noitemsep]
+    \item \texttt{BackgroundService} for general long-running tasks
+    \item \texttt{BackgroundKeeper} for Tangle lifecycle automation
+\end{itemize}
+
+\textbf{P2P layer} provides inter-operator communication for quote dissemination, signature aggregation, and custom coordination.
+
+\subsection{Execution Flow}
+
+\begin{enumerate}[noitemsep]
+    \item Producer detects event (blockchain, cron, custom)
+    \item Producer generates job call
+    \item Router dispatches to appropriate handler
+    \item Handler executes and returns result
+    \item Consumer submits result (coordinating aggregation if needed)
+\end{enumerate}
+
+Throughout this flow, background services continue running and the P2P layer handles coordination.
+
+%==============================================================================
+\section{Your First Blueprint}
+%==============================================================================
+
+Let's build a minimal blueprint that squares numbers.
+
+\subsection{Project Setup}
+
+Create a new Rust project:
+\begin{lstlisting}
+cargo new my-blueprint
+cd my-blueprint
+\end{lstlisting}
+
+Add dependencies to \texttt{Cargo.toml}:
+\begin{lstlisting}
+[dependencies]
+blueprint-sdk = { version = "0.8", features = ["tangle-evm"] }
+tokio = { version = "1", features = ["full"] }
+\end{lstlisting}
+
+\subsection{The Complete Example}
+
+\begin{lstlisting}
+use blueprint_sdk::tangle_evm::extract::{TangleEvmArg, TangleEvmResult};
+use blueprint_sdk::tangle_evm::{TangleEvmConsumer, TangleEvmProducer, TangleEvmLayer};
+use blueprint_sdk::{Router, runner::BlueprintRunner};
+
+pub const SQUARE_JOB: u8 = 0;
+
+// Job function: extracts input, returns wrapped result
+pub async fn square(TangleEvmArg(x): TangleEvmArg<u64>) -> TangleEvmResult<u64> {
+    TangleEvmResult(x * x)
+}
+
+pub fn router() -> Router {
+    Router::new().route(SQUARE_JOB, square.layer(TangleEvmLayer))
+}
+
+#[tokio::main]
+async fn main() -> Result<(), blueprint_sdk::Error> {
+    let env = BlueprintEnvironment::load()?;
+    let client = env.tangle_evm_client().await?;
+    let service_id = env.protocol_settings.tangle_evm()?.service_id.unwrap();
+
+    BlueprintRunner::builder(TangleEvmConfig::default(), env)
+        .router(router())
+        .producer(TangleEvmProducer::new(client.clone(), service_id))
+        .consumer(TangleEvmConsumer::new(client))
+        .run()
+        .await
+}
+\end{lstlisting}
+
+\subsection{Understanding the Code}
+
+The SDK uses an \textbf{extractor pattern} inspired by web frameworks:
+\begin{itemize}[noitemsep]
+    \item \texttt{TangleEvmArg<T>} extracts ABI-encoded inputs from job calls
+    \item \texttt{TangleEvmResult<T>} wraps outputs for submission
+    \item \texttt{TangleEvmLayer} handles encoding/decoding
+\end{itemize}
+
+Job functions are plain async functions. The main function composes SDK components: producer watches for jobs, router directs to handlers, consumer submits results.
+
+%==============================================================================
+\section{The Hook System}
+%==============================================================================
+
+Blueprints customize protocol behavior through hooks---functions called at specific lifecycle points.
+
+\subsection{Lifecycle Hooks}
+
+\textbf{onRegister} validates operator registrations. A blueprint for AI services might require operators to prove GPU capability.
+
+\textbf{onRequest} validates service requests. A membership service might verify the customer's eligibility.
+
+\textbf{onApprove} processes operator approvals. A DeFi service might lock collateral or initialize state.
+
+\textbf{onSlash} executes custom slashing logic. A threshold service might redistribute key shares.
+
+\textbf{onServiceTermination} handles cleanup. A subscription service might finalize billing.
+
+\subsection{Slashing Customization}
+
+Blueprints define their own slashing conditions:
+
+\texttt{querySlashingOrigin} specifies who may propose slashes (governance, specific contract, anyone with evidence).
+
+\texttt{queryDisputeOrigin} specifies who may dispute (the accused operator, governance, delegated arbitrators).
+
+Custom verification contracts implement evidence validation, dispute resolution, and penalty calculation.
+
+\subsection{Membership Customization}
+
+For dynamic membership services:
+
+\textbf{queryMinOperators/queryMaxOperators} bound the operator set size.
+
+\textbf{queryExitDelay} specifies how long operators must wait before leaving.
+
+Custom logic can implement reputation-based entry, stake-weighted selection, or geographic distribution requirements.
+
+\subsection{Job Configuration}
+
+\textbf{requiresAggregation} determines whether results need multi-operator consensus.
+
+\textbf{getAggregationThreshold} specifies the required agreement percentage (by count or stake weight).
+
+%==============================================================================
+\section{Triggers in Depth}
+%==============================================================================
+
+Triggers initiate job execution. The SDK provides multiple trigger types.
+
+\subsection{Event Triggers}
+
+\texttt{TangleEvmProducer} watches blockchain events via WebSocket:
+\begin{itemize}[noitemsep]
+    \item Subscribes to Tangle contract events
+    \item Filters for configured service
+    \item Extracts job parameters
+    \item Handles reconnection and reorgs
+\end{itemize}
+
+\subsection{Cron Triggers}
+
+\texttt{CronJob} executes on schedules using standard cron expressions with seconds precision:
+\begin{lstlisting}
+// Every second
+"* * * * * *"
+
+// Every 5 minutes
+"0 */5 * * * *"
+
+// Daily at midnight
+"0 0 0 * * *"
+\end{lstlisting}
+
+Cron triggers suit periodic tasks: heartbeats, maintenance, report generation, API polling.
+
+\subsection{Custom Triggers (BackgroundKeeper)}
+
+For arbitrary trigger conditions, implement \texttt{BackgroundKeeper}:
+
+\begin{lstlisting}
+struct PriceMonitorKeeper;
+
+impl BackgroundKeeper for PriceMonitorKeeper {
+    const NAME: &'static str = "price-monitor";
+
+    fn start(config: KeeperConfig, mut shutdown: Receiver<()>) -> KeeperHandle {
+        let handle = tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = shutdown.recv() => break,
+                    result = Self::check_and_execute(&config) => {
+                        if let Err(e) = result {
+                            tracing::warn!("Check failed: {e}");
+                        }
+                    }
+                }
+                tokio::time::sleep(config.round_check_interval).await;
+            }
+            Ok(())
+        });
+        KeeperHandle { handle, name: Self::NAME }
+    }
+
+    async fn check_and_execute(config: &KeeperConfig) -> KeeperResult<bool> {
+        // Monitor conditions and trigger actions
+        Ok(false)
+    }
+}
+\end{lstlisting}
+
+Built-in keepers include:
+\begin{itemize}[noitemsep]
+    \item \texttt{EpochKeeper} for inflation distribution
+    \item \texttt{StreamKeeper} for payment stream settlement
+    \item \texttt{RoundKeeper} for round-based protocols
+\end{itemize}
+
+%==============================================================================
+\section{BLS Aggregation}
+%==============================================================================
+
+Multi-operator services use BLS signature aggregation for efficient consensus.
+
+\subsection{When to Use Aggregation}
+
+Use aggregation when:
+\begin{itemize}[noitemsep]
+    \item Multiple operators must agree on a result
+    \item You need Byzantine fault tolerance
+    \item Verification cost matters (BLS aggregates cheaply)
+\end{itemize}
+
+Skip aggregation when:
+\begin{itemize}[noitemsep]
+    \item Speed is paramount (first-to-submit wins)
+    \item Single-operator services
+    \item Outputs are independently verifiable
+\end{itemize}
+
+\subsection{Aggregation Flow}
+
+\begin{enumerate}[noitemsep]
+    \item Each operator computes result and signs with BLS key
+    \item Operators broadcast signatures via P2P
+    \item Aggregator collects signatures until threshold met
+    \item Aggregated signature submitted with combined result
+    \item Contract verifies aggregate signature on-chain
+\end{enumerate}
+
+\subsection{Configuration}
+
+The service manager contract controls aggregation:
+\begin{itemize}[noitemsep]
+    \item \texttt{requiresAggregation(serviceId, jobIndex)} returns whether job needs aggregation
+    \item \texttt{getAggregationThreshold(serviceId)} returns required percentage
+\end{itemize}
+
+%==============================================================================
+\section{Use Case Examples}
+%==============================================================================
+
+\subsection{Price Oracle Service}
+
+A price oracle provides asset prices to DeFi protocols.
+
+\begin{lstlisting}
+pub const FETCH_PRICE_JOB: u8 = 0;
+
+pub async fn fetch_price(
+    TangleEvmArg(pair): TangleEvmArg<AssetPair>
+) -> TangleEvmResult<PriceData> {
+    // Fetch from multiple sources for redundancy
+    let binance = fetch_binance(&pair).await.unwrap_or_default();
+    let coinbase = fetch_coinbase(&pair).await.unwrap_or_default();
+    let chainlink = fetch_chainlink(&pair).await.unwrap_or_default();
+
+    // Median aggregation for manipulation resistance
+    let price = median(vec![binance, coinbase, chainlink]);
+
+    TangleEvmResult(PriceData {
+        pair,
+        price,
+        timestamp: now(),
+        sources: 3
+    })
+}
+\end{lstlisting}
+
+\textbf{Triggers}: Event (price requests) + Cron (periodic updates)
+
+\textbf{Submission}: Aggregated (median across operators)
+
+\textbf{Verification}: Cross-operator comparison; deviations trigger review
+
+\subsection{AI Inference Service}
+
+An AI inference service runs language models for customers.
+
+\begin{lstlisting}
+pub const INFERENCE_JOB: u8 = 0;
+
+pub async fn inference(
+    Context(config): Context<InferenceConfig>,
+    TangleEvmArg(request): TangleEvmArg<InferenceRequest>,
+) -> TangleEvmResult<Completion> {
+    let model = ModelClient::new(&config.model_endpoint);
+    let completion = model.complete(
+        &request.prompt,
+        request.max_tokens,
+        request.temperature,
+    ).await.map_err(|e| Error::Other(e.to_string()))?;
+
+    TangleEvmResult(Completion {
+        text: completion.text,
+        usage: completion.tokens_used,
+        model: config.model_id.clone(),
+    })
+}
+\end{lstlisting}
+
+\textbf{Triggers}: Event (inference requests)
+
+\textbf{Submission}: Direct or aggregated depending on requirements
+
+\textbf{Verification}: Model fingerprinting challenges detect substitution
+
+\subsection{Keeper Service}
+
+A keeper monitors on-chain conditions and executes transactions.
+
+\begin{lstlisting}
+pub struct LiquidationService {
+    lending_protocol: Address,
+    check_interval: Duration,
+}
+
+impl BackgroundService for LiquidationService {
+    async fn start(&self) -> Result<Receiver<Result<(), RunnerError>>, RunnerError> {
+        let (tx, rx) = oneshot::channel();
+        let protocol = self.lending_protocol;
+        let interval = self.check_interval;
+
+        tokio::spawn(async move {
+            loop {
+                match fetch_undercollateralized(&protocol).await {
+                    Ok(positions) => {
+                        for position in positions {
+                            if let Err(e) = execute_liquidation(&position).await {
+                                tracing::warn!("Liquidation failed: {e}");
+                            }
+                        }
+                    }
+                    Err(e) => tracing::warn!("Failed to fetch: {e}"),
+                }
+                tokio::time::sleep(interval).await;
+            }
+        });
+        Ok(rx)
+    }
+}
+\end{lstlisting}
+
+\textbf{Triggers}: BackgroundKeeper (condition monitoring)
+
+\textbf{Submission}: Direct (speed-critical)
+
+\textbf{Verification}: Transaction success is self-evident
+
+\subsection{Threshold Signature Service}
+
+A threshold service generates signatures without any party holding the complete key.
+
+\begin{lstlisting}
+pub const SIGN_JOB: u8 = 0;
+
+pub async fn sign(
+    Context(state): Context<ThresholdState>,
+    TangleEvmArg(message): TangleEvmArg<Bytes>,
+) -> TangleEvmResult<PartialSignature> {
+    let key_share = state.dkg_share.as_ref()
+        .ok_or_else(|| Error::Other("No DKG share".into()))?;
+    let partial = key_share.partial_sign(&message)?;
+
+    TangleEvmResult(PartialSignature {
+        index: state.operator_index,
+        signature: partial,
+    })
+}
+\end{lstlisting}
+
+\textbf{Triggers}: Event (signing requests)
+
+\textbf{Submission}: Aggregated (threshold combination)
+
+\textbf{Verification}: Signature validity is cryptographically verifiable
+
+\subsection{Pattern Selection Guide}
+
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Service Type} & \textbf{Triggers} & \textbf{Submission} \\
+\hline
+Oracle & Event + Cron & Aggregated (median) \\
+AI Inference & Event & Direct or Aggregated \\
+Keeper & BackgroundKeeper & Direct (speed-critical) \\
+Threshold Crypto & Event & Aggregated (threshold) \\
+Monitoring & Cron & Direct \\
+\hline
+\end{tabular}
+\end{center}
+
+%==============================================================================
+\section{Error Handling and Reliability}
+%==============================================================================
+
+Production software must handle failures gracefully.
+
+\subsection{Handler Errors}
+
+Handler errors are caught and logged. A handler returning \texttt{Err} doesn't crash the operator. Depending on blueprint design, the operator may skip submission or submit an error indicator.
+
+\subsection{Submission Failures}
+
+The consumer retries with exponential backoff on network errors, nonce conflicts, or insufficient gas. Configuration specifies retry limits and backoff parameters.
+
+\subsection{Chain Reorganizations}
+
+The SDK tracks submitted transactions and monitors for inclusion. If a reorg orphans a transaction, the consumer resubmits.
+
+\subsection{Crash Recovery}
+
+The SDK can checkpoint job processing progress, ensuring restarted operators don't miss or double-process jobs.
+
+\subsection{Graceful Shutdown}
+
+On SIGTERM/SIGINT, the SDK completes in-progress jobs, flushes pending submissions, and closes connections before exiting.
+
+%==============================================================================
+\section{Verifiability and Detection}
+%==============================================================================
+
+Slashing requires detection. This section covers verification strategies.
+
+\subsection{Verification Economics}
+
+Not all verification is worthwhile. Let $C_v$ be verification cost, $P_d$ detection probability, $S$ slash amount, and $P_c$ probability of cheating. Verification is justified when:
+\[
+C_v < P_d \times S \times P_c
+\]
+
+\subsection{Verification Approaches}
+
+\textbf{Redundant Execution}: Multiple operators compute independently; disagreements trigger investigation. Simple but expensive.
+
+\textbf{Optimistic with Fraud Proofs}: Assume honest, challenge suspicious results with cryptographic proofs. Efficient for verifiable computations.
+
+\textbf{Challenge-Response}: Periodic challenges test operator honesty. Cost-effective for ongoing services.
+
+\textbf{TEE Attestation}: Trusted Execution Environments provide hardware-backed verification. Strong guarantees but requires TEE hardware.
+
+\subsection{AI-Specific Challenges}
+
+AI outputs are often non-deterministic and subjective. Approaches include:
+\begin{itemize}[noitemsep]
+    \item Model fingerprinting (distinguishing models by output patterns)
+    \item Semantic consistency checking
+    \item Challenge databases with known-correct answers
+    \item Ensemble comparison across operators
+\end{itemize}
+
+%==============================================================================
+\section{Testing and Development}
+%==============================================================================
+
+\subsection{Local Testing}
+
+Mock producers generate test job calls without blockchain infrastructure:
+\begin{lstlisting}
+#[tokio::test]
+async fn test_square_handler() {
+    let result = square(TangleEvmArg(5)).await;
+    assert_eq!(result.0, 25);
+}
+\end{lstlisting}
+
+\subsection{Integration Testing}
+
+Use local blockchain instances (Anvil, Hardhat) with deployed contracts:
+\begin{lstlisting}
+#[tokio::test]
+async fn test_full_flow() {
+    let anvil = Anvil::new().spawn();
+    let contracts = deploy_contracts(&anvil).await;
+
+    // Submit job
+    let job_id = submit_job(&contracts, 42).await;
+
+    // Process with blueprint
+    let runner = create_test_runner(&contracts).await;
+    runner.process_pending().await;
+
+    // Verify result
+    let result = get_result(&contracts, job_id).await;
+    assert_eq!(result, 42 * 42);
+}
+\end{lstlisting}
+
+\subsection{Testnet Deployment}
+
+Tangle testnet provides realistic pre-production validation with test tokens.
+
+\subsection{Observability}
+
+The SDK supports:
+\begin{itemize}[noitemsep]
+    \item Structured logging (configurable verbosity)
+    \item Prometheus metrics export
+    \item OpenTelemetry distributed tracing
+\end{itemize}
+
+%==============================================================================
+\section{P2P Networking}
+%==============================================================================
+
+The SDK includes peer-to-peer networking built on libp2p.
+
+\subsection{Discovery}
+
+\textbf{Kademlia DHT} for global peer discovery.
+
+\textbf{mDNS} for local network discovery.
+
+\subsection{Messaging}
+
+\textbf{Gossipsub} for efficient pub/sub message propagation.
+
+\textbf{Direct connections} for point-to-point coordination.
+
+\subsection{Custom Protocols}
+
+Blueprints can define custom protocols for:
+\begin{itemize}[noitemsep]
+    \item Checkpoint synchronization
+    \item State sharing
+    \item Domain-specific coordination
+\end{itemize}
+
+%==============================================================================
+\section{Deployment Checklist}
+%==============================================================================
+
+Before deploying to production:
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{Testing}: Unit tests, integration tests, testnet validation
+    \item \textbf{Error handling}: All failure modes covered with appropriate responses
+    \item \textbf{Monitoring}: Logging, metrics, and alerts configured
+    \item \textbf{Security}: Input validation, rate limiting, access controls
+    \item \textbf{Documentation}: Operator guide, API reference, troubleshooting
+    \item \textbf{Economics}: Slashing conditions, stake requirements, pricing model
+    \item \textbf{Verification}: Detection mechanisms appropriate to threat model
+\end{enumerate}
+
+%==============================================================================
+\section{Resources}
+%==============================================================================
+
+\begin{itemize}[noitemsep]
+    \item \textbf{SDK Repository}: \url{https://github.com/tangle-network/blueprint-sdk}
+    \item \textbf{API Documentation}: \url{https://docs.tangle.tools/sdk}
+    \item \textbf{Example Blueprints}: \url{https://github.com/tangle-network/blueprints}
+    \item \textbf{Discord}: \url{https://discord.gg/tangle}
+\end{itemize}
+
+\end{document}
