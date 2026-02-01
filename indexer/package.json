@@ -29,5 +29,8 @@
   },
   "optionalDependencies": {
     "generated": "file:generated"
+  },
+  "dependencies": {
+    "viem": "^2.45.1"
   }
 }
