@@ -6,10 +6,11 @@ import { Errors } from "../../libraries/Errors.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 
 /// @title TanglePaymentsFacet
-    /// @notice Facet for escrow and rewards
-    contract TanglePaymentsFacet is Payments, IFacetSelectors {
-        function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](18);
+/// @notice Facet for escrow and rewards
+/// @dev Implements effective exposure payment distribution for accurate security-weighted payments
+contract TanglePaymentsFacet is Payments, IFacetSelectors {
+    function selectors() external pure returns (bytes4[] memory selectorList) {
+        selectorList = new bytes4[](19);
         selectorList[0] = this.fundService.selector;
         selectorList[1] = this.billSubscription.selector;
         selectorList[2] = this.billSubscriptionBatch.selector;
@@ -28,8 +29,11 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
         selectorList[15] = this.getServiceEscrow.selector;
         selectorList[16] = this.distributePayment.selector;
         selectorList[17] = this.depositToEscrow.selector;
+        selectorList[18] = this.distributePaymentWithEffectiveExposure.selector;
     }
 
+    /// @notice Legacy distribute payment using simple exposure bps
+    /// @dev DEPRECATED: Use distributePaymentWithEffectiveExposure for accurate payments
     function distributePayment(
         uint64 serviceId,
         uint64 blueprintId,
@@ -41,6 +45,29 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
     ) external {
         if (msg.sender != address(this)) revert Errors.Unauthorized();
         _distributePayment(serviceId, blueprintId, token, amount, operators, exposures, totalExposure);
+    }
+
+    /// @notice Distribute payment using effective exposures (delegation × exposureBps)
+    /// @dev This ensures operators are paid proportionally to actual security capital at risk
+    function distributePaymentWithEffectiveExposure(
+        uint64 serviceId,
+        uint64 blueprintId,
+        address token,
+        uint256 amount,
+        address[] calldata operators,
+        uint256[] calldata effectiveExposures,
+        uint256 totalEffectiveExposure
+    ) external {
+        if (msg.sender != address(this)) revert Errors.Unauthorized();
+        _distributePaymentWithEffectiveExposure(
+            serviceId, 
+            blueprintId, 
+            token, 
+            amount, 
+            operators, 
+            effectiveExposures, 
+            totalEffectiveExposure
+        );
     }
 
     function depositToEscrow(uint64 serviceId, address token, uint256 amount) external {

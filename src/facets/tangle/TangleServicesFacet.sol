@@ -8,6 +8,7 @@ import { Types } from "../../libraries/Types.sol";
 import { IBlueprintServiceManager } from "../../interfaces/IBlueprintServiceManager.sol";
 import { ITanglePaymentsInternal } from "../../interfaces/ITanglePaymentsInternal.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
+import { IPriceOracle } from "../../oracles/interfaces/IPriceOracle.sol";
 
 /// @title TangleServicesFacet
 /// @notice Facet for service approvals and activation
@@ -163,8 +164,8 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         Types.PricingModel pricing,
         address paymentToken,
         uint256 paymentAmount,
-        uint16[] memory exposures,
-        uint256 totalExposure,
+        uint16[] memory, // exposures - unused, we compute effective exposures
+        uint256, // totalExposure - unused
         uint64 requestId
     ) private {
         if (paymentAmount == 0) {
@@ -172,17 +173,83 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         }
         if (pricing == Types.PricingModel.PayOnce) {
             address[] memory operators = _copyRequestOperators(requestId);
-            ITanglePaymentsInternal(address(this)).distributePayment(
+            
+            // Compute effective exposures (delegation × exposureBps) for each operator
+            (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure) = 
+                _computeEffectiveExposures(serviceId, operators);
+            
+            ITanglePaymentsInternal(address(this)).distributePaymentWithEffectiveExposure(
                 serviceId,
                 blueprintId,
                 paymentToken,
                 paymentAmount,
                 operators,
-                exposures,
-                totalExposure
+                effectiveExposures,
+                totalEffectiveExposure
             );
         } else if (pricing == Types.PricingModel.Subscription) {
             ITanglePaymentsInternal(address(this)).depositToEscrow(serviceId, paymentToken, paymentAmount);
+        }
+    }
+
+    /// @notice Compute effective exposures for operators based on their security commitments
+    /// @dev effectiveExposure = Σ (delegation[asset] × exposureBps[asset]) for each operator
+    /// @param serviceId The service ID
+    /// @param operators Array of operator addresses
+    /// @return effectiveExposures Array of effective exposure values
+    /// @return totalEffectiveExposure Sum of all effective exposures
+    function _computeEffectiveExposures(
+        uint64 serviceId,
+        address[] memory operators
+    ) private view returns (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure) {
+        uint256 operatorsLength = operators.length;
+        effectiveExposures = new uint256[](operatorsLength);
+        
+        address priceOracleAddr = _priceOracle;
+        bool useOracle = priceOracleAddr != address(0);
+        IPriceOracle oracle = IPriceOracle(priceOracleAddr);
+
+        for (uint256 i = 0; i < operatorsLength;) {
+            address operator = operators[i];
+            Types.AssetSecurityCommitment[] storage commitments = _serviceSecurityCommitments[serviceId][operator];
+            
+            uint256 operatorEffectiveExposure = 0;
+            uint256 commitmentsLength = commitments.length;
+            
+            for (uint256 j = 0; j < commitmentsLength;) {
+                Types.AssetSecurityCommitment storage commitment = commitments[j];
+                
+                // Get delegation for this asset
+                uint256 delegation = _staking.getOperatorStakeForAsset(operator, commitment.asset);
+                
+                if (delegation > 0) {
+                    // Calculate exposed amount: delegation × exposureBps / 10000
+                    uint256 exposedAmount = (delegation * commitment.exposureBps) / BPS_DENOMINATOR;
+                    
+                    if (useOracle && exposedAmount > 0) {
+                        // Convert to USD for cross-asset comparison
+                        address token = commitment.asset.kind == Types.AssetKind.Native 
+                            ? address(0) 
+                            : commitment.asset.token;
+                        try oracle.toUSD(token, exposedAmount) returns (uint256 usdValue) {
+                            operatorEffectiveExposure += usdValue;
+                        } catch {
+                            // Fallback: use raw amount if oracle fails
+                            operatorEffectiveExposure += exposedAmount;
+                        }
+                    } else {
+                        // No oracle: use raw amount
+                        operatorEffectiveExposure += exposedAmount;
+                    }
+                }
+                
+                unchecked { ++j; }
+            }
+            
+            effectiveExposures[i] = operatorEffectiveExposure;
+            totalEffectiveExposure += operatorEffectiveExposure;
+            
+            unchecked { ++i; }
         }
     }
 
