@@ -175,34 +175,6 @@ library PaymentLib {
         }
     }
 
-    /// @notice Legacy function for backward compatibility - converts uint16[] to uint256[]
-    /// @dev DEPRECATED: Use calculateOperatorPayments with effective exposures instead
-    /// @param totalOperatorAmount Total amount for all operators
-    /// @param totalRestakerAmount Total amount for all restakers
-    /// @param operators Array of operator addresses
-    /// @param exposureBps Array of exposure in basis points (parallel to operators)
-    /// @param totalExposure Sum of all exposures
-    /// @return payments Array of per-operator payment allocations
-    function calculateOperatorPaymentsLegacy(
-        uint256 totalOperatorAmount,
-        uint256 totalRestakerAmount,
-        address[] memory operators,
-        uint16[] memory exposureBps,
-        uint256 totalExposure
-    ) internal pure returns (OperatorPayment[] memory payments) {
-        uint256[] memory effectiveExposures = new uint256[](operators.length);
-        for (uint256 i = 0; i < operators.length; i++) {
-            effectiveExposures[i] = exposureBps[i];
-        }
-        return calculateOperatorPayments(
-            totalOperatorAmount,
-            totalRestakerAmount,
-            operators,
-            effectiveExposures,
-            totalExposure
-        );
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════
     // PAYMENT COLLECTION
     // ═══════════════════════════════════════════════════════════════════════════

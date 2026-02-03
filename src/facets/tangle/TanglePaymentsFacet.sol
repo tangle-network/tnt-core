@@ -10,7 +10,7 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 /// @dev Implements effective exposure payment distribution for accurate security-weighted payments
 contract TanglePaymentsFacet is Payments, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](19);
+        selectorList = new bytes4[](18);
         selectorList[0] = this.fundService.selector;
         selectorList[1] = this.billSubscription.selector;
         selectorList[2] = this.billSubscriptionBatch.selector;
@@ -29,36 +29,24 @@ contract TanglePaymentsFacet is Payments, IFacetSelectors {
         selectorList[15] = this.getServiceEscrow.selector;
         selectorList[16] = this.distributePayment.selector;
         selectorList[17] = this.depositToEscrow.selector;
-        selectorList[18] = this.distributePaymentWithEffectiveExposure.selector;
     }
 
-    /// @notice Legacy distribute payment using simple exposure bps
-    /// @dev DEPRECATED: Use distributePaymentWithEffectiveExposure for accurate payments
+    /// @notice Distribute payment using effective exposures (delegation × exposureBps)
+    /// @dev Computes effective exposures internally from operator security commitments.
+    ///      Operators are paid proportionally to actual security capital at risk.
     function distributePayment(
         uint64 serviceId,
         uint64 blueprintId,
         address token,
         uint256 amount,
-        address[] calldata operators,
-        uint16[] calldata exposures,
-        uint256 totalExposure
+        address[] calldata operators
     ) external {
         if (msg.sender != address(this)) revert Errors.Unauthorized();
-        _distributePayment(serviceId, blueprintId, token, amount, operators, exposures, totalExposure);
-    }
-
-    /// @notice Distribute payment using effective exposures (delegation × exposureBps)
-    /// @dev This ensures operators are paid proportionally to actual security capital at risk
-    function distributePaymentWithEffectiveExposure(
-        uint64 serviceId,
-        uint64 blueprintId,
-        address token,
-        uint256 amount,
-        address[] calldata operators,
-        uint256[] calldata effectiveExposures,
-        uint256 totalEffectiveExposure
-    ) external {
-        if (msg.sender != address(this)) revert Errors.Unauthorized();
+        
+        // Compute effective exposures from security commitments
+        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure) = 
+            _calculateEffectiveExposures(serviceId, operators);
+        
         _distributePaymentWithEffectiveExposure(
             serviceId, 
             blueprintId, 

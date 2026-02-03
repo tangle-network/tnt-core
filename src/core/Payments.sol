@@ -425,33 +425,6 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         }
     }
 
-    /// @notice Legacy distribute payment function for backward compatibility
-    /// @dev DEPRECATED: Use _distributePaymentWithEffectiveExposure for proper security-weighted payments
-    function _distributePayment(
-        uint64 serviceId,
-        uint64 blueprintId,
-        address token,
-        uint256 amount,
-        address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure
-    ) internal {
-        // Convert to effective exposures for backward compatibility
-        uint256[] memory effectiveExposures = new uint256[](operators.length);
-        for (uint256 i = 0; i < operators.length; i++) {
-            effectiveExposures[i] = exposures[i];
-        }
-        _distributePaymentWithEffectiveExposure(
-            serviceId,
-            blueprintId,
-            token,
-            amount,
-            operators,
-            effectiveExposures,
-            totalExposure
-        );
-    }
-
     function _forwardRestakerShare(
         uint64 serviceId,
         uint64 blueprintId,

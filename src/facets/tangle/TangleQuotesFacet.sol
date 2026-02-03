@@ -14,22 +14,19 @@ contract TangleQuotesFacet is QuotesCreate, IFacetSelectors {
     }
 
     /// @notice Distribute quote payment (called from Quotes mixin)
+    /// @dev Payment is distributed based on effective exposure (delegation × exposureBps)
     function _distributeQuotePayment(
         uint64 serviceId,
         uint64 blueprintId,
         uint256 amount,
-        address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure
+        address[] memory operators
     ) internal override {
         ITanglePaymentsInternal(address(this)).distributePayment(
             serviceId,
             blueprintId,
             address(0),
             amount,
-            operators,
-            exposures,
-            totalExposure
+            operators
         );
     }
 }

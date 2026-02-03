@@ -249,30 +249,4 @@ contract EffectiveExposurePaymentsTest is Test {
         assertEq(totalDistributed, totalAmount, "Total should equal input");
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Legacy function test
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Test legacy function converts uint16[] correctly
-    function test_calculateOperatorPaymentsLegacy_backwardCompatible() public pure {
-        address[] memory operators = new address[](2);
-        operators[0] = address(0x1);
-        operators[1] = address(0x2);
-
-        uint16[] memory exposureBps = new uint16[](2);
-        exposureBps[0] = 6000; // 60%
-        exposureBps[1] = 4000; // 40%
-
-        PaymentLib.OperatorPayment[] memory payments = PaymentLib.calculateOperatorPaymentsLegacy(
-            1000 ether,
-            500 ether,
-            operators,
-            exposureBps,
-            10000
-        );
-
-        assertEq(payments.length, 2, "Should have 2 payments");
-        assertEq(payments[0].operatorShare, 600 ether, "First gets 60%");
-        assertEq(payments[1].operatorShare, 400 ether, "Second gets 40%");
-    }
 }
