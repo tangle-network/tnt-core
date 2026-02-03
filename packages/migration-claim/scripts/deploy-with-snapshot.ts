@@ -4,20 +4,21 @@
  *
  * This script:
  * 1. Reads the Tangle snapshot
- * 2. Generates merkle tree for Substrate accounts + Native unclaimed claims
- * 3. Extracts EVM unclaimed claims for direct minting
+ * 2. Generates merkle tree for Substrate accounts (unclaimed claims excluded by default)
+ * 3. Carves out treasury (module accounts) and foundation allocations
  * 4. Deploys TNT token
  * 5. Deploys TangleMigration with correct merkle root
  * 6. Mints exact Substrate claim amount to TangleMigration
- * 7. Batch mints EVM claims directly to addresses
+ * 7. Optionally batch mints EVM claims directly to addresses (if --include-claims)
  *
  * Claim Types:
  * - Substrate accounts: Regular account balances → TangleMigration (ZK proof claim)
- * - Native claims: Unclaimed airdrop to SS58 addresses → TangleMigration (ZK proof claim)
- * - EVM claims: Unclaimed airdrop to EVM addresses → Direct mint
+ * - Native claims: Unclaimed airdrop to SS58 addresses (excluded by default)
+ * - EVM claims: Unclaimed airdrop to EVM addresses (excluded by default)
  *
  * Usage:
  *   npx ts-node scripts/deploy-with-snapshot.ts --snapshot <path> --rpc <url> --private-key <key>
+ *   npx ts-node scripts/deploy-with-snapshot.ts --snapshot <path> --include-claims  # Include unclaimed airdrop
  *
  * For local Anvil:
  *   npx ts-node scripts/deploy-with-snapshot.ts --snapshot ../../scripts/migration/tangle_migration_snapshot_8116528.json
@@ -101,6 +102,21 @@ interface TangleSnapshot {
 }
 
 const SUBSTRATE_MODULE_PREFIX = '0x6d6f646c'; // "modl"
+const TREASURY_MODULE_NAME = 'py/trsry';
+
+function decodeModuleName(pubkey: string): string {
+  const hex = pubkey.slice(2); // remove 0x
+  const bytes: number[] = [];
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes.push(parseInt(hex.substr(i, 2), 16));
+  }
+  // First 4 bytes are 'modl', next bytes are module name until null
+  let name = '';
+  for (let i = 4; i < bytes.length && bytes[i] !== 0; i++) {
+    name += String.fromCharCode(bytes[i]);
+  }
+  return name || '(unknown)';
+}
 
 function ss58ToHex(ss58Address: string): string {
   const pubkeyBytes = decodeAddress(ss58Address);
@@ -118,7 +134,9 @@ async function main() {
   const rpcIndex = args.indexOf('--rpc');
   const keyIndex = args.indexOf('--private-key');
   const dryRunIndex = args.indexOf('--dry-run');
+  const includeClaimsIndex = args.indexOf('--include-claims');
   const foundationSs58Index = args.indexOf('--foundation-ss58');
+  const teamPoolPubkeyIndex = args.indexOf('--team-pool-pubkey');
   const treasuryRecipientIndex = args.indexOf('--treasury-recipient');
   const foundationRecipientIndex = args.indexOf('--foundation-recipient');
   const extraTreasuryPubkeys: string[] = [];
@@ -132,7 +150,12 @@ async function main() {
   }
 
   if (snapshotIndex === -1) {
-    console.error('Usage: npx ts-node deploy-with-snapshot.ts --snapshot <path> [--rpc <url>] [--private-key <key>] [--dry-run]');
+    console.error('Usage: npx ts-node deploy-with-snapshot.ts --snapshot <path> [options]');
+    console.error('Options:');
+    console.error('  --include-claims          Include unclaimed native and EVM claims (excluded by default)');
+    console.error('  --foundation-ss58 <addr>  SS58 address to carve out as foundation allocation');
+    console.error('  --team-pool-pubkey <hex>  Pubkey to receive non-treasury module accounts (PotStake, pools)');
+    console.error('  --dry-run                 Generate files without deploying');
     process.exit(1);
   }
 
@@ -142,7 +165,9 @@ async function main() {
     ? args[keyIndex + 1]
     : '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // Anvil default
   const dryRun = dryRunIndex !== -1;
+  const includeClaims = includeClaimsIndex !== -1;
   const foundationSs58 = foundationSs58Index !== -1 ? args[foundationSs58Index + 1] : undefined;
+  const teamPoolPubkey = teamPoolPubkeyIndex !== -1 ? args[teamPoolPubkeyIndex + 1]?.toLowerCase() : undefined;
   const treasuryRecipient =
     treasuryRecipientIndex !== -1 ? (args[treasuryRecipientIndex + 1] as `0x${string}`) : undefined;
   const foundationRecipient =
@@ -154,6 +179,10 @@ async function main() {
     }
   }
 
+  if (teamPoolPubkey && !/^0x[0-9a-f]{64}$/.test(teamPoolPubkey)) {
+    throw new Error(`Invalid --team-pool-pubkey (expected 32-byte hex): ${teamPoolPubkey}`);
+  }
+
   if (!existsSync(snapshotPath)) {
     console.error(`Snapshot not found: ${snapshotPath}`);
     process.exit(1);
@@ -163,6 +192,7 @@ async function main() {
   console.log(`Snapshot: ${snapshotPath}`);
   console.log(`RPC: ${rpcUrl}`);
   console.log(`Dry run: ${dryRun}`);
+  console.log(`Include claims: ${includeClaims}`);
   console.log('');
 
   // Read snapshot
@@ -193,41 +223,49 @@ async function main() {
   console.log(`  Accounts with balance: ${substrateAccounts.length}`);
   console.log(`  Total: ${formatUnits(accountsTotal, 18)} TNT`);
 
-  // Separate claims into EVM and Native
-  const allClaims = snapshot.claims?.claims || [];
+  // Separate claims into EVM and Native (only if --include-claims is set)
+  const allClaims = includeClaims ? (snapshot.claims?.claims || []) : [];
 
   // Process Native claims (SS58 addresses - add to merkle tree)
   console.log('\nProcessing Native unclaimed claims (SS58 addresses)...');
-  const nativeClaims = allClaims
+  const nativeClaims = includeClaims ? allClaims
     .filter(c => c.address.native && BigInt(c.amount) > BigInt(0))
     .map(c => ({
       ss58Address: c.address.native!,
       pubkey: ss58ToHex(c.address.native!),
       balance: c.amount,
       source: 'native_claim' as const,
-    }));
+    })) : [];
 
   const nativeClaimsTotal = nativeClaims.reduce(
     (sum, c) => sum + BigInt(c.balance),
     BigInt(0)
   );
 
-  console.log(`  Native claims: ${nativeClaims.length}`);
-  console.log(`  Total: ${formatUnits(nativeClaimsTotal, 18)} TNT`);
+  if (!includeClaims) {
+    console.log(`  SKIPPED (use --include-claims to include)`);
+  } else {
+    console.log(`  Native claims: ${nativeClaims.length}`);
+    console.log(`  Total: ${formatUnits(nativeClaimsTotal, 18)} TNT`);
+  }
 
   // Process EVM claims (for direct minting)
   console.log('\nProcessing EVM unclaimed claims (0x addresses)...');
-  const evmClaims = allClaims
+  const evmClaims = includeClaims ? allClaims
     .filter(c => c.address.evm && BigInt(c.amount) > BigInt(0))
     .map(c => ({
       address: c.address.evm!.toLowerCase() as `0x${string}`,
       amount: BigInt(c.amount),
-    }));
+    })) : [];
 
   const evmTotal = evmClaims.reduce((sum, c) => sum + c.amount, BigInt(0));
 
-  console.log(`  EVM claims: ${evmClaims.length}`);
-  console.log(`  Total: ${formatUnits(evmTotal, 18)} TNT`);
+  if (!includeClaims) {
+    console.log(`  SKIPPED (use --include-claims to include)`);
+  } else {
+    console.log(`  EVM claims: ${evmClaims.length}`);
+    console.log(`  Total: ${formatUnits(evmTotal, 18)} TNT`);
+  }
 
   // Combine Substrate accounts + Native claims for merkle tree
   // Need to handle potential duplicate addresses (account + native claim for same address)
@@ -265,11 +303,54 @@ async function main() {
 
   // Carve out non-claimable Substrate module accounts ("modl*") so they're not stuck in the claim contract.
   const explicitTreasuryPubkeys = new Set<string>(extraTreasuryPubkeys);
-  const carvedModuleAccounts: Array<{ ss58Address: string; pubkey: string; balance: bigint }> = [];
+  const carvedModuleAccounts: Array<{ ss58Address: string; pubkey: string; balance: bigint; moduleName: string }> = [];
   for (const [pubkey, entry] of combinedMap.entries()) {
     if (pubkey.startsWith(SUBSTRATE_MODULE_PREFIX) || explicitTreasuryPubkeys.has(pubkey)) {
-      carvedModuleAccounts.push({ ss58Address: entry.ss58Address, pubkey: entry.pubkey, balance: entry.balance });
+      const moduleName = pubkey.startsWith(SUBSTRATE_MODULE_PREFIX) ? decodeModuleName(pubkey) : 'explicit';
+      carvedModuleAccounts.push({ ss58Address: entry.ss58Address, pubkey: entry.pubkey, balance: entry.balance, moduleName });
     }
+  }
+
+  // If team pool pubkey is specified, redirect non-treasury module accounts to it
+  let teamPoolAddition = 0n;
+  if (teamPoolPubkey) {
+    const treasuryOnly: typeof carvedModuleAccounts = [];
+    const toTeamPool: typeof carvedModuleAccounts = [];
+
+    for (const acc of carvedModuleAccounts) {
+      if (acc.moduleName === TREASURY_MODULE_NAME) {
+        treasuryOnly.push(acc);
+      } else {
+        toTeamPool.push(acc);
+        teamPoolAddition += acc.balance;
+      }
+    }
+
+    if (toTeamPool.length > 0) {
+      console.log(`\nRedirecting ${toTeamPool.length} non-treasury module accounts to team pool:`);
+      for (const acc of toTeamPool) {
+        console.log(`  ${acc.moduleName.padEnd(12)} ${formatUnits(acc.balance, 18)} TNT`);
+      }
+      console.log(`  Total: ${formatUnits(teamPoolAddition, 18)} TNT -> ${teamPoolPubkey.slice(0, 18)}...`);
+
+      // Delete non-treasury module accounts from combinedMap (they'll be added to team pool)
+      for (const acc of toTeamPool) {
+        combinedMap.delete(acc.pubkey.toLowerCase());
+      }
+
+      // Add to team pool pubkey's balance
+      const teamPoolEntry = combinedMap.get(teamPoolPubkey);
+      if (teamPoolEntry) {
+        teamPoolEntry.balance += teamPoolAddition;
+        console.log(`  Team pool new balance: ${formatUnits(teamPoolEntry.balance, 18)} TNT`);
+      } else {
+        throw new Error(`Team pool pubkey not found in accounts: ${teamPoolPubkey}`);
+      }
+    }
+
+    // Only keep treasury accounts in carveout
+    carvedModuleAccounts.length = 0;
+    carvedModuleAccounts.push(...treasuryOnly);
   }
   let carvedFoundation: { ss58Address: string; pubkey: string; balance: bigint } | undefined;
   if (foundationSs58) {

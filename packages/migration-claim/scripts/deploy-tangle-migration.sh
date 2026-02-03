@@ -5,10 +5,28 @@
 # 1. TNT Token (ERC20)
 # 2. ZK Verifier (Mock for testing, SP1 for production)
 # 3. TangleMigration contract (with merkle root and funding)
+# 4. Treasury vesting (if TREASURY_RECIPIENT set)
+# 5. Foundation vesting (if FOUNDATION_RECIPIENT set)
+# 6. Liquidity ops transfer (if LIQUIDITY_OPS_RECIPIENT set)
+#
+# Reads allocations from JSON files:
+# - merkle-tree.json: Substrate claims (merkle root + total)
+# - evm-claims.json: EVM claims (may be 0 if excluded)
+# - treasury-carveout.json: Treasury allocation
+# - foundation-carveout.json: Foundation allocation
+# - liquidity-ops-carveout.json: Liquidity ops allocation
 #
 # Prerequisites:
 # - Foundry installed
 # - Local testnet running (or Base Sepolia RPC URL)
+# - Run deploy-with-snapshot.ts first to generate JSON files
+#
+# Environment Variables:
+#   PRIVATE_KEY (required)
+#   TREASURY_RECIPIENT - Address to receive treasury allocation (vested)
+#   FOUNDATION_RECIPIENT - Address to receive foundation allocation
+#   LIQUIDITY_OPS_RECIPIENT - Address to receive liquidity ops allocation
+#   PROGRAM_VKEY - SP1 program verification key (required for --production)
 #
 # Usage:
 #   ./scripts/deploy-tangle-migration.sh              # Local testnet with mock verifier
@@ -80,14 +98,42 @@ else
     exit 1
 fi
 
-# Read total EVM allocation from evm-claims.json
+# Read total EVM allocation from evm-claims.json (may be 0 if claims excluded)
 if [ -f "$ROOT_DIR/evm-claims.json" ]; then
     TOTAL_EVM=$(grep -o '"totalAmount": "[0-9]*"' "$ROOT_DIR/evm-claims.json" | grep -o '[0-9]*')
+    if [ -z "$TOTAL_EVM" ]; then
+        TOTAL_EVM="0"
+    fi
     echo "Total EVM: $TOTAL_EVM"
 else
-    echo "Error: evm-claims.json not found at $ROOT_DIR"
-    echo "Please run the migration snapshot generator first."
-    exit 1
+    echo "Warning: evm-claims.json not found, setting TOTAL_EVM=0"
+    TOTAL_EVM="0"
+fi
+
+# Read treasury carveout from treasury-carveout.json
+if [ -f "$ROOT_DIR/treasury-carveout.json" ]; then
+    TREASURY_AMOUNT=$(grep -o '"amount": "[0-9]*"' "$ROOT_DIR/treasury-carveout.json" | grep -o '[0-9]*')
+    echo "Treasury Amount: $TREASURY_AMOUNT"
+else
+    echo "Warning: treasury-carveout.json not found"
+    TREASURY_AMOUNT="0"
+fi
+
+# Read foundation carveout from foundation-carveout.json
+if [ -f "$ROOT_DIR/foundation-carveout.json" ]; then
+    FOUNDATION_AMOUNT=$(grep -o '"amount": "[0-9]*"' "$ROOT_DIR/foundation-carveout.json" | grep -o '[0-9]*')
+    echo "Foundation Amount: $FOUNDATION_AMOUNT"
+else
+    echo "Warning: foundation-carveout.json not found"
+    FOUNDATION_AMOUNT="0"
+fi
+
+# Read liquidity ops carveout from liquidity-ops-carveout.json
+if [ -f "$ROOT_DIR/liquidity-ops-carveout.json" ]; then
+    LIQUIDITY_OPS_AMOUNT=$(grep -o '"amount": "[0-9]*"' "$ROOT_DIR/liquidity-ops-carveout.json" | grep -o '[0-9]*')
+    echo "Liquidity Ops Amount: $LIQUIDITY_OPS_AMOUNT"
+else
+    LIQUIDITY_OPS_AMOUNT="0"
 fi
 
 cd "$ROOT_DIR"
@@ -112,6 +158,12 @@ echo "Deploying contracts..."
 MERKLE_ROOT="$MERKLE_ROOT" \
 TOTAL_SUBSTRATE="$TOTAL_SUBSTRATE" \
 TOTAL_EVM="$TOTAL_EVM" \
+TREASURY_AMOUNT="$TREASURY_AMOUNT" \
+TREASURY_RECIPIENT="${TREASURY_RECIPIENT:-}" \
+FOUNDATION_AMOUNT="$FOUNDATION_AMOUNT" \
+FOUNDATION_RECIPIENT="${FOUNDATION_RECIPIENT:-}" \
+LIQUIDITY_OPS_AMOUNT="$LIQUIDITY_OPS_AMOUNT" \
+LIQUIDITY_OPS_RECIPIENT="${LIQUIDITY_OPS_RECIPIENT:-}" \
 USE_MOCK_VERIFIER="$USE_MOCK_VERIFIER" \
 ALLOW_STANDALONE_TOKEN="true" \
 PRIVATE_KEY="$PRIVATE_KEY" \
@@ -152,7 +204,12 @@ echo "Next Steps:"
 echo "  1. Copy entries from merkle-tree.json to frontend (note: just entries field): "
 echo "     jq '.entries' $ROOT_DIR/merkle-tree.json > <path to frontend repo>/apps/tangle-dapp/public/data/migration-proofs.json"
 echo ""
-echo "  2. Execute EVM airdrop (separate step):"
-echo "     The evm-airdrop.json contains 7,124 accounts totaling ~1.13M TNT"
-echo "     Use a batch transfer tool to distribute these tokens."
-echo ""
+if [ "$TOTAL_EVM" != "0" ]; then
+    echo "  2. Execute EVM airdrop (separate step):"
+    echo "     The evm-claims.json contains accounts for direct minting."
+    echo "     Use a batch transfer tool to distribute these tokens."
+    echo ""
+else
+    echo "  2. No EVM airdrop needed (TOTAL_EVM=0, claims excluded)"
+    echo ""
+fi

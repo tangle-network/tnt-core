@@ -70,8 +70,7 @@ contract DeployTangleMigration is Script {
         uint256 substrateAllocation = vm.envUint("TOTAL_SUBSTRATE");
         require(substrateAllocation > 0, "TOTAL_SUBSTRATE required - use deploy-migration.sh wrapper");
 
-        uint256 evmAllocation = vm.envUint("TOTAL_EVM");
-        require(evmAllocation > 0, "TOTAL_EVM required - use deploy-migration.sh wrapper");
+        uint256 evmAllocation = vm.envOr("TOTAL_EVM", uint256(0));
 
         address treasuryRecipient = _envAddressOrZero("TREASURY_RECIPIENT");
         uint256 treasuryAmount = vm.envOr("TREASURY_AMOUNT", uint256(0));

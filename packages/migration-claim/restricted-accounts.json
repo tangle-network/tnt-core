@@ -1,0 +1,254 @@
+{
+  "safts": [
+    {
+      "name": "Polychain",
+      "address": "tgCRyxJq7FaREwQpGW8XQSHEzXaM7D9UeX3NV37sUChrC8F6x",
+      "pubkey": "0x14a060cd1b21eedaec4d225819a370e70a6ea36f24056e328e4c31b7d193b364",
+      "amount": "160000"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgG3YCu5xyYAiG4T3goiVWnANsxVqYLpd9jiuQN2w3KTvpopp",
+      "pubkey": "0xb4733c6fa3190eb2794fbfd5b3bf9cec19255359d86b7b92feda1e9a7365272f",
+      "amount": "180000"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgETquknUBzS2DoMazAt7zk3YWppqgxxvLoJmwNoABoEHrxHF",
+      "pubkey": "0x6e8441de37c9a876bff9e59134db1856cbff3fd15b22cec708f04e2b425de01f",
+      "amount": "199999"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgFYNKndkNXtCp5t5186BahiN5JZTPKC7aaALEqJTBmVAVEzr",
+      "pubkey": "0x9e33db2e1cba326be1b7b17cf4d7260f2ce53b4028f650efb6ed81bf31ade713",
+      "amount": "220000"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgHQaQzHecX57AgnKC5MfTX99skDV8oJd1WTW1uvLknouStHw",
+      "pubkey": "0xf0bb0eab7a572114274436442c89496b97363a958482deb8f44194a262177f4c",
+      "amount": "240000"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgEGuva39AiZ3jZrFF9yXjvx2Mt8XophQjb2yxzfLZGDMjs7p",
+      "pubkey": "0x662e12017328c4299f75e626480afdbae0e5f9e3ba3e200cd2832abe87e98e1b",
+      "amount": "781850"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgDcEMpN95NyRaNToVoCRvqBER7xNLM2nyNLd53az4aJjy4JX",
+      "pubkey": "0x48ad8eec65b493ef40462c8fc6fe338f68955e924b9f283435e11cc54954bd0b",
+      "amount": "879590"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgByGVNaF6BhMzgwzBwHNJAV1uHTLfpjcXV9Fi3e1nMrHrmdR",
+      "pubkey": "0x00406a7e3cb33486c32be4f9ca24223e892f3cc27bfdab1ecd9a1c1703a9df64",
+      "amount": "977320"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgHVfQnBSk1ah2ia42WFrmVbeQqKzsLfXit5CcLJE4WWNbuzP",
+      "pubkey": "0xf49c1a8ccd6c0d2c8b82a5f63acb53abbd15473e595196731daf72d5c25ba440",
+      "amount": "1075050"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgHgdXee7G71ipnWPo4qnU7wuAsKg3HAvwZJQt6zM4p8MwMe4",
+      "pubkey": "0xfcf9782373f410550b71f253d056c6e117a3178e317c51309ecab9643b1fda43",
+      "amount": "1172780"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgC4phw2ysEyyctcQ8s2qZNgi8hsHPnu8XEQApDgDY8vhBi2t",
+      "pubkey": "0x047d17f455bbc797376df85a108674c02b1c4af6156fac6d1b7a58f7dbac583f",
+      "amount": "338150"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgDHLvcNMeHcURLLGzKyZNqLwCYbPxedBhoPUQk1dUQ9N56Lv",
+      "pubkey": "0x3a45ff28ce8912c06169295f9dcd78fce832dd4453bb3c8560bd23a05979bc07",
+      "amount": "380410"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgEsTHje9p3CXFeA9juXFPN5BYAGfWZsBZt2KwsaS3EKneiHf",
+      "pubkey": "0x8085ff71abfb9203e8dcf777a6714325e4aa300534f01a4dec0db4d5091adb75",
+      "amount": "422680"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgDecLQikHqrZS4r1vB1KZPFDvPrVmNZaZ9MTYJ1ak5gejcFH",
+      "pubkey": "0x4a7e06a83ae483c3328e8bbbcc8272206b69ee88ca5b6dfbf76209257aca2167",
+      "amount": "464950"
+    },
+    {
+      "name": "Polychain",
+      "address": "tgCJYNv1qXqkVcRzLMVy3NgdJhCurPkefG8hgmwYsv2cL3QhN",
+      "pubkey": "0x0ef3908d6cd5f3af825c44bf941bd7f2a01bc50df076a6fdd65daef27f7bee61",
+      "amount": "507220"
+    },
+    {
+      "name": "Lemniscap",
+      "address": "tgGR2ecdMXj68zhEZYtoSqwSi4gbTXeKoF7mNuJTNr2YsEWPo",
+      "pubkey": "0xc4d72376e898f4502af1646be0bf3d1d40360370aef09ed4c573140a0a5c741c",
+      "amount": "1000000"
+    },
+    {
+      "name": "Zee Prime",
+      "address": "tgEsz6wNkJe81A8HoobntsAQqHw2hAJsx5ASEwqM8gygGAzwd",
+      "pubkey": "0x80edb9f7c29546e69bd51ea703f04146d93d21145a9450dc5264d681aab1053a",
+      "amount": "431462"
+    },
+    {
+      "name": "Lo Enterprises",
+      "address": "tgFiXjLny9pknrfx8RvyMDFyTfY7qwk8SKbWvHzgw9t8su1e3",
+      "pubkey": "0xa5f3f958b371e6e16458170b57b3f6203655d740449252ee156ccea24e90c89e",
+      "amount": "199999"
+    },
+    {
+      "name": "Lionschain",
+      "address": "tgDd8LdA5eMzRpY9XH93BYLA8174vvPGfEM8WDn7dQ9VLLPMr",
+      "pubkey": "0x495c896174bc96e7a2619cd5cf41f4bd73609556db32dfc8dcd58fa0993599ad",
+      "amount": "150000"
+    },
+    {
+      "name": "CMS Holdings",
+      "address": "tgH4S9ds9wx2zYAFwWiKtEBD1PsmUqmytRQHj6qeXNqHPEokR",
+      "pubkey": "0xe15e53e9b929b1b5f88f93cdb4530e7d2f197df8167de2dc9c4eaf03e6f48c34",
+      "amount": "150000"
+    },
+    {
+      "name": "PNYX Ventures",
+      "address": "tgFZ6VoB8psuArhcL1a5qwfRJLu2hhjCHzMCJBwW8iGabwSQb",
+      "pubkey": "0x9ec1d25bd2d95097dbc141a39546b16c4d510554bb923ba28a4eec07156d2a42",
+      "amount": "117422"
+    },
+    {
+      "name": "YOUBI CAPITAL",
+      "address": "tgDrFTZ2asQQ87L3vJ8Rx1bqgcnMZLq3itrqYL9TPXCKYjdQw",
+      "pubkey": "0x535eb172054c7e597cd03071c571c9148ff4e78044a3a73f54e3c1b1d870d054",
+      "amount": "99999"
+    },
+    {
+      "name": "Richard Dai",
+      "address": "tgF7ADZBLa51gYgipND5m5uxXNLuktxasiV6ht5TS3nQj3Ckg",
+      "pubkey": "0x8af9f6b8f88af9e1c84482aa538940fb6ac54a4fe8bfb1565447bca9ca40e724",
+      "amount": "99999"
+    },
+    {
+      "name": "CZhang",
+      "address": "tgDZEwVTnprAjYcdpDXyHYZnpX7YnNpGjKVJJbCGZetoKdp4U",
+      "pubkey": "0x4665c6c9a566eb678e17332dd104b1788fdf51debbd482d467818156238da761",
+      "amount": "99999"
+    },
+    {
+      "name": "ZX Zhang",
+      "address": "tgD7hRgy7HS6VdbbxAb1HGkRbfjgX1YEYaU721Y5Zcv16eJ3Q",
+      "pubkey": "0x32ea8e71fa46cc5e142c0923051957d035605e2f33870a5e851db3a7f7e28913",
+      "amount": "49999"
+    },
+    {
+      "name": "Brent Stone",
+      "address": "tgCZJwWrWwWfU4QWJm1QLfmeSLxrhgUeZdtKEsGn8vB3wLZLp",
+      "pubkey": "0x1a370278b742e05bee51e7cb9ae2f6fd1a2dda7b33057a94fb6e6dccd9517512",
+      "amount": "38017"
+    },
+    {
+      "name": "Shayne Coplan",
+      "address": "tgCRvSy1hk1uMdysmUL5BJqwpT5MjmprDcpU6N2rZJYczc4AS",
+      "pubkey": "0x1494938505eeea49339afb695c3f1f2c832ab7c9b6f2d3150e6316d4c11dbad9",
+      "amount": "20000"
+    }
+  ],
+  "advisors": [
+    {
+      "name": "Commonwealth Labs",
+      "address": "tgDbdrEEpQzwCHfS1FCJcWE4QJWXQeTVGhip9HG5Pjwy9wS17",
+      "pubkey": "0x48396304d4d7842280df486a8f382562674dfd95285c0681ccf8a3163d95cf78",
+      "amount": "2750000"
+    },
+    {
+      "name": "Dillon Chen",
+      "address": "tgH6XuBW96HB6xvypHFGuTxibMrrgw5QiduWqygBo6AJXku7k",
+      "pubkey": "0xe2f82d6def479945e6bda9095153183cfaa9a4fb52a61f7542a4de78d050c458",
+      "amount": "500000"
+    }
+  ],
+  "team": [
+    {
+      "name": "Team Pool",
+      "address": "tgFBGXGeosYLM8k8bhBxDJDMUogwuA6NiyE6MqT2KSC4a8uqh",
+      "pubkey": "0x8e1c2bdddab9573d8cb094dbffba24a2b2c21b7e71e3f5b604e8607483872443",
+      "amount": "29088526"
+    },
+    {
+      "name": "Thom Ivy",
+      "address": "tgDhkcoQaPqWM9NSKr8WjyRmy2gFCnt1tym4RuUR8SUNEH5vD",
+      "pubkey": "0x4ce3a4da3a7c1ce65f7edeff864dc3dd42e8f47eecc2726d99a0a80124698217",
+      "amount": "282905"
+    },
+    {
+      "name": "Stanly Johnson",
+      "address": "tgHSah6pDQGeWBFQXPXF8saVxwPdBd9CYQ56HqanrjWCbxJy2",
+      "pubkey": "0xf2427bb827860f6eb506bb8b6e3a7e695fabe7ab571e6f586b8df67071e6097f",
+      "amount": "216885"
+    },
+    {
+      "name": "Mona Lu",
+      "address": "tgH5knX8eAAGvAdbEa6eaWZL4dyfW512X8yaVgjAgXJwghKi3",
+      "pubkey": "0xe2604eac8e47a2da73bfc1c4f7d76c4783c62f8f5c2d404e6ab0dfa767271d21",
+      "amount": "200000"
+    },
+    {
+      "name": "Thomas Braun",
+      "address": "tgF8pYSb7KQPGjPkvBoCU2ACeAYv3mKXMkqhS2wzLdjDUvsQy",
+      "pubkey": "0x8c3e3987a429b246f619e91f8ca45535a1bf5f870ec7c5cff6a910a994978b41",
+      "amount": "196800"
+    },
+    {
+      "name": "Trung Tin Pham",
+      "address": "tgEVypAKMgPWPvTvUfBWaVWTWxgZCoUxDg8ZcR53XuZVd6PXo",
+      "pubkey": "0x70255a93c1129d31bc392b431e5d3ed4df87617436130b54624f9a624d61ce42",
+      "amount": "187148"
+    },
+    {
+      "name": "Shady",
+      "address": "tgF1hj1x545a2j2RLL7WrKZpbnYMVY6AAjauYRynw1tZyTq6V",
+      "pubkey": "0x86d08e7bbe77bc74e3d88ee22edc53368bc13d619e05b66fe6c4b8e2d5c7015a",
+      "amount": "168054"
+    },
+    {
+      "name": "Dustin Brickwood",
+      "address": "tgCwDKidHLo2UKsLURSChrqvmKp64QfjmjQrpGXkwwV244kHV",
+      "pubkey": "0x2aeb7fd8d42d7d1b582268392cd23d632b95cc397dfb0214e7c183a4b5243233",
+      "amount": "70719"
+    },
+    {
+      "name": "Filip Lazovic",
+      "address": "tgDNHaHKuTA1XjNY2Z8m9uA4jBtWwXwbfTWMKg4c5X4KXYRDy",
+      "pubkey": "0x3e0af1ead640c09636f12d19096df7acbafccbdc2b6810493cfed8292fdf2137",
+      "amount": "55616"
+    },
+    {
+      "name": "Vu Tuan Linh",
+      "address": "tgFe2gj1RzHxc2k9ooTDeWAMkc655wgeCxBCN43qPn5C1Eg9H",
+      "pubkey": "0xa28537c1d18662e79ab56c48960fa6aea01ccbee713350f2c54646ed21f4fb43",
+      "amount": "34146"
+    },
+    {
+      "name": "Salman Pathan",
+      "address": "tgDbeQmBckna2q8D36aXhrxtVo6NgmnKxqyMZ3kYrk5kf3CXP",
+      "pubkey": "0x483b466832e094f01b1779a7ed07025df319c492dac5160aca89a3be117a7b6d",
+      "amount": "14999"
+    },
+    {
+      "name": "Nathan Barnavon",
+      "address": "tgEvensX7txW5WaLcps22WYZBooftwtGjP1Kryk7N1XMpSwbU",
+      "pubkey": "0x82f6745201b364cf23bc49f2d6376c73504d5d5f6ab7b7dc1af35c04cbf12547",
+      "amount": "11815"
+    }
+  ]
+}
