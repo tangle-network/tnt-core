@@ -40,7 +40,9 @@
 \maketitle
 
 \begin{abstract}
-Tangle Cloud provides decentralized compute infrastructure for AI workloads. This document describes the product vision, technical infrastructure, and development roadmap. The core products---the sandbox runtime and the agentic workbench---demonstrate how decentralized infrastructure can match centralized alternatives in capability while exceeding them in accountability and value distribution. We detail the isolation technologies, deployment models, pricing mechanisms, and the path toward a fully decentralized compute economy.
+Tangle Cloud provides decentralized compute infrastructure for AI workloads. This document describes the product vision, technical infrastructure, and development roadmap. The core products, the sandbox runtime and the agentic workbench, demonstrate how decentralized infrastructure can match centralized alternatives in capability while exceeding them in accountability and value distribution. We detail the isolation technologies, deployment models, pricing mechanisms, and the path toward a fully decentralized compute economy.
+
+\textit{This document complements the Tangle Protocol Specification (core mechanisms and security model) and the Blueprint SDK Developer Guide (implementation details). Together they describe the complete Tangle ecosystem.}
 \end{abstract}
 
 \tableofcontents
@@ -58,29 +60,57 @@ Tangle Cloud offers an alternative. Independent operators compete to provide com
 
 \subsection{The Product-Protocol Connection}
 
-Every interaction with Tangle Cloud products generates economic activity that accrues to network participants.
+Every interaction with Tangle Cloud products generates economic activity that accrues to network participants:
 
-A customer uses a product (sandbox runtime, workbench, or third-party application). The product requests services from operators. The customer pays in tokens. Payments split among developers, operators, and the protocol.
-
-Operators provide compute. They stake tokens, run infrastructure, and earn fees. The more services they provide reliably, the more they earn. The more stake they accumulate, the more services they can serve.
-
-Developers create blueprints defining service behavior. They earn from fee splits and inflation rewards proportional to adoption.
-
-Delegators provide additional stake to operators. They share in operator rewards proportional to delegation.
-
-The protocol captures a governance-controlled fee (currently 10\%) funding development, security audits, and ecosystem growth.
+\begin{description}
+    \item[Customers] use products (sandbox runtime, workbench, or third-party applications), request services from operators, and pay in tokens. Payments split among developers, operators, and the protocol.
+    \item[Operators] provide compute by staking tokens and running infrastructure. They earn fees proportional to services provided, and can serve more services as they accumulate more stake.
+    \item[Developers] create blueprints defining service behavior and earn from fee splits and inflation rewards proportional to adoption.
+    \item[Delegators] provide additional stake to operators and share in operator rewards proportional to their delegation.
+    \item[Protocol] captures a governance-controlled fee (currently 10\%) funding development, security audits, and ecosystem growth.
+\end{description}
 
 \subsection{Network Effects}
 
-Tangle exhibits positive network effects that compound over time.
+Tangle exhibits positive network effects that compound over time. Understanding these dynamics helps participants identify opportunities and predict growth.
 
-\textbf{Supply flywheel}: More operators $\rightarrow$ more compute $\rightarrow$ more products $\rightarrow$ more demand $\rightarrow$ more fees $\rightarrow$ more operators.
+\subsubsection{Supply Flywheel}
 
-\textbf{Application flywheel}: More developers $\rightarrow$ more blueprints $\rightarrow$ more use cases $\rightarrow$ more customers $\rightarrow$ more fees $\rightarrow$ more developers.
+More operators $\rightarrow$ more compute $\rightarrow$ more products $\rightarrow$ more demand $\rightarrow$ more fees $\rightarrow$ more operators.
 
-\textbf{Security flywheel}: More delegators $\rightarrow$ more stake $\rightarrow$ more security $\rightarrow$ higher-value use cases $\rightarrow$ more fees $\rightarrow$ more stake.
+As operator count increases, geographic and capability diversity grows. Customers find operators meeting their specific requirements. More customer options attract more demand. More demand generates fees that attract operators with capital to stake.
 
-These flywheels interact. More security attracts enterprise customers. Enterprise customers demand specialized blueprints. Specialized blueprints require capable operators. Capable operators attract delegations.
+The flywheel accelerates as barriers fall. Improved tooling reduces operational burden. Documentation and support lower entry costs. Reference implementations demonstrate viability.
+
+\subsubsection{Application Flywheel}
+
+More developers $\rightarrow$ more blueprints $\rightarrow$ more use cases $\rightarrow$ more customers $\rightarrow$ more fees $\rightarrow$ more developers.
+
+Developers create blueprints when they see opportunity. Blueprint diversity attracts customers with varied needs. Customer payment generates fees and inflation rewards for developers. Developer success attracts more developers.
+
+This flywheel benefits from composability. Blueprints can reference and extend each other. A successful oracle blueprint enables DeFi blueprints. DeFi success attracts custody blueprints. Ecosystem density increases value of each component.
+
+\subsubsection{Security Flywheel}
+
+More delegators $\rightarrow$ more stake $\rightarrow$ more security $\rightarrow$ higher-value use cases $\rightarrow$ more fees $\rightarrow$ more stake.
+
+Security is the product delegators produce. More stake backing operators enables higher-value services. Services managing \$1M need operators with \$1.5M+ stake. Higher-value services generate more fees. Fees attract more delegation.
+
+Delegation yield compounds the effect. Delegators earning attractive yield retain and increase positions. Growing stake enables progressively higher-value use cases. Each tier of security unlocks new customer segments.
+
+\subsubsection{Flywheel Interactions}
+
+These flywheels interact in reinforcing cycles:
+
+\begin{itemize}[noitemsep]
+    \item More security attracts enterprise customers requiring strong guarantees
+    \item Enterprise customers demand specialized blueprints for their industries
+    \item Specialized blueprints require capable operators with domain expertise
+    \item Capable operators attract delegations from participants seeking yield
+    \item Delegations increase security, enabling more enterprise customers
+\end{itemize}
+
+The network grows as a coherent whole rather than isolated components. Early participants benefit from positions in nascent flywheels. Later participants benefit from mature infrastructure and proven economics.
 
 %==============================================================================
 \section{The Decentralized Sandbox Runtime}
@@ -88,13 +118,7 @@ These flywheels interact. More security attracts enterprise customers. Enterpris
 
 The sandbox runtime is where autonomous work actually executes. It provides secure, accountable compute for AI agents and automated workflows.
 
-\subsection{Motivation: Trust and Distribution}
-
-Centralized providers make decisions unilaterally. They set prices. They define terms. They choose customers. They capture value. For infrastructure underpinning significant economic activity, concentration in few hands raises concerns.
-
-Decentralized infrastructure offers an alternative. Independent operators compete to provide compute. Prices emerge from markets. Economic value distributes to participants. No single entity controls access.
-
-The sandbox runtime implements this alternative for AI agent execution. Operators run agents in isolated containers. Customers pay with cryptographic accountability. The protocol coordinates without controlling.
+The sandbox runtime implements decentralized AI agent execution. Operators run agents in isolated containers with cryptographic accountability. The protocol coordinates without controlling, addressing the concentration concerns outlined in Section 1.
 
 \subsection{Isolation Technologies}
 
@@ -146,7 +170,7 @@ For customers preferring a managed experience, Tangle offers hosted infrastructu
     \item Technical support
 \end{itemize}
 
-Both models use the same protocol. Customers can mix operators---some decentralized, some managed---based on their requirements.
+Both models use the same protocol. Customers can mix operators, some decentralized, some managed, based on their requirements.
 
 \subsection{Sandbox as Sidecar}
 
@@ -170,7 +194,7 @@ Service pricing uses request-for-quote (RFQ):
     \item Service activates with committed prices
 \end{enumerate}
 
-This accommodates operator heterogeneity---different hardware, locations, and capabilities command different prices. Customers evaluate holistically, not just on price.
+This accommodates operator heterogeneity, different hardware, locations, and capabilities command different prices. Customers evaluate holistically, not just on price.
 
 For recurring workloads, subscription pricing provides predictable costs. Customers fund escrow; the protocol bills at intervals.
 
@@ -182,9 +206,9 @@ For variable workloads, event-driven pricing charges per job. Customers pay when
 
 The workbench is where autonomous work is authored and refined. It provides the creative environment for designing, testing, and deploying AI-powered workflows.
 
-\subsection{Vibe Coding Platform}
+\subsection{Natural Language Development Platform}
 
-Today, the workbench operates as a vibe coding platform for building projects against blockchain ecosystems. Users describe what they want; AI agents create the implementation.
+Today, the workbench operates as an AI-assisted development platform for building projects against blockchain ecosystems. Users describe intent in natural language; AI agents translate intent into implementation.
 
 The platform handles development environment complexity. Pre-configured containers include SDKs, tools, and dependencies:
 
@@ -214,14 +238,14 @@ The workbench connects to the sandbox runtime through the protocol:
 
 \begin{enumerate}[noitemsep]
     \item User initiates coding session
-    \item Workbench requests service from operator
-    \item Operator provisions sandbox container
-    \item Bidirectional connection established
-    \item User inputs flow to agent; outputs flow back
-    \item Protocol handles payment and accountability
+    \item Workbench requests service from operator via RFQ
+    \item Operator provisions sandbox container with specified isolation
+    \item P2P connection established (see \textit{Blueprint SDK Guide}, P2P Networking)
+    \item User inputs flow to agent; outputs flow back via gossipsub
+    \item Protocol handles payment splits (developer, operator, delegator, protocol)
 \end{enumerate}
 
-The user sees a seamless environment; decentralized infrastructure operates invisibly.
+The user sees a seamless environment; the decentralized infrastructure operates through the same mechanisms described in the \textit{Tangle Protocol Specification}, blueprints define the workbench service, operators stake to provide compute, and slashing conditions enforce isolation guarantees.
 
 \subsection{Collaborative Features}
 
@@ -241,7 +265,7 @@ Unlike traditional IDE collaboration (editing same files), workbench collaborati
 
 \textbf{Knowledge transfer}: Junior developers work alongside seniors, observing how experienced engineers direct agents. The workbench becomes a training environment.
 
-\subsection{Vibe Working: Beyond Code}
+\subsection{AI-Assisted Knowledge Work}
 
 The workbench expands beyond code to general knowledge work:
 
@@ -346,19 +370,47 @@ Customers pay based on:
 
 The RFQ system enables price discovery. Customers can specify budgets; operators quote within those constraints.
 
+\subsubsection{Pricing Examples}
+
+\textbf{AI Development Session} (Workbench):
+\begin{itemize}[noitemsep]
+    \item Base compute: 2 vCPU, 4GB RAM container
+    \item AI model inference: Pass-through from LLM provider
+    \item Session persistence: Storage for code and context
+    \item Rate: Competitive with centralized alternatives, with cryptoeconomic accountability
+\end{itemize}
+
+\textbf{AI Agent Deployment} (Sandbox Runtime):
+\begin{itemize}[noitemsep]
+    \item Resource allocation: Configurable CPU/memory/storage
+    \item Isolation premium: +10-30\% for gVisor/Firecracker vs Docker
+    \item Geographic premium: Additional cost for specific region requirements
+    \item Security requirement: High-value workloads require operators with larger stakes
+\end{itemize}
+
+\subsubsection{Pricing Models}
+
+Three pricing models accommodate different workload types:
+
+\textbf{Subscription}: Predictable costs for recurring workloads. Customers fund escrow; the protocol bills at intervals.
+
+\textbf{Event-driven}: Per-job pricing for variable workloads. Customers pay when they submit work.
+
+\textbf{Pay-once}: Upfront payment for one-time computations, distributed when operators approve.
+
+See the \textit{Tangle Protocol Specification} for detailed payment flow mechanics.
+
 \subsection{TNT Token Utility}
 
-The TNT token serves multiple functions:
+The TNT token serves multiple functions within the ecosystem:
 
-\textbf{Staking}: Required for operator participation. Stake determines service capacity.
-
-\textbf{Delegation}: Passive holders earn yield by backing operators.
-
-\textbf{Governance}: Token holders vote on protocol parameters.
-
-\textbf{Payment}: Services priced in TNT may receive discounts.
-
-\textbf{Fee distribution}: Rewards flow in TNT, creating coherent value circulation.
+\begin{description}
+    \item[Staking] is required for operator participation. The amount staked determines service capacity and enables operators to accept higher-value workloads requiring greater economic security.
+    \item[Delegation] allows passive holders to earn yield by backing operators. Delegators share in operator rewards proportional to their contribution, providing a way to participate without running infrastructure.
+    \item[Governance] grants voting rights on protocol parameters. Token holders can propose and vote on fee structures, inflation rates, and protocol upgrades.
+    \item[Payment] in TNT may receive discounts on service fees, aligning customer incentives with ecosystem participation.
+    \item[Fee distribution] flows in TNT, creating coherent value circulation where network activity generates rewards that flow back to participants.
+\end{description}
 
 %==============================================================================
 \section{Roadmap}
@@ -368,43 +420,88 @@ Development proceeds through phases targeting progressive capability and decentr
 
 \subsection{Current State}
 
-\textbf{Core protocol contracts}: Deployed and audited. Full lifecycle operational.
+\textbf{Core protocol contracts}: Deployed and audited. Full service lifecycle operational including: blueprint registration, operator staking, service creation via RFQ, job execution, payment distribution, and slashing with dispute windows. See \textit{Tangle Protocol Specification} for mechanism details.
 
-\textbf{Blueprint SDK}: Complete with triggers, handlers, consumers, P2P networking, and QoS.
+\textbf{Blueprint SDK}: Production-ready with comprehensive features:
+\begin{itemize}[noitemsep]
+    \item Event triggers (blockchain events, cron schedules, custom conditions)
+    \item Job handlers with extractor pattern (\texttt{TangleArg}, \texttt{TangleResult})
+    \item Result consumers for on-chain submission
+    \item P2P networking (gossipsub, request-response, peer discovery)
+    \item QoS-based slashing hooks (heartbeat, latency, availability)
+    \item Background keepers for lifecycle automation
+\end{itemize}
+See \textit{Blueprint SDK Developer Guide} for implementation details.
 
-\textbf{Workbench}: Operating as vibe coding platform. Sessions, environments, and basic collaboration functional.
+\textbf{Workbench}: Operating as AI-assisted development platform. Sessions, environments, and basic collaboration functional.
 
-\textbf{Operator network}: Initial operators running sandbox infrastructure.
+\textbf{Operator network}: Initial operators running sandbox infrastructure across multiple geographic regions.
 
 \subsection{Near-Term Priorities}
 
-\textbf{Multiplayer collaboration}: Real-time shared sessions. Multiple users directing agents simultaneously. Synchronized state and coordinated outputs.
+\textbf{Multiplayer collaboration}: Real-time shared sessions enabling multiple users to direct agents simultaneously. Technical requirements: WebSocket state synchronization, conflict resolution for concurrent edits, role-based access control for team permissions.
 
-\textbf{Vibe working expansion}: Research, analysis, and writing tasks. New agent configurations, expanded tools (web search, document processing, data analysis).
+\textbf{Knowledge work expansion}: Research, analysis, and writing tasks beyond code. Requires: new agent configurations with specialized prompts, expanded tool integrations (web search APIs, document processing libraries, data analysis frameworks), UI components for non-code outputs.
 
-\textbf{Operator network growth}: Geographic and organizational diversity. Improved tooling. Lower entry barriers.
+\textbf{Operator network growth}: Target 50+ operators across 10+ geographic regions within 6 months. Initiatives: operator onboarding documentation, one-click deployment scripts, monitoring dashboards, community support channels.
 
-\textbf{Additional isolation}: gVisor and Firecracker integration. SDK updates for configuration. Verification mechanisms for compliance.
+\textbf{Additional isolation technologies}:
+\begin{itemize}[noitemsep]
+    \item gVisor integration: User-space kernel for defense-in-depth against container escapes
+    \item Firecracker micro-VMs: Hardware-level isolation with millisecond boot times
+    \item Blueprint configuration: Operators declare supported isolation; customers specify requirements
+\end{itemize}
 
-\textbf{Standard verification libraries}: Audited implementations of common patterns (oracle verification, compute verification, availability monitoring).
+\textbf{Standard verification libraries}: Audited, reusable implementations:
+\begin{itemize}[noitemsep]
+    \item Oracle verification (median aggregation, TWAP, threshold signatures)
+    \item Compute verification (deterministic replay, model fingerprinting)
+    \item Availability monitoring (heartbeat keepers, latency tracking)
+\end{itemize}
 
 \subsection{Longer-Term Development}
 
-\textbf{Full governance activation}: Transfer control to token holders. Relax guardian oversight as governance proves capability.
+\textbf{Full governance activation}: Progressive decentralization transferring control to token holders. Phases:
+\begin{enumerate}[noitemsep]
+    \item Parameter governance (fee rates, inflation schedules)
+    \item Upgrade governance (contract upgrades via timelock)
+    \item Full governance (guardian multisig sunset)
+\end{enumerate}
+See \textit{Tangle Protocol Specification}, Governance section for mechanism details.
 
-\textbf{Cross-chain deployment}: L2s (Arbitrum, Base, Optimism) for lower transaction costs. Additional L1s if demand justifies.
+\textbf{Cross-chain deployment}:
+\begin{itemize}[noitemsep]
+    \item L2 priority: Arbitrum, Base, Optimism for lower transaction costs
+    \item Bridge integration: Canonical bridges for TNT token portability
+    \item Service portability: Same blueprint deployable across chains
+\end{itemize}
 
-\textbf{Ecosystem grants}: Fund developer tooling, verification research, operator infrastructure.
+\textbf{Ecosystem grants}: Fund development in key areas:
+\begin{itemize}[noitemsep]
+    \item Developer tooling (IDE plugins, debugging tools, testing frameworks)
+    \item Verification research (ZK proofs for compute, TEE attestation)
+    \item Operator infrastructure (monitoring, scaling, fleet management)
+\end{itemize}
 
-\textbf{Advanced verification research}: ZK proofs for compute verification, TEE integration, formal verification of protocol properties.
+\textbf{Advanced verification research}:
+\begin{itemize}[noitemsep]
+    \item ZK proofs for compute verification without revealing inputs
+    \item TEE integration (SGX, TDX) for hardware-attested execution
+    \item Formal verification of protocol invariants
+\end{itemize}
 
-\textbf{Protocol upgrades}: Sophisticated pricing mechanisms, additional delegation modes, enhanced slashing parameters.
+\textbf{Protocol upgrades}: Enhanced mechanisms based on operational learnings:
+\begin{itemize}[noitemsep]
+    \item Dynamic pricing algorithms responding to utilization
+    \item Reputation systems for operator quality signaling
+    \item Cross-service exposure limits for risk management
+\end{itemize}
 
 \subsection{Dependencies}
 
 \begin{itemize}[noitemsep]
     \item Multiplayer requires stable single-user experience
-    \item Vibe working expansion requires proven agent reliability
+    \item Knowledge work expansion requires proven agent reliability
     \item Governance activation requires sufficient token distribution
     \item Cross-chain requires mainnet stability
 \end{itemize}
@@ -421,17 +518,43 @@ The roadmap adapts as conditions change. Governance adjusts priorities. Success 
 
 Key metrics for ecosystem health:
 
-\textbf{Operator diversity}: Geographic and organizational distribution. No single entity should dominate.
-
-\textbf{Blueprint diversity}: Use case coverage. Are blueprints serving varied needs?
-
-\textbf{Customer growth}: New customers and retention. Is the product compelling?
-
-\textbf{Fee volume}: Protocol revenue. Is value being generated?
-
-\textbf{Stake growth}: Total value locked. Is security increasing?
+\begin{description}
+    \item[Operator diversity] measures geographic and organizational distribution. A healthy network has no single entity dominating compute provision.
+    \item[Blueprint diversity] tracks use case coverage. Blueprints should serve varied needs across industries and applications.
+    \item[Customer growth] monitors new customer acquisition and retention rates, indicating whether products deliver compelling value.
+    \item[Fee volume] measures protocol revenue from service payments, indicating real economic activity.
+    \item[Stake growth] tracks total value locked, reflecting increasing security capacity for higher-value workloads.
+\end{description}
 
 These metrics guide parameter adjustments (inflation rates, fee structures, minimum stakes) to ensure sustainable growth.
+
+%==============================================================================
+\section{Risks and Limitations}
+%==============================================================================
+
+Honest assessment of challenges facing Tangle Cloud:
+
+\subsection{Technical Risks}
+
+\textbf{Isolation breaches}: Container and VM isolation technologies have known attack vectors. While defense-in-depth (Docker + gVisor + Firecracker) reduces risk, no isolation is perfect. Slashing provides economic deterrence but cannot undo data exposure.
+
+\textbf{Verification limitations}: Some computations are inherently difficult to verify (AI model inference, complex simulations). Verification mechanisms may have false negatives (undetected cheating) or false positives (incorrect slashing). Blueprint designers must understand detection probability for their specific use case.
+
+\subsection{Economic Risks}
+
+\textbf{Token volatility}: Slashing effectiveness depends on stake value. Rapid token price declines can reduce security margins below safe thresholds faster than services can respond. Circuit breakers help but cannot eliminate this risk.
+
+\textbf{Cold start problem}: Two-sided marketplaces face bootstrapping challenges. Customers need operators; operators need customers. Early network growth requires subsidies (inflation rewards) that must eventually transition to sustainable fee-based economics.
+
+\subsection{Adoption Risks}
+
+\textbf{Operator supply}: Decentralized infrastructure requires sufficient operators across geographies and capabilities. Operator economics must be attractive enough to compete with traditional employment or alternative yield opportunities.
+
+\textbf{Developer tooling maturity}: The SDK and development experience must match or exceed centralized alternatives. Gaps in documentation, debugging tools, or deployment automation slow adoption.
+
+\subsection{Competitive Landscape}
+
+Centralized cloud providers offer mature tooling, established trust, and economies of scale. Decentralized alternatives (Akash, Render) compete for similar users. Tangle's differentiation through cryptoeconomic accountability must prove compelling enough to overcome switching costs.
 
 %==============================================================================
 \section{Conclusion}
@@ -441,7 +564,7 @@ Tangle Cloud demonstrates that decentralized AI infrastructure is not merely the
 
 The products connect to the protocol's economic layer. Every session, every job, every agent interaction generates value that flows to operators, developers, delegators, and the protocol. The compute economy becomes a shared enterprise rather than a corporate extraction.
 
-The question is not whether AI infrastructure works---centralized providers have proven that. The question is who controls it, who benefits, and whether alternatives should exist. Tangle Cloud provides that alternative: infrastructure that is resilient, competitive, and owned by its participants.
+The question is not whether AI infrastructure works, centralized providers have proven that. The question is who controls it, who benefits, and whether alternatives should exist. Tangle Cloud provides that alternative: infrastructure that is resilient, competitive, and owned by its participants.
 
 The future of AI compute will be built by those who build it now.
 

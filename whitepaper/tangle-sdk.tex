@@ -86,15 +86,13 @@ A blueprint defines a service type. When deployed, operators register to provide
 
 The SDK is written in Rust for several reasons:
 
-\textbf{Performance} is critical for operators processing high-throughput workloads. Rust compiles to native code with zero-cost abstractions.
-
-\textbf{Safety} prevents memory errors and race conditions. For operator software handling valuable stake and sensitive data, safety is non-negotiable.
-
-\textbf{Async runtime} via Tokio provides efficient concurrent execution for handling blockchain events, P2P networking, and customer requests simultaneously.
-
-\textbf{WebAssembly compilation} enables portable execution for sandboxed environments.
-
-\textbf{Ecosystem compatibility} with blockchain tooling (alloy, libp2p, ark-bn254).
+\begin{itemize}
+    \item \textbf{Performance}: Critical for operators processing high-throughput workloads. Rust compiles to native code with zero-cost abstractions.
+    \item \textbf{Safety}: Prevents memory errors and race conditions. For operator software handling valuable stake and sensitive data, safety is non-negotiable.
+    \item \textbf{Async runtime}: Tokio provides efficient concurrent execution for handling blockchain events, P2P networking, and customer requests simultaneously.
+    \item \textbf{WebAssembly compilation}: Enables portable execution for sandboxed environments.
+    \item \textbf{Ecosystem compatibility}: Excellent integration with blockchain tooling (alloy, libp2p, ark-bn254).
+\end{itemize}
 
 %==============================================================================
 \section{Architecture Overview}
@@ -106,8 +104,8 @@ The SDK is organized into composable components.
 
 \textbf{Producers} generate job calls from external events:
 \begin{itemize}[noitemsep]
-    \item \texttt{TangleEvmProducer} watches blockchain events
-    \item \texttt{CronProducer} generates calls on schedules
+    \item \texttt{TangleProducer} watches blockchain events
+    \item \texttt{CronJob} generates calls on schedules
     \item Custom producers watch APIs, queues, or any event source
 \end{itemize}
 
@@ -161,31 +159,32 @@ tokio = { version = "1", features = ["full"] }
 \subsection{The Complete Example}
 
 \begin{lstlisting}
-use blueprint_sdk::tangle_evm::extract::{TangleEvmArg, TangleEvmResult};
-use blueprint_sdk::tangle_evm::{TangleEvmConsumer, TangleEvmProducer, TangleEvmLayer};
-use blueprint_sdk::{Router, runner::BlueprintRunner};
+use blueprint_sdk::tangle::extract::{TangleArg, TangleResult};
+use blueprint_sdk::tangle::{TangleConsumer, TangleProducer, TangleLayer};
+use blueprint_sdk::runner::{BlueprintRunner, config::BlueprintEnvironment};
+use blueprint_sdk::runner::tangle::TangleConfig;
+use blueprint_sdk::Router;
 
 pub const SQUARE_JOB: u8 = 0;
 
 // Job function: extracts input, returns wrapped result
-pub async fn square(TangleEvmArg(x): TangleEvmArg<u64>) -> TangleEvmResult<u64> {
-    TangleEvmResult(x * x)
+pub async fn square(TangleArg(x): TangleArg<u64>) -> TangleResult<u64> {
+    TangleResult(x * x)
 }
 
 pub fn router() -> Router {
-    Router::new().route(SQUARE_JOB, square.layer(TangleEvmLayer))
+    Router::new().route(SQUARE_JOB, square.layer(TangleLayer))
 }
 
 #[tokio::main]
 async fn main() -> Result<(), blueprint_sdk::Error> {
     let env = BlueprintEnvironment::load()?;
-    let client = env.tangle_evm_client().await?;
-    let service_id = env.protocol_settings.tangle_evm()?.service_id.unwrap();
+    let service_id = env.protocol_settings.tangle()?.service_id.unwrap();
 
-    BlueprintRunner::builder(TangleEvmConfig::default(), env)
+    BlueprintRunner::builder(TangleConfig::default(), env)
         .router(router())
-        .producer(TangleEvmProducer::new(client.clone(), service_id))
-        .consumer(TangleEvmConsumer::new(client))
+        .producer(TangleProducer::new(service_id))
+        .consumer(TangleConsumer::new())
         .run()
         .await
 }
@@ -195,9 +194,9 @@ async fn main() -> Result<(), blueprint_sdk::Error> {
 
 The SDK uses an \textbf{extractor pattern} inspired by web frameworks:
 \begin{itemize}[noitemsep]
-    \item \texttt{TangleEvmArg<T>} extracts ABI-encoded inputs from job calls
-    \item \texttt{TangleEvmResult<T>} wraps outputs for submission
-    \item \texttt{TangleEvmLayer} handles encoding/decoding
+    \item \texttt{TangleArg<T>} extracts ABI-encoded inputs from job calls
+    \item \texttt{TangleResult<T>} wraps outputs for ABI-encoded submission
+    \item \texttt{TangleLayer} handles encoding/decoding transformation
 \end{itemize}
 
 Job functions are plain async functions. The main function composes SDK components: producer watches for jobs, router directs to handlers, consumer submits results.
@@ -206,19 +205,83 @@ Job functions are plain async functions. The main function composes SDK componen
 \section{The Hook System}
 %==============================================================================
 
-Blueprints customize protocol behavior through hooks---functions called at specific lifecycle points.
+Blueprints customize protocol behavior through hooks, functions called at specific lifecycle points.
 
 \subsection{Lifecycle Hooks}
 
-\textbf{onRegister} validates operator registrations. A blueprint for AI services might require operators to prove GPU capability.
+\begin{description}
+    \item[onRegister] validates operator registrations. A blueprint for AI services might require operators to prove GPU capability.
+    \item[onRequest] validates service requests. A membership service might verify the customer's eligibility.
+    \item[onApprove] processes operator approvals. A DeFi service might lock collateral or initialize state.
+    \item[onSlash] executes custom slashing logic. A threshold service might redistribute key shares.
+    \item[onServiceTermination] handles cleanup. A subscription service might finalize billing.
+\end{description}
 
-\textbf{onRequest} validates service requests. A membership service might verify the customer's eligibility.
+Hooks are implemented in Solidity by extending \texttt{BlueprintServiceManagerBase}:
 
-\textbf{onApprove} processes operator approvals. A DeFi service might lock collateral or initialize state.
+\begin{lstlisting}[language=Java,basicstyle=\ttfamily\small]
+contract MyBlueprintBSM is BlueprintServiceManagerBase {
+    // Track registered operators
+    mapping(address => bool) public isRegistered;
+    mapping(address => bytes) public operatorMetadata;
 
-\textbf{onSlash} executes custom slashing logic. A threshold service might redistribute key shares.
+    // Validate operator registration
+    function onRegister(
+        address operator,
+        bytes calldata inputs
+    ) external payable override onlyFromTangle {
+        // Decode and validate registration inputs
+        (uint256 gpuMemoryGB, string memory region) =
+            abi.decode(inputs, (uint256, string));
 
-\textbf{onServiceTermination} handles cleanup. A subscription service might finalize billing.
+        require(gpuMemoryGB >= 24, "Minimum 24GB GPU required");
+        require(bytes(region).length > 0, "Region required");
+
+        isRegistered[operator] = true;
+        operatorMetadata[operator] = inputs;
+
+        emit OperatorRegistered(operator, gpuMemoryGB, region);
+    }
+
+    // Process service requests
+    function onRequest(
+        uint64 requestId,
+        address requester,
+        address[] calldata operators,
+        bytes calldata requestInputs,
+        uint64 ttl,
+        address paymentAsset,
+        uint256 paymentAmount
+    ) external payable override onlyFromTangle {
+        // Validate the request parameters
+        require(operators.length >= 3, "Minimum 3 operators");
+        require(ttl >= 1 days, "Minimum 1 day TTL");
+
+        // Store request for later reference
+        requests[requestId] = RequestData({
+            requester: requester,
+            operatorCount: operators.length,
+            ttl: ttl
+        });
+    }
+
+    // Handle slashing events
+    function onSlash(
+        uint64 serviceId,
+        bytes calldata offender,
+        uint8 slashPercent
+    ) external override onlyFromTangle {
+        // Custom logic: redistribute key shares if threshold service
+        address operator = abi.decode(offender, (address));
+        emit OperatorSlashed(serviceId, operator, slashPercent);
+
+        // Trigger key resharing protocol
+        if (slashPercent >= 50) {
+            initiateKeyReshare(serviceId, operator);
+        }
+    }
+}
+\end{lstlisting}
 
 \subsection{Slashing Customization}
 
@@ -254,7 +317,7 @@ Triggers initiate job execution. The SDK provides multiple trigger types.
 
 \subsection{Event Triggers}
 
-\texttt{TangleEvmProducer} watches blockchain events via WebSocket:
+\texttt{TangleProducer} watches blockchain events via WebSocket:
 \begin{itemize}[noitemsep]
     \item Subscribes to Tangle contract events
     \item Filters for configured service
@@ -280,15 +343,26 @@ Cron triggers suit periodic tasks: heartbeats, maintenance, report generation, A
 
 \subsection{Custom Triggers (BackgroundKeeper)}
 
-For arbitrary trigger conditions, implement \texttt{BackgroundKeeper}:
+For lifecycle automation, implement \texttt{BackgroundKeeper}. The SDK provides built-in keepers:
+
+\begin{itemize}[noitemsep]
+    \item \texttt{EpochKeeper} for inflation distribution
+    \item \texttt{StreamKeeper} for payment stream settlement
+    \item \texttt{RoundKeeper} for round-based protocols
+\end{itemize}
 
 \begin{lstlisting}
+use blueprint_sdk::tangle::services::{BackgroundKeeper, KeeperConfig, KeeperHandle};
+use tokio::sync::broadcast;
+
 struct PriceMonitorKeeper;
 
 impl BackgroundKeeper for PriceMonitorKeeper {
     const NAME: &'static str = "price-monitor";
 
-    fn start(config: KeeperConfig, mut shutdown: Receiver<()>) -> KeeperHandle {
+    fn start(config: KeeperConfig, mut shutdown: broadcast::Receiver<()>)
+        -> KeeperHandle
+    {
         let handle = tokio::spawn(async move {
             loop {
                 tokio::select! {
@@ -306,19 +380,14 @@ impl BackgroundKeeper for PriceMonitorKeeper {
         KeeperHandle { handle, name: Self::NAME }
     }
 
-    async fn check_and_execute(config: &KeeperConfig) -> KeeperResult<bool> {
+    async fn check_and_execute(config: &KeeperConfig)
+        -> blueprint_sdk::tangle::services::KeeperResult<bool>
+    {
         // Monitor conditions and trigger actions
         Ok(false)
     }
 }
 \end{lstlisting}
-
-Built-in keepers include:
-\begin{itemize}[noitemsep]
-    \item \texttt{EpochKeeper} for inflation distribution
-    \item \texttt{StreamKeeper} for payment stream settlement
-    \item \texttt{RoundKeeper} for round-based protocols
-\end{itemize}
 
 %==============================================================================
 \section{BLS Aggregation}
@@ -369,11 +438,14 @@ The service manager contract controls aggregation:
 A price oracle provides asset prices to DeFi protocols.
 
 \begin{lstlisting}
+use blueprint_sdk::tangle::extract::{TangleArg, TangleResult};
+use std::time::{SystemTime, UNIX_EPOCH};
+
 pub const FETCH_PRICE_JOB: u8 = 0;
 
 pub async fn fetch_price(
-    TangleEvmArg(pair): TangleEvmArg<AssetPair>
-) -> TangleEvmResult<PriceData> {
+    TangleArg(pair): TangleArg<AssetPair>
+) -> TangleResult<PriceData> {
     // Fetch from multiple sources for redundancy
     let binance = fetch_binance(&pair).await.unwrap_or_default();
     let coinbase = fetch_coinbase(&pair).await.unwrap_or_default();
@@ -381,13 +453,10 @@ pub async fn fetch_price(
 
     // Median aggregation for manipulation resistance
     let price = median(vec![binance, coinbase, chainlink]);
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH).unwrap().as_secs();
 
-    TangleEvmResult(PriceData {
-        pair,
-        price,
-        timestamp: now(),
-        sources: 3
-    })
+    TangleResult(PriceData { pair, price, timestamp, sources: 3 })
 }
 \end{lstlisting}
 
@@ -402,20 +471,23 @@ pub async fn fetch_price(
 An AI inference service runs language models for customers.
 
 \begin{lstlisting}
+use blueprint_sdk::tangle::extract::{TangleArg, TangleResult};
+use blueprint_sdk::extract::Context;
+
 pub const INFERENCE_JOB: u8 = 0;
 
 pub async fn inference(
     Context(config): Context<InferenceConfig>,
-    TangleEvmArg(request): TangleEvmArg<InferenceRequest>,
-) -> TangleEvmResult<Completion> {
+    TangleArg(request): TangleArg<InferenceRequest>,
+) -> TangleResult<Completion> {
     let model = ModelClient::new(&config.model_endpoint);
     let completion = model.complete(
         &request.prompt,
         request.max_tokens,
         request.temperature,
-    ).await.map_err(|e| Error::Other(e.to_string()))?;
+    ).await?;
 
-    TangleEvmResult(Completion {
+    TangleResult(Completion {
         text: completion.text,
         usage: completion.tokens_used,
         model: config.model_id.clone(),
@@ -434,6 +506,11 @@ pub async fn inference(
 A keeper monitors on-chain conditions and executes transactions.
 
 \begin{lstlisting}
+use blueprint_sdk::runner::{BackgroundService, error::RunnerError};
+use alloy_primitives::Address;
+use std::time::Duration;
+use tokio::sync::oneshot::Receiver;
+
 pub struct LiquidationService {
     lending_protocol: Address,
     check_interval: Duration,
@@ -476,17 +553,20 @@ impl BackgroundService for LiquidationService {
 A threshold service generates signatures without any party holding the complete key.
 
 \begin{lstlisting}
+use blueprint_sdk::tangle::extract::{TangleArg, TangleResult};
+use blueprint_sdk::extract::Context;
+
 pub const SIGN_JOB: u8 = 0;
 
 pub async fn sign(
     Context(state): Context<ThresholdState>,
-    TangleEvmArg(message): TangleEvmArg<Bytes>,
-) -> TangleEvmResult<PartialSignature> {
+    TangleArg(message): TangleArg<Bytes>,
+) -> TangleResult<PartialSignature> {
     let key_share = state.dkg_share.as_ref()
         .ok_or_else(|| Error::Other("No DKG share".into()))?;
     let partial = key_share.partial_sign(&message)?;
 
-    TangleEvmResult(PartialSignature {
+    TangleResult(PartialSignature {
         index: state.operator_index,
         signature: partial,
     })
@@ -519,15 +599,57 @@ Monitoring & Cron & Direct \\
 \section{Error Handling and Reliability}
 %==============================================================================
 
-Production software must handle failures gracefully.
+Production software must handle failures gracefully. The SDK provides structured error types and recovery patterns.
 
 \subsection{Handler Errors}
 
-Handler errors are caught and logged. A handler returning \texttt{Err} doesn't crash the operator. Depending on blueprint design, the operator may skip submission or submit an error indicator.
+Handler errors are caught and logged. A handler returning \texttt{Err} does not crash the operator. Depending on blueprint design, the operator may skip submission or submit an error indicator.
+
+\begin{lstlisting}
+use blueprint_sdk::tangle::extract::{TangleArg, TangleResult};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum JobError {
+    #[error("External API unavailable: {0}")]
+    ApiUnavailable(String),
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+    #[error("Computation timeout")]
+    Timeout,
+}
+
+pub async fn fetch_price(
+    TangleArg(pair): TangleArg<AssetPair>
+) -> Result<TangleResult<PriceData>, JobError> {
+    // Validate input
+    if pair.base.is_empty() || pair.quote.is_empty() {
+        return Err(JobError::InvalidInput("Empty asset pair".into()));
+    }
+
+    // Fetch with timeout
+    let price = tokio::time::timeout(
+        Duration::from_secs(10),
+        fetch_from_sources(&pair)
+    ).await.map_err(|_| JobError::Timeout)??;
+
+    Ok(TangleResult(price))
+}
+\end{lstlisting}
 
 \subsection{Submission Failures}
 
 The consumer retries with exponential backoff on network errors, nonce conflicts, or insufficient gas. Configuration specifies retry limits and backoff parameters.
+
+\begin{lstlisting}
+// Consumer automatically handles retries
+// Configure via TangleConsumer builder
+let consumer = TangleConsumer::builder()
+    .max_retries(5)
+    .initial_backoff(Duration::from_millis(100))
+    .max_backoff(Duration::from_secs(30))
+    .build();
+\end{lstlisting}
 
 \subsection{Chain Reorganizations}
 
@@ -535,17 +657,190 @@ The SDK tracks submitted transactions and monitors for inclusion. If a reorg orp
 
 \subsection{Crash Recovery}
 
-The SDK can checkpoint job processing progress, ensuring restarted operators don't miss or double-process jobs.
+The SDK can checkpoint job processing progress, ensuring restarted operators do not miss or double-process jobs. Enable checkpointing in the runner configuration:
+
+\begin{lstlisting}
+BlueprintRunner::builder(TangleConfig::default(), env)
+    .router(router())
+    .producer(TangleProducer::new(service_id))
+    .consumer(TangleConsumer::new())
+    .checkpoint_dir(env.data_dir.join("checkpoints"))
+    .run()
+    .await
+\end{lstlisting}
 
 \subsection{Graceful Shutdown}
 
-On SIGTERM/SIGINT, the SDK completes in-progress jobs, flushes pending submissions, and closes connections before exiting.
+On SIGTERM/SIGINT, the SDK completes in-progress jobs, flushes pending submissions, and closes connections before exiting. The runner handles shutdown signals automatically.
+
+%==============================================================================
+\section{Quality of Service}
+%==============================================================================
+
+The Quality of Service (QoS) package provides monitoring, metrics, and observability for operator services.
+
+\subsection{QoS Architecture}
+
+The QoS system integrates multiple monitoring backends:
+
+\begin{itemize}
+    \item \textbf{Prometheus}: Metrics collection via \texttt{/metrics} endpoint
+    \item \textbf{OpenTelemetry}: Exports metrics to OTLP-compatible backends (Grafana Cloud, Datadog)
+    \item \textbf{Loki}: Structured logging with labels for log querying
+    \item \textbf{Grafana}: Dashboards showing throughput, latency, errors, and resources
+\end{itemize}
+
+\subsection{Built-in Metrics}
+
+\begin{itemize}
+    \item \textbf{System metrics}: CPU utilization, memory, disk I/O, network traffic
+    \item \textbf{Blueprint metrics}: Jobs executed, execution times, success/failure rates, queue depths
+    \item \textbf{Blueprint status}: Uptime, last heartbeat, status codes, status messages
+\end{itemize}
+
+\subsection{QoS-Based Slashing}
+
+QoS provides data; slashing provides consequences. Connecting these systems enables automatic SLA enforcement.
+
+\textbf{Architecture}: QoS metrics flow from operators to a monitoring service. When metrics violate thresholds, the monitor proposes a slash via Tangle. The service manager's \texttt{querySlashingOrigin} hook authorizes the monitor. After dispute window, slashing executes.
+
+\subsubsection{Example: Heartbeat-Based Slashing}
+
+\begin{lstlisting}[language=Java,basicstyle=\ttfamily\small]
+contract HeartbeatSlashingManager {
+    uint256 public constant MAX_MISSED = 3;
+    uint256 public constant INTERVAL = 5 minutes;
+
+    mapping(uint64 => mapping(address => uint256)) public lastHeartbeat;
+    mapping(uint64 => mapping(address => uint256)) public missedCount;
+
+    function recordHeartbeat(uint64 serviceId) external {
+        require(isOperatorInService(serviceId, msg.sender));
+        lastHeartbeat[serviceId][msg.sender] = block.timestamp;
+        missedCount[serviceId][msg.sender] = 0;
+    }
+
+    function checkAndSlash(uint64 serviceId, address operator) external {
+        uint256 elapsed = block.timestamp - lastHeartbeat[serviceId][operator];
+        uint256 missed = elapsed / INTERVAL;
+
+        if (missed > MAX_MISSED) {
+            tangle.proposeSlash(serviceId, operator, 500); // 5%
+        }
+    }
+
+    function querySlashingOrigin(uint64) external view returns (address) {
+        return address(this);
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Example: Latency-Based Slashing}
+
+\begin{lstlisting}[language=Java,basicstyle=\ttfamily\small]
+contract LatencySlashingManager {
+    uint256 public constant MAX_LATENCY_MS = 5000;  // 5 second SLA
+    uint256 public constant VIOLATION_THRESHOLD = 10;
+
+    address public latencyOracle;
+    mapping(uint64 => mapping(address => uint256)) public violations;
+
+    function reportLatencyViolation(
+        uint64 serviceId,
+        address operator,
+        uint256 actualLatencyMs,
+        bytes calldata proof
+    ) external {
+        require(msg.sender == latencyOracle);
+        require(actualLatencyMs > MAX_LATENCY_MS);
+
+        violations[serviceId][operator]++;
+
+        if (violations[serviceId][operator] >= VIOLATION_THRESHOLD) {
+            tangle.proposeSlash(serviceId, operator, 1000); // 10%
+            violations[serviceId][operator] = 0;
+        }
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Example: Availability-Based Slashing}
+
+\begin{lstlisting}[language=Java,basicstyle=\ttfamily\small]
+contract AvailabilitySlashingManager {
+    uint256 public constant MIN_UPTIME_PERCENT = 99;
+    uint256 public constant WINDOW = 1 days;
+
+    struct UptimeRecord {
+        uint256 windowStart;
+        uint256 successfulChecks;
+        uint256 totalChecks;
+    }
+    mapping(uint64 => mapping(address => UptimeRecord)) public uptime;
+
+    function recordCheck(uint64 serviceId, address operator, bool available)
+        external onlyMonitor
+    {
+        UptimeRecord storage r = uptime[serviceId][operator];
+
+        if (block.timestamp > r.windowStart + WINDOW) {
+            if (r.totalChecks > 0) {
+                uint256 pct = (r.successfulChecks * 100) / r.totalChecks;
+                if (pct < MIN_UPTIME_PERCENT) {
+                    uint256 slash = (MIN_UPTIME_PERCENT - pct) * 100;
+                    tangle.proposeSlash(serviceId, operator, uint16(slash));
+                }
+            }
+            r.windowStart = block.timestamp;
+            r.successfulChecks = 0;
+            r.totalChecks = 0;
+        }
+
+        r.totalChecks++;
+        if (available) r.successfulChecks++;
+    }
+}
+\end{lstlisting}
+
+\subsection{Connecting SDK to On-Chain Slashing}
+
+The full flow:
+
+\begin{lstlisting}
+// 1. Operator runs QoS-enabled service
+let qos = QoSService::new(qos_config).await?;
+qos.start_collection().await?;
+
+// 2. Off-chain monitor queries metrics
+// GET http://operator:9090/metrics
+
+// 3. Monitor detects SLA violation
+if avg_latency > SLA_THRESHOLD {
+    // 4. Monitor calls service manager
+    service_manager.reportLatencyViolation(
+        service_id, operator, latency_ms, proof
+    ).send().await?;
+}
+// 5. Service manager proposes slash
+// 6. After dispute window, slash executes
+\end{lstlisting}
+
+\subsection{Design Considerations}
+
+When designing QoS-based slashing:
+\begin{itemize}[noitemsep]
+    \item Calibrate thresholds to distinguish misbehavior from normal variance
+    \item Ensure measurement integrity through multiple monitors or proofs
+    \item Include evidence in proposals for dispute resolution
+    \item Make penalties proportional to harm
+    \item Consider grace periods for new operators
+\end{itemize}
 
 %==============================================================================
 \section{Verifiability and Detection}
 %==============================================================================
 
-Slashing requires detection. This section covers verification strategies.
+Slashing requires detection. This section covers verification strategies, worked examples, and formal properties.
 
 \subsection{Verification Economics}
 
@@ -554,25 +849,157 @@ Not all verification is worthwhile. Let $C_v$ be verification cost, $P_d$ detect
 C_v < P_d \times S \times P_c
 \]
 
+This reveals design principles. High slashes enable profitable verification even with moderate detection. Probabilistic verification (random sampling) achieves deterrence at lower cost. Verification costs should scale with stakes.
+
 \subsection{Verification Approaches}
 
-\textbf{Redundant Execution}: Multiple operators compute independently; disagreements trigger investigation. Simple but expensive.
+\textbf{Redundant Execution}: Multiple operators compute independently; disagreements trigger investigation. Simple but expensive. Use commit-reveal to prevent copying.
 
 \textbf{Optimistic with Fraud Proofs}: Assume honest, challenge suspicious results with cryptographic proofs. Efficient for verifiable computations.
 
-\textbf{Challenge-Response}: Periodic challenges test operator honesty. Cost-effective for ongoing services.
+\textbf{Challenge-Response}: Periodic challenges test operator honesty. Maintain database of (input, expected output) pairs indistinguishable from regular jobs. Cost-effective for ongoing services.
 
 \textbf{TEE Attestation}: Trusted Execution Environments provide hardware-backed verification. Strong guarantees but requires TEE hardware.
 
+\textbf{Reputation and Sampling}: Aggregate customer reports. Random sampling selects executions for intensive verification.
+
 \subsection{AI-Specific Challenges}
 
-AI outputs are often non-deterministic and subjective. Approaches include:
+AI outputs are often non-deterministic and subjective.
+
+\textbf{Model Identity}: Different models have different output distributions. Fingerprinting probes produce distinctive outputs. Comparing operator distributions against known fingerprints identifies which model runs.
+
+\textbf{Performance}: Claims about tokens/second or latency can be tested empirically. Continuous random sampling prevents inflated benchmarks during known tests.
+
+\textbf{Isolation}: Isolation failures may leave no visible trace. Defense in depth (network policies, syscall filtering, process isolation) makes breaches unlikely. Audit logging and anomaly detection increase detection probability.
+
+\subsection{Worked Example: Verifiable AI Sandbox}
+
+A sandbox service promising agents run on Claude with specified isolation.
+
+\textbf{Verification mechanisms}:
 \begin{itemize}[noitemsep]
-    \item Model fingerprinting (distinguishing models by output patterns)
-    \item Semantic consistency checking
-    \item Challenge databases with known-correct answers
-    \item Ensemble comparison across operators
+    \item Model fingerprinting: Challenge database of (prompt, expected pattern) pairs distinguishing Claude from alternatives
+    \item Performance: Heartbeat jobs with latency requirements
+    \item Isolation: gVisor/Firecracker required at registration; QoS monitors for anomalies
 \end{itemize}
+
+\textbf{Slashing configuration}:
+\begin{itemize}[noitemsep]
+    \item Model substitution: 50\% (severe, violates core promise)
+    \item Performance degradation: 5\% (moderate, affects quality)
+    \item Isolation breach: 100\% (maximum, compromises security)
+\end{itemize}
+
+\textbf{Quantified economics.} Customer runs trading agents managing \$200,000. PfC = \$200,000 (assets under management).
+
+Service uses 3 operators, each staking \$100,000 with 80\% exposure. Corrupting requires all 3 (any honest operator detects substitution via challenges). CoC = $3 \times \$100,000 \times 0.8 = \$240,000$.
+
+Security ratio = \$240,000 / \$200,000 = 1.2. Exceeds 1 but below recommended 1.5x.
+
+\textbf{Detection probability.} Model fingerprinting challenges submitted 10 times daily. Each detects substitution with 85\% probability. Over 7-day dispute window:
+\[
+P_d = 1 - (1 - 0.85)^{70} \approx 99.99\%
+\]
+
+Effectively certain detection justifies the 1.2 ratio, expected cost is $0.9999 \times \$240,000 \approx \$240,000$.
+
+\subsection{Worked Example: Verifiable Oracle}
+
+A price oracle promising freshness (5 min), accuracy (1\%), and availability (99\%).
+
+\textbf{Verification mechanisms}:
+\begin{itemize}[noitemsep]
+    \item Source verification: Signed data from 3+ of 5 approved sources submitted with prices
+    \item Cross-operator comparison: Multiple operators submit independently; deviations >0.5\% flagged
+    \item External auditing: Anyone compares oracle prices to public market data
+\end{itemize}
+
+\textbf{Slashing configuration}:
+\begin{itemize}[noitemsep]
+    \item Source forgery: 100\% (complete integrity compromise)
+    \item Price deviation: 10\% per incident, accumulating
+    \item Availability failure: 1\% per missed update, capped at 20\%
+\end{itemize}
+
+\textbf{Economics.} Oracle serves DeFi with \$100M exposure. Manipulated prices enable \$10M arbitrage (PfC = \$10M).
+
+5 operators each staking \$3M with 100\% exposure. Corrupting 3-of-5 yields CoC = \$9M.
+
+Security ratio = 0.9, insufficient. Blueprint should increase stake requirements or reduce exposure to smaller protocols.
+
+\subsection{Formal Verification Properties}
+
+\textbf{Property V1 (Detection Soundness)}: If operator behaves honestly, verification flags them for slashing with probability at most $\epsilon$ (false positive rate).
+
+\textit{Importance}: False positives discourage participation. High false positive rate is unusable.
+
+\textbf{Property V2 (Detection Completeness)}: If operator violates specification in manner $M$, verification detects with probability at least $p_M$.
+
+\textit{Importance}: Detection probability determines effective cost of cheating.
+
+\textbf{Property V3 (Economic Sufficiency)}: For all violation types $M$ with benefit $V_M$: $p_M \times S_M > V_M$.
+
+\textit{Importance}: Core security condition. Blueprints must configure detection and slashing to satisfy this.
+
+\textbf{Property V4 (Verification Efficiency)}: Verification cost $C_v < \alpha \times V_s$ where $V_s$ is service value.
+
+\textit{Importance}: Verification costing more than service provides is irrational. Target $\alpha < 0.1$.
+
+Blueprints should analyze mechanisms against these properties, documenting false positive rates, detection probabilities, and costs.
+
+%==============================================================================
+\section{Working with the Marketplace}
+%==============================================================================
+
+Blueprints interact with the Tangle marketplace for service discovery and pricing. Understanding this interaction helps developers design robust services.
+
+\subsection{The RFQ System}
+
+Tangle uses request-for-quote (RFQ) for service pricing. Customers broadcast quote requests; operators return signed quotes; customers select and submit.
+
+This accommodates operator heterogeneity, different hardware, locations, and capabilities command different prices.
+
+\subsection{Off-Chain Coordination}
+
+\textbf{Quote propagation} uses gossip protocols. Customers publish requests specifying blueprint, desired operators, parameters, and deadline. Requests propagate through the P2P network to registered operators.
+
+\textbf{Direct RPC queries} bypass gossip for known operators. Each operator's endpoint is stored on-chain at registration.
+
+\textbf{Quote aggregators} may collect quotes on behalf of customers, presenting curated options.
+
+\subsection{Failure Modes}
+
+Your blueprint should handle these scenarios:
+
+\textbf{Operator unavailable after quoting}: Operator signs quote but becomes unavailable. Service creates but operator cannot fulfill. Handle through heartbeat monitoring and slashing.
+
+\textbf{Quote expiry during transaction}: Quotes expire before transaction inclusion. Transaction fails with \texttt{QuoteExpired}. Set appropriate expiry times (not too short, not too long).
+
+\textbf{Capacity exhaustion}: Operator signs multiple quotes exceeding capacity. Operator's responsibility to track outstanding quotes. Overcommitted operators face quality degradation and slashing.
+
+\textbf{Network partition}: P2P partition prevents reaching some operators. Quote collection fails or produces incomplete results. Recovery occurs when partition heals.
+
+\subsection{Quote Serving Architecture}
+
+Operators run a separate \textbf{pricing engine} service alongside their blueprint. The pricing engine:
+
+\begin{enumerate}[noitemsep]
+    \item Receives quote requests via RPC or P2P gossip
+    \item Calculates prices based on resource requirements and operator pricing models
+    \item Signs quotes using EIP-712 typed data signatures
+    \item Returns signed quotes with proof-of-work to prevent spam
+\end{enumerate}
+
+The quote contains: blueprint ID, TTL (blocks), total cost, timestamp, expiry, and security commitments (which assets back the operator's stake exposure).
+
+Customers collect signed quotes from multiple operators, compare prices and terms, then submit their chosen quote on-chain to create a service.
+
+\subsection{Price Discovery}
+
+Prices converge as operators observe market conditions. On-chain service creation reveals accepted prices. Operators analyze historical prices and adjust quotes.
+
+Quality differentiation prevents pure price competition. Operators with better reliability, faster hardware, or stronger security can command premiums.
 
 %==============================================================================
 \section{Testing and Development}
@@ -584,7 +1011,7 @@ Mock producers generate test job calls without blockchain infrastructure:
 \begin{lstlisting}
 #[tokio::test]
 async fn test_square_handler() {
-    let result = square(TangleEvmArg(5)).await;
+    let result = square(TangleArg(5)).await;
     assert_eq!(result.0, 25);
 }
 \end{lstlisting}
@@ -628,28 +1055,93 @@ The SDK supports:
 \section{P2P Networking}
 %==============================================================================
 
-The SDK includes peer-to-peer networking built on libp2p.
+The SDK includes peer-to-peer networking built on libp2p, enabling operators to coordinate without centralized infrastructure.
 
-\subsection{Discovery}
+\subsection{Network Architecture}
 
-\textbf{Kademlia DHT} for global peer discovery.
+The networking layer provides:
 
-\textbf{mDNS} for local network discovery.
+\textbf{NetworkService}: Core service managing peer connections, message routing, and protocol handlers. Configured via \texttt{NetworkConfig} specifying listen addresses, bootstrap peers, and protocol settings.
 
-\subsection{Messaging}
+\textbf{NetworkServiceHandle}: Thread-safe handle for interacting with the network from job handlers. Supports sending messages, subscribing to topics, and querying peer state.
 
-\textbf{Gossipsub} for efficient pub/sub message propagation.
+\subsection{Discovery Mechanisms}
 
-\textbf{Direct connections} for point-to-point coordination.
+\textbf{Kademlia DHT} provides global peer discovery. Operators register in the distributed hash table, enabling any participant to find peers by their address or service membership. Bootstrap nodes seed initial peer connections.
+
+\textbf{mDNS} enables local network discovery for development and testing. Operators on the same LAN discover each other automatically without external infrastructure.
+
+\textbf{PeerManager} tracks peer metadata: public keys, addresses, connection state, and service registrations. The manager handles reconnection logic and peer scoring.
+
+\subsection{Messaging Protocols}
+
+\textbf{Gossipsub} provides efficient pub/sub messaging. Topics are identified by strings (e.g., service IDs). Messages propagate through the mesh network with configurable redundancy. Use cases include:
+\begin{itemize}[noitemsep]
+    \item Quote request broadcasting
+    \item BLS signature aggregation
+    \item Service announcements
+\end{itemize}
+
+\textbf{Request-Response Protocol} enables direct peer communication. The \texttt{BlueprintProtocol} defines typed messages:
+\begin{itemize}[noitemsep]
+    \item \texttt{InstanceMessageRequest}: Authenticated requests between operators
+    \item \texttt{InstanceMessageResponse}: Responses with optional error handling
+\end{itemize}
+
+\subsection{Authentication and Security}
+
+Peer authentication uses cryptographic handshakes:
+
+\textbf{AllowedKeys} configures which peers may connect:
+\begin{itemize}[noitemsep]
+    \item \texttt{EvmAddresses}: Allow peers whose keys derive to specified addresses
+    \item \texttt{InstancePublicKeys}: Allow specific public keys
+\end{itemize}
+
+\textbf{Handshake protocol} verifies peer identity before message exchange. Failed handshakes emit \texttt{HandshakeFailed} events for monitoring.
+
+\subsection{Network Events}
+
+The service emits typed events for application handling:
+
+\begin{lstlisting}
+pub enum NetworkEvent<K: KeyType> {
+    InstanceRequestInbound { peer: PeerId, request: InstanceMessageRequest<K> },
+    InstanceResponseInbound { peer: PeerId, response: InstanceMessageResponse<K> },
+    GossipReceived { source: PeerId, topic: String, message: Vec<u8> },
+    PeerConnected(PeerId),
+    PeerDisconnected(PeerId),
+    HandshakeCompleted { peer: PeerId },
+    HandshakeFailed { peer: PeerId, reason: String },
+}
+\end{lstlisting}
+
+Job handlers can subscribe to these events for coordination logic.
+
+\subsection{BLS Signature Aggregation}
+
+The \texttt{agg-sig-gossip} feature provides specialized gossip for BLS signature aggregation. When enabled:
+
+\begin{enumerate}[noitemsep]
+    \item Operators compute results and sign with BLS keys
+    \item Signatures broadcast via gossip topic for the job
+    \item Aggregator collects signatures until threshold met
+    \item Aggregated result submitted to chain
+\end{enumerate}
+
+This pattern enables efficient multi-operator consensus without centralized coordination.
 
 \subsection{Custom Protocols}
 
-Blueprints can define custom protocols for:
+Blueprints can define custom protocols for domain-specific needs:
 \begin{itemize}[noitemsep]
-    \item Checkpoint synchronization
-    \item State sharing
-    \item Domain-specific coordination
+    \item Checkpoint synchronization for stateful services
+    \item Shard assignment coordination for distributed processing
+    \item Heartbeat protocols for liveness monitoring
+    \item State machine replication for consensus-critical services
 \end{itemize}
+
+Custom protocols implement the libp2p \texttt{NetworkBehaviour} trait and integrate with the SDK's event system.
 
 %==============================================================================
 \section{Deployment Checklist}
@@ -666,6 +1158,80 @@ Before deploying to production:
     \item \textbf{Economics}: Slashing conditions, stake requirements, pricing model
     \item \textbf{Verification}: Detection mechanisms appropriate to threat model
 \end{enumerate}
+
+%==============================================================================
+\section{Operator Configuration}
+%==============================================================================
+
+Operators configure their blueprint environment through command-line arguments, environment variables, or configuration files.
+
+\subsection{Core Settings}
+
+\begin{description}
+    \item[http\_rpc\_url] HTTP RPC endpoint for the host chain (default: \texttt{http://127.0.0.1:9944})
+    \item[ws\_rpc\_url] WebSocket RPC endpoint for event subscriptions (default: \texttt{ws://127.0.0.1:9944})
+    \item[keystore\_uri] Path to the keystore directory containing operator keys (default: \texttt{./keystore})
+    \item[data\_dir] Directory for blueprint-specific data storage (required)
+    \item[protocol] Target protocol: \texttt{tangle}, \texttt{eigenlayer}, or \texttt{symbiotic}
+    \item[chain] Network: \texttt{local\_testnet}, \texttt{testnet}, or \texttt{mainnet}
+\end{description}
+
+\subsection{Networking Settings}
+
+\begin{description}
+    \item[bootnodes] Bootstrap peer addresses for P2P discovery (multiaddr format)
+    \item[network\_bind\_port] Port for P2P connections (default: random)
+    \item[enable\_mdns] Enable local network discovery for development (default: false)
+    \item[enable\_kademlia] Enable DHT-based global discovery (default: true in production)
+    \item[target\_peer\_count] Target number of peer connections (default: 24)
+\end{description}
+
+\subsection{Example Configuration}
+
+Command-line invocation:
+\begin{lstlisting}[language=bash,basicstyle=\ttfamily\small]
+./my-blueprint run \
+    --http-rpc-url https://rpc.tangle.tools \
+    --ws-rpc-url wss://rpc.tangle.tools \
+    --keystore-uri /var/lib/blueprint/keystore \
+    --data-dir /var/lib/blueprint/data \
+    --protocol tangle \
+    --chain mainnet \
+    --bootnodes /ip4/34.56.78.90/tcp/9000/p2p/12D3Koo... \
+    --network-bind-port 9000 \
+    --enable-kademlia
+\end{lstlisting}
+
+Environment variables use uppercase with underscores:
+\begin{lstlisting}[language=bash,basicstyle=\ttfamily\small]
+export HTTP_RPC_URL=https://rpc.tangle.tools
+export WS_RPC_URL=wss://rpc.tangle.tools
+export KEYSTORE_URI=/var/lib/blueprint/keystore
+export DATA_DIR=/var/lib/blueprint/data
+export PROTOCOL=tangle
+export CHAIN=mainnet
+\end{lstlisting}
+
+\subsection{Keystore Setup}
+
+The keystore contains cryptographic keys for operator identity and signing:
+
+\begin{lstlisting}[language=bash,basicstyle=\ttfamily\small]
+# Generate required keys
+blueprint-cli key generate --scheme ecdsa --output ./keystore
+blueprint-cli key generate --scheme ed25519 --output ./keystore
+blueprint-cli key generate --scheme bls --output ./keystore
+
+# List keys
+blueprint-cli key list --keystore ./keystore
+\end{lstlisting}
+
+Required key types depend on the blueprint:
+\begin{itemize}[noitemsep]
+    \item \textbf{ECDSA}: Transaction signing and EVM address derivation
+    \item \textbf{Ed25519}: P2P network identity and authentication
+    \item \textbf{BLS}: Signature aggregation for multi-operator consensus
+\end{itemize}
 
 %==============================================================================
 \section{Resources}
