@@ -121,23 +121,26 @@ library PaymentLib {
         amounts.restakerAmount = amount - amounts.developerAmount - amounts.protocolAmount - amounts.operatorAmount;
     }
 
-    /// @notice Calculate weighted operator payments based on exposure
+    /// @notice Calculate weighted operator payments based on effective exposure
     /// @dev M-5 FIX: Uses floor division for first N-1 operators, then gives remainder
     ///      to final operator to capture all dust from rounding.
+    ///      Effective exposure = delegation × exposureBps for each asset, summed across assets.
+    ///      This ensures operators are paid proportionally to actual security provided.
     /// @param totalOperatorAmount Total amount for all operators
     /// @param totalRestakerAmount Total amount for all restakers
     /// @param operators Array of operator addresses
-    /// @param exposures Array of exposure in basis points (parallel to operators)
-    /// @param totalExposure Sum of all exposures
+    /// @param effectiveExposures Array of effective exposure values (parallel to operators)
+    ///        These should be pre-calculated as: Σ(delegation[asset] × exposureBps[asset])
+    /// @param totalEffectiveExposure Sum of all effective exposures
     /// @return payments Array of per-operator payment allocations
     function calculateOperatorPayments(
         uint256 totalOperatorAmount,
         uint256 totalRestakerAmount,
         address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure
+        uint256[] memory effectiveExposures,
+        uint256 totalEffectiveExposure
     ) internal pure returns (OperatorPayment[] memory payments) {
-        if (totalExposure == 0) {
+        if (totalEffectiveExposure == 0) {
             return new OperatorPayment[](0);
         }
 
@@ -147,7 +150,7 @@ library PaymentLib {
         uint256 restakerDistributed = 0;
 
         for (uint256 i = 0; i < operators.length; i++) {
-            uint256 exposure = exposures[i];
+            uint256 effectiveExposure = effectiveExposures[i];
 
             // M-5 FIX: Last operator gets remainder to capture all rounding dust
             if (i == operators.length - 1) {
@@ -157,8 +160,8 @@ library PaymentLib {
                     restakerShare: totalRestakerAmount - restakerDistributed
                 });
             } else {
-                uint256 opShare = (totalOperatorAmount * exposure) / totalExposure;
-                uint256 restakeShare = (totalRestakerAmount * exposure) / totalExposure;
+                uint256 opShare = (totalOperatorAmount * effectiveExposure) / totalEffectiveExposure;
+                uint256 restakeShare = (totalRestakerAmount * effectiveExposure) / totalEffectiveExposure;
 
                 payments[i] = OperatorPayment({
                     operator: operators[i],

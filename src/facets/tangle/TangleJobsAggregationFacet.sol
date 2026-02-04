@@ -19,26 +19,17 @@ contract TangleJobsAggregationFacet is JobsAggregation, IFacetSelectors {
     }
 
     /// @notice Distribute job payment (called from Jobs mixin)
+    /// @dev Payment is distributed based on effective exposure (delegation × exposureBps)
     function _distributeJobPayment(uint64 serviceId, uint256 payment) internal override {
         Types.Service storage svc = _services[serviceId];
-
         address[] memory operators = _serviceOperatorSet[serviceId].values();
-        uint16[] memory exposures = new uint16[](operators.length);
-        uint256 totalExposure = 0;
-
-        for (uint256 i = 0; i < operators.length; i++) {
-            exposures[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
-            totalExposure += exposures[i];
-        }
 
         ITanglePaymentsInternal(address(this)).distributePayment(
             serviceId,
             svc.blueprintId,
             address(0),
             payment,
-            operators,
-            exposures,
-            totalExposure
+            operators
         );
     }
 

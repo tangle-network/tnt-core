@@ -163,8 +163,8 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         Types.PricingModel pricing,
         address paymentToken,
         uint256 paymentAmount,
-        uint16[] memory exposures,
-        uint256 totalExposure,
+        uint16[] memory, // exposures - unused, effective exposures computed internally
+        uint256, // totalExposure - unused
         uint64 requestId
     ) private {
         if (paymentAmount == 0) {
@@ -172,14 +172,14 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         }
         if (pricing == Types.PricingModel.PayOnce) {
             address[] memory operators = _copyRequestOperators(requestId);
+            
+            // Payment distribution computes effective exposures internally
             ITanglePaymentsInternal(address(this)).distributePayment(
                 serviceId,
                 blueprintId,
                 paymentToken,
                 paymentAmount,
-                operators,
-                exposures,
-                totalExposure
+                operators
             );
         } else if (pricing == Types.PricingModel.Subscription) {
             ITanglePaymentsInternal(address(this)).depositToEscrow(serviceId, paymentToken, paymentAmount);

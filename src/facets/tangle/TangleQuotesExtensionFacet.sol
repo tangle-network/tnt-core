@@ -14,7 +14,7 @@ contract TangleQuotesExtensionFacet is QuotesExtend, IFacetSelectors {
     }
 
     /// @notice Distribute extension payment as streaming (called from Quotes mixin)
-    /// @dev Creates streaming payments starting from extensionStart
+    /// @dev Payment is distributed based on effective exposure (delegation × exposureBps)
     function _distributeExtensionPayment(
         uint64 serviceId,
         uint64 blueprintId,
@@ -29,23 +29,12 @@ contract TangleQuotesExtensionFacet is QuotesExtend, IFacetSelectors {
         startTime;
         endTime;
 
-        uint16[] memory exposures = new uint16[](operators.length);
-        uint256 totalExposure = 0;
-        for (uint256 i = 0; i < operators.length; i++) {
-            uint16 exposure = _serviceOperators[serviceId][operators[i]].exposureBps;
-            exposures[i] = exposure;
-            totalExposure += exposure;
-        }
-        if (totalExposure == 0) return;
-
         ITanglePaymentsInternal(address(this)).distributePayment(
             serviceId,
             blueprintId,
             address(0),
             amount,
-            operators,
-            exposures,
-            totalExposure
+            operators
         );
     }
 }

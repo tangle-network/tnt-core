@@ -4,11 +4,13 @@ pragma solidity ^0.8.26;
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import { Base } from "./Base.sol";
+import { PaymentsEffectiveExposure } from "./PaymentsEffectiveExposure.sol";
 import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
+import { IStaking } from "../interfaces/IStaking.sol";
 
 /// @title Payments
 /// @notice Payment distribution, escrow, and rewards
@@ -18,7 +20,11 @@ import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol
 ///      - This tolerance is acceptable for billing intervals (typically hours/days)
 ///      - For critical time-sensitive operations, consider using block numbers instead
 ///      - TTL expiry and subscription intervals use timestamps for user-friendliness
-abstract contract Payments is Base {
+/// @dev PAYMENT DISTRIBUTION:
+///      - Operator payments are proportional to effective exposure (delegation × exposureBps)
+///      - This ensures operators are paid based on actual security capital at risk
+///      - If price oracle is configured, cross-asset values are normalized to USD
+abstract contract Payments is Base, PaymentsEffectiveExposure {
     using EnumerableSet for EnumerableSet.AddressSet;
     using PaymentLib for PaymentLib.ServiceEscrow;
 
@@ -110,6 +116,7 @@ abstract contract Payments is Base {
     }
 
     /// @notice Internal billing logic with TTL check
+    /// @dev Uses effective exposure (delegation × exposureBps) for proportional payment distribution
     function _billSubscriptionInternal(uint64 serviceId) internal {
         Types.Service storage svc = _getService(serviceId);
         if (svc.status != Types.ServiceStatus.Active) {
@@ -141,22 +148,26 @@ abstract contract Payments is Base {
         svc.lastPaymentAt = uint64(block.timestamp);
 
         address[] memory operators = _serviceOperatorSet[serviceId].values();
-        uint256 operatorsLength = operators.length;
-        uint16[] memory exposures = new uint16[](operatorsLength);
-        uint256 totalExposure = 0;
+        
+        // Calculate effective exposures based on actual delegations
+        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure) = 
+            _calculateEffectiveExposures(serviceId, operators);
 
-        for (uint256 i = 0; i < operatorsLength;) {
-            exposures[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
-            totalExposure += exposures[i];
-            unchecked { ++i; }
-        }
-
-        _distributePayment(serviceId, svc.blueprintId, token, rate, operators, exposures, totalExposure);
+        _distributePaymentWithEffectiveExposure(
+            serviceId, 
+            svc.blueprintId, 
+            token, 
+            rate, 
+            operators, 
+            effectiveExposures, 
+            totalEffectiveExposure
+        );
 
         emit SubscriptionBilled(serviceId, rate, interval);
     }
 
     /// @notice Try to bill a subscription, returns false on failure instead of reverting
+    /// @dev Uses effective exposure (delegation × exposureBps) for proportional payment distribution
     function _tryBillSubscription(uint64 serviceId) internal returns (bool) {
         if (!_isBillable(serviceId)) return false;
 
@@ -171,17 +182,20 @@ abstract contract Payments is Base {
         svc.lastPaymentAt = uint64(block.timestamp);
 
         address[] memory operators = _serviceOperatorSet[serviceId].values();
-        uint256 operatorsLen = operators.length;
-        uint16[] memory exposures = new uint16[](operatorsLen);
-        uint256 totalExposure = 0;
+        
+        // Calculate effective exposures based on actual delegations
+        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure) = 
+            _calculateEffectiveExposures(serviceId, operators);
 
-        for (uint256 i = 0; i < operatorsLen;) {
-            exposures[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
-            totalExposure += exposures[i];
-            unchecked { ++i; }
-        }
-
-        _distributePayment(serviceId, svc.blueprintId, token, rate, operators, exposures, totalExposure);
+        _distributePaymentWithEffectiveExposure(
+            serviceId, 
+            svc.blueprintId, 
+            token, 
+            rate, 
+            operators, 
+            effectiveExposures, 
+            totalEffectiveExposure
+        );
 
         emit SubscriptionBilled(serviceId, rate, bpConfig.subscriptionInterval);
         return true;
@@ -317,15 +331,24 @@ abstract contract Payments is Base {
         emit EscrowFunded(serviceId, token, amount);
     }
 
-    /// @notice Distribute payment to all stakeholders
-    function _distributePayment(
+    /// @notice Distribute payment to all stakeholders using effective exposures
+    /// @dev Effective exposure = delegation × exposureBps, ensuring operators are paid
+    ///      proportionally to actual security capital at risk
+    /// @param serviceId The service ID
+    /// @param blueprintId The blueprint ID
+    /// @param token Payment token
+    /// @param amount Total payment amount
+    /// @param operators Array of operator addresses
+    /// @param effectiveExposures Array of effective exposure values (delegation × exposureBps)
+    /// @param totalEffectiveExposure Sum of all effective exposures
+    function _distributePaymentWithEffectiveExposure(
         uint64 serviceId,
         uint64 blueprintId,
         address token,
         uint256 amount,
         address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure
+        uint256[] memory effectiveExposures,
+        uint256 totalEffectiveExposure
     ) internal {
         if (amount == 0) return;
 
@@ -366,14 +389,14 @@ abstract contract Payments is Base {
         // Protocol payment
         PaymentLib.transferPayment(_treasury, token, amounts.protocolAmount);
 
-        // Operator and restaker payments
-        if (totalExposure > 0) {
+        // Operator and restaker payments - proportional to effective exposure
+        if (totalEffectiveExposure > 0) {
             PaymentLib.OperatorPayment[] memory opPayments = PaymentLib.calculateOperatorPayments(
                 amounts.operatorAmount,
                 amounts.restakerAmount,
                 operators,
-                exposures,
-                totalExposure
+                effectiveExposures,
+                totalEffectiveExposure
             );
 
             uint256 opPaymentsLength = opPayments.length;
@@ -433,5 +456,27 @@ abstract contract Payments is Base {
                 amount
             );
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EFFECTIVE EXPOSURE INTERFACE IMPLEMENTATIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc PaymentsEffectiveExposure
+    function _getStaking() internal view override returns (IStaking) {
+        return _staking;
+    }
+
+    /// @inheritdoc PaymentsEffectiveExposure
+    function _getPriceOracle() internal view override returns (address) {
+        return _priceOracle;
+    }
+
+    /// @inheritdoc PaymentsEffectiveExposure
+    function _getServiceSecurityCommitments(
+        uint64 serviceId,
+        address operator
+    ) internal view override returns (Types.AssetSecurityCommitment[] storage) {
+        return _serviceSecurityCommitments[serviceId][operator];
     }
 }

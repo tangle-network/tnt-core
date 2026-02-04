@@ -65,9 +65,7 @@ abstract contract QuotesCreate is Base {
             serviceId,
             blueprintId,
             totalCost,
-            operators,
-            exposures,
-            activation.totalExposure
+            operators
         );
     }
 
@@ -232,14 +230,12 @@ abstract contract QuotesCreate is Base {
         uint64 serviceId,
         uint64 blueprintId,
         uint256 totalCost,
-        address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure
+        address[] memory operators
     ) private {
         if (totalCost == 0) {
             return;
         }
-        _distributeQuotePayment(serviceId, blueprintId, totalCost, operators, exposures, totalExposure);
+        _distributeQuotePayment(serviceId, blueprintId, totalCost, operators);
     }
 
     /// @notice Process operator quotes and register them for the service
@@ -272,12 +268,11 @@ abstract contract QuotesCreate is Base {
     }
 
     /// @notice Distribute payment from quotes - to be implemented in final contract
+    /// @dev Payment is distributed based on effective exposure (delegation × exposureBps)
     function _distributeQuotePayment(
         uint64 serviceId,
         uint64 blueprintId,
         uint256 amount,
-        address[] memory operators,
-        uint16[] memory exposures,
-        uint256 totalExposure
+        address[] memory operators
     ) internal virtual;
 }
