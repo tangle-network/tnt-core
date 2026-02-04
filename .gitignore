@@ -2,7 +2,7 @@
 target
 
 # Docs
-docs/
+/docs/
 
 # directories
 .yarn/*
