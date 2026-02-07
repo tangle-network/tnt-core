@@ -111,7 +111,7 @@ fn gen_bindings() -> Result<()> {
                 "--select",
                 "MultiAssetDelegation",
                 "--select",
-                "IOperatorStatusRegistry",
+                "OperatorStatusRegistry",
             ]),
         "forge bind",
     )?;
@@ -139,7 +139,7 @@ fn gen_bindings() -> Result<()> {
             "out/IBlueprintServiceManager.sol/IBlueprintServiceManager.json",
         ),
         (
-            "IOperatorStatusRegistry.json",
+            "OperatorStatusRegistry.json",
             "out/OperatorStatusRegistry.sol/OperatorStatusRegistry.json",
         ),
         (

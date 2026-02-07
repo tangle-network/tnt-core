@@ -96,8 +96,8 @@ contract OperatorStatusRegistryTest is Test {
         registry.enableCustomMetrics(SERVICE_ID, true);
 
         // Encode as MetricPair[] array as expected by _processMetrics
-        OperatorStatusRegistry.MetricPair[] memory pairs = new OperatorStatusRegistry.MetricPair[](1);
-        pairs[0] = OperatorStatusRegistry.MetricPair("cpu", 42);
+        IOperatorStatusRegistry.MetricPair[] memory pairs = new IOperatorStatusRegistry.MetricPair[](1);
+        pairs[0] = IOperatorStatusRegistry.MetricPair("cpu", 42);
         bytes memory metricsData = abi.encode(pairs);
         vm.prank(operatorAddr);
         registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, metricsData);
@@ -251,6 +251,191 @@ contract OperatorStatusRegistryTest is Test {
         IOperatorStatusRegistry.StatusCode expected =
             statusCode == 0 ? IOperatorStatusRegistry.StatusCode.Healthy : IOperatorStatusRegistry.StatusCode.Degraded;
         assertEq(uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)), uint8(expected));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Phase 1: New tests for metric validation, slashing, and batch definitions
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_setMetricDefinitions_ReplacesExisting() public {
+        vm.startPrank(serviceOwner);
+        registry.enableCustomMetrics(SERVICE_ID, true);
+
+        // Set initial definitions
+        IOperatorStatusRegistry.MetricDefinition[] memory defs1 = new IOperatorStatusRegistry.MetricDefinition[](1);
+        defs1[0] = IOperatorStatusRegistry.MetricDefinition("cpu", 0, 100, true);
+        registry.setMetricDefinitions(SERVICE_ID, defs1);
+
+        IOperatorStatusRegistry.MetricDefinition[] memory stored = registry.getMetricDefinitions(SERVICE_ID);
+        assertEq(stored.length, 1);
+        assertEq(stored[0].name, "cpu");
+
+        // Replace with new definitions
+        IOperatorStatusRegistry.MetricDefinition[] memory defs2 = new IOperatorStatusRegistry.MetricDefinition[](2);
+        defs2[0] = IOperatorStatusRegistry.MetricDefinition("response_time_ms", 0, 5000, true);
+        defs2[1] = IOperatorStatusRegistry.MetricDefinition("uptime_percent", 0, 100, false);
+        registry.setMetricDefinitions(SERVICE_ID, defs2);
+
+        stored = registry.getMetricDefinitions(SERVICE_ID);
+        assertEq(stored.length, 2);
+        assertEq(stored[0].name, "response_time_ms");
+        assertEq(stored[1].name, "uptime_percent");
+        vm.stopPrank();
+    }
+
+    function test_setMetricDefinitions_InvalidBounds() public {
+        vm.prank(serviceOwner);
+        registry.enableCustomMetrics(SERVICE_ID, true);
+
+        IOperatorStatusRegistry.MetricDefinition[] memory defs = new IOperatorStatusRegistry.MetricDefinition[](1);
+        defs[0] = IOperatorStatusRegistry.MetricDefinition("bad", 100, 0, true); // maxValue < minValue
+        vm.prank(serviceOwner);
+        vm.expectRevert("Invalid bounds");
+        registry.setMetricDefinitions(SERVICE_ID, defs);
+    }
+
+    function test_processMetrics_ValidatesRequiredMissing() public {
+        vm.startPrank(serviceOwner);
+        registry.enableCustomMetrics(SERVICE_ID, true);
+
+        IOperatorStatusRegistry.MetricDefinition[] memory defs = new IOperatorStatusRegistry.MetricDefinition[](1);
+        defs[0] = IOperatorStatusRegistry.MetricDefinition("required_metric", 0, 100, true);
+        registry.setMetricDefinitions(SERVICE_ID, defs);
+        vm.stopPrank();
+
+        // Submit heartbeat with a metric that doesn't match the required definition
+        IOperatorStatusRegistry.MetricPair[] memory pairs = new IOperatorStatusRegistry.MetricPair[](1);
+        pairs[0] = IOperatorStatusRegistry.MetricPair("other_metric", 50);
+        bytes memory metricsData = abi.encode(pairs);
+
+        vm.recordLogs();
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, metricsData);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Check for MetricViolation event
+        bytes32 violationSig = keccak256("MetricViolation(uint64,address,string,string)");
+        bool foundViolation = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == violationSig) {
+                foundViolation = true;
+                break;
+            }
+        }
+        assertTrue(foundViolation, "Expected MetricViolation event for missing required metric");
+    }
+
+    function test_processMetrics_ValidatesOutOfBounds() public {
+        vm.startPrank(serviceOwner);
+        registry.enableCustomMetrics(SERVICE_ID, true);
+
+        IOperatorStatusRegistry.MetricDefinition[] memory defs = new IOperatorStatusRegistry.MetricDefinition[](1);
+        defs[0] = IOperatorStatusRegistry.MetricDefinition("response_time_ms", 0, 5000, false);
+        registry.setMetricDefinitions(SERVICE_ID, defs);
+        vm.stopPrank();
+
+        // Submit heartbeat with out-of-bounds value
+        IOperatorStatusRegistry.MetricPair[] memory pairs = new IOperatorStatusRegistry.MetricPair[](1);
+        pairs[0] = IOperatorStatusRegistry.MetricPair("response_time_ms", 9999);
+        bytes memory metricsData = abi.encode(pairs);
+
+        vm.recordLogs();
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, metricsData);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 violationSig = keccak256("MetricViolation(uint64,address,string,string)");
+        bool foundViolation = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == violationSig) {
+                foundViolation = true;
+                break;
+            }
+        }
+        assertTrue(foundViolation, "Expected MetricViolation event for out-of-bounds value");
+    }
+
+    function test_processMetrics_PassesValidation() public {
+        vm.startPrank(serviceOwner);
+        registry.enableCustomMetrics(SERVICE_ID, true);
+
+        IOperatorStatusRegistry.MetricDefinition[] memory defs = new IOperatorStatusRegistry.MetricDefinition[](2);
+        defs[0] = IOperatorStatusRegistry.MetricDefinition("response_time_ms", 0, 5000, true);
+        defs[1] = IOperatorStatusRegistry.MetricDefinition("uptime_percent", 0, 100, false);
+        registry.setMetricDefinitions(SERVICE_ID, defs);
+        vm.stopPrank();
+
+        // Submit heartbeat with valid metrics
+        IOperatorStatusRegistry.MetricPair[] memory pairs = new IOperatorStatusRegistry.MetricPair[](2);
+        pairs[0] = IOperatorStatusRegistry.MetricPair("response_time_ms", 150);
+        pairs[1] = IOperatorStatusRegistry.MetricPair("uptime_percent", 99);
+        bytes memory metricsData = abi.encode(pairs);
+
+        vm.recordLogs();
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, metricsData);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 violationSig = keccak256("MetricViolation(uint64,address,string,string)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == violationSig) {
+                revert("Unexpected MetricViolation event for valid metrics");
+            }
+        }
+
+        // Values should be stored
+        assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "response_time_ms"), 150);
+        assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "uptime_percent"), 99);
+    }
+
+    function test_getSlashableOperators_ReturnsOffline() public {
+        // Operator submits a heartbeat
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+
+        // No one should be slashable yet
+        address[] memory ops = registry.getSlashableOperators(SERVICE_ID);
+        assertEq(ops.length, 0);
+
+        // Warp past the threshold (interval=120, maxMissed=2 => 240s)
+        vm.warp(block.timestamp + 241);
+
+        ops = registry.getSlashableOperators(SERVICE_ID);
+        assertEq(ops.length, 1);
+        assertEq(ops[0], operatorAddr);
+    }
+
+    function test_abiEncodingCompatibility() public {
+        vm.prank(serviceOwner);
+        registry.enableCustomMetrics(SERVICE_ID, true);
+
+        // ABI-encode MetricPair[] in Solidity
+        IOperatorStatusRegistry.MetricPair[] memory pairs = new IOperatorStatusRegistry.MetricPair[](2);
+        pairs[0] = IOperatorStatusRegistry.MetricPair("response_time_ms", 150);
+        pairs[1] = IOperatorStatusRegistry.MetricPair("uptime_percent", 99);
+        bytes memory metricsData = abi.encode(pairs);
+
+        // Submit via heartbeat and verify storage
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, metricsData);
+
+        assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "response_time_ms"), 150);
+        assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "uptime_percent"), 99);
+    }
+
+    function test_crossRepoAbiEncoding() public {
+        vm.prank(serviceOwner);
+        registry.enableCustomMetrics(SERVICE_ID, true);
+
+        // Hex produced by Rust alloy-sol-types encoder for:
+        //   [("response_time_ms", 150), ("uptime_percent", 99)]
+        bytes memory rustEncoded = hex"00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000960000000000000000000000000000000000000000000000000000000000000010726573706f6e73655f74696d655f6d730000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000063000000000000000000000000000000000000000000000000000000000000000e757074696d655f70657263656e74000000000000000000000000000000000000";
+
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, rustEncoded);
+
+        assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "response_time_ms"), 150);
+        assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "uptime_percent"), 99);
     }
 
     function testFuzz_checkOperatorStatusHandlesMissedBeats(uint64 warpSeconds) public {

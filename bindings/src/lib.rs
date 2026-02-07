@@ -4,7 +4,9 @@
 pub mod bindings;
 
 pub use bindings::r#i_blueprint_service_manager::IBlueprintServiceManager;
-pub use bindings::r#i_operator_status_registry::IOperatorStatusRegistry;
+pub use bindings::r#operator_status_registry::OperatorStatusRegistry;
+// Backward compat alias
+pub use bindings::r#operator_status_registry::OperatorStatusRegistry as IOperatorStatusRegistry;
 pub use bindings::r#i_tangle::ITangle;
 pub use bindings::r#i_tangle_admin::ITangleAdmin;
 pub use bindings::r#i_tangle_blueprints::ITangleBlueprints;
@@ -29,7 +31,9 @@ pub mod abi {
     pub const ITANGLE_SLASHING: &str = include_str!("../abi/ITangleSlashing.json");
     pub const IBLUEPRINT_SERVICE_MANAGER: &str =
         include_str!("../abi/IBlueprintServiceManager.json");
-    pub const IOPERATOR_STATUS_REGISTRY: &str = include_str!("../abi/IOperatorStatusRegistry.json");
+    pub const OPERATOR_STATUS_REGISTRY: &str = include_str!("../abi/OperatorStatusRegistry.json");
+    // Backward compat alias
+    pub const IOPERATOR_STATUS_REGISTRY: &str = OPERATOR_STATUS_REGISTRY;
     pub const IMULTI_ASSET_DELEGATION: &str =
         include_str!("../abi/IMultiAssetDelegation.json");
     pub const MULTI_ASSET_DELEGATION: &str = include_str!("../abi/MultiAssetDelegation.json");
