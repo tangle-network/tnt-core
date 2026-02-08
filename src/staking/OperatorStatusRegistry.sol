@@ -377,12 +377,17 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     }
 
     /// @notice Process custom metrics from heartbeat
+    /// @dev Maximum number of metric pairs per heartbeat to bound gas costs.
+    uint256 private constant MAX_METRIC_PAIRS = 50;
+
     function _processMetrics(
         uint64 serviceId,
         address operator,
         bytes calldata metrics
     ) internal {
         if (metrics.length == 0) return;
+        // Guard against gas exhaustion from oversized payloads
+        if (metrics.length > 50_000) return;
 
         MetricPair[] memory pairs;
 
@@ -393,34 +398,56 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
             return;
         }
 
-        for (uint256 i = 0; i < pairs.length; i++) {
+        // Cap decoded pairs to prevent gas exhaustion
+        uint256 pairsLen = pairs.length > MAX_METRIC_PAIRS ? MAX_METRIC_PAIRS : pairs.length;
+
+        for (uint256 i = 0; i < pairsLen; i++) {
             metricValues[serviceId][operator][pairs[i].name] = pairs[i].value;
             emit MetricReported(serviceId, operator, pairs[i].name, pairs[i].value);
         }
 
-        // Validate metrics against definitions
+        // Validate metrics against definitions.
+        // Build a hash→index lookup for reported pairs so validation is O(n+m)
+        // instead of O(n*m) where n = definitions, m = pairs.
         MetricDefinition[] storage definitions = serviceMetrics[serviceId];
-        for (uint256 d = 0; d < definitions.length; d++) {
-            MetricDefinition storage def = definitions[d];
-            bool found = false;
-            uint256 reportedValue;
+        if (definitions.length > 0 && pairsLen > 0) {
+            // Map: keccak256(name) → (value, exists)
+            // We use two parallel arrays to avoid mappings in memory.
+            bytes32[] memory pairHashes = new bytes32[](pairsLen);
+            for (uint256 p = 0; p < pairsLen; p++) {
+                pairHashes[p] = keccak256(bytes(pairs[p].name));
+            }
 
-            for (uint256 p = 0; p < pairs.length; p++) {
-                if (keccak256(bytes(pairs[p].name)) == keccak256(bytes(def.name))) {
-                    found = true;
-                    reportedValue = pairs[p].value;
-                    break;
+            for (uint256 d = 0; d < definitions.length; d++) {
+                MetricDefinition storage def = definitions[d];
+                bytes32 defHash = keccak256(bytes(def.name));
+                bool found = false;
+                uint256 reportedValue;
+
+                for (uint256 p = 0; p < pairHashes.length; p++) {
+                    if (pairHashes[p] == defHash) {
+                        found = true;
+                        reportedValue = pairs[p].value;
+                        break;
+                    }
+                }
+
+                if (!found && def.required) {
+                    emit MetricViolation(serviceId, operator, def.name, "Required metric missing");
+                    continue;
+                }
+
+                if (found) {
+                    if (reportedValue < def.minValue || reportedValue > def.maxValue) {
+                        emit MetricViolation(serviceId, operator, def.name, "Value out of bounds");
+                    }
                 }
             }
-
-            if (!found && def.required) {
-                emit MetricViolation(serviceId, operator, def.name, "Required metric missing");
-                continue;
-            }
-
-            if (found) {
-                if (reportedValue < def.minValue || reportedValue > def.maxValue) {
-                    emit MetricViolation(serviceId, operator, def.name, "Value out of bounds");
+        } else if (definitions.length > 0) {
+            // No pairs reported — check for required definitions
+            for (uint256 d = 0; d < definitions.length; d++) {
+                if (definitions[d].required) {
+                    emit MetricViolation(serviceId, operator, definitions[d].name, "Required metric missing");
                 }
             }
         }
@@ -468,8 +495,11 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         }
 
         uint256 elapsed = block.timestamp - state.lastHeartbeat;
-        // forge-lint: disable-next-line(unsafe-typecast)
-        uint8 missedBeats = uint8(elapsed / config.interval);
+        uint256 calculatedMissed = elapsed / config.interval;
+        // Cap at uint8 max to prevent silent overflow on the downcast
+        uint8 missedBeats = calculatedMissed > type(uint8).max
+            ? type(uint8).max
+            : uint8(calculatedMissed);
 
         if (missedBeats > state.missedBeats) {
             state.missedBeats = missedBeats;
