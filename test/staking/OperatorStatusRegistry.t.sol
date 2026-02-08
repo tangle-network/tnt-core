@@ -438,6 +438,171 @@ contract OperatorStatusRegistryTest is Test {
         assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "uptime_percent"), 99);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Audit remediation tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_addMetricDefinition_InvalidBoundsReverts() public {
+        vm.prank(serviceOwner);
+        vm.expectRevert("Invalid bounds");
+        registry.addMetricDefinition(SERVICE_ID, "bad_metric", 100, 0, true);
+    }
+
+    function test_addMetricDefinition_CapsAtMax() public {
+        vm.startPrank(serviceOwner);
+        // Fill to max
+        for (uint256 i = 0; i < 50; i++) {
+            registry.addMetricDefinition(SERVICE_ID, string(abi.encodePacked("m", i)), 0, 100, false);
+        }
+        // 51st should fail
+        vm.expectRevert("Too many definitions");
+        registry.addMetricDefinition(SERVICE_ID, "overflow", 0, 100, false);
+        vm.stopPrank();
+    }
+
+    function test_setMetricDefinitions_CapsAtMax() public {
+        IOperatorStatusRegistry.MetricDefinition[] memory defs = new IOperatorStatusRegistry.MetricDefinition[](51);
+        for (uint256 i = 0; i < 51; i++) {
+            defs[i] = IOperatorStatusRegistry.MetricDefinition("x", 0, 100, false);
+        }
+        vm.prank(serviceOwner);
+        vm.expectRevert("Too many definitions");
+        registry.setMetricDefinitions(SERVICE_ID, defs);
+    }
+
+    function test_outOfBoundsMetrics_NotStored() public {
+        vm.startPrank(serviceOwner);
+        registry.enableCustomMetrics(SERVICE_ID, true);
+        IOperatorStatusRegistry.MetricDefinition[] memory defs = new IOperatorStatusRegistry.MetricDefinition[](1);
+        defs[0] = IOperatorStatusRegistry.MetricDefinition("bounded", 10, 100, false);
+        registry.setMetricDefinitions(SERVICE_ID, defs);
+        vm.stopPrank();
+
+        // Submit out-of-bounds metric
+        IOperatorStatusRegistry.MetricPair[] memory pairs = new IOperatorStatusRegistry.MetricPair[](1);
+        pairs[0] = IOperatorStatusRegistry.MetricPair("bounded", 999);
+        bytes memory metricsData = abi.encode(pairs);
+
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, metricsData);
+
+        // Value should NOT be stored since it's out of bounds
+        assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "bounded"), 0);
+    }
+
+    function test_goOnline_NoOpWhenAlreadyHealthy() public {
+        vm.startPrank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+
+        IOperatorStatusRegistry.StatusCode status = registry.getOperatorStatus(SERVICE_ID, operatorAddr);
+        assertEq(uint8(status), uint8(IOperatorStatusRegistry.StatusCode.Healthy));
+
+        // goOnline should be a no-op when already Healthy
+        registry.goOnline(SERVICE_ID);
+        status = registry.getOperatorStatus(SERVICE_ID, operatorAddr);
+        assertEq(uint8(status), uint8(IOperatorStatusRegistry.StatusCode.Healthy));
+        vm.stopPrank();
+    }
+
+    function test_reportForSlashing_UnregisteredOperatorReverts() public {
+        vm.prank(governance);
+        registry.setSlashingOracle(slashingOracle);
+
+        vm.prank(slashingOracle);
+        vm.expectRevert("Operator not registered");
+        registry.reportForSlashing(SERVICE_ID, makeAddr("unknown"), "slash");
+    }
+
+    function test_getSlashableOperatorsPaginated() public {
+        // Create 5 operators
+        address[] memory ops = new address[](5);
+        for (uint256 i = 0; i < 5; i++) {
+            ops[i] = makeAddr(string(abi.encodePacked("op", i)));
+            vm.prank(ops[i]);
+            registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+        }
+
+        // Warp past threshold
+        vm.warp(block.timestamp + 241);
+
+        // Get page 1 (first 3)
+        (address[] memory page1, uint256 total) = registry.getSlashableOperatorsPaginated(SERVICE_ID, 0, 3);
+        assertEq(total, 5);
+        assertEq(page1.length, 3);
+
+        // Get page 2 (remaining 2)
+        (address[] memory page2,) = registry.getSlashableOperatorsPaginated(SERVICE_ID, 3, 3);
+        assertEq(page2.length, 2);
+    }
+
+    function test_removeInactiveOperator() public {
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+
+        // Can't remove active operator
+        vm.prank(serviceOwner);
+        vm.expectRevert("Operator not eligible for removal");
+        registry.removeInactiveOperator(SERVICE_ID, operatorAddr);
+
+        // Warp past 10x threshold (interval=120, maxMissed=2, 10x = 2400s)
+        vm.warp(block.timestamp + 2401);
+
+        // Now removal should work
+        uint256 countBefore = registry.getAllOperatorCount(SERVICE_ID);
+        vm.prank(serviceOwner);
+        registry.removeInactiveOperator(SERVICE_ID, operatorAddr);
+        uint256 countAfter = registry.getAllOperatorCount(SERVICE_ID);
+        assertEq(countAfter, countBefore - 1);
+    }
+
+    function test_removeInactiveOperator_SlashedAlwaysRemovable() public {
+        vm.prank(governance);
+        registry.setSlashingOracle(slashingOracle);
+
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+
+        vm.prank(slashingOracle);
+        registry.reportForSlashing(SERVICE_ID, operatorAddr, "slash");
+
+        // Slashed operators can be removed immediately
+        vm.prank(serviceOwner);
+        registry.removeInactiveOperator(SERVICE_ID, operatorAddr);
+        assertEq(registry.getAllOperatorCount(SERVICE_ID), 0);
+    }
+
+    function test_slashedOperator_CannotHeartbeat() public {
+        vm.prank(governance);
+        registry.setSlashingOracle(slashingOracle);
+
+        // Operator submits heartbeat and becomes Healthy
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+        assertEq(
+            uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)),
+            uint8(IOperatorStatusRegistry.StatusCode.Healthy)
+        );
+
+        // Slash the operator
+        vm.prank(slashingOracle);
+        registry.reportForSlashing(SERVICE_ID, operatorAddr, "violation");
+        assertEq(
+            uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)),
+            uint8(IOperatorStatusRegistry.StatusCode.Slashed)
+        );
+
+        // Slashed operator cannot submit heartbeat
+        vm.prank(operatorAddr);
+        vm.expectRevert("Operator is slashed");
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+    }
+
+    function test_configureHeartbeat_PhantomServiceReverts() public {
+        // Service 999 has no registered owner; should fail for random callers
+        vm.expectRevert("Not authorized");
+        registry.configureHeartbeat(999, 300, 3);
+    }
+
     function testFuzz_checkOperatorStatusHandlesMissedBeats(uint64 warpSeconds) public {
         vm.prank(operatorAddr);
         registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");

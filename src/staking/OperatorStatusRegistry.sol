@@ -116,6 +116,12 @@ interface IOperatorStatusRegistry {
     /// @notice Get offline operators that should be slashed
     function getSlashableOperators(uint64 serviceId) external view returns (address[] memory);
 
+    /// @notice Get offline operators paginated (prevents gas DoS on large sets)
+    function getSlashableOperatorsPaginated(uint64 serviceId, uint256 offset, uint256 limit) external view returns (address[] memory, uint256);
+
+    /// @notice Remove an inactive operator from tracking set
+    function removeInactiveOperator(uint64 serviceId, address operator) external;
+
     /// @notice Operator voluntarily goes offline
     function goOffline(uint64 serviceId) external;
 
@@ -325,6 +331,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         OperatorState storage state = operatorStates[serviceId][operator];
         HeartbeatConfig memory config = _getConfig(serviceId);
 
+        // Slashed operators cannot recover via heartbeat
+        require(state.status != StatusCode.Slashed, "Operator is slashed");
+
         // Track operator in the all-operators set
         _allOperators[serviceId].add(operator);
 
@@ -401,54 +410,74 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         // Cap decoded pairs to prevent gas exhaustion
         uint256 pairsLen = pairs.length > MAX_METRIC_PAIRS ? MAX_METRIC_PAIRS : pairs.length;
 
-        for (uint256 i = 0; i < pairsLen; i++) {
-            metricValues[serviceId][operator][pairs[i].name] = pairs[i].value;
-            emit MetricReported(serviceId, operator, pairs[i].name, pairs[i].value);
+        // Validate BEFORE storing so invalid values don't pollute storage.
+        // Wrapped in try/catch so validation gas issues can't brick heartbeats.
+        try this.validateAndStoreMetrics(serviceId, operator, pairs, pairsLen) {} catch {
+            // If validation/storage fails due to gas, still allow heartbeat to succeed.
+            // Store metrics without validation as fallback.
+            for (uint256 i = 0; i < pairsLen; i++) {
+                metricValues[serviceId][operator][pairs[i].name] = pairs[i].value;
+                emit MetricReported(serviceId, operator, pairs[i].name, pairs[i].value);
+            }
+        }
+    }
+
+    /// @notice Validate metrics against definitions and store valid ones.
+    /// @dev External so it can be called via try/catch from _processMetrics.
+    ///      Must only be called from _processMetrics (not user-facing despite being external).
+    function validateAndStoreMetrics(
+        uint64 serviceId,
+        address operator,
+        MetricPair[] memory pairs,
+        uint256 pairsLen
+    ) external {
+        require(msg.sender == address(this), "Internal only");
+
+        MetricDefinition[] storage definitions = serviceMetrics[serviceId];
+
+        // Pre-compute hashes for O(n+m) validation
+        bytes32[] memory pairHashes = new bytes32[](pairsLen);
+        for (uint256 p = 0; p < pairsLen; p++) {
+            pairHashes[p] = keccak256(bytes(pairs[p].name));
         }
 
-        // Validate metrics against definitions.
-        // Build a hash→index lookup for reported pairs so validation is O(n+m)
-        // instead of O(n*m) where n = definitions, m = pairs.
-        MetricDefinition[] storage definitions = serviceMetrics[serviceId];
-        if (definitions.length > 0 && pairsLen > 0) {
-            // Map: keccak256(name) → (value, exists)
-            // We use two parallel arrays to avoid mappings in memory.
-            bytes32[] memory pairHashes = new bytes32[](pairsLen);
-            for (uint256 p = 0; p < pairsLen; p++) {
-                pairHashes[p] = keccak256(bytes(pairs[p].name));
+        // Validate each pair against definitions before storing
+        for (uint256 i = 0; i < pairsLen; i++) {
+            bool valid = true;
+
+            // Check against definitions if any exist
+            for (uint256 d = 0; d < definitions.length; d++) {
+                bytes32 defHash = keccak256(bytes(definitions[d].name));
+                if (pairHashes[i] == defHash) {
+                    if (pairs[i].value < definitions[d].minValue || pairs[i].value > definitions[d].maxValue) {
+                        emit MetricViolation(serviceId, operator, pairs[i].name, "Value out of bounds");
+                        valid = false;
+                    }
+                    break;
+                }
             }
 
-            for (uint256 d = 0; d < definitions.length; d++) {
-                MetricDefinition storage def = definitions[d];
-                bytes32 defHash = keccak256(bytes(def.name));
-                bool found = false;
-                uint256 reportedValue;
+            // Only store validated metrics
+            if (valid) {
+                metricValues[serviceId][operator][pairs[i].name] = pairs[i].value;
+                emit MetricReported(serviceId, operator, pairs[i].name, pairs[i].value);
+            }
+        }
 
-                for (uint256 p = 0; p < pairHashes.length; p++) {
-                    if (pairHashes[p] == defHash) {
-                        found = true;
-                        reportedValue = pairs[p].value;
-                        break;
-                    }
-                }
+        // Check for missing required metrics
+        for (uint256 d = 0; d < definitions.length; d++) {
+            if (!definitions[d].required) continue;
 
-                if (!found && def.required) {
-                    emit MetricViolation(serviceId, operator, def.name, "Required metric missing");
-                    continue;
-                }
-
-                if (found) {
-                    if (reportedValue < def.minValue || reportedValue > def.maxValue) {
-                        emit MetricViolation(serviceId, operator, def.name, "Value out of bounds");
-                    }
+            bytes32 defHash = keccak256(bytes(definitions[d].name));
+            bool found = false;
+            for (uint256 p = 0; p < pairHashes.length; p++) {
+                if (pairHashes[p] == defHash) {
+                    found = true;
+                    break;
                 }
             }
-        } else if (definitions.length > 0) {
-            // No pairs reported — check for required definitions
-            for (uint256 d = 0; d < definitions.length; d++) {
-                if (definitions[d].required) {
-                    emit MetricViolation(serviceId, operator, definitions[d].name, "Required metric missing");
-                }
+            if (!found) {
+                emit MetricViolation(serviceId, operator, definitions[d].name, "Required metric missing");
             }
         }
     }
@@ -554,6 +583,10 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         if (oldStatus == StatusCode.Slashed) {
             revert("Cannot go online while slashed");
         }
+        // Only transition from Offline or Exiting states; no-op if already online
+        if (oldStatus == StatusCode.Healthy || oldStatus == StatusCode.Degraded) {
+            return;
+        }
 
         // Transition from Exiting/Offline to Degraded (must heartbeat to become Healthy)
         state.status = StatusCode.Degraded;
@@ -579,8 +612,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     ) external {
         require(
             msg.sender == tangleCore ||
-            msg.sender == serviceOwners[serviceId] ||
-            serviceOwners[serviceId] == address(0),
+            msg.sender == serviceOwners[serviceId],
             "Not authorized"
         );
 
@@ -610,6 +642,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         heartbeatConfigs[serviceId].customMetrics = enabled;
     }
 
+    /// @notice Maximum metric definitions per service to bound validation gas
+    uint256 public constant MAX_METRIC_DEFINITIONS = 50;
+
     /// @notice Add a custom metric definition
     function addMetricDefinition(
         uint64 serviceId,
@@ -619,6 +654,8 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         bool required
     ) external override {
         require(msg.sender == serviceOwners[serviceId], "Not service owner");
+        require(maxValue >= minValue, "Invalid bounds");
+        require(serviceMetrics[serviceId].length < MAX_METRIC_DEFINITIONS, "Too many definitions");
 
         serviceMetrics[serviceId].push(MetricDefinition({
             name: name,
@@ -631,6 +668,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @notice Batch set metric definitions for a service (replaces existing)
     function setMetricDefinitions(uint64 serviceId, MetricDefinition[] calldata definitions) external override {
         require(msg.sender == serviceOwners[serviceId], "Not service owner");
+        require(definitions.length <= MAX_METRIC_DEFINITIONS, "Too many definitions");
         delete serviceMetrics[serviceId];
         for (uint256 i = 0; i < definitions.length; i++) {
             require(definitions[i].maxValue >= definitions[i].minValue, "Invalid bounds");
@@ -744,47 +782,88 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     // SLASHING INTEGRATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Get offline operators that should be slashed
-    /// @param serviceId The service ID
-    /// @return operators Array of operators that are offline beyond threshold
-    function getSlashableOperators(uint64 serviceId) external view override returns (address[] memory operators) {
-        HeartbeatConfig memory config = _getConfig(serviceId);
-        uint256 totalCount = _allOperators[serviceId].length();
+    /// @notice Maximum page size for paginated queries to bound gas usage
+    uint256 public constant MAX_PAGE_SIZE = 200;
 
-        if (config.maxMissed == 0 || totalCount == 0) {
-            return new address[](0);
+    /// @notice Get offline operators that should be slashed (convenience wrapper)
+    /// @param serviceId The service ID
+    /// @return operators Array of slashable operators (capped at MAX_PAGE_SIZE)
+    function getSlashableOperators(uint64 serviceId) external view override returns (address[] memory operators) {
+        (operators,) = getSlashableOperatorsPaginated(serviceId, 0, MAX_PAGE_SIZE);
+    }
+
+    /// @notice Paginated version of getSlashableOperators to prevent gas DoS
+    /// @param serviceId The service ID
+    /// @param offset Starting index
+    /// @param limit Max results per page (capped at MAX_PAGE_SIZE)
+    /// @return operators Array of slashable operators in this page
+    /// @return total Total operators in the set (for pagination)
+    function getSlashableOperatorsPaginated(
+        uint64 serviceId,
+        uint256 offset,
+        uint256 limit
+    ) public view returns (address[] memory operators, uint256 total) {
+        HeartbeatConfig memory config = _getConfig(serviceId);
+        total = _allOperators[serviceId].length();
+
+        if (config.maxMissed == 0 || total == 0 || offset >= total) {
+            return (new address[](0), total);
         }
 
         uint256 threshold = uint256(config.interval) * uint256(config.maxMissed);
+        uint256 pageLimit = limit > MAX_PAGE_SIZE ? MAX_PAGE_SIZE : limit;
+        uint256 end = offset + pageLimit > total ? total : offset + pageLimit;
 
-        // First pass: count slashable operators
-        uint256 slashableCount = 0;
-        for (uint256 i = 0; i < totalCount; i++) {
-            address op = _allOperators[serviceId].at(i);
-            OperatorState memory state = operatorStates[serviceId][op];
-            // Skip operators that have never heartbeated, are already slashed, or voluntarily exiting
-            if (state.lastHeartbeat == 0 || state.status == StatusCode.Slashed || state.status == StatusCode.Exiting) {
-                continue;
-            }
-            if (block.timestamp - state.lastHeartbeat >= threshold) {
-                slashableCount++;
-            }
-        }
-
-        // Second pass: collect slashable operators
-        operators = new address[](slashableCount);
-        uint256 idx = 0;
-        for (uint256 i = 0; i < totalCount; i++) {
+        // Single pass: collect slashable operators within [offset, end)
+        address[] memory temp = new address[](end - offset);
+        uint256 count = 0;
+        for (uint256 i = offset; i < end; i++) {
             address op = _allOperators[serviceId].at(i);
             OperatorState memory state = operatorStates[serviceId][op];
             if (state.lastHeartbeat == 0 || state.status == StatusCode.Slashed || state.status == StatusCode.Exiting) {
                 continue;
             }
             if (block.timestamp - state.lastHeartbeat >= threshold) {
-                operators[idx] = op;
-                idx++;
+                temp[count] = op;
+                count++;
             }
         }
+
+        // Trim to actual count
+        operators = new address[](count);
+        for (uint256 i = 0; i < count; i++) {
+            operators[i] = temp[i];
+        }
+    }
+
+    /// @notice Remove an operator from the _allOperators tracking set
+    /// @dev Only callable by service owner or contract owner. Operator must be Slashed or have
+    ///      been offline beyond 10x the heartbeat threshold to prevent premature removal.
+    function removeInactiveOperator(uint64 serviceId, address operator) external {
+        require(
+            msg.sender == serviceOwners[serviceId] || msg.sender == owner(),
+            "Not authorized"
+        );
+
+        OperatorState memory state = operatorStates[serviceId][operator];
+
+        // Only allow removal if operator is slashed or has been inactive for a very long time
+        if (state.status != StatusCode.Slashed) {
+            HeartbeatConfig memory config = _getConfig(serviceId);
+            uint256 longInactiveThreshold = uint256(config.interval) * uint256(config.maxMissed) * 10;
+            require(
+                state.lastHeartbeat > 0 && block.timestamp - state.lastHeartbeat >= longInactiveThreshold,
+                "Operator not eligible for removal"
+            );
+        }
+
+        _allOperators[serviceId].remove(operator);
+        _onlineOperators[serviceId].remove(operator);
+    }
+
+    /// @notice Get the total count of tracked operators for a service
+    function getAllOperatorCount(uint64 serviceId) external view returns (uint256) {
+        return _allOperators[serviceId].length();
     }
 
     /// @notice Report an operator for slashing (called by slashing oracle)
@@ -794,6 +873,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         string calldata reason
     ) external override {
         require(msg.sender == slashingOracle, "Not slashing oracle");
+        require(operatorStates[serviceId][operator].lastHeartbeat != 0, "Operator not registered");
 
         OperatorState storage state = operatorStates[serviceId][operator];
         state.status = StatusCode.Slashed;

@@ -64,6 +64,8 @@ contract MockStatusRegistry is IOperatorStatusRegistry {
     function addMetricDefinition(uint64, string calldata, uint256, uint256, bool) external override {}
     function reportForSlashing(uint64, address, string calldata) external override {}
     function getSlashableOperators(uint64) external pure override returns (address[] memory) { return new address[](0); }
+    function getSlashableOperatorsPaginated(uint64, uint256, uint256) external pure override returns (address[] memory, uint256) { return (new address[](0), 0); }
+    function removeInactiveOperator(uint64, address) external override {}
     function goOffline(uint64) external override {}
     function goOnline(uint64) external override {}
 }
