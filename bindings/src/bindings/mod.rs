@@ -22,4 +22,6 @@ pub mod r#i_tangle_slashing;
 pub mod r#multi_asset_delegation;
 pub mod r#multi_asset_delegation_test;
 pub mod r#i_operator_status_registry;
+pub mod r#operator_status_registry;
+pub mod r#operator_status_registry_test;
 pub mod r#multi_asset_delegation_exposed;
