@@ -187,7 +187,7 @@ abstract contract QuotesCreate is Base {
 
         emit ServiceActivated(activation.serviceId, 0, blueprintId);
         _recordServiceCreated(activation.serviceId, blueprintId, msg.sender, operators.length);
-        _configureHeartbeat(activation.serviceId, bp.manager, msg.sender);
+        _configureHeartbeat(activation.serviceId, bp.manager, msg.sender, operators);
     }
 
     function _addInitialQuoteCallers(

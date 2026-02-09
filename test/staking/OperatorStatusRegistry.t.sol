@@ -59,10 +59,18 @@ contract OperatorStatusRegistryTest is Test {
 
         vm.prank(serviceOwner);
         registry.configureHeartbeat(SERVICE_ID, 120, 2);
+
+        // Register default operator
+        _registerOp(operatorAddr);
     }
 
-    function _signHeartbeat(bytes memory metricsData) internal view returns (bytes memory) {
-        bytes32 messageHash = keccak256(abi.encodePacked(SERVICE_ID, BLUEPRINT_ID, metricsData));
+    function _registerOp(address op) internal {
+        vm.prank(tangle);
+        registry.registerOperator(SERVICE_ID, op);
+    }
+
+    function _signHeartbeat(uint8 statusCode, bytes memory metricsData) internal view returns (bytes memory) {
+        bytes32 messageHash = keccak256(abi.encodePacked(SERVICE_ID, BLUEPRINT_ID, statusCode, metricsData));
         bytes32 ethSignedHash = keccak256(
             abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
         );
@@ -72,7 +80,7 @@ contract OperatorStatusRegistryTest is Test {
 
     function test_submitHeartbeat_WithSignatureUpdatesState() public {
         bytes memory metricsData = abi.encode("status", uint256(1));
-        bytes memory signature = _signHeartbeat(metricsData);
+        bytes memory signature = _signHeartbeat(0, metricsData);
 
         vm.prank(operatorAddr);
         registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, metricsData, signature);
@@ -85,9 +93,9 @@ contract OperatorStatusRegistryTest is Test {
     }
 
     function test_submitHeartbeat_InvalidSignatureReverts() public {
-        bytes memory signature = abi.encodePacked(bytes32(0), bytes32(0), uint8(27));
+        bytes memory signature = abi.encodePacked(bytes32(uint256(1)), bytes32(uint256(2)), uint8(27));
         vm.prank(operatorAddr);
-        vm.expectRevert(ECDSA.ECDSAInvalidSignature.selector);
+        vm.expectRevert("Invalid signature");
         registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, "", signature);
     }
 
@@ -162,7 +170,7 @@ contract OperatorStatusRegistryTest is Test {
         vm.prank(governance);
         registry.setMetricsRecorder(address(metrics));
 
-        bytes memory signature = _signHeartbeat("");
+        bytes memory signature = _signHeartbeat(0, "");
         vm.prank(operatorAddr);
         registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, "", signature);
 
@@ -509,15 +517,16 @@ contract OperatorStatusRegistryTest is Test {
         registry.setSlashingOracle(slashingOracle);
 
         vm.prank(slashingOracle);
-        vm.expectRevert("Operator not registered");
+        vm.expectRevert("Not registered operator");
         registry.reportForSlashing(SERVICE_ID, makeAddr("unknown"), "slash");
     }
 
     function test_getSlashableOperatorsPaginated() public {
-        // Create 5 operators
+        // Create and register 5 operators
         address[] memory ops = new address[](5);
         for (uint256 i = 0; i < 5; i++) {
             ops[i] = makeAddr(string(abi.encodePacked("op", i)));
+            _registerOp(ops[i]);
             vm.prank(ops[i]);
             registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
         }
@@ -595,6 +604,117 @@ contract OperatorStatusRegistryTest is Test {
         vm.prank(operatorAddr);
         vm.expectRevert("Operator is slashed");
         registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Operator registration auth tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_unregisteredOperator_CannotHeartbeat() public {
+        address rando = makeAddr("rando");
+        vm.prank(rando);
+        vm.expectRevert("Not registered operator");
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+    }
+
+    function test_unregisteredOperator_CannotGoOnline() public {
+        address rando = makeAddr("rando");
+        vm.prank(rando);
+        vm.expectRevert("Not registered operator");
+        registry.goOnline(SERVICE_ID);
+    }
+
+    function test_unregisteredOperator_CannotGoOffline() public {
+        address rando = makeAddr("rando");
+        vm.prank(rando);
+        vm.expectRevert("Not registered operator");
+        registry.goOffline(SERVICE_ID);
+    }
+
+    function test_registerOperator_OnlyTangleCore() public {
+        address rando = makeAddr("rando");
+        address newOp = makeAddr("newOp");
+
+        // Random address cannot register
+        vm.prank(rando);
+        vm.expectRevert("Only Tangle core");
+        registry.registerOperator(SERVICE_ID, newOp);
+
+        // Service owner cannot register either — operator set comes from service lifecycle
+        vm.prank(serviceOwner);
+        vm.expectRevert("Only Tangle core");
+        registry.registerOperator(SERVICE_ID, newOp);
+
+        // Only Tangle core can register
+        vm.prank(tangle);
+        registry.registerOperator(SERVICE_ID, newOp);
+        assertTrue(registry.isRegisteredOperator(SERVICE_ID, newOp));
+    }
+
+    function test_registerOperator_DuplicateReverts() public {
+        vm.prank(tangle);
+        vm.expectRevert("Already registered");
+        registry.registerOperator(SERVICE_ID, operatorAddr); // already registered in setUp
+    }
+
+    function test_deregisterOperator_RemovesAccess() public {
+        vm.prank(tangle);
+        registry.deregisterOperator(SERVICE_ID, operatorAddr);
+        assertFalse(registry.isRegisteredOperator(SERVICE_ID, operatorAddr));
+
+        // Deregistered operator cannot heartbeat
+        vm.prank(operatorAddr);
+        vm.expectRevert("Not registered operator");
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+    }
+
+    function test_deregisterOperator_OnlyTangleCore() public {
+        vm.prank(serviceOwner);
+        vm.expectRevert("Only Tangle core");
+        registry.deregisterOperator(SERVICE_ID, operatorAddr);
+    }
+
+    function test_deregisterOperator_NotRegisteredReverts() public {
+        vm.prank(tangle);
+        vm.expectRevert("Not registered");
+        registry.deregisterOperator(SERVICE_ID, makeAddr("never_registered"));
+    }
+
+    function test_exitingOperator_StillSlashable() public {
+        // Operator heartbeats, then goes offline
+        vm.startPrank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+        registry.goOffline(SERVICE_ID);
+        vm.stopPrank();
+
+        assertEq(
+            uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)),
+            uint8(IOperatorStatusRegistry.StatusCode.Exiting)
+        );
+
+        // Warp past threshold — Exiting operators should still appear in slashable set
+        vm.warp(block.timestamp + 241);
+        address[] memory ops = registry.getSlashableOperators(SERVICE_ID);
+        assertEq(ops.length, 1);
+        assertEq(ops[0], operatorAddr);
+    }
+
+    function test_statusCodeIncludedInSignature() public {
+        // Sign with statusCode=0, submit with statusCode=1 => should fail
+        bytes memory signature = _signHeartbeat(0, "");
+        vm.prank(operatorAddr);
+        vm.expectRevert("Invalid signature");
+        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 1, "", signature);
+
+        // Sign with correct statusCode=1, submit with statusCode=1 => should pass
+        bytes memory correctSig = _signHeartbeat(1, "");
+        vm.prank(operatorAddr);
+        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 1, "", correctSig);
+
+        assertEq(
+            uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)),
+            uint8(IOperatorStatusRegistry.StatusCode.Degraded)
+        );
     }
 
     function test_configureHeartbeat_PhantomServiceReverts() public {

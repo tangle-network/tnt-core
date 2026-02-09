@@ -68,6 +68,9 @@ contract MockStatusRegistry is IOperatorStatusRegistry {
     function removeInactiveOperator(uint64, address) external override {}
     function goOffline(uint64) external override {}
     function goOnline(uint64) external override {}
+    function registerOperator(uint64, address) external override {}
+    function deregisterOperator(uint64, address) external override {}
+    function isRegisteredOperator(uint64, address) external pure override returns (bool) { return true; }
 }
 
 contract HeartbeatBSM is BlueprintServiceManagerBase {

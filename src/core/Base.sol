@@ -580,12 +580,14 @@ abstract contract Base is
     // HEARTBEAT HOOKS (lightweight, fail-safe)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Configure heartbeat settings for a service from BSM hooks
-    /// @dev Called during service activation to set up liveness tracking
+    /// @notice Configure heartbeat settings and register operators for a service
+    /// @dev Called during service activation to set up liveness tracking.
+    ///      Registers the service owner, selected operators, and heartbeat config.
     /// @param serviceId The service ID
     /// @param manager The blueprint's service manager address
     /// @param owner The service owner address
-    function _configureHeartbeat(uint64 serviceId, address manager, address owner) internal {
+    /// @param operators The operators selected for this service instance
+    function _configureHeartbeat(uint64 serviceId, address manager, address owner, address[] memory operators) internal {
         if (_operatorStatusRegistry == address(0)) return;
 
         // Get heartbeat interval from BSM (use default if not implemented or returns useDefault=true)
@@ -613,6 +615,11 @@ abstract contract Base is
 
         // Register service owner and configure heartbeat
         try IOperatorStatusRegistry(_operatorStatusRegistry).registerServiceOwner(serviceId, owner) {} catch {}
+
+        // Register each selected operator for this service instance
+        for (uint256 i = 0; i < operators.length; i++) {
+            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, operators[i]) {} catch {}
+        }
 
         // Configure heartbeat if custom values provided
         if (interval > 0 || maxMissed > 0) {

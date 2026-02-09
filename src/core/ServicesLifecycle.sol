@@ -8,6 +8,7 @@ import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
+import { IOperatorStatusRegistry } from "../staking/OperatorStatusRegistry.sol";
 
 /// @title ServicesLifecycle
 /// @notice Service lifecycle (join/exit) flows and views
@@ -43,13 +44,16 @@ abstract contract ServicesLifecycle is Base {
         svc.status = Types.ServiceStatus.Terminated;
         svc.terminatedAt = uint64(block.timestamp);
 
-        // Decrement active service count for all operators in this service
+        // Decrement active service count and deregister from heartbeat registry
         uint64 blueprintId = svc.blueprintId;
         uint256 operatorSetLength = _serviceOperatorSet[serviceId].length();
         for (uint256 i = 0; i < operatorSetLength; i++) {
             address operator = _serviceOperatorSet[serviceId].at(i);
             if (_operatorActiveServiceCount[blueprintId][operator] > 0) {
                 _operatorActiveServiceCount[blueprintId][operator]--;
+            }
+            if (_operatorStatusRegistry != address(0)) {
+                try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) {} catch {}
             }
         }
 
@@ -149,6 +153,11 @@ abstract contract ServicesLifecycle is Base {
         // Track active service count per blueprint for operator unregistration checks
         _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
 
+        // Register operator in heartbeat registry for liveness tracking
+        if (_operatorStatusRegistry != address(0)) {
+            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) {} catch {}
+        }
+
         emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
 
         // Notify manager of successful join
@@ -237,6 +246,11 @@ abstract contract ServicesLifecycle is Base {
 
         // Track active service count per blueprint for operator unregistration checks
         _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
+
+        // Register operator in heartbeat registry for liveness tracking
+        if (_operatorStatusRegistry != address(0)) {
+            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) {} catch {}
+        }
 
         emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
 
@@ -447,6 +461,11 @@ abstract contract ServicesLifecycle is Base {
             _operatorActiveServiceCount[svc.blueprintId][operator]--;
         }
 
+        // Deregister operator from heartbeat registry
+        if (_operatorStatusRegistry != address(0)) {
+            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) {} catch {}
+        }
+
         emit OperatorLeftService(serviceId, operator);
 
         // Notify manager of successful leave
@@ -502,6 +521,11 @@ abstract contract ServicesLifecycle is Base {
 
         // Clear any pending exit request
         delete _exitRequests[serviceId][operator];
+
+        // Deregister operator from heartbeat registry
+        if (_operatorStatusRegistry != address(0)) {
+            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) {} catch {}
+        }
 
         emit OperatorLeftService(serviceId, operator);
 

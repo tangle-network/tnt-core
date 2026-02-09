@@ -98,6 +98,15 @@ interface IOperatorStatusRegistry {
     /// @notice Register service owner (called by Tangle core)
     function registerServiceOwner(uint64 serviceId, address owner) external;
 
+    /// @notice Register an operator for a service (called by Tangle core)
+    function registerOperator(uint64 serviceId, address operator) external;
+
+    /// @notice Deregister an operator from a service (called by Tangle core or service owner)
+    function deregisterOperator(uint64 serviceId, address operator) external;
+
+    /// @notice Check if an operator is registered for a service
+    function isRegisteredOperator(uint64 serviceId, address operator) external view returns (bool);
+
     /// @notice Configure heartbeat settings for a service
     function configureHeartbeat(uint64 serviceId, uint64 interval, uint8 maxMissed) external;
 
@@ -135,6 +144,16 @@ interface IOperatorStatusRegistry {
 contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     using ECDSA for bytes32;
     using EnumerableSet for EnumerableSet.AddressSet;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MODIFIERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Restricts calls to operators registered for the given service
+    modifier onlyRegisteredOperator(uint64 serviceId) {
+        require(_registeredOperators[serviceId].contains(msg.sender), "Not registered operator");
+        _;
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTANTS
@@ -212,6 +231,16 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         string reason
     );
 
+    event OperatorRegistered(
+        uint64 indexed serviceId,
+        address indexed operator
+    );
+
+    event OperatorDeregistered(
+        uint64 indexed serviceId,
+        address indexed operator
+    );
+
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -227,6 +256,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
     /// @notice All operators that have ever submitted a heartbeat: serviceId => operators
     mapping(uint64 => EnumerableSet.AddressSet) internal _allOperators;
+
+    /// @notice Registered operators per service (set by Tangle core): serviceId => operators
+    mapping(uint64 => EnumerableSet.AddressSet) internal _registeredOperators;
 
     /// @notice Service owners who can configure heartbeat settings
     mapping(uint64 => address) public serviceOwners;
@@ -276,7 +308,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Submit a heartbeat to prove operator is online
-    /// @dev Signature: ECDSA over keccak256(abi.encodePacked(serviceId, blueprintId, metrics))
+    /// @dev Signature: ECDSA over keccak256(abi.encodePacked(serviceId, blueprintId, statusCode, metrics))
     ///      NOTE: Uses native EVM big-endian encoding. Blueprint-SDK must use to_be_bytes() not to_le_bytes()
     /// @param serviceId The service ID
     /// @param blueprintId The blueprint ID
@@ -289,13 +321,13 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         uint8 statusCode,
         bytes calldata metrics,
         bytes calldata signature
-    ) external override {
+    ) external override onlyRegisteredOperator(serviceId) {
         // Verify signature using native EVM encoding (big-endian):
-        // message = abi.encodePacked(serviceId, blueprintId, metrics)
+        // message = abi.encodePacked(serviceId, blueprintId, statusCode, metrics)
         // hash = keccak256(message)
         // signature = ECDSA.sign(ethSignedMessageHash(hash))
         // forge-lint: disable-next-line(asm-keccak256)
-        bytes32 messageHash = keccak256(abi.encodePacked(serviceId, blueprintId, metrics));
+        bytes32 messageHash = keccak256(abi.encodePacked(serviceId, blueprintId, statusCode, metrics));
 
         // Recover signer using Ethereum signed message format
         // forge-lint: disable-next-line(asm-keccak256)
@@ -310,13 +342,13 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     }
 
     /// @notice Submit heartbeat without signature (for trusted contexts)
-    /// @dev Can be called directly by operators in trusted environments
+    /// @dev Can only be called by registered operators
     function submitHeartbeatDirect(
         uint64 serviceId,
         uint64 blueprintId,
         uint8 statusCode,
         bytes calldata metrics
-    ) external override {
+    ) external override onlyRegisteredOperator(serviceId) {
         _processHeartbeat(serviceId, blueprintId, msg.sender, statusCode, metrics);
     }
 
@@ -557,9 +589,10 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Operator voluntarily goes offline
-    /// @dev Prevents slashing for missed heartbeats while operator is intentionally offline
+    /// @dev Sets status to Exiting but does NOT exempt from slashing — operators remain
+    ///      slashable until properly deregistered through the service lifecycle.
     /// @param serviceId The service ID
-    function goOffline(uint64 serviceId) external override {
+    function goOffline(uint64 serviceId) external override onlyRegisteredOperator(serviceId) {
         OperatorState storage state = operatorStates[serviceId][msg.sender];
 
         StatusCode oldStatus = state.status;
@@ -576,7 +609,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @notice Operator comes back online after voluntary offline period
     /// @dev Must submit a heartbeat after coming online to be marked Healthy
     /// @param serviceId The service ID
-    function goOnline(uint64 serviceId) external override {
+    function goOnline(uint64 serviceId) external override onlyRegisteredOperator(serviceId) {
         OperatorState storage state = operatorStates[serviceId][msg.sender];
 
         StatusCode oldStatus = state.status;
@@ -634,6 +667,31 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         require(msg.sender == tangleCore, "Only Tangle core");
         require(serviceOwners[serviceId] == address(0), "Already registered");
         serviceOwners[serviceId] = owner;
+    }
+
+    /// @notice Register an operator for a service instance
+    /// @dev Only callable by Tangle core — operator assignment is determined by the
+    ///      service lifecycle (request → approve → activate), not by service owners.
+    function registerOperator(uint64 serviceId, address operator) external override {
+        require(msg.sender == tangleCore, "Only Tangle core");
+        require(operator != address(0), "Zero address");
+        require(_registeredOperators[serviceId].add(operator), "Already registered");
+        emit OperatorRegistered(serviceId, operator);
+    }
+
+    /// @notice Deregister an operator from a service instance
+    /// @dev Only callable by Tangle core. Does not clear operator state
+    ///      so historical data (last heartbeat, metrics) remains queryable.
+    function deregisterOperator(uint64 serviceId, address operator) external override {
+        require(msg.sender == tangleCore, "Only Tangle core");
+        require(_registeredOperators[serviceId].remove(operator), "Not registered");
+        _onlineOperators[serviceId].remove(operator);
+        emit OperatorDeregistered(serviceId, operator);
+    }
+
+    /// @notice Check if an operator is registered for a service
+    function isRegisteredOperator(uint64 serviceId, address operator) external view override returns (bool) {
+        return _registeredOperators[serviceId].contains(operator);
     }
 
     /// @notice Enable custom metrics for a service
@@ -820,7 +878,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         for (uint256 i = offset; i < end; i++) {
             address op = _allOperators[serviceId].at(i);
             OperatorState memory state = operatorStates[serviceId][op];
-            if (state.lastHeartbeat == 0 || state.status == StatusCode.Slashed || state.status == StatusCode.Exiting) {
+            if (state.lastHeartbeat == 0 || state.status == StatusCode.Slashed) {
                 continue;
             }
             if (block.timestamp - state.lastHeartbeat >= threshold) {
@@ -873,7 +931,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         string calldata reason
     ) external override {
         require(msg.sender == slashingOracle, "Not slashing oracle");
-        require(operatorStates[serviceId][operator].lastHeartbeat != 0, "Operator not registered");
+        require(_registeredOperators[serviceId].contains(operator), "Not registered operator");
 
         OperatorState storage state = operatorStates[serviceId][operator];
         state.status = StatusCode.Slashed;
