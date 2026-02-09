@@ -137,9 +137,9 @@ contract PaymentsTest is BaseTest {
         assertEq(developer.balance, developerBefore + developerExpected, "Developer payment incorrect");
         assertEq(treasury.balance, treasuryBefore + protocolExpected, "Protocol payment incorrect");
 
-        // Check operator has pending rewards (40% of 10 ETH = 4 ETH)
+        // No security commitments: operator gets operator + restaker share (60% of 10 ETH = 6 ETH)
         uint256 operatorPending = tangle.pendingRewards(operator1);
-        assertEq(operatorPending, 4 ether, "Operator pending rewards incorrect");
+        assertEq(operatorPending, 6 ether, "Operator pending rewards incorrect");
     }
 
     function test_ClaimRewardsBatch_MultiToken() public {
@@ -164,8 +164,9 @@ contract PaymentsTest is BaseTest {
 
         assertEq(tangle.pendingRewards(operator1), 0, "Native rewards should be claimed");
         assertEq(tangle.pendingRewards(operator1, address(token)), 0, "ERC20 rewards should be claimed");
-        assertEq(operator1.balance, operatorEthBefore + 4 ether, "Native rewards mismatch");
-        assertEq(token.balanceOf(operator1), operatorTokenBefore + 20 ether, "ERC20 rewards mismatch");
+        // No security commitments: operator gets operator + restaker share
+        assertEq(operator1.balance, operatorEthBefore + 6 ether, "Native rewards mismatch");
+        assertEq(token.balanceOf(operator1), operatorTokenBefore + 30 ether, "ERC20 rewards mismatch");
     }
 
     function test_ClaimRewardsAll_UsesTrackedTokens() public {
@@ -180,7 +181,8 @@ contract PaymentsTest is BaseTest {
         tangle.claimRewardsAll();
 
         assertEq(tangle.pendingRewards(operator1), 0, "Native rewards should be claimed");
-        assertEq(operator1.balance, operatorEthBefore + 2 ether, "Native rewards mismatch");
+        // No security commitments: operator gets operator + restaker share (60% of 5 = 3 ETH)
+        assertEq(operator1.balance, operatorEthBefore + 3 ether, "Native rewards mismatch");
         assertEq(tangle.rewardTokens(operator1).length, 0, "Tracked token set should be empty");
     }
 
@@ -265,11 +267,11 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator2);
         tangle.approveService(requestId, 0);
 
-        // Each operator should get half of the 40% operator share (2 ETH each)
+        // No security commitments: each operator gets half of (operator + restaker) share = 3 ETH each
         uint256 op1Pending = tangle.pendingRewards(operator1);
         uint256 op2Pending = tangle.pendingRewards(operator2);
-        assertEq(op1Pending, 2 ether, "Operator1 pending incorrect");
-        assertEq(op2Pending, 2 ether, "Operator2 pending incorrect");
+        assertEq(op1Pending, 3 ether, "Operator1 pending incorrect");
+        assertEq(op2Pending, 3 ether, "Operator2 pending incorrect");
     }
 
     function test_PayOnce_NativeToken_ExposureWeightedDistribution() public {
@@ -294,13 +296,13 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator2);
         tangle.approveService(requestId, 0);
 
-        // Operator share is 4 ETH total
-        // Op1 should get 70% = 2.8 ETH
-        // Op2 should get 30% = 1.2 ETH
+        // No security commitments: operator pool = operator + restaker = 6 ETH total
+        // Op1 should get 70% = 4.2 ETH
+        // Op2 should get 30% = 1.8 ETH
         uint256 op1Pending = tangle.pendingRewards(operator1);
         uint256 op2Pending = tangle.pendingRewards(operator2);
-        assertEq(op1Pending, 2.8 ether, "Operator1 exposure-weighted payment incorrect");
-        assertEq(op2Pending, 1.2 ether, "Operator2 exposure-weighted payment incorrect");
+        assertEq(op1Pending, 4.2 ether, "Operator1 exposure-weighted payment incorrect");
+        assertEq(op2Pending, 1.8 ether, "Operator2 exposure-weighted payment incorrect");
     }
 
     function test_PayOnce_ZeroPayment() public {
@@ -369,8 +371,8 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator1);
         tangle.claimRewards();
 
-        // Should receive 40% of 5 ETH = 2 ETH
-        assertEq(operator1.balance, balanceBefore + 2 ether);
+        // No security commitments: 60% of 5 ETH = 3 ETH
+        assertEq(operator1.balance, balanceBefore + 3 ether);
     }
 
     function test_ClaimRewards_ERC20Token() public {
@@ -789,12 +791,13 @@ contract PaymentsTest is BaseTest {
 
         uint256 devExpected = (uint256(333) * 2000) / 10000; // 66
         uint256 protoExpected = (uint256(333) * 2000) / 10000; // 66
-        uint256 opExpected = (uint256(333) * 4000) / 10000; // 133
-        // Restaker gets remainder: 333 - 66 - 66 - 133 = 68
+        uint256 opAmount = (uint256(333) * 4000) / 10000; // 133
+        uint256 stakerAmount = 333 - devExpected - protoExpected - opAmount; // 68
+        // No security commitments: operator gets op + staker = 201
 
         assertEq(developer.balance, developerBefore + devExpected);
         assertEq(treasury.balance, treasuryBefore + protoExpected);
-        assertEq(tangle.pendingRewards(operator1), opExpected);
+        assertEq(tangle.pendingRewards(operator1), opAmount + stakerAmount);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

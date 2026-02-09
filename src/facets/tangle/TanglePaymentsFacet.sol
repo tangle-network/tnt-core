@@ -33,7 +33,7 @@ contract TanglePaymentsFacet is Payments, IFacetSelectors {
 
     /// @notice Distribute payment using effective exposures (delegation × exposureBps)
     /// @dev Computes effective exposures internally from operator security commitments.
-    ///      Operators are paid proportionally to actual security capital at risk.
+    ///      Operators always get paid for providing compute.
     function distributePayment(
         uint64 serviceId,
         uint64 blueprintId,
@@ -42,19 +42,20 @@ contract TanglePaymentsFacet is Payments, IFacetSelectors {
         address[] calldata operators
     ) external {
         if (msg.sender != address(this)) revert Errors.Unauthorized();
-        
-        // Compute effective exposures from security commitments
-        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure) = 
-            _calculateEffectiveExposures(serviceId, operators);
-        
+
+        // Compute effective exposures (with fallback to stored exposureBps)
+        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) =
+            _calculateEffectiveExposuresWithFallback(serviceId, operators);
+
         _distributePaymentWithEffectiveExposure(
-            serviceId, 
-            blueprintId, 
-            token, 
-            amount, 
-            operators, 
-            effectiveExposures, 
-            totalEffectiveExposure
+            serviceId,
+            blueprintId,
+            token,
+            amount,
+            operators,
+            effectiveExposures,
+            totalEffectiveExposure,
+            hasSecurityCommitments
         );
     }
 

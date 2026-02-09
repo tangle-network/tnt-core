@@ -166,12 +166,13 @@ contract ServiceFeeDistributorTest is BaseTest {
         assertEq(distributor.pendingRewards(delegator1, address(payTokenB)), 0);
     }
 
-    function test_Fallback_NoSecurityRequirements_StillDistributesToRestakers() public {
+    function test_Fallback_NoSecurityRequirements_RestakerShareGoesToOperator() public {
         address[] memory ops = new address[](1);
         ops[0] = operator1;
 
-        // Pay once via requestService (no per-asset requirements); ensure distributor does not route to treasury.
-        uint256 paymentAmount = 110 ether; // restaker share = 22
+        // Pay once via requestService (no per-asset requirements).
+        // Without security commitments, restaker share merges into operator pool.
+        uint256 paymentAmount = 110 ether;
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), paymentAmount);
         uint64 requestId = tangle.requestService(
@@ -182,20 +183,13 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
-        Types.Asset memory ercAsset = Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) });
+        // Operator gets operator share + restaker share since no restakers exist
+        (,, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
+        uint256 expectedOperatorReward = (paymentAmount * (uint256(opBps) + uint256(stakerBps))) / 10_000;
+        assertEq(tangle.pendingRewards(operator1, address(payTokenA)), expectedOperatorReward);
 
-        uint256 d1Before = payTokenA.balanceOf(delegator1);
-        uint256 d2Before = payTokenA.balanceOf(delegator2);
-
-        vm.prank(delegator1);
-        distributor.claimFor(address(payTokenA), operator1, nativeAsset);
-        vm.prank(delegator2);
-        distributor.claimFor(address(payTokenA), operator1, ercAsset);
-
-        // Equal USD stake => split restaker share 11/11.
-        assertEq(payTokenA.balanceOf(delegator1) - d1Before, 11 ether);
-        assertEq(payTokenA.balanceOf(delegator2) - d2Before, 11 ether);
+        // Distributor received nothing (no restakers to distribute to)
+        assertEq(payTokenA.balanceOf(address(distributor)), 0);
     }
 
     function test_Restaking_PreventsSelectionModeMixing() public {

@@ -148,19 +148,20 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         svc.lastPaymentAt = uint64(block.timestamp);
 
         address[] memory operators = _serviceOperatorSet[serviceId].values();
-        
-        // Calculate effective exposures based on actual delegations
-        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure) = 
-            _calculateEffectiveExposures(serviceId, operators);
+
+        // Calculate effective exposures (with fallback to stored exposureBps)
+        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) =
+            _calculateEffectiveExposuresWithFallback(serviceId, operators);
 
         _distributePaymentWithEffectiveExposure(
-            serviceId, 
-            svc.blueprintId, 
-            token, 
-            rate, 
-            operators, 
-            effectiveExposures, 
-            totalEffectiveExposure
+            serviceId,
+            svc.blueprintId,
+            token,
+            rate,
+            operators,
+            effectiveExposures,
+            totalEffectiveExposure,
+            hasSecurityCommitments
         );
 
         emit SubscriptionBilled(serviceId, rate, interval);
@@ -182,19 +183,20 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         svc.lastPaymentAt = uint64(block.timestamp);
 
         address[] memory operators = _serviceOperatorSet[serviceId].values();
-        
-        // Calculate effective exposures based on actual delegations
-        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure) = 
-            _calculateEffectiveExposures(serviceId, operators);
+
+        // Calculate effective exposures (with fallback to stored exposureBps)
+        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) =
+            _calculateEffectiveExposuresWithFallback(serviceId, operators);
 
         _distributePaymentWithEffectiveExposure(
-            serviceId, 
-            svc.blueprintId, 
-            token, 
-            rate, 
-            operators, 
-            effectiveExposures, 
-            totalEffectiveExposure
+            serviceId,
+            svc.blueprintId,
+            token,
+            rate,
+            operators,
+            effectiveExposures,
+            totalEffectiveExposure,
+            hasSecurityCommitments
         );
 
         emit SubscriptionBilled(serviceId, rate, bpConfig.subscriptionInterval);
@@ -332,8 +334,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     }
 
     /// @notice Distribute payment to all stakeholders using effective exposures
-    /// @dev Effective exposure = delegation × exposureBps, ensuring operators are paid
-    ///      proportionally to actual security capital at risk
+    /// @dev Operators ALWAYS get paid for providing compute. When no restakers exist
+    ///      (hasSecurityCommitments == false), the restaker share is merged into the
+    ///      operator pool. Customers set minimum exposureBps to prevent gaming.
     /// @param serviceId The service ID
     /// @param blueprintId The blueprint ID
     /// @param token Payment token
@@ -341,6 +344,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     /// @param operators Array of operator addresses
     /// @param effectiveExposures Array of effective exposure values (delegation × exposureBps)
     /// @param totalEffectiveExposure Sum of all effective exposures
+    /// @param hasSecurityCommitments True when real delegated stake backs operators
     function _distributePaymentWithEffectiveExposure(
         uint64 serviceId,
         uint64 blueprintId,
@@ -348,12 +352,15 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         uint256 amount,
         address[] memory operators,
         uint256[] memory effectiveExposures,
-        uint256 totalEffectiveExposure
+        uint256 totalEffectiveExposure,
+        bool hasSecurityCommitments
     ) internal {
         if (amount == 0) return;
 
+        uint256 operatorsLength = operators.length;
+
         // M-5 FIX: Validate payment amount is sufficient to prevent rounding to zero
-        PaymentLib.validatePaymentAmount(amount, _paymentSplit, operators.length);
+        PaymentLib.validatePaymentAmount(amount, _paymentSplit, operatorsLength);
 
         Types.Blueprint storage bp = _blueprints[blueprintId];
         Types.Service storage svc = _services[serviceId];
@@ -389,11 +396,24 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         // Protocol payment
         PaymentLib.transferPayment(_treasury, token, amounts.protocolAmount);
 
-        // Operator and restaker payments - proportional to effective exposure
+        // Operator payments — operators always get paid for providing compute.
+        // When no restakers back operators, restaker share merges into operator pool.
+        if (operatorsLength == 0) return;
+
         if (totalEffectiveExposure > 0) {
+            // Proportional distribution based on exposure weights.
+            // If real restakers exist, keep restaker share separate for the fee distributor.
+            // If no restakers, merge restaker share into operator pool.
+            uint256 operatorPool = hasSecurityCommitments
+                ? amounts.operatorAmount
+                : amounts.operatorAmount + amounts.restakerAmount;
+            uint256 restakerPool = hasSecurityCommitments
+                ? amounts.restakerAmount
+                : 0;
+
             PaymentLib.OperatorPayment[] memory opPayments = PaymentLib.calculateOperatorPayments(
-                amounts.operatorAmount,
-                amounts.restakerAmount,
+                operatorPool,
+                restakerPool,
                 operators,
                 effectiveExposures,
                 totalEffectiveExposure
@@ -420,6 +440,25 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
                         opPayments[i].restakerShare
                     );
                 }
+                unchecked { ++i; }
+            }
+        } else {
+            // No exposure basis at all (all operators have 0% exposureBps).
+            // Equal distribution of (operator + restaker) pool among all operators.
+            uint256 totalPool = amounts.operatorAmount + amounts.restakerAmount;
+            uint256 perOperator = totalPool / operatorsLength;
+            uint256 distributed = 0;
+
+            for (uint256 i = 0; i < operatorsLength;) {
+                uint256 share = (i == operatorsLength - 1)
+                    ? totalPool - distributed  // last operator gets rounding dust
+                    : perOperator;
+
+                PaymentLib.addPendingReward(_pendingRewards, operators[i], token, share);
+                if (share > 0) {
+                    _pendingRewardTokens[operators[i]].add(token);
+                }
+                distributed += share;
                 unchecked { ++i; }
             }
         }
@@ -455,6 +494,32 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
                 token,
                 amount
             );
+        }
+    }
+
+    /// @notice Calculate effective exposures with fallback to stored exposureBps
+    /// @dev When operators have no security commitments (common case), falls back to
+    ///      the exposureBps stored on their ServiceOperator record for proportional distribution.
+    /// @return effectiveExposures Per-operator exposure weights
+    /// @return totalEffectiveExposure Sum of all weights
+    /// @return hasSecurityCommitments True when real delegated stake backs the operators (restakers exist)
+    function _calculateEffectiveExposuresWithFallback(
+        uint64 serviceId,
+        address[] memory operators
+    ) internal view returns (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) {
+        (effectiveExposures, totalEffectiveExposure) = _calculateEffectiveExposures(serviceId, operators);
+
+        // If commitment-based calculation found real delegated stake, restakers are backing operators
+        hasSecurityCommitments = totalEffectiveExposure > 0;
+
+        // Fallback: when no security commitments exist, use stored exposureBps as weights.
+        if (totalEffectiveExposure == 0 && operators.length > 0) {
+            uint16[] memory bps = new uint16[](operators.length);
+            for (uint256 i = 0; i < operators.length;) {
+                bps[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
+                unchecked { ++i; }
+            }
+            (effectiveExposures, totalEffectiveExposure) = _calculateSimpleExposures(operators, bps);
         }
     }
 
