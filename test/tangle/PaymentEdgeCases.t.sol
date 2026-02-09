@@ -170,20 +170,18 @@ contract PaymentEdgeCasesTest is BaseTest {
 
         uint256 developerBefore = developer.balance;
         uint256 treasuryBefore = treasury.balance;
-        uint256 restakerBefore = address(serviceFeeDistributor).balance;
 
         uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
         _approveService(operator1, requestId);
 
-        (uint16 devBps, uint16 protoBps, uint16 opBps, ) = tangle.paymentSplit();
+        (uint16 devBps, uint16 protoBps, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
         uint256 expectedDev = (payment * devBps) / 10_000;
         uint256 expectedTreasury = (payment * protoBps) / 10_000;
-        uint256 expectedOperator = (payment * opBps) / 10_000;
-        uint256 expectedRestaker = payment - expectedDev - expectedTreasury - expectedOperator;
+        // No security commitments: operator gets operator + restaker share
+        uint256 expectedOperator = (payment * (uint256(opBps) + uint256(stakerBps))) / 10_000;
 
         assertEq(developer.balance - developerBefore, expectedDev);
         assertEq(treasury.balance - treasuryBefore, expectedTreasury);
-        assertEq(address(serviceFeeDistributor).balance - restakerBefore, expectedRestaker);
         assertEq(tangle.pendingRewards(operator1), expectedOperator);
     }
 
@@ -213,9 +211,10 @@ contract PaymentEdgeCasesTest is BaseTest {
         uint256 op2Pending = tangle.pendingRewards(operator2);
         uint256 op3Pending = tangle.pendingRewards(operator3);
 
-        // Total operator share is 40% of 100 = 40 wei, split 3 ways
-        // Each gets ~13 wei
-        assertTrue(op1Pending + op2Pending + op3Pending <= 40, "Total operator rewards should not exceed 40% of payment");
+        // No security commitments: operators share (operator + restaker) = 60% of 100 = 60 wei
+        (,, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
+        uint256 expectedTotal = (payment * (uint256(opBps) + uint256(stakerBps))) / 10_000;
+        assertTrue(op1Pending + op2Pending + op3Pending <= expectedTotal, "Total operator rewards should not exceed operator+restaker share");
     }
 
     function test_Payment_RequestServiceWithRevertingTokenReverts() public {
@@ -256,8 +255,9 @@ contract PaymentEdgeCasesTest is BaseTest {
     }
 
 
-    function test_Payment_ZeroExposure_NoReward() public {
-        // Create service with 0% exposure (edge case)
+    function test_Payment_ZeroExposure_OperatorStillGetsPaid() public {
+        // Operators always get paid for providing compute, even with 0% exposure.
+        // Customer protection: set minimum exposureBps on the service to prevent this.
         address[] memory ops = new address[](1);
         ops[0] = operator1;
         uint16[] memory exposures = new uint16[](1);
@@ -273,8 +273,10 @@ contract PaymentEdgeCasesTest is BaseTest {
 
         _approveService(operator1, requestId);
 
-        // With 0% exposure, operator gets nothing
-        assertEq(tangle.pendingRewards(operator1), 0);
+        // With 0% exposure and no restakers, operator gets (operator + restaker) share equally
+        (,, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
+        uint256 expectedOperatorReward = (payment * (uint256(opBps) + uint256(stakerBps))) / 10_000;
+        assertEq(tangle.pendingRewards(operator1), expectedOperatorReward);
     }
 
     function test_Payment_HeavilySkewedExposure() public {

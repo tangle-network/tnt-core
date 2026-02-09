@@ -346,15 +346,14 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
     function test_Streaming_ZeroPayment_NoStream() public {
         address[] memory ops = new address[](1);
         ops[0] = operator1;
-        address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(
-            blueprintId, ops, "", callers, TTL, address(payToken), 0
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, ops, _nativeSecurityReqs(), "", new address[](0), TTL, address(payToken), 0
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveServiceWithCommitments(requestId, _nativeCommitments());
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -533,20 +532,38 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @dev Helper to build security requirements for native ETH
+    function _nativeSecurityReqs() internal pure returns (Types.AssetSecurityRequirement[] memory reqs) {
+        reqs = new Types.AssetSecurityRequirement[](1);
+        reqs[0] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            minExposureBps: 1,
+            maxExposureBps: 10000
+        });
+    }
+
+    /// @dev Helper to build native commitment at 100%
+    function _nativeCommitments() internal pure returns (Types.AssetSecurityCommitment[] memory commits) {
+        commits = new Types.AssetSecurityCommitment[](1);
+        commits[0] = Types.AssetSecurityCommitment({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            exposureBps: 10000
+        });
+    }
+
     function _createServiceWithTTL(uint256 payment) internal returns (uint64 serviceId) {
         address[] memory ops = new address[](1);
         ops[0] = operator1;
-        address[] memory callers = new address[](0);
 
         vm.startPrank(user1);
         payToken.approve(address(tangle), payment);
-        uint64 requestId = tangle.requestService(
-            blueprintId, ops, "", callers, TTL, address(payToken), payment
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, ops, _nativeSecurityReqs(), "", new address[](0), TTL, address(payToken), payment
         );
         vm.stopPrank();
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveServiceWithCommitments(requestId, _nativeCommitments());
 
         serviceId = tangle.serviceCount() - 1;
     }
@@ -554,17 +571,16 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
     function _createServiceWithoutTTL(uint256 payment) internal returns (uint64 serviceId) {
         address[] memory ops = new address[](1);
         ops[0] = operator1;
-        address[] memory callers = new address[](0);
 
         vm.startPrank(user1);
         payToken.approve(address(tangle), payment);
-        uint64 requestId = tangle.requestService(
-            blueprintId, ops, "", callers, 0, address(payToken), payment
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, ops, _nativeSecurityReqs(), "", new address[](0), 0, address(payToken), payment
         );
         vm.stopPrank();
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveServiceWithCommitments(requestId, _nativeCommitments());
 
         serviceId = tangle.serviceCount() - 1;
     }
@@ -573,19 +589,18 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         address[] memory ops = new address[](2);
         ops[0] = operator1;
         ops[1] = operator2;
-        address[] memory callers = new address[](0);
 
         vm.startPrank(user1);
         payToken.approve(address(tangle), payment);
-        uint64 requestId = tangle.requestService(
-            blueprintId, ops, "", callers, TTL, address(payToken), payment
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, ops, _nativeSecurityReqs(), "", new address[](0), TTL, address(payToken), payment
         );
         vm.stopPrank();
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveServiceWithCommitments(requestId, _nativeCommitments());
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveServiceWithCommitments(requestId, _nativeCommitments());
 
         serviceId = tangle.serviceCount() - 1;
     }

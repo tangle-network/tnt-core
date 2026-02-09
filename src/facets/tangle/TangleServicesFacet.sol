@@ -196,7 +196,8 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     ) private {
         emit ServiceActivated(serviceId, requestId, blueprintId);
 
-        _configureHeartbeat(serviceId, manager, requester);
+        address[] memory operators = _copyRequestOperators(requestId);
+        _configureHeartbeat(serviceId, manager, requester, operators);
 
         if (manager == address(0)) {
             return;
