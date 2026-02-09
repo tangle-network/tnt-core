@@ -445,12 +445,8 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         // Validate BEFORE storing so invalid values don't pollute storage.
         // Wrapped in try/catch so validation gas issues can't brick heartbeats.
         try this.validateAndStoreMetrics(serviceId, operator, pairs, pairsLen) {} catch {
-            // If validation/storage fails due to gas, still allow heartbeat to succeed.
-            // Store metrics without validation as fallback.
-            for (uint256 i = 0; i < pairsLen; i++) {
-                metricValues[serviceId][operator][pairs[i].name] = pairs[i].value;
-                emit MetricReported(serviceId, operator, pairs[i].name, pairs[i].value);
-            }
+            // Fail-closed: if validation reverts (gas exhaustion, malformed data),
+            // drop metrics entirely rather than storing unvalidated values.
         }
     }
 
@@ -473,19 +469,38 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
             pairHashes[p] = keccak256(bytes(pairs[p].name));
         }
 
+        bool hasDefinitions = definitions.length > 0;
+
+        // Pre-compute definition name hashes for O(n*m) validation
+        bytes32[] memory defHashes;
+        if (hasDefinitions) {
+            defHashes = new bytes32[](definitions.length);
+            for (uint256 d = 0; d < definitions.length; d++) {
+                defHashes[d] = keccak256(bytes(definitions[d].name));
+            }
+        }
+
         // Validate each pair against definitions before storing
         for (uint256 i = 0; i < pairsLen; i++) {
             bool valid = true;
+            bool matchedDefinition = false;
 
             // Check against definitions if any exist
-            for (uint256 d = 0; d < definitions.length; d++) {
-                bytes32 defHash = keccak256(bytes(definitions[d].name));
-                if (pairHashes[i] == defHash) {
-                    if (pairs[i].value < definitions[d].minValue || pairs[i].value > definitions[d].maxValue) {
-                        emit MetricViolation(serviceId, operator, pairs[i].name, "Value out of bounds");
-                        valid = false;
+            if (hasDefinitions) {
+                for (uint256 d = 0; d < definitions.length; d++) {
+                    if (pairHashes[i] == defHashes[d]) {
+                        matchedDefinition = true;
+                        if (pairs[i].value < definitions[d].minValue || pairs[i].value > definitions[d].maxValue) {
+                            emit MetricViolation(serviceId, operator, pairs[i].name, "Value out of bounds");
+                            valid = false;
+                        }
+                        break;
                     }
-                    break;
+                }
+
+                // Reject undefined metrics when definitions exist
+                if (!matchedDefinition) {
+                    valid = false;
                 }
             }
 
@@ -550,6 +565,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     function checkOperatorStatus(uint64 serviceId, address operator) external {
         OperatorState storage state = operatorStates[serviceId][operator];
         HeartbeatConfig memory config = _getConfig(serviceId);
+
+        // Slashed status is terminal — cannot be overwritten by missed-beat logic
+        if (state.status == StatusCode.Slashed) return;
 
         if (state.lastHeartbeat == 0) {
             return; // Never submitted a heartbeat
@@ -676,6 +694,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         require(msg.sender == tangleCore, "Only Tangle core");
         require(operator != address(0), "Zero address");
         require(_registeredOperators[serviceId].add(operator), "Already registered");
+        // Initialize to Offline so isOnline() returns false until first heartbeat,
+        // and so _onlineOperators is correctly populated on first Offline→Healthy transition.
+        operatorStates[serviceId][operator].status = StatusCode.Offline;
         emit OperatorRegistered(serviceId, operator);
     }
 
@@ -704,6 +725,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     uint256 public constant MAX_METRIC_DEFINITIONS = 50;
 
     /// @notice Add a custom metric definition
+    /// @notice Maximum metric name length to bound hashing gas costs
+    uint256 public constant MAX_METRIC_NAME_LENGTH = 64;
+
     function addMetricDefinition(
         uint64 serviceId,
         string calldata name,
@@ -712,6 +736,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         bool required
     ) external override {
         require(msg.sender == serviceOwners[serviceId], "Not service owner");
+        require(bytes(name).length <= MAX_METRIC_NAME_LENGTH, "Name too long");
         require(maxValue >= minValue, "Invalid bounds");
         require(serviceMetrics[serviceId].length < MAX_METRIC_DEFINITIONS, "Too many definitions");
 
@@ -729,6 +754,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         require(definitions.length <= MAX_METRIC_DEFINITIONS, "Too many definitions");
         delete serviceMetrics[serviceId];
         for (uint256 i = 0; i < definitions.length; i++) {
+            require(bytes(definitions[i].name).length <= MAX_METRIC_NAME_LENGTH, "Name too long");
             require(definitions[i].maxValue >= definitions[i].minValue, "Invalid bounds");
             serviceMetrics[serviceId].push(definitions[i]);
         }
@@ -877,6 +903,8 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         uint256 count = 0;
         for (uint256 i = offset; i < end; i++) {
             address op = _allOperators[serviceId].at(i);
+            // Skip deregistered operators — they may have stale heartbeat data
+            if (!_registeredOperators[serviceId].contains(op)) continue;
             OperatorState memory state = operatorStates[serviceId][op];
             if (state.lastHeartbeat == 0 || state.status == StatusCode.Slashed) {
                 continue;
@@ -931,7 +959,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         string calldata reason
     ) external override {
         require(msg.sender == slashingOracle, "Not slashing oracle");
-        require(_registeredOperators[serviceId].contains(operator), "Not registered operator");
+        // Allow slashing deregistered operators to prevent slash-immunity via deregistration race.
+        // The oracle is trusted (governance-set), so no registration gate needed.
+        require(_allOperators[serviceId].contains(operator), "Operator unknown");
 
         OperatorState storage state = operatorStates[serviceId][operator];
         state.status = StatusCode.Slashed;

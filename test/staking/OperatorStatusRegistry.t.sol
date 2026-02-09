@@ -512,16 +512,20 @@ contract OperatorStatusRegistryTest is Test {
         vm.stopPrank();
     }
 
-    function test_reportForSlashing_UnregisteredOperatorReverts() public {
+    function test_reportForSlashing_UnknownOperatorReverts() public {
         vm.prank(governance);
         registry.setSlashingOracle(slashingOracle);
 
         vm.prank(slashingOracle);
-        vm.expectRevert("Not registered operator");
+        vm.expectRevert("Operator unknown");
         registry.reportForSlashing(SERVICE_ID, makeAddr("unknown"), "slash");
     }
 
     function test_getSlashableOperatorsPaginated() public {
+        // Deregister default operator so we have a clean slate for pagination
+        vm.prank(tangle);
+        registry.deregisterOperator(SERVICE_ID, operatorAddr);
+
         // Create and register 5 operators
         address[] memory ops = new address[](5);
         for (uint256 i = 0; i < 5; i++) {
@@ -739,5 +743,162 @@ contract OperatorStatusRegistryTest is Test {
         IOperatorStatusRegistry.StatusCode expected =
             shouldBeOffline ? IOperatorStatusRegistry.StatusCode.Offline : IOperatorStatusRegistry.StatusCode.Healthy;
         assertEq(uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)), uint8(expected));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Security review remediation tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice #1 Critical: Slashed status must be terminal — checkOperatorStatus cannot overwrite it
+    function test_checkOperatorStatus_CannotOverwriteSlashed() public {
+        vm.prank(governance);
+        registry.setSlashingOracle(slashingOracle);
+
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+
+        vm.prank(slashingOracle);
+        registry.reportForSlashing(SERVICE_ID, operatorAddr, "misbehavior");
+        assertEq(uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)), uint8(IOperatorStatusRegistry.StatusCode.Slashed));
+
+        // Warp way past offline threshold
+        vm.warp(block.timestamp + 10_000);
+        registry.checkOperatorStatus(SERVICE_ID, operatorAddr);
+
+        // Must still be Slashed, not Offline
+        assertEq(uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)), uint8(IOperatorStatusRegistry.StatusCode.Slashed));
+    }
+
+    /// @notice #2 High: Deregistered operators can still be slashed (prevents slash-immunity race)
+    function test_reportForSlashing_WorksAfterDeregistration() public {
+        vm.prank(governance);
+        registry.setSlashingOracle(slashingOracle);
+
+        // Operator heartbeats (adds to _allOperators)
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+
+        // Deregister the operator
+        vm.prank(tangle);
+        registry.deregisterOperator(SERVICE_ID, operatorAddr);
+        assertFalse(registry.isRegisteredOperator(SERVICE_ID, operatorAddr));
+
+        // Oracle can still slash — operator is in _allOperators
+        vm.prank(slashingOracle);
+        registry.reportForSlashing(SERVICE_ID, operatorAddr, "late slash");
+        assertEq(uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)), uint8(IOperatorStatusRegistry.StatusCode.Slashed));
+    }
+
+    /// @notice #3 High: Fail-closed validation — catch block must not store unvalidated metrics
+    function test_processMetrics_FailClosedOnValidationRevert() public {
+        vm.startPrank(serviceOwner);
+        registry.enableCustomMetrics(SERVICE_ID, true);
+
+        // Set a definition so validation runs
+        IOperatorStatusRegistry.MetricDefinition[] memory defs = new IOperatorStatusRegistry.MetricDefinition[](1);
+        defs[0] = IOperatorStatusRegistry.MetricDefinition("bounded", 10, 100, false);
+        registry.setMetricDefinitions(SERVICE_ID, defs);
+        vm.stopPrank();
+
+        // Submit out-of-bounds metric — should NOT be stored
+        IOperatorStatusRegistry.MetricPair[] memory pairs = new IOperatorStatusRegistry.MetricPair[](1);
+        pairs[0] = IOperatorStatusRegistry.MetricPair("bounded", 999);
+        bytes memory metricsData = abi.encode(pairs);
+
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, metricsData);
+
+        assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "bounded"), 0);
+    }
+
+    /// @notice #3 High: Metric name length cap
+    function test_addMetricDefinition_NameTooLongReverts() public {
+        bytes memory longName = new bytes(65);
+        for (uint256 i = 0; i < 65; i++) longName[i] = "a";
+
+        vm.prank(serviceOwner);
+        vm.expectRevert("Name too long");
+        registry.addMetricDefinition(SERVICE_ID, string(longName), 0, 100, false);
+    }
+
+    /// @notice #4 Medium: Registered operators start Offline, not Healthy
+    function test_registerOperator_InitializesOffline() public {
+        address newOp = makeAddr("freshOp");
+        vm.prank(tangle);
+        registry.registerOperator(SERVICE_ID, newOp);
+
+        // Should be Offline, not Healthy
+        assertEq(uint8(registry.getOperatorStatus(SERVICE_ID, newOp)), uint8(IOperatorStatusRegistry.StatusCode.Offline));
+        // isOnline should return false
+        assertFalse(registry.isOnline(SERVICE_ID, newOp));
+    }
+
+    /// @notice #5 Medium: First heartbeat correctly adds to _onlineOperators
+    function test_firstHeartbeat_AddsToOnlineOperators() public {
+        address newOp = makeAddr("freshOp2");
+        vm.prank(tangle);
+        registry.registerOperator(SERVICE_ID, newOp);
+
+        // Before heartbeat: not in online set
+        address[] memory onlineBefore = registry.getOnlineOperators(SERVICE_ID);
+        bool found = false;
+        for (uint256 i = 0; i < onlineBefore.length; i++) {
+            if (onlineBefore[i] == newOp) { found = true; break; }
+        }
+        assertFalse(found, "Should not be online before heartbeat");
+
+        // Submit first heartbeat
+        vm.prank(newOp);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+
+        // After heartbeat: should be in online set
+        address[] memory onlineAfter = registry.getOnlineOperators(SERVICE_ID);
+        found = false;
+        for (uint256 i = 0; i < onlineAfter.length; i++) {
+            if (onlineAfter[i] == newOp) { found = true; break; }
+        }
+        assertTrue(found, "Should be online after first heartbeat");
+        assertTrue(registry.isOnline(SERVICE_ID, newOp));
+    }
+
+    /// @notice #6 Medium: Deregistered operators excluded from slashable set
+    function test_getSlashableOperators_ExcludesDeregistered() public {
+        // Operator heartbeats
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
+
+        // Deregister
+        vm.prank(tangle);
+        registry.deregisterOperator(SERVICE_ID, operatorAddr);
+
+        // Warp past threshold
+        vm.warp(block.timestamp + 241);
+
+        // Should NOT appear in slashable set (deregistered)
+        address[] memory ops = registry.getSlashableOperators(SERVICE_ID);
+        assertEq(ops.length, 0);
+    }
+
+    /// @notice #8 Medium: Undefined metrics rejected when definitions exist
+    function test_undefinedMetrics_RejectedWhenDefinitionsExist() public {
+        vm.startPrank(serviceOwner);
+        registry.enableCustomMetrics(SERVICE_ID, true);
+
+        IOperatorStatusRegistry.MetricDefinition[] memory defs = new IOperatorStatusRegistry.MetricDefinition[](1);
+        defs[0] = IOperatorStatusRegistry.MetricDefinition("cpu", 0, 100, false);
+        registry.setMetricDefinitions(SERVICE_ID, defs);
+        vm.stopPrank();
+
+        // Submit a metric with an undefined name
+        IOperatorStatusRegistry.MetricPair[] memory pairs = new IOperatorStatusRegistry.MetricPair[](2);
+        pairs[0] = IOperatorStatusRegistry.MetricPair("cpu", 50);           // defined — should be stored
+        pairs[1] = IOperatorStatusRegistry.MetricPair("rogue_metric", 999); // undefined — should be rejected
+        bytes memory metricsData = abi.encode(pairs);
+
+        vm.prank(operatorAddr);
+        registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, metricsData);
+
+        assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "cpu"), 50);
+        assertEq(registry.getMetricValue(SERVICE_ID, operatorAddr, "rogue_metric"), 0);
     }
 }
