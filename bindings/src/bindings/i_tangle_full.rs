@@ -1122,8 +1122,9 @@ library Types {
     struct ExitConfig { uint64 minCommitmentDuration; uint64 exitQueueDuration; bool forceExitAllowed; }
     struct ExitRequest { uint64 serviceId; uint64 scheduledAt; uint64 executeAfter; bool pending; }
     struct ImageRegistrySource { string registry; string image; string tag; }
-    struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; }
+    struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; bool isRFQ; }
     struct JobDefinition { string name; string description; string metadataUri; bytes paramsSchema; bytes resultSchema; }
+    struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; }
     struct NativeSource { BlueprintFetcherKind fetcher; string artifactUri; string entrypoint; }
     struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
     struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
@@ -1132,6 +1133,7 @@ library Types {
     struct Service { uint64 blueprintId; address owner; uint64 createdAt; uint64 ttl; uint64 terminatedAt; uint64 lastPaymentAt; uint32 operatorCount; uint32 minOperators; uint32 maxOperators; MembershipModel membership; PricingModel pricing; ServiceStatus status; }
     struct ServiceOperator { uint16 exposureBps; uint64 joinedAt; uint64 leftAt; bool active; }
     struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; }
+    struct SignedJobQuote { JobQuoteDetails details; bytes signature; address operator; }
     struct SignedQuote { QuoteDetails details; bytes signature; address operator; }
     struct TestingSource { string cargoPackage; string cargoBin; string basePath; }
     struct WasmSource { WasmRuntime runtime; BlueprintFetcherKind fetcher; string artifactUri; string entrypoint; }
@@ -6073,7 +6075,7 @@ struct ImageRegistrySource { string registry; string image; string tag; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; }
+struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; bool isRFQ; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -6090,6 +6092,8 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
         pub payment: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
         pub completed: bool,
+        #[allow(missing_docs)]
+        pub isRFQ: bool,
     }
     #[allow(
         non_camel_case_types,
@@ -6108,6 +6112,7 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
             alloy::sol_types::sol_data::Uint<32>,
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Bool,
+            alloy::sol_types::sol_data::Bool,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
@@ -6116,6 +6121,7 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
             u64,
             u32,
             alloy::sol_types::private::primitives::aliases::U256,
+            bool,
             bool,
         );
         #[cfg(test)]
@@ -6140,6 +6146,7 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     value.resultCount,
                     value.payment,
                     value.completed,
+                    value.isRFQ,
                 )
             }
         }
@@ -6154,6 +6161,7 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     resultCount: tuple.3,
                     payment: tuple.4,
                     completed: tuple.5,
+                    isRFQ: tuple.6,
                 }
             }
         }
@@ -6183,6 +6191,9 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     > as alloy_sol_types::SolType>::tokenize(&self.payment),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.completed,
+                    ),
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        &self.isRFQ,
                     ),
                 )
             }
@@ -6258,7 +6269,7 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "JobCall(uint8 jobIndex,address caller,uint64 createdAt,uint32 resultCount,uint256 payment,bool completed)",
+                    "JobCall(uint8 jobIndex,address caller,uint64 createdAt,uint32 resultCount,uint256 payment,bool completed,bool isRFQ)",
                 )
             }
             #[inline]
@@ -6298,6 +6309,10 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                             &self.completed,
                         )
                         .0,
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.isRFQ,
+                        )
+                        .0,
                 ]
                     .concat()
             }
@@ -6332,6 +6347,9 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                     )
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.completed,
+                    )
+                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.isRFQ,
                     )
             }
             #[inline]
@@ -6372,6 +6390,10 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
                 );
                 <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.completed,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.isRFQ,
                     out,
                 );
             }
@@ -6656,6 +6678,308 @@ struct JobDefinition { string name; string description; string metadataUri; byte
                 );
                 <alloy::sol_types::sol_data::Bytes as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.resultSchema,
+                    out,
+                );
+            }
+            #[inline]
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                let mut out = alloy_sol_types::private::Vec::new();
+                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    rust,
+                    &mut out,
+                );
+                alloy_sol_types::abi::token::WordToken(
+                    alloy_sol_types::private::keccak256(out),
+                )
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**```solidity
+struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; }
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct JobQuoteDetails {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub jobIndex: u8,
+        #[allow(missing_docs)]
+        pub price: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub timestamp: u64,
+        #[allow(missing_docs)]
+        pub expiry: u64,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        type UnderlyingSolTuple<'a> = (
+            alloy::sol_types::sol_data::Uint<64>,
+            alloy::sol_types::sol_data::Uint<8>,
+            alloy::sol_types::sol_data::Uint<256>,
+            alloy::sol_types::sol_data::Uint<64>,
+            alloy::sol_types::sol_data::Uint<64>,
+        );
+        #[doc(hidden)]
+        type UnderlyingRustTuple<'a> = (
+            u64,
+            u8,
+            alloy::sol_types::private::primitives::aliases::U256,
+            u64,
+            u64,
+        );
+        #[cfg(test)]
+        #[allow(dead_code, unreachable_patterns)]
+        fn _type_assertion(
+            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+        ) {
+            match _t {
+                alloy_sol_types::private::AssertTypeEq::<
+                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                >(_) => {}
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<JobQuoteDetails> for UnderlyingRustTuple<'_> {
+            fn from(value: JobQuoteDetails) -> Self {
+                (
+                    value.serviceId,
+                    value.jobIndex,
+                    value.price,
+                    value.timestamp,
+                    value.expiry,
+                )
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for JobQuoteDetails {
+            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                Self {
+                    serviceId: tuple.0,
+                    jobIndex: tuple.1,
+                    price: tuple.2,
+                    timestamp: tuple.3,
+                    expiry: tuple.4,
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolValue for JobQuoteDetails {
+            type SolType = Self;
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::SolTypeValue<Self> for JobQuoteDetails {
+            #[inline]
+            fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(&self.jobIndex),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.price),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.timestamp),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.expiry),
+                )
+            }
+            #[inline]
+            fn stv_abi_encoded_size(&self) -> usize {
+                if let Some(size) = <Self as alloy_sol_types::SolType>::ENCODED_SIZE {
+                    return size;
+                }
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
+            }
+            #[inline]
+            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
+                <Self as alloy_sol_types::SolStruct>::eip712_hash_struct(self)
+            }
+            #[inline]
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(&tuple, out)
+            }
+            #[inline]
+            fn stv_abi_packed_encoded_size(&self) -> usize {
+                if let Some(size) = <Self as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE {
+                    return size;
+                }
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_packed_encoded_size(&tuple)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolType for JobQuoteDetails {
+            type RustType = Self;
+            type Token<'a> = <UnderlyingSolTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SOL_NAME: &'static str = <Self as alloy_sol_types::SolStruct>::NAME;
+            const ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            #[inline]
+            fn valid_token(token: &Self::Token<'_>) -> bool {
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::valid_token(token)
+            }
+            #[inline]
+            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
+                let tuple = <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::detokenize(token);
+                <Self as ::core::convert::From<UnderlyingRustTuple<'_>>>::from(tuple)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolStruct for JobQuoteDetails {
+            const NAME: &'static str = "JobQuoteDetails";
+            #[inline]
+            fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
+                alloy_sol_types::private::Cow::Borrowed(
+                    "JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry)",
+                )
+            }
+            #[inline]
+            fn eip712_components() -> alloy_sol_types::private::Vec<
+                alloy_sol_types::private::Cow<'static, str>,
+            > {
+                alloy_sol_types::private::Vec::new()
+            }
+            #[inline]
+            fn eip712_encode_type() -> alloy_sol_types::private::Cow<'static, str> {
+                <Self as alloy_sol_types::SolStruct>::eip712_root_type()
+            }
+            #[inline]
+            fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
+                [
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.serviceId)
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.jobIndex)
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.price)
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.timestamp)
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.expiry)
+                        .0,
+                ]
+                    .concat()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::EventTopic for JobQuoteDetails {
+            #[inline]
+            fn topic_preimage_length(rust: &Self::RustType) -> usize {
+                0usize
+                    + <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.serviceId,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.jobIndex,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(&rust.price)
+                    + <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.timestamp,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.expiry,
+                    )
+            }
+            #[inline]
+            fn encode_topic_preimage(
+                rust: &Self::RustType,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                out.reserve(
+                    <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.serviceId,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.jobIndex,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    256,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.price,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.timestamp,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.expiry,
                     out,
                 );
             }
@@ -9178,6 +9502,251 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
+struct SignedJobQuote { JobQuoteDetails details; bytes signature; address operator; }
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct SignedJobQuote {
+        #[allow(missing_docs)]
+        pub details: <JobQuoteDetails as alloy::sol_types::SolType>::RustType,
+        #[allow(missing_docs)]
+        pub signature: alloy::sol_types::private::Bytes,
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        type UnderlyingSolTuple<'a> = (
+            JobQuoteDetails,
+            alloy::sol_types::sol_data::Bytes,
+            alloy::sol_types::sol_data::Address,
+        );
+        #[doc(hidden)]
+        type UnderlyingRustTuple<'a> = (
+            <JobQuoteDetails as alloy::sol_types::SolType>::RustType,
+            alloy::sol_types::private::Bytes,
+            alloy::sol_types::private::Address,
+        );
+        #[cfg(test)]
+        #[allow(dead_code, unreachable_patterns)]
+        fn _type_assertion(
+            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+        ) {
+            match _t {
+                alloy_sol_types::private::AssertTypeEq::<
+                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                >(_) => {}
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<SignedJobQuote> for UnderlyingRustTuple<'_> {
+            fn from(value: SignedJobQuote) -> Self {
+                (value.details, value.signature, value.operator)
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for SignedJobQuote {
+            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                Self {
+                    details: tuple.0,
+                    signature: tuple.1,
+                    operator: tuple.2,
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolValue for SignedJobQuote {
+            type SolType = Self;
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::SolTypeValue<Self> for SignedJobQuote {
+            #[inline]
+            fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
+                (
+                    <JobQuoteDetails as alloy_sol_types::SolType>::tokenize(
+                        &self.details,
+                    ),
+                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
+                        &self.signature,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                )
+            }
+            #[inline]
+            fn stv_abi_encoded_size(&self) -> usize {
+                if let Some(size) = <Self as alloy_sol_types::SolType>::ENCODED_SIZE {
+                    return size;
+                }
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
+            }
+            #[inline]
+            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
+                <Self as alloy_sol_types::SolStruct>::eip712_hash_struct(self)
+            }
+            #[inline]
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(&tuple, out)
+            }
+            #[inline]
+            fn stv_abi_packed_encoded_size(&self) -> usize {
+                if let Some(size) = <Self as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE {
+                    return size;
+                }
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_packed_encoded_size(&tuple)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolType for SignedJobQuote {
+            type RustType = Self;
+            type Token<'a> = <UnderlyingSolTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SOL_NAME: &'static str = <Self as alloy_sol_types::SolStruct>::NAME;
+            const ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            #[inline]
+            fn valid_token(token: &Self::Token<'_>) -> bool {
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::valid_token(token)
+            }
+            #[inline]
+            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
+                let tuple = <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::detokenize(token);
+                <Self as ::core::convert::From<UnderlyingRustTuple<'_>>>::from(tuple)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolStruct for SignedJobQuote {
+            const NAME: &'static str = "SignedJobQuote";
+            #[inline]
+            fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
+                alloy_sol_types::private::Cow::Borrowed(
+                    "SignedJobQuote(JobQuoteDetails details,bytes signature,address operator)",
+                )
+            }
+            #[inline]
+            fn eip712_components() -> alloy_sol_types::private::Vec<
+                alloy_sol_types::private::Cow<'static, str>,
+            > {
+                let mut components = alloy_sol_types::private::Vec::with_capacity(1);
+                components
+                    .push(
+                        <JobQuoteDetails as alloy_sol_types::SolStruct>::eip712_root_type(),
+                    );
+                components
+                    .extend(
+                        <JobQuoteDetails as alloy_sol_types::SolStruct>::eip712_components(),
+                    );
+                components
+            }
+            #[inline]
+            fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
+                [
+                    <JobQuoteDetails as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.details,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.signature,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.operator,
+                        )
+                        .0,
+                ]
+                    .concat()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::EventTopic for SignedJobQuote {
+            #[inline]
+            fn topic_preimage_length(rust: &Self::RustType) -> usize {
+                0usize
+                    + <JobQuoteDetails as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.details,
+                    )
+                    + <alloy::sol_types::sol_data::Bytes as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.signature,
+                    )
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.operator,
+                    )
+            }
+            #[inline]
+            fn encode_topic_preimage(
+                rust: &Self::RustType,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                out.reserve(
+                    <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
+                );
+                <JobQuoteDetails as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.details,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Bytes as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.signature,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.operator,
+                    out,
+                );
+            }
+            #[inline]
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                let mut out = alloy_sol_types::private::Vec::new();
+                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    rust,
+                    &mut out,
+                );
+                alloy_sol_types::abi::token::WordToken(
+                    alloy_sol_types::private::keccak256(out),
+                )
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**```solidity
 struct SignedQuote { QuoteDetails details; bytes signature; address operator; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -10165,6 +10734,7 @@ library Types {
         uint32 resultCount;
         uint256 payment;
         bool completed;
+        bool isRFQ;
     }
     struct JobDefinition {
         string name;
@@ -10172,6 +10742,13 @@ library Types {
         string metadataUri;
         bytes paramsSchema;
         bytes resultSchema;
+    }
+    struct JobQuoteDetails {
+        uint64 serviceId;
+        uint8 jobIndex;
+        uint256 price;
+        uint64 timestamp;
+        uint64 expiry;
     }
     struct NativeSource {
         BlueprintFetcherKind fetcher;
@@ -10236,6 +10813,11 @@ library Types {
         uint32 maxOperators;
         bool rejected;
     }
+    struct SignedJobQuote {
+        JobQuoteDetails details;
+        bytes signature;
+        address operator;
+    }
     struct SignedQuote {
         QuoteDetails details;
         bytes signature;
@@ -10262,6 +10844,7 @@ interface ITangleFull {
     event JobCompleted(uint64 indexed serviceId, uint64 indexed callId);
     event JobResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, address indexed operator, bytes result);
     event JobSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint8 indexed jobIndex, address caller, bytes inputs);
+    event JobSubmittedFromQuote(uint64 indexed serviceId, uint64 indexed callId, uint8 jobIndex, address caller, address[] quotedOperators, uint256 totalPrice, bytes inputs);
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
     event OperatorLeftService(uint64 indexed serviceId, address indexed operator);
     event OperatorPreferencesUpdated(uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress);
@@ -10319,6 +10902,9 @@ interface ITangleFull {
     function getExitRequest(uint64 serviceId, address operator) external view returns (Types.ExitRequest memory);
     function getExitStatus(uint64 serviceId, address operator) external view returns (Types.ExitStatus);
     function getJobCall(uint64 serviceId, uint64 callId) external view returns (Types.JobCall memory);
+    function getJobEventRate(uint64 blueprintId, uint8 jobIndex) external view returns (uint256 rate);
+    function getJobQuotedOperators(uint64 serviceId, uint64 callId) external view returns (address[] memory);
+    function getJobQuotedPrice(uint64 serviceId, uint64 callId, address operator) external view returns (uint256);
     function getOperatorBlsPubkey(uint64 serviceId, address operator) external view returns (uint256[4] memory blsPubkey);
     function getOperatorPreferences(uint64 blueprintId, address operator) external view returns (Types.OperatorPreferences memory);
     function getOperatorPublicKey(uint64 blueprintId, address operator) external view returns (bytes memory);
@@ -10365,6 +10951,7 @@ interface ITangleFull {
     function serviceCount() external view returns (uint64);
     function serviceFeeDistributor() external view returns (address);
     function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
+    function setJobEventRates(uint64 blueprintId, uint8[] memory jobIndexes, uint256[] memory rates) external;
     function setMBSMRegistry(address registry) external;
     function setMaxBlueprintsPerOperator(uint32 newMax) external;
     function setMetricsRecorder(address recorder) external;
@@ -10380,6 +10967,7 @@ interface ITangleFull {
     function setTreasury(address treasury) external;
     function submitAggregatedResult(uint64 serviceId, uint64 callId, bytes memory output, uint256 signerBitmap, uint256[2] memory aggregatedSignature, uint256[4] memory aggregatedPubkey) external;
     function submitJob(uint64 serviceId, uint8 jobIndex, bytes memory inputs) external payable returns (uint64 callId);
+    function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory inputs, Types.SignedJobQuote[] memory quotes) external payable returns (uint64 callId);
     function submitResult(uint64 serviceId, uint64 callId, bytes memory result) external;
     function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory results) external;
     function terminateService(uint64 serviceId) external;
@@ -12270,8 +12858,90 @@ interface ITangleFull {
             "name": "completed",
             "type": "bool",
             "internalType": "bool"
+          },
+          {
+            "name": "isRFQ",
+            "type": "bool",
+            "internalType": "bool"
           }
         ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getJobEventRate",
+    "inputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "jobIndex",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "rate",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getJobQuotedOperators",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "callId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getJobQuotedPrice",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "callId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -13669,6 +14339,29 @@ interface ITangleFull {
   },
   {
     "type": "function",
+    "name": "setJobEventRates",
+    "inputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "jobIndexes",
+        "type": "uint8[]",
+        "internalType": "uint8[]"
+      },
+      {
+        "name": "rates",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setMBSMRegistry",
     "inputs": [
       {
@@ -13924,6 +14617,84 @@ interface ITangleFull {
         "name": "inputs",
         "type": "bytes",
         "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "callId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "submitJobFromQuote",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "jobIndex",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "inputs",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "quotes",
+        "type": "tuple[]",
+        "internalType": "struct Types.SignedJobQuote[]",
+        "components": [
+          {
+            "name": "details",
+            "type": "tuple",
+            "internalType": "struct Types.JobQuoteDetails",
+            "components": [
+              {
+                "name": "serviceId",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "jobIndex",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "price",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "timestamp",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "expiry",
+                "type": "uint64",
+                "internalType": "uint64"
+              }
+            ]
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "operator",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
       }
     ],
     "outputs": [
@@ -14277,6 +15048,55 @@ interface ITangleFull {
         "type": "address",
         "indexed": false,
         "internalType": "address"
+      },
+      {
+        "name": "inputs",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "JobSubmittedFromQuote",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "callId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "jobIndex",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "quotedOperators",
+        "type": "address[]",
+        "indexed": false,
+        "internalType": "address[]"
+      },
+      {
+        "name": "totalPrice",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
         "name": "inputs",
@@ -15558,6 +16378,165 @@ event JobSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint8 indexe
         impl From<&JobSubmitted> for alloy_sol_types::private::LogData {
             #[inline]
             fn from(this: &JobSubmitted) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `JobSubmittedFromQuote(uint64,uint64,uint8,address,address[],uint256,bytes)` and selector `0xb707259a8a1604adca251fecf84eb283329cd45175690dcb8ff1cf52a6252422`.
+```solidity
+event JobSubmittedFromQuote(uint64 indexed serviceId, uint64 indexed callId, uint8 jobIndex, address caller, address[] quotedOperators, uint256 totalPrice, bytes inputs);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct JobSubmittedFromQuote {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub callId: u64,
+        #[allow(missing_docs)]
+        pub jobIndex: u8,
+        #[allow(missing_docs)]
+        pub caller: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub quotedOperators: alloy::sol_types::private::Vec<
+            alloy::sol_types::private::Address,
+        >,
+        #[allow(missing_docs)]
+        pub totalPrice: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub inputs: alloy::sol_types::private::Bytes,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for JobSubmittedFromQuote {
+            type DataTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<8>,
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Bytes,
+            );
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
+            const SIGNATURE: &'static str = "JobSubmittedFromQuote(uint64,uint64,uint8,address,address[],uint256,bytes)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                183u8, 7u8, 37u8, 154u8, 138u8, 22u8, 4u8, 173u8, 202u8, 37u8, 31u8,
+                236u8, 248u8, 78u8, 178u8, 131u8, 50u8, 156u8, 212u8, 81u8, 117u8, 105u8,
+                13u8, 203u8, 143u8, 241u8, 207u8, 82u8, 166u8, 37u8, 36u8, 34u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    serviceId: topics.1,
+                    callId: topics.2,
+                    jobIndex: data.0,
+                    caller: data.1,
+                    quotedOperators: data.2,
+                    totalPrice: data.3,
+                    inputs: data.4,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(&self.jobIndex),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.caller,
+                    ),
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Address,
+                    > as alloy_sol_types::SolType>::tokenize(&self.quotedOperators),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.totalPrice),
+                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
+                        &self.inputs,
+                    ),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.serviceId.clone(),
+                    self.callId.clone(),
+                )
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
+                out[2usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.callId);
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for JobSubmittedFromQuote {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&JobSubmittedFromQuote> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(this: &JobSubmittedFromQuote) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
         }
@@ -24079,6 +25058,538 @@ function getJobCall(uint64 serviceId, uint64 callId) external view returns (Type
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getJobEventRate(uint64,uint8)` and selector `0xf9333bb1`.
+```solidity
+function getJobEventRate(uint64 blueprintId, uint8 jobIndex) external view returns (uint256 rate);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getJobEventRateCall {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub jobIndex: u8,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getJobEventRate(uint64,uint8)`](getJobEventRateCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getJobEventRateReturn {
+        #[allow(missing_docs)]
+        pub rate: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<8>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64, u8);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getJobEventRateCall> for UnderlyingRustTuple<'_> {
+                fn from(value: getJobEventRateCall) -> Self {
+                    (value.blueprintId, value.jobIndex)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for getJobEventRateCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        blueprintId: tuple.0,
+                        jobIndex: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getJobEventRateReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getJobEventRateReturn) -> Self {
+                    (value.rate,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getJobEventRateReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { rate: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getJobEventRateCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<8>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getJobEventRate(uint64,uint8)";
+            const SELECTOR: [u8; 4] = [249u8, 51u8, 59u8, 177u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(&self.jobIndex),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getJobEventRateReturn = r.into();
+                        r.rate
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getJobEventRateReturn = r.into();
+                        r.rate
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getJobQuotedOperators(uint64,uint64)` and selector `0x038dda6c`.
+```solidity
+function getJobQuotedOperators(uint64 serviceId, uint64 callId) external view returns (address[] memory);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getJobQuotedOperatorsCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub callId: u64,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getJobQuotedOperators(uint64,uint64)`](getJobQuotedOperatorsCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getJobQuotedOperatorsReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64, u64);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getJobQuotedOperatorsCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getJobQuotedOperatorsCall) -> Self {
+                    (value.serviceId, value.callId)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getJobQuotedOperatorsCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        serviceId: tuple.0,
+                        callId: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getJobQuotedOperatorsReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getJobQuotedOperatorsReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getJobQuotedOperatorsReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getJobQuotedOperatorsCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::Vec<
+                alloy::sol_types::private::Address,
+            >;
+            type ReturnTuple<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+            );
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getJobQuotedOperators(uint64,uint64)";
+            const SELECTOR: [u8; 4] = [3u8, 141u8, 218u8, 108u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.callId),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Address,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getJobQuotedOperatorsReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getJobQuotedOperatorsReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getJobQuotedPrice(uint64,uint64,address)` and selector `0xfca78d2d`.
+```solidity
+function getJobQuotedPrice(uint64 serviceId, uint64 callId, address operator) external view returns (uint256);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getJobQuotedPriceCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub callId: u64,
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getJobQuotedPrice(uint64,uint64,address)`](getJobQuotedPriceCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getJobQuotedPriceReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                u64,
+                u64,
+                alloy::sol_types::private::Address,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getJobQuotedPriceCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getJobQuotedPriceCall) -> Self {
+                    (value.serviceId, value.callId, value.operator)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getJobQuotedPriceCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        serviceId: tuple.0,
+                        callId: tuple.1,
+                        operator: tuple.2,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getJobQuotedPriceReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getJobQuotedPriceReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getJobQuotedPriceReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getJobQuotedPriceCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getJobQuotedPrice(uint64,uint64,address)";
+            const SELECTOR: [u8; 4] = [252u8, 167u8, 141u8, 45u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.callId),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getJobQuotedPriceReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getJobQuotedPriceReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getOperatorBlsPubkey(uint64,address)` and selector `0x6ee5bcff`.
 ```solidity
 function getOperatorBlsPubkey(uint64 serviceId, address operator) external view returns (uint256[4] memory blsPubkey);
@@ -31720,6 +33231,184 @@ function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `setJobEventRates(uint64,uint8[],uint256[])` and selector `0xc1d71304`.
+```solidity
+function setJobEventRates(uint64 blueprintId, uint8[] memory jobIndexes, uint256[] memory rates) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setJobEventRatesCall {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub jobIndexes: alloy::sol_types::private::Vec<u8>,
+        #[allow(missing_docs)]
+        pub rates: alloy::sol_types::private::Vec<
+            alloy::sol_types::private::primitives::aliases::U256,
+        >,
+    }
+    ///Container type for the return parameters of the [`setJobEventRates(uint64,uint8[],uint256[])`](setJobEventRatesCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setJobEventRatesReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<8>>,
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<256>>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                u64,
+                alloy::sol_types::private::Vec<u8>,
+                alloy::sol_types::private::Vec<
+                    alloy::sol_types::private::primitives::aliases::U256,
+                >,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setJobEventRatesCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setJobEventRatesCall) -> Self {
+                    (value.blueprintId, value.jobIndexes, value.rates)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setJobEventRatesCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        blueprintId: tuple.0,
+                        jobIndexes: tuple.1,
+                        rates: tuple.2,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setJobEventRatesReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setJobEventRatesReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setJobEventRatesReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl setJobEventRatesReturn {
+            fn _tokenize(
+                &self,
+            ) -> <setJobEventRatesCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for setJobEventRatesCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<8>>,
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<256>>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = setJobEventRatesReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "setJobEventRates(uint64,uint8[],uint256[])";
+            const SELECTOR: [u8; 4] = [193u8, 215u8, 19u8, 4u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Uint<8>,
+                    > as alloy_sol_types::SolType>::tokenize(&self.jobIndexes),
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Uint<256>,
+                    > as alloy_sol_types::SolType>::tokenize(&self.rates),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                setJobEventRatesReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setMBSMRegistry(address)` and selector `0x5f807d0a`.
 ```solidity
 function setMBSMRegistry(address registry) external;
@@ -34051,6 +35740,201 @@ function submitJob(uint64 serviceId, uint8 jobIndex, bytes memory inputs) extern
         }
     };
     #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
+    /**Function with signature `submitJobFromQuote(uint64,uint8,bytes,((uint64,uint8,uint256,uint64,uint64),bytes,address)[])` and selector `0x7d2a6b59`.
+```solidity
+function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory inputs, Types.SignedJobQuote[] memory quotes) external payable returns (uint64 callId);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct submitJobFromQuoteCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub jobIndex: u8,
+        #[allow(missing_docs)]
+        pub inputs: alloy::sol_types::private::Bytes,
+        #[allow(missing_docs)]
+        pub quotes: alloy::sol_types::private::Vec<
+            <Types::SignedJobQuote as alloy::sol_types::SolType>::RustType,
+        >,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`submitJobFromQuote(uint64,uint8,bytes,((uint64,uint8,uint256,uint64,uint64),bytes,address)[])`](submitJobFromQuoteCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct submitJobFromQuoteReturn {
+        #[allow(missing_docs)]
+        pub callId: u64,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<8>,
+                alloy::sol_types::sol_data::Bytes,
+                alloy::sol_types::sol_data::Array<Types::SignedJobQuote>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                u64,
+                u8,
+                alloy::sol_types::private::Bytes,
+                alloy::sol_types::private::Vec<
+                    <Types::SignedJobQuote as alloy::sol_types::SolType>::RustType,
+                >,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<submitJobFromQuoteCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: submitJobFromQuoteCall) -> Self {
+                    (value.serviceId, value.jobIndex, value.inputs, value.quotes)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for submitJobFromQuoteCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        serviceId: tuple.0,
+                        jobIndex: tuple.1,
+                        inputs: tuple.2,
+                        quotes: tuple.3,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<submitJobFromQuoteReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: submitJobFromQuoteReturn) -> Self {
+                    (value.callId,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for submitJobFromQuoteReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { callId: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for submitJobFromQuoteCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<8>,
+                alloy::sol_types::sol_data::Bytes,
+                alloy::sol_types::sol_data::Array<Types::SignedJobQuote>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = u64;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "submitJobFromQuote(uint64,uint8,bytes,((uint64,uint8,uint256,uint64,uint64),bytes,address)[])";
+            const SELECTOR: [u8; 4] = [125u8, 42u8, 107u8, 89u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(&self.jobIndex),
+                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
+                        &self.inputs,
+                    ),
+                    <alloy::sol_types::sol_data::Array<
+                        Types::SignedJobQuote,
+                    > as alloy_sol_types::SolType>::tokenize(&self.quotes),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: submitJobFromQuoteReturn = r.into();
+                        r.callId
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: submitJobFromQuoteReturn = r.into();
+                        r.callId
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `submitResult(uint64,uint64,bytes)` and selector `0x2d07e655`.
 ```solidity
@@ -35844,6 +37728,12 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         getJobCall(getJobCallCall),
         #[allow(missing_docs)]
+        getJobEventRate(getJobEventRateCall),
+        #[allow(missing_docs)]
+        getJobQuotedOperators(getJobQuotedOperatorsCall),
+        #[allow(missing_docs)]
+        getJobQuotedPrice(getJobQuotedPriceCall),
+        #[allow(missing_docs)]
         getOperatorBlsPubkey(getOperatorBlsPubkeyCall),
         #[allow(missing_docs)]
         getOperatorPreferences(getOperatorPreferencesCall),
@@ -35936,6 +37826,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         #[allow(missing_docs)]
         setDefaultTntMinExposureBps(setDefaultTntMinExposureBpsCall),
         #[allow(missing_docs)]
+        setJobEventRates(setJobEventRatesCall),
+        #[allow(missing_docs)]
         setMBSMRegistry(setMBSMRegistryCall),
         #[allow(missing_docs)]
         setMaxBlueprintsPerOperator(setMaxBlueprintsPerOperatorCall),
@@ -35965,6 +37857,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         submitAggregatedResult(submitAggregatedResultCall),
         #[allow(missing_docs)]
         submitJob(submitJobCall),
+        #[allow(missing_docs)]
+        submitJobFromQuote(submitJobFromQuoteCall),
         #[allow(missing_docs)]
         submitResult(submitResultCall),
         #[allow(missing_docs)]
@@ -35996,6 +37890,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         ///
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
+            [3u8, 141u8, 218u8, 108u8],
             [4u8, 114u8, 210u8, 255u8],
             [5u8, 187u8, 58u8, 163u8],
             [6u8, 7u8, 157u8, 197u8],
@@ -36051,6 +37946,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [119u8, 56u8, 12u8, 116u8],
             [120u8, 134u8, 122u8, 22u8],
             [120u8, 214u8, 107u8, 227u8],
+            [125u8, 42u8, 107u8, 89u8],
             [128u8, 172u8, 130u8, 40u8],
             [129u8, 93u8, 106u8, 38u8],
             [132u8, 37u8, 36u8, 187u8],
@@ -36083,6 +37979,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [184u8, 23u8, 65u8, 172u8],
             [184u8, 233u8, 240u8, 208u8],
             [187u8, 32u8, 127u8, 31u8],
+            [193u8, 215u8, 19u8, 4u8],
             [195u8, 37u8, 174u8, 18u8],
             [198u8, 2u8, 212u8, 250u8],
             [203u8, 216u8, 218u8, 99u8],
@@ -36107,11 +38004,14 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             [243u8, 47u8, 150u8, 115u8],
             [245u8, 171u8, 22u8, 204u8],
             [248u8, 72u8, 104u8, 219u8],
+            [249u8, 51u8, 59u8, 177u8],
             [251u8, 204u8, 123u8, 61u8],
+            [252u8, 167u8, 141u8, 45u8],
             [255u8, 20u8, 169u8, 64u8],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(getJobQuotedOperators),
             ::core::stringify!(proposeSlash),
             ::core::stringify!(getServiceRequestSecurityCommitments),
             ::core::stringify!(cancelSlash),
@@ -36167,6 +38067,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(disputeSlash),
             ::core::stringify!(setSlashConfig),
             ::core::stringify!(setDefaultTntMinExposureBps),
+            ::core::stringify!(submitJobFromQuote),
             ::core::stringify!(pendingRewards_1),
             ::core::stringify!(addPermittedCaller),
             ::core::stringify!(getServiceOperator),
@@ -36199,6 +38100,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(setPaymentSplit),
             ::core::stringify!(extendServiceFromQuotes),
             ::core::stringify!(getServiceOperators),
+            ::core::stringify!(setJobEventRates),
             ::core::stringify!(submitAggregatedResult),
             ::core::stringify!(blueprintCount),
             ::core::stringify!(cancelExit),
@@ -36223,11 +38125,14 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(getOperatorPreferences),
             ::core::stringify!(rewardTokens),
             ::core::stringify!(createBlueprint),
+            ::core::stringify!(getJobEventRate),
             ::core::stringify!(setServiceFeeDistributor),
+            ::core::stringify!(getJobQuotedPrice),
             ::core::stringify!(blueprintMasterRevision),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
+            <getJobQuotedOperatorsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <proposeSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceRequestSecurityCommitmentsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <cancelSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -36283,6 +38188,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <disputeSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setSlashConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setDefaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <submitJobFromQuoteCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pendingRewards_1Call as alloy_sol_types::SolCall>::SIGNATURE,
             <addPermittedCallerCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -36315,6 +38221,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <setPaymentSplitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <extendServiceFromQuotesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceOperatorsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setJobEventRatesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <submitAggregatedResultCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <cancelExitCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -36339,7 +38246,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <getOperatorPreferencesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <rewardTokensCall as alloy_sol_types::SolCall>::SIGNATURE,
             <createBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getJobEventRateCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getJobQuotedPriceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintMasterRevisionCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -36367,7 +38276,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
     impl alloy_sol_types::SolInterface for ITangleFullCalls {
         const NAME: &'static str = "ITangleFullCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 113usize;
+        const COUNT: usize = 118usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -36493,6 +38402,15 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::getJobCall(_) => {
                     <getJobCallCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getJobEventRate(_) => {
+                    <getJobEventRateCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getJobQuotedOperators(_) => {
+                    <getJobQuotedOperatorsCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getJobQuotedPrice(_) => {
+                    <getJobQuotedPriceCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::getOperatorBlsPubkey(_) => {
                     <getOperatorBlsPubkeyCall as alloy_sol_types::SolCall>::SELECTOR
@@ -36630,6 +38548,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 Self::setDefaultTntMinExposureBps(_) => {
                     <setDefaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::setJobEventRates(_) => {
+                    <setJobEventRatesCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::setMBSMRegistry(_) => {
                     <setMBSMRegistryCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -36674,6 +38595,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::submitJob(_) => {
                     <submitJobCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::submitJobFromQuote(_) => {
+                    <submitJobFromQuoteCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::submitResult(_) => {
                     <submitResultCall as alloy_sol_types::SolCall>::SELECTOR
@@ -36721,6 +38645,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             static DECODE_SHIMS: &[fn(
                 &[u8],
             ) -> alloy_sol_types::Result<ITangleFullCalls>] = &[
+                {
+                    fn getJobQuotedOperators(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getJobQuotedOperatorsCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getJobQuotedOperators)
+                    }
+                    getJobQuotedOperators
+                },
                 {
                     fn proposeSlash(
                         data: &[u8],
@@ -37321,6 +39256,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     setDefaultTntMinExposureBps
                 },
                 {
+                    fn submitJobFromQuote(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <submitJobFromQuoteCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::submitJobFromQuote)
+                    }
+                    submitJobFromQuote
+                },
+                {
                     fn pendingRewards_1(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -37667,6 +39613,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     getServiceOperators
                 },
                 {
+                    fn setJobEventRates(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <setJobEventRatesCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::setJobEventRates)
+                    }
+                    setJobEventRates
+                },
+                {
                     fn submitAggregatedResult(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -37929,6 +39886,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     createBlueprint
                 },
                 {
+                    fn getJobEventRate(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getJobEventRateCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getJobEventRate)
+                    }
+                    getJobEventRate
+                },
+                {
                     fn setServiceFeeDistributor(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -37938,6 +39906,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::setServiceFeeDistributor)
                     }
                     setServiceFeeDistributor
+                },
+                {
+                    fn getJobQuotedPrice(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getJobQuotedPriceCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getJobQuotedPrice)
+                    }
+                    getJobQuotedPrice
                 },
                 {
                     fn blueprintMasterRevision(
@@ -37970,6 +39949,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
             ) -> alloy_sol_types::Result<ITangleFullCalls>] = &[
+                {
+                    fn getJobQuotedOperators(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getJobQuotedOperatorsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getJobQuotedOperators)
+                    }
+                    getJobQuotedOperators
+                },
                 {
                     fn proposeSlash(
                         data: &[u8],
@@ -38576,6 +40566,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     setDefaultTntMinExposureBps
                 },
                 {
+                    fn submitJobFromQuote(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <submitJobFromQuoteCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::submitJobFromQuote)
+                    }
+                    submitJobFromQuote
+                },
+                {
                     fn pendingRewards_1(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -38926,6 +40927,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     getServiceOperators
                 },
                 {
+                    fn setJobEventRates(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <setJobEventRatesCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::setJobEventRates)
+                    }
+                    setJobEventRates
+                },
+                {
                     fn submitAggregatedResult(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -39190,6 +41202,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     createBlueprint
                 },
                 {
+                    fn getJobEventRate(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getJobEventRateCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getJobEventRate)
+                    }
+                    getJobEventRate
+                },
+                {
                     fn setServiceFeeDistributor(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -39199,6 +41222,17 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             .map(ITangleFullCalls::setServiceFeeDistributor)
                     }
                     setServiceFeeDistributor
+                },
+                {
+                    fn getJobQuotedPrice(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <getJobQuotedPriceCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::getJobQuotedPrice)
+                    }
+                    getJobQuotedPrice
                 },
                 {
                     fn blueprintMasterRevision(
@@ -39423,6 +41457,21 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::getJobCall(inner) => {
                     <getJobCallCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                }
+                Self::getJobEventRate(inner) => {
+                    <getJobEventRateCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::getJobQuotedOperators(inner) => {
+                    <getJobQuotedOperatorsCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::getJobQuotedPrice(inner) => {
+                    <getJobQuotedPriceCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::getOperatorBlsPubkey(inner) => {
                     <getOperatorBlsPubkeyCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -39650,6 +41699,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         inner,
                     )
                 }
+                Self::setJobEventRates(inner) => {
+                    <setJobEventRatesCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::setMBSMRegistry(inner) => {
                     <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -39720,6 +41774,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 }
                 Self::submitJob(inner) => {
                     <submitJobCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                }
+                Self::submitJobFromQuote(inner) => {
+                    <submitJobFromQuoteCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::submitResult(inner) => {
                     <submitResultCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -40021,6 +42080,24 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         out,
                     )
                 }
+                Self::getJobEventRate(inner) => {
+                    <getJobEventRateCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getJobQuotedOperators(inner) => {
+                    <getJobQuotedOperatorsCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getJobQuotedPrice(inner) => {
+                    <getJobQuotedPriceCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::getOperatorBlsPubkey(inner) => {
                     <getOperatorBlsPubkeyCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -40294,6 +42371,12 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         out,
                     )
                 }
+                Self::setJobEventRates(inner) => {
+                    <setJobEventRatesCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::setMBSMRegistry(inner) => {
                     <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -40384,6 +42467,12 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                         out,
                     )
                 }
+                Self::submitJobFromQuote(inner) => {
+                    <submitJobFromQuoteCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::submitResult(inner) => {
                     <submitResultCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -40469,6 +42558,8 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
         JobResultSubmitted(JobResultSubmitted),
         #[allow(missing_docs)]
         JobSubmitted(JobSubmitted),
+        #[allow(missing_docs)]
+        JobSubmittedFromQuote(JobSubmittedFromQuote),
         #[allow(missing_docs)]
         OperatorJoinedService(OperatorJoinedService),
         #[allow(missing_docs)]
@@ -40580,6 +42671,11 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 243u8, 6u8, 141u8, 250u8, 213u8, 40u8, 166u8, 94u8, 227u8, 199u8,
             ],
             [
+                183u8, 7u8, 37u8, 154u8, 138u8, 22u8, 4u8, 173u8, 202u8, 37u8, 31u8,
+                236u8, 248u8, 78u8, 178u8, 131u8, 50u8, 156u8, 212u8, 81u8, 117u8, 105u8,
+                13u8, 203u8, 143u8, 241u8, 207u8, 82u8, 166u8, 37u8, 36u8, 34u8,
+            ],
+            [
                 186u8, 202u8, 70u8, 138u8, 82u8, 103u8, 11u8, 119u8, 215u8, 77u8, 4u8,
                 35u8, 179u8, 58u8, 197u8, 34u8, 122u8, 127u8, 26u8, 92u8, 84u8, 142u8,
                 7u8, 0u8, 107u8, 41u8, 198u8, 226u8, 40u8, 151u8, 121u8, 166u8,
@@ -40636,6 +42732,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             ::core::stringify!(JobResultSubmitted),
             ::core::stringify!(OperatorLeftService),
             ::core::stringify!(RewardsClaimed),
+            ::core::stringify!(JobSubmittedFromQuote),
             ::core::stringify!(OperatorPreferencesUpdated),
             ::core::stringify!(ServiceRequested),
             ::core::stringify!(ServiceRejected),
@@ -40661,6 +42758,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
             <JobResultSubmitted as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorLeftService as alloy_sol_types::SolEvent>::SIGNATURE,
             <RewardsClaimed as alloy_sol_types::SolEvent>::SIGNATURE,
+            <JobSubmittedFromQuote as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorPreferencesUpdated as alloy_sol_types::SolEvent>::SIGNATURE,
             <ServiceRequested as alloy_sol_types::SolEvent>::SIGNATURE,
             <ServiceRejected as alloy_sol_types::SolEvent>::SIGNATURE,
@@ -40694,7 +42792,7 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for ITangleFullEvents {
         const NAME: &'static str = "ITangleFullEvents";
-        const COUNT: usize = 22usize;
+        const COUNT: usize = 23usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -40754,6 +42852,15 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                             data,
                         )
                         .map(Self::JobSubmitted)
+                }
+                Some(
+                    <JobSubmittedFromQuote as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <JobSubmittedFromQuote as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::JobSubmittedFromQuote)
                 }
                 Some(
                     <OperatorJoinedService as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
@@ -40915,6 +43022,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                 Self::JobSubmitted(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
+                Self::JobSubmittedFromQuote(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
                 Self::OperatorJoinedService(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -40983,6 +43093,9 @@ function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicK
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::JobSubmitted(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
+                Self::JobSubmittedFromQuote(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::OperatorJoinedService(inner) => {
@@ -41636,6 +43749,47 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
+        ///Creates a new call builder for the [`getJobEventRate`] function.
+        pub fn getJobEventRate(
+            &self,
+            blueprintId: u64,
+            jobIndex: u8,
+        ) -> alloy_contract::SolCallBuilder<&P, getJobEventRateCall, N> {
+            self.call_builder(
+                &getJobEventRateCall {
+                    blueprintId,
+                    jobIndex,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`getJobQuotedOperators`] function.
+        pub fn getJobQuotedOperators(
+            &self,
+            serviceId: u64,
+            callId: u64,
+        ) -> alloy_contract::SolCallBuilder<&P, getJobQuotedOperatorsCall, N> {
+            self.call_builder(
+                &getJobQuotedOperatorsCall {
+                    serviceId,
+                    callId,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`getJobQuotedPrice`] function.
+        pub fn getJobQuotedPrice(
+            &self,
+            serviceId: u64,
+            callId: u64,
+            operator: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, getJobQuotedPriceCall, N> {
+            self.call_builder(
+                &getJobQuotedPriceCall {
+                    serviceId,
+                    callId,
+                    operator,
+                },
+            )
+        }
         ///Creates a new call builder for the [`getOperatorBlsPubkey`] function.
         pub fn getOperatorBlsPubkey(
             &self,
@@ -42156,6 +44310,23 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
+        ///Creates a new call builder for the [`setJobEventRates`] function.
+        pub fn setJobEventRates(
+            &self,
+            blueprintId: u64,
+            jobIndexes: alloy::sol_types::private::Vec<u8>,
+            rates: alloy::sol_types::private::Vec<
+                alloy::sol_types::private::primitives::aliases::U256,
+            >,
+        ) -> alloy_contract::SolCallBuilder<&P, setJobEventRatesCall, N> {
+            self.call_builder(
+                &setJobEventRatesCall {
+                    blueprintId,
+                    jobIndexes,
+                    rates,
+                },
+            )
+        }
         ///Creates a new call builder for the [`setMBSMRegistry`] function.
         pub fn setMBSMRegistry(
             &self,
@@ -42304,6 +44475,25 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     serviceId,
                     jobIndex,
                     inputs,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`submitJobFromQuote`] function.
+        pub fn submitJobFromQuote(
+            &self,
+            serviceId: u64,
+            jobIndex: u8,
+            inputs: alloy::sol_types::private::Bytes,
+            quotes: alloy::sol_types::private::Vec<
+                <Types::SignedJobQuote as alloy::sol_types::SolType>::RustType,
+            >,
+        ) -> alloy_contract::SolCallBuilder<&P, submitJobFromQuoteCall, N> {
+            self.call_builder(
+                &submitJobFromQuoteCall {
+                    serviceId,
+                    jobIndex,
+                    inputs,
+                    quotes,
                 },
             )
         }
@@ -42466,6 +44656,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ///Creates a new event filter for the [`JobSubmitted`] event.
         pub fn JobSubmitted_filter(&self) -> alloy_contract::Event<&P, JobSubmitted, N> {
             self.event_filter::<JobSubmitted>()
+        }
+        ///Creates a new event filter for the [`JobSubmittedFromQuote`] event.
+        pub fn JobSubmittedFromQuote_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, JobSubmittedFromQuote, N> {
+            self.event_filter::<JobSubmittedFromQuote>()
         }
         ///Creates a new event filter for the [`OperatorJoinedService`] event.
         pub fn OperatorJoinedService_filter(

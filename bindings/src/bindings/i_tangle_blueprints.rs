@@ -4597,6 +4597,8 @@ interface ITangleBlueprints {
     function getBlueprint(uint64 blueprintId) external view returns (Types.Blueprint memory);
     function getBlueprintConfig(uint64 blueprintId) external view returns (Types.BlueprintConfig memory);
     function getBlueprintDefinition(uint64 blueprintId) external view returns (Types.BlueprintDefinition memory definition);
+    function getJobEventRate(uint64 blueprintId, uint8 jobIndex) external view returns (uint256 rate);
+    function setJobEventRates(uint64 blueprintId, uint8[] memory jobIndexes, uint256[] memory rates) external;
     function transferBlueprint(uint64 blueprintId, address newOwner) external;
     function updateBlueprint(uint64 blueprintId, string memory metadataUri) external;
 }
@@ -5644,6 +5646,53 @@ interface ITangleBlueprints {
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getJobEventRate",
+    "inputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "jobIndex",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "rate",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setJobEventRates",
+    "inputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "jobIndexes",
+        "type": "uint8[]",
+        "internalType": "uint8[]"
+      },
+      {
+        "name": "rates",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -8027,6 +8076,354 @@ function getBlueprintDefinition(uint64 blueprintId) external view returns (Types
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getJobEventRate(uint64,uint8)` and selector `0xf9333bb1`.
+```solidity
+function getJobEventRate(uint64 blueprintId, uint8 jobIndex) external view returns (uint256 rate);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getJobEventRateCall {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub jobIndex: u8,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getJobEventRate(uint64,uint8)`](getJobEventRateCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getJobEventRateReturn {
+        #[allow(missing_docs)]
+        pub rate: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<8>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64, u8);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getJobEventRateCall> for UnderlyingRustTuple<'_> {
+                fn from(value: getJobEventRateCall) -> Self {
+                    (value.blueprintId, value.jobIndex)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for getJobEventRateCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        blueprintId: tuple.0,
+                        jobIndex: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getJobEventRateReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getJobEventRateReturn) -> Self {
+                    (value.rate,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getJobEventRateReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { rate: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getJobEventRateCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<8>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getJobEventRate(uint64,uint8)";
+            const SELECTOR: [u8; 4] = [249u8, 51u8, 59u8, 177u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(&self.jobIndex),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getJobEventRateReturn = r.into();
+                        r.rate
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getJobEventRateReturn = r.into();
+                        r.rate
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `setJobEventRates(uint64,uint8[],uint256[])` and selector `0xc1d71304`.
+```solidity
+function setJobEventRates(uint64 blueprintId, uint8[] memory jobIndexes, uint256[] memory rates) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setJobEventRatesCall {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub jobIndexes: alloy::sol_types::private::Vec<u8>,
+        #[allow(missing_docs)]
+        pub rates: alloy::sol_types::private::Vec<
+            alloy::sol_types::private::primitives::aliases::U256,
+        >,
+    }
+    ///Container type for the return parameters of the [`setJobEventRates(uint64,uint8[],uint256[])`](setJobEventRatesCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct setJobEventRatesReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<8>>,
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<256>>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                u64,
+                alloy::sol_types::private::Vec<u8>,
+                alloy::sol_types::private::Vec<
+                    alloy::sol_types::private::primitives::aliases::U256,
+                >,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setJobEventRatesCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setJobEventRatesCall) -> Self {
+                    (value.blueprintId, value.jobIndexes, value.rates)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setJobEventRatesCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        blueprintId: tuple.0,
+                        jobIndexes: tuple.1,
+                        rates: tuple.2,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<setJobEventRatesReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: setJobEventRatesReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setJobEventRatesReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl setJobEventRatesReturn {
+            fn _tokenize(
+                &self,
+            ) -> <setJobEventRatesCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for setJobEventRatesCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<8>>,
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<256>>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = setJobEventRatesReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "setJobEventRates(uint64,uint8[],uint256[])";
+            const SELECTOR: [u8; 4] = [193u8, 215u8, 19u8, 4u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Uint<8>,
+                    > as alloy_sol_types::SolType>::tokenize(&self.jobIndexes),
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Uint<256>,
+                    > as alloy_sol_types::SolType>::tokenize(&self.rates),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                setJobEventRatesReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `transferBlueprint(uint64,address)` and selector `0x8a4cf763`.
 ```solidity
 function transferBlueprint(uint64 blueprintId, address newOwner) external;
@@ -8375,6 +8772,10 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
         #[allow(missing_docs)]
         getBlueprintDefinition(getBlueprintDefinitionCall),
         #[allow(missing_docs)]
+        getJobEventRate(getJobEventRateCall),
+        #[allow(missing_docs)]
+        setJobEventRates(setJobEventRatesCall),
+        #[allow(missing_docs)]
         transferBlueprint(transferBlueprintCall),
         #[allow(missing_docs)]
         updateBlueprint(updateBlueprintCall),
@@ -8395,10 +8796,12 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             [138u8, 76u8, 247u8, 99u8],
             [141u8, 63u8, 101u8, 190u8],
             [183u8, 105u8, 109u8, 187u8],
+            [193u8, 215u8, 19u8, 4u8],
             [198u8, 2u8, 212u8, 250u8],
             [223u8, 87u8, 245u8, 39u8],
             [229u8, 56u8, 218u8, 102u8],
             [248u8, 72u8, 104u8, 219u8],
+            [249u8, 51u8, 59u8, 177u8],
             [255u8, 20u8, 169u8, 64u8],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
@@ -8411,10 +8814,12 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             ::core::stringify!(transferBlueprint),
             ::core::stringify!(blueprintOperatorCount),
             ::core::stringify!(getBlueprint),
+            ::core::stringify!(setJobEventRates),
             ::core::stringify!(blueprintCount),
             ::core::stringify!(blueprintSupportedMemberships),
             ::core::stringify!(updateBlueprint),
             ::core::stringify!(createBlueprint),
+            ::core::stringify!(getJobEventRate),
             ::core::stringify!(blueprintMasterRevision),
         ];
         /// The signatures in the same order as `SELECTORS`.
@@ -8427,10 +8832,12 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             <transferBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintOperatorCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setJobEventRatesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintSupportedMembershipsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <updateBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <createBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getJobEventRateCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintMasterRevisionCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -8458,7 +8865,7 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
     impl alloy_sol_types::SolInterface for ITangleBlueprintsCalls {
         const NAME: &'static str = "ITangleBlueprintsCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 13usize;
+        const COUNT: usize = 15usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -8494,6 +8901,12 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                 }
                 Self::getBlueprintDefinition(_) => {
                     <getBlueprintDefinitionCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getJobEventRate(_) => {
+                    <getJobEventRateCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::setJobEventRates(_) => {
+                    <setJobEventRatesCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::transferBlueprint(_) => {
                     <transferBlueprintCall as alloy_sol_types::SolCall>::SELECTOR
@@ -8609,6 +9022,17 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                     getBlueprint
                 },
                 {
+                    fn setJobEventRates(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
+                        <setJobEventRatesCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleBlueprintsCalls::setJobEventRates)
+                    }
+                    setJobEventRates
+                },
+                {
                     fn blueprintCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
@@ -8651,6 +9075,17 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                             .map(ITangleBlueprintsCalls::createBlueprint)
                     }
                     createBlueprint
+                },
+                {
+                    fn getJobEventRate(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
+                        <getJobEventRateCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleBlueprintsCalls::getJobEventRate)
+                    }
+                    getJobEventRate
                 },
                 {
                     fn blueprintMasterRevision(
@@ -8772,6 +9207,17 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                     getBlueprint
                 },
                 {
+                    fn setJobEventRates(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
+                        <setJobEventRatesCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleBlueprintsCalls::setJobEventRates)
+                    }
+                    setJobEventRates
+                },
+                {
                     fn blueprintCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
@@ -8814,6 +9260,17 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                             .map(ITangleBlueprintsCalls::createBlueprint)
                     }
                     createBlueprint
+                },
+                {
+                    fn getJobEventRate(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
+                        <getJobEventRateCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleBlueprintsCalls::getJobEventRate)
+                    }
+                    getJobEventRate
                 },
                 {
                     fn blueprintMasterRevision(
@@ -8895,6 +9352,16 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                         inner,
                     )
                 }
+                Self::getJobEventRate(inner) => {
+                    <getJobEventRateCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::setJobEventRates(inner) => {
+                    <setJobEventRatesCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::transferBlueprint(inner) => {
                     <transferBlueprintCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -8972,6 +9439,18 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                 }
                 Self::getBlueprintDefinition(inner) => {
                     <getBlueprintDefinitionCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getJobEventRate(inner) => {
+                    <getJobEventRateCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::setJobEventRates(inner) => {
+                    <setJobEventRatesCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -9421,6 +9900,36 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             self.call_builder(
                 &getBlueprintDefinitionCall {
                     blueprintId,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`getJobEventRate`] function.
+        pub fn getJobEventRate(
+            &self,
+            blueprintId: u64,
+            jobIndex: u8,
+        ) -> alloy_contract::SolCallBuilder<&P, getJobEventRateCall, N> {
+            self.call_builder(
+                &getJobEventRateCall {
+                    blueprintId,
+                    jobIndex,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`setJobEventRates`] function.
+        pub fn setJobEventRates(
+            &self,
+            blueprintId: u64,
+            jobIndexes: alloy::sol_types::private::Vec<u8>,
+            rates: alloy::sol_types::private::Vec<
+                alloy::sol_types::private::primitives::aliases::U256,
+            >,
+        ) -> alloy_contract::SolCallBuilder<&P, setJobEventRatesCall, N> {
+            self.call_builder(
+                &setJobEventRatesCall {
+                    blueprintId,
+                    jobIndexes,
+                    rates,
                 },
             )
         }
