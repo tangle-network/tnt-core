@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FIXTURES_DIR="${FIXTURES_DIR:-$ROOT_DIR/fixtures/fixtures}"
 STATE_PATH="${ANVIL_STATE_PATH:-$FIXTURES_DIR/localtestnet-state.json}"
 BROADCAST_PATH="${BROADCAST_PATH:-$FIXTURES_DIR/localtestnet-broadcast.json}"
@@ -53,7 +53,7 @@ for attempt in {1..60}; do
 done
 
 echo "Running LocalTestnet.s.sol broadcast via forge (logs: $FORGE_LOG)"
-if ! forge script script/v2/LocalTestnet.s.sol:LocalTestnetSetup \
+if ! forge script script/LocalTestnet.s.sol:LocalTestnetSetup \
   --rpc-url "$ANVIL_URL" \
   --broadcast \
   --slow \
