@@ -205,6 +205,15 @@ library Errors {
     /// @notice Operator already submitted result for this job
     error ResultAlreadySubmitted(uint64 serviceId, uint64 callId, address operator);
 
+    /// @notice Job quote serviceId does not match submission serviceId
+    error JobQuoteServiceMismatch(uint64 expected, uint64 quoted);
+
+    /// @notice Job quote jobIndex does not match submission jobIndex
+    error JobQuoteJobIndexMismatch(uint8 expected, uint8 quoted);
+
+    /// @notice Only quoted operators can submit results for RFQ jobs
+    error NotQuotedOperator(uint64 serviceId, uint64 callId);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // PAYMENT
     // ═══════════════════════════════════════════════════════════════════════════
@@ -271,7 +280,7 @@ library Errors {
     error QuoteBlueprintMismatch(address operator, uint64 expectedBlueprint, uint64 quotedBlueprint);
 
     /// @notice Quote TTL mismatch
-error QuoteTTLMismatch(address operator, uint64 expectedTtl, uint64 quotedTtl);
+    error QuoteTTLMismatch(address operator, uint64 expectedTtl, uint64 quotedTtl);
 
     /// @notice No quotes provided
     error NoQuotes();

@@ -4,6 +4,7 @@ import type {
   Blueprint,
   EscrowBalance,
   JobCall,
+  JobEventRate,
   JobResult,
   Operator,
   OperatorIntent,
@@ -572,10 +573,35 @@ export function registerTangleHandlers() {
       inputs: toHexString(event.params.inputs),
       createdAt: timestamp,
       completed: false,
+      isRFQ: false,
     } as JobCall;
     context.JobCall.set(job);
     const points = getPointsManager(pointsContext(context), event);
     await points.award(job.caller, "service-activity", 1n, "job submitted");
+  });
+
+  Tangle.JobSubmittedFromQuote.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const service = await context.Service.get(toBigInt(event.params.serviceId).toString());
+    if (!service) return;
+    const callId = toBigInt(event.params.callId).toString();
+    const quotedOperators = (event.params.quotedOperators as string[]).map(normalizeAddress);
+    const job: JobCall = {
+      id: `${service.id}-${callId}`,
+      service_id: service.id,
+      callId: toBigInt(event.params.callId),
+      jobIndex: toNumber(event.params.jobIndex),
+      caller: normalizeAddress(event.params.caller),
+      inputs: toHexString(event.params.inputs),
+      createdAt: timestamp,
+      completed: false,
+      isRFQ: true,
+      totalPrice: toBigInt(event.params.totalPrice),
+      quotedOperators,
+    } as JobCall;
+    context.JobCall.set(job);
+    const points = getPointsManager(pointsContext(context), event);
+    await points.award(job.caller, "service-activity", 2n, "rfq job submitted");
   });
 
   Tangle.JobResultSubmitted.handler(async ({ event, context }) => {
@@ -627,6 +653,24 @@ export function registerTangleHandlers() {
     const owner = service?.owner ?? ZERO_ADDRESS;
     const points = getPointsManager(pointsContext(context), event);
     await points.award(owner, "service-activity", 1n, "aggregated result");
+  });
+
+  Tangle.JobEventRateSet.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const blueprintId = toBigInt(event.params.blueprintId).toString();
+    const blueprint = await context.Blueprint.get(blueprintId);
+    if (!blueprint) return;
+    const jobIndex = toNumber(event.params.jobIndex);
+    const id = `${blueprintId}-${jobIndex}`;
+    const rate: JobEventRate = {
+      id,
+      blueprint_id: blueprintId,
+      jobIndex,
+      rate: toBigInt(event.params.rate),
+      updatedAt: timestamp,
+      txHash: getTxHash(event),
+    } as JobEventRate;
+    context.JobEventRate.set(rate);
   });
 
   Tangle.EscrowFunded.handler(async ({ event, context }) => {

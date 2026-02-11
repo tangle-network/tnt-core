@@ -16,15 +16,12 @@ library SignatureLib {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev EIP-712 TypeHash for Asset
-    bytes32 internal constant ASSET_TYPEHASH = keccak256(
-        "Asset(uint8 kind,address token)"
-    );
+    bytes32 internal constant ASSET_TYPEHASH = keccak256("Asset(uint8 kind,address token)");
 
     /// @dev EIP-712 TypeHash for AssetSecurityCommitment
     /// @dev Includes nested Asset definition for EIP-712 type string completeness
-    bytes32 internal constant ASSET_SECURITY_COMMITMENT_TYPEHASH = keccak256(
-        "AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
-    );
+    bytes32 internal constant ASSET_SECURITY_COMMITMENT_TYPEHASH =
+        keccak256("AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)");
 
     /// @dev EIP-712 TypeHash for QuoteDetails
     /// @dev Replay protection is handled by marking digests as used
@@ -32,10 +29,13 @@ library SignatureLib {
         "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
     );
 
+    /// @dev EIP-712 TypeHash for JobQuoteDetails (per-job RFQ)
+    bytes32 internal constant JOB_QUOTE_TYPEHASH =
+        keccak256("JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry)");
+
     /// @dev EIP-712 TypeHash for domain separator
-    bytes32 internal constant DOMAIN_TYPEHASH = keccak256(
-        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-    );
+    bytes32 internal constant DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -52,15 +52,15 @@ library SignatureLib {
         string memory name,
         string memory version,
         address verifyingContract
-    ) internal view returns (bytes32) {
+    )
+        internal
+        view
+        returns (bytes32)
+    {
         // forge-lint: disable-next-line(asm-keccak256)
         return keccak256(
             abi.encode(
-                DOMAIN_TYPEHASH,
-                keccak256(bytes(name)),
-                keccak256(bytes(version)),
-                block.chainid,
-                verifyingContract
+                DOMAIN_TYPEHASH, keccak256(bytes(name)), keccak256(bytes(version)), block.chainid, verifyingContract
             )
         );
     }
@@ -86,9 +86,11 @@ library SignatureLib {
         );
     }
 
-    function hashSecurityCommitments(
-        Types.AssetSecurityCommitment[] memory commitments
-    ) internal pure returns (bytes32) {
+    function hashSecurityCommitments(Types.AssetSecurityCommitment[] memory commitments)
+        internal
+        pure
+        returns (bytes32)
+    {
         bytes32[] memory hashes = new bytes32[](commitments.length);
         for (uint256 i = 0; i < commitments.length; i++) {
             hashes[i] = hashSecurityCommitment(commitments[i]);
@@ -101,30 +103,22 @@ library SignatureLib {
         return out;
     }
 
-    function hashSecurityCommitment(
-        Types.AssetSecurityCommitment memory commitment
-    ) internal pure returns (bytes32) {
-        bytes32 assetHash = keccak256(
-            abi.encode(ASSET_TYPEHASH, commitment.asset.kind, commitment.asset.token)
-        );
-        return keccak256(
-            abi.encode(ASSET_SECURITY_COMMITMENT_TYPEHASH, assetHash, commitment.exposureBps)
-        );
+    function hashSecurityCommitment(Types.AssetSecurityCommitment memory commitment) internal pure returns (bytes32) {
+        bytes32 assetHash = keccak256(abi.encode(ASSET_TYPEHASH, commitment.asset.kind, commitment.asset.token));
+        return keccak256(abi.encode(ASSET_SECURITY_COMMITMENT_TYPEHASH, assetHash, commitment.exposureBps));
     }
 
     /// @notice Compute the full EIP-712 digest for a quote
     function computeQuoteDigest(
         bytes32 domainSeparator,
         Types.QuoteDetails memory details
-    ) internal pure returns (bytes32) {
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
         // forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                domainSeparator,
-                hashQuote(details)
-            )
-        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, hashQuote(details)));
     }
 
     /// @notice Verify quote and check it hasn't been used
@@ -132,8 +126,79 @@ library SignatureLib {
         mapping(bytes32 => bool) storage usedQuotes,
         bytes32 domainSeparator,
         Types.SignedQuote memory quote
-    ) internal {
+    )
+        internal
+    {
         bytes32 digest = computeQuoteDigest(domainSeparator, quote.details);
+
+        // Check not already used
+        if (usedQuotes[digest]) {
+            revert Errors.QuoteAlreadyUsed(quote.operator);
+        }
+
+        // Verify signature
+        address recovered = digest.recover(quote.signature);
+        if (recovered != quote.operator) {
+            revert Errors.InvalidQuoteSignature(quote.operator);
+        }
+
+        // Mark as used
+        usedQuotes[digest] = true;
+        emit QuoteUsed(quote.operator, digest);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // JOB QUOTE VERIFICATION (per-job RFQ)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Compute the hash of job quote details for signing
+    function hashJobQuote(Types.JobQuoteDetails memory details) internal pure returns (bytes32) {
+        // forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(
+            abi.encode(
+                JOB_QUOTE_TYPEHASH,
+                details.serviceId,
+                details.jobIndex,
+                details.price,
+                details.timestamp,
+                details.expiry
+            )
+        );
+    }
+
+    /// @notice Compute the full EIP-712 digest for a job quote
+    function computeJobQuoteDigest(
+        bytes32 domainSeparator,
+        Types.JobQuoteDetails memory details
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        // forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, hashJobQuote(details)));
+    }
+
+    /// @notice Verify job quote signature and mark as used (replay protection)
+    function verifyAndMarkJobQuoteUsed(
+        mapping(bytes32 => bool) storage usedQuotes,
+        bytes32 domainSeparator,
+        Types.SignedJobQuote memory quote,
+        uint64 maxQuoteAge
+    )
+        internal
+    {
+        // Check expiry
+        if (block.timestamp > quote.details.expiry) {
+            revert Errors.QuoteExpired(quote.operator, quote.details.expiry);
+        }
+
+        // Check timestamp freshness
+        if (maxQuoteAge > 0 && block.timestamp > quote.details.timestamp + maxQuoteAge) {
+            revert Errors.QuoteTimestampTooOld(quote.operator, quote.details.timestamp, maxQuoteAge);
+        }
+
+        bytes32 digest = computeJobQuoteDigest(domainSeparator, quote.details);
 
         // Check not already used
         if (usedQuotes[digest]) {
@@ -162,7 +227,10 @@ library SignatureLib {
         Types.SignedQuote[] memory quotes,
         uint64 blueprintId,
         uint64 ttl
-    ) internal returns (uint256 totalCost, address[] memory operators) {
+    )
+        internal
+        returns (uint256 totalCost, address[] memory operators)
+    {
         if (quotes.length == 0) {
             revert Errors.NoQuotes();
         }
@@ -182,19 +250,11 @@ library SignatureLib {
 
             // Validate quote parameters match request
             if (quote.details.blueprintId != blueprintId) {
-                revert Errors.QuoteBlueprintMismatch(
-                    quote.operator,
-                    blueprintId,
-                    quote.details.blueprintId
-                );
+                revert Errors.QuoteBlueprintMismatch(quote.operator, blueprintId, quote.details.blueprintId);
             }
 
             if (quote.details.ttlBlocks != ttl) {
-                revert Errors.QuoteTTLMismatch(
-                    quote.operator,
-                    ttl,
-                    quote.details.ttlBlocks
-                );
+                revert Errors.QuoteTTLMismatch(quote.operator, ttl, quote.details.ttlBlocks);
             }
 
             // Check expiry

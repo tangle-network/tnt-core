@@ -33,6 +33,7 @@ import { TangleServicesFacet } from "../src/facets/tangle/TangleServicesFacet.so
 import { TangleServicesLifecycleFacet } from "../src/facets/tangle/TangleServicesLifecycleFacet.sol";
 import { TangleJobsFacet } from "../src/facets/tangle/TangleJobsFacet.sol";
 import { TangleJobsAggregationFacet } from "../src/facets/tangle/TangleJobsAggregationFacet.sol";
+import { TangleJobsRFQFacet } from "../src/facets/tangle/TangleJobsRFQFacet.sol";
 import { TangleQuotesFacet } from "../src/facets/tangle/TangleQuotesFacet.sol";
 import { TangleQuotesExtensionFacet } from "../src/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../src/facets/tangle/TanglePaymentsFacet.sol";
@@ -1055,6 +1056,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         router.registerFacet(address(new TangleServicesLifecycleFacet()));
         router.registerFacet(address(new TangleJobsFacet()));
         router.registerFacet(address(new TangleJobsAggregationFacet()));
+        router.registerFacet(address(new TangleJobsRFQFacet()));
         router.registerFacet(address(new TangleQuotesFacet()));
         router.registerFacet(address(new TangleQuotesExtensionFacet()));
         router.registerFacet(address(new TanglePaymentsFacet()));

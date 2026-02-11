@@ -21,10 +21,7 @@ abstract contract JobsAggregation is Base {
 
     event JobCompleted(uint64 indexed serviceId, uint64 indexed callId);
     event AggregatedResultSubmitted(
-        uint64 indexed serviceId,
-        uint64 indexed callId,
-        uint256 signerBitmap,
-        bytes output
+        uint64 indexed serviceId, uint64 indexed callId, uint256 signerBitmap, bytes output
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -46,7 +43,11 @@ abstract contract JobsAggregation is Base {
         uint256 signerBitmap,
         uint256[2] calldata aggregatedSignature,
         uint256[4] calldata aggregatedPubkey
-    ) external whenNotPaused nonReentrant {
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         (Types.Service storage svc, Types.JobCall storage job, Types.Blueprint storage bp) =
             _loadServiceJobAndBlueprint(serviceId, callId);
 
@@ -58,15 +59,7 @@ abstract contract JobsAggregation is Base {
         _verifyAggregatedSignature(serviceId, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey);
 
         _finalizeAggregatedResult(
-            svc,
-            job,
-            bp,
-            serviceId,
-            callId,
-            signerBitmap,
-            output,
-            aggregatedSignature,
-            aggregatedPubkey
+            svc, job, bp, serviceId, callId, signerBitmap, output, aggregatedSignature, aggregatedPubkey
         );
     }
 
@@ -80,7 +73,9 @@ abstract contract JobsAggregation is Base {
         bytes calldata output,
         uint256[2] calldata aggregatedSignature,
         uint256[4] calldata aggregatedPubkey
-    ) private {
+    )
+        private
+    {
         job.completed = true;
 
         emit AggregatedResultSubmitted(serviceId, callId, signerBitmap, output);
@@ -89,19 +84,16 @@ abstract contract JobsAggregation is Base {
         _recordAggregatedJobCompletion(serviceId, callId, signerBitmap);
 
         if (svc.pricing == Types.PricingModel.EventDriven && job.payment > 0) {
-            _distributeJobPayment(serviceId, job.payment);
+            if (job.isRFQ) {
+                _distributeRFQJobPayment(serviceId, callId, job.payment);
+            } else {
+                _distributeJobPayment(serviceId, job.payment);
+            }
         }
 
         if (bp.manager != address(0)) {
             _notifyManagerAggregatedResult(
-                bp.manager,
-                job.jobIndex,
-                serviceId,
-                callId,
-                output,
-                signerBitmap,
-                aggregatedSignature,
-                aggregatedPubkey
+                bp.manager, job.jobIndex, serviceId, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey
             );
         }
     }
@@ -115,27 +107,21 @@ abstract contract JobsAggregation is Base {
         uint256 signerBitmap,
         uint256[2] calldata aggregatedSignature,
         uint256[4] calldata aggregatedPubkey
-    ) private {
-        try IBlueprintServiceManager(manager).onAggregatedResult(
-            serviceId,
-            jobIndex,
-            callId,
-            output,
-            signerBitmap,
-            aggregatedSignature,
-            aggregatedPubkey
-        ) {} catch {}
+    )
+        private
+    {
+        try IBlueprintServiceManager(manager)
+            .onAggregatedResult(
+                serviceId, jobIndex, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey
+            ) { }
+            catch { }
     }
 
     /// @notice Record job completion metrics for all signers in an aggregated result
     /// @param serviceId The service ID
     /// @param callId The job call ID
     /// @param signerBitmap Bitmap of operators who signed
-    function _recordAggregatedJobCompletion(
-        uint64 serviceId,
-        uint64 callId,
-        uint256 signerBitmap
-    ) internal {
+    function _recordAggregatedJobCompletion(uint64 serviceId, uint64 callId, uint256 signerBitmap) internal {
         if (_metricsRecorder == address(0)) return;
 
         address[] memory operators = _getServiceOperatorList(serviceId);
@@ -148,7 +134,10 @@ abstract contract JobsAggregation is Base {
         }
     }
 
-    function _loadServiceJobAndBlueprint(uint64 serviceId, uint64 callId)
+    function _loadServiceJobAndBlueprint(
+        uint64 serviceId,
+        uint64 callId
+    )
         private
         view
         returns (Types.Service storage svc, Types.JobCall storage job, Types.Blueprint storage bp)
@@ -165,7 +154,10 @@ abstract contract JobsAggregation is Base {
         Types.Service storage svc,
         Types.JobCall storage job,
         address manager
-    ) private view {
+    )
+        private
+        view
+    {
         if (job.completed) {
             revert Errors.JobAlreadyCompleted(serviceId, callId);
         }
@@ -181,13 +173,12 @@ abstract contract JobsAggregation is Base {
         uint64 callId,
         uint256 signerBitmap,
         AggregationConfig memory config
-    ) private view {
-        (uint256 achieved, uint256 required) = _validateSignersAndThreshold(
-            serviceId,
-            signerBitmap,
-            config.thresholdBps,
-            config.thresholdType
-        );
+    )
+        private
+        view
+    {
+        (uint256 achieved, uint256 required) =
+            _validateSignersAndThreshold(serviceId, signerBitmap, config.thresholdBps, config.thresholdType);
 
         if (achieved < required) {
             revert Errors.AggregationThresholdNotMet(serviceId, callId, achieved, required);
@@ -206,7 +197,11 @@ abstract contract JobsAggregation is Base {
         uint256 signerBitmap,
         uint16 thresholdBps,
         uint8 thresholdType
-    ) internal view returns (uint256 achieved, uint256 required) {
+    )
+        internal
+        view
+        returns (uint256 achieved, uint256 required)
+    {
         SignerStats memory stats = _computeSignerStats(serviceId, signerBitmap, thresholdType);
 
         if (thresholdType == 0) {
@@ -229,7 +224,11 @@ abstract contract JobsAggregation is Base {
         uint256 signerWeight;
     }
 
-    function _computeSignerStats(uint64 serviceId, uint256 signerBitmap, uint8 thresholdType)
+    function _computeSignerStats(
+        uint64 serviceId,
+        uint256 signerBitmap,
+        uint8 thresholdType
+    )
         private
         view
         returns (SignerStats memory stats)
@@ -261,31 +260,30 @@ abstract contract JobsAggregation is Base {
         address manager,
         uint64 serviceId,
         uint8 jobIndex
-    ) private view returns (AggregationConfig memory config) {
+    )
+        private
+        view
+        returns (AggregationConfig memory config)
+    {
         config.thresholdBps = DEFAULT_AGGREGATION_THRESHOLD_BPS;
-        config.thresholdType = 0;   // Default CountBased
+        config.thresholdType = 0; // Default CountBased
 
         if (manager != address(0)) {
             try IBlueprintServiceManager(manager).getAggregationThreshold(serviceId, jobIndex) returns (
-                uint16 thresholdBps,
-                uint8 thresholdType
+                uint16 thresholdBps, uint8 thresholdType
             ) {
                 config.thresholdBps = thresholdBps;
                 config.thresholdType = thresholdType;
-            } catch {}
+            } catch { }
         }
     }
 
-    function _ensureAggregationRequired(
-        address manager,
-        uint64 serviceId,
-        uint8 jobIndex
-    ) private view {
+    function _ensureAggregationRequired(address manager, uint64 serviceId, uint8 jobIndex) private view {
         bool required;
         if (manager != address(0)) {
             try IBlueprintServiceManager(manager).requiresAggregation(serviceId, jobIndex) returns (bool aggReq) {
                 required = aggReq;
-            } catch {}
+            } catch { }
         }
         if (!required) {
             revert Errors.AggregationNotRequired(serviceId, jobIndex);
@@ -299,11 +297,13 @@ abstract contract JobsAggregation is Base {
         uint256 signerBitmap,
         uint256[2] calldata aggregatedSignature,
         uint256[4] calldata aggregatedPubkey
-    ) private view {
+    )
+        private
+        view
+    {
         Types.BN254G1Point memory sig = Types.BN254G1Point(aggregatedSignature[0], aggregatedSignature[1]);
         Types.BN254G2Point memory providedPubkey = Types.BN254G2Point(
-            [aggregatedPubkey[0], aggregatedPubkey[1]],
-            [aggregatedPubkey[2], aggregatedPubkey[3]]
+            [aggregatedPubkey[0], aggregatedPubkey[1]], [aggregatedPubkey[2], aggregatedPubkey[3]]
         );
 
         // CRITICAL: Verify that the provided aggregated pubkey matches the expected pubkey
@@ -327,7 +327,11 @@ abstract contract JobsAggregation is Base {
     function _computeExpectedAggregatedPubkey(
         uint64 serviceId,
         uint256 signerBitmap
-    ) private view returns (Types.BN254G2Point memory aggregatedPubkey) {
+    )
+        private
+        view
+        returns (Types.BN254G2Point memory aggregatedPubkey)
+    {
         address[] memory operators = _getServiceOperatorList(serviceId);
         bool firstKey = true;
 
@@ -338,17 +342,12 @@ abstract contract JobsAggregation is Base {
 
                 // Verify the operator has a BLS key registered for this service
                 // A key is considered "not registered" if all components are zero
-                if (
-                    storedKey.key[0] == 0 && storedKey.key[1] == 0 &&
-                    storedKey.key[2] == 0 && storedKey.key[3] == 0
-                ) {
+                if (storedKey.key[0] == 0 && storedKey.key[1] == 0 && storedKey.key[2] == 0 && storedKey.key[3] == 0) {
                     revert Errors.OperatorBlsPubkeyNotRegistered(serviceId, operators[i]);
                 }
 
-                Types.BN254G2Point memory operatorPubkey = Types.BN254G2Point(
-                    [storedKey.key[0], storedKey.key[1]],
-                    [storedKey.key[2], storedKey.key[3]]
-                );
+                Types.BN254G2Point memory operatorPubkey =
+                    Types.BN254G2Point([storedKey.key[0], storedKey.key[1]], [storedKey.key[2], storedKey.key[3]]);
 
                 if (firstKey) {
                     aggregatedPubkey = operatorPubkey;
@@ -367,7 +366,11 @@ abstract contract JobsAggregation is Base {
     function _jobSchema(
         uint64 blueprintId,
         uint8 jobIndex
-    ) internal view returns (Types.StoredJobSchema storage schema) {
+    )
+        internal
+        view
+        returns (Types.StoredJobSchema storage schema)
+    {
         Types.StoredJobSchema[] storage schemas = _blueprintJobSchemas[blueprintId];
         if (jobIndex >= schemas.length) {
             revert Errors.InvalidJobIndex(jobIndex);
@@ -380,4 +383,7 @@ abstract contract JobsAggregation is Base {
 
     /// @notice Distribute payment for completed job - to be implemented in Payments mixin
     function _distributeJobPayment(uint64 serviceId, uint256 payment) internal virtual;
+
+    /// @notice Distribute payment for RFQ job to quoted operators at their individual prices
+    function _distributeRFQJobPayment(uint64 serviceId, uint64 callId, uint256 totalPayment) internal virtual;
 }
