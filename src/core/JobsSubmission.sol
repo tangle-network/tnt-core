@@ -32,16 +32,22 @@ abstract contract JobsSubmission is Base {
         uint64 serviceId,
         uint8 jobIndex,
         bytes calldata inputs
-    ) external payable whenNotPaused nonReentrant returns (uint64 callId) {
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (uint64 callId)
+    {
         (Types.Service storage svc, Types.Blueprint storage bp) = _loadServiceAndBlueprint(serviceId);
 
         _validateServiceForSubmission(svc, serviceId);
         _requirePermittedCaller(serviceId, msg.sender);
 
-        uint256 payment = _collectJobPaymentIfNeeded(svc, serviceId, msg.value, msg.sender);
+        uint256 payment = _collectJobPaymentIfNeeded(svc, serviceId, jobIndex, msg.value, msg.sender);
         _validateJobInputs(svc.blueprintId, jobIndex, inputs);
 
-        callId = _createJobCall(serviceId, jobIndex, msg.sender, payment);
+        callId = _createJobCall(serviceId, jobIndex, msg.sender, payment, false);
         bytes memory managerInputs = inputs;
         _jobInputs[serviceId][callId] = managerInputs;
 
@@ -50,11 +56,7 @@ abstract contract JobsSubmission is Base {
 
     /// @notice Submit job result
     /// @dev Reverts if this job requires BLS aggregation (use submitAggregatedResult instead)
-    function submitResult(
-        uint64 serviceId,
-        uint64 callId,
-        bytes calldata output
-    ) external whenNotPaused nonReentrant {
+    function submitResult(uint64 serviceId, uint64 callId, bytes calldata output) external whenNotPaused nonReentrant {
         (Types.Service storage svc, Types.JobCall storage job, Types.Blueprint storage bp) =
             _loadServiceJobAndBlueprint(serviceId, callId);
 
@@ -66,7 +68,11 @@ abstract contract JobsSubmission is Base {
         uint64 serviceId,
         uint64[] calldata callIds,
         bytes[] calldata outputs
-    ) external whenNotPaused nonReentrant {
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         if (callIds.length != outputs.length) revert Errors.LengthMismatch();
 
         (Types.Service storage svc, Types.Blueprint storage bp) = _loadServiceAndBlueprint(serviceId);
@@ -84,7 +90,9 @@ abstract contract JobsSubmission is Base {
         Types.Service storage svc,
         Types.JobCall storage job,
         Types.Blueprint storage bp
-    ) private {
+    )
+        private
+    {
         _ensureAggregationBypass(bp.manager, serviceId, job.jobIndex);
         _validateResultSubmissionState(serviceId, callId, job);
 
@@ -107,7 +115,10 @@ abstract contract JobsSubmission is Base {
         bp = _blueprints[svc.blueprintId];
     }
 
-    function _loadServiceJobAndBlueprint(uint64 serviceId, uint64 callId)
+    function _loadServiceJobAndBlueprint(
+        uint64 serviceId,
+        uint64 callId
+    )
         private
         view
         returns (Types.Service storage svc, Types.JobCall storage job, Types.Blueprint storage bp)
@@ -135,11 +146,16 @@ abstract contract JobsSubmission is Base {
     function _collectJobPaymentIfNeeded(
         Types.Service storage svc,
         uint64 serviceId,
+        uint8 jobIndex,
         uint256 msgValue,
         address payer
-    ) private returns (uint256 payment) {
+    )
+        private
+        returns (uint256 payment)
+    {
         if (svc.pricing == Types.PricingModel.EventDriven) {
-            payment = _blueprintConfigs[svc.blueprintId].eventRate;
+            uint256 perJob = _jobEventRates[svc.blueprintId][jobIndex];
+            payment = perJob > 0 ? perJob : _blueprintConfigs[svc.blueprintId].eventRate;
             PaymentLib.collectPayment(address(0), payment, msgValue);
             _recordPayment(payer, serviceId, address(0), payment);
         }
@@ -154,8 +170,12 @@ abstract contract JobsSubmission is Base {
         uint64 serviceId,
         uint8 jobIndex,
         address caller,
-        uint256 payment
-    ) private returns (uint64 callId) {
+        uint256 payment,
+        bool isRFQ
+    )
+        internal
+        returns (uint64 callId)
+    {
         callId = _serviceCallCount[serviceId]++;
         _jobCalls[serviceId][callId] = Types.JobCall({
             jobIndex: jobIndex,
@@ -163,7 +183,8 @@ abstract contract JobsSubmission is Base {
             createdAt: uint64(block.timestamp),
             resultCount: 0,
             payment: payment,
-            completed: false
+            completed: false,
+            isRFQ: isRFQ
         });
     }
 
@@ -174,7 +195,9 @@ abstract contract JobsSubmission is Base {
         uint64 callId,
         address caller,
         bytes memory inputs
-    ) private {
+    )
+        private
+    {
         emit JobSubmitted(serviceId, callId, jobIndex, caller, inputs);
         _notifyManagerOnJobCall(manager, serviceId, jobIndex, callId, inputs);
         _recordJobCall(serviceId, caller, callId);
@@ -186,13 +209,14 @@ abstract contract JobsSubmission is Base {
         uint8 jobIndex,
         uint64 callId,
         bytes memory inputs
-    ) private {
+    )
+        private
+    {
         if (manager == address(0)) {
             return;
         }
 
-        bytes memory payload =
-            abi.encodeCall(IBlueprintServiceManager.onJobCall, (serviceId, jobIndex, callId, inputs));
+        bytes memory payload = abi.encodeCall(IBlueprintServiceManager.onJobCall, (serviceId, jobIndex, callId, inputs));
         _callManager(manager, payload);
     }
 
@@ -203,14 +227,10 @@ abstract contract JobsSubmission is Base {
             if (aggRequired) {
                 revert Errors.AggregationRequired(serviceId, jobIndex);
             }
-        } catch {}
+        } catch { }
     }
 
-    function _validateResultSubmissionState(
-        uint64 serviceId,
-        uint64 callId,
-        Types.JobCall storage job
-    ) private view {
+    function _validateResultSubmissionState(uint64 serviceId, uint64 callId, Types.JobCall storage job) private view {
         if (!_serviceOperators[serviceId][msg.sender].active) {
             revert Errors.OperatorNotInService(serviceId, msg.sender);
         }
@@ -222,6 +242,9 @@ abstract contract JobsSubmission is Base {
         }
         if (_jobResultSubmitted[serviceId][callId][msg.sender]) {
             revert Errors.ResultAlreadySubmitted(serviceId, callId, msg.sender);
+        }
+        if (job.isRFQ && !_jobQuotedOperators[serviceId][callId].contains(msg.sender)) {
+            revert Errors.NotQuotedOperator(serviceId, callId);
         }
     }
 
@@ -241,7 +264,9 @@ abstract contract JobsSubmission is Base {
         uint8 jobIndex,
         uint64 callId,
         bytes calldata output
-    ) private {
+    )
+        private
+    {
         if (manager == address(0)) return;
 
         _tryCallManager(
@@ -259,7 +284,9 @@ abstract contract JobsSubmission is Base {
         Types.Service storage svc,
         Types.JobCall storage job,
         address manager
-    ) private {
+    )
+        private
+    {
         uint32 required = _getRequiredResultCount(manager, serviceId, job.jobIndex);
         if (job.resultCount < required || job.completed) {
             return;
@@ -271,7 +298,11 @@ abstract contract JobsSubmission is Base {
         _recordJobCompletion(msg.sender, serviceId, callId, true);
 
         if (svc.pricing == Types.PricingModel.EventDriven && job.payment > 0) {
-            _distributeJobPayment(serviceId, job.payment);
+            if (job.isRFQ) {
+                _distributeRFQJobPayment(serviceId, callId, job.payment);
+            } else {
+                _distributeJobPayment(serviceId, job.payment);
+            }
         }
     }
 
@@ -279,7 +310,11 @@ abstract contract JobsSubmission is Base {
         address manager,
         uint64 serviceId,
         uint8 jobIndex
-    ) private view returns (uint32 required) {
+    )
+        private
+        view
+        returns (uint32 required)
+    {
         required = 1;
         if (manager == address(0)) {
             return required;
@@ -287,13 +322,17 @@ abstract contract JobsSubmission is Base {
 
         try IBlueprintServiceManager(manager).getRequiredResultCount(serviceId, jobIndex) returns (uint32 r) {
             required = r;
-        } catch {}
+        } catch { }
     }
 
     function _jobSchema(
         uint64 blueprintId,
         uint8 jobIndex
-    ) internal view returns (Types.StoredJobSchema storage schema) {
+    )
+        internal
+        view
+        returns (Types.StoredJobSchema storage schema)
+    {
         Types.StoredJobSchema[] storage schemas = _blueprintJobSchemas[blueprintId];
         if (jobIndex >= schemas.length) {
             revert Errors.InvalidJobIndex(jobIndex);
@@ -303,4 +342,7 @@ abstract contract JobsSubmission is Base {
 
     /// @notice Distribute payment for completed job - to be implemented in Payments mixin
     function _distributeJobPayment(uint64 serviceId, uint256 payment) internal virtual;
+
+    /// @notice Distribute payment for RFQ job to quoted operators at their individual prices
+    function _distributeRFQJobPayment(uint64 serviceId, uint64 callId, uint256 totalPayment) internal virtual;
 }

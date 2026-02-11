@@ -35,10 +35,10 @@ abstract contract TangleStorage {
     uint16 internal constant DEFAULT_TNT_MIN_EXPOSURE_BPS = 1000;
 
     // Default payment split (can be changed by admin)
-    uint16 internal constant DEFAULT_DEVELOPER_BPS = 2000;  // 20%
-    uint16 internal constant DEFAULT_PROTOCOL_BPS = 2000;   // 20%
-    uint16 internal constant DEFAULT_OPERATOR_BPS = 4000;   // 40%
-    uint16 internal constant DEFAULT_STAKER_BPS = 2000;   // 20%
+    uint16 internal constant DEFAULT_DEVELOPER_BPS = 2000; // 20%
+    uint16 internal constant DEFAULT_PROTOCOL_BPS = 2000; // 20%
+    uint16 internal constant DEFAULT_OPERATOR_BPS = 4000; // 40%
+    uint16 internal constant DEFAULT_STAKER_BPS = 2000; // 20%
 
     // Default exit queue configuration
     uint64 internal constant DEFAULT_MIN_COMMITMENT_DURATION = ProtocolConfig.MIN_COMMITMENT_DURATION;
@@ -343,10 +343,24 @@ abstract contract TangleStorage {
     mapping(uint64 => bool) internal _blueprintMetadataLocked;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // PRICING STORAGE (Slot 136-140)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Blueprint ID => Job Index => Per-job event rate override
+    /// @dev If non-zero, overrides BlueprintConfig.eventRate for that jobIndex
+    mapping(uint64 => mapping(uint8 => uint256)) internal _jobEventRates;
+
+    /// @notice Service ID => Call ID => Set of quoted operators (for RFQ jobs)
+    mapping(uint64 => mapping(uint64 => EnumerableSet.AddressSet)) internal _jobQuotedOperators;
+
+    /// @notice Service ID => Call ID => Operator => Quoted price (for RFQ jobs)
+    mapping(uint64 => mapping(uint64 => mapping(address => uint256))) internal _jobQuotedPrices;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    uint256[50] private __gap;
+    uint256[47] private __gap;
 }

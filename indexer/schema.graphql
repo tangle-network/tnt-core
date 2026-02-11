@@ -294,6 +294,9 @@ type JobCall {
   createdAt: BigInt!
   completed: Boolean!
   completedAt: BigInt
+  isRFQ: Boolean!
+  totalPrice: BigInt
+  quotedOperators: [String!]
   results: [JobResult!]! @derivedFrom(field: "jobCall")
 }
 
@@ -305,6 +308,15 @@ type JobResult {
   signerBitmap: BigInt
   aggregated: Boolean!
   submittedAt: BigInt!
+  txHash: String!
+}
+
+type JobEventRate {
+  id: ID!
+  blueprint: Blueprint!
+  jobIndex: Int!
+  rate: BigInt!
+  updatedAt: BigInt!
   txHash: String!
 }
 

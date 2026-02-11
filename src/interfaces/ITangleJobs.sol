@@ -11,44 +11,38 @@ interface ITangleJobs {
     // ═══════════════════════════════════════════════════════════════════════════
 
     event JobSubmitted(
-        uint64 indexed serviceId,
-        uint64 indexed callId,
-        uint8 indexed jobIndex,
-        address caller,
-        bytes inputs
+        uint64 indexed serviceId, uint64 indexed callId, uint8 indexed jobIndex, address caller, bytes inputs
     );
 
-    event JobResultSubmitted(
-        uint64 indexed serviceId,
-        uint64 indexed callId,
-        address indexed operator,
-        bytes result
-    );
+    event JobResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, address indexed operator, bytes result);
 
     /// @notice Emitted when a job reaches its required result threshold
     /// @dev Derive resultCount from getJobCall(serviceId, callId).resultCount
     event JobCompleted(uint64 indexed serviceId, uint64 indexed callId);
+
+    /// @notice Emitted when a job is submitted via RFQ with signed operator quotes
+    event JobSubmittedFromQuote(
+        uint64 indexed serviceId,
+        uint64 indexed callId,
+        uint8 jobIndex,
+        address caller,
+        address[] quotedOperators,
+        uint256 totalPrice,
+        bytes inputs
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Submit a job to a service
-    function submitJob(
-        uint64 serviceId,
-        uint8 jobIndex,
-        bytes calldata inputs
-    ) external payable returns (uint64 callId);
+    function submitJob(uint64 serviceId, uint8 jobIndex, bytes calldata inputs) external payable returns (uint64 callId);
 
     /// @notice Submit a job result (as operator)
     function submitResult(uint64 serviceId, uint64 callId, bytes calldata result) external;
 
     /// @notice Submit multiple results in one transaction
-    function submitResults(
-        uint64 serviceId,
-        uint64[] calldata callIds,
-        bytes[] calldata results
-    ) external;
+    function submitResults(uint64 serviceId, uint64[] calldata callIds, bytes[] calldata results) external;
 
     /// @notice Submit an aggregated BLS result for a job
     /// @dev Only valid for jobs where requiresAggregation returns true
@@ -65,7 +59,23 @@ interface ITangleJobs {
         uint256 signerBitmap,
         uint256[2] calldata aggregatedSignature,
         uint256[4] calldata aggregatedPubkey
-    ) external;
+    )
+        external;
+
+    /// @notice Submit a job using signed operator price quotes (RFQ)
+    /// @param serviceId The service ID
+    /// @param jobIndex The job type index
+    /// @param inputs Encoded job parameters
+    /// @param quotes Array of signed quotes from operators
+    function submitJobFromQuote(
+        uint64 serviceId,
+        uint8 jobIndex,
+        bytes calldata inputs,
+        Types.SignedJobQuote[] calldata quotes
+    )
+        external
+        payable
+        returns (uint64 callId);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
@@ -73,4 +83,10 @@ interface ITangleJobs {
 
     /// @notice Get job call info
     function getJobCall(uint64 serviceId, uint64 callId) external view returns (Types.JobCall memory);
+
+    /// @notice Get the quoted operators for an RFQ job
+    function getJobQuotedOperators(uint64 serviceId, uint64 callId) external view returns (address[] memory);
+
+    /// @notice Get a quoted operator's price for an RFQ job
+    function getJobQuotedPrice(uint64 serviceId, uint64 callId, address operator) external view returns (uint256);
 }

@@ -10,12 +10,7 @@ interface ITangleBlueprints {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event BlueprintCreated(
-        uint64 indexed blueprintId,
-        address indexed owner,
-        address manager,
-        string metadataUri
-    );
+    event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri);
 
     event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
 
@@ -80,4 +75,10 @@ interface ITangleBlueprints {
 
     /// @notice Get master blueprint revision
     function blueprintMasterRevision(uint64 blueprintId) external view returns (uint32);
+
+    /// @notice Set event rate overrides for one or more job types in a blueprint
+    function setJobEventRates(uint64 blueprintId, uint8[] calldata jobIndexes, uint256[] calldata rates) external;
+
+    /// @notice Get the effective event rate for a specific job type
+    function getJobEventRate(uint64 blueprintId, uint8 jobIndex) external view returns (uint256 rate);
 }
