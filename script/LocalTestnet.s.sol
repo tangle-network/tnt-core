@@ -105,6 +105,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     uint64 public blueprintId;
     uint64 public requestId;
     uint64 public serviceId;
+    uint64[] public serviceIds; // All service IDs when multiple instances mode is enabled
+    uint256 public numServiceInstances = 1; // Default to 1 service instance
+    bool public subscriptionMode; // If true, create subscription blueprint instead of PayOnce
 
     function run() external {
         _executeSetup(true);
@@ -117,6 +120,18 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
     function _executeSetup(bool broadcast) internal returns (uint64) {
         useBroadcastKeys = broadcast;
+
+        // Check for multiple instances mode
+        if (_envBoolOrFalse("MULTIPLE_INSTANCES")) {
+            numServiceInstances = 3;
+            console2.log("Multiple instances mode enabled: creating 3 service instances");
+        }
+
+        // Check for subscription mode
+        if (_envBoolOrFalse("SUBSCRIPTION_MODE")) {
+            subscriptionMode = true;
+            console2.log("Subscription mode enabled: blueprint will use Subscription pricing");
+        }
 
         // Derive addresses
         deployer = vm.addr(DEPLOYER_KEY);
@@ -165,7 +180,13 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("MultiAssetDelegation:", stakingProxy);
         console2.log("OperatorStatusRegistry:", statusRegistry);
         console2.log("Blueprint ID:", blueprintId);
-        console2.log("Service ID:", serviceId);
+        console2.log("Service ID (primary):", serviceId);
+        if (serviceIds.length > 1) {
+            console2.log("All Service IDs:");
+            for (uint256 i = 0; i < serviceIds.length; i++) {
+                console2.log("  Service", i + 1, ":", serviceIds[i]);
+            }
+        }
         console2.log("\n=== Mock Tokens ===");
         console2.log("USDC:", address(usdc));
         console2.log("USDT:", address(usdt));
@@ -190,6 +211,13 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("Operator2:", operator2, "- Open (anyone can delegate)");
         console2.log("Operator3:", operator3, "- Whitelist (whitelisted delegators only)");
         console2.log("Whitelisted Delegator:", whitelistedDelegator);
+        if (subscriptionMode) {
+            console2.log("\n=== Subscription Config ===");
+            console2.log("Pricing model: Subscription");
+            console2.log("Rate: 0.1 ETH per interval");
+            console2.log("Interval: 60 seconds");
+            console2.log("Escrow deposit: 1 ETH per service (~10 billing cycles)");
+        }
         console2.log("\nService is active and ready for jobs");
 
         return serviceId;
@@ -629,10 +657,18 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         ITangleFull tangle = ITangleFull(payable(tangleProxy));
 
-        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://QmTestBlueprint", address(0));
+        Types.BlueprintDefinition memory def = _blueprintDefinition("http://localhost:3333", address(0));
         def.config.membership = Types.MembershipModel.Dynamic;
         def.config.minOperators = 1;
         def.config.maxOperators = 0; // unlimited to allow future joins
+
+        if (subscriptionMode) {
+            def.config.pricing = Types.PricingModel.Subscription;
+            def.config.subscriptionRate = 0.1 ether; // 0.1 ETH per interval
+            def.config.subscriptionInterval = 60; // 60 seconds for local testing
+            console2.log("Blueprint pricing: Subscription (0.1 ETH per 60s interval)");
+        }
+
         blueprintId = tangle.createBlueprint(def);
         console2.log("Blueprint created:", blueprintId);
         console2.log("Blueprint configured for dynamic membership (CLI join target)");
@@ -793,68 +829,82 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     }
 
     function _createAndApproveService() internal {
-        console2.log("\n=== Creating and Approving Service ===");
+        console2.log("\n=== Creating and Approving Service(s) ===");
+        console2.log("Number of service instances to create:", numServiceInstances);
 
         ITangleFull tangle = ITangleFull(payable(tangleProxy));
 
-        // Create service request
+        // Create service request(s)
         address[] memory operators = new address[](2);
         operators[0] = operator1;
         operators[1] = operator2;
 
         address[] memory permittedCallers = new address[](0);
 
-        if (useBroadcastKeys) {
-            vm.startBroadcast(DEPLOYER_KEY);
-        } else {
-            vm.startPrank(deployer);
-        }
-        requestId = tangle.requestService(
-            blueprintId,
-            operators,
-            "", // Empty config
-            permittedCallers,
-            0, // No TTL
-            address(0), // Native ETH payment
-            0 // No payment for one-time
-        );
-        console2.log("Service requested, ID:", requestId);
-        if (useBroadcastKeys) {
-            vm.stopBroadcast();
-        } else {
-            vm.stopPrank();
+        for (uint256 i = 0; i < numServiceInstances; i++) {
+            if (useBroadcastKeys) {
+                vm.startBroadcast(DEPLOYER_KEY);
+            } else {
+                vm.startPrank(deployer);
+            }
+            // In subscription mode, fund escrow with 1 ETH (~10 billing cycles at 0.1 ETH/interval)
+            uint256 escrowAmount = subscriptionMode ? 1 ether : 0;
+
+            uint64 currentRequestId = tangle.requestService{ value: escrowAmount }(
+                blueprintId,
+                operators,
+                "", // Empty config
+                permittedCallers,
+                0, // No TTL
+                address(0), // Native ETH payment
+                escrowAmount
+            );
+            console2.log("Service requested, ID:", currentRequestId);
+            if (useBroadcastKeys) {
+                vm.stopBroadcast();
+            } else {
+                vm.stopPrank();
+            }
+
+            // Operators approve the service
+            if (useBroadcastKeys) {
+                vm.startBroadcast(OPERATOR1_KEY);
+            } else {
+                vm.startPrank(operator1);
+            }
+            tangle.approveService(currentRequestId, 50); // 50% staking exposure
+            console2.log("Operator1 approved service", currentRequestId);
+            if (useBroadcastKeys) {
+                vm.stopBroadcast();
+            } else {
+                vm.stopPrank();
+            }
+
+            if (useBroadcastKeys) {
+                vm.startBroadcast(OPERATOR2_KEY);
+            } else {
+                vm.startPrank(operator2);
+            }
+            tangle.approveService(currentRequestId, 50); // 50% staking exposure
+            console2.log("Operator2 approved service", currentRequestId);
+            if (useBroadcastKeys) {
+                vm.stopBroadcast();
+            } else {
+                vm.stopPrank();
+            }
+
+            // Track service IDs
+            serviceIds.push(currentRequestId);
+            console2.log("Service activated:", currentRequestId);
+
+            // Keep first service as the primary for backward compatibility
+            if (i == 0) {
+                requestId = currentRequestId;
+                serviceId = currentRequestId;
+            }
         }
 
-        // Operators approve the service
-        if (useBroadcastKeys) {
-            vm.startBroadcast(OPERATOR1_KEY);
-        } else {
-            vm.startPrank(operator1);
-        }
-        tangle.approveService(requestId, 50); // 50% staking exposure
-        console2.log("Operator1 approved service");
-        if (useBroadcastKeys) {
-            vm.stopBroadcast();
-        } else {
-            vm.stopPrank();
-        }
-
-        if (useBroadcastKeys) {
-            vm.startBroadcast(OPERATOR2_KEY);
-        } else {
-            vm.startPrank(operator2);
-        }
-        tangle.approveService(requestId, 50); // 50% staking exposure
-        console2.log("Operator2 approved service");
-        if (useBroadcastKeys) {
-            vm.stopBroadcast();
-        } else {
-            vm.stopPrank();
-        }
-
-        // After all approvals, service should be active with same ID as request
-        serviceId = requestId;
-        console2.log("Service activated:", serviceId);
+        console2.log("Total services created:", serviceIds.length);
     }
 
     function _deployPodManager() internal {
@@ -1011,6 +1061,14 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             return raw;
         } catch {
             return 0;
+        }
+    }
+
+    function _envBoolOrFalse(string memory key) internal view returns (bool) {
+        try vm.envString(key) returns (string memory raw) {
+            return keccak256(bytes(raw)) == keccak256(bytes("true"));
+        } catch {
+            return false;
         }
     }
 
