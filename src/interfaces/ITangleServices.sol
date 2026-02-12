@@ -78,6 +78,12 @@ interface ITangleServices {
         payable
         returns (uint64 requestId);
 
+    /// @notice Get resource requirements for a service request
+    function getServiceRequestResourceRequirements(uint64 requestId)
+        external
+        view
+        returns (Types.ResourceCommitment[] memory);
+
     /// @notice Approve a service request (as operator) - simple version
     function approveService(uint64 requestId, uint8 stakingPercent) external;
 

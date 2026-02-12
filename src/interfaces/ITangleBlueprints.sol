@@ -81,4 +81,23 @@ interface ITangleBlueprints {
 
     /// @notice Get the effective event rate for a specific job type
     function getJobEventRate(uint64 blueprintId, uint8 jobIndex) external view returns (uint256 rate);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESOURCE REQUIREMENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    event BlueprintResourceRequirementsSet(uint64 indexed blueprintId, uint256 count);
+
+    /// @notice Set default resource requirements for a blueprint (owner only)
+    function setBlueprintResourceRequirements(
+        uint64 blueprintId,
+        Types.ResourceCommitment[] calldata requirements
+    )
+        external;
+
+    /// @notice Get default resource requirements for a blueprint
+    function getBlueprintResourceRequirements(uint64 blueprintId)
+        external
+        view
+        returns (Types.ResourceCommitment[] memory);
 }

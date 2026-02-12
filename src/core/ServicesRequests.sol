@@ -59,6 +59,7 @@ abstract contract ServicesRequests is Base {
             blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount
         );
         _storeDefaultTntRequirement(requestId);
+        _storeDefaultResourceRequirements(requestId, blueprintId);
         return requestId;
     }
 
@@ -85,6 +86,7 @@ abstract contract ServicesRequests is Base {
             blueprintId, operators, exposures, config, permittedCallers, ttl, paymentToken, paymentAmount
         );
         _storeDefaultTntRequirement(requestId);
+        _storeDefaultResourceRequirements(requestId, blueprintId);
         return requestId;
     }
 
@@ -112,6 +114,7 @@ abstract contract ServicesRequests is Base {
         );
 
         _storeSecurityRequirementsWithDefaultTnt(requestId, securityRequirements);
+        _storeDefaultResourceRequirements(requestId, blueprintId);
         emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender);
     }
 
@@ -371,6 +374,28 @@ abstract contract ServicesRequests is Base {
             maxOperators: bounds.maxOperators,
             rejected: false
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SERVICE REQUESTS WITH RESOURCE REQUIREMENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Get resource requirements for a service request
+    function getServiceRequestResourceRequirements(uint64 requestId)
+        external
+        view
+        returns (Types.ResourceCommitment[] memory)
+    {
+        return _requestResourceRequirements[requestId];
+    }
+
+    /// @notice Copy blueprint default resource requirements to a request
+    function _storeDefaultResourceRequirements(uint64 requestId, uint64 blueprintId) internal {
+        Types.ResourceCommitment[] storage defaults = _blueprintResourceRequirements[blueprintId];
+        if (defaults.length == 0) return;
+        for (uint256 i = 0; i < defaults.length; i++) {
+            _requestResourceRequirements[requestId].push(defaults[i]);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

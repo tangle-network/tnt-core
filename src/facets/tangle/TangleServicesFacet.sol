@@ -5,6 +5,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 
 import { ServicesApprovals } from "../../core/ServicesApprovals.sol";
 import { Types } from "../../libraries/Types.sol";
+import { SignatureLib } from "../../libraries/SignatureLib.sol";
 import { IBlueprintServiceManager } from "../../interfaces/IBlueprintServiceManager.sol";
 import { ITanglePaymentsInternal } from "../../interfaces/ITanglePaymentsInternal.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
@@ -59,6 +60,9 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
 
         // Transfer BLS pubkeys from request to service for aggregated signature verification
         _transferBlsPubkeysToService(requestId, serviceId);
+
+        // Persist resource commitments from request to service (hash per operator)
+        _persistResourceCommitments(serviceId, requestId);
 
         (uint16[] memory exposures, uint256 totalExposure) = _assignOperatorsFromRequest(serviceId, requestId);
 
@@ -226,6 +230,35 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         operators = new address[](requestOperators.length);
         for (uint256 i = 0; i < requestOperators.length; i++) {
             operators[i] = requestOperators[i];
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESOURCE COMMITMENT PERSISTENCE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    event ResourcesCommitted(
+        uint64 indexed serviceId, address indexed operator, Types.ResourceCommitment[] commitments
+    );
+
+    /// @notice Persist resource commitments from request to service
+    /// @dev Computes hash of requirements and stores per-operator (same storage as RFQ flow)
+    function _persistResourceCommitments(uint64 serviceId, uint64 requestId) private {
+        Types.ResourceCommitment[] storage reqs = _requestResourceRequirements[requestId];
+        if (reqs.length == 0) return;
+
+        // Copy to memory for hashing
+        Types.ResourceCommitment[] memory commitments = new Types.ResourceCommitment[](reqs.length);
+        for (uint256 i = 0; i < reqs.length; i++) {
+            commitments[i] = reqs[i];
+        }
+
+        bytes32 commitmentHash = SignatureLib.hashResourceCommitments(commitments);
+
+        address[] storage operators = _requestOperators[requestId];
+        for (uint256 i = 0; i < operators.length; i++) {
+            _serviceResourceCommitmentHash[serviceId][operators[i]] = commitmentHash;
+            emit ResourcesCommitted(serviceId, operators[i], commitments);
         }
     }
 

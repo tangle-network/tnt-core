@@ -16,6 +16,7 @@ abstract contract BlueprintsManage is Base {
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event JobEventRateSet(uint64 indexed blueprintId, uint8 indexed jobIndex, uint256 rate);
+    event BlueprintResourceRequirementsSet(uint64 indexed blueprintId, uint256 count);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT MANAGEMENT
@@ -102,5 +103,50 @@ abstract contract BlueprintsManage is Base {
         if (rate == 0) {
             rate = _blueprintConfigs[blueprintId].eventRate;
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT RESOURCE REQUIREMENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Set default resource requirements for a blueprint
+    /// @param blueprintId The blueprint ID
+    /// @param requirements Array of resource commitments (no duplicate kinds, all count > 0)
+    function setBlueprintResourceRequirements(
+        uint64 blueprintId,
+        Types.ResourceCommitment[] calldata requirements
+    )
+        external
+    {
+        Types.Blueprint storage bp = _getBlueprint(blueprintId);
+        if (bp.owner != msg.sender) {
+            revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
+        }
+
+        // Validate: no duplicate kinds, all counts > 0
+        delete _blueprintResourceRequirements[blueprintId];
+        for (uint256 i = 0; i < requirements.length; i++) {
+            if (requirements[i].count == 0) revert Errors.ZeroAmount();
+            // Check for duplicate kinds
+            for (uint256 j = 0; j < i; j++) {
+                if (requirements[j].kind == requirements[i].kind) {
+                    revert Errors.InvalidState();
+                }
+            }
+            _blueprintResourceRequirements[blueprintId].push(requirements[i]);
+        }
+
+        emit BlueprintResourceRequirementsSet(blueprintId, requirements.length);
+    }
+
+    /// @notice Get default resource requirements for a blueprint
+    /// @param blueprintId The blueprint ID
+    /// @return The array of resource commitments
+    function getBlueprintResourceRequirements(uint64 blueprintId)
+        external
+        view
+        returns (Types.ResourceCommitment[] memory)
+    {
+        return _blueprintResourceRequirements[blueprintId];
     }
 }

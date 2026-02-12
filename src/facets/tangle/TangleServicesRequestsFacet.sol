@@ -12,7 +12,7 @@ contract TangleServicesRequestsFacet is ServicesRequests, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](3);
+        selectorList = new bytes4[](4);
         selectorList[0] = bytes4(keccak256("requestService(uint64,address[],bytes,address[],uint64,address,uint256)"));
         selectorList[1] = bytes4(
             keccak256("requestServiceWithExposure(uint64,address[],uint16[],bytes,address[],uint64,address,uint256)")
@@ -22,5 +22,6 @@ contract TangleServicesRequestsFacet is ServicesRequests, IFacetSelectors {
                 "requestServiceWithSecurity(uint64,address[],((uint8,address),uint16,uint16)[],bytes,address[],uint64,address,uint256)"
             )
         );
+        selectorList[3] = bytes4(keccak256("getServiceRequestResourceRequirements(uint64)"));
     }
 }
