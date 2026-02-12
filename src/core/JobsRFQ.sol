@@ -159,6 +159,12 @@ abstract contract JobsRFQ is Base {
                 revert Errors.OperatorNotActive(quote.operator);
             }
 
+            // Each individual quote must meet minimum payment threshold (or be zero)
+            // to prevent bricking job finalization during per-operator distribution
+            if (quote.details.price > 0 && quote.details.price < PaymentLib.MINIMUM_PAYMENT_AMOUNT) {
+                revert Errors.PaymentTooSmall(quote.details.price, PaymentLib.MINIMUM_PAYMENT_AMOUNT);
+            }
+
             // Verify EIP-712 signature and mark as used
             SignatureLib.verifyAndMarkJobQuoteUsed(_usedQuotes, _domainSeparator, quote, maxQuoteAge);
 
