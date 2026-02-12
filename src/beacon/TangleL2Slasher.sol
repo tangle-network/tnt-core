@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IL2Slasher} from "./L2SlashingReceiver.sol";
-import {IStaking} from "../interfaces/IStaking.sol";
-import {Types} from "../libraries/Types.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { IL2Slasher } from "./L2SlashingReceiver.sol";
+import { IStaking } from "../interfaces/IStaking.sol";
+import { Types } from "../libraries/Types.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title TangleL2Slasher
 /// @notice Implementation of IL2Slasher that integrates with Tangle's staking system
@@ -30,12 +30,7 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event BeaconSlashExecuted(
-        address indexed operator,
-        uint16 slashBps,
-        uint256 actualSlashed,
-        bytes reason
-    );
+    event BeaconSlashExecuted(address indexed operator, uint16 slashBps, uint256 actualSlashed, bytes reason);
 
     event AuthorizedCallerUpdated(address indexed caller, bool authorized);
     event StakingUpdated(address indexed oldRestaking, address indexed newRestaking);
@@ -108,7 +103,11 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
         address operator,
         uint16 slashBps,
         bytes calldata reason
-    ) external onlyAuthorized whenNotPaused {
+    )
+        external
+        onlyAuthorized
+        whenNotPaused
+    {
         if (operator == address(0)) revert ZeroAddress();
         if (slashBps == 0) revert ZeroAmount();
 
@@ -117,21 +116,10 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
 
         // Generate evidence hash from the reason
         // forge-lint: disable-next-line(asm-keccak256)
-        bytes32 evidence = keccak256(abi.encodePacked(
-            "BEACON_CHAIN_SLASH",
-            operator,
-            slashBps,
-            slashNonce++,
-            reason
-        ));
+        bytes32 evidence = keccak256(abi.encodePacked("BEACON_CHAIN_SLASH", operator, slashBps, slashNonce++, reason));
 
         // Execute slash through staking contract
-        uint256 actualSlashed = staking.slash(
-            operator,
-            BEACON_SLASH_SERVICE_ID,
-            slashBps,
-            evidence
-        );
+        uint256 actualSlashed = staking.slash(operator, BEACON_SLASH_SERVICE_ID, slashBps, evidence);
 
         // Track total slashed
         totalBeaconSlashed[operator] += actualSlashed;
@@ -147,10 +135,8 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
 
     /// @inheritdoc IL2Slasher
     function getSlashableStake(address operator) public view returns (uint256) {
-        return staking.getOperatorStakeForAsset(
-            operator,
-            Types.Asset({ kind: Types.AssetKind.Native, token: address(0) })
-        );
+        return
+            staking.getOperatorStakeForAsset(operator, Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

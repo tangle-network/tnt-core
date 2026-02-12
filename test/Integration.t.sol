@@ -62,15 +62,8 @@ contract IntegrationTest is BaseTest {
         uint256 developerBefore = developer.balance;
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: payment }(
-            blueprintId,
-            operators,
-            "",
-            callers,
-            0,
-            address(0),
-            payment
-        );
+        uint64 requestId =
+            tangle.requestService{ value: payment }(blueprintId, operators, "", callers, 0, address(0), payment);
 
         // Step 6: All operators approve (service activates after last approval)
         vm.prank(operator1);
@@ -83,8 +76,8 @@ contract IntegrationTest is BaseTest {
 
         // Step 7: Check payment was distributed (PayOnce model)
         // Default split: developer=2000, protocol=2000, operator=4000, restaker=2000
-        uint256 developerAmount = (payment * 2000) / 10000;
-        uint256 protocolAmount = (payment * 2000) / 10000;
+        uint256 developerAmount = (payment * 2000) / 10_000;
+        uint256 protocolAmount = (payment * 2000) / 10_000;
 
         assertEq(developer.balance, developerBefore + developerAmount, "Developer should receive 20%");
         assertEq(treasury.balance, treasuryBefore + protocolAmount, "Treasury should receive 20%");
@@ -138,14 +131,7 @@ contract IntegrationTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithExposure{ value: payment }(
-            blueprintId,
-            operators,
-            exposures,
-            "",
-            callers,
-            0,
-            address(0),
-            payment
+            blueprintId, operators, exposures, "", callers, 0, address(0), payment
         );
 
         // Both approve
@@ -175,7 +161,8 @@ contract IntegrationTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         // Register all operators
         vm.prank(operator1);
@@ -199,13 +186,12 @@ contract IntegrationTest is BaseTest {
         address[] memory operators = new address[](1);
         operators[0] = operator1;
         uint16[] memory exposures = new uint16[](1);
-        exposures[0] = 10000;
+        exposures[0] = 10_000;
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -233,13 +219,13 @@ contract IntegrationTest is BaseTest {
         tangle.scheduleExit(serviceId);
 
         // Check exit status is Scheduled
-        assertEq(uint(tangle.getExitStatus(serviceId, operator2)), uint(Types.ExitStatus.Scheduled));
+        assertEq(uint256(tangle.getExitStatus(serviceId, operator2)), uint256(Types.ExitStatus.Scheduled));
 
         // Warp past exit queue duration (7 days default)
         vm.warp(block.timestamp + 7 days + 1);
 
         // Check exit status is now Executable
-        assertEq(uint(tangle.getExitStatus(serviceId, operator2)), uint(Types.ExitStatus.Executable));
+        assertEq(uint256(tangle.getExitStatus(serviceId, operator2)), uint256(Types.ExitStatus.Executable));
 
         // Execute exit
         vm.prank(operator2);
@@ -249,12 +235,12 @@ contract IntegrationTest is BaseTest {
         assertFalse(tangle.isServiceOperator(serviceId, operator2));
 
         // Check exit status is Completed
-        assertEq(uint(tangle.getExitStatus(serviceId, operator2)), uint(Types.ExitStatus.Completed));
+        assertEq(uint256(tangle.getExitStatus(serviceId, operator2)), uint256(Types.ExitStatus.Completed));
     }
 
     function test_FullWorkflow_SubscriptionBilling() public {
         // Use an explicit starting timestamp
-        uint256 startTime = 1000000;
+        uint256 startTime = 1_000_000;
         vm.warp(startTime);
 
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
@@ -268,7 +254,8 @@ contract IntegrationTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         // Setup operator
         vm.prank(operator1);
@@ -281,7 +268,7 @@ contract IntegrationTest is BaseTest {
         address[] memory operators = new address[](1);
         operators[0] = operator1;
         uint16[] memory exposures = new uint16[](1);
-        exposures[0] = 10000;
+        exposures[0] = 10_000;
         address[] memory callers = new address[](0);
 
         // Fund the Tangle contract and make request
@@ -628,11 +615,13 @@ contract CustomServiceManagerTest is BaseTest {
 
         // Should revert because manager rejects - wrapped in ManagerReverted
         vm.prank(operator1);
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.ManagerReverted.selector,
-            address(rejectingManager),
-            abi.encodeWithSelector(RejectingServiceManager.OperatorRejected.selector)
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.ManagerReverted.selector,
+                address(rejectingManager),
+                abi.encodeWithSelector(RejectingServiceManager.OperatorRejected.selector)
+            )
+        );
         tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 0), "");
     }
 
@@ -658,11 +647,7 @@ contract TestServiceManager is BlueprintServiceManagerBase {
     bool public serviceApproved;
     bool public serviceInitialized;
 
-    function onBlueprintCreated(
-        uint64 _blueprintId,
-        address _owner,
-        address _tangleCore
-    ) external override {
+    function onBlueprintCreated(uint64 _blueprintId, address _owner, address _tangleCore) external override {
         // Initialize base
         blueprintId = _blueprintId;
         blueprintOwner = _owner;
@@ -670,10 +655,7 @@ contract TestServiceManager is BlueprintServiceManagerBase {
         blueprintCreated = true;
     }
 
-    function onRegister(
-        address,
-        bytes calldata
-    ) external payable override {
+    function onRegister(address, bytes calldata) external payable override {
         operatorRegistered = true;
     }
 
@@ -685,26 +667,19 @@ contract TestServiceManager is BlueprintServiceManagerBase {
         uint64,
         address,
         uint256
-    ) external payable override {
+    )
+        external
+        payable
+        override
+    {
         serviceRequested = true;
     }
 
-    function onApprove(
-        address,
-        uint64,
-        uint8
-    ) external payable override {
+    function onApprove(address, uint64, uint8) external payable override {
         serviceApproved = true;
     }
 
-    function onServiceInitialized(
-        uint64,
-        uint64,
-        uint64,
-        address,
-        address[] calldata,
-        uint64
-    ) external override {
+    function onServiceInitialized(uint64, uint64, uint64, address, address[] calldata, uint64) external override {
         serviceInitialized = true;
     }
 }
@@ -714,10 +689,7 @@ contract TestServiceManager is BlueprintServiceManagerBase {
 contract RejectingServiceManager is BlueprintServiceManagerBase {
     error OperatorRejected();
 
-    function onRegister(
-        address,
-        bytes calldata
-    ) external payable override {
+    function onRegister(address, bytes calldata) external payable override {
         revert OperatorRejected();
     }
 }
@@ -761,8 +733,8 @@ contract MultiAssetSecurityTest is BaseTest {
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
         requirements[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            minExposureBps: 5000,  // Min 50%
-            maxExposureBps: 10000  // Max 100%
+            minExposureBps: 5000, // Min 50%
+            maxExposureBps: 10_000 // Max 100%
         });
 
         address[] memory operators = new address[](1);
@@ -770,16 +742,8 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId,
-            operators,
-            requirements,
-            "",
-            callers,
-            0,
-            address(0),
-            0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
 
         // Request should be created
         Types.ServiceRequest memory req = tangle.getServiceRequest(requestId);
@@ -815,16 +779,8 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId,
-            operators,
-            requirements,
-            "",
-            callers,
-            0,
-            address(0),
-            0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
 
         assertEq(requestId, 0);
     }
@@ -864,7 +820,7 @@ contract MultiAssetSecurityTest is BaseTest {
         requirements[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 8000,
-            maxExposureBps: 5000  // Less than min!
+            maxExposureBps: 5000 // Less than min!
         });
 
         address[] memory operators = new address[](1);
@@ -891,7 +847,7 @@ contract MultiAssetSecurityTest is BaseTest {
         requirements[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 5000,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory operators = new address[](1);
@@ -899,15 +855,13 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, operators, requirements, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
 
         // Operator approves with valid commitment (7500 bps = 75%)
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
         commitments[0] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 7500
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }), exposureBps: 7500
         });
 
         vm.prank(operator1);
@@ -931,7 +885,7 @@ contract MultiAssetSecurityTest is BaseTest {
         requirements[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 5000,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory operators = new address[](1);
@@ -939,15 +893,13 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, operators, requirements, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
 
         // Try to commit only 30% when min is 50%
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
         commitments[0] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 3000
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }), exposureBps: 3000
         });
 
         vm.prank(operator1);
@@ -969,7 +921,7 @@ contract MultiAssetSecurityTest is BaseTest {
         requirements[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 2000,
-            maxExposureBps: 5000  // Max 50%
+            maxExposureBps: 5000 // Max 50%
         });
 
         address[] memory operators = new address[](1);
@@ -977,15 +929,13 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, operators, requirements, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
 
         // Try to commit 80% when max is 50%
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
         commitments[0] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 8000
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }), exposureBps: 8000
         });
 
         vm.prank(operator1);
@@ -1021,15 +971,13 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, operators, requirements, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
 
         // Only commit for native asset, missing ERC20
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
         commitments[0] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 5000
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }), exposureBps: 5000
         });
 
         vm.prank(operator1);
@@ -1051,7 +999,7 @@ contract MultiAssetSecurityTest is BaseTest {
         requirements[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 1000,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory operators = new address[](1);
@@ -1059,22 +1007,21 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, operators, requirements, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
 
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](2);
         commitments[0] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 5000
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }), exposureBps: 5000
         });
         commitments[1] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 6000
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }), exposureBps: 6000
         });
 
         vm.prank(operator1);
-        vm.expectRevert(abi.encodeWithSelector(Errors.DuplicateAssetCommitment.selector, uint8(Types.AssetKind.Native), address(0)));
+        vm.expectRevert(
+            abi.encodeWithSelector(Errors.DuplicateAssetCommitment.selector, uint8(Types.AssetKind.Native), address(0))
+        );
         tangle.approveServiceWithCommitments(requestId, commitments);
     }
 
@@ -1098,7 +1045,7 @@ contract MultiAssetSecurityTest is BaseTest {
         requirements[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 3000,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory operators = new address[](2);
@@ -1107,21 +1054,20 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, operators, requirements, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
 
         // Both operators commit with different amounts
         Types.AssetSecurityCommitment[] memory commitments1 = new Types.AssetSecurityCommitment[](1);
         commitments1[0] = Types.AssetSecurityCommitment({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 8000  // 80%
+            exposureBps: 8000 // 80%
         });
 
         Types.AssetSecurityCommitment[] memory commitments2 = new Types.AssetSecurityCommitment[](1);
         commitments2[0] = Types.AssetSecurityCommitment({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 5000  // 50%
+            exposureBps: 5000 // 50%
         });
 
         vm.prank(operator1);
@@ -1149,46 +1095,47 @@ contract RFQTest is BaseTest {
         vm.deal(operator2, 100 ether);
     }
 
-    function _signQuote(
-        Types.QuoteDetails memory details,
-        uint256 privateKey
-    ) internal view returns (bytes memory) {
+    function _signQuote(Types.QuoteDetails memory details, uint256 privateKey) internal view returns (bytes memory) {
         bytes32 QUOTE_TYPEHASH = keccak256(
-            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
+            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
         );
         bytes32 commitmentsHash = _hashSecurityCommitments(details.securityCommitments);
+        bytes32 resourcesHash = _hashResourceCommitments(details.resourceCommitments);
 
-        bytes32 domainSeparator = keccak256(abi.encode(
-            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-            keccak256("TangleQuote"),
-            keccak256("1"),
-            block.chainid,
-            address(tangle)
-        ));
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("TangleQuote"),
+                keccak256("1"),
+                block.chainid,
+                address(tangle)
+            )
+        );
 
-        bytes32 structHash = keccak256(abi.encode(
-            QUOTE_TYPEHASH,
-            details.blueprintId,
-            details.ttlBlocks,
-            details.totalCost,
-            details.timestamp,
-            details.expiry,
-            commitmentsHash
-        ));
+        bytes32 structHash = keccak256(
+            abi.encode(
+                QUOTE_TYPEHASH,
+                details.blueprintId,
+                details.ttlBlocks,
+                details.totalCost,
+                details.timestamp,
+                details.expiry,
+                commitmentsHash,
+                resourcesHash
+            )
+        );
 
-        bytes32 digest = keccak256(abi.encodePacked(
-            "\x19\x01",
-            domainSeparator,
-            structHash
-        ));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         return abi.encodePacked(r, s, v);
     }
 
-    function _hashSecurityCommitments(
-        Types.AssetSecurityCommitment[] memory commitments
-    ) internal pure returns (bytes32) {
+    function _hashSecurityCommitments(Types.AssetSecurityCommitment[] memory commitments)
+        internal
+        pure
+        returns (bytes32)
+    {
         bytes32[] memory hashes = new bytes32[](commitments.length);
         for (uint256 i = 0; i < commitments.length; i++) {
             hashes[i] = _hashSecurityCommitment(commitments[i]);
@@ -1200,17 +1147,25 @@ contract RFQTest is BaseTest {
         return out;
     }
 
-    function _hashSecurityCommitment(
-        Types.AssetSecurityCommitment memory commitment
-    ) internal pure returns (bytes32) {
+    function _hashSecurityCommitment(Types.AssetSecurityCommitment memory commitment) internal pure returns (bytes32) {
         bytes32 ASSET_TYPEHASH = keccak256("Asset(uint8 kind,address token)");
-        bytes32 COMMITMENT_TYPEHASH = keccak256(
-            "AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
-        );
-        bytes32 assetHash = keccak256(
-            abi.encode(ASSET_TYPEHASH, uint8(commitment.asset.kind), commitment.asset.token)
-        );
+        bytes32 COMMITMENT_TYPEHASH =
+            keccak256("AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)");
+        bytes32 assetHash = keccak256(abi.encode(ASSET_TYPEHASH, uint8(commitment.asset.kind), commitment.asset.token));
         return keccak256(abi.encode(COMMITMENT_TYPEHASH, assetHash, commitment.exposureBps));
+    }
+
+    function _hashResourceCommitments(Types.ResourceCommitment[] memory commitments) internal pure returns (bytes32) {
+        bytes32 RC_TYPEHASH = keccak256("ResourceCommitment(uint8 kind,uint64 count)");
+        bytes32[] memory hashes = new bytes32[](commitments.length);
+        for (uint256 i = 0; i < commitments.length; i++) {
+            hashes[i] = keccak256(abi.encode(RC_TYPEHASH, commitments[i].kind, commitments[i].count));
+        }
+        bytes32 out;
+        assembly ("memory-safe") {
+            out := keccak256(add(hashes, 0x20), mul(mload(hashes), 0x20))
+        }
+        return out;
     }
 
     function test_CreateServiceFromQuotes_SingleOperator() public {
@@ -1236,29 +1191,20 @@ contract RFQTest is BaseTest {
             totalCost: cost,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes memory signature = _signQuote(details, OPERATOR1_PK);
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: signature,
-            operator: operator1
-        });
+        quotes[0] = Types.SignedQuote({ details: details, signature: signature, operator: operator1 });
 
         address[] memory callers = new address[](0);
 
         // Create service from quotes
         vm.prank(user1);
-        uint64 serviceId = tangle.createServiceFromQuotes{ value: cost }(
-            blueprintId,
-            quotes,
-            "",
-            callers,
-            ttl
-        );
+        uint64 serviceId = tangle.createServiceFromQuotes{ value: cost }(blueprintId, quotes, "", callers, ttl);
 
         // Service should be active
         assertTrue(tangle.isServiceActive(serviceId));
@@ -1292,7 +1238,8 @@ contract RFQTest is BaseTest {
             totalCost: 0.5 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         Types.QuoteDetails memory details2 = Types.QuoteDetails({
@@ -1301,32 +1248,23 @@ contract RFQTest is BaseTest {
             totalCost: 0.7 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](2);
         quotes[0] = Types.SignedQuote({
-            details: details1,
-            signature: _signQuote(details1, OPERATOR1_PK),
-            operator: operator1
+            details: details1, signature: _signQuote(details1, OPERATOR1_PK), operator: operator1
         });
         quotes[1] = Types.SignedQuote({
-            details: details2,
-            signature: _signQuote(details2, OPERATOR2_PK),
-            operator: operator2
+            details: details2, signature: _signQuote(details2, OPERATOR2_PK), operator: operator2
         });
 
         address[] memory callers = new address[](0);
         uint256 totalCost = 1.2 ether;
 
         vm.prank(user1);
-        uint64 serviceId = tangle.createServiceFromQuotes{ value: totalCost }(
-            blueprintId,
-            quotes,
-            "",
-            callers,
-            ttl
-        );
+        uint64 serviceId = tangle.createServiceFromQuotes{ value: totalCost }(blueprintId, quotes, "", callers, ttl);
 
         assertTrue(tangle.isServiceActive(serviceId));
         assertTrue(tangle.isServiceOperator(serviceId, operator1));
@@ -1354,15 +1292,13 @@ contract RFQTest is BaseTest {
             totalCost: cost,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: _signQuote(details, OPERATOR1_PK),
-            operator: operator1
-        });
+        quotes[0] =
+            Types.SignedQuote({ details: details, signature: _signQuote(details, OPERATOR1_PK), operator: operator1 });
 
         address[] memory callers = new address[](0);
         uint256 userBalanceBefore = user1.balance;
@@ -1394,15 +1330,13 @@ contract RFQTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: _signQuote(details, OPERATOR1_PK),
-            operator: operator1
-        });
+        quotes[0] =
+            Types.SignedQuote({ details: details, signature: _signQuote(details, OPERATOR1_PK), operator: operator1 });
 
         // Warp past expiry
         vm.warp(block.timestamp + 2 hours);
@@ -1433,14 +1367,15 @@ contract RFQTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         // Sign with wrong key (operator2's key instead of operator1's)
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
         quotes[0] = Types.SignedQuote({
             details: details,
-            signature: _signQuote(details, OPERATOR2_PK),  // Wrong key!
+            signature: _signQuote(details, OPERATOR2_PK), // Wrong key!
             operator: operator1
         });
 
@@ -1466,20 +1401,18 @@ contract RFQTest is BaseTest {
 
         // Quote for wrong blueprint
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            blueprintId: 999,  // Wrong blueprint!
+            blueprintId: 999, // Wrong blueprint!
             ttlBlocks: ttl,
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: _signQuote(details, OPERATOR1_PK),
-            operator: operator1
-        });
+        quotes[0] =
+            Types.SignedQuote({ details: details, signature: _signQuote(details, OPERATOR1_PK), operator: operator1 });
 
         address[] memory callers = new address[](0);
 
@@ -1503,25 +1436,23 @@ contract RFQTest is BaseTest {
         // Quote for different TTL
         Types.QuoteDetails memory details = Types.QuoteDetails({
             blueprintId: blueprintId,
-            ttlBlocks: 50,  // Quote says 50
+            ttlBlocks: 50, // Quote says 50
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: _signQuote(details, OPERATOR1_PK),
-            operator: operator1
-        });
+        quotes[0] =
+            Types.SignedQuote({ details: details, signature: _signQuote(details, OPERATOR1_PK), operator: operator1 });
 
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.QuoteTTLMismatch.selector, operator1, 100, 50));
-        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", callers, 100);  // Request wants 100
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", callers, 100); // Request wants 100
     }
 
     function test_CreateServiceFromQuotes_RevertDuplicateOperator() public {
@@ -1543,20 +1474,18 @@ contract RFQTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         // Same operator twice
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](2);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: _signQuote(details, OPERATOR1_PK),
-            operator: operator1
-        });
+        quotes[0] =
+            Types.SignedQuote({ details: details, signature: _signQuote(details, OPERATOR1_PK), operator: operator1 });
         quotes[1] = Types.SignedQuote({
             details: details,
             signature: _signQuote(details, OPERATOR1_PK),
-            operator: operator1  // Duplicate!
+            operator: operator1 // Duplicate!
         });
 
         address[] memory callers = new address[](0);
@@ -1582,24 +1511,22 @@ contract RFQTest is BaseTest {
         Types.QuoteDetails memory details = Types.QuoteDetails({
             blueprintId: blueprintId,
             ttlBlocks: ttl,
-            totalCost: 2 ether,  // Costs 2 ETH
+            totalCost: 2 ether, // Costs 2 ETH
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: _signQuote(details, OPERATOR1_PK),
-            operator: operator1
-        });
+        quotes[0] =
+            Types.SignedQuote({ details: details, signature: _signQuote(details, OPERATOR1_PK), operator: operator1 });
 
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.InsufficientPaymentForQuotes.selector, 2 ether, 1 ether));
-        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", callers, ttl);  // Only sent 1 ETH
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", callers, ttl); // Only sent 1 ETH
     }
 
     function test_CreateServiceFromQuotes_RevertNoQuotes() public {

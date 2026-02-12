@@ -10,8 +10,8 @@ import { IRewardsManager } from "../interfaces/IRewardsManager.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 
 /// @title RewardsManager
-/// @notice Tracks pool totals for slashing/exchange-rate accounting and forwards delegation updates to external reward systems.
-/// @dev M-7 FIX: Includes dust tracking and sweep functionality to handle rounding in reward distributions.
+/// @notice Tracks pool totals for slashing/exchange-rate accounting and forwards delegation updates to external reward
+/// systems. @dev M-7 FIX: Includes dust tracking and sweep functionality to handle rounding in reward distributions.
 abstract contract RewardsManager is DelegationManagerLib {
     using SafeERC20 for IERC20;
     // ═══════════════════════════════════════════════════════════════════════════
@@ -23,6 +23,7 @@ abstract contract RewardsManager is DelegationManagerLib {
 
     /// @notice Emitted when accumulated dust is swept to treasury
     event DustSwept(address indexed token, address indexed recipient, uint256 amount);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // DELEGATION HOOK
     // ═══════════════════════════════════════════════════════════════════════════
@@ -48,7 +49,10 @@ abstract contract RewardsManager is DelegationManagerLib {
         uint64[] memory blueprintIds,
         uint256[] memory blueprintShares,
         uint16 lockMultiplierBps
-    ) internal override {
+    )
+        internal
+        override
+    {
         bytes32 assetHash = _assetHash(asset);
         uint256[] memory blueprintAmounts = new uint256[](0);
         if (selectionMode == Types.BlueprintSelectionMode.All) {
@@ -63,20 +67,14 @@ abstract contract RewardsManager is DelegationManagerLib {
             if (isIncrease) {
                 uint256 remaining = amount;
                 for (uint256 i = 0; i < blueprintIds.length; i++) {
-                    uint256 amountForBlueprint = i == blueprintIds.length - 1
-                        ? remaining
-                        : amount / blueprintIds.length;
+                    uint256 amountForBlueprint = i == blueprintIds.length - 1 ? remaining : amount / blueprintIds.length;
                     remaining -= amountForBlueprint;
                     blueprintAmounts[i] = amountForBlueprint;
                 }
             } else {
                 for (uint256 i = 0; i < blueprintIds.length; i++) {
-                    blueprintAmounts[i] = _sharesToAmountForBlueprint(
-                        operator,
-                        blueprintIds[i],
-                        assetHash,
-                        blueprintShares[i]
-                    );
+                    blueprintAmounts[i] =
+                        _sharesToAmountForBlueprint(operator, blueprintIds[i], assetHash, blueprintShares[i]);
                 }
             }
             // Fixed mode: update per-blueprint pools for selected blueprints only
@@ -113,13 +111,16 @@ abstract contract RewardsManager is DelegationManagerLib {
     /// @notice Update reward pool for All mode delegations
     /// @dev All mode delegators are exposed to rewards/slashes from ALL operator blueprints
     function _updateAllModePool(
-        address /* delegator */,
+        address,
+        /* delegator */
         address operator,
         bytes32 assetHash,
         uint256 shares,
         uint256 amount,
         bool isIncrease
-    ) internal {
+    )
+        internal
+    {
         Types.OperatorRewardPool storage pool = _rewardPools[operator][assetHash];
         if (isIncrease) {
             pool.totalShares += shares;
@@ -133,16 +134,20 @@ abstract contract RewardsManager is DelegationManagerLib {
     /// @notice Update reward pools for Fixed mode delegations
     /// @dev Fixed mode delegators are only exposed to rewards/slashes from selected blueprints
     function _updateFixedModePools(
-        address /* delegator */,
+        address,
+        /* delegator */
         address operator,
         bytes32 assetHash,
-        uint256 /* shares */,
+        uint256,
+        /* shares */
         uint256 amount,
         bool isIncrease,
         uint64[] memory blueprintIds,
         uint256[] memory blueprintShares,
         uint256[] memory blueprintAmounts
-    ) internal {
+    )
+        internal
+    {
         if (blueprintIds.length == 0) return;
 
         if (blueprintIds.length != blueprintShares.length || blueprintIds.length != blueprintAmounts.length) {
@@ -183,26 +188,20 @@ abstract contract RewardsManager is DelegationManagerLib {
         uint256 amount,
         bool isIncrease,
         uint16 lockMultiplierBps
-    ) internal {
+    )
+        internal
+    {
         if (_rewardsManager == address(0)) return;
 
         address assetAddress = asset.kind == Types.AssetKind.Native ? address(0) : asset.token;
 
         if (isIncrease) {
-            try IRewardsManager(_rewardsManager).recordDelegate(
-                delegator,
-                operator,
-                assetAddress,
-                amount,
-                lockMultiplierBps
-            ) {} catch {}
+            try IRewardsManager(_rewardsManager)
+                .recordDelegate(delegator, operator, assetAddress, amount, lockMultiplierBps) { }
+                catch { }
         } else {
-            try IRewardsManager(_rewardsManager).recordUndelegate(
-                delegator,
-                operator,
-                assetAddress,
-                amount
-            ) {} catch {}
+            try IRewardsManager(_rewardsManager).recordUndelegate(delegator, operator, assetAddress, amount) { }
+                catch { }
         }
     }
 
@@ -216,19 +215,23 @@ abstract contract RewardsManager is DelegationManagerLib {
         uint64[] memory blueprintIds,
         uint256[] memory blueprintAmounts,
         uint16 lockMultiplierBps
-    ) internal {
+    )
+        internal
+    {
         if (_serviceFeeDistributor == address(0)) return;
-        try IServiceFeeDistributor(_serviceFeeDistributor).onDelegationChanged(
-            delegator,
-            operator,
-            asset,
-            amount,
-            isIncrease,
-            selectionMode,
-            blueprintIds,
-            blueprintAmounts,
-            lockMultiplierBps
-        ) {} catch {}
+        try IServiceFeeDistributor(_serviceFeeDistributor)
+            .onDelegationChanged(
+                delegator,
+                operator,
+                asset,
+                amount,
+                isIncrease,
+                selectionMode,
+                blueprintIds,
+                blueprintAmounts,
+                lockMultiplierBps
+            ) { }
+            catch { }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -236,9 +239,7 @@ abstract contract RewardsManager is DelegationManagerLib {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get operator reward pool info
-    function _getOperatorRewardPool(
-        address operator
-    ) internal view returns (Types.OperatorRewardPool memory) {
+    function _getOperatorRewardPool(address operator) internal view returns (Types.OperatorRewardPool memory) {
         bytes32 bondHash = _operatorBondToken == address(0)
             ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
             : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
@@ -278,7 +279,7 @@ abstract contract RewardsManager is DelegationManagerLib {
         _accumulatedDust[token] = 0;
 
         if (token == address(0)) {
-            (bool success,) = payable(recipient).call{value: amount}("");
+            (bool success,) = payable(recipient).call{ value: amount }("");
             if (!success) revert DelegationErrors.TransferFailed();
         } else {
             IERC20(token).safeTransfer(recipient, amount);
@@ -300,7 +301,10 @@ abstract contract RewardsManager is DelegationManagerLib {
         uint256[] memory shares,
         uint256 totalShares,
         address token
-    ) internal returns (uint256[] memory amounts) {
+    )
+        internal
+        returns (uint256[] memory amounts)
+    {
         if (shares.length == 0 || totalShares == 0 || totalAmount == 0) {
             return new uint256[](shares.length);
         }
@@ -347,7 +351,10 @@ abstract contract RewardsManager is DelegationManagerLib {
         uint256[] memory shares,
         uint256 totalShares,
         address token
-    ) internal returns (uint256[] memory amounts, uint256 dustAmount) {
+    )
+        internal
+        returns (uint256[] memory amounts, uint256 dustAmount)
+    {
         if (shares.length == 0 || totalShares == 0 || totalAmount == 0) {
             return (new uint256[](shares.length), 0);
         }

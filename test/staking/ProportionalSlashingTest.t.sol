@@ -99,9 +99,8 @@ contract ProportionalSlashingTest is Test {
         _setupOperatorWithDelegators();
 
         // Total stake = 60 ETH (10 operator + 20 d1 + 30 d2)
-        uint256 totalStake = staking.getOperatorSelfStake(operator1) +
-                             staking.getDelegation(delegator1, operator1) +
-                             staking.getDelegation(delegator2, operator1);
+        uint256 totalStake = staking.getOperatorSelfStake(operator1) + staking.getDelegation(delegator1, operator1)
+            + staking.getDelegation(delegator2, operator1);
         assertEq(totalStake, 60 ether, "Total stake should be 60 ETH");
 
         // Slash 10% of total
@@ -325,9 +324,8 @@ contract ProportionalSlashingTest is Test {
         vm.prank(slasher);
         staking.slash(operator1, 0, 10_000, keccak256("evidence"));
 
-        uint256 totalAfter = staking.getOperatorSelfStake(operator1) +
-                             staking.getDelegation(delegator1, operator1) +
-                             staking.getDelegation(delegator2, operator1);
+        uint256 totalAfter = staking.getOperatorSelfStake(operator1) + staking.getDelegation(delegator1, operator1)
+            + staking.getDelegation(delegator2, operator1);
 
         // Total should be 0 (capped slash)
         assertEq(totalAfter, 0, "Total stake should be 0 after max slash");

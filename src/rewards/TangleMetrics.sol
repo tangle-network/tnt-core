@@ -10,12 +10,7 @@ import { IMetricsRecorder } from "../interfaces/IMetricsRecorder.sol";
 /// @title TangleMetrics
 /// @notice Lightweight protocol activity recorder for reward distribution
 /// @dev Records events and maintains minimal aggregates for RewardVaults
-contract TangleMetrics is
-    Initializable,
-    UUPSUpgradeable,
-    AccessControlUpgradeable,
-    IMetricsRecorder
-{
+contract TangleMetrics is Initializable, UUPSUpgradeable, AccessControlUpgradeable, IMetricsRecorder {
     // ═══════════════════════════════════════════════════════════════════════════
     // ROLES
     // ═══════════════════════════════════════════════════════════════════════════
@@ -29,46 +24,19 @@ contract TangleMetrics is
 
     // Staking
     event Staked(
-        address indexed delegator,
-        address indexed operator,
-        address indexed asset,
-        uint256 amount,
-        uint256 timestamp
+        address indexed delegator, address indexed operator, address indexed asset, uint256 amount, uint256 timestamp
     );
     event Unstaked(
-        address indexed delegator,
-        address indexed operator,
-        address indexed asset,
-        uint256 amount,
-        uint256 timestamp
+        address indexed delegator, address indexed operator, address indexed asset, uint256 amount, uint256 timestamp
     );
 
     // Operators
-    event OperatorRegistered(
-        address indexed operator,
-        address indexed asset,
-        uint256 amount,
-        uint256 timestamp
-    );
-    event HeartbeatReceived(
-        address indexed operator,
-        uint64 indexed serviceId,
-        uint64 timestamp,
-        uint256 blockNumber
-    );
+    event OperatorRegistered(address indexed operator, address indexed asset, uint256 amount, uint256 timestamp);
+    event HeartbeatReceived(address indexed operator, uint64 indexed serviceId, uint64 timestamp, uint256 blockNumber);
     event JobCompleted(
-        address indexed operator,
-        uint64 indexed serviceId,
-        uint64 jobCallId,
-        bool success,
-        uint256 timestamp
+        address indexed operator, uint64 indexed serviceId, uint64 jobCallId, bool success, uint256 timestamp
     );
-    event OperatorSlashed(
-        address indexed operator,
-        uint64 indexed serviceId,
-        uint256 amount,
-        uint256 timestamp
-    );
+    event OperatorSlashed(address indexed operator, uint64 indexed serviceId, uint256 amount, uint256 timestamp);
 
     // Services
     event ServiceCreated(
@@ -78,38 +46,17 @@ contract TangleMetrics is
         uint256 operatorCount,
         uint256 timestamp
     );
-    event ServiceTerminated(
-        uint64 indexed serviceId,
-        uint256 duration,
-        uint256 timestamp
-    );
-    event JobCalled(
-        uint64 indexed serviceId,
-        address indexed caller,
-        uint64 jobCallId,
-        uint256 timestamp
-    );
+    event ServiceTerminated(uint64 indexed serviceId, uint256 duration, uint256 timestamp);
+    event JobCalled(uint64 indexed serviceId, address indexed caller, uint64 jobCallId, uint256 timestamp);
 
     // Payments
     event PaymentRecorded(
-        address indexed payer,
-        uint64 indexed serviceId,
-        address indexed token,
-        uint256 amount,
-        uint256 timestamp
+        address indexed payer, uint64 indexed serviceId, address indexed token, uint256 amount, uint256 timestamp
     );
 
     // Blueprints
-    event BlueprintCreated(
-        uint64 indexed blueprintId,
-        address indexed developer,
-        uint256 timestamp
-    );
-    event BlueprintRegistration(
-        uint64 indexed blueprintId,
-        address indexed operator,
-        uint256 timestamp
-    );
+    event BlueprintCreated(uint64 indexed blueprintId, address indexed developer, uint256 timestamp);
+    event BlueprintRegistration(uint64 indexed blueprintId, address indexed operator, uint256 timestamp);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // AGGREGATE STORAGE - Minimal state for reward calculations
@@ -217,7 +164,10 @@ contract TangleMetrics is
         address operator,
         address asset,
         uint256 amount
-    ) external onlyRole(RECORDER_ROLE) {
+    )
+        external
+        onlyRole(RECORDER_ROLE)
+    {
         totalStakedByAsset[asset] += amount;
         delegatorStakeByAsset[delegator][asset] += amount;
         operatorTotalStake[operator] += amount;
@@ -231,7 +181,10 @@ contract TangleMetrics is
         address operator,
         address asset,
         uint256 amount
-    ) external onlyRole(RECORDER_ROLE) {
+    )
+        external
+        onlyRole(RECORDER_ROLE)
+    {
         totalStakedByAsset[asset] -= amount;
         delegatorStakeByAsset[delegator][asset] -= amount;
         operatorTotalStake[operator] -= amount;
@@ -248,7 +201,10 @@ contract TangleMetrics is
         address operator,
         address asset,
         uint256 amount
-    ) external onlyRole(RECORDER_ROLE) {
+    )
+        external
+        onlyRole(RECORDER_ROLE)
+    {
         totalStakedByAsset[asset] += amount;
         operatorTotalStake[operator] += amount;
 
@@ -256,11 +212,7 @@ contract TangleMetrics is
     }
 
     /// @inheritdoc IMetricsRecorder
-    function recordHeartbeat(
-        address operator,
-        uint64 serviceId,
-        uint64 timestamp
-    ) external onlyRole(RECORDER_ROLE) {
+    function recordHeartbeat(address operator, uint64 serviceId, uint64 timestamp) external onlyRole(RECORDER_ROLE) {
         operatorHeartbeats[operator]++;
         operatorLastHeartbeat[operator] = timestamp;
 
@@ -273,7 +225,10 @@ contract TangleMetrics is
         uint64 serviceId,
         uint64 jobCallId,
         bool success
-    ) external onlyRole(RECORDER_ROLE) {
+    )
+        external
+        onlyRole(RECORDER_ROLE)
+    {
         operatorJobsCompleted[operator]++;
         if (success) {
             operatorJobsSuccessful[operator]++;
@@ -283,11 +238,7 @@ contract TangleMetrics is
     }
 
     /// @inheritdoc IMetricsRecorder
-    function recordSlash(
-        address operator,
-        uint64 serviceId,
-        uint256 amount
-    ) external onlyRole(RECORDER_ROLE) {
+    function recordSlash(address operator, uint64 serviceId, uint256 amount) external onlyRole(RECORDER_ROLE) {
         emit OperatorSlashed(operator, serviceId, amount, block.timestamp);
     }
 
@@ -301,7 +252,10 @@ contract TangleMetrics is
         uint64 blueprintId,
         address owner,
         uint256 operatorCount
-    ) external onlyRole(RECORDER_ROLE) {
+    )
+        external
+        onlyRole(RECORDER_ROLE)
+    {
         totalServicesCreated++;
 
         // Track service to blueprint mapping
@@ -320,19 +274,12 @@ contract TangleMetrics is
     }
 
     /// @inheritdoc IMetricsRecorder
-    function recordServiceTerminated(
-        uint64 serviceId,
-        uint256 duration
-    ) external onlyRole(RECORDER_ROLE) {
+    function recordServiceTerminated(uint64 serviceId, uint256 duration) external onlyRole(RECORDER_ROLE) {
         emit ServiceTerminated(serviceId, duration, block.timestamp);
     }
 
     /// @inheritdoc IMetricsRecorder
-    function recordJobCall(
-        uint64 serviceId,
-        address caller,
-        uint64 jobCallId
-    ) external onlyRole(RECORDER_ROLE) {
+    function recordJobCall(uint64 serviceId, address caller, uint64 jobCallId) external onlyRole(RECORDER_ROLE) {
         totalJobsCalled++;
 
         // Update blueprint and developer job counts
@@ -359,7 +306,10 @@ contract TangleMetrics is
         uint64 serviceId,
         address token,
         uint256 amount
-    ) external onlyRole(RECORDER_ROLE) {
+    )
+        external
+        onlyRole(RECORDER_ROLE)
+    {
         totalFeesPaid[payer] += amount;
         totalPaymentsRecorded++;
 
@@ -382,10 +332,7 @@ contract TangleMetrics is
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IMetricsRecorder
-    function recordBlueprintCreated(
-        uint64 blueprintId,
-        address developer
-    ) external onlyRole(RECORDER_ROLE) {
+    function recordBlueprintCreated(uint64 blueprintId, address developer) external onlyRole(RECORDER_ROLE) {
         // Store blueprint developer
         blueprintDeveloper[blueprintId] = developer;
 
@@ -396,10 +343,7 @@ contract TangleMetrics is
     }
 
     /// @inheritdoc IMetricsRecorder
-    function recordBlueprintRegistration(
-        uint64 blueprintId,
-        address operator
-    ) external onlyRole(RECORDER_ROLE) {
+    function recordBlueprintRegistration(uint64 blueprintId, address operator) external onlyRole(RECORDER_ROLE) {
         // Increment operator count for this blueprint
         blueprintOperatorCount[blueprintId]++;
 
@@ -418,7 +362,7 @@ contract TangleMetrics is
     function getOperatorSuccessRate(address operator) external view returns (uint256) {
         uint256 completed = operatorJobsCompleted[operator];
         if (completed == 0) return 0;
-        return (operatorJobsSuccessful[operator] * 10000) / completed;
+        return (operatorJobsSuccessful[operator] * 10_000) / completed;
     }
 
     /// @notice Check if operator heartbeat is recent
@@ -435,13 +379,11 @@ contract TangleMetrics is
     /// @return jobCount Number of jobs completed
     /// @return operatorCount Number of operators registered
     /// @return totalFees Total fees earned
-    function getBlueprintStats(uint64 blueprintId) external view returns (
-        address developer,
-        uint256 serviceCount,
-        uint256 jobCount,
-        uint256 operatorCount,
-        uint256 totalFees
-    ) {
+    function getBlueprintStats(uint64 blueprintId)
+        external
+        view
+        returns (address developer, uint256 serviceCount, uint256 jobCount, uint256 operatorCount, uint256 totalFees)
+    {
         return (
             blueprintDeveloper[blueprintId],
             blueprintServiceCount[blueprintId],
@@ -457,12 +399,11 @@ contract TangleMetrics is
     /// @return serviceCount Total services across all blueprints
     /// @return jobCount Total jobs across all blueprints
     /// @return totalFees Total fees earned across all blueprints
-    function getDeveloperStats(address developer) external view returns (
-        uint256 blueprintCount,
-        uint256 serviceCount,
-        uint256 jobCount,
-        uint256 totalFees
-    ) {
+    function getDeveloperStats(address developer)
+        external
+        view
+        returns (uint256 blueprintCount, uint256 serviceCount, uint256 jobCount, uint256 totalFees)
+    {
         return (
             developerBlueprintCount[developer],
             developerTotalServices[developer],
@@ -475,5 +416,5 @@ contract TangleMetrics is
     // UPGRADES
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) {}
+    function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
 }

@@ -356,11 +356,15 @@ abstract contract TangleStorage {
     /// @notice Service ID => Call ID => Operator => Quoted price (for RFQ jobs)
     mapping(uint64 => mapping(uint64 => mapping(address => uint256))) internal _jobQuotedPrices;
 
+    /// @notice Service ID => Operator => Resource commitment hash (for QoS disputes)
+    /// @dev keccak256 of EIP-712-hashed ResourceCommitment[] from the operator's quote
+    mapping(uint64 => mapping(address => bytes32)) internal _serviceResourceCommitmentHash;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 }

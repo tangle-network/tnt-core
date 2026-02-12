@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Types} from "../libraries/Types.sol";
-import {IStaking} from "../interfaces/IStaking.sol";
-import {IExposureManager} from "./IExposureManager.sol";
-import {ExposureTypes} from "./ExposureTypes.sol";
+import { Types } from "../libraries/Types.sol";
+import { IStaking } from "../interfaces/IStaking.sol";
+import { IExposureManager } from "./IExposureManager.sol";
+import { ExposureTypes } from "./ExposureTypes.sol";
 
 /// @title ExposureManager
 /// @notice Manages operator per-asset exposure limits and validates commitments
@@ -31,8 +31,7 @@ contract ExposureManager is IExposureManager {
     mapping(address => ExposureTypes.OperatorExposureConfig) public operatorConfigs;
 
     /// @notice Operator per-asset exposure limits (operator => assetHash => limit)
-    mapping(address => mapping(bytes32 => ExposureTypes.OperatorAssetExposureLimit))
-        internal _assetExposureLimits;
+    mapping(address => mapping(bytes32 => ExposureTypes.OperatorAssetExposureLimit)) internal _assetExposureLimits;
 
     /// @notice Track which assets an operator has configured
     mapping(address => bytes32[]) internal _operatorConfiguredAssets;
@@ -56,7 +55,10 @@ contract ExposureManager is IExposureManager {
         uint16 maxExposureBps,
         uint16 defaultExposureBps,
         bool enabled
-    ) external override {
+    )
+        external
+        override
+    {
         _validateExposureConfig(maxExposureBps, defaultExposureBps);
 
         bytes32 assetHash = _hashAsset(asset);
@@ -76,9 +78,7 @@ contract ExposureManager is IExposureManager {
     }
 
     /// @inheritdoc IExposureManager
-    function batchSetAssetExposureLimits(
-        ExposureTypes.OperatorAssetExposureLimit[] calldata limits
-    ) external override {
+    function batchSetAssetExposureLimits(ExposureTypes.OperatorAssetExposureLimit[] calldata limits) external override {
         for (uint256 i = 0; i < limits.length; i++) {
             _validateExposureConfig(limits[i].maxExposureBps, limits[i].defaultExposureBps);
 
@@ -95,20 +95,13 @@ contract ExposureManager is IExposureManager {
             limit.enabled = limits[i].enabled;
 
             emit AssetExposureLimitSet(
-                msg.sender,
-                limits[i].asset,
-                limits[i].maxExposureBps,
-                limits[i].defaultExposureBps,
-                limits[i].enabled
+                msg.sender, limits[i].asset, limits[i].maxExposureBps, limits[i].defaultExposureBps, limits[i].enabled
             );
         }
     }
 
     /// @inheritdoc IExposureManager
-    function setOperatorExposureConfig(
-        uint16 globalMaxExposureBps,
-        bool requireExplicitApproval
-    ) external override {
+    function setOperatorExposureConfig(uint16 globalMaxExposureBps, bool requireExplicitApproval) external override {
         if (globalMaxExposureBps > ExposureTypes.MAX_EXPOSURE_BPS) {
             revert InvalidExposureConfig("Global max exceeds 100%");
         }
@@ -130,16 +123,24 @@ contract ExposureManager is IExposureManager {
         address operator,
         Types.AssetSecurityRequirement[] calldata requirements,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) external view override returns (bool valid, ExposureTypes.CommitmentValidationResult memory result) {
+    )
+        external
+        view
+        override
+        returns (bool valid, ExposureTypes.CommitmentValidationResult memory result)
+    {
         // 1. Check operator is registered
         if (!staking.isOperator(operator)) {
-            return (false, ExposureTypes.CommitmentValidationResult({
-                valid: false,
-                reason: "Not an operator",
-                asset: Types.Asset(Types.AssetKind.Native, address(0)),
-                requiredStake: 0,
-                actualStake: 0
-            }));
+            return (
+                false,
+                ExposureTypes.CommitmentValidationResult({
+                    valid: false,
+                    reason: "Not an operator",
+                    asset: Types.Asset(Types.AssetKind.Native, address(0)),
+                    requiredStake: 0,
+                    actualStake: 0
+                })
+            );
         }
 
         // 2. Check each requirement has a matching valid commitment
@@ -162,13 +163,16 @@ contract ExposureManager is IExposureManager {
             }
 
             if (!found) {
-                return (false, ExposureTypes.CommitmentValidationResult({
-                    valid: false,
-                    reason: "Missing commitment for required asset",
-                    asset: req.asset,
-                    requiredStake: 0,
-                    actualStake: 0
-                }));
+                return (
+                    false,
+                    ExposureTypes.CommitmentValidationResult({
+                        valid: false,
+                        reason: "Missing commitment for required asset",
+                        asset: req.asset,
+                        requiredStake: 0,
+                        actualStake: 0
+                    })
+                );
             }
         }
 
@@ -182,23 +186,29 @@ contract ExposureManager is IExposureManager {
                 }
             }
             if (!expected) {
-                return (false, ExposureTypes.CommitmentValidationResult({
-                    valid: false,
-                    reason: "Unexpected asset commitment",
-                    asset: commitments[j].asset,
-                    requiredStake: 0,
-                    actualStake: 0
-                }));
+                return (
+                    false,
+                    ExposureTypes.CommitmentValidationResult({
+                        valid: false,
+                        reason: "Unexpected asset commitment",
+                        asset: commitments[j].asset,
+                        requiredStake: 0,
+                        actualStake: 0
+                    })
+                );
             }
         }
 
-        return (true, ExposureTypes.CommitmentValidationResult({
-            valid: true,
-            reason: "",
-            asset: Types.Asset(Types.AssetKind.Native, address(0)),
-            requiredStake: 0,
-            actualStake: 0
-        }));
+        return (
+            true,
+            ExposureTypes.CommitmentValidationResult({
+                valid: true,
+                reason: "",
+                asset: Types.Asset(Types.AssetKind.Native, address(0)),
+                requiredStake: 0,
+                actualStake: 0
+            })
+        );
     }
 
     /// @notice Validate a single commitment
@@ -206,59 +216,74 @@ contract ExposureManager is IExposureManager {
         address operator,
         Types.AssetSecurityRequirement calldata requirement,
         Types.AssetSecurityCommitment calldata commitment
-    ) internal view returns (bool, ExposureTypes.CommitmentValidationResult memory) {
+    )
+        internal
+        view
+        returns (bool, ExposureTypes.CommitmentValidationResult memory)
+    {
         // Check exposure is within requirement bounds
         if (commitment.exposureBps < requirement.minExposureBps) {
-            return (false, ExposureTypes.CommitmentValidationResult({
-                valid: false,
-                reason: "Commitment below minimum",
-                asset: requirement.asset,
-                requiredStake: 0,
-                actualStake: 0
-            }));
+            return (
+                false,
+                ExposureTypes.CommitmentValidationResult({
+                    valid: false,
+                    reason: "Commitment below minimum",
+                    asset: requirement.asset,
+                    requiredStake: 0,
+                    actualStake: 0
+                })
+            );
         }
 
         if (commitment.exposureBps > requirement.maxExposureBps) {
-            return (false, ExposureTypes.CommitmentValidationResult({
-                valid: false,
-                reason: "Commitment above maximum",
-                asset: requirement.asset,
-                requiredStake: 0,
-                actualStake: 0
-            }));
+            return (
+                false,
+                ExposureTypes.CommitmentValidationResult({
+                    valid: false,
+                    reason: "Commitment above maximum",
+                    asset: requirement.asset,
+                    requiredStake: 0,
+                    actualStake: 0
+                })
+            );
         }
 
         // Check operator's own exposure limit
-        (uint16 effectiveLimit, ) = _getEffectiveExposureLimit(operator, requirement.asset);
+        (uint16 effectiveLimit,) = _getEffectiveExposureLimit(operator, requirement.asset);
         if (effectiveLimit > 0 && commitment.exposureBps > effectiveLimit) {
-            return (false, ExposureTypes.CommitmentValidationResult({
-                valid: false,
-                reason: "Exceeds operator limit",
-                asset: requirement.asset,
-                requiredStake: 0,
-                actualStake: 0
-            }));
+            return (
+                false,
+                ExposureTypes.CommitmentValidationResult({
+                    valid: false,
+                    reason: "Exceeds operator limit",
+                    asset: requirement.asset,
+                    requiredStake: 0,
+                    actualStake: 0
+                })
+            );
         }
 
         // Check operator has sufficient delegation for this asset
         uint256 delegation = _getOperatorDelegationForAsset(operator, requirement.asset);
         if (delegation == 0) {
-            return (false, ExposureTypes.CommitmentValidationResult({
-                valid: false,
-                reason: "No delegation for asset",
-                asset: requirement.asset,
-                requiredStake: 1, // At least some stake required
-                actualStake: 0
-            }));
+            return (
+                false,
+                ExposureTypes.CommitmentValidationResult({
+                    valid: false,
+                    reason: "No delegation for asset",
+                    asset: requirement.asset,
+                    requiredStake: 1, // At least some stake required
+                    actualStake: 0
+                })
+            );
         }
 
-        return (true, ExposureTypes.CommitmentValidationResult({
-            valid: true,
-            reason: "",
-            asset: requirement.asset,
-            requiredStake: 0,
-            actualStake: delegation
-        }));
+        return (
+            true,
+            ExposureTypes.CommitmentValidationResult({
+                valid: true, reason: "", asset: requirement.asset, requiredStake: 0, actualStake: delegation
+            })
+        );
     }
 
     /// @inheritdoc IExposureManager
@@ -266,8 +291,13 @@ contract ExposureManager is IExposureManager {
         address operator,
         Types.Asset calldata asset,
         uint16 exposureBps
-    ) external view override returns (bool canAccept, uint16 effectiveLimit) {
-        (effectiveLimit, ) = _getEffectiveExposureLimit(operator, asset);
+    )
+        external
+        view
+        override
+        returns (bool canAccept, uint16 effectiveLimit)
+    {
+        (effectiveLimit,) = _getEffectiveExposureLimit(operator, asset);
 
         // If no limit set and operator doesn't require explicit approval, allow any exposure
         if (effectiveLimit == 0 && !operatorConfigs[operator].requireExplicitApproval) {
@@ -287,7 +317,12 @@ contract ExposureManager is IExposureManager {
         address operator,
         Types.Asset calldata asset,
         uint16 exposureBps
-    ) external view override returns (uint256 delegatedAmount, uint256 exposedAmount) {
+    )
+        external
+        view
+        override
+        returns (uint256 delegatedAmount, uint256 exposedAmount)
+    {
         delegatedAmount = _getOperatorDelegationForAsset(operator, asset);
         exposedAmount = (delegatedAmount * exposureBps) / ExposureTypes.BPS_DENOMINATOR;
     }
@@ -296,7 +331,12 @@ contract ExposureManager is IExposureManager {
     function getOperatorServiceExposure(
         address operator,
         uint64 serviceId
-    ) external pure override returns (ExposureTypes.AggregateExposure memory exposure) {
+    )
+        external
+        pure
+        override
+        returns (ExposureTypes.AggregateExposure memory exposure)
+    {
         // This would need access to service storage to get commitments
         // For now, return empty - actual implementation needs Tangle integration
         exposure.operator = operator;
@@ -312,15 +352,23 @@ contract ExposureManager is IExposureManager {
     function getAssetExposureLimit(
         address operator,
         Types.Asset calldata asset
-    ) external view override returns (ExposureTypes.OperatorAssetExposureLimit memory limit) {
+    )
+        external
+        view
+        override
+        returns (ExposureTypes.OperatorAssetExposureLimit memory limit)
+    {
         bytes32 assetHash = _hashAsset(asset);
         return _assetExposureLimits[operator][assetHash];
     }
 
     /// @inheritdoc IExposureManager
-    function getOperatorExposureConfig(
-        address operator
-    ) external view override returns (ExposureTypes.OperatorExposureConfig memory config) {
+    function getOperatorExposureConfig(address operator)
+        external
+        view
+        override
+        returns (ExposureTypes.OperatorExposureConfig memory config)
+    {
         return operatorConfigs[operator];
     }
 
@@ -328,7 +376,12 @@ contract ExposureManager is IExposureManager {
     function getEffectiveExposureLimit(
         address operator,
         Types.Asset calldata asset
-    ) external view override returns (uint16 effectiveLimit, bool isExplicit) {
+    )
+        external
+        view
+        override
+        returns (uint16 effectiveLimit, bool isExplicit)
+    {
         return _getEffectiveExposureLimit(operator, asset);
     }
 
@@ -339,7 +392,11 @@ contract ExposureManager is IExposureManager {
     function _getEffectiveExposureLimit(
         address operator,
         Types.Asset memory asset
-    ) internal view returns (uint16 effectiveLimit, bool isExplicit) {
+    )
+        internal
+        view
+        returns (uint16 effectiveLimit, bool isExplicit)
+    {
         bytes32 assetHash = _hashAsset(asset);
         ExposureTypes.OperatorAssetExposureLimit storage perAsset = _assetExposureLimits[operator][assetHash];
 
@@ -356,10 +413,11 @@ contract ExposureManager is IExposureManager {
         return (ExposureTypes.MAX_EXPOSURE_BPS, false);
     }
 
-    function _getOperatorDelegationForAsset(
-        address operator,
-        Types.Asset memory asset
-    ) internal view returns (uint256) {
+    function _getOperatorDelegationForAsset(address operator, Types.Asset memory asset)
+        internal
+        view
+        returns (uint256)
+    {
         return staking.getOperatorStakeForAsset(operator, asset);
     }
 

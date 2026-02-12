@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {ValidatorPod} from "../../src/beacon/ValidatorPod.sol";
-import {ValidatorPodManager} from "../../src/beacon/ValidatorPodManager.sol";
-import {ValidatorTypes} from "../../src/beacon/ValidatorTypes.sol";
-import {MockBeaconOracle} from "../../src/beacon/BeaconRootReceiver.sol";
+import { Test } from "forge-std/Test.sol";
+import { ValidatorPod } from "../../src/beacon/ValidatorPod.sol";
+import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
+import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
+import { MockBeaconOracle } from "../../src/beacon/BeaconRootReceiver.sol";
 
 /// @title BeaconTestBase
 /// @notice Base test contract for beacon chain staking tests
@@ -14,7 +14,10 @@ abstract contract BeaconTestBase is Test {
         ValidatorTypes.ValidatorStatus left,
         ValidatorTypes.ValidatorStatus right,
         string memory err
-    ) internal pure {
+    )
+        internal
+        pure
+    {
         if (left != right) {
             revert(err);
         }
@@ -45,7 +48,7 @@ abstract contract BeaconTestBase is Test {
 
     uint256 public constant MIN_OPERATOR_STAKE = 1 ether;
     uint64 public constant VALIDATOR_BALANCE_GWEI = 32_000_000_000; // 32 ETH
-    uint64 public constant BEACON_TIMESTAMP = 1700000000;
+    uint64 public constant BEACON_TIMESTAMP = 1_700_000_000;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SETUP
@@ -84,7 +87,7 @@ abstract contract BeaconTestBase is Test {
     /// @notice Register an operator
     function _registerOperator(address operator, uint256 stake) internal {
         vm.prank(operator);
-        podManager.registerOperator{value: stake}();
+        podManager.registerOperator{ value: stake }();
     }
 
     /// @notice Create a pod and give it shares for delegation testing
@@ -104,7 +107,10 @@ abstract contract BeaconTestBase is Test {
 
     /// @notice Generate a simple valid Merkle proof for testing
     /// @dev Creates a minimal 2-level tree where leaf is at index 0
-    function _generateSimpleMerkleProof(bytes32 leaf, bytes32 sibling)
+    function _generateSimpleMerkleProof(
+        bytes32 leaf,
+        bytes32 sibling
+    )
         internal
         pure
         returns (bytes memory proof, bytes32 root)
@@ -122,7 +128,11 @@ abstract contract BeaconTestBase is Test {
         bytes32 leaf,
         bytes32[] memory siblings,
         uint256 leafIndex
-    ) internal pure returns (bytes memory proof, bytes32 root) {
+    )
+        internal
+        pure
+        returns (bytes memory proof, bytes32 root)
+    {
         bytes32 current = leaf;
         proof = "";
 
@@ -148,7 +158,11 @@ abstract contract BeaconTestBase is Test {
         bool slashed,
         uint64 activationEpoch,
         uint64 exitEpoch
-    ) internal pure returns (bytes32[] memory fields) {
+    )
+        internal
+        pure
+        returns (bytes32[] memory fields)
+    {
         fields = new bytes32[](8);
         fields[0] = pubkeyHash;
         fields[1] = withdrawalCredentials;
@@ -179,11 +193,14 @@ abstract contract BeaconTestBase is Test {
         uint64 balance1,
         uint64 balance2,
         uint64 balance3
-    ) internal pure returns (bytes32) {
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
         // Pack 4 64-bit balances into 32 bytes (little-endian)
         return bytes32(
-            uint256(balance0) | (uint256(balance1) << 64) | (uint256(balance2) << 128)
-                | (uint256(balance3) << 192)
+            uint256(balance0) | (uint256(balance1) << 64) | (uint256(balance2) << 128) | (uint256(balance3) << 192)
         );
     }
 

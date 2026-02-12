@@ -63,15 +63,15 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
     // ═══════════════════════════════════════════════════════════════════════════
 
     enum BuybackMode {
-        MANUAL,     // Buyback triggered manually
-        AUTO,       // Buyback on every payment
-        THRESHOLD   // Buyback when threshold reached
+        MANUAL, // Buyback triggered manually
+        AUTO, // Buyback on every payment
+        THRESHOLD // Buyback when threshold reached
     }
 
     enum TokenDestination {
-        BURN,       // Burn bought tokens
+        BURN, // Burn bought tokens
         DISTRIBUTE, // Add to staking rewards
-        TREASURY    // Send to treasury
+        TREASURY // Send to treasury
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -143,7 +143,9 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
         string memory symbol_,
         address _swapRouter,
         address _weth
-    ) TokenizedBlueprintBase(name_, symbol_) {
+    )
+        TokenizedBlueprintBase(name_, symbol_)
+    {
         swapRouter = ISwapRouter(_swapRouter);
         weth = IWETH(_weth);
     }
@@ -208,12 +210,12 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
         }
 
         // Wrap ETH to WETH
-        weth.deposit{value: ethAmount}();
+        weth.deposit{ value: ethAmount }();
         weth.approve(address(swapRouter), ethAmount);
 
         // Calculate minimum output with slippage protection
         uint256 expectedOut = _getExpectedOutput(ethAmount);
-        uint256 minOut = (expectedOut * (10000 - maxSlippageBps)) / 10000;
+        uint256 minOut = (expectedOut * (10_000 - maxSlippageBps)) / 10_000;
 
         // Execute swap: WETH -> Blueprint Token
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
@@ -275,11 +277,7 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Configure buyback parameters
-    function _configureBuyback(
-        BuybackMode mode,
-        TokenDestination destination,
-        uint256 threshold
-    ) internal {
+    function _configureBuyback(BuybackMode mode, TokenDestination destination, uint256 threshold) internal {
         buybackMode = mode;
         tokenDestination = destination;
         buybackThreshold = threshold;
@@ -328,12 +326,11 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get buyback statistics
-    function buybackStats() external view returns (
-        uint256 pending,
-        uint256 totalSpent,
-        uint256 totalBought,
-        uint256 totalBurned
-    ) {
+    function buybackStats()
+        external
+        view
+        returns (uint256 pending, uint256 totalSpent, uint256 totalBought, uint256 totalBurned)
+    {
         return (pendingBuybackBalance, totalBuybackSpent, totalTokensBought, totalTokensBurned);
     }
 

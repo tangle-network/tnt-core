@@ -79,12 +79,10 @@ interface IBlueprintServiceManager {
     /// @return minCommitmentDuration Minimum time operator must stay after joining (seconds)
     /// @return exitQueueDuration Time between scheduling exit and completing it (seconds)
     /// @return forceExitAllowed Whether service owner can force-exit operators
-    function getExitConfig(uint64 serviceId) external view returns (
-        bool useDefault,
-        uint64 minCommitmentDuration,
-        uint64 exitQueueDuration,
-        bool forceExitAllowed
-    );
+    function getExitConfig(uint64 serviceId)
+        external
+        view
+        returns (bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE LIFECYCLE
@@ -107,7 +105,9 @@ interface IBlueprintServiceManager {
         uint64 ttl,
         address paymentAsset,
         uint256 paymentAmount
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Called when an operator approves a service request
     /// @param operator The approving operator
@@ -134,7 +134,8 @@ interface IBlueprintServiceManager {
         address owner,
         address[] calldata permittedCallers,
         uint64 ttl
-    ) external;
+    )
+        external;
 
     /// @notice Called when service is terminated
     /// @param serviceId The service ID
@@ -210,7 +211,9 @@ interface IBlueprintServiceManager {
         address operator,
         bytes calldata inputs,
         bytes calldata outputs
-    ) external payable;
+    )
+        external
+        payable;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SLASHING
@@ -293,7 +296,10 @@ interface IBlueprintServiceManager {
     /// @param jobIndex The job index
     /// @return thresholdBps Threshold in basis points (6700 = 67%)
     /// @return thresholdType 0 = CountBased (% of operators), 1 = StakeWeighted (% of total stake)
-    function getAggregationThreshold(uint64 serviceId, uint8 jobIndex)
+    function getAggregationThreshold(
+        uint64 serviceId,
+        uint8 jobIndex
+    )
         external
         view
         returns (uint16 thresholdBps, uint8 thresholdType);
@@ -315,7 +321,8 @@ interface IBlueprintServiceManager {
         uint256 signerBitmap,
         uint256[2] calldata aggregatedSignature,
         uint256[4] calldata aggregatedPubkey
-    ) external;
+    )
+        external;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STAKE REQUIREMENTS

@@ -11,8 +11,8 @@ library SchemaLib {
 
     // M-14 FIX: Add depth and size limits to prevent DoS via deeply nested or overly large schemas
     uint256 private constant MAX_SCHEMA_DEPTH = 32;
-    uint256 private constant MAX_ARRAY_LENGTH = 65535;
-    uint256 private constant MAX_LIST_LENGTH = 10000;
+    uint256 private constant MAX_ARRAY_LENGTH = 65_535;
+    uint256 private constant MAX_LIST_LENGTH = 10_000;
     uint256 private constant MAX_STRUCT_FIELDS = 256;
 
     // Schema version constant for TLV format
@@ -92,7 +92,11 @@ library SchemaLib {
         bytes memory out,
         uint256 cursor,
         Types.BlueprintFieldType memory field
-    ) private pure returns (uint256) {
+    )
+        private
+        pure
+        returns (uint256)
+    {
         if (field.children.length > type(uint16).max) {
             revert Errors.SchemaTooLarge();
         }
@@ -111,11 +115,7 @@ library SchemaLib {
         return cursor;
     }
 
-    function _writeCompactString(
-        bytes memory out,
-        uint256 cursor,
-        string memory str
-    ) private pure returns (uint256) {
+    function _writeCompactString(bytes memory out, uint256 cursor, string memory str) private pure returns (uint256) {
         bytes memory strBytes = bytes(str);
         uint256 len = strBytes.length;
 
@@ -130,11 +130,7 @@ library SchemaLib {
         return cursor + len;
     }
 
-    function _writeCompactLength(
-        bytes memory out,
-        uint256 cursor,
-        uint256 len
-    ) private pure returns (uint256) {
+    function _writeCompactLength(bytes memory out, uint256 cursor, uint256 len) private pure returns (uint256) {
         if (len < 0x80) {
             out[cursor] = bytes1(uint8(len));
             return cursor + 1;
@@ -188,7 +184,10 @@ library SchemaLib {
         Types.SchemaTarget target,
         uint64 refId,
         uint64 auxId
-    ) internal view {
+    )
+        internal
+        view
+    {
         _validate(schemaStorage, payload, target, refId, auxId);
     }
 
@@ -198,7 +197,10 @@ library SchemaLib {
         bytes memory payload,
         uint64 blueprintId,
         uint8 jobIndex
-    ) internal view {
+    )
+        internal
+        view
+    {
         _validate(schema.params, payload, Types.SchemaTarget.JobParams, blueprintId, jobIndex);
     }
 
@@ -208,7 +210,10 @@ library SchemaLib {
         bytes memory payload,
         uint64 blueprintId,
         uint8 jobIndex
-    ) internal view {
+    )
+        internal
+        view
+    {
         _validate(schema.result, payload, Types.SchemaTarget.JobResult, blueprintId, jobIndex);
     }
 
@@ -218,7 +223,10 @@ library SchemaLib {
         Types.SchemaTarget target,
         uint64 refId,
         uint64 auxId
-    ) private view {
+    )
+        private
+        view
+    {
         if (schemaStorage.length == 0) {
             return;
         }
@@ -232,7 +240,10 @@ library SchemaLib {
         Types.SchemaTarget target,
         uint64 refId,
         uint64 auxId
-    ) private pure {
+    )
+        private
+        pure
+    {
         if (schema.length < 3) {
             revert Errors.SchemaValidationFailed(uint8(target), refId, auxId, 0);
         }
@@ -244,12 +255,7 @@ library SchemaLib {
         }
 
         // M-14 FIX: Initialize depth tracking in context
-        ValidationContext memory ctx = ValidationContext({
-            target: target,
-            refId: refId,
-            auxId: auxId,
-            depth: 0
-        });
+        ValidationContext memory ctx = ValidationContext({ target: target, refId: refId, auxId: auxId, depth: 0 });
 
         uint16 fieldCount = _readUint16(schema, 1);
         uint256 schemaCursor = 3; // 1 byte version + 2 bytes field count
@@ -260,15 +266,7 @@ library SchemaLib {
         for (uint16 i = 0; i < fieldCount; ++i) {
             uint256 path = _encodePath(0, i);
             uint256 nodeEnd = _skipNode(schema, schemaCursor, ctx, path);
-            cursor = _validateField(
-                schema,
-                schemaCursor,
-                payload,
-                cursor,
-                payloadLength,
-                ctx,
-                path
-            );
+            cursor = _validateField(schema, schemaCursor, payload, cursor, payloadLength, ctx, path);
             schemaCursor = nodeEnd;
         }
 
@@ -285,18 +283,18 @@ library SchemaLib {
         uint256 limit,
         ValidationContext memory ctx,
         uint256 path
-    ) private pure returns (uint256) {
+    )
+        private
+        pure
+        returns (uint256)
+    {
         // M-14 FIX: Check recursion depth to prevent stack overflow attacks
         if (ctx.depth >= MAX_SCHEMA_DEPTH) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }
 
-        (
-            Types.BlueprintFieldKind kind,
-            uint16 arrayLength,
-            uint16 childCount,
-            uint256 childCursor
-        ) = _readHeader(schema, start, ctx, path);
+        (Types.BlueprintFieldKind kind, uint16 arrayLength, uint16 childCount, uint256 childCursor) =
+            _readHeader(schema, start, ctx, path);
 
         if (kind == Types.BlueprintFieldKind.Void) {
             return cursor;
@@ -306,45 +304,27 @@ library SchemaLib {
             return _consume(data, cursor, 1, limit, ctx, path);
         }
 
-        if (
-            kind == Types.BlueprintFieldKind.Uint8 ||
-            kind == Types.BlueprintFieldKind.Int8
-        ) {
+        if (kind == Types.BlueprintFieldKind.Uint8 || kind == Types.BlueprintFieldKind.Int8) {
             return _consume(data, cursor, 1, limit, ctx, path);
         }
 
-        if (
-            kind == Types.BlueprintFieldKind.Uint16 ||
-            kind == Types.BlueprintFieldKind.Int16
-        ) {
+        if (kind == Types.BlueprintFieldKind.Uint16 || kind == Types.BlueprintFieldKind.Int16) {
             return _consume(data, cursor, 2, limit, ctx, path);
         }
 
-        if (
-            kind == Types.BlueprintFieldKind.Uint32 ||
-            kind == Types.BlueprintFieldKind.Int32
-        ) {
+        if (kind == Types.BlueprintFieldKind.Uint32 || kind == Types.BlueprintFieldKind.Int32) {
             return _consume(data, cursor, 4, limit, ctx, path);
         }
 
-        if (
-            kind == Types.BlueprintFieldKind.Uint64 ||
-            kind == Types.BlueprintFieldKind.Int64
-        ) {
+        if (kind == Types.BlueprintFieldKind.Uint64 || kind == Types.BlueprintFieldKind.Int64) {
             return _consume(data, cursor, 8, limit, ctx, path);
         }
 
-        if (
-            kind == Types.BlueprintFieldKind.Uint128 ||
-            kind == Types.BlueprintFieldKind.Int128
-        ) {
+        if (kind == Types.BlueprintFieldKind.Uint128 || kind == Types.BlueprintFieldKind.Int128) {
             return _consume(data, cursor, 16, limit, ctx, path);
         }
 
-        if (
-            kind == Types.BlueprintFieldKind.Uint256 ||
-            kind == Types.BlueprintFieldKind.Int256
-        ) {
+        if (kind == Types.BlueprintFieldKind.Uint256 || kind == Types.BlueprintFieldKind.Int256) {
             return _consume(data, cursor, 32, limit, ctx, path);
         }
 
@@ -396,7 +376,11 @@ library SchemaLib {
         uint256 limit,
         ValidationContext memory ctx,
         uint256 path
-    ) private pure returns (uint256) {
+    )
+        private
+        pure
+        returns (uint256)
+    {
         if (childCount != 1) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }
@@ -411,15 +395,7 @@ library SchemaLib {
 
         // M-14 FIX: Increment depth for nested validation
         ctx.depth++;
-        uint256 consumed = _validateField(
-            schema,
-            childCursor,
-            data,
-            next,
-            endCursor,
-            ctx,
-            _encodePath(path, 0)
-        );
+        uint256 consumed = _validateField(schema, childCursor, data, next, endCursor, ctx, _encodePath(path, 0));
         ctx.depth--;
 
         if (consumed != endCursor) {
@@ -438,7 +414,11 @@ library SchemaLib {
         uint256 limit,
         ValidationContext memory ctx,
         uint256 path
-    ) private pure returns (uint256 current) {
+    )
+        private
+        pure
+        returns (uint256 current)
+    {
         if (childCount != 1) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }
@@ -466,7 +446,11 @@ library SchemaLib {
         uint256 limit,
         ValidationContext memory ctx,
         uint256 path
-    ) private pure returns (uint256 current) {
+    )
+        private
+        pure
+        returns (uint256 current)
+    {
         if (childCount != 1) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }
@@ -505,7 +489,11 @@ library SchemaLib {
         uint256 limit,
         ValidationContext memory ctx,
         uint256 path
-    ) private pure returns (uint256 current) {
+    )
+        private
+        pure
+        returns (uint256 current)
+    {
         (uint256 fieldCount, uint256 next) = _readCompactLength(data, cursor, limit, ctx, path);
         if (fieldCount != childCount) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
@@ -537,8 +525,12 @@ library SchemaLib {
         uint256 cursor,
         ValidationContext memory ctx,
         uint256 path
-    ) private pure returns (uint256) {
-        (, , uint16 childCount, uint256 next) = _readHeader(schema, cursor, ctx, path);
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        (,, uint16 childCount, uint256 next) = _readHeader(schema, cursor, ctx, path);
         return _nodeEnd(schema, next, childCount, ctx, path);
     }
 
@@ -548,7 +540,11 @@ library SchemaLib {
         uint16 childCount,
         ValidationContext memory ctx,
         uint256 path
-    ) private pure returns (uint256 next) {
+    )
+        private
+        pure
+        returns (uint256 next)
+    {
         next = cursor;
         for (uint16 i = 0; i < childCount; ++i) {
             next = _skipNode(schema, next, ctx, _encodePath(path, i));
@@ -563,12 +559,7 @@ library SchemaLib {
     )
         private
         pure
-        returns (
-            Types.BlueprintFieldKind kind,
-            uint16 arrayLength,
-            uint16 childCount,
-            uint256 next
-        )
+        returns (Types.BlueprintFieldKind kind, uint16 arrayLength, uint16 childCount, uint256 next)
     {
         if (cursor + NODE_HEADER_SIZE > schema.length) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
@@ -589,7 +580,11 @@ library SchemaLib {
         uint256 cursor,
         ValidationContext memory ctx,
         uint256 path
-    ) private pure returns (uint256 value, uint256 next) {
+    )
+        private
+        pure
+        returns (uint256 value, uint256 next)
+    {
         if (cursor >= schema.length) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }
@@ -618,9 +613,8 @@ library SchemaLib {
             if (cursor + 2 > schema.length) {
                 revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
             }
-            value = ((uint256(first) & 0x1F) << 16) |
-                    (uint256(uint8(schema[cursor])) << 8) |
-                    uint256(uint8(schema[cursor + 1]));
+            value = ((uint256(first) & 0x1F) << 16) | (uint256(uint8(schema[cursor])) << 8)
+                | uint256(uint8(schema[cursor + 1]));
             next = cursor + 2;
             return (value, next);
         }
@@ -629,10 +623,8 @@ library SchemaLib {
         if (cursor + 3 > schema.length) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }
-        value = ((uint256(first) & 0x0F) << 24) |
-                (uint256(uint8(schema[cursor])) << 16) |
-                (uint256(uint8(schema[cursor + 1])) << 8) |
-                uint256(uint8(schema[cursor + 2]));
+        value = ((uint256(first) & 0x0F) << 24) | (uint256(uint8(schema[cursor])) << 16)
+            | (uint256(uint8(schema[cursor + 1])) << 8) | uint256(uint8(schema[cursor + 2]));
         next = cursor + 3;
     }
 
@@ -647,7 +639,11 @@ library SchemaLib {
         uint256 limit,
         ValidationContext memory ctx,
         uint256 path
-    ) private pure returns (uint256) {
+    )
+        private
+        pure
+        returns (uint256)
+    {
         uint256 end = cursor + size;
         if (end > limit || end > data.length) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
@@ -661,7 +657,11 @@ library SchemaLib {
         uint256 limit,
         ValidationContext memory ctx,
         uint256 path
-    ) private pure returns (uint256 value, uint256 next) {
+    )
+        private
+        pure
+        returns (uint256 value, uint256 next)
+    {
         if (cursor >= data.length || cursor >= limit) {
             revert Errors.SchemaValidationFailed(uint8(ctx.target), ctx.refId, ctx.auxId, path);
         }

@@ -34,8 +34,7 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
             abi.encodeCall(
-                ServiceFeeDistributor.initialize,
-                (admin, address(staking), address(tangle), address(oracle))
+                ServiceFeeDistributor.initialize, (admin, address(staking), address(tangle), address(oracle))
             )
         );
         distributor = ServiceFeeDistributor(payable(address(proxy)));
@@ -46,7 +45,7 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         staking.setServiceFeeDistributor(address(distributor));
 
         // Enable stake ERC20 asset in restaking
-        staking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        staking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10_000);
         vm.stopPrank();
 
         // Setup blueprint + operator
@@ -68,11 +67,7 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         vm.startPrank(delegator2);
         stakeToken.approve(address(staking), 10 ether);
         staking.depositAndDelegateWithOptions(
-            operator1,
-            address(stakeToken),
-            10 ether,
-            Types.BlueprintSelectionMode.All,
-            new uint64[](0)
+            operator1, address(stakeToken), 10 ether, Types.BlueprintSelectionMode.All, new uint64[](0)
         );
         vm.stopPrank();
     }
@@ -83,12 +78,12 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         reqs[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 1000,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
         reqs[1] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) }),
             minExposureBps: 1000,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory ops = new address[](1);
@@ -99,20 +94,13 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         vm.startPrank(user1);
         payToken.approve(address(tangle), paymentAmount);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId,
-            ops,
-            reqs,
-            "",
-            new address[](0),
-            0,
-            address(payToken),
-            paymentAmount
+            blueprintId, ops, reqs, "", new address[](0), 0, address(payToken), paymentAmount
         );
         vm.stopPrank();
 
         // Commit 100% native exposure, 10% ERC20 exposure.
         Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](2);
-        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10_000 });
         commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 1000 });
 
         vm.prank(operator1);
@@ -137,12 +125,12 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         reqs[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 1000,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
         reqs[1] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) }),
             minExposureBps: 1000,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory ops = new address[](1);
@@ -151,19 +139,12 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         vm.startPrank(user1);
         payToken.approve(address(tangle), 1 ether);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId,
-            ops,
-            reqs,
-            "",
-            new address[](0),
-            0,
-            address(payToken),
-            1 ether
+            blueprintId, ops, reqs, "", new address[](0), 0, address(payToken), 1 ether
         );
         vm.stopPrank();
 
         Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](2);
-        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10_000 });
         commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 1000 });
 
         vm.prank(operator1);
@@ -179,6 +160,6 @@ contract PerAssetExposureIntegrationTest is BaseTest {
 
         SlashingLib.SlashProposal memory p = tangle.getSlashProposal(slashId);
         assertEq(p.slashBps, slashBps);
-        assertEq(p.effectiveSlashBps, (uint256(slashBps) * 5500) / 10000);
+        assertEq(p.effectiveSlashBps, (uint256(slashBps) * 5500) / 10_000);
     }
 }

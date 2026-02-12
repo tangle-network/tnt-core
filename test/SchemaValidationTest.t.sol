@@ -117,7 +117,11 @@ contract SchemaValidationTest is BaseTest {
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _blueprintWithSchemas(bytes memory registration, bytes memory request, bytes memory job)
+    function _blueprintWithSchemas(
+        bytes memory registration,
+        bytes memory request,
+        bytes memory job
+    )
         private
         returns (uint64)
     {

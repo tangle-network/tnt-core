@@ -74,19 +74,14 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         restakingProxy = new ERC1967Proxy(
             address(restakingImpl),
             abi.encodeCall(
-                MultiAssetDelegation.initialize,
-                (admin, MIN_OPERATOR_STAKE, MIN_DELEGATION, OPERATOR_COMMISSION_BPS)
+                MultiAssetDelegation.initialize, (admin, MIN_OPERATOR_STAKE, MIN_DELEGATION, OPERATOR_COMMISSION_BPS)
             )
         );
         staking = IMultiAssetDelegation(payable(address(restakingProxy)));
 
         // Deploy tangle proxy
         tangleProxy = new ERC1967Proxy(
-            address(tangleImpl),
-            abi.encodeCall(
-                Tangle.initialize,
-                (admin, address(staking), payable(treasury))
-            )
+            address(tangleImpl), abi.encodeCall(Tangle.initialize, (admin, address(staking), payable(treasury)))
         );
         tangle = ITangleFull(payable(address(tangleProxy)));
 
@@ -106,10 +101,8 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         // Deploy master blueprint service manager and registry
         masterManager = new MasterBlueprintServiceManager(admin, address(tangle));
         MBSMRegistry registryImpl = new MBSMRegistry();
-        ERC1967Proxy registryProxy = new ERC1967Proxy(
-            address(registryImpl),
-            abi.encodeCall(MBSMRegistry.initialize, (admin))
-        );
+        ERC1967Proxy registryProxy =
+            new ERC1967Proxy(address(registryImpl), abi.encodeCall(MBSMRegistry.initialize, (admin)));
         mbsmRegistry = MBSMRegistry(address(registryProxy));
 
         vm.startPrank(admin);
@@ -176,11 +169,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         return tangle.createBlueprint(_blueprintDefinition("ipfs://metadata", manager));
     }
 
-    function _createBlueprint(
-        address owner,
-        string memory metadataUri,
-        address manager
-    ) internal returns (uint64) {
+    function _createBlueprint(address owner, string memory metadataUri, address manager) internal returns (uint64) {
         vm.prank(owner);
         return tangle.createBlueprint(_blueprintDefinition(metadataUri, manager));
     }
@@ -217,7 +206,10 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         address owner,
         address manager,
         Types.BlueprintConfig memory config
-    ) internal returns (uint64) {
+    )
+        internal
+        returns (uint64)
+    {
         vm.prank(owner);
         return tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://metadata", manager, config));
     }
@@ -227,16 +219,16 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         string memory metadataUri,
         address manager,
         Types.BlueprintConfig memory config
-    ) internal returns (uint64) {
+    )
+        internal
+        returns (uint64)
+    {
         vm.prank(owner);
         return tangle.createBlueprint(_blueprintDefinitionWithConfig(metadataUri, manager, config));
     }
 
     /// @notice Create a blueprint using the current msg.sender (expects caller to prank)
-    function _createBlueprintAsSender(
-        string memory metadataUri,
-        address manager
-    ) internal returns (uint64) {
+    function _createBlueprintAsSender(string memory metadataUri, address manager) internal returns (uint64) {
         return tangle.createBlueprint(_blueprintDefinition(metadataUri, manager));
     }
 
@@ -245,7 +237,10 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         string memory metadataUri,
         address manager,
         Types.BlueprintConfig memory config
-    ) internal returns (uint64) {
+    )
+        internal
+        returns (uint64)
+    {
         return tangle.createBlueprint(_blueprintDefinitionWithConfig(metadataUri, manager, config));
     }
 
@@ -254,7 +249,10 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         string memory metadataUri,
         address manager,
         uint256 jobCount
-    ) internal returns (uint64) {
+    )
+        internal
+        returns (uint64)
+    {
         return tangle.createBlueprint(_blueprintDefinitionWithJobCount(metadataUri, manager, jobCount));
     }
 
@@ -263,7 +261,10 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         bytes memory paramsSchema,
         bytes memory resultSchema,
         address manager
-    ) internal returns (uint64 blueprintId, uint64 serviceId) {
+    )
+        internal
+        returns (uint64 blueprintId, uint64 serviceId)
+    {
         Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://schema-service", manager);
         def.jobs[0].paramsSchema = paramsSchema;
         def.jobs[0].resultSchema = resultSchema;
@@ -294,7 +295,9 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
 
     function _registerForBlueprint(address operator, uint64 blueprintId, bytes memory registrationInputs) internal {
         vm.prank(operator);
-        tangle.registerOperator(blueprintId, _operatorGossipKey(operator, 0), "http://localhost:8545", registrationInputs);
+        tangle.registerOperator(
+            blueprintId, _operatorGossipKey(operator, 0), "http://localhost:8545", registrationInputs
+        );
     }
 
     function _directRegisterOperator(address operator, uint64 blueprintId, string memory rpc) internal {
@@ -307,7 +310,9 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         uint64 blueprintId,
         string memory rpc,
         bytes memory registrationInputs
-    ) internal {
+    )
+        internal
+    {
         vm.prank(operator);
         tangle.registerOperator(blueprintId, _operatorGossipKey(operator, 0), rpc, registrationInputs);
     }
@@ -323,11 +328,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     }
 
     /// @notice Request a service with single operator
-    function _requestService(
-        address requester,
-        uint64 blueprintId,
-        address operator
-    ) internal returns (uint64) {
+    function _requestService(address requester, uint64 blueprintId, address operator) internal returns (uint64) {
         address[] memory operators = new address[](1);
         operators[0] = operator;
         address[] memory callers = new address[](0);
@@ -342,15 +343,16 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         uint64 blueprintId,
         address operator,
         uint256 payment
-    ) internal returns (uint64) {
+    )
+        internal
+        returns (uint64)
+    {
         address[] memory operators = new address[](1);
         operators[0] = operator;
         address[] memory callers = new address[](0);
 
         vm.prank(requester);
-        return tangle.requestService{ value: payment }(
-            blueprintId, operators, "", callers, 0, address(0), payment
-        );
+        return tangle.requestService{ value: payment }(blueprintId, operators, "", callers, 0, address(0), payment);
     }
 
     /// @notice Approve a service request
@@ -364,7 +366,10 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         address manager,
         address[] memory ops,
         uint16[] memory exposures
-    ) internal returns (uint64 blueprintId, uint64 serviceId) {
+    )
+        internal
+        returns (uint64 blueprintId, uint64 serviceId)
+    {
         Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://job-manager", manager);
         def.jobs[0].paramsSchema = _boolSchema();
         def.jobs[0].resultSchema = _boolSchema();
@@ -378,16 +383,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
 
         address[] memory callers = new address[](0);
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(
-            blueprintId,
-            ops,
-            exposures,
-            "",
-            callers,
-            0,
-            address(0),
-            0
-        );
+        uint64 requestId = tangle.requestServiceWithExposure(blueprintId, ops, exposures, "", callers, 0, address(0), 0);
 
         for (uint256 i = 0; i < ops.length; i++) {
             vm.prank(ops[i]);
@@ -404,22 +400,17 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         address operator,
         address token,
         uint256 payment
-    ) internal returns (uint64 requestId) {
+    )
+        internal
+        returns (uint64 requestId)
+    {
         address[] memory operators = new address[](1);
         operators[0] = operator;
         address[] memory callers = new address[](0);
 
         vm.startPrank(requester);
         IERC20(token).approve(address(tangle), payment);
-        requestId = tangle.requestService(
-            blueprintId,
-            operators,
-            "",
-            callers,
-            0,
-            token,
-            payment
-        );
+        requestId = tangle.requestService(blueprintId, operators, "", callers, 0, token, payment);
         vm.stopPrank();
     }
 }

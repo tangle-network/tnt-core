@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IAssetAdapter} from "./IAssetAdapter.sol";
-import {StandardAssetAdapter} from "./StandardAssetAdapter.sol";
-import {RebasingAssetAdapter} from "./RebasingAssetAdapter.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { IAssetAdapter } from "./IAssetAdapter.sol";
+import { StandardAssetAdapter } from "./StandardAssetAdapter.sol";
+import { RebasingAssetAdapter } from "./RebasingAssetAdapter.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title AssetAdapterFactory
 /// @notice Factory for deploying and registering asset adapters
@@ -15,8 +15,8 @@ contract AssetAdapterFactory is Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
 
     enum AdapterType {
-        Standard,  // Normal ERC-20 (wstETH, cbETH, rETH, WETH, etc.)
-        Rebasing   // Rebasing tokens (stETH, etc.)
+        Standard, // Normal ERC-20 (wstETH, cbETH, rETH, WETH, etc.)
+        Rebasing // Rebasing tokens (stETH, etc.)
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -39,11 +39,7 @@ contract AssetAdapterFactory is Ownable {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event AdapterDeployed(
-        address indexed token,
-        address indexed adapter,
-        AdapterType adapterType
-    );
+    event AdapterDeployed(address indexed token, address indexed adapter, AdapterType adapterType);
 
     event DelegationManagerSet(address indexed oldManager, address indexed newManager);
 
@@ -62,7 +58,7 @@ contract AssetAdapterFactory is Ownable {
 
     /// @notice Create factory
     /// @param _owner Owner address
-    constructor(address _owner) Ownable(_owner) {}
+    constructor(address _owner) Ownable(_owner) { }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN FUNCTIONS
@@ -84,18 +80,12 @@ contract AssetAdapterFactory is Ownable {
     /// @param token The ERC-20 token address
     /// @param adapterType The type of adapter to deploy
     /// @return adapter The deployed adapter address
-    function deployAdapter(
-        address token,
-        AdapterType adapterType
-    ) external onlyOwner returns (address adapter) {
+    function deployAdapter(address token, AdapterType adapterType) external onlyOwner returns (address adapter) {
         return _deployAdapterInternal(token, adapterType);
     }
 
     /// @notice Internal deploy function
-    function _deployAdapterInternal(
-        address token,
-        AdapterType adapterType
-    ) internal returns (address adapter) {
+    function _deployAdapterInternal(address token, AdapterType adapterType) internal returns (address adapter) {
         if (token == address(0)) revert ZeroAddress();
         if (tokenToAdapter[token] != address(0)) revert AdapterAlreadyExists(token);
         if (delegationManager == address(0)) revert DelegationManagerNotSet();

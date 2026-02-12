@@ -37,7 +37,9 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         ServiceFeeDistributor impl = new ServiceFeeDistributor();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
-            abi.encodeCall(ServiceFeeDistributor.initialize, (admin, address(staking), address(tangle), address(oracle)))
+            abi.encodeCall(
+                ServiceFeeDistributor.initialize, (admin, address(staking), address(tangle), address(oracle))
+            )
         );
         distributor = ServiceFeeDistributor(payable(address(proxy)));
 
@@ -55,7 +57,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         tangle.setServiceFeeDistributor(address(distributor));
         tangle.setPriceOracle(address(oracle));
         staking.setServiceFeeDistributor(address(distributor));
-        staking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        staking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10_000);
         vm.stopPrank();
 
         // Create blueprint with TTL pricing
@@ -79,7 +81,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         vm.prank(delegator1);
         staking.depositAndDelegate{ value: 10 ether }(operator1);
 
-        payToken.mint(user1, 1_000 ether);
+        payToken.mint(user1, 1000 ether);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -91,9 +93,13 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
 
         // Verify stream was created
         (
-            uint64 svcId, , address op, address token,
-            uint256 totalAmount, uint256 distributed,
-            uint64 startTime, uint64 endTime,
+            uint64 svcId,,
+            address op,
+            address token,
+            uint256 totalAmount,
+            uint256 distributed,
+            uint64 startTime,
+            uint64 endTime,
         ) = streamingManager.getStreamingPayment(serviceId, operator1);
 
         assertEq(svcId, serviceId);
@@ -538,7 +544,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         reqs[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
     }
 
@@ -546,8 +552,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
     function _nativeCommitments() internal pure returns (Types.AssetSecurityCommitment[] memory commits) {
         commits = new Types.AssetSecurityCommitment[](1);
         commits[0] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 10000
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }), exposureBps: 10_000
         });
     }
 

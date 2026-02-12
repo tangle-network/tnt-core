@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IPriceOracle} from "../../src/oracles/interfaces/IPriceOracle.sol";
+import { IPriceOracle } from "../../src/oracles/interfaces/IPriceOracle.sol";
 
 /// @notice Minimal mock implementing the price oracle interface for testing.
 contract MockPriceOracle is IPriceOracle {
@@ -18,7 +18,7 @@ contract MockPriceOracle is IPriceOracle {
 
     function getPriceData(address token) external view override returns (PriceData memory data) {
         uint256 price = prices[token];
-        return PriceData({price: price, updatedAt: block.timestamp, decimals: 18, isValid: price > 0});
+        return PriceData({ price: price, updatedAt: block.timestamp, decimals: 18, isValid: price > 0 });
     }
 
     function isTokenSupported(address token) external view override returns (bool supported) {
@@ -37,7 +37,10 @@ contract MockPriceOracle is IPriceOracle {
         return (usdValue * 1e18) / price;
     }
 
-    function batchToUSD(address[] calldata tokens, uint256[] calldata amounts)
+    function batchToUSD(
+        address[] calldata tokens,
+        uint256[] calldata amounts
+    )
         external
         view
         override

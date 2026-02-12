@@ -143,11 +143,7 @@ abstract contract Base is
     ///      TangleTimelock contract to enforce governance delays on critical admin operations.
     ///      Failure to do so leaves the protocol vulnerable to instant malicious admin actions.
     // forge-lint: disable-next-line(mixed-case-function)
-    function __Base_init(
-        address admin,
-        address staking_,
-        address payable treasury_
-    ) internal onlyInitializing {
+    function __Base_init(address admin, address staking_, address payable treasury_) internal onlyInitializing {
         if (admin == address(0) || staking_ == address(0) || treasury_ == address(0)) {
             revert Errors.ZeroAddress();
         }
@@ -180,11 +176,7 @@ abstract contract Base is
         });
 
         // Initialize EIP-712 domain separator
-        _domainSeparator = SignatureLib.computeDomainSeparator(
-            "TangleQuote",
-            "1",
-            address(this)
-        );
+        _domainSeparator = SignatureLib.computeDomainSeparator("TangleQuote", "1", address(this));
 
         // Initialize slashing config
         SlashingLib.initializeConfig(_slashState);
@@ -209,7 +201,7 @@ abstract contract Base is
     /// @notice Authorize an upgrade to a new implementation
     /// @dev Required for UUPS pattern, only callable by UPGRADER_ROLE
     /// @param newImplementation Address of the new implementation (unused, just for interface)
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
 
     /// @notice Set the metrics recorder for incentive tracking
     /// @param recorder The metrics recorder address (set to address(0) to disable)
@@ -339,8 +331,8 @@ abstract contract Base is
         return _tntPaymentDiscountBps;
     }
 
-    /// @notice Configure discount applied to service payments made in TNT (bps of the payment amount; capped to protocol share)
-    /// @param discountBps The discount in basis points
+    /// @notice Configure discount applied to service payments made in TNT (bps of the payment amount; capped to
+    /// protocol share) @param discountBps The discount in basis points
     function setTntPaymentDiscountBps(uint16 discountBps) external onlyRole(ADMIN_ROLE) {
         if (discountBps > BPS_DENOMINATOR) revert Errors.InvalidState();
         uint16 oldBps = _tntPaymentDiscountBps;
@@ -415,7 +407,10 @@ abstract contract Base is
     /// @param requestId The request ID to query
     /// @param operator The operator address to query
     /// @return commitments The array of security commitments for the operator
-    function getServiceRequestSecurityCommitments(uint64 requestId, address operator)
+    function getServiceRequestSecurityCommitments(
+        uint64 requestId,
+        address operator
+    )
         external
         view
         returns (Types.AssetSecurityCommitment[] memory commitments)
@@ -446,7 +441,10 @@ abstract contract Base is
     /// @param serviceId The service ID to query
     /// @param operator The operator address to query
     /// @return commitments The array of security commitments for the operator
-    function getServiceSecurityCommitments(uint64 serviceId, address operator)
+    function getServiceSecurityCommitments(
+        uint64 serviceId,
+        address operator
+    )
         external
         view
         returns (Types.AssetSecurityCommitment[] memory commitments)
@@ -464,7 +462,11 @@ abstract contract Base is
         address operator,
         Types.AssetKind kind,
         address token
-    ) external view returns (uint16) {
+    )
+        external
+        view
+        returns (uint16)
+    {
         // forge-lint: disable-next-line(asm-keccak256)
         bytes32 assetHash = keccak256(abi.encode(kind, token));
         return _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
@@ -528,51 +530,61 @@ abstract contract Base is
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Record a service creation event
-    function _recordServiceCreated(uint64 serviceId, uint64 blueprintId, address owner, uint256 operatorCount) internal {
+    function _recordServiceCreated(
+        uint64 serviceId,
+        uint64 blueprintId,
+        address owner,
+        uint256 operatorCount
+    )
+        internal
+    {
         if (_metricsRecorder != address(0)) {
-            try IMetricsRecorder(_metricsRecorder).recordServiceCreated(serviceId, blueprintId, owner, operatorCount) {} catch {}
+            try IMetricsRecorder(_metricsRecorder)
+                .recordServiceCreated(serviceId, blueprintId, owner, operatorCount) { }
+                catch { }
         }
     }
 
     /// @notice Record a job call event
     function _recordJobCall(uint64 serviceId, address caller, uint64 jobCallId) internal {
         if (_metricsRecorder != address(0)) {
-            try IMetricsRecorder(_metricsRecorder).recordJobCall(serviceId, caller, jobCallId) {} catch {}
+            try IMetricsRecorder(_metricsRecorder).recordJobCall(serviceId, caller, jobCallId) { } catch { }
         }
     }
 
     /// @notice Record a job completion event
     function _recordJobCompletion(address operator, uint64 serviceId, uint64 jobCallId, bool success) internal {
         if (_metricsRecorder != address(0)) {
-            try IMetricsRecorder(_metricsRecorder).recordJobCompletion(operator, serviceId, jobCallId, success) {} catch {}
+            try IMetricsRecorder(_metricsRecorder).recordJobCompletion(operator, serviceId, jobCallId, success) { }
+                catch { }
         }
     }
 
     /// @notice Record a payment event
     function _recordPayment(address payer, uint64 serviceId, address token, uint256 amount) internal {
         if (_metricsRecorder != address(0)) {
-            try IMetricsRecorder(_metricsRecorder).recordPayment(payer, serviceId, token, amount) {} catch {}
+            try IMetricsRecorder(_metricsRecorder).recordPayment(payer, serviceId, token, amount) { } catch { }
         }
     }
 
     /// @notice Record a blueprint creation event
     function _recordBlueprintCreated(uint64 blueprintId, address developer) internal {
         if (_metricsRecorder != address(0)) {
-            try IMetricsRecorder(_metricsRecorder).recordBlueprintCreated(blueprintId, developer) {} catch {}
+            try IMetricsRecorder(_metricsRecorder).recordBlueprintCreated(blueprintId, developer) { } catch { }
         }
     }
 
     /// @notice Record a blueprint registration event
     function _recordBlueprintRegistration(uint64 blueprintId, address operator) internal {
         if (_metricsRecorder != address(0)) {
-            try IMetricsRecorder(_metricsRecorder).recordBlueprintRegistration(blueprintId, operator) {} catch {}
+            try IMetricsRecorder(_metricsRecorder).recordBlueprintRegistration(blueprintId, operator) { } catch { }
         }
     }
 
     /// @notice Record a slash event
     function _recordSlash(address operator, uint64 serviceId, uint256 amount) internal {
         if (_metricsRecorder != address(0)) {
-            try IMetricsRecorder(_metricsRecorder).recordSlash(operator, serviceId, amount) {} catch {}
+            try IMetricsRecorder(_metricsRecorder).recordSlash(operator, serviceId, amount) { } catch { }
         }
     }
 
@@ -587,7 +599,14 @@ abstract contract Base is
     /// @param manager The blueprint's service manager address
     /// @param owner The service owner address
     /// @param operators The operators selected for this service instance
-    function _configureHeartbeat(uint64 serviceId, address manager, address owner, address[] memory operators) internal {
+    function _configureHeartbeat(
+        uint64 serviceId,
+        address manager,
+        address owner,
+        address[] memory operators
+    )
+        internal
+    {
         if (_operatorStatusRegistry == address(0)) return;
 
         // Get heartbeat interval from BSM (use default if not implemented or returns useDefault=true)
@@ -596,29 +615,33 @@ abstract contract Base is
 
         if (manager != address(0)) {
             // Try to get custom heartbeat interval
-            try IBlueprintServiceManager(manager).getHeartbeatInterval(serviceId) returns (bool useDefault, uint64 customInterval) {
+            try IBlueprintServiceManager(manager).getHeartbeatInterval(serviceId) returns (
+                bool useDefault, uint64 customInterval
+            ) {
                 if (!useDefault && customInterval > 0) {
                     interval = customInterval;
                 }
-            } catch {}
+            } catch { }
 
             // Try to get custom heartbeat threshold (max missed before offline)
-            try IBlueprintServiceManager(manager).getHeartbeatThreshold(serviceId) returns (bool useDefault, uint8 threshold) {
+            try IBlueprintServiceManager(manager).getHeartbeatThreshold(serviceId) returns (
+                bool useDefault, uint8 threshold
+            ) {
                 if (!useDefault && threshold > 0) {
                     // threshold is percentage, we interpret high values as max missed beats
                     // Lower threshold = stricter = fewer missed allowed
                     // e.g., 90% threshold ≈ allow 1 missed, 50% ≈ allow 3 missed
                     maxMissed = threshold > 80 ? 1 : (threshold > 50 ? 2 : 3);
                 }
-            } catch {}
+            } catch { }
         }
 
         // Register service owner and configure heartbeat
-        try IOperatorStatusRegistry(_operatorStatusRegistry).registerServiceOwner(serviceId, owner) {} catch {}
+        try IOperatorStatusRegistry(_operatorStatusRegistry).registerServiceOwner(serviceId, owner) { } catch { }
 
         // Register each selected operator for this service instance
         for (uint256 i = 0; i < operators.length; i++) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, operators[i]) {} catch {}
+            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, operators[i]) { } catch { }
         }
 
         // Configure heartbeat if custom values provided
@@ -627,11 +650,8 @@ abstract contract Base is
             if (interval == 0) interval = 300; // 5 minutes default
             if (maxMissed == 0) maxMissed = 3;
 
-            try IOperatorStatusRegistry(_operatorStatusRegistry).configureHeartbeat(
-                serviceId,
-                interval,
-                maxMissed
-            ) {} catch {}
+            try IOperatorStatusRegistry(_operatorStatusRegistry).configureHeartbeat(serviceId, interval, maxMissed) { }
+                catch { }
         }
     }
 
@@ -689,15 +709,21 @@ abstract contract Base is
 
     /// @notice Get total number of blueprints created
     /// @return The total blueprint count (also used as next blueprint ID)
-    function blueprintCount() external view returns (uint64) { return _blueprintCount; }
+    function blueprintCount() external view returns (uint64) {
+        return _blueprintCount;
+    }
 
     /// @notice Get total number of services created
     /// @return The total service count (also used as next service ID)
-    function serviceCount() external view returns (uint64) { return _serviceCount; }
+    function serviceCount() external view returns (uint64) {
+        return _serviceCount;
+    }
 
     /// @notice Get total number of service requests created
     /// @return The total service request count (also used as next request ID)
-    function serviceRequestCount() external view returns (uint64) { return _serviceRequestCount; }
+    function serviceRequestCount() external view returns (uint64) {
+        return _serviceRequestCount;
+    }
 
     /// @notice Get blueprint details by ID
     /// @param id The blueprint ID to query
@@ -754,7 +780,14 @@ abstract contract Base is
     /// @param blueprintId The blueprint ID
     /// @param op The operator address
     /// @return The operator's registration data
-    function getOperatorRegistration(uint64 blueprintId, address op) external view returns (Types.OperatorRegistration memory) {
+    function getOperatorRegistration(
+        uint64 blueprintId,
+        address op
+    )
+        external
+        view
+        returns (Types.OperatorRegistration memory)
+    {
         return _operatorRegistrations[blueprintId][op];
     }
 
@@ -770,7 +803,14 @@ abstract contract Base is
     /// @param blueprintId The blueprint ID
     /// @param op The operator address
     /// @return The operator's preferences including BLS and ECDSA keys
-    function getOperatorPreferences(uint64 blueprintId, address op) external view returns (Types.OperatorPreferences memory) {
+    function getOperatorPreferences(
+        uint64 blueprintId,
+        address op
+    )
+        external
+        view
+        returns (Types.OperatorPreferences memory)
+    {
         return _operatorPreferences[blueprintId][op];
     }
 
@@ -814,5 +854,5 @@ abstract contract Base is
     }
 
     /// @notice Accept native token
-    receive() external payable {}
+    receive() external payable { }
 }

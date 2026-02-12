@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import {DeployV2} from "../../script/Deploy.s.sol";
-import {DeployBeaconSlashingL1} from "../../script/DeployBeaconSlashing.s.sol";
-import {DeployL2Slashing} from "../../script/DeployL2Slashing.s.sol";
-import {LocalTestnetSetup} from "../../script/LocalTestnet.s.sol";
-import {L2SlashingReceiver} from "../../src/beacon/L2SlashingReceiver.sol";
-import {TangleL2Slasher} from "../../src/beacon/TangleL2Slasher.sol";
-import {HyperlaneReceiver} from "../../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
-import {LayerZeroReceiver} from "../../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
+import { DeployV2 } from "../../script/Deploy.s.sol";
+import { DeployBeaconSlashingL1 } from "../../script/DeployBeaconSlashing.s.sol";
+import { DeployL2Slashing } from "../../script/DeployL2Slashing.s.sol";
+import { LocalTestnetSetup } from "../../script/LocalTestnet.s.sol";
+import { L2SlashingReceiver } from "../../src/beacon/L2SlashingReceiver.sol";
+import { TangleL2Slasher } from "../../src/beacon/TangleL2Slasher.sol";
+import { HyperlaneReceiver } from "../../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
+import { LayerZeroReceiver } from "../../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 import { IStaking } from "../../src/interfaces/IStaking.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { MultiAssetDelegation } from "../../src/staking/MultiAssetDelegation.sol";
@@ -74,7 +74,11 @@ contract MockStaking is IStaking {
         uint64,
         uint16 slashBps,
         bytes32 evidence
-    ) external override returns (uint256) {
+    )
+        external
+        override
+        returns (uint256)
+    {
         emit OperatorSlashed(operator, 0, slashBps, evidence);
         return slashBps;
     }
@@ -86,17 +90,16 @@ contract MockStaking is IStaking {
         Types.AssetSecurityCommitment[] calldata,
         uint16 slashBps,
         bytes32 evidence
-    ) external override returns (uint256) {
+    )
+        external
+        override
+        returns (uint256)
+    {
         emit OperatorSlashed(operator, 0, slashBps, evidence);
         return slashBps;
     }
 
-    function slash(
-        address operator,
-        uint64,
-        uint16 slashBps,
-        bytes32 evidence
-    ) external override returns (uint256) {
+    function slash(address operator, uint64, uint16 slashBps, bytes32 evidence) external override returns (uint256) {
         emit OperatorSlashed(operator, 0, slashBps, evidence);
         return slashBps;
     }
@@ -105,27 +108,27 @@ contract MockStaking is IStaking {
         return true;
     }
 
-    function addBlueprintForOperator(address, uint64) external override {}
-    function removeBlueprintForOperator(address, uint64) external override {}
+    function addBlueprintForOperator(address, uint64) external override { }
+    function removeBlueprintForOperator(address, uint64) external override { }
 
     // M-9 FIX: Pending slash tracking (no-op for mock)
-    function incrementPendingSlash(address) external override {}
-    function decrementPendingSlash(address) external override {}
-    function getPendingSlashCount(address) external pure override returns (uint64) { return 0; }
+    function incrementPendingSlash(address) external override { }
+    function decrementPendingSlash(address) external override { }
+
+    function getPendingSlashCount(address) external pure override returns (uint64) {
+        return 0;
+    }
 }
 
 contract DeployV2Harness is DeployV2 {
-    function deployCoreNoPrank(address admin, address treasury)
+    function deployCoreNoPrank(
+        address admin,
+        address treasury
+    )
         external
         returns (address stakingProxy, address tangleProxy, address statusRegistry)
     {
-        (
-            stakingProxy,
-            ,
-            tangleProxy,
-            ,
-            statusRegistry
-        ) = _deployCore(0, admin, admin, treasury, false);
+        (stakingProxy,, tangleProxy,, statusRegistry) = _deployCore(0, admin, admin, treasury, false);
     }
 }
 
@@ -141,18 +144,8 @@ contract DeployBeaconSlashingHarness is DeployBeaconSlashingL1 {
         external
         returns (address podManager, address connector, address messenger)
     {
-        (, podManager, connector, messenger) = _deploy(
-            bridge,
-            0,
-            admin,
-            admin,
-            oracle,
-            tangleChainId,
-            l2Receiver,
-            beaconOracle,
-            true,
-            false
-        );
+        (, podManager, connector, messenger) =
+            _deploy(bridge, 0, admin, admin, oracle, tangleChainId, l2Receiver, beaconOracle, true, false);
     }
 }
 
@@ -192,13 +185,12 @@ contract DeploymentScriptsTest is Test {
     function testDeployV2ScriptRuns() public {
         uint256 privateKey = 0xA11CE;
         address deployer = vm.addr(privateKey);
-        vm.deal(deployer, 1_000 ether);
+        vm.deal(deployer, 1000 ether);
         DeployV2Harness script = new DeployV2Harness();
         address admin = deployer;
         address treasury = deployer;
 
-        (address stakingProxy, address tangleProxy, address statusRegistry) =
-            script.deployCoreNoPrank(admin, treasury);
+        (address stakingProxy, address tangleProxy, address statusRegistry) = script.deployCoreNoPrank(admin, treasury);
 
         assertTrue(stakingProxy != address(0), "restaking proxy");
         assertTrue(tangleProxy != address(0), "tangle proxy");
@@ -223,7 +215,7 @@ contract DeploymentScriptsTest is Test {
 
         uint256 privateKey = 0xB0B;
         address deployer = vm.addr(privateKey);
-        vm.deal(deployer, 1_000 ether);
+        vm.deal(deployer, 1000 ether);
 
         address admin = deployer;
         address oracle = makeAddr("oracle");
@@ -231,12 +223,7 @@ contract DeploymentScriptsTest is Test {
 
         DeployBeaconSlashingHarness script = new DeployBeaconSlashingHarness();
         (address podManager, address connector, address messenger) = script.deployNoPrank(
-            DeployBeaconSlashingL1.BridgeProtocol.Hyperlane,
-            admin,
-            oracle,
-            3799,
-            receiver,
-            address(0)
+            DeployBeaconSlashingL1.BridgeProtocol.Hyperlane, admin, oracle, 3799, receiver, address(0)
         );
 
         assertTrue(podManager != address(0), "pod manager deployed");
@@ -248,7 +235,7 @@ contract DeploymentScriptsTest is Test {
 
     function testDeployBeaconSlashingScriptRunsLayerZero() public {
         uint256 originalChainId = block.chainid;
-        vm.chainId(11155111); // Sepolia supported by both messengers
+        vm.chainId(11_155_111); // Sepolia supported by both messengers
 
         // Etch dummy code at Sepolia LayerZero endpoint so _verifyBridgeContract passes
         address layerZeroEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
@@ -256,7 +243,7 @@ contract DeploymentScriptsTest is Test {
 
         uint256 privateKey = 0xCAFE;
         address deployer = vm.addr(privateKey);
-        vm.deal(deployer, 1_000 ether);
+        vm.deal(deployer, 1000 ether);
 
         address admin = deployer;
         address oracle = makeAddr("oracle2");
@@ -264,12 +251,7 @@ contract DeploymentScriptsTest is Test {
 
         DeployBeaconSlashingHarness script = new DeployBeaconSlashingHarness();
         (address podManager, address connector, address messenger) = script.deployNoPrank(
-            DeployBeaconSlashingL1.BridgeProtocol.LayerZero,
-            admin,
-            oracle,
-            3799,
-            receiver,
-            address(0)
+            DeployBeaconSlashingL1.BridgeProtocol.LayerZero, admin, oracle, 3799, receiver, address(0)
         );
 
         assertTrue(podManager != address(0), "pod manager deployed");
@@ -282,7 +264,7 @@ contract DeploymentScriptsTest is Test {
     function testDeployL2SlashingScriptRunsDirectMessenger() public {
         uint256 privateKey = 0xC0FFEE;
         address deployer = vm.addr(privateKey);
-        vm.deal(deployer, 1_000 ether);
+        vm.deal(deployer, 1000 ether);
 
         MockStaking staking = new MockStaking();
         staking.setStake(makeAddr("operator"), 32 ether);
@@ -292,12 +274,7 @@ contract DeploymentScriptsTest is Test {
         address messenger = makeAddr("messenger");
 
         (address slasher, address receiver) = script.deployNoPrank(
-            DeployL2Slashing.BridgeProtocol.DirectMessenger,
-            admin,
-            address(staking),
-            11155111,
-            address(0),
-            messenger
+            DeployL2Slashing.BridgeProtocol.DirectMessenger, admin, address(staking), 11_155_111, address(0), messenger
         );
 
         assertTrue(slasher != address(0), "slasher deployed");
@@ -310,7 +287,7 @@ contract DeploymentScriptsTest is Test {
     function testDeployL2SlashingScriptRunsHyperlane() public {
         uint256 privateKey = 0xDAD;
         address deployer = vm.addr(privateKey);
-        vm.deal(deployer, 1_000 ether);
+        vm.deal(deployer, 1000 ether);
 
         MockStaking staking = new MockStaking();
         staking.setStake(makeAddr("operator"), 32 ether);
@@ -326,12 +303,7 @@ contract DeploymentScriptsTest is Test {
         address l1Connector = makeAddr("l1Connector");
 
         (address slasher, address receiver) = script.deployNoPrank(
-            DeployL2Slashing.BridgeProtocol.Hyperlane,
-            admin,
-            address(staking),
-            1,
-            l1Connector,
-            address(0)
+            DeployL2Slashing.BridgeProtocol.Hyperlane, admin, address(staking), 1, l1Connector, address(0)
         );
 
         assertTrue(slasher != address(0), "slasher deployed");
@@ -344,7 +316,7 @@ contract DeploymentScriptsTest is Test {
     function testDeployL2SlashingScriptRunsLayerZero() public {
         uint256 privateKey = 0xDAD1;
         address deployer = vm.addr(privateKey);
-        vm.deal(deployer, 1_000 ether);
+        vm.deal(deployer, 1000 ether);
 
         MockStaking staking = new MockStaking();
         staking.setStake(makeAddr("operator"), 32 ether);
@@ -355,19 +327,14 @@ contract DeploymentScriptsTest is Test {
         vm.setEnv("LAYERZERO_ENDPOINT", vm.toString(endpoint));
         vm.setEnv("L1_MESSENGER", vm.toString(makeAddr("layerzeroL1Messenger")));
         // Provide the source EID explicitly for the harness (chainId 1 => 30101).
-        vm.setEnv("LAYERZERO_SOURCE_EID", vm.toString(uint256(30101)));
+        vm.setEnv("LAYERZERO_SOURCE_EID", vm.toString(uint256(30_101)));
 
         DeployL2SlashingHarness script = new DeployL2SlashingHarness();
         address admin = deployer;
         address l1Connector = makeAddr("l1ConnectorLZ");
 
         (address slasher, address receiver) = script.deployNoPrank(
-            DeployL2Slashing.BridgeProtocol.LayerZero,
-            admin,
-            address(staking),
-            1,
-            l1Connector,
-            address(0)
+            DeployL2Slashing.BridgeProtocol.LayerZero, admin, address(staking), 1, l1Connector, address(0)
         );
 
         assertTrue(slasher != address(0), "slasher deployed");
@@ -385,10 +352,10 @@ contract DeploymentScriptsTest is Test {
         address operator2 = vm.addr(LOCAL_OPERATOR2_KEY);
         address delegator = vm.addr(LOCAL_DELEGATOR_KEY);
 
-        vm.deal(deployer, 1_000 ether);
-        vm.deal(operator1, 1_000 ether);
-        vm.deal(operator2, 1_000 ether);
-        vm.deal(delegator, 1_000 ether);
+        vm.deal(deployer, 1000 ether);
+        vm.deal(operator1, 1000 ether);
+        vm.deal(operator2, 1000 ether);
+        vm.deal(delegator, 1000 ether);
 
         uint64 serviceId = script.dryRun();
         assertEq(serviceId, script.requestId(), "service/request");

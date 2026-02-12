@@ -14,6 +14,10 @@ import { SignatureLib } from "../libraries/SignatureLib.sol";
 abstract contract QuotesExtend is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    event ResourcesCommitted(
+        uint64 indexed serviceId, address indexed operator, Types.ResourceCommitment[] commitments
+    );
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE EXTENSION
     // ═══════════════════════════════════════════════════════════════════════════
@@ -28,7 +32,12 @@ abstract contract QuotesExtend is Base {
         uint64 serviceId,
         Types.SignedQuote[] calldata quotes,
         uint64 additionalTtl
-    ) external payable whenNotPaused nonReentrant {
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+    {
         Types.Service storage svc = _getService(serviceId);
 
         // Only owner can extend
@@ -69,23 +78,26 @@ abstract contract QuotesExtend is Base {
 
         emit ServiceExtended(serviceId, oldTtl, svc.ttl, totalCost);
 
+        // Update resource commitments if changed during extension
+        for (uint256 i = 0; i < quoteOperators.length; i++) {
+            Types.ResourceCommitment[] calldata resources = quotes[i].details.resourceCommitments;
+            if (resources.length > 0) {
+                _serviceResourceCommitmentHash[serviceId][quoteOperators[i]] =
+                    SignatureLib.hashResourceCommitments(resources);
+                emit ResourcesCommitted(serviceId, quoteOperators[i], resources);
+            }
+        }
+
         // Distribute payment as streaming starting from extension start
         if (totalCost > 0) {
             uint64 extensionEnd = extensionStart + additionalTtl;
             _distributeExtensionPayment(
-                serviceId,
-                svc.blueprintId,
-                totalCost,
-                quoteOperators,
-                extensionStart,
-                extensionEnd
+                serviceId, svc.blueprintId, totalCost, quoteOperators, extensionStart, extensionEnd
             );
         }
     }
 
-    function _gatherQuoteOperators(
-        Types.SignedQuote[] calldata quotes
-    ) private returns (address[] memory operators) {
+    function _gatherQuoteOperators(Types.SignedQuote[] calldata quotes) private returns (address[] memory operators) {
         uint256 length = quotes.length;
         operators = new address[](length);
         for (uint256 i = 0; i < length; ++i) {
@@ -115,14 +127,11 @@ abstract contract QuotesExtend is Base {
         Types.SignedQuote[] calldata quotes,
         uint64 blueprintId,
         uint64 ttl
-    ) private returns (uint256 totalCost) {
-        (totalCost,) = SignatureLib.verifyQuoteBatch(
-            _usedQuotes,
-            _domainSeparator,
-            quotes,
-            blueprintId,
-            ttl
-        );
+    )
+        private
+        returns (uint256 totalCost)
+    {
+        (totalCost,) = SignatureLib.verifyQuoteBatch(_usedQuotes, _domainSeparator, quotes, blueprintId, ttl);
     }
 
     function _collectQuotePayment(uint256 totalCost) private {
@@ -146,5 +155,7 @@ abstract contract QuotesExtend is Base {
         address[] memory operators,
         uint64 startTime,
         uint64 endTime
-    ) internal virtual;
+    )
+        internal
+        virtual;
 }

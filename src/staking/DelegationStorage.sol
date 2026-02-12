@@ -17,7 +17,7 @@ abstract contract DelegationStorage {
     // ═══════════════════════════════════════════════════════════════════════════
 
     uint256 public constant PRECISION = 1e18;
-    uint256 public constant BPS_DENOMINATOR = 10000;
+    uint256 public constant BPS_DENOMINATOR = 10_000;
 
     // C-1 FIX: Virtual shares/assets offset to prevent first depositor inflation attack.
     // Following OpenZeppelin ERC4626 pattern. The offset makes it economically infeasible
@@ -34,11 +34,11 @@ abstract contract DelegationStorage {
     uint64 public constant LOCK_SIX_MONTHS = 180 days;
 
     // Lock multipliers in BPS (10000 = 1x)
-    uint16 public constant MULTIPLIER_NONE = 10000;
-    uint16 public constant MULTIPLIER_ONE_MONTH = 11000;
-    uint16 public constant MULTIPLIER_TWO_MONTHS = 12000;
-    uint16 public constant MULTIPLIER_THREE_MONTHS = 13000;
-    uint16 public constant MULTIPLIER_SIX_MONTHS = 16000;
+    uint16 public constant MULTIPLIER_NONE = 10_000;
+    uint16 public constant MULTIPLIER_ONE_MONTH = 11_000;
+    uint16 public constant MULTIPLIER_TWO_MONTHS = 12_000;
+    uint16 public constant MULTIPLIER_THREE_MONTHS = 13_000;
+    uint16 public constant MULTIPLIER_SIX_MONTHS = 16_000;
 
     // M-9 FIX: Minimum lock amount to prevent lock multiplier bypass via small deposits
     // Set to 0.01 ETH (1e16 wei) equivalent to prevent dust attacks while remaining accessible
@@ -222,7 +222,8 @@ abstract contract DelegationStorage {
 
     /// @notice Track shares per blueprint for Fixed mode delegations
     /// @dev delegator => operator => assetHash => blueprintId => shares
-    mapping(address => mapping(address => mapping(bytes32 => mapping(uint64 => uint256)))) internal _delegatorBlueprintShares;
+    mapping(address => mapping(address => mapping(bytes32 => mapping(uint64 => uint256)))) internal
+        _delegatorBlueprintShares;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EXTERNAL INTEGRATIONS
@@ -266,11 +267,9 @@ abstract contract DelegationStorage {
 
     function _validateLockMultiplier(Types.LockMultiplier multiplier) internal pure {
         if (
-            multiplier == Types.LockMultiplier.None ||
-            multiplier == Types.LockMultiplier.OneMonth ||
-            multiplier == Types.LockMultiplier.TwoMonths ||
-            multiplier == Types.LockMultiplier.ThreeMonths ||
-            multiplier == Types.LockMultiplier.SixMonths
+            multiplier == Types.LockMultiplier.None || multiplier == Types.LockMultiplier.OneMonth
+                || multiplier == Types.LockMultiplier.TwoMonths || multiplier == Types.LockMultiplier.ThreeMonths
+                || multiplier == Types.LockMultiplier.SixMonths
         ) {
             return;
         }
@@ -294,7 +293,11 @@ abstract contract DelegationStorage {
         uint256 originalAmount,
         uint256 snapshotFactor,
         uint256 currentFactor
-    ) internal pure returns (uint256 effectiveAmount) {
+    )
+        internal
+        pure
+        returns (uint256 effectiveAmount)
+    {
         if (snapshotFactor == 0 || currentFactor >= snapshotFactor) {
             return originalAmount; // No slash occurred since request
         }

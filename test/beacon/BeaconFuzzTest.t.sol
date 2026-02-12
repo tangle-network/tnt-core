@@ -2,8 +2,8 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
-import {BeaconChainProofs} from "../../src/beacon/BeaconChainProofs.sol";
-import {ValidatorTypes} from "../../src/beacon/ValidatorTypes.sol";
+import { BeaconChainProofs } from "../../src/beacon/BeaconChainProofs.sol";
+import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
 
 /// @title BeaconFuzzTest
 /// @notice Extensive fuzz testing for beacon chain proof verification
@@ -19,7 +19,10 @@ contract BeaconFuzzTest is Test {
         bytes32 leaf,
         bytes32[10] memory proofElements,
         uint256 index
-    ) public pure {
+    )
+        public
+        pure
+    {
         // Bound index to reasonable range
         index = bound(index, 0, 1023); // 2^10 - 1
 
@@ -54,7 +57,10 @@ contract BeaconFuzzTest is Test {
         bytes32 wrongLeaf,
         bytes32[5] memory proofElements,
         uint256 index
-    ) public pure {
+    )
+        public
+        pure
+    {
         vm.assume(correctLeaf != wrongLeaf);
         index = bound(index, 0, 31); // 2^5 - 1
 
@@ -88,7 +94,10 @@ contract BeaconFuzzTest is Test {
         bytes32[5] memory proofElements,
         uint256 correctIndex,
         uint256 wrongIndex
-    ) public pure {
+    )
+        public
+        pure
+    {
         correctIndex = bound(correctIndex, 0, 31);
         wrongIndex = bound(wrongIndex, 0, 31);
         vm.assume(correctIndex != wrongIndex);
@@ -174,13 +183,13 @@ contract BeaconFuzzTest is Test {
         uint64 balance1,
         uint64 balance2,
         uint64 balance3
-    ) public pure {
+    )
+        public
+        pure
+    {
         // Pack 4 balances into bytes32 (little-endian)
         bytes32 balanceRoot = bytes32(
-            uint256(balance0) |
-            (uint256(balance1) << 64) |
-            (uint256(balance2) << 128) |
-            (uint256(balance3) << 192)
+            uint256(balance0) | (uint256(balance1) << 64) | (uint256(balance2) << 128) | (uint256(balance3) << 192)
         );
 
         assertEq(_extractBalance(balanceRoot, 0), balance0);
@@ -284,9 +293,7 @@ contract BeaconFuzzTest is Test {
         vm.assume(oldFactor <= 1e18);
         vm.assume(currentBalance <= priorBalance);
 
-        uint64 newFactor = uint64(
-            (uint256(oldFactor) * uint256(currentBalance)) / uint256(priorBalance)
-        );
+        uint64 newFactor = uint64((uint256(oldFactor) * uint256(currentBalance)) / uint256(priorBalance));
 
         assertTrue(newFactor <= oldFactor, "New factor should be <= old factor");
         assertTrue(newFactor <= 1e18, "Factor should be <= 1e18");
@@ -298,7 +305,10 @@ contract BeaconFuzzTest is Test {
         uint64 balance1,
         uint64 balance2,
         uint64 balance3
-    ) public pure {
+    )
+        public
+        pure
+    {
         vm.assume(factor1 > 0 && factor1 <= 1e18);
         vm.assume(balance1 > 0);
         vm.assume(balance2 <= balance1 && balance2 > 0);
@@ -362,7 +372,10 @@ contract BeaconFuzzTest is Test {
         uint128 delegatorStake,
         uint128 totalDelegated,
         uint128 slashAmount
-    ) public pure {
+    )
+        public
+        pure
+    {
         vm.assume(totalDelegated > 0);
         vm.assume(delegatorStake <= totalDelegated);
         vm.assume(slashAmount <= totalDelegated);
@@ -383,7 +396,11 @@ contract BeaconFuzzTest is Test {
         bytes32 root,
         bytes32 leaf,
         uint256 index
-    ) internal pure returns (bool) {
+    )
+        internal
+        pure
+        returns (bool)
+    {
         bytes32 computedHash = leaf;
         uint256 proofLength = proof.length / 32;
 
@@ -408,7 +425,11 @@ contract BeaconFuzzTest is Test {
         bytes32 leaf,
         bytes32[5] memory proofElements,
         uint256 index
-    ) internal pure returns (bytes32 root) {
+    )
+        internal
+        pure
+        returns (bytes32 root)
+    {
         root = leaf;
         uint256 proofIndex = index;
         for (uint256 i = 0; i < proofElements.length; i++) {

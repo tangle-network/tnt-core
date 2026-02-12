@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {MBSMRegistry} from "../../src/MBSMRegistry.sol";
-import {Errors} from "../../src/libraries/Errors.sol";
+import { MBSMRegistry } from "../../src/MBSMRegistry.sol";
+import { Errors } from "../../src/libraries/Errors.sol";
 
 contract MBSMRegistryTest is Test {
     MBSMRegistry internal registry;
@@ -14,10 +14,7 @@ contract MBSMRegistryTest is Test {
 
     function setUp() public {
         MBSMRegistry implementation = new MBSMRegistry();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(implementation),
-            abi.encodeCall(MBSMRegistry.initialize, (admin))
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), abi.encodeCall(MBSMRegistry.initialize, (admin)));
         registry = MBSMRegistry(address(proxy));
     }
 

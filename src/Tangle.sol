@@ -13,11 +13,7 @@ contract Tangle is Base {
     event FacetSelectorCleared(bytes4 indexed selector);
 
     /// @notice Initialize the contract
-    function initialize(
-        address admin,
-        address staking_,
-        address payable treasury_
-    ) external initializer {
+    function initialize(address admin, address staking_, address payable treasury_) external initializer {
         __Base_init(admin, staking_, treasury_);
     }
 
@@ -82,7 +78,7 @@ contract Tangle is Base {
             returndatacopy(0, 0, returndatasize())
             // Branch based on call result
             switch result
-            case 0 { revert(0, returndatasize()) }  // Call failed: revert with return data
+            case 0 { revert(0, returndatasize()) } // Call failed: revert with return data
             default { return(0, returndatasize()) } // Call succeeded: return with return data
         }
     }

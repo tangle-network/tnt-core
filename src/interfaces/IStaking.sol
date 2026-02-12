@@ -18,12 +18,7 @@ interface IStaking {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Emitted when an operator is slashed
-    event OperatorSlashed(
-        address indexed operator,
-        uint64 indexed serviceId,
-        uint16 slashBps,
-        bytes32 evidence
-    );
+    event OperatorSlashed(address indexed operator, uint64 indexed serviceId, uint16 slashBps, bytes32 evidence);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // OPERATOR QUERIES
@@ -61,16 +56,16 @@ interface IStaking {
     function getOperatorDelegatedStakeForAsset(
         address operator,
         Types.Asset calldata asset
-    ) external view returns (uint256);
+    )
+        external
+        view
+        returns (uint256);
 
     /// @notice Get total stake (self + delegated) for a specific asset
     /// @param operator The operator address
     /// @param asset The asset to query
     /// @return Total stake for the asset
-    function getOperatorStakeForAsset(
-        address operator,
-        Types.Asset calldata asset
-    ) external view returns (uint256);
+    function getOperatorStakeForAsset(address operator, Types.Asset calldata asset) external view returns (uint256);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DELEGATOR QUERIES
@@ -119,7 +114,9 @@ interface IStaking {
         uint64 serviceId,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint256 actualSlashed);
+    )
+        external
+        returns (uint256 actualSlashed);
 
     /// @notice Slash an operator for a specific service, only slashing committed assets
     /// @dev Only slashes assets the operator committed to this service, proportionally
@@ -137,7 +134,9 @@ interface IStaking {
         Types.AssetSecurityCommitment[] calldata commitments,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint256 actualSlashed);
+    )
+        external
+        returns (uint256 actualSlashed);
 
     /// @notice Slash an operator's native stake for consensus violations (affects all native delegators)
     /// @dev Only callable by authorized slashers (e.g., Tangle core contract)
@@ -151,7 +150,9 @@ interface IStaking {
         uint64 serviceId,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint256 actualSlashed);
+    )
+        external
+        returns (uint256 actualSlashed);
 
     /// @notice Check if an address is authorized to call slash()
     /// @param account The address to check
@@ -192,7 +193,6 @@ interface IStaking {
     /// @param operator The operator to query
     /// @return count Number of pending slashes
     function getPendingSlashCount(address operator) external view returns (uint64);
-
 }
 
 /// @title IStakingAdmin

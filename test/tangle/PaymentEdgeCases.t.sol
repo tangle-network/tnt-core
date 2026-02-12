@@ -25,7 +25,7 @@ contract FeeOnTransferToken is ERC20 {
     function _update(address from, address to, uint256 amount) internal virtual override {
         if (from != address(0) && to != address(0)) {
             // Apply fee on transfer
-            uint256 fee = (amount * feePercent) / 10000;
+            uint256 fee = (amount * feePercent) / 10_000;
             uint256 amountAfterFee = amount - fee;
             super._update(from, to, amountAfterFee);
             if (fee > 0) {
@@ -40,7 +40,7 @@ contract FeeOnTransferToken is ERC20 {
 
 /// @notice Mock token that always reverts on transfer
 contract RevertingToken is ERC20 {
-    constructor() ERC20("Revert", "REV") {}
+    constructor() ERC20("Revert", "REV") { }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
@@ -200,7 +200,8 @@ contract PaymentEdgeCasesTest is BaseTest {
         uint256 payment = 100;
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: payment }(blueprintId, ops, "", callers, 0, address(0), payment);
+        uint64 requestId =
+            tangle.requestService{ value: payment }(blueprintId, ops, "", callers, 0, address(0), payment);
 
         _approveService(operator1, requestId);
         _approveService(operator2, requestId);
@@ -214,7 +215,10 @@ contract PaymentEdgeCasesTest is BaseTest {
         // No security commitments: operators share (operator + restaker) = 60% of 100 = 60 wei
         (,, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
         uint256 expectedTotal = (payment * (uint256(opBps) + uint256(stakerBps))) / 10_000;
-        assertTrue(op1Pending + op2Pending + op3Pending <= expectedTotal, "Total operator rewards should not exceed operator+restaker share");
+        assertTrue(
+            op1Pending + op2Pending + op3Pending <= expectedTotal,
+            "Total operator rewards should not exceed operator+restaker share"
+        );
     }
 
     function test_Payment_RequestServiceWithRevertingTokenReverts() public {
@@ -228,15 +232,7 @@ contract PaymentEdgeCasesTest is BaseTest {
         vm.startPrank(user1);
         revertToken.approve(address(tangle), 5 ether);
         vm.expectRevert(bytes("TransferFrom disabled"));
-        tangle.requestService(
-            blueprintId,
-            operators,
-            "",
-            callers,
-            0,
-            address(revertToken),
-            5 ether
-        );
+        tangle.requestService(blueprintId, operators, "", callers, 0, address(revertToken), 5 ether);
         vm.stopPrank();
     }
 
@@ -253,7 +249,6 @@ contract PaymentEdgeCasesTest is BaseTest {
         vm.prank(admin);
         tangle.setTreasury(payable(treasury));
     }
-
 
     function test_Payment_ZeroExposure_OperatorStillGetsPaid() public {
         // Operators always get paid for providing compute, even with 0% exposure.
@@ -286,7 +281,7 @@ contract PaymentEdgeCasesTest is BaseTest {
         ops[1] = operator2;
         uint16[] memory exposures = new uint16[](2);
         exposures[0] = 9900; // 99%
-        exposures[1] = 100;  // 1%
+        exposures[1] = 100; // 1%
         address[] memory callers = new address[](0);
 
         uint256 payment = 100 ether;
@@ -313,12 +308,8 @@ contract PaymentEdgeCasesTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_PaymentSplit_AllToProtocol() public {
-        Types.PaymentSplit memory split = Types.PaymentSplit({
-            developerBps: 0,
-            protocolBps: 10000,
-            operatorBps: 0,
-            stakerBps: 0
-        });
+        Types.PaymentSplit memory split =
+            Types.PaymentSplit({ developerBps: 0, protocolBps: 10_000, operatorBps: 0, stakerBps: 0 });
 
         vm.prank(admin);
         tangle.setPaymentSplit(split);
@@ -333,12 +324,8 @@ contract PaymentEdgeCasesTest is BaseTest {
     }
 
     function test_PaymentSplit_AllToOperators() public {
-        Types.PaymentSplit memory split = Types.PaymentSplit({
-            developerBps: 0,
-            protocolBps: 0,
-            operatorBps: 10000,
-            stakerBps: 0
-        });
+        Types.PaymentSplit memory split =
+            Types.PaymentSplit({ developerBps: 0, protocolBps: 0, operatorBps: 10_000, stakerBps: 0 });
 
         vm.prank(admin);
         tangle.setPaymentSplit(split);
@@ -350,12 +337,9 @@ contract PaymentEdgeCasesTest is BaseTest {
     }
 
     function test_PaymentSplit_RevertsTotalNot100Percent() public {
-        Types.PaymentSplit memory split = Types.PaymentSplit({
-            developerBps: 2000,
-            protocolBps: 2000,
-            operatorBps: 2000,
-            stakerBps: 2000
-        }); // Total = 80%
+        Types.PaymentSplit memory split =
+            Types.PaymentSplit({ developerBps: 2000, protocolBps: 2000, operatorBps: 2000, stakerBps: 2000 }); // Total
+        // = 80%
 
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidPaymentSplit.selector);

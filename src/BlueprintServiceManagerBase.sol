@@ -126,12 +126,12 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function getExitConfig(uint64) external view virtual returns (
-        bool useDefault,
-        uint64 minCommitmentDuration,
-        uint64 exitQueueDuration,
-        bool forceExitAllowed
-    ) {
+    function getExitConfig(uint64)
+        external
+        view
+        virtual
+        returns (bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed)
+    {
         // Use protocol defaults:
         // - minCommitmentDuration: 1 day
         // - exitQueueDuration: 7 days
@@ -144,7 +144,15 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IBlueprintServiceManager
-    function onRequest(uint64, address, address[] calldata, bytes calldata, uint64, address, uint256)
+    function onRequest(
+        uint64,
+        address,
+        address[] calldata,
+        bytes calldata,
+        uint64,
+        address,
+        uint256
+    )
         external
         payable
         virtual
@@ -164,7 +172,14 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onServiceInitialized(uint64, uint64, uint64, address, address[] calldata, uint64)
+    function onServiceInitialized(
+        uint64,
+        uint64,
+        uint64,
+        address,
+        address[] calldata,
+        uint64
+    )
         external
         virtual
         onlyFromTangle
@@ -221,7 +236,14 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onJobResult(uint64, uint8, uint64, address, bytes calldata, bytes calldata)
+    function onJobResult(
+        uint64,
+        uint8,
+        uint64,
+        address,
+        bytes calldata,
+        bytes calldata
+    )
         external
         payable
         virtual
@@ -308,7 +330,15 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function onAggregatedResult(uint64, uint8, uint64, bytes calldata, uint256, uint256[2] calldata, uint256[4] calldata)
+    function onAggregatedResult(
+        uint64,
+        uint8,
+        uint64,
+        bytes calldata,
+        uint256,
+        uint256[2] calldata,
+        uint256[4] calldata
+    )
         external
         virtual
         onlyFromTangle

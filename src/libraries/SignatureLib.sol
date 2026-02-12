@@ -23,10 +23,13 @@ library SignatureLib {
     bytes32 internal constant ASSET_SECURITY_COMMITMENT_TYPEHASH =
         keccak256("AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)");
 
+    /// @dev EIP-712 TypeHash for ResourceCommitment
+    bytes32 internal constant RESOURCE_COMMITMENT_TYPEHASH = keccak256("ResourceCommitment(uint8 kind,uint64 count)");
+
     /// @dev EIP-712 TypeHash for QuoteDetails
     /// @dev Replay protection is handled by marking digests as used
     bytes32 internal constant QUOTE_TYPEHASH = keccak256(
-        "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
+        "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
     );
 
     /// @dev EIP-712 TypeHash for JobQuoteDetails (per-job RFQ)
@@ -72,6 +75,7 @@ library SignatureLib {
     /// @notice Compute the hash of quote details for signing
     function hashQuote(Types.QuoteDetails memory details) internal pure returns (bytes32) {
         bytes32 commitmentsHash = hashSecurityCommitments(details.securityCommitments);
+        bytes32 resourcesHash = hashResourceCommitments(details.resourceCommitments);
         // forge-lint: disable-next-line(asm-keccak256)
         return keccak256(
             abi.encode(
@@ -81,7 +85,8 @@ library SignatureLib {
                 details.totalCost,
                 details.timestamp,
                 details.expiry,
-                commitmentsHash
+                commitmentsHash,
+                resourcesHash
             )
         );
     }
@@ -106,6 +111,22 @@ library SignatureLib {
     function hashSecurityCommitment(Types.AssetSecurityCommitment memory commitment) internal pure returns (bytes32) {
         bytes32 assetHash = keccak256(abi.encode(ASSET_TYPEHASH, commitment.asset.kind, commitment.asset.token));
         return keccak256(abi.encode(ASSET_SECURITY_COMMITMENT_TYPEHASH, assetHash, commitment.exposureBps));
+    }
+
+    function hashResourceCommitments(Types.ResourceCommitment[] memory commitments) internal pure returns (bytes32) {
+        bytes32[] memory hashes = new bytes32[](commitments.length);
+        for (uint256 i = 0; i < commitments.length; i++) {
+            hashes[i] = hashResourceCommitment(commitments[i]);
+        }
+        bytes32 out;
+        assembly ("memory-safe") {
+            out := keccak256(add(hashes, 0x20), mul(mload(hashes), 0x20))
+        }
+        return out;
+    }
+
+    function hashResourceCommitment(Types.ResourceCommitment memory commitment) internal pure returns (bytes32) {
+        return keccak256(abi.encode(RESOURCE_COMMITMENT_TYPEHASH, commitment.kind, commitment.count));
     }
 
     /// @notice Compute the full EIP-712 digest for a quote

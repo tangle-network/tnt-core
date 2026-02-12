@@ -40,7 +40,9 @@ contract TanglePaymentsFacet is Payments, IFacetSelectors {
         address token,
         uint256 amount,
         address[] calldata operators
-    ) external {
+    )
+        external
+    {
         if (msg.sender != address(this)) revert Errors.Unauthorized();
 
         // Compute effective exposures (with fallback to stored exposureBps)

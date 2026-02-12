@@ -22,7 +22,9 @@ abstract contract ServicesLifecycle is Base {
     event ServiceTerminated(uint64 indexed serviceId);
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
     event OperatorSecurityCommitmentsStored(uint64 indexed serviceId, address indexed operator, uint256 count);
-    event OperatorSecurityCommitment(uint64 indexed serviceId, address indexed operator, uint8 assetKind, address asset, uint16 exposureBps);
+    event OperatorSecurityCommitment(
+        uint64 indexed serviceId, address indexed operator, uint8 assetKind, address asset, uint16 exposureBps
+    );
     event OperatorLeftService(uint64 indexed serviceId, address indexed operator);
     event ExitScheduled(uint64 indexed serviceId, address indexed operator, uint64 executeAfter);
     event ExitCanceled(uint64 indexed serviceId, address indexed operator);
@@ -53,7 +55,8 @@ abstract contract ServicesLifecycle is Base {
                 _operatorActiveServiceCount[blueprintId][operator]--;
             }
             if (_operatorStatusRegistry != address(0)) {
-                try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) {} catch {}
+                try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) { }
+                    catch { }
             }
         }
 
@@ -62,7 +65,7 @@ abstract contract ServicesLifecycle is Base {
         // Refund remaining streamed payments to the service owner
         // M-15 FIX: Emit event on external call failure
         if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onServiceTerminated(serviceId, svc.owner) {}
+            try IServiceFeeDistributor(_serviceFeeDistributor).onServiceTerminated(serviceId, svc.owner) { }
             catch (bytes memory reason) {
                 emit ServiceFeeDistributorCallFailed(serviceId, "onServiceTerminated", reason);
             }
@@ -71,8 +74,7 @@ abstract contract ServicesLifecycle is Base {
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onServiceTermination, (serviceId, msg.sender))
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onServiceTermination, (serviceId, msg.sender))
             );
         }
     }
@@ -122,11 +124,13 @@ abstract contract ServicesLifecycle is Base {
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
+            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (
+                bool useDefault, uint256 customMin
+            ) {
                 if (!useDefault && customMin > 0) {
                     minStake = customMin;
                 }
-            } catch {}
+            } catch { }
         }
         if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
             revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
@@ -138,14 +142,11 @@ abstract contract ServicesLifecycle is Base {
                 if (!allowed) {
                     revert Errors.Unauthorized();
                 }
-            } catch {}
+            } catch { }
         }
 
         _serviceOperators[serviceId][msg.sender] = Types.ServiceOperator({
-            exposureBps: exposureBps,
-            joinedAt: uint64(block.timestamp),
-            leftAt: 0,
-            active: true
+            exposureBps: exposureBps, joinedAt: uint64(block.timestamp), leftAt: 0, active: true
         });
         _serviceOperatorSet[serviceId].add(msg.sender);
         svc.operatorCount++;
@@ -155,7 +156,7 @@ abstract contract ServicesLifecycle is Base {
 
         // Register operator in heartbeat registry for liveness tracking
         if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) {} catch {}
+            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) { } catch { }
         }
 
         emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
@@ -174,7 +175,11 @@ abstract contract ServicesLifecycle is Base {
         uint64 serviceId,
         uint16 exposureBps,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) external whenNotPaused nonReentrant {
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         Types.Service storage svc = _getService(serviceId);
         if (svc.status != Types.ServiceStatus.Active) {
             revert Errors.ServiceNotActive(serviceId);
@@ -216,11 +221,13 @@ abstract contract ServicesLifecycle is Base {
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
+            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (
+                bool useDefault, uint256 customMin
+            ) {
                 if (!useDefault && customMin > 0) {
                     minStake = customMin;
                 }
-            } catch {}
+            } catch { }
         }
         if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
             revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
@@ -232,14 +239,11 @@ abstract contract ServicesLifecycle is Base {
                 if (!allowed) {
                     revert Errors.Unauthorized();
                 }
-            } catch {}
+            } catch { }
         }
 
         _serviceOperators[serviceId][msg.sender] = Types.ServiceOperator({
-            exposureBps: exposureBps,
-            joinedAt: uint64(block.timestamp),
-            leftAt: 0,
-            active: true
+            exposureBps: exposureBps, joinedAt: uint64(block.timestamp), leftAt: 0, active: true
         });
         _serviceOperatorSet[serviceId].add(msg.sender);
         svc.operatorCount++;
@@ -249,7 +253,7 @@ abstract contract ServicesLifecycle is Base {
 
         // Register operator in heartbeat registry for liveness tracking
         if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) {} catch {}
+            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) { } catch { }
         }
 
         emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
@@ -300,10 +304,7 @@ abstract contract ServicesLifecycle is Base {
 
         // Store exit request
         _exitRequests[serviceId][msg.sender] = Types.ExitRequest({
-            serviceId: serviceId,
-            scheduledAt: uint64(block.timestamp),
-            executeAfter: executeAfter,
-            pending: true
+            serviceId: serviceId, scheduledAt: uint64(block.timestamp), executeAfter: executeAfter, pending: true
         });
 
         emit ExitScheduled(serviceId, msg.sender, executeAfter);
@@ -353,8 +354,7 @@ abstract contract ServicesLifecycle is Base {
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onExitCanceled, (serviceId, msg.sender))
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onExitCanceled, (serviceId, msg.sender))
             );
         }
     }
@@ -409,10 +409,7 @@ abstract contract ServicesLifecycle is Base {
         // If exit queue is required, must use scheduleExit/executeExit
         if (exitConfig.exitQueueDuration > 0) {
             revert Errors.ExitNotExecutable(
-                serviceId,
-                msg.sender,
-                uint64(block.timestamp) + exitConfig.exitQueueDuration,
-                uint64(block.timestamp)
+                serviceId, msg.sender, uint64(block.timestamp) + exitConfig.exitQueueDuration, uint64(block.timestamp)
             );
         }
 
@@ -439,13 +436,13 @@ abstract contract ServicesLifecycle is Base {
                 if (!allowed) {
                     revert Errors.Unauthorized();
                 }
-            } catch {}
+            } catch { }
         }
 
         // Drip streaming payments BEFORE removing operator (ensures fair distribution)
         // M-15 FIX: Emit event on external call failure
         if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) {}
+            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) { }
             catch (bytes memory reason) {
                 emit ServiceFeeDistributorCallFailed(serviceId, "onOperatorLeaving", reason);
             }
@@ -463,17 +460,14 @@ abstract contract ServicesLifecycle is Base {
 
         // Deregister operator from heartbeat registry
         if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) {} catch {}
+            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) { } catch { }
         }
 
         emit OperatorLeftService(serviceId, operator);
 
         // Notify manager of successful leave
         if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator))
-            );
+            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator)));
         }
     }
 
@@ -503,7 +497,7 @@ abstract contract ServicesLifecycle is Base {
         // Drip streaming payments before removal
         // M-15 FIX: Emit event on external call failure
         if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) {}
+            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) { }
             catch (bytes memory reason) {
                 emit ServiceFeeDistributorCallFailed(serviceId, "onOperatorLeaving", reason);
             }
@@ -524,30 +518,31 @@ abstract contract ServicesLifecycle is Base {
 
         // Deregister operator from heartbeat registry
         if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) {} catch {}
+            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) { } catch { }
         }
 
         emit OperatorLeftService(serviceId, operator);
 
         // Notify manager (it called us, but we still notify for consistency)
-        _tryCallManager(
-            bp.manager,
-            abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator))
-        );
+        _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator)));
     }
 
     /// @notice Get exit configuration for a service
     /// @dev Checks manager hook first, falls back to protocol defaults
-    function _getExitConfig(uint64 blueprintId, uint64 serviceId) internal view returns (Types.ExitConfig memory config) {
+    function _getExitConfig(
+        uint64 blueprintId,
+        uint64 serviceId
+    )
+        internal
+        view
+        returns (Types.ExitConfig memory config)
+    {
         Types.Blueprint storage bp = _blueprints[blueprintId];
 
         // Check if manager provides custom exit config
         if (bp.manager != address(0)) {
             try IBlueprintServiceManager(bp.manager).getExitConfig(serviceId) returns (
-                bool useDefault,
-                uint64 minCommitmentDuration,
-                uint64 exitQueueDuration,
-                bool forceExitAllowed
+                bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed
             ) {
                 if (!useDefault) {
                     return Types.ExitConfig({
@@ -556,7 +551,7 @@ abstract contract ServicesLifecycle is Base {
                         forceExitAllowed: forceExitAllowed
                     });
                 }
-            } catch {}
+            } catch { }
         }
 
         // Use protocol defaults
@@ -602,7 +597,14 @@ abstract contract ServicesLifecycle is Base {
     }
 
     /// @notice Check if operator can schedule exit now
-    function canScheduleExit(uint64 serviceId, address operator) external view returns (bool canExit, string memory reason) {
+    function canScheduleExit(
+        uint64 serviceId,
+        address operator
+    )
+        external
+        view
+        returns (bool canExit, string memory reason)
+    {
         Types.Service storage svc = _services[serviceId];
         if (svc.membership != Types.MembershipModel.Dynamic) {
             return (false, "Not dynamic membership");
@@ -631,11 +633,16 @@ abstract contract ServicesLifecycle is Base {
     function _validateSecurityCommitments(
         Types.AssetSecurityRequirement[] storage requirements,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) internal view {
+    )
+        internal
+        view
+    {
         for (uint256 i = 0; i < commitments.length; i++) {
             for (uint256 j = i + 1; j < commitments.length; j++) {
-                if (commitments[i].asset.token == commitments[j].asset.token &&
-                    commitments[i].asset.kind == commitments[j].asset.kind) {
+                if (
+                    commitments[i].asset.token == commitments[j].asset.token
+                        && commitments[i].asset.kind == commitments[j].asset.kind
+                ) {
                     revert Errors.DuplicateAssetCommitment(uint8(commitments[i].asset.kind), commitments[i].asset.token);
                 }
             }
@@ -646,13 +653,16 @@ abstract contract ServicesLifecycle is Base {
             bool found = false;
 
             for (uint256 j = 0; j < commitments.length; j++) {
-                if (commitments[j].asset.token == req.asset.token &&
-                    commitments[j].asset.kind == req.asset.kind) {
+                if (commitments[j].asset.token == req.asset.token && commitments[j].asset.kind == req.asset.kind) {
                     if (commitments[j].exposureBps < req.minExposureBps) {
-                        revert Errors.CommitmentBelowMinimum(req.asset.token, commitments[j].exposureBps, req.minExposureBps);
+                        revert Errors.CommitmentBelowMinimum(
+                            req.asset.token, commitments[j].exposureBps, req.minExposureBps
+                        );
                     }
                     if (commitments[j].exposureBps > req.maxExposureBps) {
-                        revert Errors.CommitmentAboveMaximum(req.asset.token, commitments[j].exposureBps, req.maxExposureBps);
+                        revert Errors.CommitmentAboveMaximum(
+                            req.asset.token, commitments[j].exposureBps, req.maxExposureBps
+                        );
                     }
                     found = true;
                     break;

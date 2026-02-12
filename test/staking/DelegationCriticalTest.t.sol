@@ -2,7 +2,13 @@
 pragma solidity ^0.8.26;
 
 import { Test, console2 } from "forge-std/Test.sol";
-import { DelegationTestHarness, MockERC20, ReentrantERC20, ReentrantReceiver, FailingERC20 } from "./DelegationTestHarness.sol";
+import {
+    DelegationTestHarness,
+    MockERC20,
+    ReentrantERC20,
+    ReentrantReceiver,
+    FailingERC20
+} from "./DelegationTestHarness.sol";
 import { IMultiAssetDelegation } from "../../src/interfaces/IMultiAssetDelegation.sol";
 import { DelegationErrors } from "../../src/staking/DelegationErrors.sol";
 import { Types } from "../../src/libraries/Types.sol";
@@ -11,7 +17,6 @@ import { Types } from "../../src/libraries/Types.sol";
 /// @notice Critical tests covering all identified audit gaps
 /// @dev Organized by category: Slashing, Operator Lifecycle, Reentrancy, etc.
 contract DelegationCriticalTest is DelegationTestHarness {
-
     // ═══════════════════════════════════════════════════════════════════════════════
     // SECTION 1: SLASHING TESTS (Critical)
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -202,11 +207,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         uint64 currentRound = uint64(delegation.currentRound());
         vm.prank(operator1);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                DelegationErrors.LeavingTooEarly.selector,
-                currentRound,
-                currentRound + 1
-            )
+            abi.encodeWithSelector(DelegationErrors.LeavingTooEarly.selector, currentRound, currentRound + 1)
         );
         delegation.completeLeaving();
     }
@@ -215,7 +216,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
     function test_OperatorCannotRegisterTwice() public {
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(DelegationErrors.OperatorAlreadyRegistered.selector, operator1));
-        delegation.registerOperator{value: 10 ether}();
+        delegation.registerOperator{ value: 10 ether }();
     }
 
     /// @notice Test operator slashed below minimum becomes inactive
@@ -252,22 +253,14 @@ contract DelegationCriticalTest is DelegationTestHarness {
         vm.startPrank(operator1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                DelegationErrors.LeavingTooEarly.selector,
-                currentRound,
-                currentRound + DEFAULT_DELAY
+                DelegationErrors.LeavingTooEarly.selector, currentRound, currentRound + DEFAULT_DELAY
             )
         );
         delegation.executeOperatorUnstake();
         vm.stopPrank();
 
         vm.startPrank(operator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DelegationErrors.InsufficientStake.selector,
-                MIN_OPERATOR_STAKE,
-                0
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.InsufficientStake.selector, MIN_OPERATOR_STAKE, 0));
         delegation.scheduleOperatorUnstake(7 ether);
         vm.stopPrank();
 
@@ -327,7 +320,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         // Note: When calling attacker.deposit{value: 10 ether}(), the test sends 10 ETH
         // to the attacker contract, which then forwards it to delegation.
         // So attacker balance stays at 20 ETH (receives 10, sends 10).
-        attacker.deposit{value: 10 ether}();
+        attacker.deposit{ value: 10 ether }();
         attacker.scheduleWithdraw(address(0), 10 ether);
 
         _advanceRounds(DEFAULT_DELAY);
@@ -339,7 +332,8 @@ contract DelegationCriticalTest is DelegationTestHarness {
         attacker.executeWithdraw();
 
         // Attacker should only receive once
-        // Balance: 20 ETH (initial) + 10 ETH (test sends to deposit) - 10 ETH (forwards to delegation) + 10 ETH (withdrawn) = 30 ETH
+        // Balance: 20 ETH (initial) + 10 ETH (test sends to deposit) - 10 ETH (forwards to delegation) + 10 ETH
+        // (withdrawn) = 30 ETH
         assertEq(address(attacker).balance, 30 ether);
         assertEq(attacker.receiveCount(), 1);
     }
@@ -350,7 +344,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         vm.deal(address(attacker), 20 ether);
 
         // Attacker deposits and delegates
-        attacker.depositAndDelegate{value: 10 ether}(operator1);
+        attacker.depositAndDelegate{ value: 10 ether }(operator1);
         attacker.scheduleDelegatorUnstake(operator1, address(0), 10 ether);
 
         _advanceRounds(DEFAULT_DELAY);
@@ -371,7 +365,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         evilToken.setTarget(address(delegation));
 
         vm.prank(admin);
-        delegation.enableAsset(address(evilToken), 0, 0, 0, 10000);
+        delegation.enableAsset(address(evilToken), 0, 0, 0, 10_000);
 
         evilToken.mint(delegator1, 10 ether);
 
@@ -400,7 +394,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         evilToken.setTarget(address(delegation));
 
         vm.prank(admin);
-        delegation.enableAsset(address(evilToken), 0, 0, 0, 10000);
+        delegation.enableAsset(address(evilToken), 0, 0, 0, 10_000);
 
         evilToken.mint(delegator1, 20 ether);
 
@@ -559,9 +553,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
 
         // Try to schedule withdraw - should fail due to lock
         vm.prank(delegator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.AmountLocked.selector, 10 ether, 10 ether)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.AmountLocked.selector, 10 ether, 10 ether));
         delegation.scheduleWithdraw(address(0), 10 ether);
     }
 
@@ -655,7 +647,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
 
         vm.prank(operator2);
         vm.expectRevert(); // EnforcedPause
-        delegation.registerOperator{value: 10 ether}();
+        delegation.registerOperator{ value: 10 ether }();
     }
 
     /// @notice Test operations resume after unpause
@@ -697,7 +689,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
             vm.deal(delegator, 100 ether);
 
             vm.prank(delegator);
-            delegation.depositAndDelegate{value: 10 ether}(operator1);
+            delegation.depositAndDelegate{ value: 10 ether }(operator1);
         }
 
         // Total delegated should be 100 ether
@@ -777,7 +769,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         address newToken = address(new MockERC20("New", "NEW"));
         vm.prank(delegator1);
         vm.expectRevert();
-        delegation.enableAsset(newToken, 1 ether, 0.1 ether, 0, 10000);
+        delegation.enableAsset(newToken, 1 ether, 0.1 ether, 0, 10_000);
     }
 
     /// @notice Test non-admin cannot disable asset
@@ -819,8 +811,24 @@ contract DelegationCriticalTest is DelegationTestHarness {
 
     // Events from the contracts (need to redeclare for testing)
     event Deposited(address indexed delegator, address indexed token, uint256 amount, Types.LockMultiplier lock);
-    event Delegated(address indexed delegator, address indexed operator, address indexed token, uint256 amount, uint256 shares, Types.BlueprintSelectionMode selectionMode);
-    event Slashed(address indexed operator, uint64 indexed serviceId, uint64 indexed blueprintId, bytes32 assetHash, uint16 slashBps, uint256 operatorSlashed, uint256 delegatorsSlashed, uint256 exchangeRateAfter);
+    event Delegated(
+        address indexed delegator,
+        address indexed operator,
+        address indexed token,
+        uint256 amount,
+        uint256 shares,
+        Types.BlueprintSelectionMode selectionMode
+    );
+    event Slashed(
+        address indexed operator,
+        uint64 indexed serviceId,
+        uint64 indexed blueprintId,
+        bytes32 assetHash,
+        uint16 slashBps,
+        uint256 operatorSlashed,
+        uint256 delegatorsSlashed,
+        uint256 exchangeRateAfter
+    );
     event OperatorRegistered(address indexed operator, uint256 stake);
     event RoundAdvanced(uint64 indexed round);
 
@@ -830,7 +838,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         emit Deposited(delegator1, address(0), 5 ether, Types.LockMultiplier.None);
 
         vm.prank(delegator1);
-        delegation.deposit{value: 5 ether}();
+        delegation.deposit{ value: 5 ether }();
     }
 
     /// @notice Test Delegated event emission with shares
@@ -869,7 +877,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         emit OperatorRegistered(operator2, 10 ether);
 
         vm.prank(operator2);
-        delegation.registerOperator{value: 10 ether}();
+        delegation.registerOperator{ value: 10 ether }();
     }
 
     /// @notice Test RoundAdvanced event
@@ -890,20 +898,14 @@ contract DelegationCriticalTest is DelegationTestHarness {
     function test_MinimumDelegation_1Wei() public {
         // Override min delegation for this test
         vm.prank(admin);
-        delegation.enableAsset(address(token), 0, 0, 0, 10000); // 0 min delegation
+        delegation.enableAsset(address(token), 0, 0, 0, 10_000); // 0 min delegation
 
         token.mint(delegator1, 1);
 
         vm.startPrank(delegator1);
         token.approve(address(delegation), 1);
         delegation.depositERC20(address(token), 1);
-        delegation.delegateWithOptions(
-            operator1,
-            address(token),
-            1,
-            Types.BlueprintSelectionMode.All,
-            new uint64[](0)
-        );
+        delegation.delegateWithOptions(operator1, address(token), 1, Types.BlueprintSelectionMode.All, new uint64[](0));
         vm.stopPrank();
 
         assertEq(delegation.getDelegation(delegator1, operator1), 1);
@@ -937,7 +939,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
     function test_DepositCapEnforcement() public {
         // Set deposit cap
         vm.prank(admin);
-        delegation.enableAsset(address(token), 0, 0, 10 ether, 10000); // 10 ETH cap
+        delegation.enableAsset(address(token), 0, 0, 10 ether, 10_000); // 10 ETH cap
 
         token.mint(delegator1, 20 ether);
 
@@ -958,7 +960,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
 
     function test_DepositCapDecreasesOnWithdrawExecution() public {
         vm.prank(admin);
-        delegation.enableAsset(address(token), 0, 0, 10 ether, 10000); // 10 ETH cap
+        delegation.enableAsset(address(token), 0, 0, 10 ether, 10_000); // 10 ETH cap
 
         token.mint(delegator1, 20 ether);
 
@@ -1043,9 +1045,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         _depositAndDelegate(delegator1, operator1, 5 ether);
 
         vm.prank(delegator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.InsufficientDelegation.selector, 5 ether, 10 ether)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.InsufficientDelegation.selector, 5 ether, 10 ether));
         delegation.scheduleDelegatorUnstake(operator1, address(0), 10 ether);
     }
 
@@ -1054,9 +1054,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         _depositNative(delegator1, 5 ether);
 
         vm.prank(delegator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.InsufficientDeposit.selector, 5 ether, 10 ether)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.InsufficientDeposit.selector, 5 ether, 10 ether));
         delegation.delegate(operator1, 10 ether);
     }
 
@@ -1075,7 +1073,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         vm.deal(operator1, 200 ether);
 
         vm.startPrank(operator1);
-        delegation.deposit{value: 10 ether}();
+        delegation.deposit{ value: 10 ether }();
         delegation.delegate(operator1, 10 ether);
         vm.stopPrank();
 
@@ -1112,13 +1110,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
 
         // Fixed mode
         vm.prank(delegator1);
-        delegation.delegateWithOptions(
-            operator1,
-            address(0),
-            5 ether,
-            Types.BlueprintSelectionMode.Fixed,
-            bps
-        );
+        delegation.delegateWithOptions(operator1, address(0), 5 ether, Types.BlueprintSelectionMode.Fixed, bps);
 
         Types.BondInfoDelegator[] memory delegations = delegation.getDelegations(delegator1);
         assertEq(uint8(delegations[0].selectionMode), uint8(Types.BlueprintSelectionMode.Fixed));
@@ -1141,13 +1133,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         delegation.addBlueprintForOperator(operator1, 42);
 
         vm.prank(delegator1);
-        delegation.delegateWithOptions(
-            operator1,
-            address(0),
-            5 ether,
-            Types.BlueprintSelectionMode.Fixed,
-            bps
-        );
+        delegation.delegateWithOptions(operator1, address(0), 5 ether, Types.BlueprintSelectionMode.Fixed, bps);
 
         uint256 beforeSlash = _getDelegation(delegator1, operator1);
         assertEq(beforeSlash, 5 ether, "Before slash should be 5 ether");

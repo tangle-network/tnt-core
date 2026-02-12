@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Script, console2} from "forge-std/Script.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Script, console2 } from "forge-std/Script.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { IMultiAssetDelegation } from "../src/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../src/staking/MultiAssetDelegation.sol";
@@ -64,8 +64,8 @@ contract ScenarioERC20 {
 }
 
 /// @notice Forge script that replays the full stack scenario on a live RPC (e.g., anvil).
-///         Run with: `forge script script/FullStackScenario.s.sol:FullStackScenario --rpc-url http://127.0.0.1:8545 --broadcast --slow`
-///         Optionally set FULLSTACK_MNEMONIC to match the mnemonic used by your RPC node.
+///         Run with: `forge script script/FullStackScenario.s.sol:FullStackScenario --rpc-url http://127.0.0.1:8545
+/// --broadcast --slow` Optionally set FULLSTACK_MNEMONIC to match the mnemonic used by your RPC node.
 ///         For local RPC time advances, set FULLSTACK_USE_FFI=1 and pass --ffi (uses cast rpc).
 ///         Use FULLSTACK_RPC_URL to override the RPC URL used for time advances.
 contract FullStackScenario is Script {
@@ -155,17 +155,10 @@ contract FullStackScenario is Script {
 
     function _fundActors() internal {
         uint256[8] memory keys = [
-            adminKey,
-            slasherKey,
-            operator1Key,
-            operator2Key,
-            operator3Key,
-            delegator1Key,
-            delegator2Key,
-            delegator3Key
+            adminKey, slasherKey, operator1Key, operator2Key, operator3Key, delegator1Key, delegator2Key, delegator3Key
         ];
         for (uint256 i = 0; i < keys.length; i++) {
-            vm.deal(vm.addr(keys[i]), 1_000 ether);
+            vm.deal(vm.addr(keys[i]), 1000 ether);
         }
     }
 
@@ -174,8 +167,7 @@ contract FullStackScenario is Script {
 
         MultiAssetDelegation impl = new MultiAssetDelegation();
         bytes memory initData = abi.encodeCall(
-            MultiAssetDelegation.initialize,
-            (vm.addr(adminKey), 1 ether, DEFAULT_DELAY, COMMISSION_BPS)
+            MultiAssetDelegation.initialize, (vm.addr(adminKey), 1 ether, DEFAULT_DELAY, COMMISSION_BPS)
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         _registerFacets(address(proxy));
@@ -184,8 +176,8 @@ contract FullStackScenario is Script {
         tokenA = new ScenarioERC20("Scenario Token A", "STA");
         tokenB = new ScenarioERC20("Scenario Token B", "STB");
 
-        delegation.enableAsset(address(tokenA), 1 ether, 0.1 ether, 0, 10000);
-        delegation.enableAsset(address(tokenB), 1 ether, 0.1 ether, 0, 10000);
+        delegation.enableAsset(address(tokenA), 1 ether, 0.1 ether, 0, 10_000);
+        delegation.enableAsset(address(tokenB), 1 ether, 0.1 ether, 0, 10_000);
         delegation.addSlasher(vm.addr(slasherKey));
 
         vm.stopBroadcast();
@@ -205,8 +197,8 @@ contract FullStackScenario is Script {
     function _seedTokens() internal {
         vm.startBroadcast(adminKey);
         for (uint256 i = 0; i < delegators.length; i++) {
-            tokenA.mint(delegators[i], 1_000 ether);
-            tokenB.mint(delegators[i], 1_000 ether);
+            tokenA.mint(delegators[i], 1000 ether);
+            tokenB.mint(delegators[i], 1000 ether);
         }
         vm.stopBroadcast();
     }
@@ -214,7 +206,7 @@ contract FullStackScenario is Script {
     function _registerOperators() internal {
         for (uint256 i = 0; i < operators.length; i++) {
             vm.startBroadcast(operatorKeys[i]);
-            delegation.registerOperator{value: 10 ether}();
+            delegation.registerOperator{ value: 10 ether }();
             vm.stopBroadcast();
         }
     }
@@ -227,18 +219,14 @@ contract FullStackScenario is Script {
 
         if (isNative) {
             vm.startBroadcast(delegatorKey);
-            delegation.depositAndDelegate{value: amount}(operator);
+            delegation.depositAndDelegate{ value: amount }(operator);
             vm.stopBroadcast();
         } else {
             ScenarioERC20 token = tick % 2 == 1 ? tokenA : tokenB;
             vm.startBroadcast(delegatorKey);
             token.approve(address(delegation), amount);
             delegation.depositAndDelegateWithOptions(
-                operator,
-                address(token),
-                amount,
-                Types.BlueprintSelectionMode.All,
-                new uint64[](0)
+                operator, address(token), amount, Types.BlueprintSelectionMode.All, new uint64[](0)
             );
             vm.stopBroadcast();
         }
@@ -261,7 +249,7 @@ contract FullStackScenario is Script {
         if (tick % 5 == 4) {
             uint256 liquidAmount = amount / 2;
             vm.startBroadcast(delegatorKey);
-            delegation.deposit{value: liquidAmount}();
+            delegation.deposit{ value: liquidAmount }();
             delegation.scheduleWithdraw(address(0), liquidAmount / 2);
             vm.stopBroadcast();
         }

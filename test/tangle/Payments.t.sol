@@ -46,20 +46,16 @@ contract PaymentsTest is BaseTest {
 
     function test_PaymentSplit_DefaultValues() public view {
         (uint16 dev, uint16 proto, uint16 op, uint16 rest) = tangle.paymentSplit();
-        assertEq(dev, 2000);   // 20%
+        assertEq(dev, 2000); // 20%
         assertEq(proto, 2000); // 20%
-        assertEq(op, 4000);    // 40%
-        assertEq(rest, 2000);  // 20%
-        assertEq(dev + proto + op + rest, 10000);
+        assertEq(op, 4000); // 40%
+        assertEq(rest, 2000); // 20%
+        assertEq(dev + proto + op + rest, 10_000);
     }
 
     function test_SetPaymentSplit_ValidConfiguration() public {
-        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
-            developerBps: 4000,
-            protocolBps: 2000,
-            operatorBps: 2500,
-            stakerBps: 1500
-        });
+        Types.PaymentSplit memory newSplit =
+            Types.PaymentSplit({ developerBps: 4000, protocolBps: 2000, operatorBps: 2500, stakerBps: 1500 });
 
         vm.prank(admin);
         tangle.setPaymentSplit(newSplit);
@@ -72,12 +68,8 @@ contract PaymentsTest is BaseTest {
     }
 
     function test_SetPaymentSplit_RevertNotAdmin() public {
-        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
-            developerBps: 4000,
-            protocolBps: 2000,
-            operatorBps: 2500,
-            stakerBps: 1500
-        });
+        Types.PaymentSplit memory newSplit =
+            Types.PaymentSplit({ developerBps: 4000, protocolBps: 2000, operatorBps: 2500, stakerBps: 1500 });
 
         vm.prank(user1);
         vm.expectRevert();
@@ -85,12 +77,8 @@ contract PaymentsTest is BaseTest {
     }
 
     function test_SetPaymentSplit_RevertTotalNot100Percent() public {
-        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
-            developerBps: 5000,
-            protocolBps: 5000,
-            operatorBps: 5000,
-            stakerBps: 5000
-        });
+        Types.PaymentSplit memory newSplit =
+            Types.PaymentSplit({ developerBps: 5000, protocolBps: 5000, operatorBps: 5000, stakerBps: 5000 });
 
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidPaymentSplit.selector);
@@ -98,18 +86,14 @@ contract PaymentsTest is BaseTest {
     }
 
     function test_SetPaymentSplit_AllToDeveloper() public {
-        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
-            developerBps: 10000,
-            protocolBps: 0,
-            operatorBps: 0,
-            stakerBps: 0
-        });
+        Types.PaymentSplit memory newSplit =
+            Types.PaymentSplit({ developerBps: 10_000, protocolBps: 0, operatorBps: 0, stakerBps: 0 });
 
         vm.prank(admin);
         tangle.setPaymentSplit(newSplit);
 
         (uint16 dev, uint16 proto, uint16 op, uint16 rest) = tangle.paymentSplit();
-        assertEq(dev, 10000);
+        assertEq(dev, 10_000);
         assertEq(proto, 0);
         assertEq(op, 0);
         assertEq(rest, 0);
@@ -131,8 +115,8 @@ contract PaymentsTest is BaseTest {
         tangle.approveService(requestId, 0);
 
         // Check distribution
-        uint256 developerExpected = (payment * 2000) / 10000; // 20%
-        uint256 protocolExpected = (payment * 2000) / 10000;  // 20%
+        uint256 developerExpected = (payment * 2000) / 10_000; // 20%
+        uint256 protocolExpected = (payment * 2000) / 10_000; // 20%
 
         assertEq(developer.balance, developerBefore + developerExpected, "Developer payment incorrect");
         assertEq(treasury.balance, treasuryBefore + protocolExpected, "Protocol payment incorrect");
@@ -192,12 +176,9 @@ contract PaymentsTest is BaseTest {
         tangle.setTntPaymentDiscountBps(1000); // 10%
 
         // Everything goes to treasury, so discount is easy to verify.
-        tangle.setPaymentSplit(Types.PaymentSplit({
-            developerBps: 0,
-            protocolBps: 10000,
-            operatorBps: 0,
-            stakerBps: 0
-        }));
+        tangle.setPaymentSplit(
+            Types.PaymentSplit({ developerBps: 0, protocolBps: 10_000, operatorBps: 0, stakerBps: 0 })
+        );
         vm.stopPrank();
 
         uint256 payment = 100 ether;
@@ -222,12 +203,9 @@ contract PaymentsTest is BaseTest {
         tangle.setTntPaymentDiscountBps(1000); // 10%
 
         // Protocol share is only 5%; discount should be capped to 5%.
-        tangle.setPaymentSplit(Types.PaymentSplit({
-            developerBps: 9500,
-            protocolBps: 500,
-            operatorBps: 0,
-            stakerBps: 0
-        }));
+        tangle.setPaymentSplit(
+            Types.PaymentSplit({ developerBps: 9500, protocolBps: 500, operatorBps: 0, stakerBps: 0 })
+        );
         vm.stopPrank();
 
         uint256 payment = 100 ether;
@@ -258,9 +236,8 @@ contract PaymentsTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: payment }(
-            blueprintId, operators, "", callers, 0, address(0), payment
-        );
+        uint64 requestId =
+            tangle.requestService{ value: payment }(blueprintId, operators, "", callers, 0, address(0), payment);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -420,9 +397,8 @@ contract PaymentsTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: 1 ether }(
-            subBlueprintId, operators, "", callers, 0, address(0), 1 ether
-        );
+        uint64 requestId =
+            tangle.requestService{ value: 1 ether }(subBlueprintId, operators, "", callers, 0, address(0), 1 ether);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -514,7 +490,8 @@ contract PaymentsTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 ercBlueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://erc20-subscription", address(0), config));
+        uint64 ercBlueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://erc20-subscription", address(0), config));
         _registerForBlueprint(operator1, ercBlueprintId);
 
         address[] memory operators = new address[](1);
@@ -524,15 +501,8 @@ contract PaymentsTest is BaseTest {
         uint256 initialDeposit = 100 ether;
         vm.startPrank(user1);
         token.approve(address(tangle), initialDeposit);
-        uint64 requestId = tangle.requestService(
-            ercBlueprintId,
-            operators,
-            "",
-            callers,
-            0,
-            address(token),
-            initialDeposit
-        );
+        uint64 requestId =
+            tangle.requestService(ercBlueprintId, operators, "", callers, 0, address(token), initialDeposit);
         vm.stopPrank();
 
         vm.prank(operator1);
@@ -591,9 +561,8 @@ contract PaymentsTest is BaseTest {
 
         // Only deposit 0.5 ETH but rate is 1 ETH
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: 0.5 ether }(
-            bp, operators, "", callers, 0, address(0), 0.5 ether
-        );
+        uint64 requestId =
+            tangle.requestService{ value: 0.5 ether }(bp, operators, "", callers, 0, address(0), 0.5 ether);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -637,7 +606,8 @@ contract PaymentsTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 expBlueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://expiring-sub", address(0), config));
+        uint64 expBlueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://expiring-sub", address(0), config));
         _registerForBlueprint(operator1, expBlueprintId);
 
         address[] memory operators = new address[](1);
@@ -646,13 +616,7 @@ contract PaymentsTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: 1 ether }(
-            expBlueprintId,
-            operators,
-            "",
-            callers,
-            1 days,
-            address(0),
-            1 ether
+            expBlueprintId, operators, "", callers, 1 days, address(0), 1 ether
         );
 
         vm.prank(operator1);
@@ -789,9 +753,9 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        uint256 devExpected = (uint256(333) * 2000) / 10000; // 66
-        uint256 protoExpected = (uint256(333) * 2000) / 10000; // 66
-        uint256 opAmount = (uint256(333) * 4000) / 10000; // 133
+        uint256 devExpected = (uint256(333) * 2000) / 10_000; // 66
+        uint256 protoExpected = (uint256(333) * 2000) / 10_000; // 66
+        uint256 opAmount = (uint256(333) * 4000) / 10_000; // 133
         uint256 stakerAmount = 333 - devExpected - protoExpected - opAmount; // 68
         // No security commitments: operator gets op + staker = 201
 
@@ -816,10 +780,7 @@ contract PaymentsTest is BaseTest {
         return _setupSubscriptionServiceWithDepositAndTTL(1 ether, ttl);
     }
 
-    function _setupSubscriptionServiceWithDepositAndTTL(uint256 initialDeposit, uint64 ttl)
-        internal
-        returns (uint64)
-    {
+    function _setupSubscriptionServiceWithDepositAndTTL(uint256 initialDeposit, uint64 ttl) internal returns (uint64) {
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
             membership: Types.MembershipModel.Fixed,
             pricing: Types.PricingModel.Subscription,

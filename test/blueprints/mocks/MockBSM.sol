@@ -89,7 +89,13 @@ contract MockBSM_V1 is BlueprintServiceManagerBase {
         uint64,
         address,
         uint256
-    ) external payable virtual override onlyFromTangle {
+    )
+        external
+        payable
+        virtual
+        override
+        onlyFromTangle
+    {
         hookCalls.onRequest++;
         serviceRequestInputs[requestId] = requestInputs;
     }
@@ -109,7 +115,12 @@ contract MockBSM_V1 is BlueprintServiceManagerBase {
         address,
         address[] calldata,
         uint64
-    ) external virtual override onlyFromTangle {
+    )
+        external
+        virtual
+        override
+        onlyFromTangle
+    {
         hookCalls.onServiceInitialized++;
         initializedServices.push(serviceId);
     }
@@ -134,7 +145,12 @@ contract MockBSM_V1 is BlueprintServiceManagerBase {
     // JOB LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function onJobCall(uint64 serviceId, uint8, uint64 jobCallId, bytes calldata inputs)
+    function onJobCall(
+        uint64 serviceId,
+        uint8,
+        uint64 jobCallId,
+        bytes calldata inputs
+    )
         external
         payable
         virtual
@@ -153,7 +169,13 @@ contract MockBSM_V1 is BlueprintServiceManagerBase {
         address,
         bytes calldata,
         bytes calldata outputs
-    ) external payable virtual override onlyFromTangle {
+    )
+        external
+        payable
+        virtual
+        override
+        onlyFromTangle
+    {
         hookCalls.onJobResult++;
         jobOutputs[serviceId][jobCallId] = outputs;
     }
@@ -187,12 +209,13 @@ contract MockBSM_V1 is BlueprintServiceManagerBase {
     }
 
     /// @notice Allow immediate exits for testing (no commitment/queue durations)
-    function getExitConfig(uint64) external pure virtual override returns (
-        bool useDefault,
-        uint64 minCommitmentDuration,
-        uint64 exitQueueDuration,
-        bool forceExitAllowed
-    ) {
+    function getExitConfig(uint64)
+        external
+        pure
+        virtual
+        override
+        returns (bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed)
+    {
         return (false, 0, 0, false);
     }
 }
@@ -271,7 +294,12 @@ contract MockBSM_V2 is MockBSM_V1 {
         uint64,
         address,
         uint256 paymentAmount
-    ) external payable override onlyFromTangle {
+    )
+        external
+        payable
+        override
+        onlyFromTangle
+    {
         if (minimumPayment > 0 && paymentAmount < minimumPayment) {
             revert InsufficientPayment(minimumPayment, paymentAmount);
         }
@@ -279,7 +307,12 @@ contract MockBSM_V2 is MockBSM_V1 {
         serviceRequestInputs[requestId] = requestInputs;
     }
 
-    function onJobCall(uint64 serviceId, uint8 job, uint64 jobCallId, bytes calldata inputs)
+    function onJobCall(
+        uint64 serviceId,
+        uint8 job,
+        uint64 jobCallId,
+        bytes calldata inputs
+    )
         external
         payable
         virtual
@@ -298,12 +331,7 @@ contract MockBSM_V2 is MockBSM_V1 {
     // V2 CUSTOM CONFIGS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function getHeartbeatInterval(uint64 serviceId)
-        external
-        view
-        override
-        returns (bool useDefault, uint64 interval)
-    {
+    function getHeartbeatInterval(uint64 serviceId) external view override returns (bool useDefault, uint64 interval) {
         if (customHeartbeatIntervals[serviceId] > 0) {
             return (false, customHeartbeatIntervals[serviceId]);
         }
@@ -387,7 +415,11 @@ contract MockBSM_V3 is MockBSM_V2 {
         address,
         address[] calldata,
         uint64
-    ) external override onlyFromTangle {
+    )
+        external
+        override
+        onlyFromTangle
+    {
         hookCalls.onServiceInitialized++;
         initializedServices.push(serviceId);
         serviceActive[serviceId] = true;
@@ -398,7 +430,12 @@ contract MockBSM_V3 is MockBSM_V2 {
         serviceActive[serviceId] = false;
     }
 
-    function onJobCall(uint64 serviceId, uint8 job, uint64 jobCallId, bytes calldata inputs)
+    function onJobCall(
+        uint64 serviceId,
+        uint8 job,
+        uint64 jobCallId,
+        bytes calldata inputs
+    )
         external
         payable
         override

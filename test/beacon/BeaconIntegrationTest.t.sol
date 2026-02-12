@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {BeaconTestBase} from "./BeaconTestBase.sol";
-import {ValidatorPod} from "../../src/beacon/ValidatorPod.sol";
-import {ValidatorPodManager} from "../../src/beacon/ValidatorPodManager.sol";
-import {ValidatorTypes} from "../../src/beacon/ValidatorTypes.sol";
-import {BeaconChainProofs} from "../../src/beacon/BeaconChainProofs.sol";
-import {console2} from "forge-std/Test.sol";
+import { BeaconTestBase } from "./BeaconTestBase.sol";
+import { ValidatorPod } from "../../src/beacon/ValidatorPod.sol";
+import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
+import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
+import { BeaconChainProofs } from "../../src/beacon/BeaconChainProofs.sol";
+import { console2 } from "forge-std/Test.sol";
 
 /// @title BeaconIntegrationTest
 /// @notice Integration tests for the full beacon chain staking flow
@@ -14,6 +14,7 @@ import {console2} from "forge-std/Test.sol";
 contract BeaconIntegrationTest is BeaconTestBase {
     uint256 private constant POD_CREATION_GAS_BUDGET = 4_500_000;
     uint256 private constant BALANCE_UPDATE_GAS_BUDGET = 4_500_000;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // TEST FIXTURES (EigenLayer-style)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -307,7 +308,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
         if (_skipGasChecks()) return;
         vm.prank(operator1);
         uint256 gasBefore = gasleft();
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
         uint256 gasUsed = gasBefore - gasleft();
 
         console2.log("Gas used for registerOperator:", gasUsed);
@@ -326,6 +327,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
         console2.log("Gas used for recordBeaconChainEthBalanceUpdate:", gasUsed);
         assertTrue(gasUsed < BALANCE_UPDATE_GAS_BUDGET, "Balance update should remain within gas budget");
     }
+
     function _skipGasChecks() internal view returns (bool) {
         return vm.envOr("FOUNDRY_COVERAGE", false);
     }

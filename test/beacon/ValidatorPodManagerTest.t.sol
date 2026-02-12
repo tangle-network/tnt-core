@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {BeaconTestBase} from "./BeaconTestBase.sol";
-import {ValidatorPod} from "../../src/beacon/ValidatorPod.sol";
-import {ValidatorPodManager} from "../../src/beacon/ValidatorPodManager.sol";
-import {ValidatorTypes} from "../../src/beacon/ValidatorTypes.sol";
-import {console2} from "forge-std/Test.sol";
+import { BeaconTestBase } from "./BeaconTestBase.sol";
+import { ValidatorPod } from "../../src/beacon/ValidatorPod.sol";
+import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
+import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
+import { console2 } from "forge-std/Test.sol";
 
 /// @title ValidatorPodManagerTest
 /// @notice Tests for ValidatorPodManager contract
@@ -83,7 +83,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
 
     function test_registerOperator_Success() public {
         vm.prank(operator1);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         assertTrue(podManager.isOperator(operator1), "Should be registered as operator");
         assertTrue(podManager.isOperatorActive(operator1), "Should be active operator");
@@ -93,33 +93,31 @@ contract ValidatorPodManagerTest is BeaconTestBase {
     function test_registerOperator_InsufficientStake() public {
         vm.prank(operator1);
         vm.expectRevert(ValidatorPodManager.InsufficientStake.selector);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE - 1}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE - 1 }();
     }
 
     function test_registerOperator_AlreadyOperator() public {
         vm.prank(operator1);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         vm.prank(operator1);
         vm.expectRevert(ValidatorPodManager.AlreadyOperator.selector);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
     }
 
     function test_increaseOperatorStake_Success() public {
         _registerOperator(operator1, MIN_OPERATOR_STAKE);
 
         vm.prank(operator1);
-        podManager.increaseOperatorStake{value: 1 ether}();
+        podManager.increaseOperatorStake{ value: 1 ether }();
 
-        assertEq(
-            podManager.getOperatorSelfStake(operator1), MIN_OPERATOR_STAKE + 1 ether, "Stake should be increased"
-        );
+        assertEq(podManager.getOperatorSelfStake(operator1), MIN_OPERATOR_STAKE + 1 ether, "Stake should be increased");
     }
 
     function test_increaseOperatorStake_NotOperator() public {
         vm.prank(operator1);
         vm.expectRevert(ValidatorPodManager.NotOperator.selector);
-        podManager.increaseOperatorStake{value: 1 ether}();
+        podManager.increaseOperatorStake{ value: 1 ether }();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -129,7 +127,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
     function test_deregisterOperator_Success() public {
         // Register operator with stake
         vm.prank(operator1);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         uint256 balanceBefore = operator1.balance;
 
@@ -148,7 +146,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
 
     function test_deregisterOperator_EmitsEvent() public {
         vm.prank(operator1);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         vm.prank(operator1);
         vm.expectEmit(true, false, false, false);
@@ -165,7 +163,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
     function test_deregisterOperator_HasPendingDelegations() public {
         // Setup: Register operator and create pod with shares
         vm.prank(operator1);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         // Create pod and add shares for podOwner1
         vm.prank(podOwner1);
@@ -189,7 +187,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
     function test_deregisterOperator_AfterDelegatorsUndelegate() public {
         // Setup: Register operator
         vm.prank(operator1);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         // Create pod and add shares
         vm.prank(podOwner1);
@@ -224,7 +222,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
     function test_deregisterOperator_ZeroStake() public {
         // Register with minimum stake
         vm.prank(operator1);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         // Get slashed to zero (need to setup slasher)
         vm.prank(admin);
@@ -249,7 +247,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
     function test_deregisterOperator_CanReregister() public {
         // Register
         vm.prank(operator1);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         // Deregister
         vm.prank(operator1);
@@ -257,7 +255,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
 
         // Re-register should work
         vm.prank(operator1);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         assertTrue(podManager.isOperator(operator1), "Should be operator again");
         assertEq(podManager.getOperatorSelfStake(operator1), MIN_OPERATOR_STAKE, "Stake should be set");
@@ -266,11 +264,11 @@ contract ValidatorPodManagerTest is BeaconTestBase {
     function test_deregisterOperator_WithIncreasedStake() public {
         // Register with minimum
         vm.prank(operator1);
-        podManager.registerOperator{value: MIN_OPERATOR_STAKE}();
+        podManager.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         // Increase stake
         vm.prank(operator1);
-        podManager.increaseOperatorStake{value: 5 ether}();
+        podManager.increaseOperatorStake{ value: 5 ether }();
 
         uint256 totalStake = MIN_OPERATOR_STAKE + 5 ether;
         assertEq(podManager.getOperatorSelfStake(operator1), totalStake, "Total stake should be sum");
@@ -331,8 +329,14 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         bytes32 undelegationRoot = podManager.queueUndelegation(operator1, 3 ether);
 
         // Check queued state
-        (address delegator, address operator, uint256 amount, uint32 startBlock, uint32 completableBlock, bool completed) =
-            podManager.getUndelegationInfo(undelegationRoot);
+        (
+            address delegator,
+            address operator,
+            uint256 amount,
+            uint32 startBlock,
+            uint32 completableBlock,
+            bool completed
+        ) = podManager.getUndelegationInfo(undelegationRoot);
 
         assertEq(delegator, podOwner1, "Delegator mismatch");
         assertEq(operator, operator1, "Operator mismatch");
@@ -449,11 +453,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
 
         uint256 expectedSlashed = (stakeBefore * slashBps) / 10_000;
         assertEq(slashed, expectedSlashed, "Should slash requested amount");
-        assertEq(
-            podManager.getOperatorSelfStake(operator1),
-            stakeBefore - expectedSlashed,
-            "Stake should be reduced"
-        );
+        assertEq(podManager.getOperatorSelfStake(operator1), stakeBefore - expectedSlashed, "Stake should be reduced");
     }
 
     function test_slash_ExceedsStake() public {
@@ -766,7 +766,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         vm.roll(block.number + podManager.withdrawalDelayBlocks() + 1);
 
         // Check can complete
-        (, , , , bool canComplete) = podManager.getWithdrawalInfo(withdrawalRoot);
+        (,,,, bool canComplete) = podManager.getWithdrawalInfo(withdrawalRoot);
         assertTrue(canComplete, "Should be able to complete now");
 
         uint256 balanceBefore = podOwner1.balance;
@@ -776,7 +776,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         podManager.completeWithdrawal(withdrawalRoot);
 
         // Verify completion
-        (, , , bool completed, ) = podManager.getWithdrawalInfo(withdrawalRoot);
+        (,,, bool completed,) = podManager.getWithdrawalInfo(withdrawalRoot);
         assertTrue(completed, "Should be completed");
 
         assertEq(podOwner1.balance, balanceBefore + 10 ether, "ETH should be transferred");

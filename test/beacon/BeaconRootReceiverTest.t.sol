@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import {BeaconRootReceiver} from "../../src/beacon/BeaconRootReceiver.sol";
-import {IL2CrossDomainMessenger} from "../../src/beacon/IBeaconOracle.sol";
+import { BeaconRootReceiver } from "../../src/beacon/BeaconRootReceiver.sol";
+import { IL2CrossDomainMessenger } from "../../src/beacon/IBeaconOracle.sol";
 
 contract MockL2Messenger is IL2CrossDomainMessenger {
     address public currentSender;
@@ -13,12 +13,7 @@ contract MockL2Messenger is IL2CrossDomainMessenger {
         return currentSender;
     }
 
-    function deliver(
-        address receiver,
-        address l1Sender,
-        uint64 timestamp,
-        bytes32 root
-    ) external {
+    function deliver(address receiver, address l1Sender, uint64 timestamp, bytes32 root) external {
         currentSender = l1Sender;
         BeaconRootReceiver(receiver).receiveBeaconRoot(timestamp, root);
     }

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Script, console2} from "forge-std/Script.sol";
+import { Script, console2 } from "forge-std/Script.sol";
 
-import {ValidatorPodManager} from "../src/beacon/ValidatorPodManager.sol";
-import {MockBeaconOracle} from "../src/beacon/BeaconRootReceiver.sol";
-import {EIP4788Oracle} from "../src/beacon/l1/EIP4788Oracle.sol";
-import {L2SlashingConnector} from "../src/beacon/L2SlashingConnector.sol";
-import {HyperlaneCrossChainMessenger} from "../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
-import {LayerZeroCrossChainMessenger} from "../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
+import { ValidatorPodManager } from "../src/beacon/ValidatorPodManager.sol";
+import { MockBeaconOracle } from "../src/beacon/BeaconRootReceiver.sol";
+import { EIP4788Oracle } from "../src/beacon/l1/EIP4788Oracle.sol";
+import { L2SlashingConnector } from "../src/beacon/L2SlashingConnector.sol";
+import { HyperlaneCrossChainMessenger } from "../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
+import { LayerZeroCrossChainMessenger } from "../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 
 error MissingEnv(string key);
 error AddressNotAllowlisted(string key, address provided, address expected);
@@ -20,7 +20,7 @@ error BridgeContractInvalid(string name, address addr);
 /// @dev Deploys to Ethereum mainnet/testnet
 contract DeployBeaconSlashingL1 is Script {
     // Configuration
-    uint256 public minOperatorStake = 32 ether;  // Standard beacon chain validator stake
+    uint256 public minOperatorStake = 32 ether; // Standard beacon chain validator stake
 
     // Chain IDs
     uint256 public constant TANGLE_MAINNET = 5845;
@@ -65,12 +65,7 @@ contract DeployBeaconSlashingL1 is Script {
             console2.log("Skipping L2 chain config (set later via ConfigureL2SlashingConnector)");
         }
 
-        (
-            address beaconOracle,
-            address podManager,
-            address connector,
-            address messenger
-        ) = _deploy(
+        (address beaconOracle, address podManager, address connector, address messenger) = _deploy(
             bridge,
             deployerPrivateKey,
             deployer,
@@ -83,7 +78,18 @@ contract DeployBeaconSlashingL1 is Script {
             true
         );
 
-        _writeManifest(_envStringOrEmpty("BEACON_SLASHING_MANIFEST"), bridge, admin, oracle, tangleChainId, l2Receiver, beaconOracle, podManager, connector, messenger);
+        _writeManifest(
+            _envStringOrEmpty("BEACON_SLASHING_MANIFEST"),
+            bridge,
+            admin,
+            oracle,
+            tangleChainId,
+            l2Receiver,
+            beaconOracle,
+            podManager,
+            connector,
+            messenger
+        );
 
         // Log deployment summary
         console2.log("\n=== L1 Deployment Summary ===");
@@ -137,12 +143,7 @@ contract DeployBeaconSlashingL1 is Script {
         bool broadcast
     )
         internal
-        returns (
-            address beaconOracle,
-            address podManager,
-            address connector,
-            address messenger
-        )
+        returns (address beaconOracle, address podManager, address connector, address messenger)
     {
         if (broadcast) {
             vm.startBroadcast(deployerPrivateKey);
@@ -215,11 +216,11 @@ contract DeployBeaconSlashingL1 is Script {
             // Ethereum mainnet
             mailbox = 0xc005dc82818d67AF737725bD4bf75435d065D239;
             igp = 0x6cA0B6D22da47f091B7613223cD4BB03a2d77918;
-        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 11155111) {
+        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 11_155_111) {
             // Sepolia testnet
             mailbox = 0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766;
             igp = 0x6f2756380FD49228ae25Aa7F2817993cB74Ecc56;
-        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 17000) {
+        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 17_000) {
             // Holesky testnet
             mailbox = 0x5b6CFf85442B851A8e6eaBd2A4E4507B5135B3B0;
             igp = 0x6f2756380FD49228ae25Aa7F2817993cB74Ecc56; // Same as Sepolia - verify before mainnet
@@ -227,7 +228,7 @@ contract DeployBeaconSlashingL1 is Script {
             // Base mainnet
             mailbox = 0xeA87ae93Fa0019a82A727bfd3eBd1cFCa8f64f1D;
             igp = 0xc3F23848Ed2e04C0c6d41bd7804fa8f89F940B94;
-        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 84532) {
+        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 84_532) {
             // Base Sepolia testnet
             mailbox = 0x6966b0E55883d49BFB24539356a2f8A673E02039;
             igp = 0x28B02B97a850872C4D33C3E024fab6499ad96564;
@@ -241,10 +242,7 @@ contract DeployBeaconSlashingL1 is Script {
         _verifyBridgeContract("Hyperlane Mailbox", mailbox);
         _verifyBridgeContract("Hyperlane IGP", igp);
 
-        HyperlaneCrossChainMessenger messenger = new HyperlaneCrossChainMessenger(
-            mailbox,
-            igp
-        );
+        HyperlaneCrossChainMessenger messenger = new HyperlaneCrossChainMessenger(mailbox, igp);
         console2.log("HyperlaneCrossChainMessenger:", address(messenger));
         return address(messenger);
     }
@@ -258,16 +256,16 @@ contract DeployBeaconSlashingL1 is Script {
         if (endpoint == address(0) && block.chainid == 1) {
             // Ethereum mainnet
             endpoint = 0x1a44076050125825900e736c501f859c50fE728c;
-        } else if (endpoint == address(0) && block.chainid == 11155111) {
+        } else if (endpoint == address(0) && block.chainid == 11_155_111) {
             // Sepolia testnet
             endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        } else if (endpoint == address(0) && block.chainid == 17000) {
+        } else if (endpoint == address(0) && block.chainid == 17_000) {
             // Holesky testnet
             endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
         } else if (endpoint == address(0) && block.chainid == 8453) {
             // Base mainnet
             endpoint = 0x1a44076050125825900e736c501f859c50fE728c;
-        } else if (endpoint == address(0) && block.chainid == 84532) {
+        } else if (endpoint == address(0) && block.chainid == 84_532) {
             // Base Sepolia testnet
             endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
         }
@@ -311,7 +309,9 @@ contract DeployBeaconSlashingL1 is Script {
         address podManager,
         address connector,
         address messenger
-    ) internal {
+    )
+        internal
+    {
         if (bytes(path).length == 0) return;
         _ensureParentDir(path);
 
@@ -379,7 +379,7 @@ contract DeployBeaconSlashingL1 is Script {
             if (allowed != address(0) && candidate != allowed) {
                 revert AddressNotAllowlisted(key, candidate, allowed);
             }
-        } catch {}
+        } catch { }
     }
 
     /// @notice Verify bridge contract exists and has code
@@ -404,7 +404,8 @@ contract DeployBeaconSlashingL1Testnet is Script {
 
 /// @title DeployBeaconSlashingL1Holesky
 /// @notice Convenience script for Holesky testnet deployment
-/// @dev Run with: forge script script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1Holesky --rpc-url $HOLESKY_RPC --broadcast
+/// @dev Run with: forge script script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingL1Holesky --rpc-url $HOLESKY_RPC
+/// --broadcast
 contract DeployBeaconSlashingL1Holesky is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
@@ -423,7 +424,8 @@ contract DeployBeaconSlashingL1HoleskyLayerZero is Script {
 
 /// @title DeployBeaconSlashingBase
 /// @notice Convenience script for Base mainnet deployment
-/// @dev Run with: forge script script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingBase --rpc-url $BASE_RPC --broadcast
+/// @dev Run with: forge script script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingBase --rpc-url $BASE_RPC
+/// --broadcast
 contract DeployBeaconSlashingBase is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
@@ -433,7 +435,8 @@ contract DeployBeaconSlashingBase is Script {
 
 /// @title DeployBeaconSlashingBaseSepolia
 /// @notice Convenience script for Base Sepolia testnet deployment
-/// @dev Run with: forge script script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingBaseSepolia --rpc-url $BASE_SEPOLIA_RPC --broadcast
+/// @dev Run with: forge script script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingBaseSepolia --rpc-url
+/// $BASE_SEPOLIA_RPC --broadcast
 contract DeployBeaconSlashingBaseSepolia is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();

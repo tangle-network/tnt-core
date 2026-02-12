@@ -8,9 +8,5 @@ interface IMasterBlueprintServiceManager {
     /// @param blueprintId The newly assigned blueprint ID
     /// @param owner The blueprint owner
     /// @param encodedDefinition ABI-encoded blueprint definition data
-    function onBlueprintCreated(
-        uint64 blueprintId,
-        address owner,
-        bytes calldata encodedDefinition
-    ) external;
+    function onBlueprintCreated(uint64 blueprintId, address owner, bytes calldata encodedDefinition) external;
 }

@@ -16,7 +16,8 @@ interface ITanglePaymentsInternal {
         address token,
         uint256 amount,
         address[] calldata operators
-    ) external;
+    )
+        external;
 
     function depositToEscrow(uint64 serviceId, address token, uint256 amount) external;
 }

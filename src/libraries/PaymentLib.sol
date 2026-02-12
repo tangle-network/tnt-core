@@ -52,12 +52,7 @@ library PaymentLib {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event PaymentCollected(
-        address indexed payer,
-        address indexed token,
-        uint256 amount,
-        uint64 indexed serviceId
-    );
+    event PaymentCollected(address indexed payer, address indexed token, uint256 amount, uint64 indexed serviceId);
 
     event PaymentDistributed(
         uint64 indexed serviceId,
@@ -86,16 +81,16 @@ library PaymentLib {
     /// @notice Per-operator payment allocation
     struct OperatorPayment {
         address operator;
-        uint256 operatorShare;   // Direct operator payment
-        uint256 restakerShare;   // Payment to delegators via restaking
+        uint256 operatorShare; // Direct operator payment
+        uint256 restakerShare; // Payment to delegators via restaking
     }
 
     /// @notice Service escrow account (for subscriptions)
     struct ServiceEscrow {
-        address token;          // Payment token (address(0) = native)
-        uint256 balance;        // Current escrow balance
+        address token; // Payment token (address(0) = native)
+        uint256 balance; // Current escrow balance
         uint256 totalDeposited; // Lifetime deposits
-        uint256 totalReleased;  // Lifetime releases
+        uint256 totalReleased; // Lifetime releases
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -111,7 +106,11 @@ library PaymentLib {
     function calculateSplit(
         uint256 amount,
         Types.PaymentSplit memory split
-    ) internal pure returns (PaymentAmounts memory amounts) {
+    )
+        internal
+        pure
+        returns (PaymentAmounts memory amounts)
+    {
         // M-5 FIX: Floor division for first three recipients
         amounts.developerAmount = (amount * split.developerBps) / BPS_DENOMINATOR;
         amounts.protocolAmount = (amount * split.protocolBps) / BPS_DENOMINATOR;
@@ -139,7 +138,11 @@ library PaymentLib {
         address[] memory operators,
         uint256[] memory effectiveExposures,
         uint256 totalEffectiveExposure
-    ) internal pure returns (OperatorPayment[] memory payments) {
+    )
+        internal
+        pure
+        returns (OperatorPayment[] memory payments)
+    {
         if (totalEffectiveExposure == 0) {
             return new OperatorPayment[](0);
         }
@@ -163,11 +166,8 @@ library PaymentLib {
                 uint256 opShare = (totalOperatorAmount * effectiveExposure) / totalEffectiveExposure;
                 uint256 restakeShare = (totalRestakerAmount * effectiveExposure) / totalEffectiveExposure;
 
-                payments[i] = OperatorPayment({
-                    operator: operators[i],
-                    operatorShare: opShare,
-                    restakerShare: restakeShare
-                });
+                payments[i] =
+                    OperatorPayment({ operator: operators[i], operatorShare: opShare, restakerShare: restakeShare });
 
                 operatorDistributed += opShare;
                 restakerDistributed += restakeShare;
@@ -184,11 +184,7 @@ library PaymentLib {
     /// @param token Payment token (address(0) for native)
     /// @param amount Amount to collect
     /// @param msgValue msg.value for native payments
-    function collectPayment(
-        address token,
-        uint256 amount,
-        uint256 msgValue
-    ) internal {
+    function collectPayment(address token, uint256 amount, uint256 msgValue) internal {
         if (amount == 0) return;
 
         // M-5 FIX: Reject dust-only payments that would be too small to distribute meaningfully
@@ -222,7 +218,7 @@ library PaymentLib {
         if (amount == 0 || to == address(0)) return;
 
         if (token == address(0)) {
-            (bool success,) = payable(to).call{value: amount}("");
+            (bool success,) = payable(to).call{ value: amount }("");
             if (!success) revert Errors.PaymentFailed();
         } else {
             IERC20(token).safeTransfer(to, amount);
@@ -238,12 +234,7 @@ library PaymentLib {
     /// @param token Payment token
     /// @param amount Amount to deposit
     /// @param msgValue msg.value for native payments
-    function depositToEscrow(
-        ServiceEscrow storage escrow,
-        address token,
-        uint256 amount,
-        uint256 msgValue
-    ) internal {
+    function depositToEscrow(ServiceEscrow storage escrow, address token, uint256 amount, uint256 msgValue) internal {
         if (amount == 0) return;
 
         // Initialize token if first deposit
@@ -263,10 +254,7 @@ library PaymentLib {
     /// @param escrow The escrow storage to update
     /// @param amount Amount to release
     /// @return token The escrow token
-    function releaseFromEscrow(
-        ServiceEscrow storage escrow,
-        uint256 amount
-    ) internal returns (address token) {
+    function releaseFromEscrow(ServiceEscrow storage escrow, uint256 amount) internal returns (address token) {
         if (escrow.balance < amount) {
             revert Errors.InsufficientEscrowBalance(amount, escrow.balance);
         }
@@ -280,10 +268,7 @@ library PaymentLib {
     /// @param escrow The escrow to check
     /// @param amount Required amount
     /// @return True if sufficient
-    function hasEscrowBalance(
-        ServiceEscrow storage escrow,
-        uint256 amount
-    ) internal view returns (bool) {
+    function hasEscrowBalance(ServiceEscrow storage escrow, uint256 amount) internal view returns (bool) {
         return escrow.balance >= amount;
     }
 
@@ -301,7 +286,9 @@ library PaymentLib {
         address account,
         address token,
         uint256 amount
-    ) internal {
+    )
+        internal
+    {
         if (amount == 0) return;
         pendingRewards[account][token] += amount;
     }
@@ -315,7 +302,10 @@ library PaymentLib {
         mapping(address => mapping(address => uint256)) storage pendingRewards,
         address account,
         address token
-    ) internal returns (uint256 amount) {
+    )
+        internal
+        returns (uint256 amount)
+    {
         amount = pendingRewards[account][token];
         if (amount == 0) return 0;
 
@@ -330,10 +320,8 @@ library PaymentLib {
     /// @notice Validate payment split sums to 100%
     /// @param split The split to validate
     function validateSplit(Types.PaymentSplit memory split) internal pure {
-        uint256 total = uint256(split.developerBps) +
-                       uint256(split.protocolBps) +
-                       uint256(split.operatorBps) +
-                       uint256(split.stakerBps);
+        uint256 total = uint256(split.developerBps) + uint256(split.protocolBps) + uint256(split.operatorBps)
+            + uint256(split.stakerBps);
         if (total != BPS_DENOMINATOR) {
             revert Errors.InvalidPaymentSplit();
         }
@@ -348,7 +336,10 @@ library PaymentLib {
         uint256 amount,
         Types.PaymentSplit memory split,
         uint256 operatorCount
-    ) internal pure {
+    )
+        internal
+        pure
+    {
         if (amount == 0) return; // Zero payments are allowed (no-op)
 
         // Check minimum amount to ensure non-zero payments

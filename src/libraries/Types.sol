@@ -539,11 +539,11 @@ library Types {
     // RFQ (Request For Quote) - SIGNED PRICE QUOTES
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Resource pricing for a quote
-    struct ResourcePricing {
-        string kind; // Resource type (CPU, MemoryMB, StorageMB, GPU, etc.)
-        uint64 count; // Quantity
-        uint256 pricePerUnit; // Price per unit in payment token
+    /// @notice Resource commitment from an operator (part of signed quote)
+    /// @dev kind: 0=CPU, 1=MemoryMB, 2=StorageMB, 3=NetworkEgressMB, 4=NetworkIngressMB, 5=GPU
+    struct ResourceCommitment {
+        uint8 kind; // Resource type
+        uint64 count; // Quantity of the resource
     }
 
     /// @notice Quote details from an operator
@@ -554,6 +554,7 @@ library Types {
         uint64 timestamp; // When quote was generated
         uint64 expiry; // Quote expiry timestamp
         AssetSecurityCommitment[] securityCommitments; // Operator's security commitments
+        ResourceCommitment[] resourceCommitments; // Operator's resource commitments
     }
 
     /// @notice Signed quote from an operator

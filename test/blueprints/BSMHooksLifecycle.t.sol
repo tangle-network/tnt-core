@@ -79,9 +79,8 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         tangle.registerOperator(blueprintId, customKey, "");
 
         // The contract wraps inputs in OperatorPreferences struct before calling onRegister
-        bytes memory expectedInputs = abi.encode(
-            Types.OperatorPreferences({ ecdsaPublicKey: customKey, rpcAddress: "" })
-        );
+        bytes memory expectedInputs =
+            abi.encode(Types.OperatorPreferences({ ecdsaPublicKey: customKey, rpcAddress: "" }));
         assertEq(bsm.operatorRegistrationInputs(operator1), expectedInputs);
     }
 
@@ -100,11 +99,13 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
         // Non-allowed operator fails - error is wrapped in ManagerReverted
         vm.prank(operator2);
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.ManagerReverted.selector,
-            manager,
-            abi.encodeWithSelector(MockBSM_V2.OperatorNotAllowed.selector, operator2)
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.ManagerReverted.selector,
+                manager,
+                abi.encodeWithSelector(MockBSM_V2.OperatorNotAllowed.selector, operator2)
+            )
+        );
         tangle.registerOperator(blueprintId, _operatorGossipKey(operator2, 0), "");
     }
 
@@ -134,7 +135,9 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         ops[0] = operator1;
 
         vm.prank(serviceOwner);
-        tangle.requestService{ value: 1 ether }(blueprintId, ops, "test-inputs", new address[](0), 0, address(0), 1 ether);
+        tangle.requestService{ value: 1 ether }(
+            blueprintId, ops, "test-inputs", new address[](0), 0, address(0), 1 ether
+        );
 
         assertEq(bsm.getHookCalls().onRequest, 1);
     }
@@ -153,11 +156,13 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
         // Below minimum fails - error is wrapped in ManagerReverted
         vm.prank(serviceOwner);
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.ManagerReverted.selector,
-            manager,
-            abi.encodeWithSelector(MockBSM_V2.InsufficientPayment.selector, 1 ether, 0.5 ether)
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.ManagerReverted.selector,
+                manager,
+                abi.encodeWithSelector(MockBSM_V2.InsufficientPayment.selector, 1 ether, 0.5 ether)
+            )
+        );
         tangle.requestService{ value: 0.5 ether }(blueprintId, ops, "", new address[](0), 0, address(0), 0.5 ether);
 
         // At minimum succeeds
@@ -182,9 +187,8 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         ops[1] = operator2;
 
         vm.prank(serviceOwner);
-        uint64 requestId = tangle.requestService{ value: 1 ether }(
-            blueprintId, ops, "", new address[](0), 0, address(0), 1 ether
-        );
+        uint64 requestId =
+            tangle.requestService{ value: 1 ether }(blueprintId, ops, "", new address[](0), 0, address(0), 1 ether);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -217,9 +221,8 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         ops[0] = operator1;
 
         vm.prank(serviceOwner);
-        uint64 requestId = tangle.requestService{ value: 1 ether }(
-            blueprintId, ops, "", new address[](0), 0, address(0), 1 ether
-        );
+        uint64 requestId =
+            tangle.requestService{ value: 1 ether }(blueprintId, ops, "", new address[](0), 0, address(0), 1 ether);
 
         vm.prank(operator1);
         tangle.rejectService(requestId);
@@ -280,11 +283,11 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
         // Job index 6 should fail (wrapped in ManagerReverted)
         vm.prank(serviceOwner);
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.ManagerReverted.selector,
-            manager,
-            abi.encodeWithSelector(MockBSM_V2.InvalidJobIndex.selector, 6)
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.ManagerReverted.selector, manager, abi.encodeWithSelector(MockBSM_V2.InvalidJobIndex.selector, 6)
+            )
+        );
         tangle.submitJob(serviceId, 6, "inputs");
     }
 

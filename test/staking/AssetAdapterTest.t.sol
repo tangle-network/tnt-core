@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/Test.sol";
 
-import {IAssetAdapter} from "../../src/staking/adapters/IAssetAdapter.sol";
-import {StandardAssetAdapter} from "../../src/staking/adapters/StandardAssetAdapter.sol";
-import {RebasingAssetAdapter} from "../../src/staking/adapters/RebasingAssetAdapter.sol";
-import {AssetAdapterFactory} from "../../src/staking/adapters/AssetAdapterFactory.sol";
+import { IAssetAdapter } from "../../src/staking/adapters/IAssetAdapter.sol";
+import { StandardAssetAdapter } from "../../src/staking/adapters/StandardAssetAdapter.sol";
+import { RebasingAssetAdapter } from "../../src/staking/adapters/RebasingAssetAdapter.sol";
+import { AssetAdapterFactory } from "../../src/staking/adapters/AssetAdapterFactory.sol";
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @title MockERC20
 /// @notice Standard ERC20 for testing
 contract MockERC20 is ERC20 {
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) { }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
@@ -27,7 +27,7 @@ contract MockERC20 is ERC20 {
 contract MockRebasingToken is ERC20 {
     uint256 public rebaseMultiplier = 1e18; // 1:1 initially
 
-    constructor() ERC20("Mock stETH", "mstETH") {}
+    constructor() ERC20("Mock stETH", "mstETH") { }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
@@ -36,7 +36,7 @@ contract MockRebasingToken is ERC20 {
     /// @notice Simulate a rebase (increase all balances by percentage)
     /// @param bps Basis points to increase (100 = 1%)
     function rebase(uint256 bps) external {
-        rebaseMultiplier = (rebaseMultiplier * (10000 + bps)) / 10000;
+        rebaseMultiplier = (rebaseMultiplier * (10_000 + bps)) / 10_000;
     }
 
     /// @notice Override balanceOf to simulate rebasing
@@ -447,7 +447,7 @@ contract AssetAdapterTest is Test {
 
         rebasingToken.rebase(rebaseBps);
 
-        uint256 expectedValue = (amount * (10000 + rebaseBps)) / 10000;
+        uint256 expectedValue = (amount * (10_000 + rebaseBps)) / 10_000;
 
         vm.prank(delegationManager);
         uint256 withdrawn = rebasingAdapter.withdraw(user2, shares);

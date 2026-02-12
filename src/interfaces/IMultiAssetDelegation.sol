@@ -58,14 +58,12 @@ interface IMultiAssetDelegation {
         uint64 readyRound
     );
     event DelegatorUnstakeExecuted(
-        address indexed delegator,
-        address indexed operator,
-        address indexed token,
-        uint256 shares,
-        uint256 amount
+        address indexed delegator, address indexed operator, address indexed token, uint256 shares, uint256 amount
     );
     event BlueprintAddedToDelegation(address indexed delegator, uint256 indexed delegationIndex, uint64 blueprintId);
-    event BlueprintRemovedFromDelegation(address indexed delegator, uint256 indexed delegationIndex, uint64 blueprintId);
+    event BlueprintRemovedFromDelegation(
+        address indexed delegator, uint256 indexed delegationIndex, uint64 blueprintId
+    );
 
     event Slashed(
         address indexed operator,
@@ -165,7 +163,9 @@ interface IMultiAssetDelegation {
         uint256 amount,
         Types.BlueprintSelectionMode selectionMode,
         uint64[] calldata blueprintIds
-    ) external payable;
+    )
+        external
+        payable;
     function delegate(address operator, uint256 amount) external;
     function delegateWithOptions(
         address operator,
@@ -173,7 +173,8 @@ interface IMultiAssetDelegation {
         uint256 amount,
         Types.BlueprintSelectionMode selectionMode,
         uint64[] calldata blueprintIds
-    ) external;
+    )
+        external;
     function scheduleDelegatorUnstake(address operator, address token, uint256 amount) external;
     function undelegate(address operator, uint256 amount) external;
     function executeDelegatorUnstake() external;
@@ -192,7 +193,9 @@ interface IMultiAssetDelegation {
         uint256 shares,
         uint64 requestedRound,
         address receiver
-    ) external returns (uint256 amount);
+    )
+        external
+        returns (uint256 amount);
     function addBlueprintToDelegation(uint256 delegationIndex, uint64 blueprintId) external;
     function removeBlueprintFromDelegation(uint256 delegationIndex, uint64 blueprintId) external;
 
@@ -206,7 +209,9 @@ interface IMultiAssetDelegation {
         uint64 serviceId,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint256 actualSlashed);
+    )
+        external
+        returns (uint256 actualSlashed);
     function slashForService(
         address operator,
         uint64 blueprintId,
@@ -214,13 +219,17 @@ interface IMultiAssetDelegation {
         Types.AssetSecurityCommitment[] calldata commitments,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint256 actualSlashed);
+    )
+        external
+        returns (uint256 actualSlashed);
     function slash(
         address operator,
         uint64 serviceId,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint256 actualSlashed);
+    )
+        external
+        returns (uint256 actualSlashed);
     function advanceRound() external;
     function snapshotOperator(address operator) external;
 
@@ -234,7 +243,8 @@ interface IMultiAssetDelegation {
         uint256 minDelegation,
         uint256 depositCap,
         uint16 rewardMultiplierBps
-    ) external;
+    )
+        external;
     function disableAsset(address token) external;
     function getAssetConfig(address token) external view returns (Types.AssetConfig memory);
     function registerAdapter(address token, address adapter) external;
@@ -247,7 +257,8 @@ interface IMultiAssetDelegation {
         uint256 minDelegation,
         uint256 depositCap,
         uint16 rewardMultiplierBps
-    ) external;
+    )
+        external;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
@@ -258,7 +269,13 @@ interface IMultiAssetDelegation {
     function getOperatorStake(address operator) external view returns (uint256);
     function getOperatorSelfStake(address operator) external view returns (uint256);
     function getOperatorDelegatedStake(address operator) external view returns (uint256);
-    function getOperatorDelegatedStakeForAsset(address operator, Types.Asset calldata asset) external view returns (uint256);
+    function getOperatorDelegatedStakeForAsset(
+        address operator,
+        Types.Asset calldata asset
+    )
+        external
+        view
+        returns (uint256);
     function getOperatorStakeForAsset(address operator, Types.Asset calldata asset) external view returns (uint256);
     function getDelegation(address delegator, address operator) external view returns (uint256);
     function getTotalDelegation(address delegator) external view returns (uint256 total);
@@ -276,7 +293,14 @@ interface IMultiAssetDelegation {
     function getDelegations(address delegator) external view returns (Types.BondInfoDelegator[] memory);
     function getDelegationBlueprints(address delegator, uint256 idx) external view returns (uint64[] memory);
     function getPendingUnstakes(address delegator) external view returns (Types.BondLessRequest[] memory);
-    function previewDelegatorUnstakeShares(address operator, address token, uint256 amount) external view returns (uint256);
+    function previewDelegatorUnstakeShares(
+        address operator,
+        address token,
+        uint256 amount
+    )
+        external
+        view
+        returns (uint256);
     /// @notice Get the operator's reward pool for the bond asset
     function getOperatorRewardPool(address operator) external view returns (Types.OperatorRewardPool memory);
     function getOperatorDelegators(address operator) external view returns (address[] memory);
@@ -285,7 +309,10 @@ interface IMultiAssetDelegation {
     function serviceFeeDistributor() external view returns (address);
     function getSlashImpact(address operator, uint64 slashIndex, address delegator) external view returns (uint256);
     function getSlashCount(address operator) external view returns (uint64);
-    function getSlashRecord(address operator, uint64 slashIndex)
+    function getSlashRecord(
+        address operator,
+        uint64 slashIndex
+    )
         external
         view
         returns (SlashingManager.SlashRecord memory);
@@ -322,7 +349,12 @@ interface IMultiAssetDelegation {
     function cancelCommissionChange() external;
     function getPendingCommissionChange() external view returns (uint16 pendingBps, uint64 executeAfter);
     function setOperatorBondToken(address token) external;
-    function setDelays(uint64 delegationBondLessDelay, uint64 leaveDelegatorsDelay, uint64 leaveOperatorsDelay) external;
+    function setDelays(
+        uint64 delegationBondLessDelay,
+        uint64 leaveDelegatorsDelay,
+        uint64 leaveOperatorsDelay
+    )
+        external;
     function setRewardsManager(address manager) external;
     function setServiceFeeDistributor(address distributor) external;
     function pause() external;

@@ -35,17 +35,16 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     event EscrowFunded(uint64 indexed serviceId, address indexed token, uint256 amount);
     event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
     event RewardsClaimed(address indexed account, address indexed token, uint256 amount);
-    event TntPaymentDiscountApplied(uint64 indexed serviceId, address indexed recipient, address indexed token, uint256 amount);
+    event TntPaymentDiscountApplied(
+        uint64 indexed serviceId, address indexed recipient, address indexed token, uint256 amount
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ESCROW MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Fund a service's escrow
-    function fundService(
-        uint64 serviceId,
-        uint256 amount
-    ) external payable nonReentrant {
+    function fundService(uint64 serviceId, uint256 amount) external payable nonReentrant {
         Types.Service storage svc = _getService(serviceId);
         if (svc.status != Types.ServiceStatus.Active) {
             revert Errors.ServiceNotActive(serviceId);
@@ -79,7 +78,11 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     /// @param serviceIds Array of service IDs to bill
     /// @return totalBilled Total amount billed across all services
     /// @return billedCount Number of services successfully billed
-    function billSubscriptionBatch(uint64[] calldata serviceIds) external nonReentrant returns (uint256 totalBilled, uint256 billedCount) {
+    function billSubscriptionBatch(uint64[] calldata serviceIds)
+        external
+        nonReentrant
+        returns (uint256 totalBilled, uint256 billedCount)
+    {
         uint256 serviceIdsLength = serviceIds.length;
         if (serviceIdsLength == 0) revert Errors.ZeroAmount();
 
@@ -89,7 +92,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
                 totalBilled += bpConfig.subscriptionRate;
                 billedCount++;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -105,13 +110,17 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
             if (_isBillable(serviceIds[i])) {
                 temp[count++] = serviceIds[i];
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
         billable = new uint64[](count);
         for (uint256 i = 0; i < count;) {
             billable[i] = temp[i];
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -240,7 +249,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         uint256 tokensLength = tokens.length;
         for (uint256 i = 0; i < tokensLength;) {
             _claimRewardsToken(msg.sender, tokens[i], false);
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -270,7 +281,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         tokens = new address[](setLength);
         for (uint256 i = 0; i < setLength;) {
             tokens[i] = set.at(i);
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -309,7 +322,8 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function paymentSplit() external view returns (uint16, uint16, uint16, uint16) {
-        return (_paymentSplit.developerBps, _paymentSplit.protocolBps, _paymentSplit.operatorBps, _paymentSplit.stakerBps);
+        return
+            (_paymentSplit.developerBps, _paymentSplit.protocolBps, _paymentSplit.operatorBps, _paymentSplit.stakerBps);
     }
 
     function treasury() external view returns (address payable) {
@@ -354,7 +368,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         uint256[] memory effectiveExposures,
         uint256 totalEffectiveExposure,
         bool hasSecurityCommitments
-    ) internal {
+    )
+        internal
+    {
         if (amount == 0) return;
 
         uint256 operatorsLength = operators.length;
@@ -370,19 +386,18 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         // Developer payment
         address developerAddr = bp.owner;
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).queryDeveloperPaymentAddress(serviceId) returns (address payable devAddr) {
+            try IBlueprintServiceManager(bp.manager).queryDeveloperPaymentAddress(serviceId) returns (
+                address payable devAddr
+            ) {
                 if (devAddr != address(0)) developerAddr = devAddr;
-            } catch {}
+            } catch { }
         }
         PaymentLib.transferPayment(developerAddr, token, amounts.developerAmount);
 
         // TNT payment discount (funded from protocol share; sent to service owner)
         if (
-            token != address(0) &&
-            token == _tntToken &&
-            _tntPaymentDiscountBps > 0 &&
-            amounts.protocolAmount > 0 &&
-            svc.owner != address(0)
+            token != address(0) && token == _tntToken && _tntPaymentDiscountBps > 0 && amounts.protocolAmount > 0
+                && svc.owner != address(0)
         ) {
             uint256 desiredDiscount = (amount * _tntPaymentDiscountBps) / BPS_DENOMINATOR;
             uint256 discount = desiredDiscount > amounts.protocolAmount ? amounts.protocolAmount : desiredDiscount;
@@ -404,43 +419,29 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
             // Proportional distribution based on exposure weights.
             // If real restakers exist, keep restaker share separate for the fee distributor.
             // If no restakers, merge restaker share into operator pool.
-            uint256 operatorPool = hasSecurityCommitments
-                ? amounts.operatorAmount
-                : amounts.operatorAmount + amounts.restakerAmount;
-            uint256 restakerPool = hasSecurityCommitments
-                ? amounts.restakerAmount
-                : 0;
+            uint256 operatorPool =
+                hasSecurityCommitments ? amounts.operatorAmount : amounts.operatorAmount + amounts.restakerAmount;
+            uint256 restakerPool = hasSecurityCommitments ? amounts.restakerAmount : 0;
 
             PaymentLib.OperatorPayment[] memory opPayments = PaymentLib.calculateOperatorPayments(
-                operatorPool,
-                restakerPool,
-                operators,
-                effectiveExposures,
-                totalEffectiveExposure
+                operatorPool, restakerPool, operators, effectiveExposures, totalEffectiveExposure
             );
 
             uint256 opPaymentsLength = opPayments.length;
             for (uint256 i = 0; i < opPaymentsLength;) {
-                PaymentLib.addPendingReward(
-                    _pendingRewards,
-                    opPayments[i].operator,
-                    token,
-                    opPayments[i].operatorShare
-                );
+                PaymentLib.addPendingReward(_pendingRewards, opPayments[i].operator, token, opPayments[i].operatorShare);
                 if (opPayments[i].operatorShare > 0) {
                     _pendingRewardTokens[opPayments[i].operator].add(token);
                 }
 
                 if (opPayments[i].restakerShare > 0) {
                     _forwardRestakerShare(
-                        serviceId,
-                        blueprintId,
-                        opPayments[i].operator,
-                        token,
-                        opPayments[i].restakerShare
+                        serviceId, blueprintId, opPayments[i].operator, token, opPayments[i].restakerShare
                     );
                 }
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
             }
         } else {
             // No exposure basis at all (all operators have 0% exposureBps).
@@ -459,7 +460,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
                     _pendingRewardTokens[operators[i]].add(token);
                 }
                 distributed += share;
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
             }
         }
     }
@@ -470,7 +473,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         address operator,
         address token,
         uint256 amount
-    ) private {
+    )
+        private
+    {
         address distributor = _serviceFeeDistributor;
         if (distributor == address(0)) {
             PaymentLib.transferPayment(_treasury, token, amount);
@@ -479,21 +484,11 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
 
         if (token == address(0)) {
             IServiceFeeDistributor(distributor).distributeServiceFee{ value: amount }(
-                serviceId,
-                blueprintId,
-                operator,
-                token,
-                amount
+                serviceId, blueprintId, operator, token, amount
             );
         } else {
             PaymentLib.transferPayment(distributor, token, amount);
-            IServiceFeeDistributor(distributor).distributeServiceFee(
-                serviceId,
-                blueprintId,
-                operator,
-                token,
-                amount
-            );
+            IServiceFeeDistributor(distributor).distributeServiceFee(serviceId, blueprintId, operator, token, amount);
         }
     }
 
@@ -506,7 +501,11 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     function _calculateEffectiveExposuresWithFallback(
         uint64 serviceId,
         address[] memory operators
-    ) internal view returns (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) {
+    )
+        internal
+        view
+        returns (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments)
+    {
         (effectiveExposures, totalEffectiveExposure) = _calculateEffectiveExposures(serviceId, operators);
 
         // If commitment-based calculation found real delegated stake, restakers are backing operators
@@ -517,7 +516,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
             uint16[] memory bps = new uint16[](operators.length);
             for (uint256 i = 0; i < operators.length;) {
                 bps[i] = _serviceOperators[serviceId][operators[i]].exposureBps;
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
             }
             (effectiveExposures, totalEffectiveExposure) = _calculateSimpleExposures(operators, bps);
         }
@@ -541,7 +542,12 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     function _getServiceSecurityCommitments(
         uint64 serviceId,
         address operator
-    ) internal view override returns (Types.AssetSecurityCommitment[] storage) {
+    )
+        internal
+        view
+        override
+        returns (Types.AssetSecurityCommitment[] storage)
+    {
         return _serviceSecurityCommitments[serviceId][operator];
     }
 }

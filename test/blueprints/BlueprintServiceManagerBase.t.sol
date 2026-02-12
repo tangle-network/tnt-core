@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import {BlueprintServiceManagerBase} from "../../src/BlueprintServiceManagerBase.sol";
+import { BlueprintServiceManagerBase } from "../../src/BlueprintServiceManagerBase.sol";
 
 /// @notice Concrete test double that exposes internal helpers
 contract BlueprintServiceManagerBaseHarness is BlueprintServiceManagerBase {
@@ -58,11 +58,7 @@ contract BlueprintServiceManagerBaseTest is Test {
 
     function test_OnlyFromTangle_EnforcedForHooks() public {
         vm.expectRevert(
-            abi.encodeWithSelector(
-                BlueprintServiceManagerBase.OnlyTangleAllowed.selector,
-                address(this),
-                tangle
-            )
+            abi.encodeWithSelector(BlueprintServiceManagerBase.OnlyTangleAllowed.selector, address(this), tangle)
         );
         bsm.onRegister(address(0xBEEF), "");
 
@@ -129,7 +125,7 @@ contract BlueprintServiceManagerBaseTest is Test {
 
     function test_ReceiveHook_TracksPayments() public {
         vm.deal(address(this), 1 ether);
-        (bool ok,) = address(bsm).call{value: 0.75 ether}("");
+        (bool ok,) = address(bsm).call{ value: 0.75 ether }("");
         require(ok, "send failed");
 
         assertEq(bsm.totalReceived(), 0.75 ether);

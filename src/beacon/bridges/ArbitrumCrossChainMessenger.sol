@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ICrossChainMessenger, ICrossChainReceiver} from "../interfaces/ICrossChainMessenger.sol";
+import { ICrossChainMessenger, ICrossChainReceiver } from "../interfaces/ICrossChainMessenger.sol";
 
 /// @title ArbitrumCrossChainMessenger
 /// @notice ICrossChainMessenger implementation for Arbitrum L1→L2 messaging
@@ -28,7 +28,10 @@ interface IArbitrumInbox {
         uint256 gasLimit,
         uint256 maxFeePerGas,
         bytes calldata data
-    ) external payable returns (uint256 ticketId);
+    )
+        external
+        payable
+        returns (uint256 ticketId);
 
     /// @notice Calculate submission cost
     function calculateRetryableSubmissionFee(uint256 dataLength, uint256 baseFee) external view returns (uint256);
@@ -45,8 +48,8 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     IArbitrumInbox public immutable inbox;
 
     /// @notice Arbitrum One chain ID
-    uint256 public constant ARBITRUM_ONE_CHAIN_ID = 42161;
-    uint256 public constant ARBITRUM_SEPOLIA_CHAIN_ID = 421614;
+    uint256 public constant ARBITRUM_ONE_CHAIN_ID = 42_161;
+    uint256 public constant ARBITRUM_SEPOLIA_CHAIN_ID = 421_614;
 
     /// @notice Default L2 gas price (can be overridden)
     uint256 public l2MaxFeePerGas = 0.1 gwei;
@@ -88,7 +91,11 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         address target,
         bytes calldata payload,
         uint256 gasLimit
-    ) external payable returns (bytes32 messageId) {
+    )
+        external
+        payable
+        returns (bytes32 messageId)
+    {
         require(
             destinationChainId == ARBITRUM_ONE_CHAIN_ID || destinationChainId == ARBITRUM_SEPOLIA_CHAIN_ID,
             "Unsupported chain"
@@ -98,24 +105,22 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
         // Encode the cross-chain call
-        bytes memory l2Calldata = abi.encodeCall(
-            ICrossChainReceiver.receiveMessage,
-            (block.chainid, msg.sender, payload)
-        );
+        bytes memory l2Calldata =
+            abi.encodeCall(ICrossChainReceiver.receiveMessage, (block.chainid, msg.sender, payload));
 
         // Calculate submission cost
         uint256 submissionCost = inbox.calculateRetryableSubmissionFee(l2Calldata.length, block.basefee);
 
         // Create retryable ticket
-        uint256 ticketId = inbox.createRetryableTicket{value: msg.value}(
-            target,                  // L2 destination
-            0,                       // L2 call value
-            submissionCost,          // Max submission cost
-            msg.sender,              // Excess fee refund
-            msg.sender,              // Call value refund
-            effectiveGasLimit,       // L2 gas limit (with buffer)
-            l2MaxFeePerGas,          // L2 max gas price
-            l2Calldata               // L2 calldata
+        uint256 ticketId = inbox.createRetryableTicket{ value: msg.value }(
+            target, // L2 destination
+            0, // L2 call value
+            submissionCost, // Max submission cost
+            msg.sender, // Excess fee refund
+            msg.sender, // Call value refund
+            effectiveGasLimit, // L2 gas limit (with buffer)
+            l2MaxFeePerGas, // L2 max gas price
+            l2Calldata // L2 calldata
         );
 
         // Convert ticket ID to bytes32
@@ -128,15 +133,17 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         uint256, // destinationChainId
         bytes calldata payload,
         uint256 gasLimit
-    ) external view returns (uint256 fee) {
+    )
+        external
+        view
+        returns (uint256 fee)
+    {
         // M-12 FIX: Apply minimum gas limit and buffer for accurate estimation
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
         // Encode call to estimate size
-        bytes memory l2Calldata = abi.encodeCall(
-            ICrossChainReceiver.receiveMessage,
-            (block.chainid, address(0), payload)
-        );
+        bytes memory l2Calldata =
+            abi.encodeCall(ICrossChainReceiver.receiveMessage, (block.chainid, address(0), payload));
 
         // Submission cost
         uint256 submissionCost = inbox.calculateRetryableSubmissionFee(l2Calldata.length, block.basefee);
@@ -168,7 +175,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     /// @notice M-12 FIX: Set gas buffer percentage
     /// @param _gasBufferBps New buffer in basis points (10000 = 100%)
     function setGasBuffer(uint256 _gasBufferBps) external onlyOwner {
-        require(_gasBufferBps <= 10000, "Buffer too high"); // Max 100% buffer
+        require(_gasBufferBps <= 10_000, "Buffer too high"); // Max 100% buffer
         uint256 oldBuffer = gasBufferBps;
         gasBufferBps = _gasBufferBps;
         emit GasBufferUpdated(oldBuffer, _gasBufferBps);
@@ -181,7 +188,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         // Enforce minimum gas limit
         uint256 effectiveLimit = gasLimit < minGasLimit ? minGasLimit : gasLimit;
         // Add safety buffer
-        effectiveLimit = effectiveLimit + (effectiveLimit * gasBufferBps / 10000);
+        effectiveLimit = effectiveLimit + (effectiveLimit * gasBufferBps / 10_000);
         return effectiveLimit;
     }
 
@@ -239,12 +246,7 @@ contract ArbitrumL2Receiver {
         require(msg.sender == applyL1ToL2Alias(l1Sender), "Invalid sender");
 
         // M-12 FIX: Generate unique message ID from payload and context
-        bytes32 messageId = keccak256(abi.encode(
-            block.chainid,
-            l1Sender,
-            payload,
-            messageNonce
-        ));
+        bytes32 messageId = keccak256(abi.encode(block.chainid, l1Sender, payload, messageNonce));
 
         // M-12 FIX: Check for replay attack
         if (processedMessages[messageId]) {

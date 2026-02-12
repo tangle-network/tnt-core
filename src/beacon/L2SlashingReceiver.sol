@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ICrossChainReceiver} from "./interfaces/ICrossChainMessenger.sol";
+import { ICrossChainReceiver } from "./interfaces/ICrossChainMessenger.sol";
 
 /// @title IL2Slasher
 /// @notice Interface for the L2 slashing mechanism
@@ -44,18 +44,9 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event SlashingReceived(
-        uint256 indexed sourceChainId,
-        address indexed operator,
-        uint16 slashBps,
-        bytes32 messageId
-    );
+    event SlashingReceived(uint256 indexed sourceChainId, address indexed operator, uint16 slashBps, bytes32 messageId);
 
-    event SlashingExecuted(
-        address indexed operator,
-        uint16 slashBps,
-        uint64 slashingFactor
-    );
+    event SlashingExecuted(address indexed operator, uint16 slashBps, uint64 slashingFactor);
 
     event AuthorizedSenderUpdated(uint256 indexed chainId, address indexed sender, bool authorized);
     event AuthorizedSenderScheduled(uint256 indexed chainId, address indexed sender, uint256 activationTime);
@@ -134,11 +125,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc ICrossChainReceiver
-    function receiveMessage(
-        uint256 sourceChainId,
-        address sender,
-        bytes calldata payload
-    ) external onlyMessenger {
+    function receiveMessage(uint256 sourceChainId, address sender, bytes calldata payload) external onlyMessenger {
         // Verify sender is authorized for this source chain
         if (!authorizedSenders[sourceChainId][sender]) {
             revert UnauthorizedSender();
@@ -161,19 +148,10 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Handle a slash message from L1
-    function _handleSlashMessage(
-        uint256 sourceChainId,
-        address sender,
-        bytes calldata data
-    ) internal {
+    function _handleSlashMessage(uint256 sourceChainId, address sender, bytes calldata data) internal {
         // Decode: operator, slashBps, slashingFactor, nonce, podAddress
-        (
-            address operator,
-            uint16 slashBps,
-            uint64 slashingFactor,
-            uint256 nonce,
-            address pod
-        ) = abi.decode(data, (address, uint16, uint64, uint256, address));
+        (address operator, uint16 slashBps, uint64 slashingFactor, uint256 nonce, address pod) =
+            abi.decode(data, (address, uint16, uint64, uint256, address));
 
         // Check nonce hasn't been processed (replay protection)
         if (processedNonces[sourceChainId][sender][nonce]) {
@@ -182,13 +160,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
         processedNonces[sourceChainId][sender][nonce] = true;
 
         // Create reason bytes for audit trail
-        bytes memory reason = abi.encode(
-            "BEACON_CHAIN_SLASH",
-            sourceChainId,
-            pod,
-            slashingFactor,
-            block.timestamp
-        );
+        bytes memory reason = abi.encode("BEACON_CHAIN_SLASH", sourceChainId, pod, slashingFactor, block.timestamp);
 
         // Execute slashing
         if (slasher.canSlash(operator) && slashBps > 0) {
@@ -198,12 +170,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
             emit SlashingExecuted(operator, slashBps, slashingFactor);
         }
 
-        emit SlashingReceived(
-            sourceChainId,
-            operator,
-            slashBps,
-            keccak256(abi.encode(sourceChainId, sender, nonce))
-        );
+        emit SlashingReceived(sourceChainId, operator, slashBps, keccak256(abi.encode(sourceChainId, sender, nonce)));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -212,11 +179,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
 
     /// @notice H-4 FIX: Schedule authorization of a sender (subject to timelock)
     /// @dev For revoking authorization, takes effect immediately
-    function setAuthorizedSender(
-        uint256 chainId,
-        address sender,
-        bool authorized
-    ) external onlyOwner {
+    function setAuthorizedSender(uint256 chainId, address sender, bool authorized) external onlyOwner {
         if (!authorized) {
             // Revocation is immediate
             authorizedSenders[chainId][sender] = false;
@@ -264,11 +227,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Check if a nonce has been processed
-    function isNonceProcessed(
-        uint256 sourceChainId,
-        address sender,
-        uint256 nonce
-    ) external view returns (bool) {
+    function isNonceProcessed(uint256 sourceChainId, address sender, uint256 nonce) external view returns (bool) {
         return processedNonces[sourceChainId][sender][nonce];
     }
 }

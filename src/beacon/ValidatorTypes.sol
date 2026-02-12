@@ -36,9 +36,9 @@ library ValidatorTypes {
 
     /// @notice Status of a validator in the pod
     enum ValidatorStatus {
-        INACTIVE,    // Not yet verified or unknown
-        ACTIVE,      // Verified and restaked
-        WITHDRAWN    // Fully exited from beacon chain
+        INACTIVE, // Not yet verified or unknown
+        ACTIVE, // Verified and restaked
+        WITHDRAWN // Fully exited from beacon chain
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

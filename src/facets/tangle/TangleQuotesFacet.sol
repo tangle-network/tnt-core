@@ -9,8 +9,13 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 /// @notice Facet for RFQ-based service creation
 contract TangleQuotesFacet is QuotesCreate, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](1);
-        selectorList[0] = bytes4(keccak256("createServiceFromQuotes(uint64,((uint64,uint64,uint256,uint64,uint64,((uint8,address),uint16)[]),bytes,address)[],bytes,address[],uint64)"));
+        selectorList = new bytes4[](2);
+        selectorList[0] = bytes4(
+            keccak256(
+                "createServiceFromQuotes(uint64,((uint64,uint64,uint256,uint64,uint64,((uint8,address),uint16)[],(uint8,uint64)[]),bytes,address)[],bytes,address[],uint64)"
+            )
+        );
+        selectorList[1] = bytes4(keccak256("getServiceResourceCommitmentHash(uint64,address)"));
     }
 
     /// @notice Distribute quote payment (called from Quotes mixin)
@@ -20,13 +25,10 @@ contract TangleQuotesFacet is QuotesCreate, IFacetSelectors {
         uint64 blueprintId,
         uint256 amount,
         address[] memory operators
-    ) internal override {
-        ITanglePaymentsInternal(address(this)).distributePayment(
-            serviceId,
-            blueprintId,
-            address(0),
-            amount,
-            operators
-        );
+    )
+        internal
+        override
+    {
+        ITanglePaymentsInternal(address(this)).distributePayment(serviceId, blueprintId, address(0), amount, operators);
     }
 }

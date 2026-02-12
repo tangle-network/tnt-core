@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Script, console2} from "forge-std/Script.sol";
+import { Script, console2 } from "forge-std/Script.sol";
 
-import {L2SlashingReceiver} from "../src/beacon/L2SlashingReceiver.sol";
-import {TangleL2Slasher} from "../src/beacon/TangleL2Slasher.sol";
-import {HyperlaneReceiver} from "../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
-import {LayerZeroReceiver} from "../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
+import { L2SlashingReceiver } from "../src/beacon/L2SlashingReceiver.sol";
+import { TangleL2Slasher } from "../src/beacon/TangleL2Slasher.sol";
+import { HyperlaneReceiver } from "../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
+import { LayerZeroReceiver } from "../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 
 error MissingEnv(string key);
 error AddressNotAllowlisted(string key, address provided, address expected);
@@ -45,7 +45,7 @@ abstract contract EnvUtils is Script {
             if (allowed != address(0) && candidate != allowed) {
                 revert AddressNotAllowlisted(key, candidate, allowed);
             }
-        } catch {}
+        } catch { }
     }
 
     /// @notice Verify bridge contract exists and has code
@@ -65,17 +65,17 @@ abstract contract EnvUtils is Script {
 contract DeployL2Slashing is EnvUtils {
     // Chain IDs - Ethereum
     uint256 public constant ETHEREUM_MAINNET = 1;
-    uint256 public constant ETHEREUM_SEPOLIA = 11155111;
-    uint256 public constant ETHEREUM_HOLESKY = 17000;
+    uint256 public constant ETHEREUM_SEPOLIA = 11_155_111;
+    uint256 public constant ETHEREUM_HOLESKY = 17_000;
     // Chain IDs - Base
     uint256 public constant BASE_MAINNET = 8453;
-    uint256 public constant BASE_SEPOLIA = 84532;
+    uint256 public constant BASE_SEPOLIA = 84_532;
 
     // Bridge protocol selection
     enum BridgeProtocol {
         Hyperlane,
         LayerZero,
-        DirectMessenger  // For testing with direct calls
+        DirectMessenger // For testing with direct calls
     }
 
     function run() external {
@@ -113,11 +113,7 @@ contract DeployL2Slashing is EnvUtils {
             console2.log("L1 Messenger:", l1Messenger);
         }
 
-        (
-            address slasher,
-            address receiver,
-            address bridgeReceiver
-        ) = _deploy(
+        (address slasher, address receiver, address bridgeReceiver) = _deploy(
             bridge,
             deployerPrivateKey,
             deployer,
@@ -261,7 +257,10 @@ contract DeployL2Slashing is EnvUtils {
         address admin,
         uint256 sourceChainId,
         address l1Messenger
-    ) internal returns (address) {
+    )
+        internal
+        returns (address)
+    {
         address mailbox = vm.envOr("HYPERLANE_MAILBOX", _defaultHyperlaneMailbox(block.chainid));
         if (mailbox == address(0)) revert MissingEnv("HYPERLANE_MAILBOX");
 
@@ -287,7 +286,10 @@ contract DeployL2Slashing is EnvUtils {
         address admin,
         uint256 sourceChainId,
         address l1Messenger
-    ) internal returns (address) {
+    )
+        internal
+        returns (address)
+    {
         address endpoint = vm.envOr("LAYERZERO_ENDPOINT", _defaultLayerZeroEndpoint(block.chainid));
         if (endpoint == address(0)) revert MissingEnv("LAYERZERO_ENDPOINT");
 
@@ -316,16 +318,16 @@ contract DeployL2Slashing is EnvUtils {
         if (chainId == 1) {
             return 0xc005dc82818d67AF737725bD4bf75435d065D239;
         }
-        if (chainId == 11155111) {
+        if (chainId == 11_155_111) {
             return 0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766;
         }
-        if (chainId == 17000) {
+        if (chainId == 17_000) {
             return 0x5b6CFf85442B851A8e6eaBd2A4E4507B5135B3B0;
         }
         if (chainId == 8453) {
             return 0xeA87ae93Fa0019a82A727bfd3eBd1cFCa8f64f1D;
         }
-        if (chainId == 84532) {
+        if (chainId == 84_532) {
             return 0x6966b0E55883d49BFB24539356a2f8A673E02039;
         }
         return address(0);
@@ -335,28 +337,28 @@ contract DeployL2Slashing is EnvUtils {
         if (chainId == 1) {
             return 0x1a44076050125825900e736c501f859c50fE728c;
         }
-        if (chainId == 11155111) {
+        if (chainId == 11_155_111) {
             return 0x6EDCE65403992e310A62460808c4b910D972f10f;
         }
-        if (chainId == 17000) {
+        if (chainId == 17_000) {
             return 0x6EDCE65403992e310A62460808c4b910D972f10f;
         }
         if (chainId == 8453) {
             return 0x1a44076050125825900e736c501f859c50fE728c;
         }
-        if (chainId == 84532) {
+        if (chainId == 84_532) {
             return 0x6EDCE65403992e310A62460808c4b910D972f10f;
         }
         return address(0);
     }
 
     function _defaultLayerZeroEid(uint256 chainId) internal pure returns (uint32) {
-        if (chainId == 1) return 30101;
-        if (chainId == 42161) return 30110;
-        if (chainId == 8453) return 30184;
-        if (chainId == 11155111) return 40161;
-        if (chainId == 421614) return 40231;
-        if (chainId == 84532) return 40245;
+        if (chainId == 1) return 30_101;
+        if (chainId == 42_161) return 30_110;
+        if (chainId == 8453) return 30_184;
+        if (chainId == 11_155_111) return 40_161;
+        if (chainId == 421_614) return 40_231;
+        if (chainId == 84_532) return 40_245;
         return 0;
     }
 
@@ -379,7 +381,9 @@ contract DeployL2Slashing is EnvUtils {
         address slasher,
         address receiver,
         address messenger
-    ) internal {
+    )
+        internal
+    {
         if (bytes(path).length == 0) return;
         _ensureParentDir(path);
 

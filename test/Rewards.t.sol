@@ -38,7 +38,8 @@ contract RewardsTest is Test {
 
         // Deploy RewardVaults
         RewardVaults vaultsImpl = new RewardVaults();
-        bytes memory vaultsData = abi.encodeCall(RewardVaults.initialize, (admin, address(tnt), 1500)); // 15% commission
+        bytes memory vaultsData = abi.encodeCall(RewardVaults.initialize, (admin, address(tnt), 1500)); // 15%
+        // commission
         ERC1967Proxy vaultsProxy = new ERC1967Proxy(address(vaultsImpl), vaultsData);
         vaults = RewardVaults(address(vaultsProxy));
 
@@ -164,7 +165,7 @@ contract RewardsTest is Test {
         vm.prank(admin);
         vaults.createVault(address(0), 1_000_000 ether);
 
-        vaults.recordDelegate(delegator1, operator1, address(0), 500 ether, 12000);
+        vaults.recordDelegate(delegator1, operator1, address(0), 500 ether, 12_000);
         (uint256 totalDeposits, uint256 totalScore,) = vaults.vaultStates(address(0));
         assertEq(totalDeposits, 500 ether);
         assertEq(totalScore, 600 ether); // 1.2x multiplier
@@ -264,10 +265,10 @@ contract RewardsTest is Test {
         vm.prank(admin);
         vaults.createVault(address(0), 100 ether);
 
-        vaults.recordDelegate(delegator1, operator1, address(0), 90 ether, 10000);
+        vaults.recordDelegate(delegator1, operator1, address(0), 90 ether, 10_000);
 
         vm.expectRevert(abi.encodeWithSelector(RewardVaults.DepositCapExceeded.selector, address(0)));
-        vaults.recordDelegate(delegator2, operator1, address(0), 20 ether, 15000);
+        vaults.recordDelegate(delegator2, operator1, address(0), 20 ether, 15_000);
     }
 
     function test_Vaults_RecordDelegate_RevertWhenVaultInactive() public {
@@ -277,7 +278,7 @@ contract RewardsTest is Test {
         vm.stopPrank();
 
         vm.expectRevert(abi.encodeWithSelector(RewardVaults.VaultNotActive.selector, address(0)));
-        vaults.recordDelegate(delegator1, operator1, address(0), 10 ether, 10000);
+        vaults.recordDelegate(delegator1, operator1, address(0), 10 ether, 10_000);
     }
 
     function test_Vaults_MultipleOperators() public {
@@ -300,8 +301,8 @@ contract RewardsTest is Test {
         vm.prank(delegator2);
         uint256 claimed2 = vaults.claimDelegatorRewards(address(0), operator2);
 
-        assertEq(claimed1, 8.5 ether);  // 85% of 10
-        assertEq(claimed2, 17 ether);   // 85% of 20
+        assertEq(claimed1, 8.5 ether); // 85% of 10
+        assertEq(claimed2, 17 ether); // 85% of 20
     }
 
     function test_Vaults_EpochRewardDistributesAcrossOperators() public {
@@ -396,7 +397,7 @@ contract RewardsTest is Test {
         vm.prank(admin);
         vaults.createVault(address(0), 1_000_000 ether);
 
-        vaults.recordDelegate(delegator1, operator1, address(0), 400 ether, 15000); // Score = 600
+        vaults.recordDelegate(delegator1, operator1, address(0), 400 ether, 15_000); // Score = 600
 
         (, uint256 totalScore,) = vaults.vaultStates(address(0));
         assertEq(totalScore, 600 ether);
@@ -442,8 +443,7 @@ contract RewardsTest is Test {
         assertEq(pending.length, 2);
         assertApproxEqAbs(total, 15.3 ether, 100); // rounding in per-score division
 
-        RewardVaults.DelegatorPosition[] memory positions =
-            vaults.getDelegatorPositions(address(0), delegator1);
+        RewardVaults.DelegatorPosition[] memory positions = vaults.getDelegatorPositions(address(0), delegator1);
         assertEq(positions.length, 2);
         assertEq(positions[0].pendingRewards, 8.5 ether);
         assertApproxEqAbs(positions[1].pendingRewards, 6.8 ether, 100);

@@ -30,20 +30,56 @@ contract MockBSM_StakeRequirement is BlueprintServiceManagerBase {
         tangleCore = _tangleCore;
     }
 
-    function onRegister(address, bytes calldata) external payable override onlyFromTangle {}
-    function onUnregister(address) external override onlyFromTangle {}
-    function onUpdatePreferences(address, bytes calldata) external payable override onlyFromTangle {}
-    function onRequest(uint64, address, address[] calldata, bytes calldata, uint64, address, uint256) external payable override onlyFromTangle {}
-    function onApprove(address, uint64, uint8) external payable override onlyFromTangle {}
-    function onReject(address, uint64) external override onlyFromTangle {}
-    function onServiceInitialized(uint64, uint64, uint64, address, address[] calldata, uint64) external override onlyFromTangle {}
-    function onServiceTermination(uint64, address) external override onlyFromTangle {}
-    function onJobCall(uint64, uint8, uint64, bytes calldata) external payable override onlyFromTangle {}
-    function onJobResult(uint64, uint8, uint64, address, bytes calldata, bytes calldata) external payable override onlyFromTangle {}
-    function onUnappliedSlash(uint64, bytes calldata, uint8) external override onlyFromTangle {}
-    function onSlash(uint64, bytes calldata, uint8) external override onlyFromTangle {}
-    function onOperatorJoined(uint64, address, uint16) external override onlyFromTangle {}
-    function onOperatorLeft(uint64, address) external override onlyFromTangle {}
+    function onRegister(address, bytes calldata) external payable override onlyFromTangle { }
+    function onUnregister(address) external override onlyFromTangle { }
+    function onUpdatePreferences(address, bytes calldata) external payable override onlyFromTangle { }
+    function onRequest(
+        uint64,
+        address,
+        address[] calldata,
+        bytes calldata,
+        uint64,
+        address,
+        uint256
+    )
+        external
+        payable
+        override
+        onlyFromTangle
+    { }
+    function onApprove(address, uint64, uint8) external payable override onlyFromTangle { }
+    function onReject(address, uint64) external override onlyFromTangle { }
+    function onServiceInitialized(
+        uint64,
+        uint64,
+        uint64,
+        address,
+        address[] calldata,
+        uint64
+    )
+        external
+        override
+        onlyFromTangle
+    { }
+    function onServiceTermination(uint64, address) external override onlyFromTangle { }
+    function onJobCall(uint64, uint8, uint64, bytes calldata) external payable override onlyFromTangle { }
+    function onJobResult(
+        uint64,
+        uint8,
+        uint64,
+        address,
+        bytes calldata,
+        bytes calldata
+    )
+        external
+        payable
+        override
+        onlyFromTangle
+    { }
+    function onUnappliedSlash(uint64, bytes calldata, uint8) external override onlyFromTangle { }
+    function onSlash(uint64, bytes calldata, uint8) external override onlyFromTangle { }
+    function onOperatorJoined(uint64, address, uint16) external override onlyFromTangle { }
+    function onOperatorLeft(uint64, address) external override onlyFromTangle { }
 }
 
 /// @title StakeRequirementTests
@@ -167,7 +203,8 @@ contract StakeRequirementTests is BaseTest {
             subscriptionInterval: 0,
             eventRate: 0
         });
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(mockBsm), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(mockBsm), config));
 
         _directRegisterOperator(operator1, blueprintId, "");
 
@@ -191,7 +228,7 @@ contract StakeRequirementTests is BaseTest {
         _directRegisterOperator(operator2, blueprintId, "");
 
         vm.prank(operator2);
-        tangle.joinService(serviceId, 10000);
+        tangle.joinService(serviceId, 10_000);
 
         assertTrue(tangle.isServiceOperator(serviceId, operator2));
     }
@@ -212,7 +249,8 @@ contract StakeRequirementTests is BaseTest {
             subscriptionInterval: 0,
             eventRate: 0
         });
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(mockBsm), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://test", address(mockBsm), config));
 
         _directRegisterOperator(operator1, blueprintId, "");
 
@@ -242,7 +280,7 @@ contract StakeRequirementTests is BaseTest {
         // Try to join service should fail
         vm.prank(operator2);
         vm.expectRevert(); // InsufficientStake
-        tangle.joinService(serviceId, 10000);
+        tangle.joinService(serviceId, 10_000);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -439,7 +477,8 @@ contract StakeRequirementTests is BaseTest {
             subscriptionInterval: 30 days,
             eventRate: 0
         });
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         _directRegisterOperator(operator1, blueprintId, "");
 
@@ -448,9 +487,8 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: 1 ether }(
-            blueprintId, ops, "", callers, 365 days, address(0), 1 ether
-        );
+        uint64 requestId =
+            tangle.requestService{ value: 1 ether }(blueprintId, ops, "", callers, 365 days, address(0), 1 ether);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -488,7 +526,8 @@ contract StakeRequirementTests is BaseTest {
             subscriptionInterval: 30 days,
             eventRate: 0
         });
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         _directRegisterOperator(operator1, blueprintId, "");
 
@@ -497,9 +536,8 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: 1 ether }(
-            blueprintId, ops, "", callers, 365 days, address(0), 1 ether
-        );
+        uint64 requestId =
+            tangle.requestService{ value: 1 ether }(blueprintId, ops, "", callers, 365 days, address(0), 1 ether);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -536,7 +574,8 @@ contract StakeRequirementTests is BaseTest {
             subscriptionInterval: 30 days,
             eventRate: 0
         });
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         _directRegisterOperator(operator1, blueprintId, "");
 
@@ -545,9 +584,8 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: 1 ether }(
-            blueprintId, ops, "", callers, 365 days, address(0), 1 ether
-        );
+        uint64 requestId =
+            tangle.requestService{ value: 1 ether }(blueprintId, ops, "", callers, 365 days, address(0), 1 ether);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);

@@ -10,13 +10,23 @@ contract TNTLockFactory {
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
     address public immutable implementation;
 
-    event LockCreated(address indexed token, address indexed beneficiary, address lock, uint64 unlockTimestamp, address delegatee);
+    event LockCreated(
+        address indexed token, address indexed beneficiary, address lock, uint64 unlockTimestamp, address delegatee
+    );
 
     constructor() {
         implementation = address(new TNTCliffLock());
     }
 
-    function predictLockAddress(address token, address beneficiary, uint64 unlockTimestamp) public view returns (address) {
+    function predictLockAddress(
+        address token,
+        address beneficiary,
+        uint64 unlockTimestamp
+    )
+        public
+        view
+        returns (address)
+    {
         bytes32 salt = keccak256(abi.encode(token, beneficiary, unlockTimestamp));
         return Clones.predictDeterministicAddress(implementation, salt, address(this));
     }
@@ -26,7 +36,10 @@ contract TNTLockFactory {
         address beneficiary,
         uint64 unlockTimestamp,
         address delegatee
-    ) external returns (address lock) {
+    )
+        external
+        returns (address lock)
+    {
         bytes32 salt = keccak256(abi.encode(token, beneficiary, unlockTimestamp));
         lock = Clones.predictDeterministicAddress(implementation, salt, address(this));
         if (lock.code.length == 0) {

@@ -2,10 +2,10 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
-import {BeaconChainProofs} from "../../src/beacon/BeaconChainProofs.sol";
-import {ValidatorTypes} from "../../src/beacon/ValidatorTypes.sol";
-import {ValidatorPod} from "../../src/beacon/ValidatorPod.sol";
-import {ValidatorPodManager} from "../../src/beacon/ValidatorPodManager.sol";
+import { BeaconChainProofs } from "../../src/beacon/BeaconChainProofs.sol";
+import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
+import { ValidatorPod } from "../../src/beacon/ValidatorPod.sol";
+import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
 
 /// @title LiveBeaconTest
 /// @notice Integration tests using real Ethereum mainnet/testnet data
@@ -16,12 +16,12 @@ contract LiveBeaconTest is Test {
 
     // Test validator indices (mainnet examples)
     uint64 constant SAMPLE_VALIDATOR_INDEX = 0; // Genesis validator
-    uint64 constant LIDO_VALIDATOR_INDEX = 123456; // Example Lido validator
+    uint64 constant LIDO_VALIDATOR_INDEX = 123_456; // Example Lido validator
 
     /// @notice Test that EIP-4788 beacon root oracle is deployed on fork
     function test_beaconRootOracleExists() public view {
         // Skip if not on a fork
-        if (block.chainid != 1 && block.chainid != 17000) {
+        if (block.chainid != 1 && block.chainid != 17_000) {
             return;
         }
 
@@ -35,7 +35,7 @@ contract LiveBeaconTest is Test {
     /// @notice Test querying beacon root from EIP-4788 oracle
     function test_queryBeaconRoot() public {
         // Skip if not on a fork
-        if (block.chainid != 1 && block.chainid != 17000) {
+        if (block.chainid != 1 && block.chainid != 17_000) {
             return;
         }
 
@@ -120,10 +120,10 @@ contract LiveBeaconTest is Test {
         // Pack 4 balances into a leaf (little-endian)
         // Validator 0: 32 ETH, Validator 1: 31.5 ETH, Validator 2: 32.1 ETH, Validator 3: 0 ETH
         bytes32 balanceLeaf = bytes32(
-            uint256(32_000_000_000) |           // Index 0
-            (uint256(31_500_000_000) << 64) |   // Index 1
-            (uint256(32_100_000_000) << 128) |  // Index 2
-            (uint256(0) << 192)                  // Index 3
+            uint256(32_000_000_000) // Index 0
+                | (uint256(31_500_000_000) << 64) // Index 1
+                | (uint256(32_100_000_000) << 128) // Index 2
+                | (uint256(0) << 192) // Index 3
         );
 
         // Extract balances at each position
@@ -146,11 +146,11 @@ contract LiveBeaconTest is Test {
         // = 47278999994368
 
         uint256 gindex0 = (uint256(43) << 40) | 0;
-        assertEq(gindex0, 47278999994368, "Validator 0 gindex");
+        assertEq(gindex0, 47_278_999_994_368, "Validator 0 gindex");
 
         // Validator at index 100
         uint256 gindex100 = (uint256(43) << 40) | 100;
-        assertEq(gindex100, 47278999994468, "Validator 100 gindex");
+        assertEq(gindex100, 47_278_999_994_468, "Validator 100 gindex");
     }
 
     /// @notice Test generalized index calculation for balances
@@ -176,12 +176,10 @@ contract LiveBeaconTest is Test {
         uint64 priorBalance = 32_000_000_000;
         uint64 currentBalance = 31_000_000_000;
 
-        uint64 newFactor = uint64(
-            (uint256(initialFactor) * uint256(currentBalance)) / uint256(priorBalance)
-        );
+        uint64 newFactor = uint64((uint256(initialFactor) * uint256(currentBalance)) / uint256(priorBalance));
 
         // Expected: 31/32 * 1e18 = 968750000000000000
-        assertEq(newFactor, 968750000000000000, "Slashing factor after 1 ETH penalty");
+        assertEq(newFactor, 968_750_000_000_000_000, "Slashing factor after 1 ETH penalty");
 
         // Apply slashing factor to 100 ETH of shares
         uint256 shares = 100 ether;

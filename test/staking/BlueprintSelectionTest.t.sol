@@ -34,9 +34,11 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         address operator,
         uint256 amount,
         uint64[] memory blueprintIds
-    ) internal {
+    )
+        internal
+    {
         vm.prank(delegator);
-        delegation.depositAndDelegateWithOptions{value: amount}(
+        delegation.depositAndDelegateWithOptions{ value: amount }(
             operator,
             address(0), // native
             amount,
@@ -46,13 +48,9 @@ contract BlueprintSelectionTest is DelegationTestHarness {
     }
 
     /// @notice Deposit and delegate with All mode
-    function _depositAndDelegateAll(
-        address delegator,
-        address operator,
-        uint256 amount
-    ) internal {
+    function _depositAndDelegateAll(address delegator, address operator, uint256 amount) internal {
         vm.prank(delegator);
-        delegation.depositAndDelegateWithOptions{value: amount}(
+        delegation.depositAndDelegateWithOptions{ value: amount }(
             operator,
             address(0), // native
             amount,
@@ -86,7 +84,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
 
         vm.prank(delegator1);
         vm.expectRevert(DelegationErrors.AllModeDisallowsBlueprints.selector);
-        delegation.depositAndDelegateWithOptions{value: 5 ether}(
+        delegation.depositAndDelegateWithOptions{ value: 5 ether }(
             operator1,
             address(0), // native
             5 ether,
@@ -111,7 +109,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
     function test_FixedModeRequiresNonEmptyBlueprintList() public {
         vm.prank(delegator1);
         vm.expectRevert(DelegationErrors.FixedModeRequiresBlueprints.selector);
-        delegation.depositAndDelegateWithOptions{value: 5 ether}(
+        delegation.depositAndDelegateWithOptions{ value: 5 ether }(
             operator1,
             address(0), // native
             5 ether,
@@ -127,7 +125,7 @@ contract BlueprintSelectionTest is DelegationTestHarness {
 
         vm.prank(delegator1);
         vm.expectRevert(abi.encodeWithSelector(DelegationErrors.DuplicateBlueprint.selector, BLUEPRINT_1));
-        delegation.depositAndDelegateWithOptions{value: 5 ether}(
+        delegation.depositAndDelegateWithOptions{ value: 5 ether }(
             operator1,
             address(0), // native
             5 ether,
@@ -183,7 +181,9 @@ contract BlueprintSelectionTest is DelegationTestHarness {
 
         // Fixed mode delegator should NOT be slashed (didn't select blueprint 2)
         uint256 delegationAfter = delegation.getDelegation(delegator1, operator1);
-        assertEq(delegationAfter, delegationBefore, "Fixed mode delegator should not be slashed for unselected blueprint");
+        assertEq(
+            delegationAfter, delegationBefore, "Fixed mode delegator should not be slashed for unselected blueprint"
+        );
     }
 
     /// @notice Test that Fixed mode delegators ARE slashed for their selected blueprints
@@ -365,12 +365,8 @@ contract BlueprintSelectionTest is DelegationTestHarness {
         uint64[] memory bp2 = new uint64[](1);
         bp2[0] = BLUEPRINT_2;
         vm.prank(delegator1);
-        delegation.depositAndDelegateWithOptions{value: 5 ether}(
-            operator2,
-            address(0),
-            5 ether,
-            Types.BlueprintSelectionMode.Fixed,
-            bp2
+        delegation.depositAndDelegateWithOptions{ value: 5 ether }(
+            operator2, address(0), 5 ether, Types.BlueprintSelectionMode.Fixed, bp2
         );
 
         // Slash operator1 for blueprint 1 - should affect first delegation

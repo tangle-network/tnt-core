@@ -14,11 +14,11 @@ interface IOperatorStatusRegistry {
     /// @notice Operator status codes (matches blueprint-sdk status_code conventions)
     /// @dev 0 = Healthy, 1-99 = Degraded, 100+ = Critical, 200+ = Slashable
     enum StatusCode {
-        Healthy,        // 0: Operator is healthy and responding
-        Degraded,       // 1: Operator is responding but with issues
-        Offline,        // 2: Operator missed heartbeat threshold
-        Slashed,        // 3: Operator was slashed for misbehavior
-        Exiting         // 4: Operator is voluntarily exiting
+        Healthy, // 0: Operator is healthy and responding
+        Degraded, // 1: Operator is responding but with issues
+        Offline, // 2: Operator missed heartbeat threshold
+        Slashed, // 3: Operator was slashed for misbehavior
+        Exiting // 4: Operator is voluntarily exiting
     }
 
     /// @notice Metric payload pair used for ABI-encoded metrics submissions.
@@ -58,7 +58,8 @@ interface IOperatorStatusRegistry {
         uint8 statusCode,
         bytes calldata metrics,
         bytes calldata signature
-    ) external;
+    )
+        external;
 
     /// @notice Submit heartbeat without signature (for trusted contexts)
     function submitHeartbeatDirect(
@@ -66,7 +67,8 @@ interface IOperatorStatusRegistry {
         uint64 blueprintId,
         uint8 statusCode,
         bytes calldata metrics
-    ) external;
+    )
+        external;
 
     /// @notice Check if an operator is online for a service
     function isOnline(uint64 serviceId, address operator) external view returns (bool);
@@ -90,7 +92,14 @@ interface IOperatorStatusRegistry {
     function isHeartbeatCurrent(uint64 serviceId, address operator) external view returns (bool);
 
     /// @notice Get a metric value for an operator
-    function getMetricValue(uint64 serviceId, address operator, string calldata metricName) external view returns (uint256);
+    function getMetricValue(
+        uint64 serviceId,
+        address operator,
+        string calldata metricName
+    )
+        external
+        view
+        returns (uint256);
 
     /// @notice Get metric definitions for a service
     function getMetricDefinitions(uint64 serviceId) external view returns (MetricDefinition[] memory);
@@ -117,7 +126,14 @@ interface IOperatorStatusRegistry {
     function setMetricDefinitions(uint64 serviceId, MetricDefinition[] calldata definitions) external;
 
     /// @notice Add a custom metric definition
-    function addMetricDefinition(uint64 serviceId, string calldata name, uint256 minValue, uint256 maxValue, bool required) external;
+    function addMetricDefinition(
+        uint64 serviceId,
+        string calldata name,
+        uint256 minValue,
+        uint256 maxValue,
+        bool required
+    )
+        external;
 
     /// @notice Report an operator for slashing
     function reportForSlashing(uint64 serviceId, address operator, string calldata reason) external;
@@ -126,7 +142,14 @@ interface IOperatorStatusRegistry {
     function getSlashableOperators(uint64 serviceId) external view returns (address[] memory);
 
     /// @notice Get offline operators paginated (prevents gas DoS on large sets)
-    function getSlashableOperatorsPaginated(uint64 serviceId, uint256 offset, uint256 limit) external view returns (address[] memory, uint256);
+    function getSlashableOperatorsPaginated(
+        uint64 serviceId,
+        uint256 offset,
+        uint256 limit
+    )
+        external
+        view
+        returns (address[] memory, uint256);
 
     /// @notice Remove an inactive operator from tracking set
     function removeInactiveOperator(uint64 serviceId, address operator) external;
@@ -170,7 +193,8 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
     /// @notice Heartbeat message typehash (for reference - actual signing uses raw keccak256)
     /// @dev Signature: keccak256(abi.encodePacked(serviceId, blueprintId, abiEncodedStatus)) with Ethereum prefix
-    ///      HeartbeatStatus = (uint64 blockNumber, uint64 timestamp, uint64 serviceId, uint64 blueprintId, uint32 statusCode, string statusMessage)
+    ///      HeartbeatStatus = (uint64 blockNumber, uint64 timestamp, uint64 serviceId, uint64 blueprintId, uint32
+    /// statusCode, string statusMessage)
     bytes32 public constant HEARTBEAT_TYPEHASH = keccak256(
         "HeartbeatStatus(uint64 blockNumber,uint64 timestamp,uint64 serviceId,uint64 blueprintId,uint32 statusCode,string statusMessage)"
     );
@@ -187,59 +211,23 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         uint256 timestamp
     );
 
-    event OperatorWentOffline(
-        uint64 indexed serviceId,
-        address indexed operator,
-        uint8 missedBeats
-    );
+    event OperatorWentOffline(uint64 indexed serviceId, address indexed operator, uint8 missedBeats);
 
-    event OperatorCameOnline(
-        uint64 indexed serviceId,
-        address indexed operator
-    );
+    event OperatorCameOnline(uint64 indexed serviceId, address indexed operator);
 
-    event StatusChanged(
-        uint64 indexed serviceId,
-        address indexed operator,
-        StatusCode oldStatus,
-        StatusCode newStatus
-    );
+    event StatusChanged(uint64 indexed serviceId, address indexed operator, StatusCode oldStatus, StatusCode newStatus);
 
-    event HeartbeatConfigUpdated(
-        uint64 indexed serviceId,
-        uint64 interval,
-        uint8 maxMissed
-    );
+    event HeartbeatConfigUpdated(uint64 indexed serviceId, uint64 interval, uint8 maxMissed);
 
-    event MetricReported(
-        uint64 indexed serviceId,
-        address indexed operator,
-        string metricName,
-        uint256 value
-    );
+    event MetricReported(uint64 indexed serviceId, address indexed operator, string metricName, uint256 value);
 
-    event SlashingTriggered(
-        uint64 indexed serviceId,
-        address indexed operator,
-        string reason
-    );
+    event SlashingTriggered(uint64 indexed serviceId, address indexed operator, string reason);
 
-    event MetricViolation(
-        uint64 indexed serviceId,
-        address indexed operator,
-        string metricName,
-        string reason
-    );
+    event MetricViolation(uint64 indexed serviceId, address indexed operator, string metricName, string reason);
 
-    event OperatorRegistered(
-        uint64 indexed serviceId,
-        address indexed operator
-    );
+    event OperatorRegistered(uint64 indexed serviceId, address indexed operator);
 
-    event OperatorDeregistered(
-        uint64 indexed serviceId,
-        address indexed operator
-    );
+    event OperatorDeregistered(uint64 indexed serviceId, address indexed operator);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
@@ -321,7 +309,11 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         uint8 statusCode,
         bytes calldata metrics,
         bytes calldata signature
-    ) external override onlyRegisteredOperator(serviceId) {
+    )
+        external
+        override
+        onlyRegisteredOperator(serviceId)
+    {
         // Verify signature using native EVM encoding (big-endian):
         // message = abi.encodePacked(serviceId, blueprintId, statusCode, metrics)
         // hash = keccak256(message)
@@ -331,9 +323,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
         // Recover signer using Ethereum signed message format
         // forge-lint: disable-next-line(asm-keccak256)
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
-        );
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
 
         address signer = ethSignedHash.recover(signature);
         require(signer == msg.sender, "Invalid signature");
@@ -348,7 +338,11 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         uint64 blueprintId,
         uint8 statusCode,
         bytes calldata metrics
-    ) external override onlyRegisteredOperator(serviceId) {
+    )
+        external
+        override
+        onlyRegisteredOperator(serviceId)
+    {
         _processHeartbeat(serviceId, blueprintId, msg.sender, statusCode, metrics);
     }
 
@@ -359,7 +353,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         address operator,
         uint8 statusCode,
         bytes calldata metrics
-    ) internal {
+    )
+        internal
+    {
         OperatorState storage state = operatorStates[serviceId][operator];
         HeartbeatConfig memory config = _getConfig(serviceId);
 
@@ -409,11 +405,8 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
         // Record heartbeat to metrics for reward distribution
         if (metricsRecorder != address(0)) {
-            try IMetricsRecorder(metricsRecorder).recordHeartbeat(
-                operator,
-                serviceId,
-                uint64(block.timestamp)
-            ) {} catch {}
+            try IMetricsRecorder(metricsRecorder).recordHeartbeat(operator, serviceId, uint64(block.timestamp)) { }
+                catch { }
         }
     }
 
@@ -421,11 +414,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @dev Maximum number of metric pairs per heartbeat to bound gas costs.
     uint256 private constant MAX_METRIC_PAIRS = 50;
 
-    function _processMetrics(
-        uint64 serviceId,
-        address operator,
-        bytes calldata metrics
-    ) internal {
+    function _processMetrics(uint64 serviceId, address operator, bytes calldata metrics) internal {
         if (metrics.length == 0) return;
         // Guard against gas exhaustion from oversized payloads
         if (metrics.length > 50_000) return;
@@ -444,7 +433,8 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
         // Validate BEFORE storing so invalid values don't pollute storage.
         // Wrapped in try/catch so validation gas issues can't brick heartbeats.
-        try this.validateAndStoreMetrics(serviceId, operator, pairs, pairsLen) {} catch {
+        try this.validateAndStoreMetrics(serviceId, operator, pairs, pairsLen) { }
+            catch {
             // Fail-closed: if validation reverts (gas exhaustion, malformed data),
             // drop metrics entirely rather than storing unvalidated values.
         }
@@ -458,7 +448,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         address operator,
         MetricPair[] memory pairs,
         uint256 pairsLen
-    ) external {
+    )
+        external
+    {
         require(msg.sender == address(this), "Internal only");
 
         MetricDefinition[] storage definitions = serviceMetrics[serviceId];
@@ -536,7 +528,9 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         address operator,
         uint8 statusCode,
         bytes calldata /* metrics */
-    ) internal {
+    )
+        internal
+    {
         // Status codes indicating slashable offenses:
         // 100+ : Self-reported critical error
         // 200+ : Protocol violation detected
@@ -576,9 +570,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         uint256 elapsed = block.timestamp - state.lastHeartbeat;
         uint256 calculatedMissed = elapsed / config.interval;
         // Cap at uint8 max to prevent silent overflow on the downcast
-        uint8 missedBeats = calculatedMissed > type(uint8).max
-            ? type(uint8).max
-            : uint8(calculatedMissed);
+        uint8 missedBeats = calculatedMissed > type(uint8).max ? type(uint8).max : uint8(calculatedMissed);
 
         if (missedBeats > state.missedBeats) {
             state.missedBeats = missedBeats;
@@ -656,24 +648,14 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @param serviceId The service ID
     /// @param interval Heartbeat interval in seconds
     /// @param maxMissed Max missed heartbeats before offline
-    function configureHeartbeat(
-        uint64 serviceId,
-        uint64 interval,
-        uint8 maxMissed
-    ) external {
-        require(
-            msg.sender == tangleCore ||
-            msg.sender == serviceOwners[serviceId],
-            "Not authorized"
-        );
+    function configureHeartbeat(uint64 serviceId, uint64 interval, uint8 maxMissed) external {
+        require(msg.sender == tangleCore || msg.sender == serviceOwners[serviceId], "Not authorized");
 
         require(interval >= 60, "Interval too short"); // Minimum 1 minute
         require(maxMissed >= 1, "Max missed must be >= 1");
 
         heartbeatConfigs[serviceId] = HeartbeatConfig({
-            interval: interval,
-            maxMissed: maxMissed,
-            customMetrics: heartbeatConfigs[serviceId].customMetrics
+            interval: interval, maxMissed: maxMissed, customMetrics: heartbeatConfigs[serviceId].customMetrics
         });
 
         emit HeartbeatConfigUpdated(serviceId, interval, maxMissed);
@@ -734,18 +716,18 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         uint256 minValue,
         uint256 maxValue,
         bool required
-    ) external override {
+    )
+        external
+        override
+    {
         require(msg.sender == serviceOwners[serviceId], "Not service owner");
         require(bytes(name).length <= MAX_METRIC_NAME_LENGTH, "Name too long");
         require(maxValue >= minValue, "Invalid bounds");
         require(serviceMetrics[serviceId].length < MAX_METRIC_DEFINITIONS, "Too many definitions");
 
-        serviceMetrics[serviceId].push(MetricDefinition({
-            name: name,
-            minValue: minValue,
-            maxValue: maxValue,
-            required: required
-        }));
+        serviceMetrics[serviceId].push(
+            MetricDefinition({ name: name, minValue: minValue, maxValue: maxValue, required: required })
+        );
     }
 
     /// @notice Batch set metric definitions for a service (replaces existing)
@@ -784,8 +766,8 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
     /// @notice Check if an operator is online for a service
     function isOnline(uint64 serviceId, address operator) external view override returns (bool) {
-        return operatorStates[serviceId][operator].status == StatusCode.Healthy ||
-               operatorStates[serviceId][operator].status == StatusCode.Degraded;
+        return operatorStates[serviceId][operator].status == StatusCode.Healthy
+            || operatorStates[serviceId][operator].status == StatusCode.Degraded;
     }
 
     /// @notice Get operator status for a service
@@ -799,7 +781,12 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     }
 
     /// @notice Get full operator state
-    function getOperatorState(uint64 serviceId, address operator) external view override returns (OperatorState memory) {
+    function getOperatorState(uint64 serviceId, address operator)
+        external
+        view
+        override
+        returns (OperatorState memory)
+    {
         return operatorStates[serviceId][operator];
     }
 
@@ -828,7 +815,12 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         uint64 serviceId,
         address operator,
         string calldata metricName
-    ) external view override returns (uint256) {
+    )
+        external
+        view
+        override
+        returns (uint256)
+    {
         return metricValues[serviceId][operator][metricName];
     }
 
@@ -886,7 +878,11 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         uint64 serviceId,
         uint256 offset,
         uint256 limit
-    ) public view returns (address[] memory operators, uint256 total) {
+    )
+        public
+        view
+        returns (address[] memory operators, uint256 total)
+    {
         HeartbeatConfig memory config = _getConfig(serviceId);
         total = _allOperators[serviceId].length();
 
@@ -926,10 +922,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @dev Only callable by service owner or contract owner. Operator must be Slashed or have
     ///      been offline beyond 10x the heartbeat threshold to prevent premature removal.
     function removeInactiveOperator(uint64 serviceId, address operator) external {
-        require(
-            msg.sender == serviceOwners[serviceId] || msg.sender == owner(),
-            "Not authorized"
-        );
+        require(msg.sender == serviceOwners[serviceId] || msg.sender == owner(), "Not authorized");
 
         OperatorState memory state = operatorStates[serviceId][operator];
 
@@ -953,11 +946,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     }
 
     /// @notice Report an operator for slashing (called by slashing oracle)
-    function reportForSlashing(
-        uint64 serviceId,
-        address operator,
-        string calldata reason
-    ) external override {
+    function reportForSlashing(uint64 serviceId, address operator, string calldata reason) external override {
         require(msg.sender == slashingOracle, "Not slashing oracle");
         // Allow slashing deregistered operators to prevent slash-immunity via deregistration race.
         // The oracle is trusted (governance-set), so no registration gate needed.

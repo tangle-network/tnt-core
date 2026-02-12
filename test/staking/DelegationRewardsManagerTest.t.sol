@@ -21,22 +21,16 @@ contract MockRewardsManager is IRewardsManager {
         address asset,
         uint256 amount,
         uint16 lockMultiplierBps
-    ) external override {
+    )
+        external
+        override
+    {
         delegateCalls.push(DelegateCall(delegator, operator, asset, amount, lockMultiplierBps));
     }
 
-    function recordUndelegate(
-        address,
-        address,
-        address,
-        uint256
-    ) external pure override {}
+    function recordUndelegate(address, address, address, uint256) external pure override { }
 
-    function recordServiceReward(
-        address,
-        address,
-        uint256
-    ) external pure override {}
+    function recordServiceReward(address, address, uint256) external pure override { }
 
     function getAssetDepositCapRemaining(address) external pure override returns (uint256) {
         return type(uint256).max;
@@ -48,13 +42,13 @@ contract MockRewardsManager is IRewardsManager {
 }
 
 contract DelegationRewardsManagerTest is DelegationTestHarness {
-  MockRewardsManager internal rewardsManager;
-  uint16 internal constant BASE_BPS = 10000;
+    MockRewardsManager internal rewardsManager;
+    uint16 internal constant BASE_BPS = 10_000;
 
-  function setUp() public override {
-    super.setUp();
-    rewardsManager = new MockRewardsManager();
-    vm.prank(admin);
+    function setUp() public override {
+        super.setUp();
+        rewardsManager = new MockRewardsManager();
+        vm.prank(admin);
         delegation.setRewardsManager(address(rewardsManager));
     }
 
@@ -85,63 +79,66 @@ contract DelegationRewardsManagerTest is DelegationTestHarness {
         delegation.delegate(operator1, 1 ether);
 
         MockRewardsManager.DelegateCall memory third = rewardsManager.lastDelegateCall();
-    assertEq(third.lockMultiplierBps, delegation.MULTIPLIER_NONE());
-  }
+        assertEq(third.lockMultiplierBps, delegation.MULTIPLIER_NONE());
+    }
 
-  function _assertLastLockBps(uint16 expected) internal view {
-    MockRewardsManager.DelegateCall memory call = rewardsManager.lastDelegateCall();
-    assertEq(call.lockMultiplierBps, expected);
-  }
+    function _assertLastLockBps(uint16 expected) internal view {
+        MockRewardsManager.DelegateCall memory call = rewardsManager.lastDelegateCall();
+        assertEq(call.lockMultiplierBps, expected);
+    }
 
-  function _weighted(uint256 lockedAmount, uint16 lockedBps, uint256 totalAmount, uint16 baseBps) internal pure returns (uint16) {
-    if (totalAmount == 0) return baseBps;
-    uint256 numerator = lockedAmount * uint256(lockedBps) + (totalAmount - lockedAmount) * uint256(baseBps);
-    return uint16(numerator / totalAmount);
-  }
+    function _weighted(
+        uint256 lockedAmount,
+        uint16 lockedBps,
+        uint256 totalAmount,
+        uint16 baseBps
+    )
+        internal
+        pure
+        returns (uint16)
+    {
+        if (totalAmount == 0) return baseBps;
+        uint256 numerator = lockedAmount * uint256(lockedBps) + (totalAmount - lockedAmount) * uint256(baseBps);
+        return uint16(numerator / totalAmount);
+    }
 
-  function test_LockMultiplierMultipleLockTiers() public {
-    _depositNativeWithLock(delegator1, 3 ether, Types.LockMultiplier.OneMonth);
-    _depositNativeWithLock(delegator1, 7 ether, Types.LockMultiplier.ThreeMonths);
+    function test_LockMultiplierMultipleLockTiers() public {
+        _depositNativeWithLock(delegator1, 3 ether, Types.LockMultiplier.OneMonth);
+        _depositNativeWithLock(delegator1, 7 ether, Types.LockMultiplier.ThreeMonths);
 
-    vm.prank(delegator1);
-    delegation.delegate(operator1, 5 ether);
-    uint16 avg = uint16(
-      (
-        3 * uint256(delegation.MULTIPLIER_ONE_MONTH()) +
-        7 * uint256(delegation.MULTIPLIER_THREE_MONTHS())
-      ) / 10
-    );
-    _assertLastLockBps(avg);
+        vm.prank(delegator1);
+        delegation.delegate(operator1, 5 ether);
+        uint16 avg = uint16(
+            (3 * uint256(delegation.MULTIPLIER_ONE_MONTH()) + 7 * uint256(delegation.MULTIPLIER_THREE_MONTHS())) / 10
+        );
+        _assertLastLockBps(avg);
 
-    _depositNative(delegator1, 6 ether);
-    vm.prank(delegator1);
-    delegation.delegate(operator1, 6 ether);
-    uint16 expectedSecond = _weighted(5, avg, 6, delegation.MULTIPLIER_NONE());
-    _assertLastLockBps(expectedSecond);
-  }
+        _depositNative(delegator1, 6 ether);
+        vm.prank(delegator1);
+        delegation.delegate(operator1, 6 ether);
+        uint16 expectedSecond = _weighted(5, avg, 6, delegation.MULTIPLIER_NONE());
+        _assertLastLockBps(expectedSecond);
+    }
 
-  function test_LockMultiplierExhaustedAndRefreshed() public {
-    _depositNativeWithLock(delegator1, 2 ether, Types.LockMultiplier.OneMonth);
-    vm.prank(delegator1);
-    delegation.delegate(operator1, 2 ether);
-    _assertLastLockBps(delegation.MULTIPLIER_ONE_MONTH());
+    function test_LockMultiplierExhaustedAndRefreshed() public {
+        _depositNativeWithLock(delegator1, 2 ether, Types.LockMultiplier.OneMonth);
+        vm.prank(delegator1);
+        delegation.delegate(operator1, 2 ether);
+        _assertLastLockBps(delegation.MULTIPLIER_ONE_MONTH());
 
-    _depositNative(delegator1, 1 ether);
-    vm.prank(delegator1);
-    delegation.delegate(operator1, 1 ether);
-    _assertLastLockBps(delegation.MULTIPLIER_NONE());
+        _depositNative(delegator1, 1 ether);
+        vm.prank(delegator1);
+        delegation.delegate(operator1, 1 ether);
+        _assertLastLockBps(delegation.MULTIPLIER_NONE());
 
-    _depositNativeWithLock(delegator1, 4 ether, Types.LockMultiplier.ThreeMonths);
-    vm.prank(delegator1);
-    delegation.delegate(operator1, 3 ether);
+        _depositNativeWithLock(delegator1, 4 ether, Types.LockMultiplier.ThreeMonths);
+        vm.prank(delegator1);
+        delegation.delegate(operator1, 3 ether);
 
-    uint16 weightedBps = uint16(
-      (
-        (2 * uint256(delegation.MULTIPLIER_ONE_MONTH())) +
-        (4 * uint256(delegation.MULTIPLIER_THREE_MONTHS()))
-      ) / 6
-    );
-    uint16 expected = _weighted(3, weightedBps, 3, delegation.MULTIPLIER_NONE());
-    _assertLastLockBps(expected);
-  }
+        uint16 weightedBps = uint16(
+            ((2 * uint256(delegation.MULTIPLIER_ONE_MONTH())) + (4 * uint256(delegation.MULTIPLIER_THREE_MONTHS()))) / 6
+        );
+        uint16 expected = _weighted(3, weightedBps, 3, delegation.MULTIPLIER_NONE());
+        _assertLastLockBps(expected);
+    }
 }

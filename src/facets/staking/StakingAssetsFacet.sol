@@ -96,10 +96,7 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
         require(adapter != address(0), "Invalid adapter");
 
         // Verify adapter supports the token
-        require(
-            IAssetAdapter(adapter).supportsAsset(token),
-            "Adapter doesn't support token"
-        );
+        require(IAssetAdapter(adapter).supportsAsset(token), "Adapter doesn't support token");
 
         _assetAdapters[token] = adapter;
         emit AdapterRegistered(token, adapter);
@@ -134,13 +131,13 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
         uint256 _minDelegation,
         uint256 _depositCap,
         uint16 _rewardMultiplierBps
-    ) external onlyRole(ASSET_MANAGER_ROLE) {
+    )
+        external
+        onlyRole(ASSET_MANAGER_ROLE)
+    {
         require(token != address(0), "Use native");
         require(adapter != address(0), "Invalid adapter");
-        require(
-            IAssetAdapter(adapter).supportsAsset(token),
-            "Adapter doesn't support token"
-        );
+        require(IAssetAdapter(adapter).supportsAsset(token), "Adapter doesn't support token");
 
         // Register adapter
         _assetAdapters[token] = adapter;
@@ -177,10 +174,7 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
 
         // Verify new adapter supports the token (if not removing)
         if (newAdapter != address(0)) {
-            require(
-                IAssetAdapter(newAdapter).supportsAsset(token),
-                "Adapter doesn't support token"
-            );
+            require(IAssetAdapter(newAdapter).supportsAsset(token), "Adapter doesn't support token");
         }
 
         _adapterMigrationInProgress[token] = true;
@@ -232,7 +226,11 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
     /// @param token The token address
     /// @return inProgress True if migration is in progress
     /// @return pendingAdapter The pending adapter address
-    function isAdapterMigrationInProgress(address token) external view returns (bool inProgress, address pendingAdapter) {
+    function isAdapterMigrationInProgress(address token)
+        external
+        view
+        returns (bool inProgress, address pendingAdapter)
+    {
         return (_adapterMigrationInProgress[token], _pendingAdapter[token]);
     }
 }

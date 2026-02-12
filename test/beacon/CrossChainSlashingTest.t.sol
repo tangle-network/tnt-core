@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {L2SlashingConnector} from "../../src/beacon/L2SlashingConnector.sol";
-import {L2SlashingReceiver, IL2Slasher} from "../../src/beacon/L2SlashingReceiver.sol";
-import {TangleL2Slasher} from "../../src/beacon/TangleL2Slasher.sol";
-import {ICrossChainMessenger, ICrossChainReceiver} from "../../src/beacon/interfaces/ICrossChainMessenger.sol";
-import {ValidatorPodManager} from "../../src/beacon/ValidatorPodManager.sol";
-import {MockBeaconOracle} from "../../src/beacon/BeaconRootReceiver.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { L2SlashingConnector } from "../../src/beacon/L2SlashingConnector.sol";
+import { L2SlashingReceiver, IL2Slasher } from "../../src/beacon/L2SlashingReceiver.sol";
+import { TangleL2Slasher } from "../../src/beacon/TangleL2Slasher.sol";
+import { ICrossChainMessenger, ICrossChainReceiver } from "../../src/beacon/interfaces/ICrossChainMessenger.sol";
+import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
+import { MockBeaconOracle } from "../../src/beacon/BeaconRootReceiver.sol";
 import { IStaking } from "../../src/interfaces/IStaking.sol";
 import { Types } from "../../src/libraries/Types.sol";
 
@@ -30,10 +30,10 @@ contract MockCrossChainMessenger is ICrossChainMessenger {
 
     constructor() {
         // Support common test chains
-        supportedChains[1] = true;      // Ethereum
-        supportedChains[8453] = true;   // Base
-        supportedChains[42161] = true;  // Arbitrum
-        supportedChains[5000] = true;   // Test chain (Tangle)
+        supportedChains[1] = true; // Ethereum
+        supportedChains[8453] = true; // Base
+        supportedChains[42_161] = true; // Arbitrum
+        supportedChains[5000] = true; // Test chain (Tangle)
     }
 
     function sendMessage(
@@ -41,26 +41,28 @@ contract MockCrossChainMessenger is ICrossChainMessenger {
         address target,
         bytes calldata payload,
         uint256 gasLimit
-    ) external payable returns (bytes32 messageId) {
+    )
+        external
+        payable
+        returns (bytes32 messageId)
+    {
         require(supportedChains[destinationChainId], "Unsupported chain");
         require(msg.value >= mockFee, "Insufficient fee");
 
-        messages.push(Message({
-            destinationChainId: destinationChainId,
-            target: target,
-            payload: payload,
-            gasLimit: gasLimit,
-            fee: msg.value
-        }));
+        messages.push(
+            Message({
+                destinationChainId: destinationChainId,
+                target: target,
+                payload: payload,
+                gasLimit: gasLimit,
+                fee: msg.value
+            })
+        );
 
         messageId = keccak256(abi.encode(messageCount++, destinationChainId, target, payload));
     }
 
-    function estimateFee(
-        uint256,
-        bytes calldata,
-        uint256
-    ) external view returns (uint256 fee) {
+    function estimateFee(uint256, bytes calldata, uint256) external view returns (uint256 fee) {
         return mockFee;
     }
 
@@ -87,11 +89,7 @@ contract MockCrossChainMessenger is ICrossChainMessenger {
         Message memory msg_ = messages[messages.length - 1];
 
         // Call the receiver as if we're the bridge
-        ICrossChainReceiver(receiver).receiveMessage(
-            sourceChainId,
-            sender,
-            msg_.payload
-        );
+        ICrossChainReceiver(receiver).receiveMessage(sourceChainId, sender, msg_.payload);
     }
 }
 
@@ -128,7 +126,10 @@ contract MockStaking is IStaking {
         uint64,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint256 actualSlashed) {
+    )
+        external
+        returns (uint256 actualSlashed)
+    {
         require(slashers[msg.sender], "Not a slasher");
         require(operators[operator], "Not an operator");
 
@@ -150,7 +151,10 @@ contract MockStaking is IStaking {
         uint64,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint256 actualSlashed) {
+    )
+        external
+        returns (uint256 actualSlashed)
+    {
         return this.slash(operator, 0, slashBps, evidence);
     }
 
@@ -161,39 +165,72 @@ contract MockStaking is IStaking {
         Types.AssetSecurityCommitment[] calldata,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint256 actualSlashed) {
+    )
+        external
+        returns (uint256 actualSlashed)
+    {
         return this.slash(operator, 0, slashBps, evidence);
     }
 
     // Other interface methods (not used in tests)
-    function registerOperator(bytes calldata, bytes calldata) external {}
-    function updateOperatorMetadata(bytes calldata) external {}
-    function unregisterOperator() external {}
-    function delegate(address, uint256) external {}
-    function undelegate(address, uint256) external {}
-    function notifyReward(address, uint64, uint256) external {}
-    function notifyRewardForBlueprint(address, uint64, uint64, uint256) external {}
-    function getOperatorDelegatedStake(address) external view returns (uint256) { return 0; }
-    function getOperatorDelegatedStakeForAsset(address, Types.Asset calldata) external pure returns (uint256) { return 0; }
+    function registerOperator(bytes calldata, bytes calldata) external { }
+    function updateOperatorMetadata(bytes calldata) external { }
+    function unregisterOperator() external { }
+    function delegate(address, uint256) external { }
+    function undelegate(address, uint256) external { }
+    function notifyReward(address, uint64, uint256) external { }
+    function notifyRewardForBlueprint(address, uint64, uint64, uint256) external { }
+
+    function getOperatorDelegatedStake(address) external view returns (uint256) {
+        return 0;
+    }
+
+    function getOperatorDelegatedStakeForAsset(address, Types.Asset calldata) external pure returns (uint256) {
+        return 0;
+    }
+
     function getOperatorStakeForAsset(address operator, Types.Asset calldata) external view returns (uint256) {
         return operatorStakes[operator];
     }
 
     // Additional interface methods
-    function getDelegation(address, address) external pure returns (uint256) { return 0; }
-    function getOperatorSelfStake(address operator) external view returns (uint256) { return operatorStakes[operator]; }
-    function getTotalDelegation(address) external pure returns (uint256) { return 0; }
-    function isOperator(address operator) external view returns (bool) { return operators[operator]; }
-    function isOperatorActive(address operator) external view returns (bool) { return operators[operator]; }
-    function meetsStakeRequirement(address operator, uint256 required) external view returns (bool) { return operatorStakes[operator] >= required; }
-    function minOperatorStake() external pure returns (uint256) { return 1 ether; }
-    function addBlueprintForOperator(address, uint64) external override {}
-    function removeBlueprintForOperator(address, uint64) external override {}
+    function getDelegation(address, address) external pure returns (uint256) {
+        return 0;
+    }
+
+    function getOperatorSelfStake(address operator) external view returns (uint256) {
+        return operatorStakes[operator];
+    }
+
+    function getTotalDelegation(address) external pure returns (uint256) {
+        return 0;
+    }
+
+    function isOperator(address operator) external view returns (bool) {
+        return operators[operator];
+    }
+
+    function isOperatorActive(address operator) external view returns (bool) {
+        return operators[operator];
+    }
+
+    function meetsStakeRequirement(address operator, uint256 required) external view returns (bool) {
+        return operatorStakes[operator] >= required;
+    }
+
+    function minOperatorStake() external pure returns (uint256) {
+        return 1 ether;
+    }
+    function addBlueprintForOperator(address, uint64) external override { }
+    function removeBlueprintForOperator(address, uint64) external override { }
 
     // M-9 FIX: Pending slash tracking (no-op for mock)
-    function incrementPendingSlash(address) external override {}
-    function decrementPendingSlash(address) external override {}
-    function getPendingSlashCount(address) external pure override returns (uint64) { return 0; }
+    function incrementPendingSlash(address) external override { }
+    function decrementPendingSlash(address) external override { }
+
+    function getPendingSlashCount(address) external pure override returns (uint64) {
+        return 0;
+    }
 }
 
 /// @title CrossChainSlashingTest
@@ -233,7 +270,7 @@ contract CrossChainSlashingTest is Test {
 
         // Register operator1 with pod manager so operatorDelegatedStake returns value
         vm.prank(operator1);
-        podManager.registerOperator{value: 10 ether}();
+        podManager.registerOperator{ value: 10 ether }();
 
         // Deploy mock messenger
         messenger = new MockCrossChainMessenger();
@@ -280,10 +317,10 @@ contract CrossChainSlashingTest is Test {
 
     function test_propagateBeaconSlashing_Success() public {
         // First slash: 100% (implicit) -> 90%
-        uint64 newFactor = 0.9e18;  // 90% (10% slashed from initial 100%)
+        uint64 newFactor = 0.9e18; // 90% (10% slashed from initial 100%)
 
         vm.prank(oracle);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, newFactor);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, newFactor);
 
         // Check message was sent
         assertEq(messenger.messageCount(), 1);
@@ -296,7 +333,7 @@ contract CrossChainSlashingTest is Test {
         address unknownPod = makeAddr("unknownPod");
         vm.prank(oracle);
         vm.expectRevert(abi.encodeWithSelector(L2SlashingConnector.UnknownPod.selector, unknownPod));
-        connector.propagateBeaconSlashing{value: 0.01 ether}(unknownPod, 0.9e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(unknownPod, 0.9e18);
     }
 
     function test_propagateBeaconSlashingToSpecificChain() public {
@@ -307,7 +344,7 @@ contract CrossChainSlashingTest is Test {
         connector.setChainConfig(altChainId, altReceiver, 150_000, true);
 
         vm.prank(oracle);
-        connector.propagateBeaconSlashingToChain{value: 0.01 ether}(pod1, 0.95e18, altChainId);
+        connector.propagateBeaconSlashingToChain{ value: 0.01 ether }(pod1, 0.95e18, altChainId);
 
         MockCrossChainMessenger.Message memory msgAlt = messenger.getLastMessage();
         assertEq(msgAlt.destinationChainId, altChainId);
@@ -359,7 +396,7 @@ contract CrossChainSlashingTest is Test {
         );
 
         vm.prank(oracle);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.9e18);
 
         uint64 futureFactor = 0.8e18;
         uint256 delta = uint256(0.9e18 - futureFactor);
@@ -389,18 +426,18 @@ contract CrossChainSlashingTest is Test {
         vm.deal(random, 1 ether);
         vm.prank(random);
         vm.expectRevert(L2SlashingConnector.OnlySlashingOracle.selector);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.9e18);
     }
 
     function test_propagateBeaconSlashing_RevertInvalidFactor() public {
         // First set up initial factor: 100% -> 90%
         vm.prank(oracle);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.9e18);
 
         // Try to propagate a higher/equal factor (should revert)
         vm.prank(oracle);
         vm.expectRevert(L2SlashingConnector.InvalidSlashingFactor.selector);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.95e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.95e18);
     }
 
     function test_propagateBeaconSlashing_RevertUnsupportedChain() public {
@@ -410,7 +447,7 @@ contract CrossChainSlashingTest is Test {
 
         vm.expectRevert(L2SlashingConnector.UnsupportedDestinationChain.selector);
         vm.prank(oracle);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.9e18);
     }
 
     function test_propagateBeaconSlashing_RevertMessengerNotConfigured() public {
@@ -419,7 +456,7 @@ contract CrossChainSlashingTest is Test {
 
         vm.startPrank(oracle);
         vm.expectRevert(L2SlashingConnector.MessengerNotConfigured.selector);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.9e18);
         vm.stopPrank();
     }
 
@@ -428,7 +465,7 @@ contract CrossChainSlashingTest is Test {
 
         vm.startPrank(oracle);
         vm.expectRevert(L2SlashingConnector.InsufficientFee.selector);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.9e18);
         vm.stopPrank();
     }
 
@@ -475,7 +512,7 @@ contract CrossChainSlashingTest is Test {
     function test_estimatePropagationFee() public {
         // First propagate to set up state
         vm.prank(oracle);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.95e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.95e18);
 
         // Now estimate fee for next slash
         uint256 fee = connector.estimatePropagationFee(pod1, 0.9e18, TANGLE_CHAIN_ID);
@@ -502,10 +539,8 @@ contract CrossChainSlashingTest is Test {
         uint64 slashingFactor = 0.9e18;
         uint256 nonce = 0;
 
-        bytes memory payload = abi.encodePacked(
-            messageType,
-            abi.encode(operator1, slashBps, slashingFactor, nonce, pod1)
-        );
+        bytes memory payload =
+            abi.encodePacked(messageType, abi.encode(operator1, slashBps, slashingFactor, nonce, pod1));
 
         // Deliver message as messenger
         vm.prank(address(messenger));
@@ -526,10 +561,7 @@ contract CrossChainSlashingTest is Test {
 
     function test_receiveMessage_RevertUnauthorizedSender() public {
         bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
-        bytes memory payload = abi.encodePacked(
-            messageType,
-            abi.encode(operator1, uint16(1000), 0.9e18, 0, pod1)
-        );
+        bytes memory payload = abi.encodePacked(messageType, abi.encode(operator1, uint16(1000), 0.9e18, 0, pod1));
 
         vm.expectRevert(L2SlashingReceiver.UnauthorizedSender.selector);
         vm.prank(address(messenger));
@@ -540,10 +572,7 @@ contract CrossChainSlashingTest is Test {
         bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
         uint256 nonce = 42;
         uint16 slashBps = 1000;
-        bytes memory payload = abi.encodePacked(
-            messageType,
-            abi.encode(operator1, slashBps, 0.9e18, nonce, pod1)
-        );
+        bytes memory payload = abi.encodePacked(messageType, abi.encode(operator1, slashBps, 0.9e18, nonce, pod1));
 
         // First delivery works
         vm.prank(address(messenger));
@@ -567,10 +596,7 @@ contract CrossChainSlashingTest is Test {
         slasher.setPaused(true);
 
         bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
-        bytes memory payload = abi.encodePacked(
-            messageType,
-            abi.encode(operator1, uint16(1000), 0.9e18, 0, pod1)
-        );
+        bytes memory payload = abi.encodePacked(messageType, abi.encode(operator1, uint16(1000), 0.9e18, 0, pod1));
 
         uint256 previousSlash = staking.lastSlashAmount();
         vm.prank(address(messenger));
@@ -660,11 +686,11 @@ contract CrossChainSlashingTest is Test {
         );
 
         // 1. Oracle detects beacon chain slashing and calls connector
-        uint64 slashedFactor = 0.8e18;  // 80% (20% slashed)
+        uint64 slashedFactor = 0.8e18; // 80% (20% slashed)
 
         // 2. Propagate slashing
         vm.prank(oracle);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, slashedFactor);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, slashedFactor);
 
         // 3. Get cross-chain message
         MockCrossChainMessenger.Message memory msg1 = messenger.getLastMessage();
@@ -691,7 +717,7 @@ contract CrossChainSlashingTest is Test {
 
         // First slash: 100% (implicit) -> 90%
         vm.prank(oracle);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.9e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.9e18);
 
         MockCrossChainMessenger.Message memory msg1 = messenger.getLastMessage();
         vm.prank(address(messenger));
@@ -702,7 +728,7 @@ contract CrossChainSlashingTest is Test {
 
         // Second slash: 90% -> 80%
         vm.prank(oracle);
-        connector.propagateBeaconSlashing{value: 0.01 ether}(pod1, 0.8e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.8e18);
 
         MockCrossChainMessenger.Message memory msg2 = messenger.getLastMessage();
         vm.prank(address(messenger));
@@ -717,7 +743,7 @@ contract CrossChainSlashingTest is Test {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_connector_setChainConfig() public {
-        uint256 newChainId = 12345;
+        uint256 newChainId = 12_345;
 
         vm.prank(admin);
         connector.setChainConfig(newChainId, makeAddr("receiver"), 300_000, true);

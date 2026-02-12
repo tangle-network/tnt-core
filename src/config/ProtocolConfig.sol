@@ -38,7 +38,7 @@ library ProtocolConfig {
     // OPERATOR REGISTRATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    uint32 internal constant MAX_BLUEPRINTS_PER_OPERATOR = 1_024;
+    uint32 internal constant MAX_BLUEPRINTS_PER_OPERATOR = 1024;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE REQUEST TTL

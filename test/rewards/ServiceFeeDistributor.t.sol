@@ -34,7 +34,9 @@ contract ServiceFeeDistributorTest is BaseTest {
         ServiceFeeDistributor impl = new ServiceFeeDistributor();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
-            abi.encodeCall(ServiceFeeDistributor.initialize, (admin, address(staking), address(tangle), address(oracle)))
+            abi.encodeCall(
+                ServiceFeeDistributor.initialize, (admin, address(staking), address(tangle), address(oracle))
+            )
         );
         distributor = ServiceFeeDistributor(payable(address(proxy)));
 
@@ -42,7 +44,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         tangle.setServiceFeeDistributor(address(distributor));
         tangle.setPriceOracle(address(oracle));
         staking.setServiceFeeDistributor(address(distributor));
-        staking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        staking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10_000);
         vm.stopPrank();
 
         vm.prank(developer);
@@ -52,8 +54,8 @@ contract ServiceFeeDistributorTest is BaseTest {
         _registerForBlueprint(operator1, blueprintId);
 
         stakeToken.mint(delegator2, 100 ether);
-        payTokenA.mint(user1, 1_000 ether);
-        payTokenB.mint(user1, 1_000 ether);
+        payTokenA.mint(user1, 1000 ether);
+        payTokenB.mint(user1, 1000 ether);
 
         vm.prank(delegator1);
         staking.depositAndDelegate{ value: 10 ether }(operator1);
@@ -61,16 +63,17 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(delegator2);
         stakeToken.approve(address(staking), 10 ether);
         staking.depositAndDelegateWithOptions(
-            operator1,
-            address(stakeToken),
-            10 ether,
-            Types.BlueprintSelectionMode.All,
-            new uint64[](0)
+            operator1, address(stakeToken), 10 ether, Types.BlueprintSelectionMode.All, new uint64[](0)
         );
         vm.stopPrank();
     }
 
-    function _requestAndApproveWithCommitments(uint16 nativeBps, uint16 erc20Bps, address paymentToken, uint256 paymentAmount)
+    function _requestAndApproveWithCommitments(
+        uint16 nativeBps,
+        uint16 erc20Bps,
+        address paymentToken,
+        uint256 paymentAmount
+    )
         internal
         returns (uint64 serviceId)
     {
@@ -78,12 +81,12 @@ contract ServiceFeeDistributorTest is BaseTest {
         reqs[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
         reqs[1] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory ops = new address[](1);
@@ -92,14 +95,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(user1);
         MockERC20(paymentToken).approve(address(tangle), paymentAmount);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId,
-            ops,
-            reqs,
-            "",
-            new address[](0),
-            0,
-            paymentToken,
-            paymentAmount
+            blueprintId, ops, reqs, "", new address[](0), 0, paymentToken, paymentAmount
         );
         vm.stopPrank();
 
@@ -115,8 +111,8 @@ contract ServiceFeeDistributorTest is BaseTest {
 
     function test_Distribution_MultiplePaymentTokens_AccruesSeparately() public {
         // restaker share = 20% of payment, pick amounts divisible.
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenB), 50 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenB), 50 ether);
 
         uint256 d1A = payTokenA.balanceOf(delegator1);
         uint256 d2A = payTokenA.balanceOf(delegator2);
@@ -145,8 +141,8 @@ contract ServiceFeeDistributorTest is BaseTest {
     }
 
     function test_ClaimAllBatch_MultiToken() public {
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenB), 50 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenB), 50 ether);
 
         uint256 pendingA = distributor.pendingRewards(delegator1, address(payTokenA));
         uint256 pendingB = distributor.pendingRewards(delegator1, address(payTokenB));
@@ -175,9 +171,8 @@ contract ServiceFeeDistributorTest is BaseTest {
         uint256 paymentAmount = 110 ether;
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), paymentAmount);
-        uint64 requestId = tangle.requestService(
-            blueprintId, ops, "", new address[](0), 0, address(payTokenA), paymentAmount
-        );
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", new address[](0), 0, address(payTokenA), paymentAmount);
         vm.stopPrank();
 
         vm.prank(operator1);
@@ -222,11 +217,7 @@ contract ServiceFeeDistributorTest is BaseTest {
 
         vm.prank(fixedDelA);
         staking.depositAndDelegateWithOptions{ value: 12 ether }(
-            operator2,
-            address(0),
-            12 ether,
-            Types.BlueprintSelectionMode.Fixed,
-            both
+            operator2, address(0), 12 ether, Types.BlueprintSelectionMode.Fixed, both
         );
 
         uint64[] memory onlyFirst = new uint64[](1);
@@ -234,18 +225,14 @@ contract ServiceFeeDistributorTest is BaseTest {
 
         vm.prank(fixedDelB);
         staking.depositAndDelegateWithOptions{ value: 12 ether }(
-            operator2,
-            address(0),
-            12 ether,
-            Types.BlueprintSelectionMode.Fixed,
-            onlyFirst
+            operator2, address(0), 12 ether, Types.BlueprintSelectionMode.Fixed, onlyFirst
         );
 
         Types.AssetSecurityRequirement[] memory reqs = new Types.AssetSecurityRequirement[](1);
         reqs[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory ops = new address[](1);
@@ -255,19 +242,12 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), paymentAmount);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId,
-            ops,
-            reqs,
-            "",
-            new address[](0),
-            0,
-            address(payTokenA),
-            paymentAmount
+            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), paymentAmount
         );
         vm.stopPrank();
 
         Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](1);
-        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10_000 });
 
         vm.prank(operator2);
         tangle.approveServiceWithCommitments(requestId, commits);
@@ -297,12 +277,12 @@ contract ServiceFeeDistributorTest is BaseTest {
         reqs[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
         reqs[1] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory ops = new address[](1);
@@ -312,20 +292,13 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), paymentAmount);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId,
-            ops,
-            reqs,
-            "",
-            new address[](0),
-            0,
-            address(payTokenA),
-            paymentAmount
+            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), paymentAmount
         );
         vm.stopPrank();
 
         Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](2);
-        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
-        commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 10000 });
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10_000 });
+        commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 10_000 });
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(IPriceOracle.PriceNotAvailable.selector, address(stakeToken)));
@@ -343,9 +316,8 @@ contract ServiceFeeDistributorTest is BaseTest {
         // Create service with operator2 (who has no delegators)
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), 100 ether);
-        uint64 requestId = tangle.requestService(
-            blueprintId, ops, "", new address[](0), 0, address(payTokenA), 100 ether
-        );
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", new address[](0), 0, address(payTokenA), 100 ether);
         vm.stopPrank();
 
         // Should not revert even though operator has no delegators
@@ -359,7 +331,7 @@ contract ServiceFeeDistributorTest is BaseTest {
     function test_EdgeCase_AsymmetricCommitments_CorrectWeighting() public {
         // Native: 100% commitment (10000 bps)
         // ERC20: 10% commitment (1000 bps)
-        _requestAndApproveWithCommitments(10000, 1000, address(payTokenA), 110 ether);
+        _requestAndApproveWithCommitments(10_000, 1000, address(payTokenA), 110 ether);
 
         Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
         Types.Asset memory ercAsset = Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) });
@@ -383,7 +355,7 @@ contract ServiceFeeDistributorTest is BaseTest {
     }
 
     function test_EdgeCase_ClaimTwice_SecondClaimReturnsZero() public {
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenA), 100 ether);
 
         Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
 
@@ -399,7 +371,7 @@ contract ServiceFeeDistributorTest is BaseTest {
     }
 
     function test_EdgeCase_ClaimAfterUndelegation_GetsPreviousRewards() public {
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenA), 100 ether);
 
         Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
 
@@ -416,8 +388,8 @@ contract ServiceFeeDistributorTest is BaseTest {
 
     function test_EdgeCase_MultipleServicesAccumulate() public {
         // Create two services with same operator
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenA), 100 ether);
 
         Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
 
@@ -441,7 +413,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         // ERC20: 10 tokens * $1 = $10
         // Native should get ~99.95% of rewards
 
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenA), 100 ether);
 
         Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
         Types.Asset memory ercAsset = Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) });
@@ -466,12 +438,12 @@ contract ServiceFeeDistributorTest is BaseTest {
         reqs[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
         reqs[1] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory ops = new address[](1);
@@ -486,7 +458,7 @@ contract ServiceFeeDistributorTest is BaseTest {
 
         // Commit 100% native, 0% ERC20
         Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](2);
-        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10_000 });
         commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 0 });
 
         vm.prank(operator1);
@@ -504,7 +476,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         reqs[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory ops = new address[](1);
@@ -518,7 +490,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.stopPrank();
 
         Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](1);
-        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10_000 });
 
         vm.prank(operator1);
         tangle.approveServiceWithCommitments(requestId, commits);
@@ -535,7 +507,7 @@ contract ServiceFeeDistributorTest is BaseTest {
     }
 
     function test_View_PendingRewards_MatchesActualClaim() public {
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenA), 100 ether);
 
         Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
 
@@ -552,7 +524,7 @@ contract ServiceFeeDistributorTest is BaseTest {
     }
 
     function test_View_DelegatorOperators_TracksPositions() public {
-        _requestAndApproveWithCommitments(10000, 10000, address(payTokenA), 100 ether);
+        _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenA), 100 ether);
 
         // Check delegator1 has operator1 tracked
         address[] memory ops = distributor.delegatorOperators(delegator1);
@@ -568,7 +540,7 @@ contract ServiceFeeDistributorTest is BaseTest {
 
         // Enable TNT as a staking asset
         vm.prank(admin);
-        staking.enableAsset(address(tntToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        staking.enableAsset(address(tntToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10_000);
 
         // Set TNT score rate: 1 TNT = $1 score (10x boost vs market price)
         vm.prank(admin);
@@ -585,11 +557,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(delegator3);
         tntToken.approve(address(staking), 10 ether);
         staking.depositAndDelegateWithOptions(
-            operator1,
-            address(tntToken),
-            10 ether,
-            Types.BlueprintSelectionMode.All,
-            new uint64[](0)
+            operator1, address(tntToken), 10 ether, Types.BlueprintSelectionMode.All, new uint64[](0)
         );
         vm.stopPrank();
 
@@ -598,17 +566,17 @@ contract ServiceFeeDistributorTest is BaseTest {
         reqs[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
         reqs[1] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
         reqs[2] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(tntToken) }),
             minExposureBps: 1,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory ops = new address[](1);
@@ -624,9 +592,9 @@ contract ServiceFeeDistributorTest is BaseTest {
 
         // Commit 100% exposure on all assets
         Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](3);
-        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10000 });
-        commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 10000 });
-        commits[2] = Types.AssetSecurityCommitment({ asset: reqs[2].asset, exposureBps: 10000 });
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10_000 });
+        commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 10_000 });
+        commits[2] = Types.AssetSecurityCommitment({ asset: reqs[2].asset, exposureBps: 10_000 });
 
         vm.prank(operator1);
         tangle.approveServiceWithCommitments(requestId, commits);
@@ -657,7 +625,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         oracle.setPrice(address(tntToken), 0.1e18); // TNT = $0.10
 
         vm.prank(admin);
-        staking.enableAsset(address(tntToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        staking.enableAsset(address(tntToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10_000);
 
         // First set TNT score rate, then disable it
         vm.startPrank(admin);

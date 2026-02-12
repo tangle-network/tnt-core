@@ -22,6 +22,10 @@ abstract contract QuotesCreate is Base {
 
     // ServiceActivated event inherited from Base.sol
 
+    event ResourcesCommitted(
+        uint64 indexed serviceId, address indexed operator, Types.ResourceCommitment[] commitments
+    );
+
     // ═══════════════════════════════════════════════════════════════════════════
     // RFQ SERVICE CREATION
     // ═══════════════════════════════════════════════════════════════════════════
@@ -33,7 +37,13 @@ abstract contract QuotesCreate is Base {
         bytes calldata config,
         address[] calldata permittedCallers,
         uint64 ttl
-    ) external payable whenNotPaused nonReentrant returns (uint64 serviceId) {
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (uint64 serviceId)
+    {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         _requireBlueprintActive(bp, blueprintId);
 
@@ -47,31 +57,16 @@ abstract contract QuotesCreate is Base {
         _collectQuotePayment(totalCost);
         _notifyManagerQuoteRequest(bp.manager, operators, config, ttl, totalCost);
 
-        QuoteActivation memory activation =
-            _activateQuoteService(blueprintId, bp, operators, exposures, ttl);
+        QuoteActivation memory activation = _activateQuoteService(blueprintId, bp, operators, exposures, ttl, quotes);
         serviceId = activation.serviceId;
 
         _addInitialQuoteCallers(serviceId, msg.sender, permittedCallers);
-        _notifyManagerQuoteInitialization(
-            bp.manager,
-            blueprintId,
-            serviceId,
-            msg.sender,
-            permittedCallers,
-            ttl
-        );
+        _notifyManagerQuoteInitialization(bp.manager, blueprintId, serviceId, msg.sender, permittedCallers, ttl);
 
-        _finalizeQuotePayment(
-            serviceId,
-            blueprintId,
-            totalCost,
-            operators
-        );
+        _finalizeQuotePayment(serviceId, blueprintId, totalCost, operators);
     }
 
-    function _gatherQuoteOperators(
-        Types.SignedQuote[] calldata quotes
-    ) private returns (address[] memory operators) {
+    function _gatherQuoteOperators(Types.SignedQuote[] calldata quotes) private returns (address[] memory operators) {
         uint256 length = quotes.length;
         operators = new address[](length);
         for (uint256 i = 0; i < length; ++i) {
@@ -88,9 +83,11 @@ abstract contract QuotesCreate is Base {
         }
     }
 
-    function _extractQuoteExposures(
-        Types.SignedQuote[] calldata quotes
-    ) private pure returns (uint16[] memory exposures) {
+    function _extractQuoteExposures(Types.SignedQuote[] calldata quotes)
+        private
+        pure
+        returns (uint16[] memory exposures)
+    {
         uint256 length = quotes.length;
         exposures = new uint16[](length);
         for (uint256 i = 0; i < length; ++i) {
@@ -110,7 +107,7 @@ abstract contract QuotesCreate is Base {
         if (manager != address(0) && totalCost > 0) {
             try IBlueprintServiceManager(manager).queryIsPaymentAssetAllowed(0, address(0)) returns (bool allowed) {
                 if (!allowed) revert Errors.TokenNotAllowed(address(0));
-            } catch {}
+            } catch { }
         }
     }
 
@@ -120,13 +117,14 @@ abstract contract QuotesCreate is Base {
         bytes calldata config,
         uint64 ttl,
         uint256 totalCost
-    ) private {
+    )
+        private
+    {
         if (manager == address(0)) return;
         _callManager(
             manager,
             abi.encodeCall(
-                IBlueprintServiceManager.onRequest,
-                (0, msg.sender, operators, config, ttl, address(0), totalCost)
+                IBlueprintServiceManager.onRequest, (0, msg.sender, operators, config, ttl, address(0), totalCost)
             )
         );
     }
@@ -148,14 +146,11 @@ abstract contract QuotesCreate is Base {
         Types.SignedQuote[] calldata quotes,
         uint64 blueprintId,
         uint64 ttl
-    ) private returns (uint256 totalCost) {
-        (totalCost,) = SignatureLib.verifyQuoteBatch(
-            _usedQuotes,
-            _domainSeparator,
-            quotes,
-            blueprintId,
-            ttl
-        );
+    )
+        private
+        returns (uint256 totalCost)
+    {
+        (totalCost,) = SignatureLib.verifyQuoteBatch(_usedQuotes, _domainSeparator, quotes, blueprintId, ttl);
     }
 
     function _activateQuoteService(
@@ -163,8 +158,12 @@ abstract contract QuotesCreate is Base {
         Types.Blueprint storage bp,
         address[] memory operators,
         uint16[] memory exposures,
-        uint64 ttl
-    ) private returns (QuoteActivation memory activation) {
+        uint64 ttl,
+        Types.SignedQuote[] calldata quotes
+    )
+        private
+        returns (QuoteActivation memory activation)
+    {
         activation.serviceId = _serviceCount++;
         Types.BlueprintConfig storage bpConfig = _blueprintConfigs[blueprintId];
 
@@ -183,18 +182,14 @@ abstract contract QuotesCreate is Base {
             status: Types.ServiceStatus.Active
         });
 
-        activation.totalExposure = _processOperatorQuotes(activation.serviceId, operators, exposures);
+        activation.totalExposure = _processOperatorQuotes(activation.serviceId, operators, exposures, quotes);
 
         emit ServiceActivated(activation.serviceId, 0, blueprintId);
         _recordServiceCreated(activation.serviceId, blueprintId, msg.sender, operators.length);
         _configureHeartbeat(activation.serviceId, bp.manager, msg.sender, operators);
     }
 
-    function _addInitialQuoteCallers(
-        uint64 serviceId,
-        address owner,
-        address[] calldata permittedCallers
-    ) private {
+    function _addInitialQuoteCallers(uint64 serviceId, address owner, address[] calldata permittedCallers) private {
         _permittedCallers[serviceId].add(owner);
         for (uint256 i = 0; i < permittedCallers.length; i++) {
             _permittedCallers[serviceId].add(permittedCallers[i]);
@@ -208,7 +203,9 @@ abstract contract QuotesCreate is Base {
         address owner,
         address[] calldata permittedCallers,
         uint64 ttl
-    ) private {
+    )
+        private
+    {
         if (manager == address(0)) {
             return;
         }
@@ -220,8 +217,7 @@ abstract contract QuotesCreate is Base {
         _tryCallManager(
             manager,
             abi.encodeCall(
-                IBlueprintServiceManager.onServiceInitialized,
-                (blueprintId, 0, serviceId, owner, callers, ttl)
+                IBlueprintServiceManager.onServiceInitialized, (blueprintId, 0, serviceId, owner, callers, ttl)
             )
         );
     }
@@ -231,7 +227,9 @@ abstract contract QuotesCreate is Base {
         uint64 blueprintId,
         uint256 totalCost,
         address[] memory operators
-    ) private {
+    )
+        private
+    {
         if (totalCost == 0) {
             return;
         }
@@ -243,19 +241,33 @@ abstract contract QuotesCreate is Base {
     function _processOperatorQuotes(
         uint64 serviceId,
         address[] memory operators,
-        uint16[] memory exposures
-    ) internal returns (uint256 totalExposure) {
+        uint16[] memory exposures,
+        Types.SignedQuote[] calldata quotes
+    )
+        internal
+        returns (uint256 totalExposure)
+    {
         for (uint256 i = 0; i < operators.length; i++) {
             uint16 exposure = exposures[i];
             _serviceOperators[serviceId][operators[i]] = Types.ServiceOperator({
-                exposureBps: exposure,
-                joinedAt: uint64(block.timestamp),
-                leftAt: 0,
-                active: true
+                exposureBps: exposure, joinedAt: uint64(block.timestamp), leftAt: 0, active: true
             });
             _serviceOperatorSet[serviceId].add(operators[i]);
             totalExposure += exposure;
+
+            // Store resource commitment hash for QoS dispute evidence
+            Types.ResourceCommitment[] calldata resources = quotes[i].details.resourceCommitments;
+            if (resources.length > 0) {
+                _serviceResourceCommitmentHash[serviceId][operators[i]] =
+                    SignatureLib.hashResourceCommitments(resources);
+                emit ResourcesCommitted(serviceId, operators[i], resources);
+            }
         }
+    }
+
+    /// @notice Get the resource commitment hash for an operator in a service
+    function getServiceResourceCommitmentHash(uint64 serviceId, address operator) external view returns (bytes32) {
+        return _serviceResourceCommitmentHash[serviceId][operator];
     }
 
     function _quoteExposure(Types.SignedQuote calldata quote) private pure returns (uint16) {
@@ -274,5 +286,7 @@ abstract contract QuotesCreate is Base {
         uint64 blueprintId,
         uint256 amount,
         address[] memory operators
-    ) internal virtual;
+    )
+        internal
+        virtual;
 }

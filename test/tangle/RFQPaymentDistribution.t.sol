@@ -100,7 +100,7 @@ contract RFQPaymentDistributionTest is BaseTest {
         tangle.submitResult(serviceId, callId, "result");
 
         // Developer should receive developerBps share
-        uint256 expectedDev = (payment * DEV_BPS) / 10000;
+        uint256 expectedDev = (payment * DEV_BPS) / 10_000;
         assertEq(developer.balance - devBalBefore, expectedDev, "developer should get 20% of RFQ payment");
     }
 
@@ -117,7 +117,7 @@ contract RFQPaymentDistributionTest is BaseTest {
         vm.prank(operator1);
         tangle.submitResult(serviceId, callId, "result");
 
-        uint256 expectedProtocol = (payment * PROTOCOL_BPS) / 10000;
+        uint256 expectedProtocol = (payment * PROTOCOL_BPS) / 10_000;
         assertEq(treasury.balance - treasuryBalBefore, expectedProtocol, "treasury should get 20% of RFQ payment");
     }
 
@@ -135,8 +135,8 @@ contract RFQPaymentDistributionTest is BaseTest {
 
         // Operator should have pending rewards.
         // No restakers → operator gets operatorBps + stakerBps (merged).
-        uint256 expectedOp = (payment * OPERATOR_BPS) / 10000;
-        uint256 expectedStaker = payment - (payment * DEV_BPS) / 10000 - (payment * PROTOCOL_BPS) / 10000 - expectedOp;
+        uint256 expectedOp = (payment * OPERATOR_BPS) / 10_000;
+        uint256 expectedStaker = payment - (payment * DEV_BPS) / 10_000 - (payment * PROTOCOL_BPS) / 10_000 - expectedOp;
         uint256 expectedTotal = expectedOp + expectedStaker; // No restakers → merged
         uint256 pending = tangle.pendingRewards(operator1);
 
@@ -243,8 +243,8 @@ contract RFQPaymentDistributionTest is BaseTest {
         tangle.submitResult(serviceId, callId, "result");
 
         // Developer gets DEV_BPS of each operator's price (applied independently)
-        uint256 expectedDev = (price1 * DEV_BPS) / 10000 + (price2 * DEV_BPS) / 10000;
-        uint256 expectedTreasury = (price1 * PROTOCOL_BPS) / 10000 + (price2 * PROTOCOL_BPS) / 10000;
+        uint256 expectedDev = (price1 * DEV_BPS) / 10_000 + (price2 * DEV_BPS) / 10_000;
+        uint256 expectedTreasury = (price1 * PROTOCOL_BPS) / 10_000 + (price2 * PROTOCOL_BPS) / 10_000;
 
         assertEq(developer.balance - devBefore, expectedDev, "dev gets split from each op's price");
         assertEq(treasury.balance - treasuryBefore, expectedTreasury, "treasury gets split from each op's price");
@@ -415,14 +415,12 @@ contract RFQPaymentDistributionTest is BaseTest {
         assertEq(tangle.pendingRewards(operator2), 0, "zero-price operator should get nothing");
 
         // Full payment distributed to operator1's split
-        uint256 devExpected = (price1 * DEV_BPS) / 10000;
-        uint256 treasuryExpected = (price1 * PROTOCOL_BPS) / 10000;
+        uint256 devExpected = (price1 * DEV_BPS) / 10_000;
+        uint256 treasuryExpected = (price1 * PROTOCOL_BPS) / 10_000;
         uint256 op1Pending = tangle.pendingRewards(operator1);
 
         assertEq(
-            devExpected + treasuryExpected + op1Pending,
-            price1,
-            "all funds accounted for with zero-price operator"
+            devExpected + treasuryExpected + op1Pending, price1, "all funds accounted for with zero-price operator"
         );
     }
 
@@ -448,11 +446,7 @@ contract RFQPaymentDistributionTest is BaseTest {
 
         // Excess sits in contract
         uint256 excess = overpay - quotePrice;
-        assertEq(
-            address(tangleProxy).balance,
-            contractBefore + overpay,
-            "contract holds full msg.value"
-        );
+        assertEq(address(tangleProxy).balance, contractBefore + overpay, "contract holds full msg.value");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -461,12 +455,8 @@ contract RFQPaymentDistributionTest is BaseTest {
 
     function test_RFQPayment_CustomSplitApplied() public {
         // Set a custom split: 10% dev, 5% protocol, 80% operator, 5% staker
-        Types.PaymentSplit memory customSplit = Types.PaymentSplit({
-            developerBps: 1000,
-            protocolBps: 500,
-            operatorBps: 8000,
-            stakerBps: 500
-        });
+        Types.PaymentSplit memory customSplit =
+            Types.PaymentSplit({ developerBps: 1000, protocolBps: 500, operatorBps: 8000, stakerBps: 500 });
         vm.prank(admin);
         tangle.setPaymentSplit(customSplit);
 
@@ -483,8 +473,8 @@ contract RFQPaymentDistributionTest is BaseTest {
         vm.prank(operator1);
         tangle.submitResult(serviceId, callId, "result");
 
-        assertEq(developer.balance - devBefore, (payment * 1000) / 10000, "custom dev split");
-        assertEq(treasury.balance - treasuryBefore, (payment * 500) / 10000, "custom protocol split");
+        assertEq(developer.balance - devBefore, (payment * 1000) / 10_000, "custom dev split");
+        assertEq(treasury.balance - treasuryBefore, (payment * 500) / 10_000, "custom protocol split");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -517,8 +507,8 @@ contract RFQPaymentDistributionTest is BaseTest {
         assertEq(devGot + treasuryGot + opPending, payment, "fuzz: total distributed must equal payment");
 
         // Dev gets floor(payment * 2000 / 10000)
-        assertEq(devGot, (payment * DEV_BPS) / 10000, "fuzz: developer share");
-        assertEq(treasuryGot, (payment * PROTOCOL_BPS) / 10000, "fuzz: protocol share");
+        assertEq(devGot, (payment * DEV_BPS) / 10_000, "fuzz: developer share");
+        assertEq(treasuryGot, (payment * PROTOCOL_BPS) / 10_000, "fuzz: protocol share");
     }
 
     function testFuzz_MultiOpRFQPaymentSplit(uint64 rawPrice1, uint64 rawPrice2) public {
@@ -549,11 +539,7 @@ contract RFQPaymentDistributionTest is BaseTest {
         uint256 op2Pending = tangle.pendingRewards(operator2);
 
         // All funds accounted for
-        assertEq(
-            devGot + treasuryGot + op1Pending + op2Pending,
-            total,
-            "fuzz multi-op: total must equal payment"
-        );
+        assertEq(devGot + treasuryGot + op1Pending + op2Pending, total, "fuzz multi-op: total must equal payment");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -577,9 +563,9 @@ contract RFQPaymentDistributionTest is BaseTest {
         vm.prank(operator1);
         tangle.submitResult(serviceId, callId, "result");
 
-        uint256 expectedDev = (payment * DEV_BPS) / 10000;
-        uint256 expectedProtocol = (payment * PROTOCOL_BPS) / 10000;
-        uint256 expectedOpBase = (payment * OPERATOR_BPS) / 10000;
+        uint256 expectedDev = (payment * DEV_BPS) / 10_000;
+        uint256 expectedProtocol = (payment * PROTOCOL_BPS) / 10_000;
+        uint256 expectedOpBase = (payment * OPERATOR_BPS) / 10_000;
         uint256 expectedStaker = payment - expectedDev - expectedProtocol - expectedOpBase;
 
         // No restakers → staker share merges into operator pending rewards
@@ -593,7 +579,7 @@ contract RFQPaymentDistributionTest is BaseTest {
 
     function test_RFQPayment_OddPaymentNoFundsLost() public {
         // Payment not cleanly divisible by split denominator (10000)
-        uint256 payment = 10001;
+        uint256 payment = 10_001;
 
         Types.SignedJobQuote[] memory quotes = new Types.SignedJobQuote[](1);
         quotes[0] = _createJobQuote(operator1, OPERATOR1_PK, serviceId, 0, payment);

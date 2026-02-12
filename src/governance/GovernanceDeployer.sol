@@ -49,7 +49,7 @@ contract GovernanceDeployer {
         // Token params
         address tokenAdmin;
         uint256 initialTokenSupply;
-        address existingToken;   // optional override to skip new TNT deployment
+        address existingToken; // optional override to skip new TNT deployment
         // Timelock params
         uint256 timelockDelay;
         // Governor params

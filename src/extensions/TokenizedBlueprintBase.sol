@@ -56,11 +56,11 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
     // ═══════════════════════════════════════════════════════════════════════════
 
     struct RewardState {
-        uint256 rewardPerTokenStored;      // Accumulated reward per staked token (scaled by 1e18)
-        uint256 lastUpdateTime;            // Last time reward was updated
-        uint256 rewardRate;                // Reward per second (for streaming mode)
-        uint256 periodFinish;              // When current reward period ends (for streaming)
-        uint256 pendingRewards;            // Undistributed rewards (for instant mode)
+        uint256 rewardPerTokenStored; // Accumulated reward per staked token (scaled by 1e18)
+        uint256 lastUpdateTime; // Last time reward was updated
+        uint256 rewardRate; // Reward per second (for streaming mode)
+        uint256 periodFinish; // When current reward period ends (for streaming)
+        uint256 pendingRewards; // Undistributed rewards (for instant mode)
     }
 
     /// @notice Reward state per token (address(0) = native ETH)
@@ -100,10 +100,7 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════════
 
-    constructor(
-        string memory name_,
-        string memory symbol_
-    ) ERC20(name_, symbol_) {
+    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {
         // Native ETH is always a reward token
         _addRewardToken(address(0));
     }
@@ -114,13 +111,7 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
 
     /// @notice Direct all developer revenue to this contract
     /// @dev Override from BlueprintServiceManagerBase
-    function queryDeveloperPaymentAddress(uint64)
-        external
-        view
-        virtual
-        override
-        returns (address payable)
-    {
+    function queryDeveloperPaymentAddress(uint64) external view virtual override returns (address payable) {
         return payable(address(this));
     }
 
@@ -332,7 +323,7 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
 
     function _transferReward(address to, address token, uint256 amount) internal {
         if (token == address(0)) {
-            (bool success,) = to.call{value: amount}("");
+            (bool success,) = to.call{ value: amount }("");
             require(success, "ETH transfer failed");
         } else {
             IERC20(token).safeTransfer(to, amount);
@@ -381,7 +372,7 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
         if (streamingMode && state.rewardRate > 0) {
             // Annual reward / total staked * 10000 (for basis points)
             uint256 annualReward = state.rewardRate * 365 days;
-            apy = (annualReward * 10000) / totalStaked;
+            apy = (annualReward * 10_000) / totalStaked;
         }
         // For instant mode, APY depends on revenue frequency
     }

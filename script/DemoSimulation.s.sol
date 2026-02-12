@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Script, console2} from "forge-std/Script.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Script, console2 } from "forge-std/Script.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {Tangle} from "../src/Tangle.sol";
+import { Tangle } from "../src/Tangle.sol";
 import { ITangleFull } from "../src/interfaces/ITangle.sol";
 import { IMultiAssetDelegation } from "../src/interfaces/IMultiAssetDelegation.sol";
-import {MultiAssetDelegation} from "../src/staking/MultiAssetDelegation.sol";
-import {OperatorStatusRegistry} from "../src/staking/OperatorStatusRegistry.sol";
-import {TangleToken} from "../src/governance/TangleToken.sol";
-import {MasterBlueprintServiceManager} from "../src/MasterBlueprintServiceManager.sol";
-import {MBSMRegistry} from "../src/MBSMRegistry.sol";
-import {Types} from "../src/libraries/Types.sol";
-import {BlueprintDefinitionHelper} from "../test/support/BlueprintDefinitionHelper.sol";
+import { MultiAssetDelegation } from "../src/staking/MultiAssetDelegation.sol";
+import { OperatorStatusRegistry } from "../src/staking/OperatorStatusRegistry.sol";
+import { TangleToken } from "../src/governance/TangleToken.sol";
+import { MasterBlueprintServiceManager } from "../src/MasterBlueprintServiceManager.sol";
+import { MBSMRegistry } from "../src/MBSMRegistry.sol";
+import { Types } from "../src/libraries/Types.sol";
+import { BlueprintDefinitionHelper } from "../test/support/BlueprintDefinitionHelper.sol";
 import { TangleBlueprintsFacet } from "../src/facets/tangle/TangleBlueprintsFacet.sol";
 import { TangleBlueprintsManagementFacet } from "../src/facets/tangle/TangleBlueprintsManagementFacet.sol";
 import { TangleOperatorsFacet } from "../src/facets/tangle/TangleOperatorsFacet.sol";
@@ -284,7 +284,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
 
         // Fund operators
         for (uint256 i = 0; i < operators.length; i++) {
-            vm.deal(operators[i], 1_000 ether);
+            vm.deal(operators[i], 1000 ether);
         }
 
         // Fund delegators
@@ -365,8 +365,8 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         vm.startBroadcast(ADMIN_KEY);
 
         // Enable assets in restaking
-        staking.enableAsset(address(usdc), 100e18, 10e18, 0, 10000);
-        staking.enableAsset(address(weth), 0.1 ether, 0.01 ether, 0, 10000);
+        staking.enableAsset(address(usdc), 100e18, 10e18, 0, 10_000);
+        staking.enableAsset(address(weth), 0.1 ether, 0.01 ether, 0, 10_000);
 
         // Distribute TNT to operators for incentives
         for (uint256 i = 0; i < operators.length; i++) {
@@ -391,7 +391,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
             uint256 stake = 5 ether + (i * 1 ether); // Varying stakes
 
             vm.startBroadcast(operatorKeys[i]);
-            staking.registerOperator{value: stake}();
+            staking.registerOperator{ value: stake }();
             vm.stopBroadcast();
 
             console2.log("  Operator registered with stake:", stake / 1e18);
@@ -404,8 +404,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         vm.startBroadcast(ADMIN_KEY);
 
         string[3] memory names = ["Compute Blueprint", "Storage Blueprint", "Oracle Blueprint"];
-        string[3] memory uris =
-            ["ipfs://QmCompute123", "ipfs://QmStorage456", "ipfs://QmOracle789"];
+        string[3] memory uris = ["ipfs://QmCompute123", "ipfs://QmStorage456", "ipfs://QmOracle789"];
 
         for (uint256 i = 0; i < NUM_BLUEPRINTS; i++) {
             Types.BlueprintDefinition memory def = _blueprintDefinition(uris[i], address(0));
@@ -432,7 +431,8 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
 
             for (uint256 j = 0; j < numBlueprints && j < blueprintIds.length; j++) {
                 bytes memory ecdsaKey = _generateOperatorKey(i, j);
-                string memory rpcUrl = string(abi.encodePacked("http://operator", vm.toString(i), ".local:854", vm.toString(j)));
+                string memory rpcUrl =
+                    string(abi.encodePacked("http://operator", vm.toString(i), ".local:854", vm.toString(j)));
 
                 tangle.registerOperator(blueprintIds[j], ecdsaKey, rpcUrl);
                 console2.log("  Operator", i, "registered for blueprint", blueprintIds[j]);
@@ -499,7 +499,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
 
             for (uint256 j = 0; j < numDelegations; j++) {
                 address op = operators[(i + j) % operators.length];
-                staking.depositAndDelegate{value: amountPerDelegation}(op);
+                staking.depositAndDelegate{ value: amountPerDelegation }(op);
                 totalDelegations++;
             }
 
@@ -575,7 +575,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         try tangle.submitJob(serviceId, 0, inputs) returns (uint64 callId) {
             serviceCallIds[serviceId] = callId;
             totalJobs++;
-        } catch {}
+        } catch { }
         vm.stopBroadcast();
     }
 
@@ -589,7 +589,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         uint256 opIndex = tick % operators.length;
 
         vm.startBroadcast(operatorKeys[opIndex]);
-        try tangle.submitResult(serviceId, callId, abi.encode("result", tick)) {} catch {}
+        try tangle.submitResult(serviceId, callId, abi.encode("result", tick)) { } catch { }
         vm.stopBroadcast();
     }
 
@@ -599,10 +599,10 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         uint256 amount = 0.5 ether + ((tick % 10) * 0.1 ether);
 
         vm.startBroadcast(delegatorKeys[delegatorIndex]);
-        try staking.depositAndDelegate{value: amount}(operators[operatorIndex]) {
+        try staking.depositAndDelegate{ value: amount }(operators[operatorIndex]) {
             totalDelegations++;
             totalDeposits++;
-        } catch {}
+        } catch { }
         vm.stopBroadcast();
     }
 
@@ -615,30 +615,22 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         // Alternate between USDC and WETH
         if (tick % 8 < 4) {
             uint256 amount = 100e18 + (tick * 10e18);
-            try usdc.approve(address(staking), amount) {} catch {}
+            try usdc.approve(address(staking), amount) { } catch { }
             try staking.depositAndDelegateWithOptions(
-                operators[operatorIndex],
-                address(usdc),
-                amount,
-                Types.BlueprintSelectionMode.All,
-                new uint64[](0)
+                operators[operatorIndex], address(usdc), amount, Types.BlueprintSelectionMode.All, new uint64[](0)
             ) {
                 totalDeposits++;
                 totalDelegations++;
-            } catch {}
+            } catch { }
         } else {
             uint256 amount = 0.1 ether + (tick * 0.01 ether);
-            try weth.approve(address(staking), amount) {} catch {}
+            try weth.approve(address(staking), amount) { } catch { }
             try staking.depositAndDelegateWithOptions(
-                operators[operatorIndex],
-                address(weth),
-                amount,
-                Types.BlueprintSelectionMode.All,
-                new uint64[](0)
+                operators[operatorIndex], address(weth), amount, Types.BlueprintSelectionMode.All, new uint64[](0)
             ) {
                 totalDeposits++;
                 totalDelegations++;
-            } catch {}
+            } catch { }
         }
 
         vm.stopBroadcast();
@@ -659,7 +651,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
 
             try statusRegistry.submitHeartbeat(serviceId, blueprintId, 0, metrics, signature) {
                 totalHeartbeats++;
-            } catch {}
+            } catch { }
 
             vm.stopBroadcast();
         }
@@ -667,7 +659,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
 
     function _advanceRound() internal {
         vm.startBroadcast(ADMIN_KEY);
-        try staking.advanceRound() {} catch {}
+        try staking.advanceRound() { } catch { }
         vm.stopBroadcast();
     }
 
@@ -676,14 +668,14 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         uint256 operatorIndex = (tick / 10) % operators.length;
 
         vm.startBroadcast(delegatorKeys[delegatorIndex]);
-        try staking.scheduleDelegatorUnstake(operators[operatorIndex], address(0), 0.1 ether) {} catch {}
+        try staking.scheduleDelegatorUnstake(operators[operatorIndex], address(0), 0.1 ether) { } catch { }
         vm.stopBroadcast();
     }
 
     function _executeUnstakes() internal {
         for (uint256 i = 0; i < delegators.length; i++) {
             vm.startBroadcast(delegatorKeys[i]);
-            try staking.executeDelegatorUnstake() {} catch {}
+            try staking.executeDelegatorUnstake() { } catch { }
             vm.stopBroadcast();
         }
     }
@@ -712,7 +704,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         vm.startBroadcast(SLASHER_KEY);
         try tangle.proposeSlash(serviceId, operators[operatorIndex], slashBps, evidence) {
             totalSlashes++;
-        } catch {}
+        } catch { }
         vm.stopBroadcast();
     }
 
@@ -759,7 +751,8 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
 
 /// @title DemoSimulationContinuous
 /// @notice Version that runs indefinitely until stopped
-/// @dev Run with: forge script script/DemoSimulation.s.sol:DemoSimulationContinuous --rpc-url http://127.0.0.1:8545 --broadcast
+/// @dev Run with: forge script script/DemoSimulation.s.sol:DemoSimulationContinuous --rpc-url http://127.0.0.1:8545
+/// --broadcast
 contract DemoSimulationContinuous is DemoSimulation {
     function run() external override {
         console2.log("\n");

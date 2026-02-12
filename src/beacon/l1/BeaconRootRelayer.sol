@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IL1CrossDomainMessenger} from "../IBeaconOracle.sol";
+import { IL1CrossDomainMessenger } from "../IBeaconOracle.sol";
 
 /// @title BeaconRootRelayer
 /// @notice L1 contract that reads beacon roots via EIP-4788 and relays them to L2
@@ -75,11 +75,7 @@ contract BeaconRootRelayer {
         relayedTimestamps[timestamp] = true;
 
         // Encode the call to receiveBeaconRoot on L2
-        bytes memory message = abi.encodeWithSignature(
-            "receiveBeaconRoot(uint64,bytes32)",
-            timestamp,
-            root
-        );
+        bytes memory message = abi.encodeWithSignature("receiveBeaconRoot(uint64,bytes32)", timestamp, root);
 
         // Send through the canonical bridge
         messenger.sendMessage(l2BeaconRootReceiver, message, DEFAULT_GAS_LIMIT);
@@ -101,11 +97,7 @@ contract BeaconRootRelayer {
 
             relayedTimestamps[timestamp] = true;
 
-            bytes memory message = abi.encodeWithSignature(
-                "receiveBeaconRoot(uint64,bytes32)",
-                timestamp,
-                root
-            );
+            bytes memory message = abi.encodeWithSignature("receiveBeaconRoot(uint64,bytes32)", timestamp, root);
 
             messenger.sendMessage(l2BeaconRootReceiver, message, DEFAULT_GAS_LIMIT);
 

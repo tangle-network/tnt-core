@@ -50,8 +50,7 @@ contract MultiAssetDelegationTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
             abi.encodeCall(
-                MultiAssetDelegation.initialize,
-                (admin, MIN_OPERATOR_STAKE, MIN_DELEGATION, OPERATOR_COMMISSION_BPS)
+                MultiAssetDelegation.initialize, (admin, MIN_OPERATOR_STAKE, MIN_DELEGATION, OPERATOR_COMMISSION_BPS)
             )
         );
         delegation = IMultiAssetDelegation(payable(address(proxy)));
@@ -68,7 +67,7 @@ contract MultiAssetDelegationTest is Test {
 
         // Enable ERC20 token
         vm.prank(admin);
-        delegation.enableAsset(address(token), 1 ether, 0.1 ether, 0, 10000);
+        delegation.enableAsset(address(token), 1 ether, 0.1 ether, 0, 10_000);
     }
 
     function _registerFacets(address proxy) internal {
@@ -109,9 +108,7 @@ contract MultiAssetDelegationTest is Test {
         vm.prank(operator1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                DelegationErrors.InsufficientStake.selector,
-                MIN_OPERATOR_STAKE,
-                MIN_OPERATOR_STAKE - 1
+                DelegationErrors.InsufficientStake.selector, MIN_OPERATOR_STAKE, MIN_OPERATOR_STAKE - 1
             )
         );
         delegation.registerOperator{ value: MIN_OPERATOR_STAKE - 1 }();
@@ -122,9 +119,7 @@ contract MultiAssetDelegationTest is Test {
         delegation.registerOperator{ value: MIN_OPERATOR_STAKE }();
 
         vm.prank(operator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.OperatorAlreadyRegistered.selector, operator1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.OperatorAlreadyRegistered.selector, operator1));
         delegation.registerOperator{ value: MIN_OPERATOR_STAKE }();
     }
 
@@ -292,13 +287,7 @@ contract MultiAssetDelegationTest is Test {
         blueprints[1] = 2;
 
         vm.prank(delegator1);
-        delegation.delegateWithOptions(
-            operator1,
-            address(0),
-            0.5 ether,
-            Types.BlueprintSelectionMode.Fixed,
-            blueprints
-        );
+        delegation.delegateWithOptions(operator1, address(0), 0.5 ether, Types.BlueprintSelectionMode.Fixed, blueprints);
 
         uint64[] memory selectedBlueprints = delegation.getDelegationBlueprints(delegator1, 0);
         assertEq(selectedBlueprints.length, 2);
@@ -440,8 +429,7 @@ contract MultiAssetDelegationTest is Test {
 
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
         commitments[0] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 10000
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }), exposureBps: 10_000
         });
 
         vm.prank(delegator1);
@@ -457,13 +445,7 @@ contract MultiAssetDelegationTest is Test {
         vm.startPrank(delegator1);
         delegation.deposit{ value: 10 ether }();
         uint64[] memory empty = new uint64[](0);
-        delegation.delegateWithOptions(
-            operator1,
-            address(0),
-            10 ether,
-            Types.BlueprintSelectionMode.All,
-            empty
-        );
+        delegation.delegateWithOptions(operator1, address(0), 10 ether, Types.BlueprintSelectionMode.All, empty);
         vm.stopPrank();
 
         vm.prank(admin);
@@ -473,20 +455,13 @@ contract MultiAssetDelegationTest is Test {
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
         commitments[0] = Types.AssetSecurityCommitment({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 10000 // 100% exposure
+            exposureBps: 10_000 // 100% exposure
         });
 
         // Total slashable: 10 operator + 10 delegator = 20 ether
         // Slash 10% of total
         vm.prank(admin);
-        uint256 slashed = delegation.slashForService(
-            operator1,
-            1,
-            1,
-            commitments,
-            1000,
-            bytes32("evidence")
-        );
+        uint256 slashed = delegation.slashForService(operator1, 1, 1, commitments, 1000, bytes32("evidence"));
 
         assertEq(slashed, 2 ether);
         // Operator should lose 1 ether (10% of 10 ether)
@@ -507,20 +482,8 @@ contract MultiAssetDelegationTest is Test {
 
         // Delegate both to operator (All mode)
         uint64[] memory empty = new uint64[](0);
-        delegation.delegateWithOptions(
-            operator1,
-            address(0),
-            5 ether,
-            Types.BlueprintSelectionMode.All,
-            empty
-        );
-        delegation.delegateWithOptions(
-            operator1,
-            address(token),
-            5 ether,
-            Types.BlueprintSelectionMode.All,
-            empty
-        );
+        delegation.delegateWithOptions(operator1, address(0), 5 ether, Types.BlueprintSelectionMode.All, empty);
+        delegation.delegateWithOptions(operator1, address(token), 5 ether, Types.BlueprintSelectionMode.All, empty);
         vm.stopPrank();
 
         vm.prank(admin);
@@ -530,7 +493,7 @@ contract MultiAssetDelegationTest is Test {
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](2);
         commitments[0] = Types.AssetSecurityCommitment({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 10000 // 100% exposure for native
+            exposureBps: 10_000 // 100% exposure for native
         });
         commitments[1] = Types.AssetSecurityCommitment({
             asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(token) }),
@@ -538,14 +501,7 @@ contract MultiAssetDelegationTest is Test {
         });
 
         vm.prank(admin);
-        uint256 slashed = delegation.slashForService(
-            operator1,
-            1,
-            1,
-            commitments,
-            500,
-            bytes32("evidence")
-        );
+        uint256 slashed = delegation.slashForService(operator1, 1, 1, commitments, 500, bytes32("evidence"));
 
         // Should slash proportionally from committed assets
         uint256 nativeSlashed = (15 ether * 500) / 10_000;
@@ -563,20 +519,12 @@ contract MultiAssetDelegationTest is Test {
 
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
         commitments[0] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: 10000
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }), exposureBps: 10_000
         });
 
         // Try to slash more than available
         vm.prank(admin);
-        uint256 slashed = delegation.slashForService(
-            operator1,
-            1,
-            1,
-            commitments,
-            10_000,
-            bytes32("evidence")
-        );
+        uint256 slashed = delegation.slashForService(operator1, 1, 1, commitments, 10_000, bytes32("evidence"));
 
         // Should only slash up to available amount
         assertEq(slashed, 5 ether);
@@ -595,13 +543,7 @@ contract MultiAssetDelegationTest is Test {
         delegation.depositERC20(address(token), 1 ether);
 
         uint64[] memory empty = new uint64[](0);
-        delegation.delegateWithOptions(
-            operator1,
-            address(token),
-            0.5 ether,
-            Types.BlueprintSelectionMode.All,
-            empty
-        );
+        delegation.delegateWithOptions(operator1, address(token), 0.5 ether, Types.BlueprintSelectionMode.All, empty);
         vm.stopPrank();
 
         Types.BondInfoDelegator[] memory delegations = delegation.getDelegations(delegator1);

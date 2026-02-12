@@ -21,7 +21,11 @@ contract MockServiceFeeDistributor is IServiceFeeDistributor {
         address operator,
         address paymentToken,
         uint256 amount
-    ) external payable override {
+    )
+        external
+        payable
+        override
+    {
         if (paymentToken == address(0)) {
             require(msg.value == amount, "bad msg.value");
         } else {
@@ -36,7 +40,11 @@ contract MockServiceFeeDistributor is IServiceFeeDistributor {
         address operator,
         address paymentToken,
         uint256 amount
-    ) external payable override {
+    )
+        external
+        payable
+        override
+    {
         if (paymentToken == address(0)) {
             require(msg.value == amount, "bad msg.value");
         } else {
@@ -45,11 +53,7 @@ contract MockServiceFeeDistributor is IServiceFeeDistributor {
         emit ServiceFeeReceived(serviceId, blueprintId, operator, paymentToken, amount);
     }
 
-    function claimFor(
-        address,
-        address,
-        Types.Asset calldata
-    ) external pure override returns (uint256 amount) {
+    function claimFor(address, address, Types.Asset calldata) external pure override returns (uint256 amount) {
         return amount;
     }
 
@@ -77,7 +81,12 @@ contract MockServiceFeeDistributor is IServiceFeeDistributor {
         address,
         address,
         bytes32
-    ) external pure override returns (uint8 mode, uint256 principal, uint256 score) {
+    )
+        external
+        pure
+        override
+        returns (uint8 mode, uint256 principal, uint256 score)
+    {
         return (mode, principal, score);
     }
 
@@ -95,20 +104,34 @@ contract MockServiceFeeDistributor is IServiceFeeDistributor {
         uint64[] calldata,
         uint256[] calldata,
         uint16
-    ) external override {}
-
-    function onBlueprintsRebalanced(address, address, Types.Asset calldata, uint64[] calldata, uint256[] calldata)
+    )
         external
         override
-    {}
-    function onAllModeSlashed(address, Types.Asset calldata, uint16) external override {}
-    function onFixedModeSlashed(address, uint64, Types.Asset calldata, uint16) external override {}
+    { }
+
+    function onBlueprintsRebalanced(
+        address,
+        address,
+        Types.Asset calldata,
+        uint64[] calldata,
+        uint256[] calldata
+    )
+        external
+        override
+    { }
+    function onAllModeSlashed(address, Types.Asset calldata, uint16) external override { }
+    function onFixedModeSlashed(address, uint64, Types.Asset calldata, uint16) external override { }
 
     function getPoolScore(
         address,
         uint64,
         Types.Asset calldata
-    ) external pure override returns (uint256 allScore, uint256 fixedScore) {
+    )
+        external
+        pure
+        override
+        returns (uint256 allScore, uint256 fixedScore)
+    {
         return (0, 0);
     }
 
@@ -116,12 +139,17 @@ contract MockServiceFeeDistributor is IServiceFeeDistributor {
         uint64,
         uint64,
         address
-    ) external pure override returns (uint256 totalUsdExposure) {
+    )
+        external
+        pure
+        override
+        returns (uint256 totalUsdExposure)
+    {
         return totalUsdExposure;
     }
 
-    function onOperatorLeaving(uint64, address) external override {}
-    function onServiceTerminated(uint64, address) external override {}
+    function onOperatorLeaving(uint64, address) external override { }
+    function onServiceTerminated(uint64, address) external override { }
 
-    receive() external payable {}
+    receive() external payable { }
 }

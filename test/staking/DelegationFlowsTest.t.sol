@@ -19,7 +19,8 @@ import { StakingAdminFacet } from "../../src/facets/staking/StakingAdminFacet.so
 
 /// @notice Mock ERC20 for testing
 contract MockToken is ERC20 {
-    constructor() ERC20("Mock", "MCK") {}
+    constructor() ERC20("Mock", "MCK") { }
+
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
@@ -42,10 +43,7 @@ contract DelegationFlowsTest is Test {
     function setUp() public {
         // Deploy
         MultiAssetDelegation impl = new MultiAssetDelegation();
-        bytes memory initData = abi.encodeCall(
-            MultiAssetDelegation.initialize,
-            (admin, MIN_OPERATOR_STAKE, 0, 1000)
-        );
+        bytes memory initData = abi.encodeCall(MultiAssetDelegation.initialize, (admin, MIN_OPERATOR_STAKE, 0, 1000));
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         delegation = IMultiAssetDelegation(payable(address(proxy)));
 
@@ -54,7 +52,7 @@ contract DelegationFlowsTest is Test {
         // Deploy mock token and enable it
         token = new MockToken();
         vm.prank(admin);
-        delegation.enableAsset(address(token), 1 ether, 0.1 ether, 0, 10000);
+        delegation.enableAsset(address(token), 1 ether, 0.1 ether, 0, 10_000);
 
         // Fund accounts
         vm.deal(operator1, 100 ether);
@@ -138,11 +136,7 @@ contract DelegationFlowsTest is Test {
         vm.startPrank(delegator1);
         token.approve(address(delegation), 5 ether);
         delegation.depositAndDelegateWithOptions(
-            operator1,
-            address(token),
-            5 ether,
-            Types.BlueprintSelectionMode.All,
-            new uint64[](0)
+            operator1, address(token), 5 ether, Types.BlueprintSelectionMode.All, new uint64[](0)
         );
         vm.stopPrank();
 
@@ -333,9 +327,7 @@ contract DelegationFlowsTest is Test {
         delegation.deposit{ value: 1 ether }();
 
         vm.prank(delegator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.InsufficientDeposit.selector, 1 ether, 5 ether)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.InsufficientDeposit.selector, 1 ether, 5 ether));
         delegation.delegate(operator1, 5 ether);
     }
 
@@ -344,9 +336,7 @@ contract DelegationFlowsTest is Test {
         delegation.depositAndDelegate{ value: 5 ether }(operator1);
 
         vm.prank(delegator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.InsufficientDelegation.selector, 5 ether, 10 ether)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.InsufficientDelegation.selector, 5 ether, 10 ether));
         delegation.scheduleDelegatorUnstake(operator1, address(0), 10 ether);
     }
 
@@ -359,9 +349,7 @@ contract DelegationFlowsTest is Test {
         // free = deposit - locked = 5 - 0 = 5
         // 5 < 10 → reverts with AmountLocked
         // TODO: Consider changing to InsufficientAvailableBalance for clarity
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.AmountLocked.selector, 0, 10 ether)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.AmountLocked.selector, 0, 10 ether));
         delegation.scheduleWithdraw(address(0), 10 ether);
         vm.stopPrank();
     }
@@ -372,9 +360,7 @@ contract DelegationFlowsTest is Test {
 
         // Can't withdraw delegated funds
         vm.prank(delegator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.InsufficientAvailableBalance.selector, 0, 5 ether)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.InsufficientAvailableBalance.selector, 0, 5 ether));
         delegation.scheduleWithdraw(address(0), 5 ether);
     }
 
@@ -386,9 +372,7 @@ contract DelegationFlowsTest is Test {
 
         // Cannot delegate to unregistered operator
         vm.prank(delegator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.OperatorNotRegistered.selector, unregisteredOp)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.OperatorNotRegistered.selector, unregisteredOp));
         delegation.delegate(unregisteredOp, 5 ether);
     }
 
@@ -411,9 +395,7 @@ contract DelegationFlowsTest is Test {
 
         // Never delegated to operator1
         vm.prank(delegator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.DelegationNotFound.selector, delegator1, operator1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.DelegationNotFound.selector, delegator1, operator1));
         delegation.scheduleDelegatorUnstake(operator1, address(0), 1 ether);
     }
 

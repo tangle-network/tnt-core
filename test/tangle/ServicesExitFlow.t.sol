@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {BaseTest} from "../BaseTest.sol";
-import {Types} from "../../src/libraries/Types.sol";
-import {Errors} from "../../src/libraries/Errors.sol";
-import {BlueprintServiceManagerBase} from "../../src/BlueprintServiceManagerBase.sol";
+import { BaseTest } from "../BaseTest.sol";
+import { Types } from "../../src/libraries/Types.sol";
+import { Errors } from "../../src/libraries/Errors.sol";
+import { BlueprintServiceManagerBase } from "../../src/BlueprintServiceManagerBase.sol";
 
 contract CustomExitManager is BlueprintServiceManagerBase {
     uint64 public constant MIN_COMMITMENT = 0;
@@ -135,7 +135,8 @@ contract ServicesExitFlowTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic-exit", manager, config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic-exit", manager, config));
 
         _registerOperator(operator1, 5 ether);
         _registerOperator(operator2, 5 ether);

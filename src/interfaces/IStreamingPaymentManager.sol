@@ -13,17 +13,17 @@ interface IStreamingPaymentManager {
         uint256 amount,
         uint64 startTime,
         uint64 endTime
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Drip a specific stream and return chunk info
-    function dripAndGetChunk(uint64 serviceId, address operator)
+    function dripAndGetChunk(
+        uint64 serviceId,
+        address operator
+    )
         external
-        returns (
-            uint256 amount,
-            uint256 durationSeconds,
-            uint64 blueprintId,
-            address paymentToken
-        );
+        returns (uint256 amount, uint256 durationSeconds, uint64 blueprintId, address paymentToken);
 
     /// @notice Drip all active streams for an operator
     function dripOperatorStreams(address operator)
@@ -46,7 +46,10 @@ interface IStreamingPaymentManager {
     function getOperatorActiveStreams(address operator) external view returns (uint64[] memory);
 
     /// @notice Get streaming payment details
-    function getStreamingPayment(uint64 serviceId, address operator)
+    function getStreamingPayment(
+        uint64 serviceId,
+        address operator
+    )
         external
         view
         returns (

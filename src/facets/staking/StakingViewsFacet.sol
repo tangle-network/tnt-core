@@ -65,15 +65,16 @@ contract StakingViewsFacet is StakingFacetBase, IFacetSelectors {
     function getOperatorDelegatedStakeForAsset(
         address operator,
         Types.Asset calldata asset
-    ) external view returns (uint256) {
+    )
+        external
+        view
+        returns (uint256)
+    {
         bytes32 assetHash = _assetHash(asset);
         return _getOperatorDelegatedStakeForAsset(operator, assetHash);
     }
 
-    function getOperatorStakeForAsset(
-        address operator,
-        Types.Asset calldata asset
-    ) external view returns (uint256) {
+    function getOperatorStakeForAsset(address operator, Types.Asset calldata asset) external view returns (uint256) {
         bytes32 assetHash = _assetHash(asset);
         uint256 delegated = _getOperatorDelegatedStakeForAsset(operator, assetHash);
         if (asset.kind == Types.AssetKind.Native && _operatorBondToken == address(0)) {
@@ -89,7 +90,11 @@ contract StakingViewsFacet is StakingFacetBase, IFacetSelectors {
         address operator,
         address token,
         uint256 amount
-    ) external view returns (uint256 shares) {
+    )
+        external
+        view
+        returns (uint256 shares)
+    {
         if (amount == 0) revert DelegationErrors.ZeroAmount();
         Types.Asset memory asset = token == address(0)
             ? Types.Asset(Types.AssetKind.Native, address(0))

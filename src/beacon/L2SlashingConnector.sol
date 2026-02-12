@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ValidatorPodManager} from "./ValidatorPodManager.sol";
-import {ICrossChainMessenger} from "./interfaces/ICrossChainMessenger.sol";
+import { ValidatorPodManager } from "./ValidatorPodManager.sol";
+import { ICrossChainMessenger } from "./interfaces/ICrossChainMessenger.sol";
 
 /// @title L2SlashingConnector
 /// @notice Connects beacon chain slashing events to Tangle L2 slashing mechanism
@@ -41,30 +41,19 @@ contract L2SlashingConnector {
 
     /// @notice Emitted when a beacon chain slashing is propagated to L2
     event BeaconSlashingPropagated(
-        address indexed pod,
-        uint64 oldFactor,
-        uint64 newFactor,
-        uint256 l2SlashAmount,
-        bytes32 messageId
+        address indexed pod, uint64 oldFactor, uint64 newFactor, uint256 l2SlashAmount, bytes32 messageId
     );
 
     /// @notice Emitted when an operator is slashed on L2 due to beacon slashing
     event OperatorSlashedFromBeacon(
-        address indexed operator,
-        address indexed pod,
-        uint256 amount,
-        uint256 destinationChainId
+        address indexed operator, address indexed pod, uint256 amount, uint256 destinationChainId
     );
 
     /// @notice Emitted when the slashing oracle is updated
     event SlashingOracleUpdated(address indexed oldOracle, address indexed newOracle);
 
     /// @notice Emitted when cross-chain config is updated
-    event CrossChainConfigUpdated(
-        uint256 indexed chainId,
-        address receiver,
-        uint256 gasLimit
-    );
+    event CrossChainConfigUpdated(uint256 indexed chainId, address receiver, uint256 gasLimit);
 
     /// @notice Emitted when messenger is updated
     event MessengerUpdated(address indexed oldMessenger, address indexed newMessenger);
@@ -82,9 +71,9 @@ contract L2SlashingConnector {
 
     /// @notice Configuration for a destination chain
     struct ChainConfig {
-        address receiver;      // L2SlashingReceiver address on destination
-        uint256 gasLimit;      // Gas limit for execution on destination
-        bool enabled;          // Whether this destination is enabled
+        address receiver; // L2SlashingReceiver address on destination
+        uint256 gasLimit; // Gas limit for execution on destination
+        bool enabled; // Whether this destination is enabled
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -165,10 +154,7 @@ contract L2SlashingConnector {
     /// @param pod The ValidatorPod that was slashed on beacon chain
     /// @param newSlashingFactor The new beaconChainSlashingFactor from the pod
     /// @dev Called by the slashing oracle when it detects a slashing factor decrease
-    function propagateBeaconSlashing(
-        address pod,
-        uint64 newSlashingFactor
-    ) external payable onlySlashingOracle {
+    function propagateBeaconSlashing(address pod, uint64 newSlashingFactor) external payable onlySlashingOracle {
         _propagateBeaconSlashing(pod, newSlashingFactor, defaultDestinationChainId);
     }
 
@@ -180,7 +166,11 @@ contract L2SlashingConnector {
         address pod,
         uint64 newSlashingFactor,
         uint256 destinationChainId
-    ) external payable onlySlashingOracle {
+    )
+        external
+        payable
+        onlySlashingOracle
+    {
         _propagateBeaconSlashing(pod, newSlashingFactor, destinationChainId);
     }
 
@@ -190,16 +180,19 @@ contract L2SlashingConnector {
     function batchPropagateBeaconSlashing(
         address[] calldata pods,
         uint64[] calldata newSlashingFactors
-    ) external payable onlySlashingOracle {
+    )
+        external
+        payable
+        onlySlashingOracle
+    {
         require(pods.length == newSlashingFactors.length, "Length mismatch");
 
         for (uint256 i = 0; i < pods.length; i++) {
             // Try to propagate, continue on failure
-            try this.propagateBeaconSlashingInternal{value: 0}(
-                pods[i],
-                newSlashingFactors[i],
-                defaultDestinationChainId
-            ) {} catch {}
+            try this.propagateBeaconSlashingInternal{ value: 0 }(
+                pods[i], newSlashingFactors[i], defaultDestinationChainId
+            ) { }
+                catch { }
         }
     }
 
@@ -208,16 +201,15 @@ contract L2SlashingConnector {
         address pod,
         uint64 newSlashingFactor,
         uint256 destinationChainId
-    ) external payable {
+    )
+        external
+        payable
+    {
         require(msg.sender == address(this), "Internal only");
         _propagateBeaconSlashing(pod, newSlashingFactor, destinationChainId);
     }
 
-    function _propagateBeaconSlashing(
-        address pod,
-        uint64 newSlashingFactor,
-        uint256 destinationChainId
-    ) internal {
+    function _propagateBeaconSlashing(address pod, uint64 newSlashingFactor, uint256 destinationChainId) internal {
         // Validate chain config
         ChainConfig memory config = chainConfigs[destinationChainId];
         if (!config.enabled || config.receiver == address(0)) {
@@ -260,16 +252,8 @@ contract L2SlashingConnector {
         cumulativeSlashAmount[pod] += l2SlashAmount;
 
         // Encode the slash message
-        bytes memory payload = abi.encodePacked(
-            SLASH_MESSAGE_TYPE,
-            abi.encode(
-                operator,
-                slashBps,
-                newSlashingFactor,
-                nonce++,
-                pod
-            )
-        );
+        bytes memory payload =
+            abi.encodePacked(SLASH_MESSAGE_TYPE, abi.encode(operator, slashBps, newSlashingFactor, nonce++, pod));
 
         // Estimate fee and validate
         uint256 fee = messenger.estimateFee(destinationChainId, payload, config.gasLimit);
@@ -278,16 +262,12 @@ contract L2SlashingConnector {
         }
 
         // Send cross-chain message
-        bytes32 messageId = messenger.sendMessage{value: fee}(
-            destinationChainId,
-            config.receiver,
-            payload,
-            config.gasLimit
-        );
+        bytes32 messageId =
+            messenger.sendMessage{ value: fee }(destinationChainId, config.receiver, payload, config.gasLimit);
 
         // Refund excess
         if (msg.value > fee) {
-            (bool success, ) = msg.sender.call{value: msg.value - fee}("");
+            (bool success,) = msg.sender.call{ value: msg.value - fee }("");
             require(success, "Refund failed");
         }
 
@@ -300,10 +280,7 @@ contract L2SlashingConnector {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get the pending slash amount for a pod
-    function getPendingSlashAmount(
-        address pod,
-        uint64 currentSlashingFactor
-    ) external view returns (uint256) {
+    function getPendingSlashAmount(address pod, uint64 currentSlashingFactor) external view returns (uint256) {
         uint64 lastFactor = lastProcessedSlashingFactor[pod];
         if (lastFactor == 0) {
             lastFactor = 1e18;
@@ -325,10 +302,7 @@ contract L2SlashingConnector {
     }
 
     /// @notice Check if a pod has pending slashing to propagate
-    function hasPendingSlashing(
-        address pod,
-        uint64 currentSlashingFactor
-    ) external view returns (bool) {
+    function hasPendingSlashing(address pod, uint64 currentSlashingFactor) external view returns (bool) {
         uint64 lastFactor = lastProcessedSlashingFactor[pod];
         if (lastFactor == 0) {
             lastFactor = 1e18;
@@ -341,7 +315,11 @@ contract L2SlashingConnector {
         address pod,
         uint64 newSlashingFactor,
         uint256 destinationChainId
-    ) external view returns (uint256) {
+    )
+        external
+        view
+        returns (uint256)
+    {
         if (address(messenger) == address(0)) return 0;
 
         ChainConfig memory config = chainConfigs[destinationChainId];
@@ -355,10 +333,8 @@ contract L2SlashingConnector {
         uint16 slashBps = uint16((slashPercentage * 10_000) / 1e18);
         if (slashBps > 10_000) slashBps = 10_000;
 
-        bytes memory payload = abi.encodePacked(
-            SLASH_MESSAGE_TYPE,
-            abi.encode(operator, slashBps, newSlashingFactor, nonce, pod)
-        );
+        bytes memory payload =
+            abi.encodePacked(SLASH_MESSAGE_TYPE, abi.encode(operator, slashBps, newSlashingFactor, nonce, pod));
 
         return messenger.estimateFee(destinationChainId, payload, config.gasLimit);
     }
@@ -375,17 +351,8 @@ contract L2SlashingConnector {
     }
 
     /// @notice Configure a destination chain
-    function setChainConfig(
-        uint256 chainId,
-        address receiver,
-        uint256 gasLimit,
-        bool enabled
-    ) external onlyOwner {
-        chainConfigs[chainId] = ChainConfig({
-            receiver: receiver,
-            gasLimit: gasLimit,
-            enabled: enabled
-        });
+    function setChainConfig(uint256 chainId, address receiver, uint256 gasLimit, bool enabled) external onlyOwner {
+        chainConfigs[chainId] = ChainConfig({ receiver: receiver, gasLimit: gasLimit, enabled: enabled });
         emit CrossChainConfigUpdated(chainId, receiver, gasLimit);
     }
 
@@ -400,10 +367,7 @@ contract L2SlashingConnector {
     }
 
     /// @notice Batch register pod to operator mappings
-    function batchRegisterPodOperators(
-        address[] calldata pods,
-        address[] calldata operators
-    ) external onlyOwner {
+    function batchRegisterPodOperators(address[] calldata pods, address[] calldata operators) external onlyOwner {
         require(pods.length == operators.length, "Length mismatch");
         for (uint256 i = 0; i < pods.length; i++) {
             podOperator[pods[i]] = operators[i];
@@ -437,5 +401,5 @@ contract L2SlashingConnector {
     }
 
     /// @notice Allow contract to receive ETH for fee payments
-    receive() external payable {}
+    receive() external payable { }
 }
