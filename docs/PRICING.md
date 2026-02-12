@@ -265,6 +265,54 @@ function getJobQuotedOperators(uint64 serviceId, uint64 callId) external view re
 function getJobQuotedPrice(uint64 serviceId, uint64 callId, address operator) external view returns (uint256);
 ```
 
+### Operator-side implementation (blueprint-sdk)
+
+The on-chain contract verifies quotes — but operators need off-chain software to **generate and sign** them. The `blueprint-sdk` provides this infrastructure.
+
+**EIP-712 signing utility** — `blueprint-tangle-extra` crate:
+
+```rust
+use blueprint_tangle_extra::job_quote::{JobQuoteSigner, JobQuoteDetails, QuoteSigningDomain};
+
+let domain = QuoteSigningDomain {
+    chain_id: 1,
+    verifying_contract: tangle_proxy_address,
+};
+let signer = JobQuoteSigner::new(operator_keypair, domain);
+
+let details = JobQuoteDetails {
+    service_id: 42,
+    job_index: 7,
+    price: U256::from(250_000_000_000_000u64), // 0.00025 ETH
+    timestamp: now,
+    expiry: now + 3600,
+};
+
+let signed_quote = signer.sign(&details); // Returns SignedJobQuote ready for on-chain
+```
+
+**gRPC quote-serving server** — `blueprint-pricing-engine` crate:
+
+The pricing-engine is a standalone daemon that operators run alongside their blueprint. It exposes two gRPC endpoints:
+
+```proto
+service PricingEngine {
+  rpc GetPrice (GetPriceRequest) returns (GetPriceResponse);      // Service-level quotes
+  rpc GetJobPrice (GetJobPriceRequest) returns (GetJobPriceResponse); // Per-job quotes
+}
+```
+
+The operator configures per-job prices in a config map `(service_id, job_index) → price`. When a user requests a quote, the engine looks up the price, signs it with EIP-712, and returns the signed quote. The user then submits it on-chain via `submitJobFromQuote()`.
+
+**What blueprint developers need to do for RFQ support:**
+
+1. Use `JobQuoteSigner` from `blueprint-tangle-extra` for EIP-712 signing
+2. Either use the `pricing-engine` daemon directly, or build custom quote-serving logic into your operator binary
+3. Define your pricing dimensions (per-model, per-resource, flat rate) and expose operator-configurable cost parameters
+4. The operator runs your software and configures their prices — the protocol handles the rest
+
+See `blueprint-sdk/crates/pricing-engine/` for the complete reference implementation including benchmarking, caching, and gRPC transport.
+
 ---
 
 ## Service-Level RFQ (createServiceFromQuotes)
@@ -398,6 +446,8 @@ Pricing-related storage in `TangleStorage.sol`:
 
 ### Blueprint developer
 
+**On-chain (Solidity):**
+
 1. Choose `PricingModel` at blueprint registration
 2. Set `BlueprintConfig.eventRate` as the default per-job rate (EventDriven)
 3. Set `subscriptionRate` and `subscriptionInterval` (Subscription)
@@ -405,16 +455,24 @@ Pricing-related storage in `TangleStorage.sol`:
 5. Optionally implement `queryDeveloperPaymentAddress()` in your BSM
 6. Optionally implement `getRequiredResultCount()` for multi-operator result thresholds
 
+**Off-chain (Rust operator binary):**
+
+7. If using RFQ: integrate `JobQuoteSigner` from `blueprint-tangle-extra` for EIP-712 quote signing
+8. If using RFQ: either embed the `pricing-engine` gRPC server or implement your own quote-serving endpoint
+9. Define operator-configurable pricing parameters (resource rates, model costs, margins)
+10. For `Subscription`: run `SubscriptionBillingKeeper` from `blueprint-tangle-extra` to auto-bill
+
 ### Operator
 
-1. For `PayOnce`/`createServiceFromQuotes`: sign `QuoteDetails` with your price for the requested TTL
-2. For Job RFQ: sign `JobQuoteDetails` with your price for the specific job
-3. For `Subscription`: call `billSubscription()` or `billSubscriptionBatch()` periodically to receive payment
-4. Call `claimRewards()` to withdraw accrued earnings
+1. For fixed-rate blueprints: no pricing config needed — rates are set by the blueprint owner
+2. For RFQ blueprints: configure per-job prices in the blueprint's operator config (e.g., `operator.toml`)
+3. The blueprint software handles quote signing and serving automatically via `JobQuoteSigner` + gRPC
+4. For `Subscription` services: billing happens automatically if the blueprint runs `SubscriptionBillingKeeper`, or call `billSubscription()` manually
+5. Call `claimRewards()` to withdraw accrued earnings
 
 ### Service consumer
 
 1. For `EventDriven` (fixed rates): call `submitJob()` with `msg.value >= getJobEventRate(blueprintId, jobIndex)`
-2. For `EventDriven` (RFQ): request quotes from operators off-chain, call `submitJobFromQuote()` with signed quotes
+2. For `EventDriven` (RFQ): request quotes from operators via their gRPC endpoint, call `submitJobFromQuote()` with signed quotes
 3. For `Subscription`: call `fundService()` to keep escrow funded
 4. For `PayOnce`: pay at service creation via `createServiceFromQuotes()`
