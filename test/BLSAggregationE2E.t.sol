@@ -15,32 +15,17 @@ contract MockAggregationBSME2E is BlueprintServiceManagerBase {
     mapping(uint8 => uint16) public thresholdBps;
     mapping(uint8 => uint8) public thresholdType;
 
-    function setAggregationConfig(
-        uint8 jobIndex,
-        bool required,
-        uint16 _thresholdBps,
-        uint8 _thresholdType
-    ) external {
+    function setAggregationConfig(uint8 jobIndex, bool required, uint16 _thresholdBps, uint8 _thresholdType) external {
         aggregationRequired[jobIndex] = required;
         thresholdBps[jobIndex] = _thresholdBps;
         thresholdType[jobIndex] = _thresholdType;
     }
 
-    function requiresAggregation(uint64, uint8 jobIndex)
-        external
-        view
-        override
-        returns (bool)
-    {
+    function requiresAggregation(uint64, uint8 jobIndex) external view override returns (bool) {
         return aggregationRequired[jobIndex];
     }
 
-    function getAggregationThreshold(uint64, uint8 jobIndex)
-        external
-        view
-        override
-        returns (uint16, uint8)
-    {
+    function getAggregationThreshold(uint64, uint8 jobIndex) external view override returns (uint16, uint8) {
         uint16 threshold = thresholdBps[jobIndex];
         if (threshold == 0) threshold = 6700;
         return (threshold, thresholdType[jobIndex]);
@@ -66,9 +51,9 @@ contract BLSAggregationE2ETest is BaseTest {
         blueprintId = _createBlueprintAsSender("ipfs://bls-e2e-test", address(mockBsm));
 
         // Register operators with different stakes for stake-weighted tests
-        _registerOperator(operator1, 5 ether);  // 50%
-        _registerOperator(operator2, 3 ether);  // 30%
-        _registerOperator(operator3, 2 ether);  // 20%
+        _registerOperator(operator1, 5 ether); // 50%
+        _registerOperator(operator2, 3 ether); // 30%
+        _registerOperator(operator3, 2 ether); // 20%
 
         _registerForBlueprint(operator1, blueprintId);
         _registerForBlueprint(operator2, blueprintId);
@@ -119,12 +104,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
         // Submit aggregated result with valid signature
         tangle.submitAggregatedResult(
-            serviceId,
-            callId,
-            output,
-            signerBitmap,
-            BLSTestHelper.g1ToArray(sig),
-            BLSTestHelper.g2ToArray(pubkey)
+            serviceId, callId, output, signerBitmap, BLSTestHelper.g1ToArray(sig), BLSTestHelper.g2ToArray(pubkey)
         );
 
         // Verify job completed
@@ -155,7 +135,7 @@ contract BLSAggregationE2ETest is BaseTest {
     ///      Single signer test validates the BLS flow works.
     function test_ValidBLS_ThreeSigners() public {
         // Enable aggregation with 100% threshold (all 3 must sign)
-        mockBsm.setAggregationConfig(0, true, 10000, 0);
+        mockBsm.setAggregationConfig(0, true, 10_000, 0);
 
         vm.prank(user1);
         uint64 callId = tangle.submitJob(serviceId, 0, "multi-signer test");
@@ -174,14 +154,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
         // Should fail BLS verification (not threshold)
         vm.expectRevert();
-        tangle.submitAggregatedResult(
-            serviceId,
-            callId,
-            "output",
-            signerBitmap,
-            dummySig,
-            dummyPubkey
-        );
+        tangle.submitAggregatedResult(serviceId, callId, "output", signerBitmap, dummySig, dummyPubkey);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -250,9 +223,8 @@ contract BLSAggregationE2ETest is BaseTest {
 
         // Single signer (operator 0 with 50% stake)
         uint256 signerBitmap = 0x1;
-        Types.BN254G1Point memory sig = BLSTestHelper.sign(
-            BLSTestHelper.buildJobResultMessage(serviceId, callId0, output), 1
-        );
+        Types.BN254G1Point memory sig =
+            BLSTestHelper.sign(BLSTestHelper.buildJobResultMessage(serviceId, callId0, output), 1);
 
         // Count-based with 50% threshold: floor(3 * 0.5) = 1 required
         // Single signer satisfies this, so it succeeds
@@ -289,8 +261,7 @@ contract BLSAggregationE2ETest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 dynamicBpId =
-            _createBlueprintWithConfigAsSender("ipfs://dynamic", address(0), config);
+        uint64 dynamicBpId = _createBlueprintWithConfigAsSender("ipfs://dynamic", address(0), config);
 
         _registerForBlueprint(operator1, dynamicBpId);
         _registerForBlueprint(operator2, dynamicBpId);
@@ -324,7 +295,7 @@ contract BLSAggregationE2ETest is BaseTest {
         // Schedule exit
         vm.prank(operator2);
         tangle.scheduleExit(dynamicSvcId);
-        assertEq(uint(tangle.getExitStatus(dynamicSvcId, operator2)), uint(Types.ExitStatus.Scheduled));
+        assertEq(uint256(tangle.getExitStatus(dynamicSvcId, operator2)), uint256(Types.ExitStatus.Scheduled));
 
         // Warp past exit queue duration (7 days default)
         vm.warp(block.timestamp + 7 days + 1);
@@ -359,8 +330,7 @@ contract BLSAggregationE2ETest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 dynamicBpId =
-            _createBlueprintWithConfigAsSender("ipfs://dynamic-agg", address(0), config);
+        uint64 dynamicBpId = _createBlueprintWithConfigAsSender("ipfs://dynamic-agg", address(0), config);
 
         _registerForBlueprint(operator1, dynamicBpId);
         _registerForBlueprint(operator2, dynamicBpId);
@@ -443,12 +413,7 @@ contract BLSAggregationE2ETest is BaseTest {
         // This SHOULD revert with ServiceNotActive, but it doesn't!
         // Documenting current behavior: terminated services accept BLS submissions
         tangle.submitAggregatedResult(
-            serviceId,
-            callId,
-            output,
-            0x1,
-            BLSTestHelper.g1ToArray(sig),
-            BLSTestHelper.g2ToArray(pubkey)
+            serviceId, callId, output, 0x1, BLSTestHelper.g1ToArray(sig), BLSTestHelper.g2ToArray(pubkey)
         );
 
         // Job completes even though service is terminated
@@ -526,23 +491,13 @@ contract BLSAggregationE2ETest is BaseTest {
 
         // First submission - succeeds
         tangle.submitAggregatedResult(
-            serviceId,
-            callId,
-            output,
-            0x1,
-            BLSTestHelper.g1ToArray(sig),
-            BLSTestHelper.g2ToArray(pubkey)
+            serviceId, callId, output, 0x1, BLSTestHelper.g1ToArray(sig), BLSTestHelper.g2ToArray(pubkey)
         );
 
         // Second submission with same signature - should fail
         vm.expectRevert(abi.encodeWithSelector(Errors.JobAlreadyCompleted.selector, serviceId, callId));
         tangle.submitAggregatedResult(
-            serviceId,
-            callId,
-            output,
-            0x1,
-            BLSTestHelper.g1ToArray(sig),
-            BLSTestHelper.g2ToArray(pubkey)
+            serviceId, callId, output, 0x1, BLSTestHelper.g1ToArray(sig), BLSTestHelper.g2ToArray(pubkey)
         );
     }
 }

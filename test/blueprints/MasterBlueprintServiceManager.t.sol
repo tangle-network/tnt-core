@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import {MasterBlueprintServiceManager} from "../../src/MasterBlueprintServiceManager.sol";
+import { MasterBlueprintServiceManager } from "../../src/MasterBlueprintServiceManager.sol";
 
 contract MasterBlueprintServiceManagerTest is Test {
     MasterBlueprintServiceManager internal mbsm;
@@ -34,14 +34,13 @@ contract MasterBlueprintServiceManagerTest is Test {
 
     function test_OnBlueprintCreated_RecordsDefinition() public {
         bytes memory encodedDefinition = abi.encode("ipfs://definition");
-        uint64 nowTs = 1234567;
+        uint64 nowTs = 1_234_567;
         vm.warp(nowTs);
 
         vm.prank(tangle);
         mbsm.onBlueprintCreated(BLUEPRINT_ID, address(0xBEEF), encodedDefinition);
 
-        MasterBlueprintServiceManager.BlueprintRecord memory record =
-            mbsm.getBlueprintRecord(BLUEPRINT_ID);
+        MasterBlueprintServiceManager.BlueprintRecord memory record = mbsm.getBlueprintRecord(BLUEPRINT_ID);
 
         assertEq(record.owner, address(0xBEEF));
         assertEq(record.recordedAt, nowTs);
@@ -51,9 +50,7 @@ contract MasterBlueprintServiceManagerTest is Test {
     function test_OnBlueprintCreated_RevertsWithoutRole() public {
         vm.expectRevert(
             abi.encodeWithSignature(
-                "AccessControlUnauthorizedAccount(address,bytes32)",
-                address(this),
-                mbsm.TANGLE_ROLE()
+                "AccessControlUnauthorizedAccount(address,bytes32)", address(this), mbsm.TANGLE_ROLE()
             )
         );
         mbsm.onBlueprintCreated(BLUEPRINT_ID, address(1), "data");

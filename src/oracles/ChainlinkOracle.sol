@@ -1,20 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IPriceOracle, IPriceOracleAdmin} from "./interfaces/IPriceOracle.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { IPriceOracle, IPriceOracleAdmin } from "./interfaces/IPriceOracle.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title AggregatorV3Interface
 /// @notice Chainlink price feed interface
 interface AggregatorV3Interface {
     function decimals() external view returns (uint8);
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    );
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
 }
 
 /// @title IERC20Decimals
@@ -127,7 +124,12 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     function batchToUSD(
         address[] calldata tokens,
         uint256[] calldata amounts
-    ) external view override returns (uint256 totalUsd) {
+    )
+        external
+        view
+        override
+        returns (uint256 totalUsd)
+    {
         require(tokens.length == amounts.length, "Length mismatch");
 
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -208,13 +210,7 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
 
         AggregatorV3Interface aggregator = AggregatorV3Interface(feed);
 
-        try aggregator.latestRoundData() returns (
-            uint80,
-            int256 answer,
-            uint256,
-            uint256 updatedAt,
-            uint80
-        ) {
+        try aggregator.latestRoundData() returns (uint80, int256 answer, uint256, uint256 updatedAt, uint80) {
             // Validate price
             if (answer <= 0) {
                 revert InvalidPrice(token, answer);

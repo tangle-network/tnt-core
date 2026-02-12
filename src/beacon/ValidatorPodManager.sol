@@ -138,8 +138,12 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     event OperatorDeregistered(address indexed operator);
     event Delegated(address indexed delegator, address indexed operator, uint256 amount);
     event Undelegated(address indexed delegator, address indexed operator, uint256 amount);
-    event UndelegationQueued(bytes32 indexed undelegationRoot, address indexed delegator, address indexed operator, uint256 amount);
-    event UndelegationCompleted(bytes32 indexed undelegationRoot, address indexed delegator, address indexed operator, uint256 amount);
+    event UndelegationQueued(
+        bytes32 indexed undelegationRoot, address indexed delegator, address indexed operator, uint256 amount
+    );
+    event UndelegationCompleted(
+        bytes32 indexed undelegationRoot, address indexed delegator, address indexed operator, uint256 amount
+    );
     event SlasherUpdated(address indexed slasher, bool authorized);
     event DelegatorSlashed(address indexed delegator, address indexed operator, uint256 amount);
     event WithdrawalQueued(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares);
@@ -177,10 +181,7 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @notice Initialize the pod manager
     /// @param _beaconOracle Beacon oracle address
     /// @param _minOperatorStake Minimum stake to be an operator
-    constructor(
-        address _beaconOracle,
-        uint256 _minOperatorStake
-    ) Ownable(msg.sender) {
+    constructor(address _beaconOracle, uint256 _minOperatorStake) Ownable(msg.sender) {
         if (_beaconOracle == address(0)) revert ZeroAddress();
         beaconOracle = IBeaconOracle(_beaconOracle);
         minOperatorStakeAmount = _minOperatorStake;
@@ -235,10 +236,7 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @param podOwner The pod owner
     /// @param sharesDelta Change in shares (can be negative)
     /// @dev Only callable by a valid pod
-    function recordBeaconChainEthBalanceUpdate(
-        address podOwner,
-        int256 sharesDelta
-    ) external {
+    function recordBeaconChainEthBalanceUpdate(address podOwner, int256 sharesDelta) external {
         address pod = ownerToPod[podOwner];
         if (msg.sender != pod) revert OnlyPod();
 
@@ -292,7 +290,7 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
 
         // Return self-stake
         if (stake > 0) {
-            (bool sent,) = payable(msg.sender).call{value: stake}("");
+            (bool sent,) = payable(msg.sender).call{ value: stake }("");
             if (!sent) revert StakeTransferFailed();
         }
     }
@@ -337,7 +335,14 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @param operator The operator to undelegate from
     /// @param amount Amount to undelegate
     /// @return undelegationRoot Unique identifier for this undelegation
-    function queueUndelegation(address operator, uint256 amount) external nonReentrant returns (bytes32 undelegationRoot) {
+    function queueUndelegation(
+        address operator,
+        uint256 amount
+    )
+        external
+        nonReentrant
+        returns (bytes32 undelegationRoot)
+    {
         if (amount == 0) revert ZeroAmount();
 
         // Check delegator has sufficient delegation (accounting for already queued undelegations)
@@ -410,23 +415,20 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @return startBlock When the undelegation was queued
     /// @return completableBlock When the undelegation can be completed
     /// @return completed Whether already completed
-    function getUndelegationInfo(bytes32 undelegationRoot) external view returns (
-        address delegator,
-        address operator,
-        uint256 amount,
-        uint32 startBlock,
-        uint32 completableBlock,
-        bool completed
-    ) {
+    function getUndelegationInfo(bytes32 undelegationRoot)
+        external
+        view
+        returns (
+            address delegator,
+            address operator,
+            uint256 amount,
+            uint32 startBlock,
+            uint32 completableBlock,
+            bool completed
+        )
+    {
         Undelegation storage u = pendingUndelegations[undelegationRoot];
-        return (
-            u.delegator,
-            u.operator,
-            u.amount,
-            u.startBlock,
-            u.startBlock + withdrawalDelayBlocks,
-            u.completed
-        );
+        return (u.delegator, u.operator, u.amount, u.startBlock, u.startBlock + withdrawalDelayBlocks, u.completed);
     }
 
     /// @notice Get effective delegation (current minus queued undelegations)
@@ -452,7 +454,9 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
                     delegators.pop();
                     break;
                 }
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
             }
         }
     }
@@ -493,12 +497,8 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
         withdrawalRoot = keccak256(abi.encodePacked(msg.sender, shares, block.number, nonce));
 
         // Store pending withdrawal
-        pendingWithdrawals[withdrawalRoot] = Withdrawal({
-            staker: msg.sender,
-            shares: shares,
-            startBlock: uint32(block.number),
-            completed: false
-        });
+        pendingWithdrawals[withdrawalRoot] =
+            Withdrawal({ staker: msg.sender, shares: shares, startBlock: uint32(block.number), completed: false });
 
         // Track queued shares
         queuedShares[msg.sender] += shares;
@@ -552,13 +552,7 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     function getWithdrawalInfo(bytes32 withdrawalRoot)
         external
         view
-        returns (
-            address staker,
-            uint256 shares,
-            uint32 startBlock,
-            bool completed,
-            bool canComplete
-        )
+        returns (address staker, uint256 shares, uint32 startBlock, bool completed, bool canComplete)
     {
         Withdrawal storage w = pendingWithdrawals[withdrawalRoot];
         staker = w.staker;
@@ -618,7 +612,12 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     function getOperatorDelegatedStakeForAsset(
         address operator,
         Types.Asset calldata asset
-    ) external view override returns (uint256) {
+    )
+        external
+        view
+        override
+        returns (uint256)
+    {
         if (asset.kind != Types.AssetKind.Native) return 0;
         return operatorDelegatedStake[operator];
     }
@@ -627,16 +626,18 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     function getOperatorStakeForAsset(
         address operator,
         Types.Asset calldata asset
-    ) external view override returns (uint256) {
+    )
+        external
+        view
+        override
+        returns (uint256)
+    {
         if (asset.kind != Types.AssetKind.Native) return 0;
         return operatorStake[operator] + operatorDelegatedStake[operator];
     }
 
     /// @inheritdoc IStaking
-    function getDelegation(
-        address delegator,
-        address operator
-    ) external view override returns (uint256) {
+    function getDelegation(address delegator, address operator) external view override returns (uint256) {
         return delegations[delegator][operator];
     }
 
@@ -654,21 +655,23 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc IStaking
-    function meetsStakeRequirement(
-        address operator,
-        uint256 required
-    ) external view override returns (bool) {
+    function meetsStakeRequirement(address operator, uint256 required) external view override returns (bool) {
         return operatorStake[operator] + operatorDelegatedStake[operator] >= required;
     }
 
     /// @inheritdoc IStaking
     function slashForBlueprint(
         address operator,
-        uint64 /*blueprintId*/,
+        uint64,
+        /*blueprintId*/
         uint64 serviceId,
         uint16 slashBps,
         bytes32 evidence
-    ) external override returns (uint256 actualSlashed) {
+    )
+        external
+        override
+        returns (uint256 actualSlashed)
+    {
         if (!_slashers[msg.sender]) revert NotAuthorizedSlasher();
 
         actualSlashed = _slash(operator, slashBps);
@@ -679,12 +682,18 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @inheritdoc IStaking
     function slashForService(
         address operator,
-        uint64 /*blueprintId*/,
+        uint64,
+        /*blueprintId*/
         uint64 serviceId,
-        Types.AssetSecurityCommitment[] calldata /*commitments*/,
+        Types.AssetSecurityCommitment[] calldata,
+        /*commitments*/
         uint16 slashBps,
         bytes32 evidence
-    ) external override returns (uint256 actualSlashed) {
+    )
+        external
+        override
+        returns (uint256 actualSlashed)
+    {
         if (!_slashers[msg.sender]) revert NotAuthorizedSlasher();
 
         actualSlashed = _slash(operator, slashBps);
@@ -698,7 +707,11 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
         uint64 serviceId,
         uint16 slashBps,
         bytes32 evidence
-    ) external override returns (uint256 actualSlashed) {
+    )
+        external
+        override
+        returns (uint256 actualSlashed)
+    {
         if (!_slashers[msg.sender]) revert NotAuthorizedSlasher();
 
         actualSlashed = _slash(operator, slashBps);
@@ -747,7 +760,9 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
 
                         emit DelegatorSlashed(delegator, operator, delegatorSlash);
                     }
-                    unchecked { ++i; }
+                    unchecked {
+                        ++i;
+                    }
                 }
             }
             operatorDelegatedStake[operator] -= amount;

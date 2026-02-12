@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { TimelockControllerUpgradeable } from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
+import {
+    TimelockControllerUpgradeable
+} from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -53,7 +55,11 @@ contract TangleTimelock is Initializable, TimelockControllerUpgradeable, UUPSUpg
         address[] memory proposers,
         address[] memory executors,
         address admin
-    ) public override initializer {
+    )
+        public
+        override
+        initializer
+    {
         // M-16 FIX: Use custom errors for gas efficiency
         if (minDelay < MIN_DELAY) revert DelayTooShort(minDelay, MIN_DELAY);
         if (minDelay > MAX_DELAY) revert DelayTooLong(minDelay, MAX_DELAY);

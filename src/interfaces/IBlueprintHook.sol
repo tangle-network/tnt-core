@@ -27,7 +27,9 @@ interface IBlueprintHook {
         uint64 blueprintId,
         address operator,
         bytes calldata data
-    ) external returns (bool accept);
+    )
+        external
+        returns (bool accept);
 
     /// @notice Called when an operator unregisters
     function onOperatorUnregister(uint64 blueprintId, address operator) external;
@@ -44,7 +46,10 @@ interface IBlueprintHook {
         address requester,
         address[] calldata operators,
         bytes calldata config
-    ) external payable returns (bool accept);
+    )
+        external
+        payable
+        returns (bool accept);
 
     /// @notice Called when an operator approves a service request
     function onServiceApprove(uint64 requestId, address operator, uint8 stakingPercent) external;
@@ -58,7 +63,8 @@ interface IBlueprintHook {
         uint64 requestId,
         address owner,
         address[] calldata operators
-    ) external;
+    )
+        external;
 
     /// @notice Called when service is terminated
     function onServiceTerminated(uint64 serviceId, address owner) external;
@@ -81,7 +87,10 @@ interface IBlueprintHook {
         uint8 jobIndex,
         address caller,
         bytes calldata inputs
-    ) external payable returns (bool accept);
+    )
+        external
+        payable
+        returns (bool accept);
 
     /// @notice Called when an operator submits a result
     /// @return accept True to accept result
@@ -90,7 +99,9 @@ interface IBlueprintHook {
         uint64 callId,
         address operator,
         bytes calldata result
-    ) external returns (bool accept);
+    )
+        external
+        returns (bool accept);
 
     /// @notice Called when a job is marked complete
     function onJobCompleted(uint64 serviceId, uint64 callId, uint32 resultCount) external;
@@ -106,7 +117,9 @@ interface IBlueprintHook {
         address operator,
         uint256 amount,
         bytes32 evidence
-    ) external returns (bool approve);
+    )
+        external
+        returns (bool approve);
 
     /// @notice Called after a slash is applied
     function onSlashApplied(uint64 serviceId, address operator, uint256 amount) external;
@@ -134,33 +147,37 @@ interface IBlueprintHook {
     /// @notice Get the aggregation threshold configuration for a job
     /// @return thresholdBps Threshold in basis points (6700 = 67%)
     /// @return thresholdType 0 = CountBased (% of operators), 1 = StakeWeighted (% of total stake)
-    function getAggregationThreshold(uint64 serviceId, uint8 jobIndex)
+    function getAggregationThreshold(
+        uint64 serviceId,
+        uint8 jobIndex
+    )
         external
         view
         returns (uint16 thresholdBps, uint8 thresholdType);
 
     /// @notice Called when an aggregated result is submitted
-    function onAggregatedResult(
-        uint64 serviceId,
-        uint64 callId,
-        uint256 signerBitmap,
-        bytes calldata output
-    ) external;
+    function onAggregatedResult(uint64 serviceId, uint64 callId, uint256 signerBitmap, bytes calldata output) external;
 }
 
 /// @title BlueprintHookBase
 /// @notice Base implementation with sensible defaults
 /// @dev For full features, extend BlueprintServiceManagerBase instead
 abstract contract BlueprintHookBase is IBlueprintHook {
-    function onBlueprintCreated(uint64, address) external virtual {}
+    function onBlueprintCreated(uint64, address) external virtual { }
 
     function onOperatorRegister(uint64, address, bytes calldata) external virtual returns (bool) {
         return true;
     }
 
-    function onOperatorUnregister(uint64, address) external virtual {}
+    function onOperatorUnregister(uint64, address) external virtual { }
 
-    function onServiceRequest(uint64, uint64, address, address[] calldata, bytes calldata)
+    function onServiceRequest(
+        uint64,
+        uint64,
+        address,
+        address[] calldata,
+        bytes calldata
+    )
         external
         payable
         virtual
@@ -169,13 +186,13 @@ abstract contract BlueprintHookBase is IBlueprintHook {
         return true;
     }
 
-    function onServiceApprove(uint64, address, uint8) external virtual {}
+    function onServiceApprove(uint64, address, uint8) external virtual { }
 
-    function onServiceReject(uint64, address) external virtual {}
+    function onServiceReject(uint64, address) external virtual { }
 
-    function onServiceActivated(uint64, uint64, address, address[] calldata) external virtual {}
+    function onServiceActivated(uint64, uint64, address, address[] calldata) external virtual { }
 
-    function onServiceTerminated(uint64, address) external virtual {}
+    function onServiceTerminated(uint64, address) external virtual { }
 
     function canJoin(uint64, address, uint16) external view virtual returns (bool) {
         return true;
@@ -185,12 +202,7 @@ abstract contract BlueprintHookBase is IBlueprintHook {
         return true;
     }
 
-    function onJobSubmitted(uint64, uint64, uint8, address, bytes calldata)
-        external
-        payable
-        virtual
-        returns (bool)
-    {
+    function onJobSubmitted(uint64, uint64, uint8, address, bytes calldata) external payable virtual returns (bool) {
         return true;
     }
 
@@ -198,13 +210,13 @@ abstract contract BlueprintHookBase is IBlueprintHook {
         return true;
     }
 
-    function onJobCompleted(uint64, uint64, uint32) external virtual {}
+    function onJobCompleted(uint64, uint64, uint32) external virtual { }
 
     function onSlashProposed(uint64, address, uint256, bytes32) external virtual returns (bool) {
         return true;
     }
 
-    function onSlashApplied(uint64, address, uint256) external virtual {}
+    function onSlashApplied(uint64, address, uint256) external virtual { }
 
     function getDeveloperPaymentAddress(uint64) external view virtual returns (address payable) {
         return payable(address(0));
@@ -227,5 +239,5 @@ abstract contract BlueprintHookBase is IBlueprintHook {
         return (6700, 0); // 67% count-based by default
     }
 
-    function onAggregatedResult(uint64, uint64, uint256, bytes calldata) external virtual {}
+    function onAggregatedResult(uint64, uint64, uint256, bytes calldata) external virtual { }
 }

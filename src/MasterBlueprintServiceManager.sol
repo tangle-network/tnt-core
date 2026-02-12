@@ -43,11 +43,13 @@ contract MasterBlueprintServiceManager is IMasterBlueprintServiceManager, Access
         uint64 blueprintId,
         address owner,
         bytes calldata encodedDefinition
-    ) external override onlyRole(TANGLE_ROLE) {
+    )
+        external
+        override
+        onlyRole(TANGLE_ROLE)
+    {
         _records[blueprintId] = BlueprintRecord({
-            owner: owner,
-            recordedAt: uint64(block.timestamp),
-            encodedDefinition: encodedDefinition
+            owner: owner, recordedAt: uint64(block.timestamp), encodedDefinition: encodedDefinition
         });
         emit BlueprintDefinitionRecorded(blueprintId, owner, encodedDefinition);
     }

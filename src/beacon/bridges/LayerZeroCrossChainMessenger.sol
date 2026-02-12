@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ICrossChainMessenger, ICrossChainReceiver} from "../interfaces/ICrossChainMessenger.sol";
+import { ICrossChainMessenger, ICrossChainReceiver } from "../interfaces/ICrossChainMessenger.sol";
 
 /// @title LayerZeroCrossChainMessenger
 /// @notice ICrossChainMessenger implementation for LayerZero V2
@@ -11,35 +11,35 @@ import {ICrossChainMessenger, ICrossChainReceiver} from "../interfaces/ICrossCha
 /// @notice LayerZero V2 Endpoint interface
 interface ILayerZeroEndpointV2 {
     struct MessagingParams {
-        uint32 dstEid;           // Destination endpoint ID
-        bytes32 receiver;         // Receiver address as bytes32
-        bytes message;            // Message payload
-        bytes options;            // Execution options
-        bool payInLzToken;        // Pay in LZ token vs native
+        uint32 dstEid; // Destination endpoint ID
+        bytes32 receiver; // Receiver address as bytes32
+        bytes message; // Message payload
+        bytes options; // Execution options
+        bool payInLzToken; // Pay in LZ token vs native
     }
 
     struct MessagingReceipt {
-        bytes32 guid;             // Global unique identifier
-        uint64 nonce;             // Message nonce
-        MessagingFee fee;         // Fee paid
+        bytes32 guid; // Global unique identifier
+        uint64 nonce; // Message nonce
+        MessagingFee fee; // Fee paid
     }
 
     struct MessagingFee {
-        uint256 nativeFee;        // Fee in native token
-        uint256 lzTokenFee;       // Fee in LZ token
+        uint256 nativeFee; // Fee in native token
+        uint256 lzTokenFee; // Fee in LZ token
     }
 
     /// @notice Send message to another chain
     function send(
         MessagingParams calldata _params,
         address _refundAddress
-    ) external payable returns (MessagingReceipt memory);
+    )
+        external
+        payable
+        returns (MessagingReceipt memory);
 
     /// @notice Estimate fee for sending message
-    function quote(
-        MessagingParams calldata _params,
-        address _sender
-    ) external view returns (MessagingFee memory);
+    function quote(MessagingParams calldata _params, address _sender) external view returns (MessagingFee memory);
 
     /// @notice Set delegate for this sender
     function setDelegate(address _delegate) external;
@@ -59,7 +59,11 @@ library OptionsBuilder {
         bytes memory _options,
         uint128 _gas,
         uint128 _value
-    ) internal pure returns (bytes memory) {
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         return abi.encodePacked(_options, uint8(1), uint16(17), _gas, _value);
     }
 }
@@ -103,23 +107,23 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
 
         // Initialize common chain mappings
         // Ethereum Mainnet
-        chainIdToEid[1] = 30101;
-        eidToChainId[30101] = 1;
+        chainIdToEid[1] = 30_101;
+        eidToChainId[30_101] = 1;
         // Arbitrum One
-        chainIdToEid[42161] = 30110;
-        eidToChainId[30110] = 42161;
+        chainIdToEid[42_161] = 30_110;
+        eidToChainId[30_110] = 42_161;
         // Base
-        chainIdToEid[8453] = 30184;
-        eidToChainId[30184] = 8453;
+        chainIdToEid[8453] = 30_184;
+        eidToChainId[30_184] = 8453;
         // Sepolia
-        chainIdToEid[11155111] = 40161;
-        eidToChainId[40161] = 11155111;
+        chainIdToEid[11_155_111] = 40_161;
+        eidToChainId[40_161] = 11_155_111;
         // Arbitrum Sepolia
-        chainIdToEid[421614] = 40231;
-        eidToChainId[40231] = 421614;
+        chainIdToEid[421_614] = 40_231;
+        eidToChainId[40_231] = 421_614;
         // Base Sepolia
-        chainIdToEid[84532] = 40245;
-        eidToChainId[40245] = 84532;
+        chainIdToEid[84_532] = 40_245;
+        eidToChainId[40_245] = 84_532;
     }
 
     modifier onlyOwner() {
@@ -138,7 +142,11 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         address target,
         bytes calldata payload,
         uint256 gasLimit
-    ) external payable returns (bytes32 messageId) {
+    )
+        external
+        payable
+        returns (bytes32 messageId)
+    {
         uint32 dstEid = chainIdToEid[destinationChainId];
         require(dstEid != 0, "Unsupported chain");
 
@@ -149,19 +157,15 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         bytes memory message = abi.encode(block.chainid, msg.sender, payload);
 
         // Build execution options with effective gas limit
-        bytes memory options = OptionsBuilder.newOptions()
+        bytes memory options = OptionsBuilder.newOptions().
             // forge-lint: disable-next-line(unsafe-typecast)
-            .addExecutorLzReceiveOption(uint128(effectiveGasLimit), 0);
+            addExecutorLzReceiveOption(uint128(effectiveGasLimit), 0);
 
         ILayerZeroEndpointV2.MessagingParams memory params = ILayerZeroEndpointV2.MessagingParams({
-            dstEid: dstEid,
-            receiver: _addressToBytes32(target),
-            message: message,
-            options: options,
-            payInLzToken: false
+            dstEid: dstEid, receiver: _addressToBytes32(target), message: message, options: options, payInLzToken: false
         });
 
-        ILayerZeroEndpointV2.MessagingReceipt memory receipt = endpoint.send{value: msg.value}(
+        ILayerZeroEndpointV2.MessagingReceipt memory receipt = endpoint.send{ value: msg.value }(
             params,
             msg.sender // Refund excess to sender
         );
@@ -175,7 +179,11 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         uint256 destinationChainId,
         bytes calldata payload,
         uint256 gasLimit
-    ) external view returns (uint256 fee) {
+    )
+        external
+        view
+        returns (uint256 fee)
+    {
         uint32 dstEid = chainIdToEid[destinationChainId];
         if (dstEid == 0) return 0;
 
@@ -186,16 +194,12 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         bytes memory message = abi.encode(block.chainid, address(0), payload);
 
         // Build options with effective gas limit
-        bytes memory options = OptionsBuilder.newOptions()
+        bytes memory options = OptionsBuilder.newOptions().
             // forge-lint: disable-next-line(unsafe-typecast)
-            .addExecutorLzReceiveOption(uint128(effectiveGasLimit), 0);
+            addExecutorLzReceiveOption(uint128(effectiveGasLimit), 0);
 
         ILayerZeroEndpointV2.MessagingParams memory params = ILayerZeroEndpointV2.MessagingParams({
-            dstEid: dstEid,
-            receiver: bytes32(0),
-            message: message,
-            options: options,
-            payInLzToken: false
+            dstEid: dstEid, receiver: bytes32(0), message: message, options: options, payInLzToken: false
         });
 
         ILayerZeroEndpointV2.MessagingFee memory messagingFee = endpoint.quote(params, address(this));
@@ -237,7 +241,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
     /// @notice M-12 FIX: Set gas buffer percentage
     /// @param _gasBufferBps New buffer in basis points (10000 = 100%)
     function setGasBuffer(uint256 _gasBufferBps) external onlyOwner {
-        require(_gasBufferBps <= 10000, "Buffer too high"); // Max 100% buffer
+        require(_gasBufferBps <= 10_000, "Buffer too high"); // Max 100% buffer
         uint256 oldBuffer = gasBufferBps;
         gasBufferBps = _gasBufferBps;
         emit GasBufferUpdated(oldBuffer, _gasBufferBps);
@@ -250,7 +254,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         // Enforce minimum gas limit
         uint256 effectiveLimit = gasLimit < minGasLimit ? minGasLimit : gasLimit;
         // Add safety buffer
-        effectiveLimit = effectiveLimit + (effectiveLimit * gasBufferBps / 10000);
+        effectiveLimit = effectiveLimit + (effectiveLimit * gasBufferBps / 10_000);
         return effectiveLimit;
     }
 
@@ -299,12 +303,12 @@ contract LayerZeroReceiver {
         owner = msg.sender;
 
         // Initialize common mappings
-        eidToChainId[30101] = 1;        // Ethereum
-        eidToChainId[30110] = 42161;    // Arbitrum
-        eidToChainId[30184] = 8453;     // Base
-        eidToChainId[40161] = 11155111; // Sepolia
-        eidToChainId[40231] = 421614;   // Arbitrum Sepolia
-        eidToChainId[40245] = 84532;    // Base Sepolia
+        eidToChainId[30_101] = 1; // Ethereum
+        eidToChainId[30_110] = 42_161; // Arbitrum
+        eidToChainId[30_184] = 8453; // Base
+        eidToChainId[40_161] = 11_155_111; // Sepolia
+        eidToChainId[40_231] = 421_614; // Arbitrum Sepolia
+        eidToChainId[40_245] = 84_532; // Base Sepolia
     }
 
     modifier onlyOwner() {
@@ -325,7 +329,10 @@ contract LayerZeroReceiver {
         bytes calldata _message,
         address, // _executor
         bytes calldata // _extraData
-    ) external payable {
+    )
+        external
+        payable
+    {
         require(msg.sender == endpoint, "Only endpoint");
 
         // Verify sender is trusted peer
@@ -379,7 +386,7 @@ contract LayerZeroReceiver {
 
 /// @notice LayerZero Origin struct
 struct Origin {
-    uint32 srcEid;      // Source endpoint ID
-    bytes32 sender;     // Sender address as bytes32
-    uint64 nonce;       // Message nonce
+    uint32 srcEid; // Source endpoint ID
+    bytes32 sender; // Sender address as bytes32
+    uint64 nonce; // Message nonce
 }

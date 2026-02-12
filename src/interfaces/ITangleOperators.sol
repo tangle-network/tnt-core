@@ -19,10 +19,7 @@ interface ITangleOperators {
     /// @param ecdsaPublicKey The ECDSA public key for gossip network identity
     /// @param rpcAddress The operator's RPC endpoint
     event OperatorRegistered(
-        uint64 indexed blueprintId,
-        address indexed operator,
-        bytes ecdsaPublicKey,
-        string rpcAddress
+        uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress
     );
 
     event OperatorUnregistered(uint64 indexed blueprintId, address indexed operator);
@@ -33,10 +30,7 @@ interface ITangleOperators {
     /// @param ecdsaPublicKey The updated ECDSA public key (may be empty if unchanged)
     /// @param rpcAddress The updated RPC endpoint (may be empty if unchanged)
     event OperatorPreferencesUpdated(
-        uint64 indexed blueprintId,
-        address indexed operator,
-        bytes ecdsaPublicKey,
-        string rpcAddress
+        uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -52,11 +46,7 @@ interface ITangleOperators {
     ///        This key is used for signing/verifying messages in the P2P gossip network
     ///        and may differ from the wallet key (msg.sender)
     /// @param rpcAddress The operator's RPC endpoint URL
-    function registerOperator(
-        uint64 blueprintId,
-        bytes calldata ecdsaPublicKey,
-        string calldata rpcAddress
-    ) external;
+    function registerOperator(uint64 blueprintId, bytes calldata ecdsaPublicKey, string calldata rpcAddress) external;
 
     /// @notice Register as operator providing blueprint-specific registration inputs
     /// @param registrationInputs Encoded payload validated by blueprint's schema
@@ -65,7 +55,8 @@ interface ITangleOperators {
         bytes calldata ecdsaPublicKey,
         string calldata rpcAddress,
         bytes calldata registrationInputs
-    ) external;
+    )
+        external;
 
     /// @notice Unregister from a blueprint
     function unregisterOperator(uint64 blueprintId) external;
@@ -78,7 +69,8 @@ interface ITangleOperators {
         uint64 blueprintId,
         bytes calldata ecdsaPublicKey,
         string calldata rpcAddress
-    ) external;
+    )
+        external;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
@@ -88,20 +80,23 @@ interface ITangleOperators {
     function getOperatorRegistration(
         uint64 blueprintId,
         address operator
-    ) external view returns (Types.OperatorRegistration memory);
+    )
+        external
+        view
+        returns (Types.OperatorRegistration memory);
 
     /// @notice Get operator preferences for a blueprint (includes ECDSA public key)
     function getOperatorPreferences(
         uint64 blueprintId,
         address operator
-    ) external view returns (Types.OperatorPreferences memory);
+    )
+        external
+        view
+        returns (Types.OperatorPreferences memory);
 
     /// @notice Get operator's ECDSA public key for gossip network identity
     /// @dev Returns the key used for signing/verifying gossip messages
-    function getOperatorPublicKey(
-        uint64 blueprintId,
-        address operator
-    ) external view returns (bytes memory);
+    function getOperatorPublicKey(uint64 blueprintId, address operator) external view returns (bytes memory);
 
     /// @notice Check if operator is registered for a blueprint
     function isOperatorRegistered(uint64 blueprintId, address operator) external view returns (bool);

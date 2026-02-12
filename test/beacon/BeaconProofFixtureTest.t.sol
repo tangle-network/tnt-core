@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {BeaconTestBase} from "./BeaconTestBase.sol";
-import {ValidatorPod} from "../../src/beacon/ValidatorPod.sol";
-import {ValidatorPodManager} from "../../src/beacon/ValidatorPodManager.sol";
-import {ValidatorTypes} from "../../src/beacon/ValidatorTypes.sol";
-import {BeaconChainProofs} from "../../src/beacon/BeaconChainProofs.sol";
-import {Test, console2} from "forge-std/Test.sol";
+import { BeaconTestBase } from "./BeaconTestBase.sol";
+import { ValidatorPod } from "../../src/beacon/ValidatorPod.sol";
+import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
+import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
+import { BeaconChainProofs } from "../../src/beacon/BeaconChainProofs.sol";
+import { Test, console2 } from "forge-std/Test.sol";
 
 /// @title BeaconProofFixtureTest
 /// @notice Tests using real beacon chain proof fixtures
@@ -14,7 +14,6 @@ import {Test, console2} from "forge-std/Test.sol";
 /// @dev To generate real fixtures, use eigenpod-proofs-generation CLI tool:
 ///      https://github.com/Layr-Labs/eigenpod-proofs-generation
 contract BeaconProofFixtureTest is BeaconTestBase {
-
     // ═══════════════════════════════════════════════════════════════════════════
     // FIXTURE STRUCTURES
     // ═══════════════════════════════════════════════════════════════════════════
@@ -55,10 +54,11 @@ contract BeaconProofFixtureTest is BeaconTestBase {
         fixture.name = "Sample Mainnet Validator Proof - Slot 8000000";
         fixture.beaconBlockRoot = bytes32(uint256(0x1111));
         fixture.beaconStateRoot = bytes32(uint256(0x2222));
-        fixture.validatorIndex = 123456;
+        fixture.validatorIndex = 123_456;
         fixture.expectedPubkeyHash = bytes32(uint256(0xABCDEF));
         fixture.expectedEffectiveBalanceGwei = 32_000_000_000;
-        fixture.expectedWithdrawalCredentials = bytes32(uint256(0x010000000000000000000000000000000000000000000000000000000000BEEF));
+        fixture.expectedWithdrawalCredentials =
+            bytes32(uint256(0x010000000000000000000000000000000000000000000000000000000000BEEF));
         fixture.expectedSlashed = false;
 
         fixture.stateRootProof = new bytes32[](3);
@@ -89,8 +89,8 @@ contract BeaconProofFixtureTest is BeaconTestBase {
         ValidatorProofFixture memory fixture = _loadValidatorFixture("validator_proof_fixture_1.json");
 
         assertEq(fixture.name, "Sample Mainnet Validator Proof - Slot 8000000", "Name should match");
-        assertEq(fixture.validatorIndex, 123456, "Validator index should match");
-        assertEq(fixture.expectedEffectiveBalanceGwei, 32000000000, "Effective balance should be 32 ETH in gwei");
+        assertEq(fixture.validatorIndex, 123_456, "Validator index should match");
+        assertEq(fixture.expectedEffectiveBalanceGwei, 32_000_000_000, "Effective balance should be 32 ETH in gwei");
         assertFalse(fixture.expectedSlashed, "Should not be slashed");
     }
 
@@ -141,10 +141,8 @@ contract BeaconProofFixtureTest is BeaconTestBase {
             }
         }
 
-        ValidatorTypes.StateRootProof memory stateRootProof = ValidatorTypes.StateRootProof({
-            beaconStateRoot: fixture.beaconStateRoot,
-            proof: proofBytes
-        });
+        ValidatorTypes.StateRootProof memory stateRootProof =
+            ValidatorTypes.StateRootProof({ beaconStateRoot: fixture.beaconStateRoot, proof: proofBytes });
 
         // Note: This will fail with placeholder data
         // Replace fixture with real proof data from eigenpod-proofs-generation
@@ -176,15 +174,12 @@ contract BeaconProofFixtureTest is BeaconTestBase {
         bytes memory stateProofBytes = _bytes32ArrayToBytes(fixture.stateRootProof);
         bytes memory validatorProofBytes = _bytes32ArrayToBytes(fixture.validatorFieldsProof);
 
-        ValidatorTypes.StateRootProof memory stateRootProof = ValidatorTypes.StateRootProof({
-            beaconStateRoot: fixture.beaconStateRoot,
-            proof: stateProofBytes
-        });
+        ValidatorTypes.StateRootProof memory stateRootProof =
+            ValidatorTypes.StateRootProof({ beaconStateRoot: fixture.beaconStateRoot, proof: stateProofBytes });
 
         ValidatorTypes.ValidatorFieldsProof[] memory validatorProofs = new ValidatorTypes.ValidatorFieldsProof[](1);
         validatorProofs[0] = ValidatorTypes.ValidatorFieldsProof({
-            validatorFields: fixture.validatorFields,
-            proof: validatorProofBytes
+            validatorFields: fixture.validatorFields, proof: validatorProofBytes
         });
 
         uint40[] memory validatorIndices = new uint40[](1);

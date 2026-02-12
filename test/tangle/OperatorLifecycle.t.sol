@@ -98,9 +98,7 @@ contract OperatorLifecycleTest is BaseTest {
         bytes4 selector = bytes4(keccak256("registerOperator(uint64,bytes,string)"));
 
         vm.prank(operator1);
-        (bool ok,) = address(tangle).call{ value: 1 ether }(
-            abi.encodeWithSelector(selector, blueprintId, key, "")
-        );
+        (bool ok,) = address(tangle).call{ value: 1 ether }(abi.encodeWithSelector(selector, blueprintId, key, ""));
         assertFalse(ok);
     }
 
@@ -287,9 +285,8 @@ contract OperatorLifecycleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -310,7 +307,7 @@ contract OperatorLifecycleTest is BaseTest {
 
         uint64 serviceId = tangle.serviceCount() - 1;
         Types.ServiceOperator memory opInfo = tangle.getServiceOperator(serviceId, operator1);
-        assertEq(opInfo.exposureBps, 10000); // 100%
+        assertEq(opInfo.exposureBps, 10_000); // 100%
     }
 
     function test_RequestService_AddsDefaultTntSecurityRequirement() public {
@@ -327,7 +324,7 @@ contract OperatorLifecycleTest is BaseTest {
         assertEq(uint8(reqs[0].asset.kind), uint8(Types.AssetKind.ERC20));
         assertEq(reqs[0].asset.token, address(tnt));
         assertEq(reqs[0].minExposureBps, 1000); // 10%
-        assertEq(reqs[0].maxExposureBps, 10000);
+        assertEq(reqs[0].maxExposureBps, 10_000);
     }
 
     function test_ApproveService_AutoCommitsDefaultTntExposure() public {
@@ -362,7 +359,7 @@ contract OperatorLifecycleTest is BaseTest {
         requirements[0] = Types.AssetSecurityRequirement({
             asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
             minExposureBps: 5000,
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         address[] memory operators = new address[](1);
@@ -370,15 +367,13 @@ contract OperatorLifecycleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, operators, requirements, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.SecurityCommitmentsRequired.selector, requestId));
         tangle.approveService(requestId, 0);
     }
-
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DYNAMIC SERVICE MEMBERSHIP
@@ -436,7 +431,7 @@ contract OperatorLifecycleTest is BaseTest {
         // Blueprint is Fixed, not Dynamic
         vm.prank(operator2);
         vm.expectRevert(Errors.InvalidState.selector);
-        tangle.joinService(serviceId, 10000);
+        tangle.joinService(serviceId, 10_000);
     }
 
     function test_LeaveService() public {
@@ -479,11 +474,11 @@ contract OperatorLifecycleTest is BaseTest {
         // Schedule exit
         vm.prank(operator2);
         tangle.scheduleExit(serviceId);
-        assertEq(uint(tangle.getExitStatus(serviceId, operator2)), uint(Types.ExitStatus.Scheduled));
+        assertEq(uint256(tangle.getExitStatus(serviceId, operator2)), uint256(Types.ExitStatus.Scheduled));
 
         // Warp past exit queue duration (7 days default)
         vm.warp(block.timestamp + 7 days + 1);
-        assertEq(uint(tangle.getExitStatus(serviceId, operator2)), uint(Types.ExitStatus.Executable));
+        assertEq(uint256(tangle.getExitStatus(serviceId, operator2)), uint256(Types.ExitStatus.Executable));
 
         // Execute exit
         vm.prank(operator2);
@@ -654,9 +649,7 @@ contract OperatorLifecycleTest is BaseTest {
         uint64 validTtl = 1 hours;
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(
-            blueprintId, operators, "", callers, validTtl, address(0), 0
-        );
+        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, validTtl, address(0), 0);
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 

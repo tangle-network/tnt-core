@@ -211,8 +211,8 @@ contract FullDeploy is DeployV2 {
         if (migration.deploy) {
             migration = _resolveMigrationConfig(migration);
             require(!migration.useMockVerifier, "Mock verifier disabled");
-            uint256 totalSupply =
-                migration.substrateAllocation + migration.evmAllocation + migration.treasuryAmount + migration.foundationAmount;
+            uint256 totalSupply = migration.substrateAllocation + migration.evmAllocation + migration.treasuryAmount
+                + migration.foundationAmount;
             if (cfg.incentives.tntToken == address(0)) {
                 tntInitialSupply = totalSupply;
             }
@@ -346,11 +346,15 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".core.deploy")) cfg.core.deploy = jsonBlob.readBool(".core.deploy");
         if (jsonBlob.keyExists(".core.tangle")) cfg.core.tangle = jsonBlob.readAddress(".core.tangle");
         if (jsonBlob.keyExists(".core.staking")) cfg.core.staking = jsonBlob.readAddress(".core.staking");
-        if (jsonBlob.keyExists(".core.statusRegistry")) cfg.core.statusRegistry = jsonBlob.readAddress(".core.statusRegistry");
+        if (jsonBlob.keyExists(".core.statusRegistry")) {
+            cfg.core.statusRegistry = jsonBlob.readAddress(".core.statusRegistry");
+        }
         if (jsonBlob.keyExists(".core.minOperatorStake")) {
             cfg.core.minOperatorStake = jsonBlob.readUint(".core.minOperatorStake");
         }
-        if (jsonBlob.keyExists(".core.minDelegation")) cfg.core.minDelegation = jsonBlob.readUint(".core.minDelegation");
+        if (jsonBlob.keyExists(".core.minDelegation")) {
+            cfg.core.minDelegation = jsonBlob.readUint(".core.minDelegation");
+        }
         if (jsonBlob.keyExists(".core.operatorCommissionBps")) {
             cfg.core.operatorCommissionBps = uint16(jsonBlob.readUint(".core.operatorCommissionBps"));
         }
@@ -373,9 +377,12 @@ contract FullDeploy is DeployV2 {
             cfg.incentives.deployServiceFeeDistributor = jsonBlob.readBool(".incentives.deployServiceFeeDistributor");
         }
         if (jsonBlob.keyExists(".incentives.deployStreamingPaymentManager")) {
-            cfg.incentives.deployStreamingPaymentManager = jsonBlob.readBool(".incentives.deployStreamingPaymentManager");
+            cfg.incentives.deployStreamingPaymentManager =
+                jsonBlob.readBool(".incentives.deployStreamingPaymentManager");
         }
-        if (jsonBlob.keyExists(".incentives.metrics")) cfg.incentives.metrics = jsonBlob.readAddress(".incentives.metrics");
+        if (jsonBlob.keyExists(".incentives.metrics")) {
+            cfg.incentives.metrics = jsonBlob.readAddress(".incentives.metrics");
+        }
         if (jsonBlob.keyExists(".incentives.rewardVaults")) {
             cfg.incentives.rewardVaults = jsonBlob.readAddress(".incentives.rewardVaults");
         }
@@ -388,7 +395,9 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".incentives.streamingPaymentManager")) {
             cfg.incentives.streamingPaymentManager = jsonBlob.readAddress(".incentives.streamingPaymentManager");
         }
-        if (jsonBlob.keyExists(".incentives.tntToken")) cfg.incentives.tntToken = jsonBlob.readAddress(".incentives.tntToken");
+        if (jsonBlob.keyExists(".incentives.tntToken")) {
+            cfg.incentives.tntToken = jsonBlob.readAddress(".incentives.tntToken");
+        }
         if (jsonBlob.keyExists(".incentives.priceOracle")) {
             cfg.incentives.priceOracle = jsonBlob.readAddress(".incentives.priceOracle");
         }
@@ -399,9 +408,12 @@ contract FullDeploy is DeployV2 {
             cfg.incentives.tntPaymentDiscountBps = uint16(jsonBlob.readUint(".incentives.tntPaymentDiscountBps"));
         }
         if (jsonBlob.keyExists(".incentives.vaultOperatorCommissionBps")) {
-            cfg.incentives.vaultOperatorCommissionBps = uint16(jsonBlob.readUint(".incentives.vaultOperatorCommissionBps"));
+            cfg.incentives.vaultOperatorCommissionBps =
+                uint16(jsonBlob.readUint(".incentives.vaultOperatorCommissionBps"));
         }
-        if (jsonBlob.keyExists(".incentives.epochLength")) cfg.incentives.epochLength = jsonBlob.readUint(".incentives.epochLength");
+        if (jsonBlob.keyExists(".incentives.epochLength")) {
+            cfg.incentives.epochLength = jsonBlob.readUint(".incentives.epochLength");
+        }
 
         if (jsonBlob.keyExists(".incentives.weights.stakingBps")) {
             cfg.incentives.weights.stakingBps = uint16(jsonBlob.readUint(".incentives.weights.stakingBps"));
@@ -421,27 +433,49 @@ contract FullDeploy is DeployV2 {
 
         cfg.incentives.vaults = _loadVaults(jsonBlob);
 
-        if (jsonBlob.keyExists(".guards.pauseRestaking")) cfg.guards.pauseRestaking = jsonBlob.readBool(".guards.pauseRestaking");
-        if (jsonBlob.keyExists(".guards.pauseTangle")) cfg.guards.pauseTangle = jsonBlob.readBool(".guards.pauseTangle");
-        if (jsonBlob.keyExists(".guards.requireAdapters")) cfg.guards.requireAdapters = jsonBlob.readBool(".guards.requireAdapters");
-        if (jsonBlob.keyExists(".guards.delegatorDelay")) cfg.guards.delegatorDelay = uint64(jsonBlob.readUint(".guards.delegatorDelay"));
-        if (jsonBlob.keyExists(".guards.operatorDelay")) cfg.guards.operatorDelay = uint64(jsonBlob.readUint(".guards.operatorDelay"));
-        if (jsonBlob.keyExists(".guards.bondLessDelay")) cfg.guards.bondLessDelay = uint64(jsonBlob.readUint(".guards.bondLessDelay"));
+        if (jsonBlob.keyExists(".guards.pauseRestaking")) {
+            cfg.guards.pauseRestaking = jsonBlob.readBool(".guards.pauseRestaking");
+        }
+        if (jsonBlob.keyExists(".guards.pauseTangle")) {
+            cfg.guards.pauseTangle = jsonBlob.readBool(".guards.pauseTangle");
+        }
+        if (jsonBlob.keyExists(".guards.requireAdapters")) {
+            cfg.guards.requireAdapters = jsonBlob.readBool(".guards.requireAdapters");
+        }
+        if (jsonBlob.keyExists(".guards.delegatorDelay")) {
+            cfg.guards.delegatorDelay = uint64(jsonBlob.readUint(".guards.delegatorDelay"));
+        }
+        if (jsonBlob.keyExists(".guards.operatorDelay")) {
+            cfg.guards.operatorDelay = uint64(jsonBlob.readUint(".guards.operatorDelay"));
+        }
+        if (jsonBlob.keyExists(".guards.bondLessDelay")) {
+            cfg.guards.bondLessDelay = uint64(jsonBlob.readUint(".guards.bondLessDelay"));
+        }
         if (jsonBlob.keyExists(".guards.maxBlueprintsPerOperator")) {
             cfg.guards.maxBlueprintsPerOperator = uint32(jsonBlob.readUint(".guards.maxBlueprintsPerOperator"));
         }
 
         if (jsonBlob.keyExists(".manifest.path")) cfg.manifest.path = jsonBlob.readString(".manifest.path");
-        if (jsonBlob.keyExists(".manifest.logSummary")) cfg.manifest.logSummary = jsonBlob.readBool(".manifest.logSummary");
+        if (jsonBlob.keyExists(".manifest.logSummary")) {
+            cfg.manifest.logSummary = jsonBlob.readBool(".manifest.logSummary");
+        }
 
         if (jsonBlob.keyExists(".migration.deploy")) cfg.migration.deploy = jsonBlob.readBool(".migration.deploy");
-        if (jsonBlob.keyExists(".migration.emitArtifacts")) cfg.migration.emitArtifacts = jsonBlob.readBool(".migration.emitArtifacts");
+        if (jsonBlob.keyExists(".migration.emitArtifacts")) {
+            cfg.migration.emitArtifacts = jsonBlob.readBool(".migration.emitArtifacts");
+        }
         if (jsonBlob.keyExists(".migration.useMockVerifier")) {
             cfg.migration.useMockVerifier = jsonBlob.readBool(".migration.useMockVerifier");
         }
-        if (jsonBlob.keyExists(".migration.artifactsPath")) cfg.migration.artifactsPath = jsonBlob.readString(".migration.artifactsPath");
-        if (jsonBlob.keyExists(".migration.merklePath")) cfg.migration.merklePath = jsonBlob.readString(".migration.merklePath");
-        if (jsonBlob.keyExists(".migration.evmClaimsPath")) cfg.migration.evmClaimsPath = jsonBlob.readString(".migration.evmClaimsPath");
+        if (jsonBlob.keyExists(".migration.artifactsPath")) {
+            cfg.migration.artifactsPath = jsonBlob.readString(".migration.artifactsPath");
+        }
+        if (jsonBlob.keyExists(".migration.merklePath")) {
+            cfg.migration.merklePath = jsonBlob.readString(".migration.merklePath");
+        }
+        if (jsonBlob.keyExists(".migration.evmClaimsPath")) {
+            cfg.migration.evmClaimsPath = jsonBlob.readString(".migration.evmClaimsPath");
+        }
         if (jsonBlob.keyExists(".migration.treasuryCarveoutPath")) {
             cfg.migration.treasuryCarveoutPath = jsonBlob.readString(".migration.treasuryCarveoutPath");
         }
@@ -606,7 +640,10 @@ contract FullDeploy is DeployV2 {
         CreditsConfig memory cfg,
         address admin,
         address timelock
-    ) internal returns (address credits) {
+    )
+        internal
+        returns (address credits)
+    {
         if (!cfg.deploy) {
             return cfg.credits;
         }
@@ -702,12 +739,14 @@ contract FullDeploy is DeployV2 {
         address staking,
         address tangle,
         address oracle
-    ) internal returns (address proxy) {
+    )
+        internal
+        returns (address proxy)
+    {
         ServiceFeeDistributor impl = new ServiceFeeDistributor();
         proxy = address(
             new ERC1967Proxy(
-                address(impl),
-                abi.encodeCall(ServiceFeeDistributor.initialize, (admin, staking, tangle, oracle))
+                address(impl), abi.encodeCall(ServiceFeeDistributor.initialize, (admin, staking, tangle, oracle))
             )
         );
         console2.log("Deployed ServiceFeeDistributor:", proxy);
@@ -717,12 +756,14 @@ contract FullDeploy is DeployV2 {
         address admin,
         address tangle,
         address distributorAddr
-    ) internal returns (address proxy) {
+    )
+        internal
+        returns (address proxy)
+    {
         StreamingPaymentManager impl = new StreamingPaymentManager();
         proxy = address(
             new ERC1967Proxy(
-                address(impl),
-                abi.encodeCall(StreamingPaymentManager.initialize, (admin, tangle, distributorAddr))
+                address(impl), abi.encodeCall(StreamingPaymentManager.initialize, (admin, tangle, distributorAddr))
             )
         );
         console2.log("Deployed StreamingPaymentManager:", proxy);
@@ -909,10 +950,12 @@ contract FullDeploy is DeployV2 {
         address distributor,
         address streamingMgr,
         address oracle
-    ) internal {
+    )
+        internal
+    {
         if (distributor == address(0)) {
             if (tangleAddr != address(0)) {
-                (, , , uint16 stakerBps) = ITangleAdmin(tangleAddr).paymentSplit();
+                (,,, uint16 stakerBps) = ITangleAdmin(tangleAddr).paymentSplit();
                 require(stakerBps == 0, "ServiceFeeDistributor required when stakerBps > 0");
             }
             return;
@@ -1176,7 +1219,8 @@ contract FullDeploy is DeployV2 {
         // Treasury for unclaimed token sweep - use configured treasury or fallback to global treasury
         address sweepTreasury = migration.treasuryRecipient != address(0) ? migration.treasuryRecipient : treasury;
         if (sweepTreasury == address(0)) sweepTreasury = deployer; // Final fallback
-        TangleMigration claim = new TangleMigration(tntToken, migration.merkleRoot, address(verifier), deployer, sweepTreasury);
+        TangleMigration claim =
+            new TangleMigration(tntToken, migration.merkleRoot, address(verifier), deployer, sweepTreasury);
 
         uint256 claimDeadline = migration.claimDeadline;
         if (claimDeadline == 0) {
@@ -1198,16 +1242,14 @@ contract FullDeploy is DeployV2 {
 
         // Treasury: 0% unlocked, 100% vested with 6-month cliff + 30-month linear (3 years)
         if (migration.treasuryAmount > 0) {
-            address treasuryRecipient = migration.treasuryRecipient == address(0) ? treasury : migration.treasuryRecipient;
+            address treasuryRecipient =
+                migration.treasuryRecipient == address(0) ? treasury : migration.treasuryRecipient;
             require(treasuryRecipient != address(0), "Missing treasury recipient");
 
             // Create vesting contract for 100% of treasury allocation
             TNTVestingFactory treasuryVestingFactory = new TNTVestingFactory(180 days, 912 days);
             address treasuryVesting = treasuryVestingFactory.getOrCreateVesting(
-                address(tnt),
-                treasuryRecipient,
-                uint64(block.timestamp),
-                treasuryRecipient
+                address(tnt), treasuryRecipient, uint64(block.timestamp), treasuryRecipient
             );
             tnt.safeTransfer(treasuryVesting, migration.treasuryAmount);
             migration.treasuryRecipient = treasuryRecipient;
@@ -1228,10 +1270,7 @@ contract FullDeploy is DeployV2 {
             // 70% to vesting contract
             TNTVestingFactory foundationVestingFactory = new TNTVestingFactory(180 days, 912 days);
             address foundationVesting = foundationVestingFactory.getOrCreateVesting(
-                address(tnt),
-                foundationRecipient,
-                uint64(block.timestamp),
-                foundationRecipient
+                address(tnt), foundationRecipient, uint64(block.timestamp), foundationRecipient
             );
             tnt.safeTransfer(foundationVesting, foundationVested);
         }
@@ -1656,8 +1695,7 @@ contract FullDeploy is DeployV2 {
 
     function _hexToBytes(bytes memory data) internal pure returns (bytes memory) {
         if (
-            data.length < 2
-                || data[0] != bytes1(uint8(48))
+            data.length < 2 || data[0] != bytes1(uint8(48))
                 || (data[1] != bytes1(uint8(120)) && data[1] != bytes1(uint8(88)))
         ) {
             revert("Invalid hex prefix");

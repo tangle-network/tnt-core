@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {BeaconTestBase} from "./BeaconTestBase.sol";
-import {BeaconChainProofs} from "../../src/beacon/BeaconChainProofs.sol";
-import {ValidatorTypes} from "../../src/beacon/ValidatorTypes.sol";
-import {console2} from "forge-std/Test.sol";
+import { BeaconTestBase } from "./BeaconTestBase.sol";
+import { BeaconChainProofs } from "../../src/beacon/BeaconChainProofs.sol";
+import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
+import { console2 } from "forge-std/Test.sol";
 
 /// @title BeaconProofsHarness
 /// @notice Test harness with external functions for testing calldata library functions
@@ -12,7 +12,11 @@ contract BeaconProofsHarness {
     function verifyStateRoot(
         bytes32 beaconBlockRoot,
         ValidatorTypes.StateRootProof calldata stateRootProof
-    ) external pure returns (bool) {
+    )
+        external
+        pure
+        returns (bool)
+    {
         return BeaconChainProofs.verifyStateRoot(beaconBlockRoot, stateRootProof);
     }
 
@@ -20,14 +24,22 @@ contract BeaconProofsHarness {
         bytes32 beaconStateRoot,
         uint40 validatorIndex,
         ValidatorTypes.ValidatorFieldsProof memory proof
-    ) external pure returns (bool) {
+    )
+        external
+        pure
+        returns (bool)
+    {
         return BeaconChainProofs.verifyValidatorFields(beaconStateRoot, validatorIndex, proof);
     }
 
     function verifyBalanceContainer(
         bytes32 beaconBlockRoot,
         ValidatorTypes.BalanceContainerProof calldata proof
-    ) external pure returns (bool) {
+    )
+        external
+        pure
+        returns (bool)
+    {
         return BeaconChainProofs.verifyBalanceContainer(beaconBlockRoot, proof);
     }
 
@@ -35,7 +47,11 @@ contract BeaconProofsHarness {
         bytes32 balanceContainerRoot,
         uint40 validatorIndex,
         ValidatorTypes.BalanceProof calldata proof
-    ) external pure returns (uint64) {
+    )
+        external
+        pure
+        returns (uint64)
+    {
         return BeaconChainProofs.verifyValidatorBalance(balanceContainerRoot, validatorIndex, proof);
     }
 }
@@ -77,7 +93,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
         bytes memory proof = abi.encodePacked(siblings[0], siblings[1], siblings[2]);
 
         ValidatorTypes.StateRootProof memory stateRootProof =
-            ValidatorTypes.StateRootProof({beaconStateRoot: stateRoot, proof: proof});
+            ValidatorTypes.StateRootProof({ beaconStateRoot: stateRoot, proof: proof });
 
         bool result = harness.verifyStateRoot(beaconBlockRoot, stateRootProof);
         assertTrue(result, "Valid state root proof should verify");
@@ -101,7 +117,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
 
         // Try to verify with wrong state root
         ValidatorTypes.StateRootProof memory stateRootProof =
-            ValidatorTypes.StateRootProof({beaconStateRoot: wrongStateRoot, proof: proof});
+            ValidatorTypes.StateRootProof({ beaconStateRoot: wrongStateRoot, proof: proof });
 
         bool result = harness.verifyStateRoot(beaconBlockRoot, stateRootProof);
         assertFalse(result, "Invalid state root proof should not verify");
@@ -115,7 +131,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
         bytes memory wrongLengthProof = abi.encodePacked(keccak256("sibling0"), keccak256("sibling1"));
 
         ValidatorTypes.StateRootProof memory stateRootProof =
-            ValidatorTypes.StateRootProof({beaconStateRoot: stateRoot, proof: wrongLengthProof});
+            ValidatorTypes.StateRootProof({ beaconStateRoot: stateRoot, proof: wrongLengthProof });
 
         vm.expectRevert(BeaconChainProofs.InvalidProofLength.selector);
         harness.verifyStateRoot(beaconBlockRoot, stateRootProof);
@@ -132,7 +148,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
 
         // Empty proof with leaf == root would incorrectly pass without check
         ValidatorTypes.StateRootProof memory stateRootProof =
-            ValidatorTypes.StateRootProof({beaconStateRoot: stateRoot, proof: ""});
+            ValidatorTypes.StateRootProof({ beaconStateRoot: stateRoot, proof: "" });
 
         // Should revert with InvalidProofLength
         vm.expectRevert(BeaconChainProofs.InvalidProofLength.selector);
@@ -167,7 +183,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
         }
 
         ValidatorTypes.ValidatorFieldsProof memory proof =
-            ValidatorTypes.ValidatorFieldsProof({validatorFields: wrongFields, proof: ""});
+            ValidatorTypes.ValidatorFieldsProof({ validatorFields: wrongFields, proof: "" });
 
         vm.expectRevert(BeaconChainProofs.InvalidValidatorFieldsLength.selector);
         harness.verifyValidatorFields(beaconStateRoot, validatorIndex, proof);
@@ -205,10 +221,8 @@ contract BeaconChainProofsTest is BeaconTestBase {
         (bytes memory proofBytes, bytes32 stateRoot) =
             _buildProofFromGindex(balanceContainerRoot, BALANCE_CONTAINER_GINDEX);
 
-        ValidatorTypes.BalanceContainerProof memory proof = ValidatorTypes.BalanceContainerProof({
-            balanceContainerRoot: balanceContainerRoot,
-            proof: proofBytes
-        });
+        ValidatorTypes.BalanceContainerProof memory proof =
+            ValidatorTypes.BalanceContainerProof({ balanceContainerRoot: balanceContainerRoot, proof: proofBytes });
 
         bool result = harness.verifyBalanceContainer(stateRoot, proof);
         assertTrue(result, "Balance container proof should verify");
@@ -227,11 +241,8 @@ contract BeaconChainProofsTest is BeaconTestBase {
         (bytes memory proofBytes, bytes32 balanceContainerRoot) =
             _generateMerkleProof(balanceLeaf, siblings, validatorIndex / 4);
 
-        ValidatorTypes.BalanceProof memory proof = ValidatorTypes.BalanceProof({
-            pubkeyHash: bytes32(0),
-            balanceRoot: balanceLeaf,
-            proof: proofBytes
-        });
+        ValidatorTypes.BalanceProof memory proof =
+            ValidatorTypes.BalanceProof({ pubkeyHash: bytes32(0), balanceRoot: balanceLeaf, proof: proofBytes });
 
         uint64 balance = harness.verifyValidatorBalance(balanceContainerRoot, validatorIndex, proof);
         assertEq(balance, expectedBalance);
@@ -249,9 +260,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
         bytes memory wrongProof = abi.encodePacked(keccak256("sibling0"));
 
         ValidatorTypes.BalanceProof memory proof = ValidatorTypes.BalanceProof({
-            pubkeyHash: keccak256("pubkey"),
-            balanceRoot: keccak256("balance"),
-            proof: wrongProof
+            pubkeyHash: keccak256("pubkey"), balanceRoot: keccak256("balance"), proof: wrongProof
         });
 
         vm.expectRevert(BeaconChainProofs.InvalidProofLength.selector);
@@ -315,7 +324,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
     }
 
     function test_getActivationEpoch() public pure {
-        uint64 epoch = 12345;
+        uint64 epoch = 12_345;
         bytes32[] memory fields = new bytes32[](8);
         fields[5] = bytes32(uint256(epoch));
 
@@ -333,7 +342,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
     }
 
     function test_getWithdrawableEpoch() public pure {
-        uint64 epoch = 99999;
+        uint64 epoch = 99_999;
         bytes32[] memory fields = new bytes32[](8);
         fields[7] = bytes32(uint256(epoch));
 
@@ -578,7 +587,10 @@ contract BeaconChainProofsTest is BeaconTestBase {
         assertFalse(ValidatorTypes.hasValidPrefix(invalidCreds), "0x03 prefix should be invalid");
     }
 
-    function _buildProofFromGindex(bytes32 leaf, uint256 gindex)
+    function _buildProofFromGindex(
+        bytes32 leaf,
+        uint256 gindex
+    )
         internal
         pure
         returns (bytes memory proof, bytes32 root)

@@ -20,7 +20,7 @@ import { StakingAdminFacet } from "../../src/facets/staking/StakingAdminFacet.so
 
 /// @notice Mock ERC20 token for testing
 contract MockERC20 is ERC20 {
-    constructor() ERC20("Mock Token", "MOCK") {}
+    constructor() ERC20("Mock Token", "MOCK") { }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
@@ -72,7 +72,7 @@ contract LiquidDelegationTest is Test {
 
         // Enable mock token as asset
         vm.prank(admin);
-        staking.enableAsset(address(token), 1 ether, 0.1 ether, 0, 10000);
+        staking.enableAsset(address(token), 1 ether, 0.1 ether, 0, 10_000);
 
         // Deploy factory
         factory = new LiquidDelegationFactory(staking);
@@ -133,11 +133,7 @@ contract LiquidDelegationTest is Test {
         vault.deposit(10 ether, user1);
         vm.stopPrank();
 
-        assertEq(
-            uint8(vault.selectionMode()),
-            uint8(Types.BlueprintSelectionMode.All),
-            "Vault should be All mode"
-        );
+        assertEq(uint8(vault.selectionMode()), uint8(Types.BlueprintSelectionMode.All), "Vault should be All mode");
         assertEq(vault.blueprintIds().length, 0, "All mode: no stored blueprint IDs");
 
         Types.BondInfoDelegator[] memory delegations = staking.getDelegations(vaultAddr);

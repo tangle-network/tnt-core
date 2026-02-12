@@ -68,21 +68,13 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
 
         // Deploy staking proxy
         ERC1967Proxy stakingProxy = new ERC1967Proxy(
-            address(restakingImpl),
-            abi.encodeCall(
-                MultiAssetDelegation.initialize,
-                (admin, 1 ether, 0.1 ether, 1000)
-            )
+            address(restakingImpl), abi.encodeCall(MultiAssetDelegation.initialize, (admin, 1 ether, 0.1 ether, 1000))
         );
         staking = IMultiAssetDelegation(payable(address(stakingProxy)));
 
         // Deploy tangle proxy
         ERC1967Proxy tangleProxy = new ERC1967Proxy(
-            address(tangleImpl),
-            abi.encodeCall(
-                Tangle.initialize,
-                (admin, address(staking), payable(treasury))
-            )
+            address(tangleImpl), abi.encodeCall(Tangle.initialize, (admin, address(staking), payable(treasury)))
         );
         tangle = ITangleFull(payable(address(tangleProxy)));
 
@@ -101,10 +93,8 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
 
         masterManager = new MasterBlueprintServiceManager(admin, address(tangleProxy));
         MBSMRegistry registryImpl = new MBSMRegistry();
-        ERC1967Proxy registryProxy = new ERC1967Proxy(
-            address(registryImpl),
-            abi.encodeCall(MBSMRegistry.initialize, (admin))
-        );
+        ERC1967Proxy registryProxy =
+            new ERC1967Proxy(address(registryImpl), abi.encodeCall(MBSMRegistry.initialize, (admin)));
         mbsmRegistry = MBSMRegistry(address(registryProxy));
         vm.startPrank(admin);
         mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), address(tangleProxy));
@@ -167,14 +157,11 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     // INVARIANT: Slash effective amount never exceeds proposed amount
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function testFuzz_Invariant_EffectiveSlashNeverExceedsProposed(
-        uint16 slashBps,
-        uint16 exposure
-    ) public {
+    function testFuzz_Invariant_EffectiveSlashNeverExceedsProposed(uint16 slashBps, uint16 exposure) public {
         // Bound to minimum 100 each so that effectiveBps = slashBps * exposure / 10000 >= 1
         // This avoids InvalidSlashAmount when the product rounds to 0
-        slashBps = uint16(bound(uint256(slashBps), 100, 10000));
-        exposure = uint16(bound(uint256(exposure), 100, 10000));
+        slashBps = uint16(bound(uint256(slashBps), 100, 10_000));
+        exposure = uint16(bound(uint256(exposure), 100, 10_000));
 
         // Create service with custom exposure
         address[] memory ops = new address[](1);
@@ -183,9 +170,8 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         exposures[0] = exposure;
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(
-            blueprintId, ops, exposures, "", new address[](0), 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithExposure(blueprintId, ops, exposures, "", new address[](0), 0, address(0), 0);
 
         vm.prank(operator2);
         tangle.approveService(requestId, 0);
@@ -201,7 +187,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         assertLe(proposal.effectiveSlashBps, proposal.slashBps, "INVARIANT VIOLATED: effective > proposed");
 
         // More specifically: effectiveSlashBps = slashBps * exposure / 10000
-        uint256 expected = (uint256(slashBps) * exposure) / 10000;
+        uint256 expected = (uint256(slashBps) * exposure) / 10_000;
         assertEq(proposal.effectiveSlashBps, expected, "Effective bps calculation wrong");
     }
 
@@ -210,7 +196,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function testFuzz_Invariant_StakeNeverNegative(uint16 slashBps) public {
-        slashBps = uint16(bound(uint256(slashBps), 1, 10000));
+        slashBps = uint16(bound(uint256(slashBps), 1, 10_000));
 
         uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
 
@@ -234,11 +220,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     // INVARIANT: Service operator count always within bounds
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function testFuzz_Invariant_OperatorCountWithinBounds(
-        uint8 minOps,
-        uint8 maxOps,
-        uint8 requestOps
-    ) public {
+    function testFuzz_Invariant_OperatorCountWithinBounds(uint8 minOps, uint8 maxOps, uint8 requestOps) public {
         minOps = uint8(bound(uint256(minOps), 1, 3));
         maxOps = uint8(bound(uint256(maxOps), minOps, 5));
         requestOps = uint8(bound(uint256(requestOps), 1, 5));
@@ -254,17 +236,19 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         });
 
         vm.prank(developer);
-        uint64 newBpId =
-            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://bounds", address(0), config));
+        uint64 newBpId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://bounds", address(0), config));
 
         // Register enough operators
         address[] memory operators = new address[](requestOps);
         for (uint8 i = 0; i < requestOps; i++) {
             address op;
-            if (i == 0) op = operator1;
-            else if (i == 1) op = operator2;
-            else if (i == 2) op = operator3;
-            else {
+            if (i == 0) {
+                op = operator1;
+            } else if (i == 1) {
+                op = operator2;
+            } else if (i == 2) {
+                op = operator3;
+            } else {
                 op = makeAddr(string(abi.encodePacked("op", uint256(i))));
                 vm.deal(op, 10 ether);
                 vm.prank(op);
@@ -304,22 +288,15 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     // INVARIANT: Payment split always sums to 100%
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function testFuzz_Invariant_PaymentSplitSums100(
-        uint16 devBps,
-        uint16 protoBps,
-        uint16 opBps
-    ) public {
+    function testFuzz_Invariant_PaymentSplitSums100(uint16 devBps, uint16 protoBps, uint16 opBps) public {
         // Bound individual values
-        devBps = uint16(bound(uint256(devBps), 0, 10000));
-        protoBps = uint16(bound(uint256(protoBps), 0, 10000 - devBps));
-        opBps = uint16(bound(uint256(opBps), 0, 10000 - devBps - protoBps));
-        uint16 stakerBps = 10000 - devBps - protoBps - opBps;
+        devBps = uint16(bound(uint256(devBps), 0, 10_000));
+        protoBps = uint16(bound(uint256(protoBps), 0, 10_000 - devBps));
+        opBps = uint16(bound(uint256(opBps), 0, 10_000 - devBps - protoBps));
+        uint16 stakerBps = 10_000 - devBps - protoBps - opBps;
 
         Types.PaymentSplit memory split = Types.PaymentSplit({
-            developerBps: devBps,
-            protocolBps: protoBps,
-            operatorBps: opBps,
-            stakerBps: stakerBps
+            developerBps: devBps, protocolBps: protoBps, operatorBps: opBps, stakerBps: stakerBps
         });
 
         // Should always succeed if sum is exactly 10000
@@ -327,7 +304,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         tangle.setPaymentSplit(split);
 
         (uint16 d, uint16 p, uint16 o, uint16 r) = tangle.paymentSplit();
-        assertEq(d + p + o + r, 10000, "INVARIANT VIOLATED: split doesn't sum to 100%");
+        assertEq(d + p + o + r, 10_000, "INVARIANT VIOLATED: split doesn't sum to 100%");
     }
 
     function testFuzz_Invariant_PaymentSplitRejectsInvalid(
@@ -335,18 +312,17 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         uint16 protoBps,
         uint16 opBps,
         uint16 stakerBps
-    ) public {
+    )
+        public
+    {
         // Test that invalid splits are rejected
         uint256 total = uint256(devBps) + uint256(protoBps) + uint256(opBps) + uint256(stakerBps);
 
         Types.PaymentSplit memory split = Types.PaymentSplit({
-            developerBps: devBps,
-            protocolBps: protoBps,
-            operatorBps: opBps,
-            stakerBps: stakerBps
+            developerBps: devBps, protocolBps: protoBps, operatorBps: opBps, stakerBps: stakerBps
         });
 
-        if (total != 10000) {
+        if (total != 10_000) {
             vm.prank(admin);
             vm.expectRevert(Errors.InvalidPaymentSplit.selector);
             tangle.setPaymentSplit(split);
@@ -389,12 +365,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
 
         for (uint8 i = 0; i < numSlashes; i++) {
             vm.prank(user1);
-            uint64 slashId = tangle.proposeSlash(
-                serviceId,
-                operator1,
-                10,
-                keccak256(abi.encodePacked("evidence", i))
-            );
+            uint64 slashId = tangle.proposeSlash(serviceId, operator1, 10, keccak256(abi.encodePacked("evidence", i)));
 
             if (previousId != type(uint64).max) {
                 assertEq(slashId, previousId + 1, "INVARIANT VIOLATED: slash IDs not sequential");
@@ -411,21 +382,17 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         if (window < 1 hours || window > 30 days) {
             vm.prank(admin);
             vm.expectRevert(Errors.InvalidSlashConfig.selector);
-            tangle.setSlashConfig(window, false, 10000);
+            tangle.setSlashConfig(window, false, 10_000);
         } else {
             vm.prank(admin);
-            tangle.setSlashConfig(window, false, 10000);
+            tangle.setSlashConfig(window, false, 10_000);
 
             // Verify by creating slash
             vm.prank(user1);
             uint64 slashId = tangle.proposeSlash(serviceId, operator1, 10, keccak256("test"));
 
             SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
-            assertEq(
-                proposal.executeAfter,
-                proposal.proposedAt + window,
-                "Dispute window not applied correctly"
-            );
+            assertEq(proposal.executeAfter, proposal.proposedAt + window, "Dispute window not applied correctly");
         }
     }
 
@@ -433,10 +400,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     // INVARIANT: Escrow balance never exceeds total deposited
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function testFuzz_Invariant_EscrowBalanceValid(
-        uint256 deposit,
-        uint8 billCount
-    ) public {
+    function testFuzz_Invariant_EscrowBalanceValid(uint256 deposit, uint8 billCount) public {
         deposit = bound(deposit, 1 ether, 100 ether);
         billCount = uint8(bound(uint256(billCount), 1, 20));
 
@@ -451,8 +415,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         });
 
         vm.prank(developer);
-        uint64 subBp =
-            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://escrow-inv", address(0), config));
+        uint64 subBp = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://escrow-inv", address(0), config));
 
         vm.prank(operator1);
         tangle.registerOperator(subBp, _operatorGossipKey(operator1, 0), "");
@@ -461,9 +424,8 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         ops[0] = operator1;
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: deposit }(
-            subBp, ops, "", new address[](0), 365 days, address(0), deposit
-        );
+        uint64 requestId =
+            tangle.requestService{ value: deposit }(subBp, ops, "", new address[](0), 365 days, address(0), deposit);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -479,9 +441,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
 
             // INVARIANT: balance + totalReleased = totalDeposited
             assertEq(
-                escrow.balance + escrow.totalReleased,
-                escrow.totalDeposited,
-                "INVARIANT VIOLATED: accounting mismatch"
+                escrow.balance + escrow.totalReleased, escrow.totalDeposited, "INVARIANT VIOLATED: accounting mismatch"
             );
 
             if (escrow.balance >= 0.1 ether) {
@@ -520,9 +480,8 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         ops[0] = operator1;
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: payment }(
-            blueprintId, ops, "", new address[](0), 0, address(0), payment
-        );
+        uint64 requestId =
+            tangle.requestService{ value: payment }(blueprintId, ops, "", new address[](0), 0, address(0), payment);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);

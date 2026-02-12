@@ -63,24 +63,12 @@ contract StreamingPaymentManager is
         uint64 endTime
     );
 
-    event StreamingDrip(
-        uint64 indexed serviceId,
-        address indexed operator,
-        uint256 amount,
-        uint256 totalDistributed
-    );
+    event StreamingDrip(uint64 indexed serviceId, address indexed operator, uint256 amount, uint256 totalDistributed);
 
-    event StreamingPaymentCompleted(
-        uint64 indexed serviceId,
-        address indexed operator,
-        uint256 totalAmount
-    );
+    event StreamingPaymentCompleted(uint64 indexed serviceId, address indexed operator, uint256 totalAmount);
 
     event StreamingPaymentCancelled(
-        uint64 indexed serviceId,
-        address indexed operator,
-        uint256 refundedAmount,
-        address refundRecipient
+        uint64 indexed serviceId, address indexed operator, uint256 refundedAmount, address refundRecipient
     );
 
     event TangleConfigured(address indexed tangle);
@@ -102,11 +90,7 @@ contract StreamingPaymentManager is
         _disableInitializers();
     }
 
-    function initialize(
-        address admin,
-        address tangle_,
-        address distributor_
-    ) external initializer {
+    function initialize(address admin, address tangle_, address distributor_) external initializer {
         __UUPSUpgradeable_init();
         __AccessControl_init();
         __ReentrancyGuard_init();
@@ -147,7 +131,12 @@ contract StreamingPaymentManager is
         uint256 amount,
         uint64 startTime,
         uint64 endTime
-    ) external payable override onlyRole(DISTRIBUTOR_ROLE) {
+    )
+        external
+        payable
+        override
+        onlyRole(DISTRIBUTOR_ROLE)
+    {
         if (amount == 0) return;
         if (endTime <= startTime) return;
 
@@ -236,16 +225,14 @@ contract StreamingPaymentManager is
 
     /// @notice Drip a specific stream and return chunk info for distribution
     /// @dev Called by ServiceFeeDistributor to get the drip amount. Transfers dripped tokens to caller.
-    function dripAndGetChunk(uint64 serviceId, address operator)
+    function dripAndGetChunk(
+        uint64 serviceId,
+        address operator
+    )
         external
         override
         onlyRole(DISTRIBUTOR_ROLE)
-        returns (
-            uint256 amount,
-            uint256 durationSeconds,
-            uint64 blueprintId,
-            address paymentToken
-        )
+        returns (uint256 amount, uint256 durationSeconds, uint64 blueprintId, address paymentToken)
     {
         StreamingPayment storage p = streamingPayments[serviceId][operator];
         blueprintId = p.blueprintId;
@@ -299,18 +286,13 @@ contract StreamingPaymentManager is
         }
     }
 
-
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE TERMINATION
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Called when a service is terminated - refunds remaining payments
     /// @dev Can be called by either Tangle directly or via ServiceFeeDistributor
-    function onServiceTerminated(uint64 serviceId, address refundRecipient)
-        external
-        override
-        nonReentrant
-    {
+    function onServiceTerminated(uint64 serviceId, address refundRecipient) external override nonReentrant {
         if (msg.sender != tangle && msg.sender != distributor) revert NotAuthorized();
         if (refundRecipient == address(0)) return;
 
@@ -351,7 +333,10 @@ contract StreamingPaymentManager is
         return _operatorActiveStreams[operator];
     }
 
-    function getStreamingPayment(uint64 serviceId, address operator)
+    function getStreamingPayment(
+        uint64 serviceId,
+        address operator
+    )
         external
         view
         override
@@ -411,7 +396,11 @@ contract StreamingPaymentManager is
     /// @dev Useful for keepers to check if drip operations are worthwhile
     /// @param operator The operator to check
     /// @return totalPending Total drippable amount, streamCount Number of active streams
-    function pendingDripForOperator(address operator) external view returns (uint256 totalPending, uint256 streamCount) {
+    function pendingDripForOperator(address operator)
+        external
+        view
+        returns (uint256 totalPending, uint256 streamCount)
+    {
         uint64[] storage streams = _operatorActiveStreams[operator];
         streamCount = streams.length;
 
@@ -474,8 +463,8 @@ contract StreamingPaymentManager is
         }
     }
 
-    function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) {}
+    function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
 
     /// @notice Receive ETH for native token streams
-    receive() external payable {}
+    receive() external payable { }
 }

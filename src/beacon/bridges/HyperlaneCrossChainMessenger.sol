@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ICrossChainMessenger, ICrossChainReceiver} from "../interfaces/ICrossChainMessenger.sol";
+import { ICrossChainMessenger, ICrossChainReceiver } from "../interfaces/ICrossChainMessenger.sol";
 
 /// @title HyperlaneCrossChainMessenger
 /// @notice ICrossChainMessenger implementation for Hyperlane
@@ -18,14 +18,20 @@ interface IHyperlaneMailbox {
         uint32 destinationDomain,
         bytes32 recipientAddress,
         bytes calldata messageBody
-    ) external payable returns (bytes32 messageId);
+    )
+        external
+        payable
+        returns (bytes32 messageId);
 
     /// @notice Quote fee for dispatching message
     function quoteDispatch(
         uint32 destinationDomain,
         bytes32 recipientAddress,
         bytes calldata messageBody
-    ) external view returns (uint256 fee);
+    )
+        external
+        view
+        returns (uint256 fee);
 
     /// @notice Get the local domain
     function localDomain() external view returns (uint32);
@@ -39,13 +45,12 @@ interface IInterchainGasPaymaster {
         uint32 destinationDomain,
         uint256 gasAmount,
         address refundAddress
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Quote gas payment
-    function quoteGasPayment(
-        uint32 destinationDomain,
-        uint256 gasAmount
-    ) external view returns (uint256);
+    function quoteGasPayment(uint32 destinationDomain, uint256 gasAmount) external view returns (uint256);
 }
 
 contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
@@ -88,18 +93,18 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
 
         // Initialize common chain domain mappings
         // Hyperlane uses domain IDs that match chain IDs for most EVM chains
-        _setDomainMapping(1, 1);           // Ethereum
-        _setDomainMapping(42161, 42161);   // Arbitrum One
-        _setDomainMapping(8453, 8453);     // Base
-        _setDomainMapping(10, 10);         // Optimism
-        _setDomainMapping(137, 137);       // Polygon
-        _setDomainMapping(43114, 43114);   // Avalanche
-        _setDomainMapping(56, 56);         // BSC
+        _setDomainMapping(1, 1); // Ethereum
+        _setDomainMapping(42_161, 42_161); // Arbitrum One
+        _setDomainMapping(8453, 8453); // Base
+        _setDomainMapping(10, 10); // Optimism
+        _setDomainMapping(137, 137); // Polygon
+        _setDomainMapping(43_114, 43_114); // Avalanche
+        _setDomainMapping(56, 56); // BSC
         // Testnets
-        _setDomainMapping(11155111, 11155111); // Sepolia
-        _setDomainMapping(17000, 17000);       // Holesky
-        _setDomainMapping(421614, 421614);     // Arbitrum Sepolia
-        _setDomainMapping(84532, 84532);       // Base Sepolia
+        _setDomainMapping(11_155_111, 11_155_111); // Sepolia
+        _setDomainMapping(17_000, 17_000); // Holesky
+        _setDomainMapping(421_614, 421_614); // Arbitrum Sepolia
+        _setDomainMapping(84_532, 84_532); // Base Sepolia
     }
 
     modifier onlyOwner() {
@@ -118,7 +123,11 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         address target,
         bytes calldata payload,
         uint256 gasLimit
-    ) external payable returns (bytes32 messageId) {
+    )
+        external
+        payable
+        returns (bytes32 messageId)
+    {
         uint32 destDomain = chainIdToDomain[destinationChainId];
         require(destDomain != 0, "Unsupported chain");
 
@@ -129,19 +138,11 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         bytes memory messageBody = abi.encode(block.chainid, msg.sender, payload);
 
         // Quote dispatch fee
-        uint256 dispatchFee = mailbox.quoteDispatch(
-            destDomain,
-            _addressToBytes32(target),
-            messageBody
-        );
+        uint256 dispatchFee = mailbox.quoteDispatch(destDomain, _addressToBytes32(target), messageBody);
         if (msg.value < dispatchFee) revert InsufficientMsgValue(dispatchFee, msg.value);
 
         // Dispatch message
-        messageId = mailbox.dispatch{ value: dispatchFee }(
-            destDomain,
-            _addressToBytes32(target),
-            messageBody
-        );
+        messageId = mailbox.dispatch{ value: dispatchFee }(destDomain, _addressToBytes32(target), messageBody);
 
         // Pay for destination gas if IGP is set and we have effective gas limit
         uint256 amountForGas;
@@ -150,12 +151,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
             if (gasQuote > 0) {
                 uint256 required = dispatchFee + gasQuote;
                 if (msg.value < required) revert InsufficientMsgValue(required, msg.value);
-                igp.payForGas{ value: gasQuote }(
-                    messageId,
-                    destDomain,
-                    effectiveGasLimit,
-                    msg.sender
-                );
+                igp.payForGas{ value: gasQuote }(messageId, destDomain, effectiveGasLimit, msg.sender);
                 amountForGas = gasQuote;
             }
         }
@@ -173,7 +169,11 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         uint256 destinationChainId,
         bytes calldata payload,
         uint256 gasLimit
-    ) external view returns (uint256 fee) {
+    )
+        external
+        view
+        returns (uint256 fee)
+    {
         uint32 destDomain = chainIdToDomain[destinationChainId];
         if (destDomain == 0) return 0;
 
@@ -184,11 +184,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         bytes memory messageBody = abi.encode(block.chainid, address(0), payload);
 
         // Quote dispatch
-        uint256 dispatchFee = mailbox.quoteDispatch(
-            destDomain,
-            bytes32(0),
-            messageBody
-        );
+        uint256 dispatchFee = mailbox.quoteDispatch(destDomain, bytes32(0), messageBody);
 
         // Quote gas payment (using effective gas limit)
         uint256 gasFee = 0;
@@ -233,7 +229,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
     /// @notice M-12 FIX: Set gas buffer percentage
     /// @param _gasBufferBps New buffer in basis points (10000 = 100%)
     function setGasBuffer(uint256 _gasBufferBps) external onlyOwner {
-        require(_gasBufferBps <= 10000, "Buffer too high"); // Max 100% buffer
+        require(_gasBufferBps <= 10_000, "Buffer too high"); // Max 100% buffer
         uint256 oldBuffer = gasBufferBps;
         gasBufferBps = _gasBufferBps;
         emit GasBufferUpdated(oldBuffer, _gasBufferBps);
@@ -246,7 +242,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         // Enforce minimum gas limit
         uint256 effectiveLimit = gasLimit < minGasLimit ? minGasLimit : gasLimit;
         // Add safety buffer
-        effectiveLimit = effectiveLimit + (effectiveLimit * gasBufferBps / 10000);
+        effectiveLimit = effectiveLimit + (effectiveLimit * gasBufferBps / 10_000);
         return effectiveLimit;
     }
 
@@ -301,13 +297,13 @@ contract HyperlaneReceiver {
         owner = msg.sender;
 
         // Initialize domain mappings
-        domainToChainId[1] = 1;             // Ethereum
-        domainToChainId[42161] = 42161;     // Arbitrum
-        domainToChainId[8453] = 8453;       // Base
-        domainToChainId[11155111] = 11155111; // Sepolia
-        domainToChainId[17000] = 17000;     // Holesky
-        domainToChainId[421614] = 421614;   // Arbitrum Sepolia
-        domainToChainId[84532] = 84532;     // Base Sepolia
+        domainToChainId[1] = 1; // Ethereum
+        domainToChainId[42_161] = 42_161; // Arbitrum
+        domainToChainId[8453] = 8453; // Base
+        domainToChainId[11_155_111] = 11_155_111; // Sepolia
+        domainToChainId[17_000] = 17_000; // Holesky
+        domainToChainId[421_614] = 421_614; // Arbitrum Sepolia
+        domainToChainId[84_532] = 84_532; // Base Sepolia
     }
 
     modifier onlyOwner() {
@@ -333,20 +329,12 @@ contract HyperlaneReceiver {
     /// @param _sender Sender address as bytes32
     /// @param _message Message body
     /// @dev M-12 FIX: Added message ID validation to prevent replay attacks
-    function handle(
-        uint32 _origin,
-        bytes32 _sender,
-        bytes calldata _message
-    ) external payable onlyMailbox {
+    function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable onlyMailbox {
         // Verify trusted sender
         require(trustedSenders[_origin][_sender], "Untrusted sender");
 
         // M-12 FIX: Generate unique message ID from origin, sender, and message content
-        bytes32 messageId = keccak256(abi.encode(
-            _origin,
-            _sender,
-            keccak256(_message)
-        ));
+        bytes32 messageId = keccak256(abi.encode(_origin, _sender, keccak256(_message)));
 
         // M-12 FIX: Check for replay attack
         if (processedMessages[messageId]) {

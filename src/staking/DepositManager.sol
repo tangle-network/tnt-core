@@ -19,18 +19,8 @@ abstract contract DepositManager is DelegationStorage {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event Deposited(
-        address indexed delegator,
-        address indexed token,
-        uint256 amount,
-        Types.LockMultiplier lock
-    );
-    event WithdrawScheduled(
-        address indexed delegator,
-        address indexed token,
-        uint256 amount,
-        uint64 readyRound
-    );
+    event Deposited(address indexed delegator, address indexed token, uint256 amount, Types.LockMultiplier lock);
+    event WithdrawScheduled(address indexed delegator, address indexed token, uint256 amount, uint64 readyRound);
     event Withdrawn(address indexed delegator, address indexed token, uint256 amount);
     event ExpiredLocksHarvested(address indexed delegator, address indexed token, uint256 count, uint256 totalAmount);
 
@@ -40,21 +30,13 @@ abstract contract DepositManager is DelegationStorage {
 
     /// @notice Deposit native token
     function _depositNative() internal {
-        _depositAsset(
-            Types.Asset(Types.AssetKind.Native, address(0)),
-            msg.value,
-            Types.LockMultiplier.None
-        );
+        _depositAsset(Types.Asset(Types.AssetKind.Native, address(0)), msg.value, Types.LockMultiplier.None);
     }
 
     /// @notice Deposit native token with lock
     /// @param lockMultiplier Lock duration for bonus multiplier
     function _depositNativeWithLock(Types.LockMultiplier lockMultiplier) internal {
-        _depositAsset(
-            Types.Asset(Types.AssetKind.Native, address(0)),
-            msg.value,
-            lockMultiplier
-        );
+        _depositAsset(Types.Asset(Types.AssetKind.Native, address(0)), msg.value, lockMultiplier);
     }
 
     /// @notice Deposit ERC20 token
@@ -64,30 +46,18 @@ abstract contract DepositManager is DelegationStorage {
         if (token == address(0)) revert DelegationErrors.AssetNotEnabled(address(0));
 
         uint256 shares = _handleErc20Deposit(token, amount);
-        _depositAsset(
-            Types.Asset(Types.AssetKind.ERC20, token),
-            shares,
-            Types.LockMultiplier.None
-        );
+        _depositAsset(Types.Asset(Types.AssetKind.ERC20, token), shares, Types.LockMultiplier.None);
     }
 
     /// @notice Deposit ERC20 token with lock
     /// @param token Token address
     /// @param amount Amount to deposit
     /// @param lockMultiplier Lock duration for bonus multiplier
-    function _depositErc20WithLock(
-        address token,
-        uint256 amount,
-        Types.LockMultiplier lockMultiplier
-    ) internal {
+    function _depositErc20WithLock(address token, uint256 amount, Types.LockMultiplier lockMultiplier) internal {
         if (token == address(0)) revert DelegationErrors.AssetNotEnabled(address(0));
 
         uint256 shares = _handleErc20Deposit(token, amount);
-        _depositAsset(
-            Types.Asset(Types.AssetKind.ERC20, token),
-            shares,
-            lockMultiplier
-        );
+        _depositAsset(Types.Asset(Types.AssetKind.ERC20, token), shares, lockMultiplier);
     }
 
     /// @notice Handle ERC20 deposit through adapter or directly
@@ -114,11 +84,7 @@ abstract contract DepositManager is DelegationStorage {
     }
 
     /// @notice Internal deposit logic
-    function _depositAsset(
-        Types.Asset memory asset,
-        uint256 amount,
-        Types.LockMultiplier lockMultiplier
-    ) internal {
+    function _depositAsset(Types.Asset memory asset, uint256 amount, Types.LockMultiplier lockMultiplier) internal {
         if (amount == 0) revert DelegationErrors.ZeroAmount();
 
         bytes32 assetHash = _assetHash(asset);
@@ -145,11 +111,11 @@ abstract contract DepositManager is DelegationStorage {
                 revert DelegationErrors.BelowMinimumLockAmount(MIN_LOCK_AMOUNT, amount);
             }
             uint64 lockDuration = _getLockDuration(lockMultiplier);
-            _depositLocks[msg.sender][assetHash].push(Types.LockInfo({
-                amount: amount,
-                multiplier: lockMultiplier,
-                expiryBlock: uint64(block.number) + lockDuration
-            }));
+            _depositLocks[msg.sender][assetHash].push(
+                Types.LockInfo({
+                    amount: amount, multiplier: lockMultiplier, expiryBlock: uint64(block.number) + lockDuration
+                })
+            );
         }
 
         emit Deposited(msg.sender, asset.token, amount, lockMultiplier);
@@ -186,11 +152,9 @@ abstract contract DepositManager is DelegationStorage {
 
         dep.amount -= amount;
 
-        _withdrawRequests[msg.sender].push(Types.WithdrawRequest({
-            asset: asset,
-            amount: amount,
-            requestedRound: currentRound
-        }));
+        _withdrawRequests[msg.sender].push(
+            Types.WithdrawRequest({ asset: asset, amount: amount, requestedRound: currentRound })
+        );
 
         emit WithdrawScheduled(msg.sender, token, amount, currentRound + leaveDelegatorsDelay);
     }
@@ -217,7 +181,9 @@ abstract contract DepositManager is DelegationStorage {
                 totalWithdrawn += requests[i].amount;
                 readyCount++;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
         // Remove processed requests from storage while preserving FIFO semantics
@@ -230,7 +196,9 @@ abstract contract DepositManager is DelegationStorage {
                     }
                     writeIndex++;
                 }
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
             }
             while (requests.length > writeIndex) {
                 requests.pop();
@@ -254,7 +222,9 @@ abstract contract DepositManager is DelegationStorage {
                 config.currentDeposits = 0;
             }
             emit Withdrawn(msg.sender, readyAssets[i].token, readyAmounts[i]);
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -265,10 +235,7 @@ abstract contract DepositManager is DelegationStorage {
     /// @notice Get deposit for a delegator and token
     /// @param delegator Delegator address
     /// @param token Token address (address(0) for native)
-    function _getDeposit(
-        address delegator,
-        address token
-    ) internal view returns (Types.Deposit memory) {
+    function _getDeposit(address delegator, address token) internal view returns (Types.Deposit memory) {
         Types.Asset memory asset = token == address(0)
             ? Types.Asset(Types.AssetKind.Native, address(0))
             : Types.Asset(Types.AssetKind.ERC20, token);
@@ -278,35 +245,29 @@ abstract contract DepositManager is DelegationStorage {
     /// @notice Get locked amount for a delegator and asset
     /// @param delegator Delegator address
     /// @param assetHash Hash of the asset
-    function _getLockedAmount(
-        address delegator,
-        bytes32 assetHash
-    ) internal view returns (uint256 locked) {
+    function _getLockedAmount(address delegator, bytes32 assetHash) internal view returns (uint256 locked) {
         Types.LockInfo[] storage locks = _depositLocks[delegator][assetHash];
         uint256 locksLength = locks.length;
         for (uint256 i = 0; i < locksLength;) {
             if (locks[i].expiryBlock > block.number) {
                 locked += locks[i].amount;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
     /// @notice Get pending withdrawals for a delegator
     /// @param delegator Delegator address
-    function _getPendingWithdrawals(
-        address delegator
-    ) internal view returns (Types.WithdrawRequest[] memory) {
+    function _getPendingWithdrawals(address delegator) internal view returns (Types.WithdrawRequest[] memory) {
         return _withdrawRequests[delegator];
     }
 
     /// @notice Get lock info for a delegator and token
     /// @param delegator Delegator address
     /// @param token Token address
-    function _getLocks(
-        address delegator,
-        address token
-    ) internal view returns (Types.LockInfo[] memory) {
+    function _getLocks(address delegator, address token) internal view returns (Types.LockInfo[] memory) {
         Types.Asset memory asset = token == address(0)
             ? Types.Asset(Types.AssetKind.Native, address(0))
             : Types.Asset(Types.AssetKind.ERC20, token);
@@ -356,7 +317,10 @@ abstract contract DepositManager is DelegationStorage {
     function _harvestExpiredLocks(
         address delegator,
         Types.Asset memory asset
-    ) internal returns (uint256 count, uint256 totalAmount) {
+    )
+        internal
+        returns (uint256 count, uint256 totalAmount)
+    {
         bytes32 assetHash = _assetHash(asset);
         Types.LockInfo[] storage locks = _depositLocks[delegator][assetHash];
 

@@ -31,7 +31,9 @@ interface ITangleGovernance {
         uint256[] memory values,
         bytes[] memory calldatas,
         string memory description
-    ) external returns (uint256 proposalId);
+    )
+        external
+        returns (uint256 proposalId);
 
     /// @notice Queue a successful proposal for execution
     /// @param targets Contract addresses to call
@@ -44,7 +46,9 @@ interface ITangleGovernance {
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) external returns (uint256 proposalId);
+    )
+        external
+        returns (uint256 proposalId);
 
     /// @notice Execute a queued proposal
     /// @param targets Contract addresses to call
@@ -57,7 +61,10 @@ interface ITangleGovernance {
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) external payable returns (uint256 proposalId);
+    )
+        external
+        payable
+        returns (uint256 proposalId);
 
     /// @notice Cancel a proposal
     /// @param targets Contract addresses to call
@@ -70,7 +77,9 @@ interface ITangleGovernance {
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) external returns (uint256 proposalId);
+    )
+        external
+        returns (uint256 proposalId);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VOTING
@@ -91,7 +100,9 @@ interface ITangleGovernance {
         uint256 proposalId,
         uint8 support,
         string calldata reason
-    ) external returns (uint256 weight);
+    )
+        external
+        returns (uint256 weight);
 
     /// @notice Cast a vote using EIP-712 signature
     /// @param proposalId The proposal to vote on
@@ -104,7 +115,9 @@ interface ITangleGovernance {
         uint8 support,
         address voter,
         bytes memory signature
-    ) external returns (uint256 weight);
+    )
+        external
+        returns (uint256 weight);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
@@ -160,14 +173,7 @@ interface ITangleToken {
     function delegate(address delegatee) external;
 
     /// @notice Delegate using EIP-712 signature
-    function delegateBySig(
-        address delegatee,
-        uint256 nonce,
-        uint256 expiry,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
+    function delegateBySig(address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) external;
 
     /// @notice Standard ERC20 functions
     function totalSupply() external view returns (uint256);

@@ -18,4 +18,5 @@ abstract contract StakingFacetBase is
     DepositManager
 {
     // Intentionally empty.
-}
+
+    }

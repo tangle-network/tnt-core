@@ -145,13 +145,8 @@ contract DeployV2 is DeployScriptBase {
         console2.log("Admin:", admin);
         console2.log("Treasury:", treasury);
 
-        (
-            address stakingProxy,
-            address stakingImpl,
-            address tangleProxy,
-            address tangleImpl,
-            address statusRegistry
-        ) = _deployCore(deployerPrivateKey, deployer, admin, treasury, true);
+        (address stakingProxy, address stakingImpl, address tangleProxy, address tangleImpl, address statusRegistry) =
+            _deployCore(deployerPrivateKey, deployer, admin, treasury, true);
 
         // Log summary
         console2.log("\n=== Deployment Summary ===");

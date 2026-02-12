@@ -56,10 +56,7 @@ abstract contract OperatorManager is DelegationStorage {
 
         _operators.add(msg.sender);
         _operatorMetadata[msg.sender] = Types.OperatorMetadata({
-            stake: msg.value,
-            delegationCount: 0,
-            status: Types.OperatorStatus.Active,
-            leavingRound: 0
+            stake: msg.value, delegationCount: 0, status: Types.OperatorStatus.Active, leavingRound: 0
         });
 
         emit OperatorRegistered(msg.sender, msg.value);
@@ -89,10 +86,7 @@ abstract contract OperatorManager is DelegationStorage {
 
         _operators.add(msg.sender);
         _operatorMetadata[msg.sender] = Types.OperatorMetadata({
-            stake: amount,
-            delegationCount: 0,
-            status: Types.OperatorStatus.Active,
-            leavingRound: 0
+            stake: amount, delegationCount: 0, status: Types.OperatorStatus.Active, leavingRound: 0
         });
 
         emit OperatorRegistered(msg.sender, amount);
@@ -156,10 +150,8 @@ abstract contract OperatorManager is DelegationStorage {
             revert DelegationErrors.InsufficientStake(minStake, availableStake - amount);
         }
 
-        _operatorBondLessRequests[msg.sender] = Types.OperatorBondLessRequest({
-            amount: pendingUnstake + amount,
-            requestedRound: currentRound
-        });
+        _operatorBondLessRequests[msg.sender] =
+            Types.OperatorBondLessRequest({ amount: pendingUnstake + amount, requestedRound: currentRound });
 
         emit OperatorUnstakeScheduled(msg.sender, amount, currentRound + delegationBondLessDelay);
     }
@@ -207,9 +199,8 @@ abstract contract OperatorManager is DelegationStorage {
         // M-10 FIX: Check for active services via Tangle core
         if (_tangleCore != address(0)) {
             // Query Tangle for operator's total active service count
-            (bool success, bytes memory data) = _tangleCore.staticcall(
-                abi.encodeWithSignature("getOperatorTotalActiveServices(address)", msg.sender)
-            );
+            (bool success, bytes memory data) =
+                _tangleCore.staticcall(abi.encodeWithSignature("getOperatorTotalActiveServices(address)", msg.sender));
             if (success && data.length >= 32) {
                 uint256 activeServices = abi.decode(data, (uint256));
                 if (activeServices > 0) {
@@ -289,8 +280,7 @@ abstract contract OperatorManager is DelegationStorage {
 
     /// @notice Check if operator is active (registered and not leaving)
     function _isOperatorActive(address operator) internal view returns (bool) {
-        return _operators.contains(operator) &&
-               _operatorMetadata[operator].status == Types.OperatorStatus.Active;
+        return _operators.contains(operator) && _operatorMetadata[operator].status == Types.OperatorStatus.Active;
     }
 
     /// @notice Get operator self-stake
@@ -353,7 +343,9 @@ abstract contract OperatorManager is DelegationStorage {
         for (uint256 i = 0; i < delegators.length;) {
             _operatorDelegationWhitelist[msg.sender][delegators[i]] = approved;
             emit OperatorWhitelistUpdated(msg.sender, delegators[i], approved);
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 

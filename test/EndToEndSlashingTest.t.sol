@@ -314,7 +314,8 @@ contract EndToEndSlashingTest is BaseTest {
         exposures[0] = 5000; // 50%
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(blueprintId, ops, exposures, "", new address[](0), 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestServiceWithExposure(blueprintId, ops, exposures, "", new address[](0), 0, address(0), 0);
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
@@ -498,17 +499,17 @@ contract MockMetricsRecorder {
     }
 
     // Stub remaining IMetricsRecorder functions
-    function recordStake(address, address, address, uint256) external {}
-    function recordUnstake(address, address, address, uint256) external {}
-    function recordOperatorRegistered(address, address, uint256) external {}
-    function recordHeartbeat(address, uint64, uint64) external {}
-    function recordJobCompletion(address, uint64, uint64, bool) external {}
-    function recordServiceCreated(uint64, uint64, address, uint256) external {}
-    function recordServiceTerminated(uint64, uint256) external {}
-    function recordJobCall(uint64, address, uint64) external {}
-    function recordPayment(address, uint64, address, uint256) external {}
-    function recordBlueprintCreated(uint64, address) external {}
-    function recordBlueprintRegistration(uint64, address) external {}
+    function recordStake(address, address, address, uint256) external { }
+    function recordUnstake(address, address, address, uint256) external { }
+    function recordOperatorRegistered(address, address, uint256) external { }
+    function recordHeartbeat(address, uint64, uint64) external { }
+    function recordJobCompletion(address, uint64, uint64, bool) external { }
+    function recordServiceCreated(uint64, uint64, address, uint256) external { }
+    function recordServiceTerminated(uint64, uint256) external { }
+    function recordJobCall(uint64, address, uint64) external { }
+    function recordPayment(address, uint64, address, uint256) external { }
+    function recordBlueprintCreated(uint64, address) external { }
+    function recordBlueprintRegistration(uint64, address) external { }
 }
 
 /// @title ChallengingSquareBSM
@@ -533,10 +534,22 @@ contract ChallengingSquareBSM is BlueprintServiceManagerBase {
         tangleCore = _tangleCore;
     }
 
-    function onRegister(address, bytes calldata) external payable override {}
-    function onRequest(uint64, address, address[] calldata, bytes calldata, uint64, address, uint256) external payable override {}
-    function onApprove(address, uint64, uint8) external payable override {}
-    function onServiceInitialized(uint64, uint64, uint64, address, address[] calldata, uint64) external override {}
+    function onRegister(address, bytes calldata) external payable override { }
+    function onRequest(
+        uint64,
+        address,
+        address[] calldata,
+        bytes calldata,
+        uint64,
+        address,
+        uint256
+    )
+        external
+        payable
+        override
+    { }
+    function onApprove(address, uint64, uint8) external payable override { }
+    function onServiceInitialized(uint64, uint64, uint64, address, address[] calldata, uint64) external override { }
 
     function onJobCall(uint64 serviceId, uint8, uint64 callId, bytes calldata inputs) external payable override {
         jobInputs[serviceId][callId] = abi.decode(inputs, (uint256));
@@ -549,7 +562,11 @@ contract ChallengingSquareBSM is BlueprintServiceManagerBase {
         address operator,
         bytes calldata,
         bytes calldata outputs
-    ) external payable override {
+    )
+        external
+        payable
+        override
+    {
         uint256 output = abi.decode(outputs, (uint256));
         uint256 input = jobInputs[serviceId][callId];
 
@@ -572,12 +589,15 @@ contract ChallengingSquareBSM is BlueprintServiceManagerBase {
         address operator = resultSubmitters[serviceId][callId];
 
         // Propose slash via Tangle (use ITangleFull which includes slashing)
-        return ITangleFull(tangleCore).proposeSlash(
-            serviceId,
-            operator,
-            CHALLENGE_SLASH_BPS,
-            keccak256(abi.encode("invalid_square", callId, jobInputs[serviceId][callId], jobOutputs[serviceId][callId]))
-        );
+        return ITangleFull(tangleCore)
+            .proposeSlash(
+                serviceId,
+                operator,
+                CHALLENGE_SLASH_BPS,
+                keccak256(
+                    abi.encode("invalid_square", callId, jobInputs[serviceId][callId], jobOutputs[serviceId][callId])
+                )
+            );
     }
 
     function querySlashingOrigin(uint64) external view override returns (address) {

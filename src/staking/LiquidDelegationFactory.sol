@@ -77,7 +77,10 @@ contract LiquidDelegationFactory is Ownable {
         address operator,
         address asset,
         uint64[] calldata blueprintIds
-    ) external returns (address vault) {
+    )
+        external
+        returns (address vault)
+    {
         // Verify operator is active
         if (!staking.isOperatorActive(operator)) {
             revert OperatorNotActive();
@@ -92,21 +95,10 @@ contract LiquidDelegationFactory is Ownable {
         }
 
         // Generate name and symbol
-        (string memory name, string memory symbol) = _generateTokenMetadata(
-            operator,
-            asset,
-            blueprintIds
-        );
+        (string memory name, string memory symbol) = _generateTokenMetadata(operator, asset, blueprintIds);
 
         // Deploy vault
-        vault = address(new LiquidDelegationVault(
-            staking,
-            operator,
-            IERC20(asset),
-            blueprintIds,
-            name,
-            symbol
-        ));
+        vault = address(new LiquidDelegationVault(staking, operator, IERC20(asset), blueprintIds, name, symbol));
 
         // Register vault
         vaults[vaultKey] = vault;
@@ -118,10 +110,7 @@ contract LiquidDelegationFactory is Ownable {
     }
 
     /// @notice Create a vault for all blueprints (convenience function)
-    function createAllBlueprintsVault(
-        address operator,
-        address asset
-    ) external returns (address vault) {
+    function createAllBlueprintsVault(address operator, address asset) external returns (address vault) {
         return this.createVault(operator, asset, new uint64[](0));
     }
 
@@ -134,17 +123,17 @@ contract LiquidDelegationFactory is Ownable {
         address operator,
         address asset,
         uint64[] calldata blueprintIds
-    ) public pure returns (bytes32) {
+    )
+        public
+        pure
+        returns (bytes32)
+    {
         // forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(operator, asset, blueprintIds));
     }
 
     /// @notice Get vault for a specific configuration
-    function getVault(
-        address operator,
-        address asset,
-        uint64[] calldata blueprintIds
-    ) external view returns (address) {
+    function getVault(address operator, address asset, uint64[] calldata blueprintIds) external view returns (address) {
         return vaults[computeVaultKey(operator, asset, blueprintIds)];
     }
 
@@ -192,7 +181,11 @@ contract LiquidDelegationFactory is Ownable {
         address operator,
         address asset,
         uint64[] calldata blueprintIds
-    ) internal view returns (string memory name, string memory symbol) {
+    )
+        internal
+        view
+        returns (string memory name, string memory symbol)
+    {
         // Get operator short address (last 4 bytes)
         bytes memory opBytes = abi.encodePacked(operator);
         string memory opShort = _toHexString(opBytes, 18, 20); // Last 2 bytes = 4 hex chars
@@ -221,24 +214,10 @@ contract LiquidDelegationFactory is Ownable {
         }
 
         // Generate name: "Liquid Delegation ETH Op-0x1234 All"
-        name = string(abi.encodePacked(
-            "Liquid Delegation ",
-            assetSymbol,
-            " Op-0x",
-            opShort,
-            " ",
-            bpSuffix
-        ));
+        name = string(abi.encodePacked("Liquid Delegation ", assetSymbol, " Op-0x", opShort, " ", bpSuffix));
 
         // Generate symbol: "ldETH-0x1234-All"
-        symbol = string(abi.encodePacked(
-            "ld",
-            assetSymbol,
-            "-0x",
-            opShort,
-            "-",
-            bpSuffix
-        ));
+        symbol = string(abi.encodePacked("ld", assetSymbol, "-0x", opShort, "-", bpSuffix));
     }
 
     /// @notice Convert bytes to hex string (partial)

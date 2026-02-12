@@ -32,11 +32,7 @@ abstract contract ServicesRequests is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
-    event ServiceRequestedWithSecurity(
-        uint64 indexed requestId,
-        uint64 indexed blueprintId,
-        address indexed requester
-    );
+    event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE REQUESTS
@@ -51,12 +47,19 @@ abstract contract ServicesRequests is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (uint64 requestId)
+    {
         _validateRequestConfig(blueprintId, config);
         requestId = _requestServiceWithDefaultExposure(
             blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount
         );
         _storeDefaultTntRequirement(requestId);
+        _storeDefaultResourceRequirements(requestId, blueprintId);
         return requestId;
     }
 
@@ -70,13 +73,20 @@ abstract contract ServicesRequests is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (uint64 requestId)
+    {
         if (operators.length != exposures.length) revert Errors.LengthMismatch();
         _validateRequestConfig(blueprintId, config);
         requestId = _requestServiceInternal(
             blueprintId, operators, exposures, config, permittedCallers, ttl, paymentToken, paymentAmount
         );
         _storeDefaultTntRequirement(requestId);
+        _storeDefaultResourceRequirements(requestId, blueprintId);
         return requestId;
     }
 
@@ -90,7 +100,13 @@ abstract contract ServicesRequests is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (uint64 requestId)
+    {
         _validateSecurityRequirements(securityRequirements);
 
         requestId = _requestServiceWithDefaultExposure(
@@ -98,6 +114,7 @@ abstract contract ServicesRequests is Base {
         );
 
         _storeSecurityRequirementsWithDefaultTnt(requestId, securityRequirements);
+        _storeDefaultResourceRequirements(requestId, blueprintId);
         emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender);
     }
 
@@ -109,7 +126,10 @@ abstract contract ServicesRequests is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) private returns (uint64 requestId) {
+    )
+        private
+        returns (uint64 requestId)
+    {
         uint16[] memory exposures = _defaultExposures(operators.length);
         _validateRequestConfig(blueprintId, config);
         return _requestServiceInternal(
@@ -127,7 +147,10 @@ abstract contract ServicesRequests is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) internal returns (uint64 requestId) {
+    )
+        internal
+        returns (uint64 requestId)
+    {
         if (operators.length == 0) revert Errors.NoOperators();
 
         // Validate TTL bounds (M-1 fix)
@@ -142,14 +165,7 @@ abstract contract ServicesRequests is Base {
 
         RequestBounds memory bounds = _computeRequestBounds(blueprintId, uint32(operators.length));
 
-        requestId = _createServiceRequest(
-            blueprintId,
-            ttl,
-            paymentToken,
-            paymentAmount,
-            blueprintData,
-            bounds
-        );
+        requestId = _createServiceRequest(blueprintId, ttl, paymentToken, paymentAmount, blueprintData, bounds);
 
         _storeRequestOperators(requestId, operators, exposures);
         _storePermittedCallers(requestId, permittedCallers);
@@ -160,20 +176,10 @@ abstract contract ServicesRequests is Base {
     }
 
     function _validateRequestConfig(uint64 blueprintId, bytes calldata config) private view {
-        SchemaLib.validatePayload(
-            _requestSchemas[blueprintId],
-            config,
-            Types.SchemaTarget.Request,
-            blueprintId,
-            0
-        );
+        SchemaLib.validatePayload(_requestSchemas[blueprintId], config, Types.SchemaTarget.Request, blueprintId, 0);
     }
 
-    function _validateRequestPaymentAsset(
-        address manager,
-        address paymentToken,
-        uint256 paymentAmount
-    ) private view {
+    function _validateRequestPaymentAsset(address manager, address paymentToken, uint256 paymentAmount) private view {
         if (manager == address(0) || paymentAmount == 0) {
             return;
         }
@@ -190,7 +196,10 @@ abstract contract ServicesRequests is Base {
         uint64 blueprintId,
         address[] calldata operators,
         uint16[] memory exposures
-    ) private view {
+    )
+        private
+        view
+    {
         for (uint256 i = 0; i < operators.length; i++) {
             if (_operatorRegistrations[blueprintId][operators[i]].registeredAt == 0) {
                 revert Errors.OperatorNotRegistered(blueprintId, operators[i]);
@@ -208,11 +217,7 @@ abstract contract ServicesRequests is Base {
         return bpConfig.minOperators > 0 ? bpConfig.minOperators : 1;
     }
 
-    function _validateOperatorBounds(
-        uint32 maxOperators,
-        uint32 operatorCount,
-        uint32 minOps
-    ) private pure {
+    function _validateOperatorBounds(uint32 maxOperators, uint32 operatorCount, uint32 minOps) private pure {
         if (operatorCount < minOps) {
             revert Errors.InsufficientOperators(minOps, operatorCount);
         }
@@ -221,11 +226,7 @@ abstract contract ServicesRequests is Base {
         }
     }
 
-    function _storeRequestOperators(
-        uint64 requestId,
-        address[] calldata operators,
-        uint16[] memory exposures
-    ) private {
+    function _storeRequestOperators(uint64 requestId, address[] calldata operators, uint16[] memory exposures) private {
         for (uint256 i = 0; i < operators.length; i++) {
             _requestOperators[requestId].push(operators[i]);
             _requestExposures[requestId][operators[i]] = exposures[i];
@@ -243,7 +244,9 @@ abstract contract ServicesRequests is Base {
         uint64 requestId,
         address[] calldata operators,
         bytes calldata config
-    ) private {
+    )
+        private
+    {
         if (manager == address(0)) {
             return;
         }
@@ -277,7 +280,9 @@ abstract contract ServicesRequests is Base {
     function _storeSecurityRequirements(
         uint64 requestId,
         Types.AssetSecurityRequirement[] calldata requirements
-    ) private {
+    )
+        private
+    {
         for (uint256 i = 0; i < requirements.length; i++) {
             _requestSecurityRequirements[requestId].push(requirements[i]);
         }
@@ -286,17 +291,21 @@ abstract contract ServicesRequests is Base {
     function _storeDefaultTntRequirement(uint64 requestId) private {
         if (_tntToken == address(0)) return;
 
-        _requestSecurityRequirements[requestId].push(Types.AssetSecurityRequirement({
-            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: _tntToken }),
-            minExposureBps: _defaultTntMinExposureBps,
-            maxExposureBps: BPS_DENOMINATOR
-        }));
+        _requestSecurityRequirements[requestId].push(
+            Types.AssetSecurityRequirement({
+                asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: _tntToken }),
+                minExposureBps: _defaultTntMinExposureBps,
+                maxExposureBps: BPS_DENOMINATOR
+            })
+        );
     }
 
     function _storeSecurityRequirementsWithDefaultTnt(
         uint64 requestId,
         Types.AssetSecurityRequirement[] calldata requirements
-    ) private {
+    )
+        private
+    {
         if (_tntToken == address(0)) {
             _storeSecurityRequirements(requestId, requirements);
             return;
@@ -317,18 +326,17 @@ abstract contract ServicesRequests is Base {
         }
     }
 
-    function _loadBlueprintRequestData(uint64 blueprintId)
-        private
-        view
-        returns (BlueprintRequestData memory data)
-    {
+    function _loadBlueprintRequestData(uint64 blueprintId) private view returns (BlueprintRequestData memory data) {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
         data.manager = bp.manager;
         data.membership = bp.membership;
     }
 
-    function _computeRequestBounds(uint64 blueprintId, uint32 operatorCount)
+    function _computeRequestBounds(
+        uint64 blueprintId,
+        uint32 operatorCount
+    )
         private
         view
         returns (RequestBounds memory bounds)
@@ -347,7 +355,10 @@ abstract contract ServicesRequests is Base {
         uint256 paymentAmount,
         BlueprintRequestData memory blueprintData,
         RequestBounds memory bounds
-    ) private returns (uint64 requestId) {
+    )
+        private
+        returns (uint64 requestId)
+    {
         requestId = _serviceRequestCount++;
         _serviceRequests[requestId] = Types.ServiceRequest({
             blueprintId: blueprintId,
@@ -363,6 +374,28 @@ abstract contract ServicesRequests is Base {
             maxOperators: bounds.maxOperators,
             rejected: false
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SERVICE REQUESTS WITH RESOURCE REQUIREMENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Get resource requirements for a service request
+    function getServiceRequestResourceRequirements(uint64 requestId)
+        external
+        view
+        returns (Types.ResourceCommitment[] memory)
+    {
+        return _requestResourceRequirements[requestId];
+    }
+
+    /// @notice Copy blueprint default resource requirements to a request
+    function _storeDefaultResourceRequirements(uint64 requestId, uint64 blueprintId) internal {
+        Types.ResourceCommitment[] storage defaults = _blueprintResourceRequirements[blueprintId];
+        if (defaults.length == 0) return;
+        for (uint256 i = 0; i < defaults.length; i++) {
+            _requestResourceRequirements[requestId].push(defaults[i]);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

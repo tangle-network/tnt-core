@@ -19,24 +19,14 @@ contract RecordingMetrics is IMetricsRecorder {
     address public lastPaymentToken;
     uint256 public lastPaymentAmount;
 
-    function recordServiceCreated(
-        uint64 serviceId,
-        uint64 blueprintId,
-        address,
-        uint256 operatorCount
-    ) external {
+    function recordServiceCreated(uint64 serviceId, uint64 blueprintId, address, uint256 operatorCount) external {
         serviceCreatedCount++;
         lastServiceId = serviceId;
         lastBlueprintId = blueprintId;
         lastOperatorCount = operatorCount;
     }
 
-    function recordPayment(
-        address payer,
-        uint64 serviceId,
-        address token,
-        uint256 amount
-    ) external {
+    function recordPayment(address payer, uint64 serviceId, address token, uint256 amount) external {
         paymentCount++;
         lastPayer = payer;
         lastPaymentServiceId = serviceId;
@@ -45,46 +35,41 @@ contract RecordingMetrics is IMetricsRecorder {
     }
 
     // Stub all other methods
-    function recordStake(address, address, address, uint256) external {}
-    function recordUnstake(address, address, address, uint256) external {}
-    function recordOperatorRegistered(address, address, uint256) external {}
-    function recordHeartbeat(address, uint64, uint64) external {}
-    function recordJobCompletion(address, uint64, uint64, bool) external {}
-    function recordSlash(address, uint64, uint256) external {}
-    function recordServiceTerminated(uint64, uint256) external {}
-    function recordJobCall(uint64, address, uint64) external {}
-    function recordBlueprintCreated(uint64, address) external {}
-    function recordBlueprintRegistration(uint64, address) external {}
+    function recordStake(address, address, address, uint256) external { }
+    function recordUnstake(address, address, address, uint256) external { }
+    function recordOperatorRegistered(address, address, uint256) external { }
+    function recordHeartbeat(address, uint64, uint64) external { }
+    function recordJobCompletion(address, uint64, uint64, bool) external { }
+    function recordSlash(address, uint64, uint256) external { }
+    function recordServiceTerminated(uint64, uint256) external { }
+    function recordJobCall(uint64, address, uint64) external { }
+    function recordBlueprintCreated(uint64, address) external { }
+    function recordBlueprintRegistration(uint64, address) external { }
 }
 
 contract RevertingMetricsRecorder is IMetricsRecorder {
-    function recordServiceCreated(
-        uint64,
-        uint64,
-        address,
-        uint256
-    ) external pure {
+    function recordServiceCreated(uint64, uint64, address, uint256) external pure {
         revert("boom");
     }
 
     // Stub remaining methods
-    function recordStake(address, address, address, uint256) external {}
-    function recordUnstake(address, address, address, uint256) external {}
-    function recordOperatorRegistered(address, address, uint256) external {}
-    function recordHeartbeat(address, uint64, uint64) external {}
-    function recordJobCompletion(address, uint64, uint64, bool) external {}
-    function recordSlash(address, uint64, uint256) external {}
-    function recordServiceTerminated(uint64, uint256) external {}
-    function recordJobCall(uint64, address, uint64) external {}
-    function recordPayment(address, uint64, address, uint256) external {}
-    function recordBlueprintCreated(uint64, address) external {}
-    function recordBlueprintRegistration(uint64, address) external {}
+    function recordStake(address, address, address, uint256) external { }
+    function recordUnstake(address, address, address, uint256) external { }
+    function recordOperatorRegistered(address, address, uint256) external { }
+    function recordHeartbeat(address, uint64, uint64) external { }
+    function recordJobCompletion(address, uint64, uint64, bool) external { }
+    function recordSlash(address, uint64, uint256) external { }
+    function recordServiceTerminated(uint64, uint256) external { }
+    function recordJobCall(uint64, address, uint64) external { }
+    function recordPayment(address, uint64, address, uint256) external { }
+    function recordBlueprintCreated(uint64, address) external { }
+    function recordBlueprintRegistration(uint64, address) external { }
 }
 
 contract QuotePaymentSplitTest is BaseTest {
     uint256 internal constant OPERATOR_PK = 0xA11CE;
     bytes32 private constant QUOTE_TYPEHASH = keccak256(
-        "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
+        "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
     );
 
     RecordingMetrics internal metrics;
@@ -120,13 +105,7 @@ contract QuotePaymentSplitTest is BaseTest {
         uint256 distributorStart = address(serviceFeeDistributor).balance;
 
         vm.prank(user1);
-        tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            120
-        );
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 120);
 
         assertEq(developer.balance, devStart + 0.2 ether, "developer split");
         assertEq(treasury.balance, treasuryStart + 0.2 ether, "treasury split");
@@ -150,13 +129,7 @@ contract QuotePaymentSplitTest is BaseTest {
         Types.SignedQuote[] memory quotes = _createSignedQuote(blueprintId, 1 ether, 120);
 
         vm.prank(user1);
-        tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            120
-        );
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 120);
         // Should succeed without reverting even though metrics recorder throws.
         assertGt(tangle.serviceCount(), 0, "service created");
     }
@@ -165,14 +138,19 @@ contract QuotePaymentSplitTest is BaseTest {
         uint64 blueprintId,
         uint256 totalCost,
         uint64 ttl
-    ) internal view returns (Types.SignedQuote[] memory quotes) {
+    )
+        internal
+        view
+        returns (Types.SignedQuote[] memory quotes)
+    {
         Types.QuoteDetails memory details = Types.QuoteDetails({
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes memory signature = _signQuote(details, OPERATOR_PK);
@@ -182,6 +160,7 @@ contract QuotePaymentSplitTest is BaseTest {
 
     function _signQuote(Types.QuoteDetails memory details, uint256 pk) internal view returns (bytes memory) {
         bytes32 commitmentsHash = _hashSecurityCommitments(details.securityCommitments);
+        bytes32 resourcesHash = _hashResourceCommitments(details.resourceCommitments);
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -199,7 +178,8 @@ contract QuotePaymentSplitTest is BaseTest {
                 details.totalCost,
                 details.timestamp,
                 details.expiry,
-                commitmentsHash
+                commitmentsHash,
+                resourcesHash
             )
         );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
@@ -207,9 +187,11 @@ contract QuotePaymentSplitTest is BaseTest {
         return abi.encodePacked(r, s, v);
     }
 
-    function _hashSecurityCommitments(
-        Types.AssetSecurityCommitment[] memory commitments
-    ) internal pure returns (bytes32) {
+    function _hashSecurityCommitments(Types.AssetSecurityCommitment[] memory commitments)
+        internal
+        pure
+        returns (bytes32)
+    {
         bytes32[] memory hashes = new bytes32[](commitments.length);
         for (uint256 i = 0; i < commitments.length; i++) {
             hashes[i] = _hashSecurityCommitment(commitments[i]);
@@ -221,16 +203,24 @@ contract QuotePaymentSplitTest is BaseTest {
         return out;
     }
 
-    function _hashSecurityCommitment(
-        Types.AssetSecurityCommitment memory commitment
-    ) internal pure returns (bytes32) {
+    function _hashSecurityCommitment(Types.AssetSecurityCommitment memory commitment) internal pure returns (bytes32) {
         bytes32 ASSET_TYPEHASH = keccak256("Asset(uint8 kind,address token)");
-        bytes32 COMMITMENT_TYPEHASH = keccak256(
-            "AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
-        );
-        bytes32 assetHash = keccak256(
-            abi.encode(ASSET_TYPEHASH, uint8(commitment.asset.kind), commitment.asset.token)
-        );
+        bytes32 COMMITMENT_TYPEHASH =
+            keccak256("AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)");
+        bytes32 assetHash = keccak256(abi.encode(ASSET_TYPEHASH, uint8(commitment.asset.kind), commitment.asset.token));
         return keccak256(abi.encode(COMMITMENT_TYPEHASH, assetHash, commitment.exposureBps));
+    }
+
+    function _hashResourceCommitments(Types.ResourceCommitment[] memory commitments) internal pure returns (bytes32) {
+        bytes32 RC_TYPEHASH = keccak256("ResourceCommitment(uint8 kind,uint64 count)");
+        bytes32[] memory hashes = new bytes32[](commitments.length);
+        for (uint256 i = 0; i < commitments.length; i++) {
+            hashes[i] = keccak256(abi.encode(RC_TYPEHASH, commitments[i].kind, commitments[i].count));
+        }
+        bytes32 out;
+        assembly ("memory-safe") {
+            out := keccak256(add(hashes, 0x20), mul(mload(hashes), 0x20))
+        }
+        return out;
     }
 }

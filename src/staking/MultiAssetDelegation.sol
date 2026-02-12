@@ -124,7 +124,7 @@ contract MultiAssetDelegation is
         _delegateTo(facet);
     }
 
-    receive() external payable {}
+    receive() external payable { }
 
     /// @notice Delegate call to target facet using low-level assembly
     /// @dev Assembly is used here for gas efficiency and to properly forward
@@ -143,7 +143,7 @@ contract MultiAssetDelegation is
             returndatacopy(0, 0, returndatasize())
             // Branch based on call result
             switch result
-            case 0 { revert(0, returndatasize()) }  // Call failed: revert with return data
+            case 0 { revert(0, returndatasize()) } // Call failed: revert with return data
             default { return(0, returndatasize()) } // Call succeeded: return with return data
         }
     }

@@ -5,6 +5,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 
 import { ServicesApprovals } from "../../core/ServicesApprovals.sol";
 import { Types } from "../../libraries/Types.sol";
+import { SignatureLib } from "../../libraries/SignatureLib.sol";
 import { IBlueprintServiceManager } from "../../interfaces/IBlueprintServiceManager.sol";
 import { ITanglePaymentsInternal } from "../../interfaces/ITanglePaymentsInternal.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
@@ -20,7 +21,8 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         selectorList[1] = bytes4(keccak256("approveServiceWithCommitments(uint64,((uint8,address),uint16)[])"));
         selectorList[2] = this.rejectService.selector;
         selectorList[3] = this.approveServiceWithBls.selector;
-        selectorList[4] = bytes4(keccak256("approveServiceWithCommitmentsAndBls(uint64,((uint8,address),uint16)[],uint256[4])"));
+        selectorList[4] =
+            bytes4(keccak256("approveServiceWithCommitmentsAndBls(uint64,((uint8,address),uint16)[],uint256[4])"));
         selectorList[5] = this.getOperatorBlsPubkey.selector;
     }
 
@@ -28,7 +30,14 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     /// @param serviceId The service ID
     /// @param operator The operator address
     /// @return blsPubkey The BLS G2 public key [x0, x1, y0, y1], all zeros if not registered
-    function getOperatorBlsPubkey(uint64 serviceId, address operator) external view returns (uint256[4] memory blsPubkey) {
+    function getOperatorBlsPubkey(
+        uint64 serviceId,
+        address operator
+    )
+        external
+        view
+        returns (uint256[4] memory blsPubkey)
+    {
         Types.BLSPubkey storage stored = _serviceOperatorBlsPubkeys[serviceId][operator];
         blsPubkey[0] = stored.key[0];
         blsPubkey[1] = stored.key[1];
@@ -52,6 +61,9 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         // Transfer BLS pubkeys from request to service for aggregated signature verification
         _transferBlsPubkeysToService(requestId, serviceId);
 
+        // Persist resource commitments from request to service (hash per operator)
+        _persistResourceCommitments(serviceId, requestId);
+
         (uint16[] memory exposures, uint256 totalExposure) = _assignOperatorsFromRequest(serviceId, requestId);
 
         _grantPermittedCallers(serviceId, requestId, req.requester);
@@ -67,14 +79,7 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
             requestId
         );
 
-        _triggerManagerOnActivation(
-            requestId,
-            serviceId,
-            req.blueprintId,
-            req.requester,
-            req.ttl,
-            bp.manager
-        );
+        _triggerManagerOnActivation(requestId, serviceId, req.blueprintId, req.requester, req.ttl, bp.manager);
     }
 
     function _persistServiceSecurity(uint64 serviceId, uint64 requestId) private {
@@ -101,7 +106,9 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         uint64 serviceId,
         Types.ServiceRequest storage req,
         Types.Blueprint storage bp
-    ) private {
+    )
+        private
+    {
         _services[serviceId] = Types.Service({
             blueprintId: req.blueprintId,
             owner: req.requester,
@@ -121,7 +128,10 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     function _assignOperatorsFromRequest(
         uint64 serviceId,
         uint64 requestId
-    ) private returns (uint16[] memory exposures, uint256 totalExposure) {
+    )
+        private
+        returns (uint16[] memory exposures, uint256 totalExposure)
+    {
         address[] storage requestOperators = _requestOperators[requestId];
         exposures = new uint16[](requestOperators.length);
         uint64 blueprintId = _serviceRequests[requestId].blueprintId;
@@ -132,10 +142,7 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
             exposures[i] = exposure;
 
             _serviceOperators[serviceId][op] = Types.ServiceOperator({
-                exposureBps: exposure,
-                joinedAt: uint64(block.timestamp),
-                leftAt: 0,
-                active: true
+                exposureBps: exposure, joinedAt: uint64(block.timestamp), leftAt: 0, active: true
             });
             _serviceOperatorSet[serviceId].add(op);
             totalExposure += exposure;
@@ -145,11 +152,7 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         }
     }
 
-    function _grantPermittedCallers(
-        uint64 serviceId,
-        uint64 requestId,
-        address requester
-    ) private {
+    function _grantPermittedCallers(uint64 serviceId, uint64 requestId, address requester) private {
         _permittedCallers[serviceId].add(requester);
         address[] storage requestCallers = _requestCallers[requestId];
         for (uint256 i = 0; i < requestCallers.length; i++) {
@@ -166,21 +169,18 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         uint16[] memory, // exposures - unused, effective exposures computed internally
         uint256, // totalExposure - unused
         uint64 requestId
-    ) private {
+    )
+        private
+    {
         if (paymentAmount == 0) {
             return;
         }
         if (pricing == Types.PricingModel.PayOnce) {
             address[] memory operators = _copyRequestOperators(requestId);
-            
+
             // Payment distribution computes effective exposures internally
-            ITanglePaymentsInternal(address(this)).distributePayment(
-                serviceId,
-                blueprintId,
-                paymentToken,
-                paymentAmount,
-                operators
-            );
+            ITanglePaymentsInternal(address(this))
+                .distributePayment(serviceId, blueprintId, paymentToken, paymentAmount, operators);
         } else if (pricing == Types.PricingModel.Subscription) {
             ITanglePaymentsInternal(address(this)).depositToEscrow(serviceId, paymentToken, paymentAmount);
         }
@@ -193,7 +193,9 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         address requester,
         uint64 ttl,
         address manager
-    ) private {
+    )
+        private
+    {
         emit ServiceActivated(serviceId, requestId, blueprintId);
 
         address[] memory operators = _copyRequestOperators(requestId);
@@ -232,18 +234,41 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // RESOURCE COMMITMENT PERSISTENCE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    event ResourcesCommitted(
+        uint64 indexed serviceId, address indexed operator, Types.ResourceCommitment[] commitments
+    );
+
+    /// @notice Persist resource commitments from request to service
+    /// @dev Computes hash of requirements and stores per-operator (same storage as RFQ flow)
+    function _persistResourceCommitments(uint64 serviceId, uint64 requestId) private {
+        Types.ResourceCommitment[] storage reqs = _requestResourceRequirements[requestId];
+        if (reqs.length == 0) return;
+
+        // Copy to memory for hashing
+        Types.ResourceCommitment[] memory commitments = new Types.ResourceCommitment[](reqs.length);
+        for (uint256 i = 0; i < reqs.length; i++) {
+            commitments[i] = reqs[i];
+        }
+
+        bytes32 commitmentHash = SignatureLib.hashResourceCommitments(commitments);
+
+        address[] storage operators = _requestOperators[requestId];
+        for (uint256 i = 0; i < operators.length; i++) {
+            _serviceResourceCommitmentHash[serviceId][operators[i]] = commitmentHash;
+            emit ResourcesCommitted(serviceId, operators[i], commitments);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // BLS PUBKEY STORAGE IMPLEMENTATIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Store BLS pubkey for an operator in the request
-    function _storeRequestBlsPubkey(
-        uint64 requestId,
-        address operator,
-        uint256[4] memory blsPubkey
-    ) internal override {
-        _requestOperatorBlsPubkeys[requestId][operator] = Types.BLSPubkey({
-            key: blsPubkey
-        });
+    function _storeRequestBlsPubkey(uint64 requestId, address operator, uint256[4] memory blsPubkey) internal override {
+        _requestOperatorBlsPubkeys[requestId][operator] = Types.BLSPubkey({ key: blsPubkey });
     }
 
     /// @notice Transfer BLS pubkeys from request to service (called during activation)

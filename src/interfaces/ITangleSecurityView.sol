@@ -16,7 +16,10 @@ interface ITangleSecurityView {
         address operator,
         Types.AssetKind kind,
         address token
-    ) external view returns (uint16);
+    )
+        external
+        view
+        returns (uint16);
 
     function treasury() external view returns (address payable);
 

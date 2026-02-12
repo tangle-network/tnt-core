@@ -25,33 +25,29 @@ contract EffectiveExposurePaymentsTest is Test {
         uint256[] memory effectiveExposures = new uint256[](3);
         effectiveExposures[0] = 50 ether; // 50 ETH effective exposure
         effectiveExposures[1] = 20 ether; // 20 ETH effective exposure
-        effectiveExposures[2] = 0;        // 0 ETH effective exposure
+        effectiveExposures[2] = 0; // 0 ETH effective exposure
 
         uint256 totalEffectiveExposure = 70 ether;
         uint256 totalOperatorAmount = 700 ether; // 700 total to distribute
         uint256 totalRestakerAmount = 300 ether;
 
         PaymentLib.OperatorPayment[] memory payments = PaymentLib.calculateOperatorPayments(
-            totalOperatorAmount,
-            totalRestakerAmount,
-            operators,
-            effectiveExposures,
-            totalEffectiveExposure
+            totalOperatorAmount, totalRestakerAmount, operators, effectiveExposures, totalEffectiveExposure
         );
 
         assertEq(payments.length, 3, "Should have 3 payment entries");
-        
+
         // Alice: 50/70 ≈ 71.4%
         // Expected: 700 * 50 / 70 = 500 (operator), 300 * 50 / 70 ≈ 214 (restaker)
         assertEq(payments[0].operator, address(0x1), "First should be Alice");
         assertEq(payments[0].operatorShare, 500 ether, "Alice operator share should be 500 ETH");
-        assertEq(payments[0].restakerShare, 214285714285714285714, "Alice restaker share ~214 ETH");
+        assertEq(payments[0].restakerShare, 214_285_714_285_714_285_714, "Alice restaker share ~214 ETH");
 
         // Bob: 20/70 ≈ 28.6%
         // Expected: 700 * 20 / 70 = 200 (operator), 300 * 20 / 70 ≈ 85.7 (restaker)
         assertEq(payments[1].operator, address(0x2), "Second should be Bob");
         assertEq(payments[1].operatorShare, 200 ether, "Bob operator share should be 200 ETH");
-        assertEq(payments[1].restakerShare, 85714285714285714285, "Bob restaker share ~85.7 ETH");
+        assertEq(payments[1].restakerShare, 85_714_285_714_285_714_285, "Bob restaker share ~85.7 ETH");
 
         // Charlie: 0/70 = 0% (last operator gets remainder)
         // Since Charlie has 0 effective exposure, his share should be remainder after Alice and Bob
@@ -89,13 +85,8 @@ contract EffectiveExposurePaymentsTest is Test {
         uint256[] memory effectiveExposures = new uint256[](1);
         effectiveExposures[0] = 100 ether;
 
-        PaymentLib.OperatorPayment[] memory payments = PaymentLib.calculateOperatorPayments(
-            1000 ether,
-            500 ether,
-            operators,
-            effectiveExposures,
-            100 ether
-        );
+        PaymentLib.OperatorPayment[] memory payments =
+            PaymentLib.calculateOperatorPayments(1000 ether, 500 ether, operators, effectiveExposures, 100 ether);
 
         assertEq(payments.length, 1, "Should have 1 payment entry");
         assertEq(payments[0].operatorShare, 1000 ether, "Single operator gets all operator share");
@@ -118,18 +109,11 @@ contract EffectiveExposurePaymentsTest is Test {
         uint256 totalAmount = 1000 ether;
         uint256 totalExposure = 100 ether;
 
-        PaymentLib.OperatorPayment[] memory payments = PaymentLib.calculateOperatorPayments(
-            totalAmount,
-            0,
-            operators,
-            effectiveExposures,
-            totalExposure
-        );
+        PaymentLib.OperatorPayment[] memory payments =
+            PaymentLib.calculateOperatorPayments(totalAmount, 0, operators, effectiveExposures, totalExposure);
 
         // Sum should equal total (dust captured by last operator)
-        uint256 totalDistributed = payments[0].operatorShare + 
-                                    payments[1].operatorShare + 
-                                    payments[2].operatorShare;
+        uint256 totalDistributed = payments[0].operatorShare + payments[1].operatorShare + payments[2].operatorShare;
         assertEq(totalDistributed, totalAmount, "Total distributed should equal input amount");
     }
 
@@ -158,13 +142,8 @@ contract EffectiveExposurePaymentsTest is Test {
         oldExposures[1] = 1000; // 10% in bps (but NO delegation!)
         uint256 oldTotalExposure = 2000;
 
-        PaymentLib.OperatorPayment[] memory oldPayments = PaymentLib.calculateOperatorPayments(
-            totalPayment,
-            0,
-            operators,
-            oldExposures,
-            oldTotalExposure
-        );
+        PaymentLib.OperatorPayment[] memory oldPayments =
+            PaymentLib.calculateOperatorPayments(totalPayment, 0, operators, oldExposures, oldTotalExposure);
 
         // OLD: Both get 50% - THIS IS THE BUG
         assertEq(oldPayments[0].operatorShare, 500 ether, "OLD: A gets 500 (50%)");
@@ -172,17 +151,12 @@ contract EffectiveExposurePaymentsTest is Test {
 
         // --- NEW METHOD (using effective exposure = delegation x exposureBps) ---
         uint256[] memory newExposures = new uint256[](2);
-        newExposures[0] = 50 ether;  // 500 ETH x 10% = 50 ETH effective
-        newExposures[1] = 0;         // 0 ETH x 10% = 0 ETH effective
+        newExposures[0] = 50 ether; // 500 ETH x 10% = 50 ETH effective
+        newExposures[1] = 0; // 0 ETH x 10% = 0 ETH effective
         uint256 newTotalExposure = 50 ether;
 
-        PaymentLib.OperatorPayment[] memory newPayments = PaymentLib.calculateOperatorPayments(
-            totalPayment,
-            0,
-            operators,
-            newExposures,
-            newTotalExposure
-        );
+        PaymentLib.OperatorPayment[] memory newPayments =
+            PaymentLib.calculateOperatorPayments(totalPayment, 0, operators, newExposures, newTotalExposure);
 
         // NEW: A gets 100%, B gets 0% - CORRECT!
         assertEq(newPayments[0].operatorShare, 1000 ether, "NEW: A gets 1000 (100%) - CORRECT");
@@ -231,13 +205,8 @@ contract EffectiveExposurePaymentsTest is Test {
 
         uint256 totalAmount = 1000 ether;
 
-        PaymentLib.OperatorPayment[] memory payments = PaymentLib.calculateOperatorPayments(
-            totalAmount,
-            0,
-            operators,
-            effectiveExposures,
-            totalExposure
-        );
+        PaymentLib.OperatorPayment[] memory payments =
+            PaymentLib.calculateOperatorPayments(totalAmount, 0, operators, effectiveExposures, totalExposure);
 
         assertEq(payments.length, numOperators, "Should have correct number of payments");
 
@@ -248,5 +217,4 @@ contract EffectiveExposurePaymentsTest is Test {
         }
         assertEq(totalDistributed, totalAmount, "Total should equal input");
     }
-
 }

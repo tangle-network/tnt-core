@@ -159,11 +159,7 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                Errors.SchemaValidationFailed.selector,
-                uint8(Types.SchemaTarget.Registration),
-                1,
-                0,
-                uint256(0)
+                Errors.SchemaValidationFailed.selector, uint8(Types.SchemaTarget.Registration), 1, 0, uint256(0)
             )
         );
         harness.validateRegistration(payload, 1, 0);
@@ -179,11 +175,7 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                Errors.SchemaValidationFailed.selector,
-                uint8(Types.SchemaTarget.Request),
-                2,
-                0,
-                uint256(1)
+                Errors.SchemaValidationFailed.selector, uint8(Types.SchemaTarget.Request), 2, 0, uint256(1)
             )
         );
         harness.validateRequest(payload, 2, 0);
@@ -199,11 +191,7 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                Errors.SchemaValidationFailed.selector,
-                uint8(Types.SchemaTarget.JobParams),
-                3,
-                0,
-                uint256(2)
+                Errors.SchemaValidationFailed.selector, uint8(Types.SchemaTarget.JobParams), 3, 0, uint256(2)
             )
         );
         harness.validateJobParams(payload, 3, 0);
@@ -225,37 +213,25 @@ contract SchemaLibFuzzTest is Test, BlueprintDefinitionHelper {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                Errors.SchemaValidationFailed.selector,
-                uint8(Types.SchemaTarget.Registration),
-                5,
-                0,
-                uint256(0)
+                Errors.SchemaValidationFailed.selector, uint8(Types.SchemaTarget.Registration), 5, 0, uint256(0)
             )
         );
         harness.validateRegistration(payload, 5, 0);
     }
 
-    /// @notice Extra data after a struct completes is treated as a mixed-type violation and reverts with cursor metadata
+    /// @notice Extra data after a struct completes is treated as a mixed-type violation and reverts with cursor
+    /// metadata
     function test_PathologicalStructTrailingDataReverts() public {
         bytes memory schema = _structBoolUintSchema();
         harness.setRequestSchema(schema);
 
         // Payload encodes the correct struct, then appends stray bytes.
-        bytes memory payload = bytes.concat(
-            _encodeCompactLength(2),
-            bytes1(0x01),
-            bytes4(uint32(11)),
-            bytes1(0xFF)
-        );
+        bytes memory payload = bytes.concat(_encodeCompactLength(2), bytes1(0x01), bytes4(uint32(11)), bytes1(0xFF));
 
         // The trailing byte causes cursor != payloadLength, which is reported as the cursor offset (6).
         vm.expectRevert(
             abi.encodeWithSelector(
-                Errors.SchemaValidationFailed.selector,
-                uint8(Types.SchemaTarget.Request),
-                8,
-                0,
-                uint256(6)
+                Errors.SchemaValidationFailed.selector, uint8(Types.SchemaTarget.Request), 8, 0, uint256(6)
             )
         );
         harness.validateRequest(payload, 8, 0);

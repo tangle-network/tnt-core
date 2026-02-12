@@ -59,10 +59,7 @@ abstract contract BlueprintsCreate is Base {
         if (def.manager != address(0)) {
             _callManager(
                 def.manager,
-                abi.encodeCall(
-                    IBlueprintServiceManager.onBlueprintCreated,
-                    (blueprintId, msg.sender, address(this))
-                )
+                abi.encodeCall(IBlueprintServiceManager.onBlueprintCreated, (blueprintId, msg.sender, address(this)))
             );
         }
         _notifyMasterBlueprintManager(masterManager, blueprintId, msg.sender, encodedDefinition);
@@ -76,12 +73,7 @@ abstract contract BlueprintsCreate is Base {
         delete _blueprintJobSchemas[blueprintId];
         Types.StoredJobSchema[] storage schemas = _blueprintJobSchemas[blueprintId];
         for (uint256 i = 0; i < def.jobs.length; ++i) {
-            schemas.push(
-                Types.StoredJobSchema({
-                    params: def.jobs[i].paramsSchema,
-                    result: def.jobs[i].resultSchema
-                })
-            );
+            schemas.push(Types.StoredJobSchema({ params: def.jobs[i].paramsSchema, result: def.jobs[i].resultSchema }));
         }
     }
 
@@ -89,7 +81,9 @@ abstract contract BlueprintsCreate is Base {
         uint64 blueprintId,
         string calldata metadataUri,
         Types.BlueprintMetadata calldata metadata
-    ) private {
+    )
+        private
+    {
         _blueprintMetadataUri[blueprintId] = metadataUri;
         _blueprintMetadata[blueprintId] = metadata;
     }
@@ -170,7 +164,9 @@ abstract contract BlueprintsCreate is Base {
         uint64 blueprintId,
         address owner,
         bytes memory encodedDefinition
-    ) private {
+    )
+        private
+    {
         IMasterBlueprintServiceManager(masterManager).onBlueprintCreated(blueprintId, owner, encodedDefinition);
     }
 }

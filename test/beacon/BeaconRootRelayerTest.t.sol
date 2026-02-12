@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import {BeaconRootRelayer} from "../../src/beacon/l1/BeaconRootRelayer.sol";
-import {IL1CrossDomainMessenger} from "../../src/beacon/IBeaconOracle.sol";
+import { BeaconRootRelayer } from "../../src/beacon/l1/BeaconRootRelayer.sol";
+import { IL1CrossDomainMessenger } from "../../src/beacon/IBeaconOracle.sol";
 
 contract MockL1CrossDomainMessenger is IL1CrossDomainMessenger {
     address public lastTarget;

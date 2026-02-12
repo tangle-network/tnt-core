@@ -14,34 +14,19 @@ contract MockAggregationBSM is BlueprintServiceManagerBase {
     mapping(uint8 => uint16) public thresholdBps;
     mapping(uint8 => uint8) public thresholdType;
 
-    constructor() {}
+    constructor() { }
 
-    function setAggregationConfig(
-        uint8 jobIndex,
-        bool required,
-        uint16 _thresholdBps,
-        uint8 _thresholdType
-    ) external {
+    function setAggregationConfig(uint8 jobIndex, bool required, uint16 _thresholdBps, uint8 _thresholdType) external {
         aggregationRequired[jobIndex] = required;
         thresholdBps[jobIndex] = _thresholdBps;
         thresholdType[jobIndex] = _thresholdType;
     }
 
-    function requiresAggregation(uint64, uint8 jobIndex)
-        external
-        view
-        override
-        returns (bool)
-    {
+    function requiresAggregation(uint64, uint8 jobIndex) external view override returns (bool) {
         return aggregationRequired[jobIndex];
     }
 
-    function getAggregationThreshold(uint64, uint8 jobIndex)
-        external
-        view
-        override
-        returns (uint16, uint8)
-    {
+    function getAggregationThreshold(uint64, uint8 jobIndex) external view override returns (uint16, uint8) {
         uint16 threshold = thresholdBps[jobIndex];
         if (threshold == 0) threshold = 6700; // Default 67%
         return (threshold, thresholdType[jobIndex]);
@@ -182,7 +167,7 @@ contract BLSAggregationTest is BaseTest {
         // Job 2: 100% threshold (3 of 3 operators)
         mockBsm.setAggregationConfig(0, true, 3400, 0);
         mockBsm.setAggregationConfig(1, true, 6700, 0);
-        mockBsm.setAggregationConfig(2, true, 10000, 0);
+        mockBsm.setAggregationConfig(2, true, 10_000, 0);
 
         // Submit jobs for each index
         vm.prank(user1);
@@ -202,18 +187,12 @@ contract BLSAggregationTest is BaseTest {
         tangle.submitAggregatedResult(serviceId, callId0, "result", oneSigner, sig, pubkey);
 
         // Job 1: 1 signer should fail threshold (67% of 3 = 2.01 -> 2)
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.AggregationThresholdNotMet.selector,
-            serviceId, callId1, 1, 2
-        ));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AggregationThresholdNotMet.selector, serviceId, callId1, 1, 2));
         tangle.submitAggregatedResult(serviceId, callId1, "result", oneSigner, sig, pubkey);
 
         // Job 2: 2 signers should fail threshold (100% of 3 = 3)
         uint256 twoSigners = 0x3;
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.AggregationThresholdNotMet.selector,
-            serviceId, callId2, 2, 3
-        ));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AggregationThresholdNotMet.selector, serviceId, callId2, 2, 3));
         tangle.submitAggregatedResult(serviceId, callId2, "result", twoSigners, sig, pubkey);
     }
 
@@ -279,13 +258,15 @@ contract BLSAggregationTest is BaseTest {
         uint256[4] memory pubkey = [uint256(1), uint256(2), uint256(3), uint256(4)];
 
         // Should fail - threshold not met (1 < 2)
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.AggregationThresholdNotMet.selector,
-            serviceId,
-            callId,
-            1, // achieved
-            2  // required
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.AggregationThresholdNotMet.selector,
+                serviceId,
+                callId,
+                1, // achieved
+                2 // required
+            )
+        );
         tangle.submitAggregatedResult(serviceId, callId, "result", oneSigner, sig, pubkey);
     }
 
@@ -431,13 +412,15 @@ contract BLSAggregationTest is BaseTest {
         uint256[4] memory pubkey = [uint256(1), uint256(2), uint256(3), uint256(4)];
 
         // Should fail threshold - only 1 valid signer counted, need 2
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.AggregationThresholdNotMet.selector,
-            serviceId,
-            callId,
-            1, // achieved (only bit 0 counted)
-            2  // required
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.AggregationThresholdNotMet.selector,
+                serviceId,
+                callId,
+                1, // achieved (only bit 0 counted)
+                2 // required
+            )
+        );
         tangle.submitAggregatedResult(serviceId, callId, "result", invalidBitmap, sig, pubkey);
     }
 
@@ -455,13 +438,15 @@ contract BLSAggregationTest is BaseTest {
         uint256[4] memory pubkey = [uint256(1), uint256(2), uint256(3), uint256(4)];
 
         // Should fail - 0 valid signers, need 1
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.AggregationThresholdNotMet.selector,
-            serviceId,
-            callId,
-            0, // achieved
-            1  // required
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.AggregationThresholdNotMet.selector,
+                serviceId,
+                callId,
+                0, // achieved
+                1 // required
+            )
+        );
         tangle.submitAggregatedResult(serviceId, callId, "result", highBitsBitmap, sig, pubkey);
     }
 
@@ -477,13 +462,7 @@ contract BLSAggregationTest is BaseTest {
         uint256[4] memory pubkey = [uint256(1), uint256(2), uint256(3), uint256(4)];
 
         // Should fail - 0 signers
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.AggregationThresholdNotMet.selector,
-            serviceId,
-            callId,
-            0,
-            1
-        ));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AggregationThresholdNotMet.selector, serviceId, callId, 0, 1));
         tangle.submitAggregatedResult(serviceId, callId, "result", zeroBitmap, sig, pubkey);
     }
 
@@ -647,19 +626,21 @@ contract BLSAggregationTest is BaseTest {
         uint256[4] memory pubkey = [uint256(1), uint256(2), uint256(3), uint256(4)];
 
         // Should require at least 1 signer
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.AggregationThresholdNotMet.selector,
-            serviceId,
-            callId,
-            0,
-            1  // Minimum 1 required
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.AggregationThresholdNotMet.selector,
+                serviceId,
+                callId,
+                0,
+                1 // Minimum 1 required
+            )
+        );
         tangle.submitAggregatedResult(serviceId, callId, "result", zeroBitmap, sig, pubkey);
     }
 
     /// @notice Test exactly 100% threshold
     function test_Threshold_ExactlyHundredPercent() public {
-        mockBsm.setAggregationConfig(0, true, 10000, 0); // 100% = all 3 required
+        mockBsm.setAggregationConfig(0, true, 10_000, 0); // 100% = all 3 required
 
         vm.prank(user1);
         uint64 callId = tangle.submitJob(serviceId, 0, "test");
@@ -669,13 +650,7 @@ contract BLSAggregationTest is BaseTest {
         uint256[2] memory sig = [uint256(1), uint256(2)];
         uint256[4] memory pubkey = [uint256(1), uint256(2), uint256(3), uint256(4)];
 
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.AggregationThresholdNotMet.selector,
-            serviceId,
-            callId,
-            2,
-            3
-        ));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AggregationThresholdNotMet.selector, serviceId, callId, 2, 3));
         tangle.submitAggregatedResult(serviceId, callId, "result", twoSigners, sig, pubkey);
 
         // All 3 signers - should pass threshold, fail BLS
@@ -686,7 +661,7 @@ contract BLSAggregationTest is BaseTest {
 
     /// @notice Test threshold above 100% (edge case)
     function test_Threshold_AboveHundredPercent() public {
-        mockBsm.setAggregationConfig(0, true, 15000, 0); // 150% threshold
+        mockBsm.setAggregationConfig(0, true, 15_000, 0); // 150% threshold
 
         vm.prank(user1);
         uint64 callId = tangle.submitJob(serviceId, 0, "test");
@@ -697,13 +672,15 @@ contract BLSAggregationTest is BaseTest {
         uint256[4] memory pubkey = [uint256(1), uint256(2), uint256(3), uint256(4)];
 
         // Should fail - can never meet 150% threshold with only 100% of operators
-        vm.expectRevert(abi.encodeWithSelector(
-            Errors.AggregationThresholdNotMet.selector,
-            serviceId,
-            callId,
-            3,  // achieved (all operators)
-            4   // required (150% of 3)
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.AggregationThresholdNotMet.selector,
+                serviceId,
+                callId,
+                3, // achieved (all operators)
+                4 // required (150% of 3)
+            )
+        );
         tangle.submitAggregatedResult(serviceId, callId, "result", allSigners, sig, pubkey);
     }
 
@@ -733,12 +710,9 @@ contract BLSAggregationTest is BaseTest {
     /// @notice Fuzz test for threshold calculation - count based
     /// @param thresholdBps The threshold in basis points (1-20000)
     /// @param signerBitmap Random signer bitmap
-    function testFuzz_ThresholdCalculation_CountBased(
-        uint16 thresholdBps,
-        uint256 signerBitmap
-    ) public {
+    function testFuzz_ThresholdCalculation_CountBased(uint16 thresholdBps, uint256 signerBitmap) public {
         // Bound threshold to reasonable range (avoid 0 because mock BSM defaults to 67%)
-        thresholdBps = uint16(bound(thresholdBps, 1, 20000));
+        thresholdBps = uint16(bound(thresholdBps, 1, 20_000));
 
         mockBsm.setAggregationConfig(0, true, thresholdBps, 0);
 
@@ -755,18 +729,16 @@ contract BLSAggregationTest is BaseTest {
         if ((signerBitmap >> 2) & 1 == 1) validSigners++;
 
         // Calculate required threshold (matching contract logic)
-        uint256 required = (uint256(3) * thresholdBps) / 10000;
+        uint256 required = (uint256(3) * thresholdBps) / 10_000;
         if (required == 0 && 3 > 0) required = 1;
 
         if (validSigners < required) {
             // Should fail with threshold not met
-            vm.expectRevert(abi.encodeWithSelector(
-                Errors.AggregationThresholdNotMet.selector,
-                serviceId,
-                callId,
-                validSigners,
-                required
-            ));
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    Errors.AggregationThresholdNotMet.selector, serviceId, callId, validSigners, required
+                )
+            );
         } else {
             // Should pass threshold but fail BLS verification
             vm.expectRevert(); // BLS fails
@@ -776,10 +748,7 @@ contract BLSAggregationTest is BaseTest {
     }
 
     /// @notice Fuzz test for invalid service/call IDs
-    function testFuzz_InvalidServiceOrCallId(
-        uint64 fuzzServiceId,
-        uint64 fuzzCallId
-    ) public {
+    function testFuzz_InvalidServiceOrCallId(uint64 fuzzServiceId, uint64 fuzzCallId) public {
         // Skip valid service ID (0)
         vm.assume(fuzzServiceId != serviceId || fuzzCallId > 100);
 
@@ -921,8 +890,8 @@ contract BLSAggregationTest is BaseTest {
         uint64 callId = tangle.submitJob(serviceId, 0, "test");
 
         // 10KB of output data
-        bytes memory largeOutput = new bytes(10240);
-        for (uint i = 0; i < 10240; i++) {
+        bytes memory largeOutput = new bytes(10_240);
+        for (uint256 i = 0; i < 10_240; i++) {
             largeOutput[i] = bytes1(uint8(i % 256));
         }
 

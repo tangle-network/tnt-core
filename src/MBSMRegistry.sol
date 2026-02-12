@@ -122,7 +122,9 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     function initiateDeprecation(uint32 revision) external onlyRole(MANAGER_ROLE) {
         if (revision == 0 || revision > _versions.length) revert InvalidRevision(revision);
         if (_versions[revision - 1] == address(0)) revert InvalidRevision(revision); // Already deprecated
-        if (_deprecationTimestamp[revision] != 0) revert VersionInGracePeriod(revision, _deprecationTimestamp[revision] + deprecationGracePeriod);
+        if (_deprecationTimestamp[revision] != 0) {
+            revert VersionInGracePeriod(revision, _deprecationTimestamp[revision] + deprecationGracePeriod);
+        }
 
         _deprecationTimestamp[revision] = block.timestamp;
         emit MBSMVersionDeprecated(revision, _versions[revision - 1]);
@@ -299,7 +301,11 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     function getVersionsPaginated(
         uint256 offset,
         uint256 limit
-    ) external view returns (address[] memory addresses, uint256 total) {
+    )
+        external
+        view
+        returns (address[] memory addresses, uint256 total)
+    {
         total = _versions.length;
 
         if (offset >= total) {
@@ -324,11 +330,11 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     function getActiveVersionsPaginated(
         uint256 offset,
         uint256 limit
-    ) external view returns (
-        address[] memory addresses,
-        uint32[] memory revisions,
-        uint256 totalActive
-    ) {
+    )
+        external
+        view
+        returns (address[] memory addresses, uint32[] memory revisions, uint256 totalActive)
+    {
         // First pass: count active versions
         for (uint256 i = 0; i < _versions.length; i++) {
             if (_versions[i] != address(0)) {
@@ -366,5 +372,5 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     // UPGRADE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
 }

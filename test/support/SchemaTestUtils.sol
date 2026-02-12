@@ -56,7 +56,10 @@ library SchemaTestUtils {
     // FIELD GENERATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _buildFieldDefinition(uint256 seed, uint8 depth)
+    function _buildFieldDefinition(
+        uint256 seed,
+        uint8 depth
+    )
         private
         pure
         returns (Types.BlueprintFieldType memory field, uint256 nextSeed)
@@ -131,7 +134,10 @@ library SchemaTestUtils {
         return (field, nextSeed);
     }
 
-    function _encodeValue(Types.BlueprintFieldType memory field, uint256 seed)
+    function _encodeValue(
+        Types.BlueprintFieldType memory field,
+        uint256 seed
+    )
         private
         pure
         returns (bytes memory good, bytes memory bad, uint256 nextSeed)

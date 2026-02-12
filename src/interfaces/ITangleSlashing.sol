@@ -10,12 +10,7 @@ interface ITangleSlashing {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event SlashProposed(
-        uint64 indexed serviceId,
-        address indexed operator,
-        uint16 slashBps,
-        bytes32 evidence
-    );
+    event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 slashBps, bytes32 evidence);
 
     event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 amount);
 
@@ -34,7 +29,9 @@ interface ITangleSlashing {
         address operator,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint64 slashId);
+    )
+        external
+        returns (uint64 slashId);
 
     /// @notice Dispute a slash proposal
     function disputeSlash(uint64 slashId, string calldata reason) external;

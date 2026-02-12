@@ -13,11 +13,11 @@ library BN254 {
 
     /// @notice The prime field modulus for BN254
     uint256 internal constant P_MOD =
-        21888242871839275222246405745257275088696311157297823662689037894645226208583;
+        21_888_242_871_839_275_222_246_405_745_257_275_088_696_311_157_297_823_662_689_037_894_645_226_208_583;
 
     /// @notice The group order for BN254
     uint256 internal constant R_MOD =
-        21888242871839275222246405745257275088548364400416034343698204186575808495617;
+        21_888_242_871_839_275_222_246_405_745_257_275_088_548_364_400_416_034_343_698_204_186_575_808_495_617;
 
     /// @notice G1 generator x coordinate
     uint256 internal constant G1_X = 1;
@@ -27,15 +27,15 @@ library BN254 {
 
     /// @notice G2 generator x coordinates (x = x0 * i + x1)
     uint256 internal constant G2_X0 =
-        11559732032986387107991004021392285783925812861821192530917403151452391805634;
+        11_559_732_032_986_387_107_991_004_021_392_285_783_925_812_861_821_192_530_917_403_151_452_391_805_634;
     uint256 internal constant G2_X1 =
-        10857046999023057135944570762232829481370756359578518086990519993285655852781;
+        10_857_046_999_023_057_135_944_570_762_232_829_481_370_756_359_578_518_086_990_519_993_285_655_852_781;
 
     /// @notice G2 generator y coordinates (y = y0 * i + y1)
     uint256 internal constant G2_Y0 =
-        4082367875863433681332203403145435568316851327593401208105741076214120093531;
+        4_082_367_875_863_433_681_332_203_403_145_435_568_316_851_327_593_401_208_105_741_076_214_120_093_531;
     uint256 internal constant G2_Y1 =
-        8495653923123431417604973247489272438418190587263600148770280649306958101930;
+        8_495_653_923_123_431_417_604_973_247_489_272_438_418_190_587_263_600_148_770_280_649_306_958_101_930;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -85,7 +85,11 @@ library BN254 {
     function addG1(
         Types.BN254G1Point memory p1,
         Types.BN254G1Point memory p2
-    ) internal view returns (Types.BN254G1Point memory r) {
+    )
+        internal
+        view
+        returns (Types.BN254G1Point memory r)
+    {
         uint256[4] memory input;
         input[0] = p1.x;
         input[1] = p1.y;
@@ -107,10 +111,7 @@ library BN254 {
     /// @param p The point to multiply
     /// @param s The scalar
     /// @return r The product s * p
-    function scalarMulG1(
-        Types.BN254G1Point memory p,
-        uint256 s
-    ) internal view returns (Types.BN254G1Point memory r) {
+    function scalarMulG1(Types.BN254G1Point memory p, uint256 s) internal view returns (Types.BN254G1Point memory r) {
         uint256[3] memory input;
         input[0] = p.x;
         input[1] = p.y;
@@ -149,15 +150,17 @@ library BN254 {
     function addG2(
         Types.BN254G2Point memory p1,
         Types.BN254G2Point memory p2
-    ) internal pure returns (Types.BN254G2Point memory r) {
+    )
+        internal
+        pure
+        returns (Types.BN254G2Point memory r)
+    {
         // Handle point at infinity cases
         if (isG2Infinity(p1)) return p2;
         if (isG2Infinity(p2)) return p1;
 
         // Check if points are the same (need to double)
-        if (
-            p1.x[0] == p2.x[0] && p1.x[1] == p2.x[1] && p1.y[0] == p2.y[0] && p1.y[1] == p2.y[1]
-        ) {
+        if (p1.x[0] == p2.x[0] && p1.x[1] == p2.x[1] && p1.y[0] == p2.y[0] && p1.y[1] == p2.y[1]) {
             return doubleG2(p1);
         }
 
@@ -251,35 +254,20 @@ library BN254 {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Add two Fp2 elements: (a0 + a1*i) + (b0 + b1*i)
-    function fp2Add(
-        uint256 a0,
-        uint256 a1,
-        uint256 b0,
-        uint256 b1
-    ) internal pure returns (uint256 c0, uint256 c1) {
+    function fp2Add(uint256 a0, uint256 a1, uint256 b0, uint256 b1) internal pure returns (uint256 c0, uint256 c1) {
         c0 = addmod(a0, b0, P_MOD);
         c1 = addmod(a1, b1, P_MOD);
     }
 
     /// @notice Subtract two Fp2 elements: (a0 + a1*i) - (b0 + b1*i)
-    function fp2Sub(
-        uint256 a0,
-        uint256 a1,
-        uint256 b0,
-        uint256 b1
-    ) internal pure returns (uint256 c0, uint256 c1) {
+    function fp2Sub(uint256 a0, uint256 a1, uint256 b0, uint256 b1) internal pure returns (uint256 c0, uint256 c1) {
         c0 = addmod(a0, P_MOD - (b0 % P_MOD), P_MOD);
         c1 = addmod(a1, P_MOD - (b1 % P_MOD), P_MOD);
     }
 
     /// @notice Multiply two Fp2 elements: (a0 + a1*i) * (b0 + b1*i)
     /// @dev Using i^2 = -1: result = (a0*b0 - a1*b1) + (a0*b1 + a1*b0)*i
-    function fp2Mul(
-        uint256 a0,
-        uint256 a1,
-        uint256 b0,
-        uint256 b1
-    ) internal pure returns (uint256 c0, uint256 c1) {
+    function fp2Mul(uint256 a0, uint256 a1, uint256 b0, uint256 b1) internal pure returns (uint256 c0, uint256 c1) {
         uint256 a0b0 = mulmod(a0, b0, P_MOD);
         uint256 a1b1 = mulmod(a1, b1, P_MOD);
         uint256 a0b1 = mulmod(a0, b1, P_MOD);
@@ -292,11 +280,7 @@ library BN254 {
     }
 
     /// @notice Multiply Fp2 element by a scalar
-    function fp2MulScalar(
-        uint256 a0,
-        uint256 a1,
-        uint256 s
-    ) internal pure returns (uint256 c0, uint256 c1) {
+    function fp2MulScalar(uint256 a0, uint256 a1, uint256 s) internal pure returns (uint256 c0, uint256 c1) {
         c0 = mulmod(a0, s, P_MOD);
         c1 = mulmod(a1, s, P_MOD);
     }
@@ -324,21 +308,13 @@ library BN254 {
     }
 
     /// @notice Divide two Fp2 elements: a / b = a * b^(-1)
-    function fp2Div(
-        uint256 a0,
-        uint256 a1,
-        uint256 b0,
-        uint256 b1
-    ) internal pure returns (uint256 c0, uint256 c1) {
+    function fp2Div(uint256 a0, uint256 a1, uint256 b0, uint256 b1) internal pure returns (uint256 c0, uint256 c1) {
         (uint256 bInv0, uint256 bInv1) = fp2Inverse(b0, b1);
         return fp2Mul(a0, a1, bInv0, bInv1);
     }
 
     /// @notice Compare two G2 points for equality
-    function g2Eq(
-        Types.BN254G2Point memory p1,
-        Types.BN254G2Point memory p2
-    ) internal pure returns (bool) {
+    function g2Eq(Types.BN254G2Point memory p1, Types.BN254G2Point memory p2) internal pure returns (bool) {
         return p1.x[0] == p2.x[0] && p1.x[1] == p2.x[1] && p1.y[0] == p2.y[0] && p1.y[1] == p2.y[1];
     }
 
@@ -351,10 +327,7 @@ library BN254 {
     /// @param p1 Array of G1 points
     /// @param p2 Array of G2 points
     /// @return True if the pairing equation holds
-    function pairing(
-        Types.BN254G1Point[] memory p1,
-        Types.BN254G2Point[] memory p2
-    ) internal view returns (bool) {
+    function pairing(Types.BN254G1Point[] memory p1, Types.BN254G2Point[] memory p2) internal view returns (bool) {
         require(p1.length == p2.length, "BN254: pairing length mismatch");
         uint256 elements = p1.length;
         uint256 inputSize = elements * 6;
@@ -382,14 +355,7 @@ library BN254 {
         // Output: Single uint256 (1 = pairing valid, 0 = invalid) = 0x20 bytes
         // sub(gas(), 2000) reserves gas for post-call operations
         assembly {
-            success := staticcall(
-                sub(gas(), 2000),
-                8,
-                add(input, 0x20),
-                mul(inputSize, 0x20),
-                result,
-                0x20
-            )
+            success := staticcall(sub(gas(), 2000), 8, add(input, 0x20), mul(inputSize, 0x20), result, 0x20)
         }
         if (!success) revert PairingFailed();
         return result[0] == 1;
@@ -402,7 +368,11 @@ library BN254 {
         Types.BN254G2Point memory b,
         Types.BN254G1Point memory c,
         Types.BN254G2Point memory d
-    ) internal view returns (bool) {
+    )
+        internal
+        view
+        returns (bool)
+    {
         Types.BN254G1Point[] memory p1 = new Types.BN254G1Point[](2);
         Types.BN254G2Point[] memory p2 = new Types.BN254G2Point[](2);
         p1[0] = a;
@@ -446,7 +416,11 @@ library BN254 {
         bytes memory message,
         Types.BN254G1Point memory signature,
         Types.BN254G2Point memory pubkey
-    ) internal view returns (bool) {
+    )
+        internal
+        view
+        returns (bool)
+    {
         Types.BN254G1Point memory msgPoint = hashToG1(message);
         Types.BN254G2Point memory g2 = Types.BN254G2Point([G2_X0, G2_X1], [G2_Y0, G2_Y1]);
         return pairingCheck(signature, g2, msgPoint, pubkey);
@@ -462,7 +436,11 @@ library BN254 {
         bytes memory message,
         Types.BN254G1Point memory aggregatedSignature,
         Types.BN254G2Point memory aggregatedPubkey
-    ) internal view returns (bool) {
+    )
+        internal
+        view
+        returns (bool)
+    {
         return verifyBls(message, aggregatedSignature, aggregatedPubkey);
     }
 

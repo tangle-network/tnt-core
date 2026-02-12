@@ -32,7 +32,10 @@ abstract contract Slashing is Base {
         address operator,
         uint16 slashBps,
         bytes32 evidence
-    ) external returns (uint64 slashId) {
+    )
+        external
+        returns (uint64 slashId)
+    {
         // M-6 FIX: Validate slashBps does not exceed 100% (10000 bps)
         if (slashBps > BPS_DENOMINATOR) {
             revert Errors.SlashBpsExceedsMax(slashBps, BPS_DENOMINATOR);
@@ -47,7 +50,7 @@ abstract contract Slashing is Base {
             // Operators should audit blueprint manager code before registering.
             try IBlueprintServiceManager(bp.manager).querySlashingOrigin(serviceId) returns (address origin) {
                 authorized = msg.sender == origin;
-            } catch {}
+            } catch { }
         }
         if (!authorized) revert Errors.Unauthorized();
 
@@ -90,7 +93,9 @@ abstract contract Slashing is Base {
 
             _tryCallManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onUnappliedSlash, (serviceId, abi.encodePacked(operator), slashPercent))
+                abi.encodeCall(
+                    IBlueprintServiceManager.onUnappliedSlash, (serviceId, abi.encodePacked(operator), slashPercent)
+                )
             );
         }
     }
@@ -99,7 +104,11 @@ abstract contract Slashing is Base {
         uint64 serviceId,
         address operator,
         uint64 blueprintId
-    ) internal view returns (uint16 exposureBps) {
+    )
+        internal
+        view
+        returns (uint16 exposureBps)
+    {
         Types.AssetSecurityRequirement[] storage reqs = _serviceSecurityRequirements[serviceId];
         uint256 reqsLength = reqs.length;
         if (reqsLength == 0) return BPS_DENOMINATOR;
@@ -117,7 +126,9 @@ abstract contract Slashing is Base {
                 uint16 committed = _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
                 sum += committed;
                 count++;
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
             }
             if (count == 0) return BPS_DENOMINATOR;
             exposureBps = uint16(sum / count);
@@ -138,7 +149,9 @@ abstract contract Slashing is Base {
             bytes32 assetHash = keccak256(abi.encode(asset.kind, asset.token));
             uint16 committed = _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
             if (committed == 0) {
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
                 continue;
             }
 
@@ -146,7 +159,9 @@ abstract contract Slashing is Base {
                 IServiceFeeDistributor(serviceFeeDistributor).getPoolScore(operator, blueprintId, asset);
             uint256 totalScore = allScore + fixedScore;
             if (totalScore == 0) {
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
                 continue;
             }
 
@@ -156,13 +171,17 @@ abstract contract Slashing is Base {
                 weight = oracle.toUSD(token, totalScore);
             }
             if (weight == 0) {
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
                 continue;
             }
 
             weightedCommitted += Math.mulDiv(weight, committed, BPS_DENOMINATOR);
             totalWeight += weight;
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
         if (totalWeight == 0) return BPS_DENOMINATOR;
@@ -207,11 +226,7 @@ abstract contract Slashing is Base {
 
         // Use blueprint-aware slashing - only affects delegators exposed to this blueprint
         actualSlashed = _staking.slashForBlueprint(
-            proposal.operator,
-            svc.blueprintId,
-            proposal.serviceId,
-            proposal.effectiveSlashBps,
-            proposal.evidence
+            proposal.operator, svc.blueprintId, proposal.serviceId, proposal.effectiveSlashBps, proposal.evidence
         );
 
         SlashingLib.markExecuted(_slashProposals, slashId, actualSlashed);
@@ -234,7 +249,10 @@ abstract contract Slashing is Base {
 
             _tryCallManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onSlash, (proposal.serviceId, abi.encodePacked(proposal.operator), slashPercent))
+                abi.encodeCall(
+                    IBlueprintServiceManager.onSlash,
+                    (proposal.serviceId, abi.encodePacked(proposal.operator), slashPercent)
+                )
             );
         }
     }
@@ -245,7 +263,11 @@ abstract contract Slashing is Base {
     /// @param slashIds Array of slash IDs to execute
     /// @return totalSlashed Total amount slashed across all executions
     /// @return executedCount Number of slashes successfully executed
-    function executeSlashBatch(uint64[] calldata slashIds) external nonReentrant returns (uint256 totalSlashed, uint256 executedCount) {
+    function executeSlashBatch(uint64[] calldata slashIds)
+        external
+        nonReentrant
+        returns (uint256 totalSlashed, uint256 executedCount)
+    {
         for (uint256 i = 0; i < slashIds.length; i++) {
             SlashingLib.SlashProposal storage proposal = _slashProposals[slashIds[i]];
 
@@ -256,11 +278,7 @@ abstract contract Slashing is Base {
 
             // Use blueprint-aware slashing
             uint256 actualSlashed = _staking.slashForBlueprint(
-                proposal.operator,
-                svc.blueprintId,
-                proposal.serviceId,
-                proposal.effectiveSlashBps,
-                proposal.evidence
+                proposal.operator, svc.blueprintId, proposal.serviceId, proposal.effectiveSlashBps, proposal.evidence
             );
 
             SlashingLib.markExecuted(_slashProposals, slashIds[i], actualSlashed);
@@ -284,7 +302,10 @@ abstract contract Slashing is Base {
 
                 _tryCallManager(
                     bp.manager,
-                    abi.encodeCall(IBlueprintServiceManager.onSlash, (proposal.serviceId, abi.encodePacked(proposal.operator), slashPercent))
+                    abi.encodeCall(
+                        IBlueprintServiceManager.onSlash,
+                        (proposal.serviceId, abi.encodePacked(proposal.operator), slashPercent)
+                    )
                 );
             }
         }
@@ -347,7 +368,10 @@ abstract contract Slashing is Base {
         uint64 disputeWindow,
         bool instantSlashEnabled,
         uint16 maxSlashBps
-    ) external onlyRole(ADMIN_ROLE) {
+    )
+        external
+        onlyRole(ADMIN_ROLE)
+    {
         SlashingLib.updateConfig(_slashState, disputeWindow, instantSlashEnabled, maxSlashBps);
     }
 

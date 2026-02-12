@@ -103,21 +103,13 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
 
         // Deploy staking proxy
         restakingProxy = new ERC1967Proxy(
-            address(restakingImpl),
-            abi.encodeCall(
-                MultiAssetDelegation.initialize,
-                (admin, 1 ether, 0.1 ether, 1000)
-            )
+            address(restakingImpl), abi.encodeCall(MultiAssetDelegation.initialize, (admin, 1 ether, 0.1 ether, 1000))
         );
         staking = IMultiAssetDelegation(payable(address(restakingProxy)));
 
         // Deploy tangle proxy
         tangleProxy = new ERC1967Proxy(
-            address(tangleImpl),
-            abi.encodeCall(
-                Tangle.initialize,
-                (admin, address(staking), payable(treasury))
-            )
+            address(tangleImpl), abi.encodeCall(Tangle.initialize, (admin, address(staking), payable(treasury)))
         );
         tangle = ITangleFull(payable(address(tangleProxy)));
 
@@ -136,10 +128,8 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
 
         masterManager = new MasterBlueprintServiceManager(admin, address(tangle));
         MBSMRegistry registryImpl = new MBSMRegistry();
-        ERC1967Proxy registryProxy = new ERC1967Proxy(
-            address(registryImpl),
-            abi.encodeCall(MBSMRegistry.initialize, (admin))
-        );
+        ERC1967Proxy registryProxy =
+            new ERC1967Proxy(address(registryImpl), abi.encodeCall(MBSMRegistry.initialize, (admin)));
         mbsmRegistry = MBSMRegistry(address(registryProxy));
         vm.startPrank(admin);
         mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), address(tangleProxy));
@@ -214,14 +204,21 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
     }
 
     /// @notice Deploy a blueprint with custom owner
-    function deployBlueprintWithOwner(uint256 version, address owner) public returns (uint64 blueprintId, address manager) {
+    function deployBlueprintWithOwner(
+        uint256 version,
+        address owner
+    )
+        public
+        returns (uint64 blueprintId, address manager)
+    {
         // Deploy manager based on version
         manager = _deployManager(version);
 
         // Create blueprint
         vm.prank(owner);
-        blueprintId =
-            tangle.createBlueprint(_blueprintDefinition(string(abi.encodePacked("ipfs://blueprint-v", _toString(version))), manager));
+        blueprintId = tangle.createBlueprint(
+            _blueprintDefinition(string(abi.encodePacked("ipfs://blueprint-v", _toString(version))), manager)
+        );
 
         // Track
         blueprintManagers[blueprintId] = manager;
@@ -237,15 +234,16 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         uint256 version,
         address owner,
         Types.BlueprintConfig memory config
-    ) public returns (uint64 blueprintId, address manager) {
+    )
+        public
+        returns (uint64 blueprintId, address manager)
+    {
         manager = _deployManager(version);
 
         vm.prank(owner);
         blueprintId = tangle.createBlueprint(
             _blueprintDefinitionWithConfig(
-                string(abi.encodePacked("ipfs://blueprint-v", _toString(version))),
-                manager,
-                config
+                string(abi.encodePacked("ipfs://blueprint-v", _toString(version))), manager, config
             )
         );
 
@@ -283,11 +281,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Create a service with single operator
-    function createService(
-        uint64 blueprintId,
-        address operator,
-        uint256 payment
-    ) public returns (uint64 serviceId) {
+    function createService(uint64 blueprintId, address operator, uint256 payment) public returns (uint64 serviceId) {
         address[] memory operators = new address[](1);
         operators[0] = operator;
         return createServiceWithOperators(blueprintId, operators, payment);
@@ -298,19 +292,15 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         uint64 blueprintId,
         address[] memory operators,
         uint256 payment
-    ) public returns (uint64 serviceId) {
+    )
+        public
+        returns (uint64 serviceId)
+    {
         address[] memory callers = new address[](0);
 
         vm.prank(serviceOwner);
-        uint64 requestId = tangle.requestService{ value: payment }(
-            blueprintId,
-            operators,
-            "",
-            callers,
-            0,
-            address(0),
-            payment
-        );
+        uint64 requestId =
+            tangle.requestService{ value: payment }(blueprintId, operators, "", callers, 0, address(0), payment);
 
         // Approve with all operators
         for (uint256 i = 0; i < operators.length; i++) {
@@ -327,22 +317,13 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Submit a job for a service
-    function submitJob(
-        uint64 serviceId,
-        uint8 jobIndex,
-        bytes memory inputs
-    ) public returns (uint64 callId) {
+    function submitJob(uint64 serviceId, uint8 jobIndex, bytes memory inputs) public returns (uint64 callId) {
         vm.prank(serviceOwner);
         return tangle.submitJob(serviceId, jobIndex, inputs);
     }
 
     /// @notice Submit a job result
-    function submitJobResult(
-        uint64 serviceId,
-        uint64 callId,
-        address operator,
-        bytes memory outputs
-    ) public {
+    function submitJobResult(uint64 serviceId, uint64 callId, address operator, bytes memory outputs) public {
         vm.prank(operator);
         tangle.submitResult(serviceId, callId, outputs);
     }
@@ -352,11 +333,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Propose a slash
-    function proposeSlash(
-        uint64 serviceId,
-        address operator,
-        uint256 amount
-    ) public returns (uint64 slashId) {
+    function proposeSlash(uint64 serviceId, address operator, uint256 amount) public returns (uint64 slashId) {
         uint256 stake = staking.getOperatorStake(operator);
         uint16 slashBps = stake == 0 ? 0 : uint16((amount * 10_000) / stake);
         if (slashBps > 10_000) slashBps = 10_000;

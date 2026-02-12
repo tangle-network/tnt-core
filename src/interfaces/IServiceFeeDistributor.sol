@@ -13,7 +13,9 @@ interface IServiceFeeDistributor {
         address operator,
         address paymentToken,
         uint256 amount
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Distribute inflation-funded restaker rewards using service exposure weights
     /// @dev Intended for InflationPool; rewards are paid in the provided token (TNT).
@@ -23,14 +25,12 @@ interface IServiceFeeDistributor {
         address operator,
         address paymentToken,
         uint256 amount
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Claim rewards for a specific delegator position and token
-    function claimFor(
-        address token,
-        address operator,
-        Types.Asset calldata asset
-    ) external returns (uint256 amount);
+    function claimFor(address token, address operator, Types.Asset calldata asset) external returns (uint256 amount);
 
     /// @notice Claim all pending rewards across all positions for a token
     function claimAll(address token) external returns (uint256 totalAmount);
@@ -52,7 +52,10 @@ interface IServiceFeeDistributor {
         address delegator,
         address operator,
         bytes32 assetHash
-    ) external view returns (uint8 mode, uint256 principal, uint256 score);
+    )
+        external
+        view
+        returns (uint8 mode, uint256 principal, uint256 score);
 
     /// @notice Return reward tokens ever distributed for an operator
     function operatorRewardTokens(address operator) external view returns (address[] memory tokens);
@@ -68,14 +71,11 @@ interface IServiceFeeDistributor {
         // Per-blueprint amount deltas (must align with blueprintIds for Fixed mode).
         uint256[] calldata blueprintAmounts,
         uint16 lockMultiplierBps
-    ) external;
+    )
+        external;
 
     /// @notice Apply a slash factor to All-mode exposure for an operator/asset
-    function onAllModeSlashed(
-        address operator,
-        Types.Asset calldata asset,
-        uint16 slashBps
-    ) external;
+    function onAllModeSlashed(address operator, Types.Asset calldata asset, uint16 slashBps) external;
 
     /// @notice Apply a slash factor to Fixed-mode exposure for a blueprint/operator/asset
     function onFixedModeSlashed(
@@ -83,7 +83,8 @@ interface IServiceFeeDistributor {
         uint64 blueprintId,
         Types.Asset calldata asset,
         uint16 slashBps
-    ) external;
+    )
+        external;
 
     /// @notice Update fixed-mode blueprint set after a rebalance
     /// @dev blueprintAmounts are post-rebalance amounts, ordered to match blueprintIds.
@@ -93,13 +94,17 @@ interface IServiceFeeDistributor {
         Types.Asset calldata asset,
         uint64[] calldata blueprintIds,
         uint256[] calldata blueprintAmounts
-    ) external;
+    )
+        external;
 
     function getPoolScore(
         address operator,
         uint64 blueprintId,
         Types.Asset calldata asset
-    ) external view returns (uint256 allScore, uint256 fixedScore);
+    )
+        external
+        view
+        returns (uint256 allScore, uint256 fixedScore);
 
     /// @notice Get USD-weighted exposure for an operator/service
     /// @dev Returns total USD exposure across All+Fixed pools for the service.
@@ -107,7 +112,10 @@ interface IServiceFeeDistributor {
         uint64 serviceId,
         uint64 blueprintId,
         address operator
-    ) external view returns (uint256 totalUsdExposure);
+    )
+        external
+        view
+        returns (uint256 totalUsdExposure);
 
     /// @notice Called when an operator is about to leave a service
     /// @dev Drips all active streams for the operator BEFORE they're removed

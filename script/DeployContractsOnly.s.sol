@@ -35,7 +35,8 @@ import { StakingAdminFacet } from "../src/facets/staking/StakingAdminFacet.sol";
 
 /// @title DeployContractsOnly
 /// @notice Deploys ONLY the core contracts without creating any blueprints, services, or operators
-/// @dev Run with: forge script script/DeployContractsOnly.s.sol:DeployContractsOnly --rpc-url http://localhost:8545 --broadcast -vvv
+/// @dev Run with: forge script script/DeployContractsOnly.s.sol:DeployContractsOnly --rpc-url http://localhost:8545
+/// --broadcast -vvv
 contract DeployContractsOnly is Script {
     // Anvil default deployer key
     uint256 constant DEPLOYER_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;

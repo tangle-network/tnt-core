@@ -16,7 +16,9 @@ contract TNTCliffLock {
     error NotUnlocked(uint64 unlockTimestamp, uint64 nowTimestamp);
     error ZeroAddress();
 
-    event Initialized(address indexed token, address indexed beneficiary, uint64 unlockTimestamp, address indexed delegatee);
+    event Initialized(
+        address indexed token, address indexed beneficiary, uint64 unlockTimestamp, address indexed delegatee
+    );
     event Withdrawn(address indexed token, address indexed beneficiary, address indexed to, uint256 amount);
     event Delegated(address indexed token, address indexed beneficiary, address indexed delegatee);
 

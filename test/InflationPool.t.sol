@@ -54,8 +54,7 @@ contract InflationPoolTest is Test {
         // Deploy InflationPool
         InflationPool poolImpl = new InflationPool();
         bytes memory poolData = abi.encodeCall(
-            InflationPool.initialize,
-            (admin, address(tnt), address(metrics), address(vaults), EPOCH_LENGTH)
+            InflationPool.initialize, (admin, address(tnt), address(metrics), address(vaults), EPOCH_LENGTH)
         );
         ERC1967Proxy poolProxy = new ERC1967Proxy(address(poolImpl), poolData);
         pool = InflationPool(address(poolProxy));
@@ -100,10 +99,8 @@ contract InflationPoolTest is Test {
 
     function test_Initialize_RevertEpochTooShort() public {
         InflationPool poolImpl = new InflationPool();
-        bytes memory poolData = abi.encodeCall(
-            InflationPool.initialize,
-            (admin, address(tnt), address(metrics), address(vaults), 59)
-        );
+        bytes memory poolData =
+            abi.encodeCall(InflationPool.initialize, (admin, address(tnt), address(metrics), address(vaults), 59));
 
         vm.expectRevert(InflationPool.InvalidEpochLength.selector);
         new ERC1967Proxy(address(poolImpl), poolData);
@@ -112,8 +109,7 @@ contract InflationPoolTest is Test {
     function test_Initialize_RevertEpochTooLong() public {
         InflationPool poolImpl = new InflationPool();
         bytes memory poolData = abi.encodeCall(
-            InflationPool.initialize,
-            (admin, address(tnt), address(metrics), address(vaults), 365 days + 1)
+            InflationPool.initialize, (admin, address(tnt), address(metrics), address(vaults), 365 days + 1)
         );
 
         vm.expectRevert(InflationPool.InvalidEpochLength.selector);
@@ -259,8 +255,7 @@ contract InflationPoolTest is Test {
         vm.startPrank(admin);
         InflationPool poolImpl = new InflationPool();
         bytes memory poolData = abi.encodeCall(
-            InflationPool.initialize,
-            (admin, address(tnt), address(metrics), address(vaults), EPOCH_LENGTH)
+            InflationPool.initialize, (admin, address(tnt), address(metrics), address(vaults), EPOCH_LENGTH)
         );
         ERC1967Proxy poolProxy = new ERC1967Proxy(address(poolImpl), poolData);
         InflationPool emptyPool = InflationPool(address(poolProxy));
@@ -488,7 +483,11 @@ contract InflationPoolTest is Test {
 
         // After claims, pool balance should decrease by claimed amounts
         uint256 poolAfterClaims = pool.poolBalance();
-        assertEq(poolAfterClaims, poolBeforeClaims - claimedOp - claimedCust, "Pool balance should decrease by claimed amounts");
+        assertEq(
+            poolAfterClaims,
+            poolBeforeClaims - claimedOp - claimedCust,
+            "Pool balance should decrease by claimed amounts"
+        );
 
         // Verify no more pending rewards
         assertEq(pool.pendingOperatorRewards(operator1), 0, "No pending after claim");
@@ -526,8 +525,8 @@ contract InflationPoolTest is Test {
         InflationPool.EpochData memory epoch = _distributeCurrentEpoch();
         assertGt(pool.distributedThisPeriod(), 0);
         assertGt(
-            epoch.stakingDistributed + epoch.operatorsDistributed + epoch.customersDistributed +
-            epoch.developersDistributed + epoch.restakersDistributed,
+            epoch.stakingDistributed + epoch.operatorsDistributed + epoch.customersDistributed
+                + epoch.developersDistributed + epoch.restakersDistributed,
             0
         );
 
@@ -562,14 +561,12 @@ contract InflationPoolTest is Test {
 
     function test_DistributeEpoch_RedistributesToActiveStaking() public {
         vm.prank(admin);
-        vaults.recordStake(address(0), delegator1, operator1, 1_000 ether, RewardVaults.LockDuration.None);
+        vaults.recordStake(address(0), delegator1, operator1, 1000 ether, RewardVaults.LockDuration.None);
 
         InflationPool.EpochData memory epoch = _distributeCurrentEpoch();
 
-        uint256 totalDistributed = epoch.stakingDistributed +
-            epoch.operatorsDistributed +
-            epoch.customersDistributed +
-            epoch.developersDistributed;
+        uint256 totalDistributed = epoch.stakingDistributed + epoch.operatorsDistributed + epoch.customersDistributed
+            + epoch.developersDistributed;
 
         assertGt(totalDistributed, 0);
         assertEq(epoch.stakingDistributed, totalDistributed);
@@ -593,8 +590,10 @@ contract InflationPoolTest is Test {
         pool.setWeights(1000, 6000, 1000, 2000, 0); // 10/60/10/20/0
         InflationPool.EpochData memory epochTwo = _distributeCurrentEpoch();
 
-        uint256 totalOne = epochOne.stakingDistributed + epochOne.operatorsDistributed + epochOne.customersDistributed + epochOne.developersDistributed;
-        uint256 totalTwo = epochTwo.stakingDistributed + epochTwo.operatorsDistributed + epochTwo.customersDistributed + epochTwo.developersDistributed;
+        uint256 totalOne = epochOne.stakingDistributed + epochOne.operatorsDistributed + epochOne.customersDistributed
+            + epochOne.developersDistributed;
+        uint256 totalTwo = epochTwo.stakingDistributed + epochTwo.operatorsDistributed + epochTwo.customersDistributed
+            + epochTwo.developersDistributed;
 
         assertGt(epochOne.operatorsDistributed, 0);
         assertGt(epochTwo.operatorsDistributed, 0);

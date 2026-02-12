@@ -32,10 +32,10 @@ library SlashingLib {
     // ═══════════════════════════════════════════════════════════════════════════
 
     enum SlashStatus {
-        Pending,    // Waiting for dispute window to pass
-        Disputed,   // Under dispute review
-        Executed,   // Slash was executed
-        Cancelled   // Slash was cancelled (dispute successful or admin override)
+        Pending, // Waiting for dispute window to pass
+        Disputed, // Under dispute review
+        Executed, // Slash was executed
+        Cancelled // Slash was cancelled (dispute successful or admin override)
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -44,29 +44,29 @@ library SlashingLib {
 
     /// @notice Pending slash proposal
     struct SlashProposal {
-        uint64 serviceId;           // Service where violation occurred
-        address operator;           // Operator to be slashed
-        address proposer;           // Who proposed the slash
-        uint16 slashBps;            // Original slash percentage (bps)
-        uint16 effectiveSlashBps;   // Slash percentage after exposure scaling
-        bytes32 evidence;           // Evidence hash (IPFS or other)
-        uint64 proposedAt;          // When slash was proposed
-        uint64 executeAfter;        // When slash can be executed
-        SlashStatus status;         // Current status
-        string disputeReason;       // Reason if disputed
+        uint64 serviceId; // Service where violation occurred
+        address operator; // Operator to be slashed
+        address proposer; // Who proposed the slash
+        uint16 slashBps; // Original slash percentage (bps)
+        uint16 effectiveSlashBps; // Slash percentage after exposure scaling
+        bytes32 evidence; // Evidence hash (IPFS or other)
+        uint64 proposedAt; // When slash was proposed
+        uint64 executeAfter; // When slash can be executed
+        SlashStatus status; // Current status
+        string disputeReason; // Reason if disputed
     }
 
     /// @notice Slashing configuration
     struct SlashConfig {
-        uint64 disputeWindow;       // Time before slash can be executed
-        bool instantSlashEnabled;   // Allow immediate slashing (for emergencies)
-        uint16 maxSlashBps;         // Maximum slash as % of stake (default 10000 = 100%)
+        uint64 disputeWindow; // Time before slash can be executed
+        bool instantSlashEnabled; // Allow immediate slashing (for emergencies)
+        uint16 maxSlashBps; // Maximum slash as % of stake (default 10000 = 100%)
     }
 
     /// @notice Slashing state storage
     struct SlashState {
-        uint64 nextSlashId;         // Auto-incrementing slash ID
-        SlashConfig config;         // Slashing configuration
+        uint64 nextSlashId; // Auto-incrementing slash ID
+        SlashConfig config; // Slashing configuration
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -84,30 +84,15 @@ library SlashingLib {
         uint64 executeAfter
     );
 
-    event SlashDisputed(
-        uint64 indexed slashId,
-        address indexed disputer,
-        string reason
-    );
+    event SlashDisputed(uint64 indexed slashId, address indexed disputer, string reason);
 
     event SlashExecuted(
-        uint64 indexed slashId,
-        uint64 indexed serviceId,
-        address indexed operator,
-        uint256 actualSlashed
+        uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, uint256 actualSlashed
     );
 
-    event SlashCancelled(
-        uint64 indexed slashId,
-        address indexed canceller,
-        string reason
-    );
+    event SlashCancelled(uint64 indexed slashId, address indexed canceller, string reason);
 
-    event SlashConfigUpdated(
-        uint64 disputeWindow,
-        bool instantSlashEnabled,
-        uint16 maxSlashBps
-    );
+    event SlashConfigUpdated(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -133,7 +118,9 @@ library SlashingLib {
         uint64 disputeWindow,
         bool instantSlashEnabled,
         uint16 maxSlashBps
-    ) internal {
+    )
+        internal
+    {
         if (disputeWindow < MIN_DISPUTE_WINDOW || disputeWindow > MAX_DISPUTE_WINDOW) {
             revert Errors.InvalidSlashConfig();
         }
@@ -142,9 +129,7 @@ library SlashingLib {
         }
 
         state.config = SlashConfig({
-            disputeWindow: disputeWindow,
-            instantSlashEnabled: instantSlashEnabled,
-            maxSlashBps: maxSlashBps
+            disputeWindow: disputeWindow, instantSlashEnabled: instantSlashEnabled, maxSlashBps: maxSlashBps
         });
 
         emit SlashConfigUpdated(disputeWindow, instantSlashEnabled, maxSlashBps);
@@ -158,10 +143,7 @@ library SlashingLib {
     /// @param slashBps Base slash percentage
     /// @param exposureBps Operator's exposure in basis points
     /// @return Effective slash percentage
-    function calculateEffectiveSlashBps(
-        uint16 slashBps,
-        uint16 exposureBps
-    ) internal pure returns (uint16) {
+    function calculateEffectiveSlashBps(uint16 slashBps, uint16 exposureBps) internal pure returns (uint16) {
         return uint16((uint256(slashBps) * exposureBps) / BPS_DENOMINATOR);
     }
 
@@ -169,10 +151,7 @@ library SlashingLib {
     /// @param slashBps Proposed slash percentage
     /// @param maxSlashBps Maximum slash percentage
     /// @return Capped slash percentage
-    function capSlashBps(
-        uint16 slashBps,
-        uint16 maxSlashBps
-    ) internal pure returns (uint16) {
+    function capSlashBps(uint16 slashBps, uint16 maxSlashBps) internal pure returns (uint16) {
         return slashBps > maxSlashBps ? maxSlashBps : slashBps;
     }
 
@@ -201,7 +180,10 @@ library SlashingLib {
         uint16 exposureBps,
         bytes32 evidence,
         bool instant
-    ) internal returns (uint64 slashId) {
+    )
+        internal
+        returns (uint64 slashId)
+    {
         if (slashBps == 0) revert Errors.InvalidSlashAmount();
         if (operator == address(0)) revert Errors.ZeroAddress();
 
@@ -235,16 +217,7 @@ library SlashingLib {
             disputeReason: ""
         });
 
-        emit SlashProposed(
-            slashId,
-            serviceId,
-            operator,
-            proposer,
-            slashBps,
-            effectiveSlashBps,
-            evidence,
-            executeAfter
-        );
+        emit SlashProposed(slashId, serviceId, operator, proposer, slashBps, effectiveSlashBps, evidence, executeAfter);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -261,7 +234,9 @@ library SlashingLib {
         uint64 slashId,
         address disputer,
         string memory reason
-    ) internal {
+    )
+        internal
+    {
         SlashProposal storage proposal = proposals[slashId];
 
         if (proposal.operator == address(0)) {
@@ -299,8 +274,7 @@ library SlashingLib {
         // M-6 FIX: Add buffer to protect against timestamp manipulation
         // Miners can adjust block.timestamp within ~15 seconds, so we require
         // the timestamp to exceed executeAfter + buffer
-        return proposal.status == SlashStatus.Pending &&
-               block.timestamp >= proposal.executeAfter + TIMESTAMP_BUFFER;
+        return proposal.status == SlashStatus.Pending && block.timestamp >= proposal.executeAfter + TIMESTAMP_BUFFER;
     }
 
     /// @notice Mark a slash as executed
@@ -312,7 +286,10 @@ library SlashingLib {
         mapping(uint64 => SlashProposal) storage proposals,
         uint64 slashId,
         uint256 actualSlashed
-    ) internal returns (SlashProposal storage proposal) {
+    )
+        internal
+        returns (SlashProposal storage proposal)
+    {
         proposal = proposals[slashId];
 
         if (proposal.operator == address(0)) {
@@ -325,12 +302,7 @@ library SlashingLib {
 
         proposal.status = SlashStatus.Executed;
 
-        emit SlashExecuted(
-            slashId,
-            proposal.serviceId,
-            proposal.operator,
-            actualSlashed
-        );
+        emit SlashExecuted(slashId, proposal.serviceId, proposal.operator, actualSlashed);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -347,7 +319,9 @@ library SlashingLib {
         uint64 slashId,
         address canceller,
         string memory reason
-    ) internal {
+    )
+        internal
+    {
         SlashProposal storage proposal = proposals[slashId];
 
         if (proposal.operator == address(0)) {
@@ -382,12 +356,15 @@ library SlashingLib {
         address operator,
         uint64 fromId,
         uint64 toId
-    ) internal view returns (uint64[] memory ids) {
+    )
+        internal
+        view
+        returns (uint64[] memory ids)
+    {
         // First pass: count matching
         uint64 count = 0;
         for (uint64 i = fromId; i < toId; i++) {
-            if (proposals[i].operator == operator &&
-                proposals[i].status == SlashStatus.Pending) {
+            if (proposals[i].operator == operator && proposals[i].status == SlashStatus.Pending) {
                 count++;
             }
         }
@@ -396,11 +373,9 @@ library SlashingLib {
         ids = new uint64[](count);
         uint64 idx = 0;
         for (uint64 i = fromId; i < toId && idx < count; i++) {
-            if (proposals[i].operator == operator &&
-                proposals[i].status == SlashStatus.Pending) {
+            if (proposals[i].operator == operator && proposals[i].status == SlashStatus.Pending) {
                 ids[idx++] = i;
             }
         }
     }
-
 }

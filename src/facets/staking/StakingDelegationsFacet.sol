@@ -123,7 +123,10 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
         uint256 shares,
         uint64 requestedRound,
         address receiver
-    ) private returns (uint256 amountReturned) {
+    )
+        private
+        returns (uint256 amountReturned)
+    {
         if (receiver == address(0)) revert DelegationErrors.ZeroAddress();
         if (shares == 0) revert DelegationErrors.ZeroAmount();
 
@@ -138,10 +141,8 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
         for (uint256 i = 0; i < requests.length; i++) {
             Types.BondLessRequest storage candidate = requests[i];
             if (
-                candidate.operator == operator &&
-                _assetHash(candidate.asset) == assetHash &&
-                candidate.shares == shares &&
-                candidate.requestedRound == requestedRound
+                candidate.operator == operator && _assetHash(candidate.asset) == assetHash && candidate.shares == shares
+                    && candidate.requestedRound == requestedRound
             ) {
                 requestIndex = i;
                 break;
@@ -179,7 +180,9 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
         uint256 free = dep2.amount > locked ? dep2.amount - locked : 0;
 
         if (free < amountReturned) revert DelegationErrors.AmountLocked(locked, amountReturned);
-        if (available < amountReturned) revert DelegationErrors.InsufficientAvailableBalance(available, amountReturned);
+        if (available < amountReturned) {
+            revert DelegationErrors.InsufficientAvailableBalance(available, amountReturned);
+        }
 
         dep2.amount -= amountReturned;
         // Update deposit cap accounting on actual transfer (TVL decreases here).
@@ -198,7 +201,10 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
         address operator,
         bytes32 assetHash,
         Types.BondLessRequest storage req
-    ) private returns (uint256 amountReturned) {
+    )
+        private
+        returns (uint256 amountReturned)
+    {
         bool updated = false;
         Types.BondInfoDelegator[] storage delegations = _delegations[delegator];
         for (uint256 j = 0; j < delegations.length; j++) {
@@ -226,9 +232,7 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
                             ? remainingShares
                             : (req.shares * currentBpShares) / totalBpShares;
                     } else {
-                        bpShare = k == blueprintIds.length - 1
-                            ? remainingShares
-                            : req.shares / blueprintIds.length;
+                        bpShare = k == blueprintIds.length - 1 ? remainingShares : req.shares / blueprintIds.length;
                     }
                     remainingShares = remainingShares > bpShare ? remainingShares - bpShare : 0;
                     blueprintShares[k] = bpShare;
@@ -285,7 +289,9 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
         Types.BlueprintSelectionMode selectionMode,
         uint64[] memory blueprintIds,
         uint256[] memory blueprintShares
-    ) private {
+    )
+        private
+    {
         _onDelegationChanged(
             delegator,
             operator,

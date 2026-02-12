@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { Test } from "forge-std/Test.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import {DelegationErrors} from "../../src/staking/DelegationErrors.sol";
-import {DepositManager} from "../../src/staking/DepositManager.sol";
-import {RewardVaults} from "../../src/rewards/RewardVaults.sol";
-import {SlashingManager} from "../../src/staking/SlashingManager.sol";
-import {MultiAssetDelegation} from "../../src/staking/MultiAssetDelegation.sol";
-import {DelegationTestHarness} from "./DelegationTestHarness.sol";
-import {Types} from "../../src/libraries/Types.sol";
+import { DelegationErrors } from "../../src/staking/DelegationErrors.sol";
+import { DepositManager } from "../../src/staking/DepositManager.sol";
+import { RewardVaults } from "../../src/rewards/RewardVaults.sol";
+import { SlashingManager } from "../../src/staking/SlashingManager.sol";
+import { MultiAssetDelegation } from "../../src/staking/MultiAssetDelegation.sol";
+import { DelegationTestHarness } from "./DelegationTestHarness.sol";
+import { Types } from "../../src/libraries/Types.sol";
 
 contract DelegationStorageHarness is DepositManager {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -29,7 +29,9 @@ contract DelegationStorageHarness is DepositManager {
         bool enabled,
         uint256 minDelegation,
         uint256 depositCap
-    ) external {
+    )
+        external
+    {
         Types.Asset memory asset = Types.Asset(kind, token);
         bytes32 assetHash = _assetHash(asset);
         _assetConfigs[assetHash] = Types.AssetConfig({
@@ -38,7 +40,7 @@ contract DelegationStorageHarness is DepositManager {
             minDelegation: minDelegation,
             depositCap: depositCap,
             currentDeposits: 0,
-            rewardMultiplierBps: 10000
+            rewardMultiplierBps: 10_000
         });
 
         if (kind == Types.AssetKind.Native) {
@@ -57,7 +59,9 @@ contract DelegationStorageHarness is DepositManager {
         address token,
         uint256 amount,
         Types.LockMultiplier multiplier
-    ) external {
+    )
+        external
+    {
         _depositAsset(Types.Asset(kind, token), amount, multiplier);
     }
 
@@ -65,15 +69,15 @@ contract DelegationStorageHarness is DepositManager {
         address delegator,
         Types.AssetKind kind,
         address token
-    ) external view returns (Types.Deposit memory) {
+    )
+        external
+        view
+        returns (Types.Deposit memory)
+    {
         return _deposits[delegator][_assetHash(Types.Asset(kind, token))];
     }
 
-    function getLockCount(
-        address delegator,
-        Types.AssetKind kind,
-        address token
-    ) external view returns (uint256) {
+    function getLockCount(address delegator, Types.AssetKind kind, address token) external view returns (uint256) {
         return _depositLocks[delegator][_assetHash(Types.Asset(kind, token))].length;
     }
 }
@@ -103,7 +107,6 @@ contract DelegationStorageLibrariesTest is Test {
         assertEq(harness.lockDuration(Types.LockMultiplier.TwoMonths), harness.LOCK_TWO_MONTHS());
         assertEq(harness.lockDuration(Types.LockMultiplier.ThreeMonths), harness.LOCK_THREE_MONTHS());
         assertEq(harness.lockDuration(Types.LockMultiplier.SixMonths), harness.LOCK_SIX_MONTHS());
-
     }
 
     function test_lockMultiplierBpsCoversAllMultipliers() public {
@@ -119,8 +122,7 @@ contract DelegationStorageLibrariesTest is Test {
         harness.configureAsset(Types.AssetKind.Native, address(0), true, 1, 0);
         harness.depositAsset(Types.AssetKind.Native, address(0), 1e16, Types.LockMultiplier.OneMonth);
 
-        Types.Deposit memory nativeDep =
-            harness.getDeposit(address(this), Types.AssetKind.Native, address(0));
+        Types.Deposit memory nativeDep = harness.getDeposit(address(this), Types.AssetKind.Native, address(0));
         assertEq(nativeDep.amount, 1e16);
         assertEq(nativeDep.delegatedAmount, 0);
         assertEq(harness.getLockCount(address(this), Types.AssetKind.Native, address(0)), 1);
@@ -129,8 +131,7 @@ contract DelegationStorageLibrariesTest is Test {
         harness.configureAsset(Types.AssetKind.ERC20, token, true, 1, 0);
         harness.depositAsset(Types.AssetKind.ERC20, token, 7, Types.LockMultiplier.None);
 
-        Types.Deposit memory ercDep =
-            harness.getDeposit(address(this), Types.AssetKind.ERC20, token);
+        Types.Deposit memory ercDep = harness.getDeposit(address(this), Types.AssetKind.ERC20, token);
         assertEq(ercDep.amount, 7);
         assertEq(ercDep.delegatedAmount, 0);
         assertEq(harness.getLockCount(address(this), Types.AssetKind.ERC20, token), 0);
@@ -138,22 +139,12 @@ contract DelegationStorageLibrariesTest is Test {
 
     function test_depositRevertsWhenAssetDisabled() public {
         harness.configureAsset(Types.AssetKind.Native, address(0), false, 1, 0);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DelegationErrors.AssetNotEnabled.selector,
-                address(0)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.AssetNotEnabled.selector, address(0)));
         harness.depositAsset(Types.AssetKind.Native, address(0), 1, Types.LockMultiplier.None);
 
         address token = address(0xCAFE);
         harness.configureAsset(Types.AssetKind.ERC20, token, false, 1, 0);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DelegationErrors.AssetNotEnabled.selector,
-                token
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.AssetNotEnabled.selector, token));
         harness.depositAsset(Types.AssetKind.ERC20, token, 1, Types.LockMultiplier.None);
     }
 
@@ -161,23 +152,16 @@ contract DelegationStorageLibrariesTest is Test {
         harness.configureAsset(Types.AssetKind.Native, address(0), true, 1, 10);
         harness.depositAsset(Types.AssetKind.Native, address(0), 6, Types.LockMultiplier.None);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DelegationErrors.DepositCapExceeded.selector,
-                10,
-                6,
-                6
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.DepositCapExceeded.selector, 10, 6, 6));
         harness.depositAsset(Types.AssetKind.Native, address(0), 6, Types.LockMultiplier.None);
     }
 
     function test_rewardVaultLockHelpersEnumerateAllDurations() public {
-        assertEq(rewardsHarness.lockMultiplierBpsPublic(RewardVaults.LockDuration.None), 10000);
-        assertEq(rewardsHarness.lockMultiplierBpsPublic(RewardVaults.LockDuration.OneMonth), 11000);
-        assertEq(rewardsHarness.lockMultiplierBpsPublic(RewardVaults.LockDuration.TwoMonths), 12000);
-        assertEq(rewardsHarness.lockMultiplierBpsPublic(RewardVaults.LockDuration.ThreeMonths), 13000);
-        assertEq(rewardsHarness.lockMultiplierBpsPublic(RewardVaults.LockDuration.SixMonths), 16000);
+        assertEq(rewardsHarness.lockMultiplierBpsPublic(RewardVaults.LockDuration.None), 10_000);
+        assertEq(rewardsHarness.lockMultiplierBpsPublic(RewardVaults.LockDuration.OneMonth), 11_000);
+        assertEq(rewardsHarness.lockMultiplierBpsPublic(RewardVaults.LockDuration.TwoMonths), 12_000);
+        assertEq(rewardsHarness.lockMultiplierBpsPublic(RewardVaults.LockDuration.ThreeMonths), 13_000);
+        assertEq(rewardsHarness.lockMultiplierBpsPublic(RewardVaults.LockDuration.SixMonths), 16_000);
 
         assertEq(rewardsHarness.lockDurationSecondsPublic(RewardVaults.LockDuration.None), 0);
         assertEq(rewardsHarness.lockDurationSecondsPublic(RewardVaults.LockDuration.OneMonth), 30 days);

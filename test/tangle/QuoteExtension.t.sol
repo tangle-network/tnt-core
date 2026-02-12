@@ -172,18 +172,15 @@ contract QuoteExtensionTest is BaseTest {
             totalCost: 0.5 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp - 1), // Expired
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes32 digest = _computeQuoteDigest(details);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(operator1Key, digest);
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            operator: operator1,
-            details: details,
-            signature: abi.encodePacked(r, s, v)
-        });
+        quotes[0] = Types.SignedQuote({ operator: operator1, details: details, signature: abi.encodePacked(r, s, v) });
 
         vm.prank(user1);
         vm.expectRevert(); // Quote expired
@@ -276,18 +273,13 @@ contract QuoteExtensionTest is BaseTest {
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](2);
         // Use different costs to make quote hashes unique
         quotes[0] = _createSignedQuote(operator1Key, operator1, 1 ether, uint64(block.timestamp + 1 hours), INITIAL_TTL);
-        quotes[1] = _createSignedQuote(operator2Key, operator2, 1.1 ether, uint64(block.timestamp + 1 hours), INITIAL_TTL);
+        quotes[1] =
+            _createSignedQuote(operator2Key, operator2, 1.1 ether, uint64(block.timestamp + 1 hours), INITIAL_TTL);
 
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        return tangle.createServiceFromQuotes{ value: 2.1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            callers,
-            INITIAL_TTL
-        );
+        return tangle.createServiceFromQuotes{ value: 2.1 ether }(blueprintId, quotes, "", callers, INITIAL_TTL);
     }
 
     function _createServiceWithoutTTL() internal returns (uint64) {
@@ -297,13 +289,7 @@ contract QuoteExtensionTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        return tangle.createServiceFromQuotes(
-            blueprintId,
-            quotes,
-            "",
-            callers,
-            0
-        );
+        return tangle.createServiceFromQuotes(blueprintId, quotes, "", callers, 0);
     }
 
     function _createExtensionQuote(
@@ -311,24 +297,25 @@ contract QuoteExtensionTest is BaseTest {
         address operator,
         uint256 totalCost,
         uint64 additionalTtl
-    ) internal view returns (Types.SignedQuote memory) {
+    )
+        internal
+        view
+        returns (Types.SignedQuote memory)
+    {
         Types.QuoteDetails memory details = Types.QuoteDetails({
             blueprintId: blueprintId,
             ttlBlocks: additionalTtl,
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes32 digest = _computeQuoteDigest(details);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
-        return Types.SignedQuote({
-            operator: operator,
-            details: details,
-            signature: abi.encodePacked(r, s, v)
-        });
+        return Types.SignedQuote({ operator: operator, details: details, signature: abi.encodePacked(r, s, v) });
     }
 
     function _createSignedQuoteForOperator(
@@ -336,24 +323,25 @@ contract QuoteExtensionTest is BaseTest {
         address operator,
         uint256 totalCost,
         uint64 ttl
-    ) internal view returns (Types.SignedQuote memory) {
+    )
+        internal
+        view
+        returns (Types.SignedQuote memory)
+    {
         Types.QuoteDetails memory details = Types.QuoteDetails({
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes32 digest = _computeQuoteDigest(details);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
-        return Types.SignedQuote({
-            operator: operator,
-            details: details,
-            signature: abi.encodePacked(r, s, v)
-        });
+        return Types.SignedQuote({ operator: operator, details: details, signature: abi.encodePacked(r, s, v) });
     }
 
     function _createSignedQuoteWithDifferentExpiry(
@@ -361,24 +349,25 @@ contract QuoteExtensionTest is BaseTest {
         address operator,
         uint256 totalCost,
         uint64 ttl
-    ) internal view returns (Types.SignedQuote memory) {
+    )
+        internal
+        view
+        returns (Types.SignedQuote memory)
+    {
         Types.QuoteDetails memory details = Types.QuoteDetails({
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 2 hours), // Different expiry
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes32 digest = _computeQuoteDigest(details);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
-        return Types.SignedQuote({
-            operator: operator,
-            details: details,
-            signature: abi.encodePacked(r, s, v)
-        });
+        return Types.SignedQuote({ operator: operator, details: details, signature: abi.encodePacked(r, s, v) });
     }
 
     function _createSignedQuote(
@@ -387,52 +376,63 @@ contract QuoteExtensionTest is BaseTest {
         uint256 totalCost,
         uint64 expiry,
         uint64 ttl
-    ) internal view returns (Types.SignedQuote memory) {
+    )
+        internal
+        view
+        returns (Types.SignedQuote memory)
+    {
         Types.QuoteDetails memory details = Types.QuoteDetails({
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes32 digest = _computeQuoteDigest(details);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
-        return Types.SignedQuote({
-            operator: operator,
-            details: details,
-            signature: abi.encodePacked(r, s, v)
-        });
+        return Types.SignedQuote({ operator: operator, details: details, signature: abi.encodePacked(r, s, v) });
     }
 
     function _computeQuoteDigest(Types.QuoteDetails memory details) internal view returns (bytes32) {
         bytes32 commitmentsHash = _hashSecurityCommitments(details.securityCommitments);
-        bytes32 structHash = keccak256(abi.encode(
-            keccak256("QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"),
-            details.blueprintId,
-            details.ttlBlocks,
-            details.totalCost,
-            details.timestamp,
-            details.expiry,
-            commitmentsHash
-        ));
+        bytes32 resourcesHash = _hashResourceCommitments(details.resourceCommitments);
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256(
+                    "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+                ),
+                details.blueprintId,
+                details.ttlBlocks,
+                details.totalCost,
+                details.timestamp,
+                details.expiry,
+                commitmentsHash,
+                resourcesHash
+            )
+        );
 
-        bytes32 domainSeparator = keccak256(abi.encode(
-            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-            keccak256("TangleQuote"),
-            keccak256("1"),
-            block.chainid,
-            address(tangle)
-        ));
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("TangleQuote"),
+                keccak256("1"),
+                block.chainid,
+                address(tangle)
+            )
+        );
 
         return MessageHashUtils.toTypedDataHash(domainSeparator, structHash);
     }
 
-    function _hashSecurityCommitments(
-        Types.AssetSecurityCommitment[] memory commitments
-    ) internal pure returns (bytes32) {
+    function _hashSecurityCommitments(Types.AssetSecurityCommitment[] memory commitments)
+        internal
+        pure
+        returns (bytes32)
+    {
         bytes32[] memory hashes = new bytes32[](commitments.length);
         for (uint256 i = 0; i < commitments.length; i++) {
             hashes[i] = _hashSecurityCommitment(commitments[i]);
@@ -444,16 +444,24 @@ contract QuoteExtensionTest is BaseTest {
         return out;
     }
 
-    function _hashSecurityCommitment(
-        Types.AssetSecurityCommitment memory commitment
-    ) internal pure returns (bytes32) {
+    function _hashSecurityCommitment(Types.AssetSecurityCommitment memory commitment) internal pure returns (bytes32) {
         bytes32 ASSET_TYPEHASH = keccak256("Asset(uint8 kind,address token)");
-        bytes32 COMMITMENT_TYPEHASH = keccak256(
-            "AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
-        );
-        bytes32 assetHash = keccak256(
-            abi.encode(ASSET_TYPEHASH, uint8(commitment.asset.kind), commitment.asset.token)
-        );
+        bytes32 COMMITMENT_TYPEHASH =
+            keccak256("AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)");
+        bytes32 assetHash = keccak256(abi.encode(ASSET_TYPEHASH, uint8(commitment.asset.kind), commitment.asset.token));
         return keccak256(abi.encode(COMMITMENT_TYPEHASH, assetHash, commitment.exposureBps));
+    }
+
+    function _hashResourceCommitments(Types.ResourceCommitment[] memory commitments) internal pure returns (bytes32) {
+        bytes32 RC_TYPEHASH = keccak256("ResourceCommitment(uint8 kind,uint64 count)");
+        bytes32[] memory hashes = new bytes32[](commitments.length);
+        for (uint256 i = 0; i < commitments.length; i++) {
+            hashes[i] = keccak256(abi.encode(RC_TYPEHASH, commitments[i].kind, commitments[i].count));
+        }
+        bytes32 out;
+        assembly ("memory-safe") {
+            out := keccak256(add(hashes, 0x20), mul(mload(hashes), 0x20))
+        }
+        return out;
     }
 }

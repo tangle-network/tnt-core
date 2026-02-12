@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import {ChainlinkOracle, AggregatorV3Interface as ChainlinkAggregator, IERC20Decimals as IERC20DecimalsChainlink}
-    from "../../src/oracles/ChainlinkOracle.sol";
+import {
+    ChainlinkOracle,
+    AggregatorV3Interface as ChainlinkAggregator,
+    IERC20Decimals as IERC20DecimalsChainlink
+} from "../../src/oracles/ChainlinkOracle.sol";
 import {
     UniswapV3Oracle,
     IUniswapV3Pool,
     AggregatorV3Interface as QuoteAggregator,
     IERC20Decimals as IERC20DecimalsUniswap
 } from "../../src/oracles/UniswapV3Oracle.sol";
-import {IPriceOracle} from "../../src/oracles/interfaces/IPriceOracle.sol";
+import { IPriceOracle } from "../../src/oracles/interfaces/IPriceOracle.sol";
 
 contract MockAggregator is ChainlinkAggregator, QuoteAggregator {
     uint8 internal decimalsValue;
@@ -32,12 +35,7 @@ contract MockAggregator is ChainlinkAggregator, QuoteAggregator {
         shouldRevert = flag;
     }
 
-    function decimals()
-        external
-        view
-        override(ChainlinkAggregator, QuoteAggregator)
-        returns (uint8)
-    {
+    function decimals() external view override(ChainlinkAggregator, QuoteAggregator) returns (uint8) {
         return decimalsValue;
     }
 
@@ -78,12 +76,7 @@ contract MockUniswapV3Pool is IUniswapV3Pool {
         currentTick = tick;
     }
 
-    function slot0()
-        external
-        view
-        override
-        returns (uint160, int24, uint16, uint16, uint16, uint8, bool)
-    {
+    function slot0() external view override returns (uint160, int24, uint16, uint16, uint16, uint8, bool) {
         return (0, currentTick, 0, 0, 0, 0, true);
     }
 
@@ -161,17 +154,19 @@ contract ChainlinkOracleTest is Test {
         tokens[0] = address(token);
         tokens[1] = address(token2);
         amounts[0] = 2_000_000; // 2 tokens with 6 decimals
-        amounts[1] = 1 ether;   // 1 token with 18 decimals
+        amounts[1] = 1 ether; // 1 token with 18 decimals
 
         uint256 totalUsd = oracle.batchToUSD(tokens, amounts);
-        assertEq(totalUsd, 4_500 ether);
+        assertEq(totalUsd, 4500 ether);
     }
 
     function test_getPrice_RevertWhenStale() public {
         uint256 updatedAt = block.timestamp - oracle.maxAge() - 1;
         assetFeed.setData(2000e8, updatedAt);
 
-        vm.expectRevert(abi.encodeWithSelector(IPriceOracle.StalePrice.selector, address(token), updatedAt, oracle.maxAge()));
+        vm.expectRevert(
+            abi.encodeWithSelector(IPriceOracle.StalePrice.selector, address(token), updatedAt, oracle.maxAge())
+        );
         oracle.getPrice(address(token));
     }
 

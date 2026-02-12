@@ -16,7 +16,10 @@ interface ICrossChainMessenger {
         address target,
         bytes calldata payload,
         uint256 gasLimit
-    ) external payable returns (bytes32 messageId);
+    )
+        external
+        payable
+        returns (bytes32 messageId);
 
     /// @notice Estimate the fee for sending a message
     /// @param destinationChainId The target chain ID
@@ -27,7 +30,10 @@ interface ICrossChainMessenger {
         uint256 destinationChainId,
         bytes calldata payload,
         uint256 gasLimit
-    ) external view returns (uint256 fee);
+    )
+        external
+        view
+        returns (uint256 fee);
 
     /// @notice Check if a destination chain is supported
     /// @param chainId The chain ID to check
@@ -42,9 +48,5 @@ interface ICrossChainReceiver {
     /// @param sourceChainId The chain ID where the message originated
     /// @param sender The sender address on the source chain
     /// @param payload The message payload
-    function receiveMessage(
-        uint256 sourceChainId,
-        address sender,
-        bytes calldata payload
-    ) external;
+    function receiveMessage(uint256 sourceChainId, address sender, bytes calldata payload) external;
 }

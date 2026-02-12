@@ -13,7 +13,11 @@ abstract contract BlueprintDefinitionHelper {
     function _blueprintDefinition(
         string memory metadataUri,
         address manager
-    ) internal pure returns (Types.BlueprintDefinition memory def) {
+    )
+        internal
+        pure
+        returns (Types.BlueprintDefinition memory def)
+    {
         bytes memory emptySchema = _emptySchema();
         def.metadataUri = metadataUri;
         def.manager = manager;
@@ -54,7 +58,11 @@ abstract contract BlueprintDefinitionHelper {
         string memory metadataUri,
         address manager,
         Types.BlueprintConfig memory config
-    ) internal pure returns (Types.BlueprintDefinition memory def) {
+    )
+        internal
+        pure
+        returns (Types.BlueprintDefinition memory def)
+    {
         def = _blueprintDefinition(metadataUri, manager);
         def.config = config;
         def.hasConfig = true;
@@ -64,7 +72,11 @@ abstract contract BlueprintDefinitionHelper {
         string memory metadataUri,
         address manager,
         uint256 jobCount
-    ) internal pure returns (Types.BlueprintDefinition memory def) {
+    )
+        internal
+        pure
+        returns (Types.BlueprintDefinition memory def)
+    {
         def = _blueprintDefinition(metadataUri, manager);
         if (jobCount == def.jobs.length) {
             return def;
@@ -155,7 +167,8 @@ abstract contract BlueprintDefinitionHelper {
 
     function _defaultBlueprintSource() internal pure returns (Types.BlueprintSource memory source) {
         source.kind = Types.BlueprintSourceKind.Container;
-        source.container = Types.ImageRegistrySource({ registry: "registry.tangle.local", image: "blueprint", tag: "latest" });
+        source.container =
+            Types.ImageRegistrySource({ registry: "registry.tangle.local", image: "blueprint", tag: "latest" });
         source.wasm.runtime = Types.WasmRuntime.Wasmtime;
         source.wasm.fetcher = Types.BlueprintFetcherKind.None;
         source.native.fetcher = Types.BlueprintFetcherKind.None;
@@ -169,7 +182,10 @@ abstract contract BlueprintDefinitionHelper {
         });
     }
 
-    function _buildJobDefinitions(uint256 count, bytes memory schema)
+    function _buildJobDefinitions(
+        uint256 count,
+        bytes memory schema
+    )
         private
         pure
         returns (Types.JobDefinition[] memory jobs)

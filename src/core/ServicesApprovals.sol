@@ -61,8 +61,7 @@ abstract contract ServicesApprovals is Base {
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
             );
         }
 
@@ -75,7 +74,11 @@ abstract contract ServicesApprovals is Base {
     function approveServiceWithCommitments(
         uint64 requestId,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) external whenNotPaused nonReentrant {
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         _approveServiceWithCommitmentsInternal(requestId, commitments, _emptyBlsPubkey());
     }
 
@@ -87,7 +90,11 @@ abstract contract ServicesApprovals is Base {
         uint64 requestId,
         uint8 stakingPercent,
         uint256[4] calldata blsPubkey
-    ) external whenNotPaused nonReentrant {
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
@@ -125,8 +132,7 @@ abstract contract ServicesApprovals is Base {
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
             );
         }
 
@@ -143,7 +149,11 @@ abstract contract ServicesApprovals is Base {
         uint64 requestId,
         Types.AssetSecurityCommitment[] calldata commitments,
         uint256[4] calldata blsPubkey
-    ) external whenNotPaused nonReentrant {
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         _approveServiceWithCommitmentsInternal(requestId, commitments, blsPubkey);
     }
 
@@ -152,7 +162,9 @@ abstract contract ServicesApprovals is Base {
         uint64 requestId,
         Types.AssetSecurityCommitment[] calldata commitments,
         uint256[4] memory blsPubkey
-    ) private {
+    )
+        private
+    {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
@@ -195,8 +207,7 @@ abstract contract ServicesApprovals is Base {
         uint8 stakingPercent = commitments.length > 0 ? uint8(commitments[0].exposureBps / 100) : 100;
         if (bp.manager != address(0)) {
             _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
             );
         }
 
@@ -226,11 +237,16 @@ abstract contract ServicesApprovals is Base {
     function _validateSecurityCommitments(
         Types.AssetSecurityRequirement[] storage requirements,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) internal view {
+    )
+        internal
+        view
+    {
         for (uint256 i = 0; i < commitments.length; i++) {
             for (uint256 j = i + 1; j < commitments.length; j++) {
-                if (commitments[i].asset.token == commitments[j].asset.token &&
-                    commitments[i].asset.kind == commitments[j].asset.kind) {
+                if (
+                    commitments[i].asset.token == commitments[j].asset.token
+                        && commitments[i].asset.kind == commitments[j].asset.kind
+                ) {
                     revert Errors.DuplicateAssetCommitment(uint8(commitments[i].asset.kind), commitments[i].asset.token);
                 }
             }
@@ -241,13 +257,16 @@ abstract contract ServicesApprovals is Base {
             bool found = false;
 
             for (uint256 j = 0; j < commitments.length; j++) {
-                if (commitments[j].asset.token == req.asset.token &&
-                    commitments[j].asset.kind == req.asset.kind) {
+                if (commitments[j].asset.token == req.asset.token && commitments[j].asset.kind == req.asset.kind) {
                     if (commitments[j].exposureBps < req.minExposureBps) {
-                        revert Errors.CommitmentBelowMinimum(req.asset.token, commitments[j].exposureBps, req.minExposureBps);
+                        revert Errors.CommitmentBelowMinimum(
+                            req.asset.token, commitments[j].exposureBps, req.minExposureBps
+                        );
                     }
                     if (commitments[j].exposureBps > req.maxExposureBps) {
-                        revert Errors.CommitmentAboveMaximum(req.asset.token, commitments[j].exposureBps, req.maxExposureBps);
+                        revert Errors.CommitmentAboveMaximum(
+                            req.asset.token, commitments[j].exposureBps, req.maxExposureBps
+                        );
                     }
                     found = true;
                     break;
@@ -284,10 +303,7 @@ abstract contract ServicesApprovals is Base {
 
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
         if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onReject, (msg.sender, requestId))
-            );
+            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onReject, (msg.sender, requestId)));
         }
     }
 

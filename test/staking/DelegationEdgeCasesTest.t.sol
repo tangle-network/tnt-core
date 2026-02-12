@@ -19,7 +19,8 @@ import { StakingAdminFacet } from "../../src/facets/staking/StakingAdminFacet.so
 
 /// @notice Mock ERC20 for testing
 contract MockToken is ERC20 {
-    constructor() ERC20("Mock", "MCK") {}
+    constructor() ERC20("Mock", "MCK") { }
+
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
@@ -30,7 +31,7 @@ contract ReentrantToken is ERC20 {
     IMultiAssetDelegation public target;
     bool public attacking;
 
-    constructor() ERC20("Evil", "EVIL") {}
+    constructor() ERC20("Evil", "EVIL") { }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
@@ -47,7 +48,7 @@ contract ReentrantToken is ERC20 {
         if (attacking && from == address(target) && to != address(0)) {
             attacking = false;
             // Try to withdraw again
-            try target.executeWithdraw() {} catch {}
+            try target.executeWithdraw() { } catch { }
         }
     }
 
@@ -85,10 +86,7 @@ contract DelegationEdgeCasesTest is Test {
 
     function setUp() public {
         MultiAssetDelegation impl = new MultiAssetDelegation();
-        bytes memory initData = abi.encodeCall(
-            MultiAssetDelegation.initialize,
-            (admin, MIN_OPERATOR_STAKE, 0, 1000)
-        );
+        bytes memory initData = abi.encodeCall(MultiAssetDelegation.initialize, (admin, MIN_OPERATOR_STAKE, 0, 1000));
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         delegation = IMultiAssetDelegation(payable(address(proxy)));
 
@@ -96,7 +94,7 @@ contract DelegationEdgeCasesTest is Test {
 
         token = new MockToken();
         vm.prank(admin);
-        delegation.enableAsset(address(token), 1 ether, 0.1 ether, 0, 10000);
+        delegation.enableAsset(address(token), 1 ether, 0.1 ether, 0, 10_000);
 
         vm.prank(admin);
         delegation.addSlasher(slasher);
@@ -215,9 +213,7 @@ contract DelegationEdgeCasesTest is Test {
         delegation.deposit{ value: 5 ether }();
 
         vm.prank(delegator1);
-        vm.expectRevert(
-            abi.encodeWithSelector(DelegationErrors.OperatorNotActive.selector, operator2)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.OperatorNotActive.selector, operator2));
         delegation.delegate(operator2, 5 ether);
     }
 
@@ -306,7 +302,7 @@ contract DelegationEdgeCasesTest is Test {
     }
 
     function test_LargeAmounts() public {
-        uint256 largeAmount = 1000000 ether;
+        uint256 largeAmount = 1_000_000 ether;
         vm.deal(delegator1, largeAmount + 1 ether);
 
         vm.prank(delegator1);
@@ -328,11 +324,7 @@ contract DelegationEdgeCasesTest is Test {
         // Delegate ERC20
         token.approve(address(delegation), 5 ether);
         delegation.depositAndDelegateWithOptions(
-            operator1,
-            address(token),
-            5 ether,
-            Types.BlueprintSelectionMode.All,
-            new uint64[](0)
+            operator1, address(token), 5 ether, Types.BlueprintSelectionMode.All, new uint64[](0)
         );
 
         vm.stopPrank();
@@ -503,7 +495,7 @@ contract DelegationEdgeCasesTest is Test {
         evilToken.setTarget(address(delegation));
 
         vm.prank(admin);
-        delegation.enableAsset(address(evilToken), 0, 0, 0, 10000);
+        delegation.enableAsset(address(evilToken), 0, 0, 0, 10_000);
 
         evilToken.mint(delegator1, 10 ether);
 
@@ -537,13 +529,7 @@ contract DelegationEdgeCasesTest is Test {
 
         vm.startPrank(delegator1);
         delegation.deposit{ value: 5 ether }();
-        delegation.delegateWithOptions(
-            operator1,
-            address(0),
-            5 ether,
-            Types.BlueprintSelectionMode.Fixed,
-            blueprints
-        );
+        delegation.delegateWithOptions(operator1, address(0), 5 ether, Types.BlueprintSelectionMode.Fixed, blueprints);
         vm.stopPrank();
 
         Types.BondInfoDelegator[] memory delegations = delegation.getDelegations(delegator1);
@@ -572,8 +558,7 @@ contract DelegationEdgeCasesTest is Test {
         vm.stopPrank();
 
         uint256 total = delegation.getTotalDelegation(delegator1);
-        uint256 sum = delegation.getDelegation(delegator1, operator1) +
-                      delegation.getDelegation(delegator1, operator2);
+        uint256 sum = delegation.getDelegation(delegator1, operator1) + delegation.getDelegation(delegator1, operator2);
 
         assertEq(total, sum, "Total should match sum of individual delegations");
         assertEq(total, 12 ether, "Total should be 12 ether");

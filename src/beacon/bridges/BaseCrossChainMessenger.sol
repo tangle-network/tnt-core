@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ICrossChainMessenger, ICrossChainReceiver} from "../interfaces/ICrossChainMessenger.sol";
+import { ICrossChainMessenger, ICrossChainReceiver } from "../interfaces/ICrossChainMessenger.sol";
 
 /// @title BaseCrossChainMessenger
 /// @notice ICrossChainMessenger implementation for Base L1→L2 messaging
@@ -18,7 +18,7 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
 
     /// @notice Base L2 chain ID
     uint256 public constant BASE_CHAIN_ID = 8453;
-    uint256 public constant BASE_SEPOLIA_CHAIN_ID = 84532;
+    uint256 public constant BASE_SEPOLIA_CHAIN_ID = 84_532;
 
     /// @notice M-12 FIX: Owner for configuration
     address public owner;
@@ -52,11 +52,12 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
         address target,
         bytes calldata payload,
         uint256 gasLimit
-    ) external payable returns (bytes32 messageId) {
-        require(
-            destinationChainId == BASE_CHAIN_ID || destinationChainId == BASE_SEPOLIA_CHAIN_ID,
-            "Unsupported chain"
-        );
+    )
+        external
+        payable
+        returns (bytes32 messageId)
+    {
+        require(destinationChainId == BASE_CHAIN_ID || destinationChainId == BASE_SEPOLIA_CHAIN_ID, "Unsupported chain");
 
         // M-12 FIX: Apply minimum gas limit and add safety buffer
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
@@ -64,7 +65,7 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
         // Base native messaging
         // effectiveGasLimit fits into uint32 because we enforce reasonable limits.
         // forge-lint: disable-next-line(unsafe-typecast)
-        l1Messenger.sendMessage{value: msg.value}(
+        l1Messenger.sendMessage{ value: msg.value }(
             target,
             abi.encodeCall(ICrossChainReceiver.receiveMessage, (block.chainid, msg.sender, payload)),
             // forge-lint: disable-next-line(unsafe-typecast)
@@ -80,7 +81,11 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
         uint256, // destinationChainId
         bytes calldata, // payload
         uint256 // gasLimit
-    ) external pure returns (uint256 fee) {
+    )
+        external
+        pure
+        returns (uint256 fee)
+    {
         // Base native messaging is free (paid by sequencer)
         return 0;
     }
@@ -101,7 +106,7 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
     /// @notice M-12 FIX: Set gas buffer percentage
     /// @param _gasBufferBps New buffer in basis points (10000 = 100%)
     function setGasBuffer(uint256 _gasBufferBps) external onlyOwner {
-        require(_gasBufferBps <= 10000, "Buffer too high"); // Max 100% buffer
+        require(_gasBufferBps <= 10_000, "Buffer too high"); // Max 100% buffer
         uint256 oldBuffer = gasBufferBps;
         gasBufferBps = _gasBufferBps;
         emit GasBufferUpdated(oldBuffer, _gasBufferBps);
@@ -114,7 +119,7 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
         // Enforce minimum gas limit
         uint256 effectiveLimit = gasLimit < minGasLimit ? minGasLimit : gasLimit;
         // Add safety buffer
-        effectiveLimit = effectiveLimit + (effectiveLimit * gasBufferBps / 10000);
+        effectiveLimit = effectiveLimit + (effectiveLimit * gasBufferBps / 10_000);
         return effectiveLimit;
     }
 
@@ -161,12 +166,7 @@ contract BaseL2Receiver {
         require(l2Messenger.xDomainMessageSender() == l1Sender, "Invalid sender");
 
         // M-12 FIX: Generate unique message ID from payload and context
-        bytes32 messageId = keccak256(abi.encode(
-            block.chainid,
-            l1Sender,
-            payload,
-            messageNonce
-        ));
+        bytes32 messageId = keccak256(abi.encode(block.chainid, l1Sender, payload, messageNonce));
 
         // M-12 FIX: Check for replay attack
         if (processedMessages[messageId]) {

@@ -1,26 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IPriceOracle, IPriceOracleAdmin} from "./interfaces/IPriceOracle.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { IPriceOracle, IPriceOracleAdmin } from "./interfaces/IPriceOracle.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title IUniswapV3Pool
 /// @notice Minimal Uniswap V3 pool interface for TWAP
 interface IUniswapV3Pool {
-    function slot0() external view returns (
-        uint160 sqrtPriceX96,
-        int24 tick,
-        uint16 observationIndex,
-        uint16 observationCardinality,
-        uint16 observationCardinalityNext,
-        uint8 feeProtocol,
-        bool unlocked
-    );
+    function slot0()
+        external
+        view
+        returns (
+            uint160 sqrtPriceX96,
+            int24 tick,
+            uint16 observationIndex,
+            uint16 observationCardinality,
+            uint16 observationCardinalityNext,
+            uint8 feeProtocol,
+            bool unlocked
+        );
 
-    function observe(uint32[] calldata secondsAgos) external view returns (
-        int56[] memory tickCumulatives,
-        uint160[] memory secondsPerLiquidityCumulativeX128s
-    );
+    function observe(uint32[] calldata secondsAgos)
+        external
+        view
+        returns (int56[] memory tickCumulatives, uint160[] memory secondsPerLiquidityCumulativeX128s);
 
     function token0() external view returns (address);
     function token1() external view returns (address);
@@ -71,11 +74,11 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
 
     /// @notice Pool configuration for a token
     struct PoolConfig {
-        address pool;           // Uniswap V3 pool address
-        address quoteToken;     // Quote token (usually WETH or stablecoin)
-        bool isToken0;          // True if token is token0 in the pool
-        uint8 tokenDecimals;    // Token decimals
-        uint8 quoteDecimals;    // Quote token decimals
+        address pool; // Uniswap V3 pool address
+        address quoteToken; // Quote token (usually WETH or stablecoin)
+        bool isToken0; // True if token is token0 in the pool
+        uint8 tokenDecimals; // Token decimals
+        uint8 quoteDecimals; // Quote token decimals
     }
 
     /// @notice Token to pool configuration
@@ -157,7 +160,12 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     function batchToUSD(
         address[] calldata tokens,
         uint256[] calldata amounts
-    ) external view override returns (uint256 totalUsd) {
+    )
+        external
+        view
+        override
+        returns (uint256 totalUsd)
+    {
         require(tokens.length == amounts.length, "Length mismatch");
 
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -193,11 +201,7 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     /// @param token The token to configure
     /// @param pool The Uniswap V3 pool address
     /// @param quoteFeed Chainlink feed for quote token USD price
-    function configurePool(
-        address token,
-        address pool,
-        address quoteFeed
-    ) external onlyOwner {
+    function configurePool(address token, address pool, address quoteFeed) external onlyOwner {
         require(pool != address(0), "Invalid pool");
 
         IUniswapV3Pool uniPool = IUniswapV3Pool(pool);
@@ -274,12 +278,8 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         // Convert tick to price
         // price = 1.0001^tick * 10^(token1Decimals - token0Decimals)
         uint256 sqrtPriceX96 = _getSqrtPriceX96FromTick(arithmeticMeanTick);
-        uint256 priceInQuote = _getPriceFromSqrtX96(
-            sqrtPriceX96,
-            config.isToken0,
-            config.tokenDecimals,
-            config.quoteDecimals
-        );
+        uint256 priceInQuote =
+            _getPriceFromSqrtX96(sqrtPriceX96, config.isToken0, config.tokenDecimals, config.quoteDecimals);
 
         // Get quote token USD price if configured
         address quoteFeed = quoteTokenFeeds[config.quoteToken];
@@ -288,11 +288,7 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         if (quoteFeed != address(0)) {
             // Assume Chainlink-style feed
             try AggregatorV3Interface(quoteFeed).latestRoundData() returns (
-                uint80,
-                int256 answer,
-                uint256,
-                uint256 updatedAt,
-                uint80
+                uint80, int256 answer, uint256, uint256 updatedAt, uint80
             ) {
                 if (answer > 0 && block.timestamp - updatedAt <= maxAge) {
                     uint8 feedDecimals = AggregatorV3Interface(quoteFeed).decimals();
@@ -344,7 +340,7 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     function _getSqrtPriceX96FromTick(int24 tick) internal pure returns (uint256) {
         // forge-lint: disable-next-line(unsafe-typecast)
         uint256 absTick = tick < 0 ? uint256(uint24(-tick)) : uint256(uint24(tick));
-        require(absTick <= 887272, "Tick out of range");
+        require(absTick <= 887_272, "Tick out of range");
 
         uint256 ratio = absTick & 0x1 != 0 ? 0xfffcb933bd6fad37aa2d162d1a594001 : 0x100000000000000000000000000000000;
         if (absTick & 0x2 != 0) ratio = (ratio * 0xfff97272373d413259a46990580e213a) >> 128;
@@ -378,7 +374,11 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         bool isToken0,
         uint8 tokenDecimals,
         uint8 quoteDecimals
-    ) internal pure returns (uint256) {
+    )
+        internal
+        pure
+        returns (uint256)
+    {
         // sqrtPriceX96 = sqrt(token1/token0) * 2^96
         // price = (sqrtPriceX96 / 2^96)^2
         // Adjust for decimals
@@ -408,11 +408,8 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
 /// @notice Chainlink interface for quote token price
 interface AggregatorV3Interface {
     function decimals() external view returns (uint8);
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    );
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
 }

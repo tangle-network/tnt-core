@@ -13,13 +13,7 @@ import { ITangleRewards } from "./ITangleRewards.sol";
 /// @notice Core interface for Tangle Protocol v2
 /// @dev Consolidates all sub-interfaces into a single entry point.
 ///      Inherits from focused sub-interfaces for modularity.
-interface ITangle is
-    ITangleBlueprints,
-    ITangleOperators,
-    ITangleServices,
-    ITangleJobs,
-    ITangleRewards
-{
+interface ITangle is ITangleBlueprints, ITangleOperators, ITangleServices, ITangleJobs, ITangleRewards {
     // This interface consolidates all sub-interfaces.
     // See individual interfaces for documentation:
     // - ITangleBlueprints: Blueprint CRUD operations
@@ -29,7 +23,8 @@ interface ITangle is
     // - ITangleRewards: Reward distribution and claiming
     //
     // ITangleSlashing is implemented separately for clarity
-}
+
+    }
 
 /// @title ITangleAdmin
 /// @notice Admin functions for Tangle protocol
@@ -47,7 +42,10 @@ interface ITangleAdmin {
     function setPaymentSplit(Types.PaymentSplit calldata split) external;
 
     /// @notice Get the current payment split
-    function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
+    function paymentSplit()
+        external
+        view
+        returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
 
     /// @notice Pause the protocol
     function pause() external;
@@ -121,4 +119,4 @@ interface ITangleAdmin {
 
 /// @title ITangleFull
 /// @notice Complete Tangle interface including admin and slashing
-interface ITangleFull is ITangle, ITangleSlashing, ITangleAdmin {}
+interface ITangleFull is ITangle, ITangleSlashing, ITangleAdmin { }

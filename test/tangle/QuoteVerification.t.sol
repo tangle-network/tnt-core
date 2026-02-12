@@ -35,7 +35,12 @@ contract MockQuoteManager is BlueprintServiceManagerBase {
         uint64 ttl,
         address,
         uint256 cost
-    ) external payable override onlyFromTangle {
+    )
+        external
+        payable
+        override
+        onlyFromTangle
+    {
         requestCalled = true;
         lastRequestConfig = config;
         lastRequestTTL = ttl;
@@ -53,7 +58,11 @@ contract MockQuoteManager is BlueprintServiceManagerBase {
         address,
         address[] calldata permittedCallers,
         uint64
-    ) external override onlyFromTangle {
+    )
+        external
+        override
+        onlyFromTangle
+    {
         initCalled = true;
         delete _initializedCallers;
         for (uint256 i = 0; i < permittedCallers.length; i++) {
@@ -117,13 +126,8 @@ contract QuoteVerificationTest is BaseTest {
         );
 
         vm.prank(user1);
-        uint64 serviceId = tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        uint64 serviceId =
+            tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
 
         assertTrue(tangle.isServiceActive(serviceId));
         assertTrue(tangle.isServiceOperator(serviceId, operator1));
@@ -137,7 +141,8 @@ contract QuoteVerificationTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         // Sign with wrong key
@@ -152,13 +157,7 @@ contract QuoteVerificationTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.InvalidQuoteSignature.selector, operator1));
-        tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
     }
 
     function test_CreateFromQuote_RevertExpiredQuote() public {
@@ -168,27 +167,18 @@ contract QuoteVerificationTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp - 1), // Already expired
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes memory signature = _signQuote(details, OPERATOR1_PK);
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: signature,
-            operator: operator1
-        });
+        quotes[0] = Types.SignedQuote({ details: details, signature: signature, operator: operator1 });
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.QuoteExpired.selector, operator1, details.expiry));
-        tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
     }
 
     function test_CreateFromQuote_RevertBlueprintMismatch() public {
@@ -198,27 +188,18 @@ contract QuoteVerificationTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes memory signature = _signQuote(details, OPERATOR1_PK);
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: signature,
-            operator: operator1
-        });
+        quotes[0] = Types.SignedQuote({ details: details, signature: signature, operator: operator1 });
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.QuoteBlueprintMismatch.selector, operator1, blueprintId, 999));
-        tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
     }
 
     function test_CreateFromQuote_RevertTTLMismatch() public {
@@ -228,49 +209,29 @@ contract QuoteVerificationTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes memory signature = _signQuote(details, OPERATOR1_PK);
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: signature,
-            operator: operator1
-        });
+        quotes[0] = Types.SignedQuote({ details: details, signature: signature, operator: operator1 });
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.QuoteTTLMismatch.selector, operator1, 100, 50));
-        tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
     }
 
     function test_CreateFromQuote_AddsPermittedCallers() public {
-        Types.SignedQuote[] memory quotes = _createSingleQuote(
-            operator1,
-            OPERATOR1_PK,
-            blueprintId,
-            100,
-            1 ether
-        );
+        Types.SignedQuote[] memory quotes = _createSingleQuote(operator1, OPERATOR1_PK, blueprintId, 100, 1 ether);
         address[] memory extraCallers = new address[](2);
         extraCallers[0] = user2;
         extraCallers[1] = operator2;
 
         vm.prank(user1);
-        uint64 serviceId = tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            bytes("perm"),
-            extraCallers,
-            100
-        );
+        uint64 serviceId =
+            tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, bytes("perm"), extraCallers, 100);
 
         assertTrue(tangle.isPermittedCaller(serviceId, user1));
         assertTrue(tangle.isPermittedCaller(serviceId, user2));
@@ -284,13 +245,8 @@ contract QuoteVerificationTest is BaseTest {
         quotes[1] = _createQuoteWithExposure(operator2, OPERATOR2_PK, blueprintId, 100, 2 ether, 8000);
 
         vm.prank(user1);
-        uint64 serviceId = tangle.createServiceFromQuotes{ value: 3 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        uint64 serviceId =
+            tangle.createServiceFromQuotes{ value: 3 ether }(blueprintId, quotes, "", new address[](0), 100);
 
         Types.ServiceOperator memory op1Data = tangle.getServiceOperator(serviceId, operator1);
         Types.ServiceOperator memory op2Data = tangle.getServiceOperator(serviceId, operator2);
@@ -310,13 +266,8 @@ contract QuoteVerificationTest is BaseTest {
         quotes[1] = _createQuoteWithExposure(operator2, OPERATOR2_PK, blueprintId, 150, 1 ether, exposureB);
 
         vm.prank(user1);
-        uint64 serviceId = tangle.createServiceFromQuotes{ value: 2 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            150
-        );
+        uint64 serviceId =
+            tangle.createServiceFromQuotes{ value: 2 ether }(blueprintId, quotes, "", new address[](0), 150);
 
         Types.ServiceOperator memory op1Data = tangle.getServiceOperator(serviceId, operator1);
         Types.ServiceOperator memory op2Data = tangle.getServiceOperator(serviceId, operator2);
@@ -337,13 +288,8 @@ contract QuoteVerificationTest is BaseTest {
         uint256 totalCost = 4.5 ether;
 
         vm.prank(user1);
-        uint64 serviceId = tangle.createServiceFromQuotes{ value: totalCost }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        uint64 serviceId =
+            tangle.createServiceFromQuotes{ value: totalCost }(blueprintId, quotes, "", new address[](0), 100);
 
         assertTrue(tangle.isServiceActive(serviceId));
         assertTrue(tangle.isServiceOperator(serviceId, operator1));
@@ -359,13 +305,7 @@ contract QuoteVerificationTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.DuplicateOperatorQuote.selector, operator1));
-        tangle.createServiceFromQuotes{ value: 2 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        tangle.createServiceFromQuotes{ value: 2 ether }(blueprintId, quotes, "", new address[](0), 100);
     }
 
     function test_CreateFromQuote_RevertNoQuotes() public {
@@ -373,13 +313,7 @@ contract QuoteVerificationTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(Errors.NoQuotes.selector);
-        tangle.createServiceFromQuotes(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        tangle.createServiceFromQuotes(blueprintId, quotes, "", new address[](0), 100);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -398,32 +332,18 @@ contract QuoteVerificationTest is BaseTest {
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.InsufficientPaymentForQuotes.selector, 2 ether, 1 ether));
         tangle.createServiceFromQuotes{ value: 1 ether }( // Only sending 1 ETH
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
+            blueprintId, quotes, "", new address[](0), 100
         );
     }
 
     function test_CreateFromQuote_RefundsExcessPayment() public {
-        Types.SignedQuote[] memory quotes = _createSingleQuote(
-            operator1,
-            OPERATOR1_PK,
-            blueprintId,
-            100,
-            1 ether
-        );
+        Types.SignedQuote[] memory quotes = _createSingleQuote(operator1, OPERATOR1_PK, blueprintId, 100, 1 ether);
 
         uint256 userBalanceBefore = user1.balance;
 
         vm.prank(user1);
         tangle.createServiceFromQuotes{ value: 5 ether }( // Overpaying
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
+            blueprintId, quotes, "", new address[](0), 100
         );
 
         // Should have been refunded 4 ETH
@@ -440,13 +360,7 @@ contract QuoteVerificationTest is BaseTest {
         );
 
         vm.prank(user1);
-        uint64 serviceId = tangle.createServiceFromQuotes(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        uint64 serviceId = tangle.createServiceFromQuotes(blueprintId, quotes, "", new address[](0), 100);
 
         assertTrue(tangle.isServiceActive(serviceId));
     }
@@ -457,25 +371,15 @@ contract QuoteVerificationTest is BaseTest {
         uint64 managedBlueprintId = _createBlueprintAsSender("ipfs://managed-rfq", address(manager));
         _registerForBlueprint(operator1, managedBlueprintId);
 
-        Types.SignedQuote[] memory quotes = _createSingleQuote(
-            operator1,
-            OPERATOR1_PK,
-            managedBlueprintId,
-            200,
-            2 ether
-        );
+        Types.SignedQuote[] memory quotes =
+            _createSingleQuote(operator1, OPERATOR1_PK, managedBlueprintId, 200, 2 ether);
         address[] memory permitted = new address[](1);
         permitted[0] = user2;
         bytes memory config = bytes("managed-config");
 
         vm.prank(user1);
-        uint64 serviceId = tangle.createServiceFromQuotes{ value: 2 ether }(
-            managedBlueprintId,
-            quotes,
-            config,
-            permitted,
-            200
-        );
+        uint64 serviceId =
+            tangle.createServiceFromQuotes{ value: 2 ether }(managedBlueprintId, quotes, config, permitted, 200);
 
         assertTrue(manager.requestCalled());
         assertTrue(manager.initCalled());
@@ -500,23 +404,12 @@ contract QuoteVerificationTest is BaseTest {
         uint64 managedBlueprintId = _createBlueprintAsSender("ipfs://managed-rfq-deny", address(manager));
         _registerForBlueprint(operator1, managedBlueprintId);
 
-        Types.SignedQuote[] memory quotes = _createSingleQuote(
-            operator1,
-            OPERATOR1_PK,
-            managedBlueprintId,
-            100,
-            1 ether
-        );
+        Types.SignedQuote[] memory quotes =
+            _createSingleQuote(operator1, OPERATOR1_PK, managedBlueprintId, 100, 1 ether);
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(0)));
-        tangle.createServiceFromQuotes{ value: 1 ether }(
-            managedBlueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        tangle.createServiceFromQuotes{ value: 1 ether }(managedBlueprintId, quotes, "", new address[](0), 100);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -524,34 +417,16 @@ contract QuoteVerificationTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_CreateFromQuote_RevertReplayAttack() public {
-        Types.SignedQuote[] memory quotes = _createSingleQuote(
-            operator1,
-            OPERATOR1_PK,
-            blueprintId,
-            100,
-            1 ether
-        );
+        Types.SignedQuote[] memory quotes = _createSingleQuote(operator1, OPERATOR1_PK, blueprintId, 100, 1 ether);
 
         // First use succeeds
         vm.prank(user1);
-        tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
 
         // Replay attack fails
         vm.prank(user2);
         vm.expectRevert(abi.encodeWithSelector(Errors.QuoteAlreadyUsed.selector, operator1));
-        tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
-        );
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -567,27 +442,20 @@ contract QuoteVerificationTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes memory signature = _signQuoteWithKey(details, unregisteredPk);
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
-        quotes[0] = Types.SignedQuote({
-            details: details,
-            signature: signature,
-            operator: vm.addr(unregisteredPk)
-        });
+        quotes[0] = Types.SignedQuote({ details: details, signature: signature, operator: vm.addr(unregisteredPk) });
 
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotRegistered.selector, blueprintId, vm.addr(unregisteredPk)));
-        tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            new address[](0),
-            100
+        vm.expectRevert(
+            abi.encodeWithSelector(Errors.OperatorNotRegistered.selector, blueprintId, vm.addr(unregisteredPk))
         );
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -595,26 +463,14 @@ contract QuoteVerificationTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_CreateFromQuote_WithPermittedCallers() public {
-        Types.SignedQuote[] memory quotes = _createSingleQuote(
-            operator1,
-            OPERATOR1_PK,
-            blueprintId,
-            100,
-            1 ether
-        );
+        Types.SignedQuote[] memory quotes = _createSingleQuote(operator1, OPERATOR1_PK, blueprintId, 100, 1 ether);
 
         address[] memory callers = new address[](2);
         callers[0] = makeAddr("caller1");
         callers[1] = makeAddr("caller2");
 
         vm.prank(user1);
-        uint64 serviceId = tangle.createServiceFromQuotes{ value: 1 ether }(
-            blueprintId,
-            quotes,
-            "",
-            callers,
-            100
-        );
+        uint64 serviceId = tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", callers, 100);
 
         assertTrue(tangle.isPermittedCaller(serviceId, user1)); // Owner always permitted
         assertTrue(tangle.isPermittedCaller(serviceId, callers[0]));
@@ -631,7 +487,10 @@ contract QuoteVerificationTest is BaseTest {
         uint64 bpId,
         uint64 ttl,
         uint256 cost
-    ) internal returns (Types.SignedQuote[] memory) {
+    )
+        internal
+        returns (Types.SignedQuote[] memory)
+    {
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
         quotes[0] = _createQuote(operator, privateKey, bpId, ttl, cost);
         return quotes;
@@ -643,7 +502,10 @@ contract QuoteVerificationTest is BaseTest {
         uint64 bpId,
         uint64 ttl,
         uint256 cost
-    ) internal returns (Types.SignedQuote memory) {
+    )
+        internal
+        returns (Types.SignedQuote memory)
+    {
         uint64 baseTimestamp = uint64(block.timestamp) + quoteNonce;
         quoteNonce++;
         Types.QuoteDetails memory details = Types.QuoteDetails({
@@ -652,16 +514,13 @@ contract QuoteVerificationTest is BaseTest {
             totalCost: cost,
             timestamp: baseTimestamp,
             expiry: baseTimestamp + 1 hours,
-            securityCommitments: new Types.AssetSecurityCommitment[](0)
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
 
         bytes memory signature = _signQuote(details, privateKey);
 
-        return Types.SignedQuote({
-            details: details,
-            signature: signature,
-            operator: operator
-        });
+        return Types.SignedQuote({ details: details, signature: signature, operator: operator });
     }
 
     function _createQuoteWithExposure(
@@ -671,7 +530,10 @@ contract QuoteVerificationTest is BaseTest {
         uint64 ttl,
         uint256 cost,
         uint16 exposureBps
-    ) internal returns (Types.SignedQuote memory) {
+    )
+        internal
+        returns (Types.SignedQuote memory)
+    {
         uint64 baseTimestamp = uint64(block.timestamp) + quoteNonce;
         quoteNonce++;
         Types.QuoteDetails memory details = Types.QuoteDetails({
@@ -680,68 +542,69 @@ contract QuoteVerificationTest is BaseTest {
             totalCost: cost,
             timestamp: baseTimestamp,
             expiry: baseTimestamp + 1 hours,
-            securityCommitments: new Types.AssetSecurityCommitment[](1)
+            securityCommitments: new Types.AssetSecurityCommitment[](1),
+            resourceCommitments: new Types.ResourceCommitment[](0)
         });
         details.securityCommitments[0] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
-            exposureBps: exposureBps
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }), exposureBps: exposureBps
         });
 
         bytes memory signature = _signQuote(details, privateKey);
-        return Types.SignedQuote({
-            details: details,
-            signature: signature,
-            operator: operator
-        });
+        return Types.SignedQuote({ details: details, signature: signature, operator: operator });
     }
 
-    function _signQuote(
-        Types.QuoteDetails memory details,
-        uint256 privateKey
-    ) internal view returns (bytes memory) {
+    function _signQuote(Types.QuoteDetails memory details, uint256 privateKey) internal view returns (bytes memory) {
         return _signQuoteWithKey(details, privateKey);
     }
 
     function _signQuoteWithKey(
         Types.QuoteDetails memory details,
         uint256 privateKey
-    ) internal view returns (bytes memory) {
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
         bytes32 QUOTE_TYPEHASH = keccak256(
-            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
+            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
         );
         bytes32 commitmentsHash = _hashSecurityCommitments(details.securityCommitments);
+        bytes32 resourcesHash = _hashResourceCommitments(details.resourceCommitments);
 
-        bytes32 domainSeparator = keccak256(abi.encode(
-            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-            keccak256("TangleQuote"),
-            keccak256("1"),
-            block.chainid,
-            address(tangle)
-        ));
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("TangleQuote"),
+                keccak256("1"),
+                block.chainid,
+                address(tangle)
+            )
+        );
 
-        bytes32 structHash = keccak256(abi.encode(
-            QUOTE_TYPEHASH,
-            details.blueprintId,
-            details.ttlBlocks,
-            details.totalCost,
-            details.timestamp,
-            details.expiry,
-            commitmentsHash
-        ));
+        bytes32 structHash = keccak256(
+            abi.encode(
+                QUOTE_TYPEHASH,
+                details.blueprintId,
+                details.ttlBlocks,
+                details.totalCost,
+                details.timestamp,
+                details.expiry,
+                commitmentsHash,
+                resourcesHash
+            )
+        );
 
-        bytes32 digest = keccak256(abi.encodePacked(
-            "\x19\x01",
-            domainSeparator,
-            structHash
-        ));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         return abi.encodePacked(r, s, v);
     }
 
-    function _hashSecurityCommitments(
-        Types.AssetSecurityCommitment[] memory commitments
-    ) internal pure returns (bytes32) {
+    function _hashSecurityCommitments(Types.AssetSecurityCommitment[] memory commitments)
+        internal
+        pure
+        returns (bytes32)
+    {
         bytes32[] memory hashes = new bytes32[](commitments.length);
         for (uint256 i = 0; i < commitments.length; i++) {
             hashes[i] = _hashSecurityCommitment(commitments[i]);
@@ -753,16 +616,24 @@ contract QuoteVerificationTest is BaseTest {
         return out;
     }
 
-    function _hashSecurityCommitment(
-        Types.AssetSecurityCommitment memory commitment
-    ) internal pure returns (bytes32) {
+    function _hashSecurityCommitment(Types.AssetSecurityCommitment memory commitment) internal pure returns (bytes32) {
         bytes32 ASSET_TYPEHASH = keccak256("Asset(uint8 kind,address token)");
-        bytes32 COMMITMENT_TYPEHASH = keccak256(
-            "AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)"
-        );
-        bytes32 assetHash = keccak256(
-            abi.encode(ASSET_TYPEHASH, uint8(commitment.asset.kind), commitment.asset.token)
-        );
+        bytes32 COMMITMENT_TYPEHASH =
+            keccak256("AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)");
+        bytes32 assetHash = keccak256(abi.encode(ASSET_TYPEHASH, uint8(commitment.asset.kind), commitment.asset.token));
         return keccak256(abi.encode(COMMITMENT_TYPEHASH, assetHash, commitment.exposureBps));
+    }
+
+    function _hashResourceCommitments(Types.ResourceCommitment[] memory commitments) internal pure returns (bytes32) {
+        bytes32 RC_TYPEHASH = keccak256("ResourceCommitment(uint8 kind,uint64 count)");
+        bytes32[] memory hashes = new bytes32[](commitments.length);
+        for (uint256 i = 0; i < commitments.length; i++) {
+            hashes[i] = keccak256(abi.encode(RC_TYPEHASH, commitments[i].kind, commitments[i].count));
+        }
+        bytes32 out;
+        assembly ("memory-safe") {
+            out := keccak256(add(hashes, 0x20), mul(mload(hashes), 0x20))
+        }
+        return out;
     }
 }

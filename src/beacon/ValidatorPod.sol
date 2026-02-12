@@ -1,20 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IBeaconOracle} from "./IBeaconOracle.sol";
-import {BeaconChainProofs} from "./BeaconChainProofs.sol";
-import {ValidatorTypes} from "./ValidatorTypes.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IBeaconOracle } from "./IBeaconOracle.sol";
+import { BeaconChainProofs } from "./BeaconChainProofs.sol";
+import { ValidatorTypes } from "./ValidatorTypes.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title IValidatorPodManager
 /// @notice Interface for the pod manager (forward declaration)
 interface IValidatorPodManager {
-    function recordBeaconChainEthBalanceUpdate(
-        address podOwner,
-        int256 sharesDelta
-    ) external;
+    function recordBeaconChainEthBalanceUpdate(address podOwner, int256 sharesDelta) external;
 }
 
 /// @title ValidatorPod
@@ -165,11 +162,7 @@ contract ValidatorPod is ReentrancyGuard {
     /// @param _podOwner The owner of this pod
     /// @param _podManager The ValidatorPodManager contract
     /// @param _beaconOracle The beacon oracle for block roots
-    constructor(
-        address _podOwner,
-        address _podManager,
-        address _beaconOracle
-    ) {
+    constructor(address _podOwner, address _podManager, address _beaconOracle) {
         podOwner = _podOwner;
         podManager = IValidatorPodManager(_podManager);
         beaconOracle = IBeaconOracle(_beaconOracle);
@@ -195,7 +188,11 @@ contract ValidatorPod is ReentrancyGuard {
         uint40[] calldata validatorIndices,
         bytes[] calldata validatorFieldsProofs,
         bytes32[][] calldata validatorFields
-    ) external onlyPodOwner nonReentrant {
+    )
+        external
+        onlyPodOwner
+        nonReentrant
+    {
         // H-5 FIX: Check beacon root is not stale
         if (block.timestamp > beaconTimestamp + MAX_BEACON_ROOT_AGE) {
             revert StaleProof();
@@ -216,8 +213,7 @@ contract ValidatorPod is ReentrancyGuard {
                 stateRootProof.beaconStateRoot,
                 validatorIndices[i],
                 ValidatorTypes.ValidatorFieldsProof({
-                    validatorFields: validatorFields[i],
-                    proof: validatorFieldsProofs[i]
+                    validatorFields: validatorFields[i], proof: validatorFieldsProofs[i]
                 })
             );
         }
@@ -229,13 +225,13 @@ contract ValidatorPod is ReentrancyGuard {
 
         // Update shares in the pod manager
         if (totalRestakedGwei > 0) {
-                podManager.recordBeaconChainEthBalanceUpdate(
-                    podOwner,
-                    // totalRestakedGwei fits within int256 when scaled to wei
-                    // forge-lint: disable-next-line(unsafe-typecast)
-                    int256(uint256(totalRestakedGwei)) * 1 gwei
-                );
-            }
+            podManager.recordBeaconChainEthBalanceUpdate(
+                podOwner,
+                // totalRestakedGwei fits within int256 when scaled to wei
+                // forge-lint: disable-next-line(unsafe-typecast)
+                int256(uint256(totalRestakedGwei)) * 1 gwei
+            );
+        }
     }
 
     /// @notice Internal function to verify and process a single validator
@@ -243,7 +239,10 @@ contract ValidatorPod is ReentrancyGuard {
         bytes32 beaconStateRoot,
         uint40 validatorIndex,
         ValidatorTypes.ValidatorFieldsProof memory proof
-    ) internal returns (uint64 restakedGwei) {
+    )
+        internal
+        returns (uint64 restakedGwei)
+    {
         // Verify the validator fields proof
         if (!BeaconChainProofs.verifyValidatorFields(beaconStateRoot, validatorIndex, proof)) {
             revert ProofVerificationFailed();
@@ -339,7 +338,10 @@ contract ValidatorPod is ReentrancyGuard {
         ValidatorTypes.StateRootProof calldata stateRootProof,
         ValidatorTypes.BalanceContainerProof calldata balanceContainerProof,
         ValidatorTypes.BalanceProof[] calldata proofs
-    ) external nonReentrant {
+    )
+        external
+        nonReentrant
+    {
         if (currentCheckpointTimestamp == 0) {
             revert NoCheckpointActive();
         }
@@ -359,10 +361,7 @@ contract ValidatorPod is ReentrancyGuard {
         int128 balanceDelta = 0;
 
         for (uint256 i = 0; i < proofs.length; i++) {
-            balanceDelta += _verifyAndProcessCheckpointProof(
-                balanceContainerProof.balanceContainerRoot,
-                proofs[i]
-            );
+            balanceDelta += _verifyAndProcessCheckpointProof(balanceContainerProof.balanceContainerRoot, proofs[i]);
         }
 
         // Update checkpoint state
@@ -379,7 +378,10 @@ contract ValidatorPod is ReentrancyGuard {
     function _verifyAndProcessCheckpointProof(
         bytes32 balanceContainerRoot,
         ValidatorTypes.BalanceProof calldata proof
-    ) internal returns (int128 balanceDelta) {
+    )
+        internal
+        returns (int128 balanceDelta)
+    {
         bytes32 pubkeyHash = proof.pubkeyHash;
         ValidatorTypes.ValidatorInfo storage info = validatorInfo[pubkeyHash];
 
@@ -393,11 +395,8 @@ contract ValidatorPod is ReentrancyGuard {
         }
 
         // Verify the balance proof
-        uint64 currentBalance = BeaconChainProofs.verifyValidatorBalance(
-            balanceContainerRoot,
-            uint40(info.validatorIndex),
-            proof
-        );
+        uint64 currentBalance =
+            BeaconChainProofs.verifyValidatorBalance(balanceContainerRoot, uint40(info.validatorIndex), proof);
 
         // Calculate delta from previous balance
         uint64 previousBalance = info.restakedBalanceGwei;
@@ -441,9 +440,7 @@ contract ValidatorPod is ReentrancyGuard {
             // Calculate new slashing factor: newFactor = oldFactor * currentBalance / priorBalance
             // Using uint256 for intermediate calculation to avoid overflow
             uint64 oldFactor = beaconChainSlashingFactor;
-            uint64 newFactor = uint64(
-                (uint256(oldFactor) * uint256(currentBalance)) / uint256(priorBalance)
-            );
+            uint64 newFactor = uint64((uint256(oldFactor) * uint256(currentBalance)) / uint256(priorBalance));
 
             // Slashing factor is monotonically decreasing
             if (newFactor < oldFactor) {
@@ -472,15 +469,12 @@ contract ValidatorPod is ReentrancyGuard {
     /// @param recipient Address to send ETH to
     /// @param amount Amount to withdraw
     /// @dev For recovering tips, MEV, or accidental transfers
-    function withdrawNonBeaconChainEth(
-        address recipient,
-        uint256 amount
-    ) external onlyPodOwner nonReentrant {
+    function withdrawNonBeaconChainEth(address recipient, uint256 amount) external onlyPodOwner nonReentrant {
         if (amount > address(this).balance) {
             revert InsufficientBalance();
         }
 
-        (bool success,) = recipient.call{value: amount}("");
+        (bool success,) = recipient.call{ value: amount }("");
         require(success, "ETH transfer failed");
 
         emit NonBeaconChainETHWithdrawn(recipient, amount);
@@ -490,11 +484,7 @@ contract ValidatorPod is ReentrancyGuard {
     /// @param token Token to recover
     /// @param recipient Address to send tokens to
     /// @param amount Amount to recover
-    function recoverTokens(
-        IERC20 token,
-        address recipient,
-        uint256 amount
-    ) external onlyPodOwner {
+    function recoverTokens(IERC20 token, address recipient, uint256 amount) external onlyPodOwner {
         token.safeTransfer(recipient, amount);
     }
 
@@ -507,7 +497,7 @@ contract ValidatorPod is ReentrancyGuard {
             revert InsufficientBalance();
         }
 
-        (bool success,) = recipient.call{value: amount}("");
+        (bool success,) = recipient.call{ value: amount }("");
         if (!success) revert TransferFailed();
 
         emit NonBeaconChainETHWithdrawn(recipient, amount);
@@ -526,7 +516,10 @@ contract ValidatorPod is ReentrancyGuard {
         uint64 beaconTimestamp,
         ValidatorTypes.StateRootProof calldata stateRootProof,
         ValidatorTypes.ValidatorFieldsProof memory validatorProof
-    ) external nonReentrant {
+    )
+        external
+        nonReentrant
+    {
         // Cannot call during active checkpoint
         if (currentCheckpointTimestamp != 0) {
             revert CurrentlyInCheckpoint();
@@ -556,10 +549,8 @@ contract ValidatorPod is ReentrancyGuard {
 
         // Verify the validator fields proof
         if (!BeaconChainProofs.verifyValidatorFields(
-            stateRootProof.beaconStateRoot,
-            uint40(info.validatorIndex),
-            validatorProof
-        )) {
+                stateRootProof.beaconStateRoot, uint40(info.validatorIndex), validatorProof
+            )) {
             revert ProofVerificationFailed();
         }
 
@@ -616,11 +607,7 @@ contract ValidatorPod is ReentrancyGuard {
     }
 
     /// @notice Get validator info by pubkey hash
-    function getValidatorInfo(bytes32 pubkeyHash)
-        external
-        view
-        returns (ValidatorTypes.ValidatorInfo memory)
-    {
+    function getValidatorInfo(bytes32 pubkeyHash) external view returns (ValidatorTypes.ValidatorInfo memory) {
         return validatorInfo[pubkeyHash];
     }
 
@@ -648,5 +635,5 @@ contract ValidatorPod is ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Accept ETH transfers (for validator withdrawals, tips, etc.)
-    receive() external payable {}
+    receive() external payable { }
 }

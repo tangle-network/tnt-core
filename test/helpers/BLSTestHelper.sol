@@ -24,10 +24,14 @@ library BLSTestHelper {
     // ═══════════════════════════════════════════════════════════════════════════
 
     // G2 generator coordinates (same as BN254.sol)
-    uint256 constant G2_X0 = 11559732032986387107991004021392285783925812861821192530917403151452391805634;
-    uint256 constant G2_X1 = 10857046999023057135944570762232829481370756359578518086990519993285655852781;
-    uint256 constant G2_Y0 = 4082367875863433681332203403145435568316851327593401208105741076214120093531;
-    uint256 constant G2_Y1 = 8495653923123431417604973247489272438418190587263600148770280649306958101930;
+    uint256 constant G2_X0 =
+        11_559_732_032_986_387_107_991_004_021_392_285_783_925_812_861_821_192_530_917_403_151_452_391_805_634;
+    uint256 constant G2_X1 =
+        10_857_046_999_023_057_135_944_570_762_232_829_481_370_756_359_578_518_086_990_519_993_285_655_852_781;
+    uint256 constant G2_Y0 =
+        4_082_367_875_863_433_681_332_203_403_145_435_568_316_851_327_593_401_208_105_741_076_214_120_093_531;
+    uint256 constant G2_Y1 =
+        8_495_653_923_123_431_417_604_973_247_489_272_438_418_190_587_263_600_148_770_280_649_306_958_101_930;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PRECOMPUTED G2 POINTS (2*G2, 3*G2)
@@ -35,22 +39,34 @@ library BLSTestHelper {
     // ═══════════════════════════════════════════════════════════════════════════
 
     // 2 * G2 (public key for sk=2)
-    uint256 constant G2_2X_X0 = 18029695676650738226693292988307914797657423701064905010927197838374790804409;
-    uint256 constant G2_2X_X1 = 14583779054894525174450323658765874724019480979794335525732096752006891875705;
-    uint256 constant G2_2X_Y0 = 2140229616977736810657479771656733941598412651537078903776637920509952744750;
-    uint256 constant G2_2X_Y1 = 11474861747383700316476719153975578001603231366361248090558603872215261634898;
+    uint256 constant G2_2X_X0 =
+        18_029_695_676_650_738_226_693_292_988_307_914_797_657_423_701_064_905_010_927_197_838_374_790_804_409;
+    uint256 constant G2_2X_X1 =
+        14_583_779_054_894_525_174_450_323_658_765_874_724_019_480_979_794_335_525_732_096_752_006_891_875_705;
+    uint256 constant G2_2X_Y0 =
+        2_140_229_616_977_736_810_657_479_771_656_733_941_598_412_651_537_078_903_776_637_920_509_952_744_750;
+    uint256 constant G2_2X_Y1 =
+        11_474_861_747_383_700_316_476_719_153_975_578_001_603_231_366_361_248_090_558_603_872_215_261_634_898;
 
     // 3 * G2 (public key for sk=3)
-    uint256 constant G2_3X_X0 = 2725019753478801796453339367788033689375851816420509565303521482350756874229;
-    uint256 constant G2_3X_X1 = 7273165102799931111715871471550377909735733521218303035754523677688038059653;
-    uint256 constant G2_3X_Y0 = 957874124722006818841961785324909313781880061366718538693995380805373202866;
-    uint256 constant G2_3X_Y1 = 2512659008974376214222774206987427162027254181373325676825515531566330959255;
+    uint256 constant G2_3X_X0 =
+        2_725_019_753_478_801_796_453_339_367_788_033_689_375_851_816_420_509_565_303_521_482_350_756_874_229;
+    uint256 constant G2_3X_X1 =
+        7_273_165_102_799_931_111_715_871_471_550_377_909_735_733_521_218_303_035_754_523_677_688_038_059_653;
+    uint256 constant G2_3X_Y0 =
+        957_874_124_722_006_818_841_961_785_324_909_313_781_880_061_366_718_538_693_995_380_805_373_202_866;
+    uint256 constant G2_3X_Y1 =
+        2_512_659_008_974_376_214_222_774_206_987_427_162_027_254_181_373_325_676_825_515_531_566_330_959_255;
 
     // 6 * G2 (aggregate pubkey for sk=1+2+3)
-    uint256 constant G2_6X_X0 = 4082367875863433681332203403145435568316851327593401208105741076214120093531;
-    uint256 constant G2_6X_X1 = 8495653923123431417604973247489272438418190587263600148770280649306958101930;
-    uint256 constant G2_6X_Y0 = 11559732032986387107991004021392285783925812861821192530917403151452391805634;
-    uint256 constant G2_6X_Y1 = 10857046999023057135944570762232829481370756359578518086990519993285655852781;
+    uint256 constant G2_6X_X0 =
+        4_082_367_875_863_433_681_332_203_403_145_435_568_316_851_327_593_401_208_105_741_076_214_120_093_531;
+    uint256 constant G2_6X_X1 =
+        8_495_653_923_123_431_417_604_973_247_489_272_438_418_190_587_263_600_148_770_280_649_306_958_101_930;
+    uint256 constant G2_6X_Y0 =
+        11_559_732_032_986_387_107_991_004_021_392_285_783_925_812_861_821_192_530_917_403_151_452_391_805_634;
+    uint256 constant G2_6X_Y1 =
+        10_857_046_999_023_057_135_944_570_762_232_829_481_370_756_359_578_518_086_990_519_993_285_655_852_781;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PUBLIC KEY GETTERS
@@ -82,10 +98,7 @@ library BLSTestHelper {
     /// @dev sig = sk * H(message)
     /// @param message The message to sign
     /// @param privateKey The private key (1, 2, or 3 for tests)
-    function sign(
-        bytes memory message,
-        uint256 privateKey
-    ) internal view returns (Types.BN254G1Point memory) {
+    function sign(bytes memory message, uint256 privateKey) internal view returns (Types.BN254G1Point memory) {
         // Hash message to G1 point
         Types.BN254G1Point memory msgPoint = BN254.hashToG1(message);
         // Multiply by private key
@@ -98,7 +111,11 @@ library BLSTestHelper {
     function aggregateSignatures(
         bytes memory message,
         uint256[] memory privateKeys
-    ) internal view returns (Types.BN254G1Point memory aggSig) {
+    )
+        internal
+        view
+        returns (Types.BN254G1Point memory aggSig)
+    {
         require(privateKeys.length > 0, "No private keys");
 
         // First signature
@@ -117,7 +134,11 @@ library BLSTestHelper {
         uint64 serviceId,
         uint64 callId,
         bytes memory output
-    ) internal pure returns (bytes memory) {
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         return abi.encodePacked(serviceId, callId, keccak256(output));
     }
 
@@ -128,10 +149,11 @@ library BLSTestHelper {
         uint64 serviceId,
         uint64 callId,
         bytes memory output
-    ) internal view returns (
-        Types.BN254G1Point memory sig,
-        Types.BN254G2Point memory pubkey
-    ) {
+    )
+        internal
+        view
+        returns (Types.BN254G1Point memory sig, Types.BN254G2Point memory pubkey)
+    {
         bytes memory message = buildJobResultMessage(serviceId, callId, output);
         sig = sign(message, 1);
         pubkey = getTestPubkey(1);
@@ -142,10 +164,11 @@ library BLSTestHelper {
         uint64 serviceId,
         uint64 callId,
         bytes memory output
-    ) internal view returns (
-        Types.BN254G1Point memory aggSig,
-        Types.BN254G2Point memory aggPubkey
-    ) {
+    )
+        internal
+        view
+        returns (Types.BN254G1Point memory aggSig, Types.BN254G2Point memory aggPubkey)
+    {
         bytes memory message = buildJobResultMessage(serviceId, callId, output);
 
         uint256[] memory privateKeys = new uint256[](3);

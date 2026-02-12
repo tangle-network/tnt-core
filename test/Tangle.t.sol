@@ -19,12 +19,12 @@ contract ZeroDelayMockBSM is BlueprintServiceManagerBase {
         tangleCore = _tangleCore;
     }
 
-    function getExitConfig(uint64) external pure override returns (
-        bool useDefault,
-        uint64 minCommitmentDuration,
-        uint64 exitQueueDuration,
-        bool forceExitAllowed
-    ) {
+    function getExitConfig(uint64)
+        external
+        pure
+        override
+        returns (bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed)
+    {
         return (false, 0, 0, false);
     }
 }
@@ -519,12 +519,8 @@ contract TangleTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_SetPaymentSplit() public {
-        Types.PaymentSplit memory split = Types.PaymentSplit({
-            developerBps: 6000,
-            protocolBps: 500,
-            operatorBps: 1750,
-            stakerBps: 1750
-        });
+        Types.PaymentSplit memory split =
+            Types.PaymentSplit({ developerBps: 6000, protocolBps: 500, operatorBps: 1750, stakerBps: 1750 });
 
         vm.prank(admin);
         tangle.setPaymentSplit(split);
@@ -537,12 +533,8 @@ contract TangleTest is BaseTest {
     }
 
     function test_SetPaymentSplit_RevertInvalidTotal() public {
-        Types.PaymentSplit memory split = Types.PaymentSplit({
-            developerBps: 5000,
-            protocolBps: 5000,
-            operatorBps: 5000,
-            stakerBps: 5000
-        });
+        Types.PaymentSplit memory split =
+            Types.PaymentSplit({ developerBps: 5000, protocolBps: 5000, operatorBps: 5000, stakerBps: 5000 });
 
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidPaymentSplit.selector);
@@ -585,7 +577,8 @@ contract TangleTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         assertEq(blueprintId, 0);
         Types.Blueprint memory bp = tangle.getBlueprint(blueprintId);
@@ -605,7 +598,8 @@ contract TangleTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         // Register operators
         _registerOperator(operator1);
@@ -621,9 +615,8 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
 
         // Approve to activate service
         vm.prank(operator1);
@@ -677,7 +670,8 @@ contract TangleTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         _registerOperator(operator1);
         _registerOperator(operator2);
@@ -691,9 +685,8 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -716,7 +709,8 @@ contract TangleTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         _registerOperator(operator1);
         _registerOperator(operator2);
@@ -732,9 +726,8 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -778,7 +771,8 @@ contract TangleTest is BaseTest {
         // Use mock BSM with zero exit delays to test min operators check directly
         ZeroDelayMockBSM zeroDelayBsm = new ZeroDelayMockBSM();
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(zeroDelayBsm), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(zeroDelayBsm), config));
 
         _registerOperator(operator1);
         _registerOperator(operator2);
@@ -794,9 +788,8 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -829,9 +822,8 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 0
-        );
+        uint64 requestId =
+            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
 
         assertEq(requestId, 0);
     }
@@ -844,14 +836,12 @@ contract TangleTest is BaseTest {
         address[] memory operators = new address[](1);
         operators[0] = operator1;
         uint16[] memory exposures = new uint16[](1);
-        exposures[0] = 15000; // > 100% - invalid
+        exposures[0] = 15_000; // > 100% - invalid
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
         vm.expectRevert(Errors.InvalidState.selector);
-        tangle.requestServiceWithExposure(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 0
-        );
+        tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
     }
 
     function test_GetServiceOperators() public {
@@ -895,7 +885,8 @@ contract TangleTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         Types.Blueprint memory bp = tangle.getBlueprint(blueprintId);
         assertEq(uint8(bp.pricing), uint8(Types.PricingModel.Subscription));
@@ -914,7 +905,8 @@ contract TangleTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         _registerOperator(operator1);
         _registerForBlueprint(operator1, blueprintId);
@@ -922,12 +914,12 @@ contract TangleTest is BaseTest {
         address[] memory operators = new address[](1);
         operators[0] = operator1;
         uint16[] memory exposures = new uint16[](1);
-        exposures[0] = 10000;
+        exposures[0] = 10_000;
         address[] memory callers = new address[](0);
 
         // Request with payment for subscription
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure{value: 1 ether}(
+        uint64 requestId = tangle.requestServiceWithExposure{ value: 1 ether }(
             blueprintId, operators, exposures, "", callers, 0, address(0), 1 ether
         );
 
@@ -969,7 +961,8 @@ contract TangleTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
+        uint64 blueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription", address(0), config));
 
         _registerOperator(operator1);
         _registerForBlueprint(operator1, blueprintId);
@@ -977,11 +970,11 @@ contract TangleTest is BaseTest {
         address[] memory operators = new address[](1);
         operators[0] = operator1;
         uint16[] memory exposures = new uint16[](1);
-        exposures[0] = 10000;
+        exposures[0] = 10_000;
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure{value: 1 ether}(
+        uint64 requestId = tangle.requestServiceWithExposure{ value: 1 ether }(
             blueprintId, operators, exposures, "", callers, 0, address(0), 1 ether
         );
 

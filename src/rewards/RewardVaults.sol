@@ -37,7 +37,7 @@ contract RewardVaults is
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     bytes32 public constant REWARDS_MANAGER_ROLE = keccak256("REWARDS_MANAGER_ROLE");
 
-    uint256 public constant BPS_DENOMINATOR = 10000;
+    uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant PRECISION = 1e18;
 
     /// @notice Configurable lock durations for multiplier rewards (in seconds)
@@ -52,40 +52,40 @@ contract RewardVaults is
 
     /// @notice Lock duration multipliers
     enum LockDuration {
-        None,       // 1.0x (10000 bps)
-        OneMonth,   // 1.1x (11000 bps)
-        TwoMonths,  // 1.2x (12000 bps)
-        ThreeMonths,// 1.3x (13000 bps)
-        SixMonths   // 1.6x (16000 bps)
+        None, // 1.0x (10000 bps)
+        OneMonth, // 1.1x (11000 bps)
+        TwoMonths, // 1.2x (12000 bps)
+        ThreeMonths, // 1.3x (13000 bps)
+        SixMonths // 1.6x (16000 bps)
     }
 
     /// @notice Vault configuration for a specific asset
     struct VaultConfig {
-        uint256 depositCap;      // Maximum deposits that earn rewards
-        bool active;             // Whether vault accepts deposits
+        uint256 depositCap; // Maximum deposits that earn rewards
+        bool active; // Whether vault accepts deposits
     }
 
     /// @notice Current vault state
     struct VaultState {
-        uint256 totalDeposits;   // Current total deposits
-        uint256 totalScore;      // Total weighted score (deposits * lock multipliers)
+        uint256 totalDeposits; // Current total deposits
+        uint256 totalScore; // Total weighted score (deposits * lock multipliers)
         uint256 rewardsDistributed; // Total rewards distributed from this vault
     }
 
     /// @notice Operator reward pool for O(1) delegator distribution
     struct OperatorPool {
         uint256 accumulatedPerShare; // Accumulated rewards per share (scaled by PRECISION)
-        uint256 totalStaked;         // Total delegated to this operator
-        uint256 pendingCommission;   // Unclaimed operator commission
+        uint256 totalStaked; // Total delegated to this operator
+        uint256 pendingCommission; // Unclaimed operator commission
     }
 
     /// @notice Delegator position tracking
     struct DelegatorDebt {
         uint256 lastAccumulatedPerShare; // Snapshot when last claimed
-        uint256 stakedAmount;            // Current stake
-        LockDuration lockDuration;       // Lock duration for multiplier
-        uint256 lockExpiry;              // When lock expires (0 = no lock)
-        uint256 boostedScore;            // Weighted score minted for this delegator/operator pair
+        uint256 stakedAmount; // Current stake
+        LockDuration lockDuration; // Lock duration for multiplier
+        uint256 lockExpiry; // When lock expires (0 = no lock)
+        uint256 boostedScore; // Weighted score minted for this delegator/operator pair
     }
 
     /// @notice Snapshot returned when rendering vaults in UI clients
@@ -159,11 +159,15 @@ contract RewardVaults is
     event VaultConfigUpdated(address indexed asset, uint256 depositCap);
     event VaultDeactivated(address indexed asset);
 
-    event StakeRecorded(address indexed asset, address indexed delegator, address indexed operator, uint256 amount, LockDuration lock);
+    event StakeRecorded(
+        address indexed asset, address indexed delegator, address indexed operator, uint256 amount, LockDuration lock
+    );
     event UnstakeRecorded(address indexed asset, address indexed delegator, address indexed operator, uint256 amount);
 
     event RewardsDistributed(address indexed asset, address indexed operator, uint256 poolReward, uint256 commission);
-    event DelegatorRewardsClaimed(address indexed asset, address indexed delegator, address indexed operator, uint256 amount);
+    event DelegatorRewardsClaimed(
+        address indexed asset, address indexed delegator, address indexed operator, uint256 amount
+    );
     event OperatorCommissionClaimed(address indexed asset, address indexed operator, uint256 amount);
 
     event OperatorCommissionUpdated(uint16 newBps);
@@ -195,11 +199,7 @@ contract RewardVaults is
     /// @param admin Admin address
     /// @param _tntToken TNT token address
     /// @param _operatorCommissionBps Initial operator commission (e.g., 1500 = 15%)
-    function initialize(
-        address admin,
-        address _tntToken,
-        uint16 _operatorCommissionBps
-    ) external initializer {
+    function initialize(address admin, address _tntToken, uint16 _operatorCommissionBps) external initializer {
         __UUPSUpgradeable_init();
         __AccessControl_init();
         __ReentrancyGuard_init();
@@ -220,23 +220,13 @@ contract RewardVaults is
     /// @notice Create a new reward vault for an asset
     /// @param asset The asset address (address(0) for native)
     /// @param depositCap Maximum deposits that earn rewards
-    function createVault(
-        address asset,
-        uint256 depositCap
-    ) external onlyRole(ADMIN_ROLE) {
+    function createVault(address asset, uint256 depositCap) external onlyRole(ADMIN_ROLE) {
         if (vaultConfigs[asset].depositCap != 0) revert VaultAlreadyExists(asset);
         if (depositCap == 0) revert InvalidDepositCap();
 
-        vaultConfigs[asset] = VaultConfig({
-            depositCap: depositCap,
-            active: true
-        });
+        vaultConfigs[asset] = VaultConfig({ depositCap: depositCap, active: true });
 
-        vaultStates[asset] = VaultState({
-            totalDeposits: 0,
-            totalScore: 0,
-            rewardsDistributed: 0
-        });
+        vaultStates[asset] = VaultState({ totalDeposits: 0, totalScore: 0, rewardsDistributed: 0 });
 
         vaultAssets.push(asset);
 
@@ -244,10 +234,7 @@ contract RewardVaults is
     }
 
     /// @notice Update vault configuration
-    function updateVaultConfig(
-        address asset,
-        uint256 depositCap
-    ) external onlyRole(ADMIN_ROLE) {
+    function updateVaultConfig(address asset, uint256 depositCap) external onlyRole(ADMIN_ROLE) {
         if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
         if (depositCap == 0) revert InvalidDepositCap();
 
@@ -276,7 +263,10 @@ contract RewardVaults is
         uint256 twoMonths,
         uint256 threeMonths,
         uint256 sixMonths
-    ) external onlyRole(ADMIN_ROLE) {
+    )
+        external
+        onlyRole(ADMIN_ROLE)
+    {
         require(oneMonth > 0, "oneMonth=0");
         require(twoMonths >= oneMonth, "twoMonths<one");
         require(threeMonths >= twoMonths, "threeMonths<two");
@@ -301,7 +291,11 @@ contract RewardVaults is
         address asset,
         uint256 amount,
         uint16 lockMultiplierBps
-    ) external override onlyRole(REWARDS_MANAGER_ROLE) {
+    )
+        external
+        override
+        onlyRole(REWARDS_MANAGER_ROLE)
+    {
         // Skip if asset not in a vault
         VaultConfig storage config = vaultConfigs[asset];
         if (config.depositCap == 0) return;
@@ -311,9 +305,7 @@ contract RewardVaults is
 
         // Update vault totals
         VaultState storage state = vaultStates[asset];
-        uint256 score = lockMultiplierBps > 0
-            ? (amount * lockMultiplierBps) / BPS_DENOMINATOR
-            : amount;
+        uint256 score = lockMultiplierBps > 0 ? (amount * lockMultiplierBps) / BPS_DENOMINATOR : amount;
         if (state.totalDeposits + amount > config.depositCap) revert DepositCapExceeded(asset);
         state.totalDeposits += amount;
         state.totalScore += score;
@@ -345,7 +337,11 @@ contract RewardVaults is
         address operator,
         address asset,
         uint256 amount
-    ) external override onlyRole(REWARDS_MANAGER_ROLE) {
+    )
+        external
+        override
+        onlyRole(REWARDS_MANAGER_ROLE)
+    {
         // Skip if asset not in a vault
         if (vaultConfigs[asset].depositCap == 0) return;
 
@@ -354,9 +350,7 @@ contract RewardVaults is
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
         if (debt.stakedAmount < amount) revert InsufficientStake();
         uint256 stakedBefore = debt.stakedAmount;
-        uint256 score = debt.boostedScore == 0
-            ? amount
-            : (debt.boostedScore * amount) / stakedBefore;
+        uint256 score = debt.boostedScore == 0 ? amount : (debt.boostedScore * amount) / stakedBefore;
         state.totalDeposits -= amount;
         state.totalScore -= score;
 
@@ -386,7 +380,11 @@ contract RewardVaults is
         address operator,
         address asset,
         uint256 amount
-    ) external override onlyRole(REWARDS_MANAGER_ROLE) {
+    )
+        external
+        override
+        onlyRole(REWARDS_MANAGER_ROLE)
+    {
         // Skip if asset not in a vault or no amount
         if (vaultConfigs[asset].depositCap == 0 || amount == 0) return;
 
@@ -414,10 +412,7 @@ contract RewardVaults is
     /// @dev Called by InflationPool after transferring TNT to this contract
     /// @param asset The vault asset
     /// @param amount Total reward amount to distribute
-    function distributeEpochReward(
-        address asset,
-        uint256 amount
-    ) external onlyRole(REWARDS_MANAGER_ROLE) {
+    function distributeEpochReward(address asset, uint256 amount) external onlyRole(REWARDS_MANAGER_ROLE) {
         if (amount == 0) return;
         if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
 
@@ -459,7 +454,10 @@ contract RewardVaults is
         address asset,
         address operator,
         uint256 amount
-    ) external onlyRole(REWARDS_MANAGER_ROLE) {
+    )
+        external
+        onlyRole(REWARDS_MANAGER_ROLE)
+    {
         if (amount == 0) return;
         if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
 
@@ -487,7 +485,10 @@ contract RewardVaults is
         address operator,
         uint256 amount,
         LockDuration lock
-    ) external onlyRole(REWARDS_MANAGER_ROLE) {
+    )
+        external
+        onlyRole(REWARDS_MANAGER_ROLE)
+    {
         VaultConfig storage config = vaultConfigs[asset];
         if (config.depositCap == 0) revert VaultNotFound(asset);
         if (!config.active) revert VaultNotActive(asset);
@@ -533,7 +534,10 @@ contract RewardVaults is
         address delegator,
         address operator,
         uint256 amount
-    ) external onlyRole(REWARDS_MANAGER_ROLE) {
+    )
+        external
+        onlyRole(REWARDS_MANAGER_ROLE)
+    {
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
         if (debt.lockExpiry > block.timestamp) revert StillLocked(debt.lockExpiry);
         if (debt.stakedAmount < amount) revert InsufficientStake();
@@ -576,10 +580,7 @@ contract RewardVaults is
     /// @notice Claim delegator rewards from an operator pool
     /// @param asset The vault asset
     /// @param operator The operator address
-    function claimDelegatorRewards(
-        address asset,
-        address operator
-    ) external nonReentrant returns (uint256) {
+    function claimDelegatorRewards(address asset, address operator) external nonReentrant returns (uint256) {
         uint256 claimed = _claimDelegatorReward(msg.sender, asset, operator);
         if (claimed == 0) revert NoRewardsToClaim();
         return claimed;
@@ -591,7 +592,11 @@ contract RewardVaults is
     function claimDelegatorRewardsBatch(
         address asset,
         address[] calldata operators
-    ) external nonReentrant returns (uint256) {
+    )
+        external
+        nonReentrant
+        returns (uint256)
+    {
         uint256 totalClaimed;
         for (uint256 i = 0; i < operators.length; i++) {
             totalClaimed += _claimDelegatorReward(msg.sender, asset, operators[i]);
@@ -608,7 +613,11 @@ contract RewardVaults is
         address asset,
         address operator,
         address delegator
-    ) external nonReentrant returns (uint256) {
+    )
+        external
+        nonReentrant
+        returns (uint256)
+    {
         uint256 claimed = _claimDelegatorReward(delegator, asset, operator);
         if (claimed == 0) revert NoRewardsToClaim();
         return claimed;
@@ -643,7 +652,10 @@ contract RewardVaults is
         address asset,
         address operator,
         uint256 amount
-    ) external onlyRole(REWARDS_MANAGER_ROLE) {
+    )
+        external
+        onlyRole(REWARDS_MANAGER_ROLE)
+    {
         if (amount == 0) return;
 
         _trackOperator(asset, operator);
@@ -666,8 +678,7 @@ contract RewardVaults is
             return;
         }
         delegatorOperators[asset][delegator].push(operator);
-        delegatorOperatorIndex[asset][delegator][operator] =
-            delegatorOperators[asset][delegator].length;
+        delegatorOperatorIndex[asset][delegator][operator] = delegatorOperators[asset][delegator].length;
     }
 
     function _untrackDelegatorOperator(address asset, address delegator, address operator) internal {
@@ -713,7 +724,11 @@ contract RewardVaults is
     function _calculateDelegatorRewards(
         OperatorPool storage pool,
         DelegatorDebt storage debt
-    ) internal view returns (uint256) {
+    )
+        internal
+        view
+        returns (uint256)
+    {
         if (debt.stakedAmount == 0) return 0;
 
         uint256 accumulatedDiff = pool.accumulatedPerShare - debt.lastAccumulatedPerShare;
@@ -721,11 +736,7 @@ contract RewardVaults is
     }
 
     /// @notice Shared implementation for delegator reward claims
-    function _claimDelegatorReward(
-        address delegator,
-        address asset,
-        address operator
-    ) internal returns (uint256) {
+    function _claimDelegatorReward(address delegator, address asset, address operator) internal returns (uint256) {
         if (vaultConfigs[asset].depositCap == 0) revert VaultNotFound(asset);
 
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
@@ -751,12 +762,12 @@ contract RewardVaults is
 
     /// @notice Get lock multiplier in basis points
     function _lockMultiplierBps(LockDuration lock) internal pure returns (uint256) {
-        if (lock == LockDuration.None) return 10000;      // 1.0x
-        if (lock == LockDuration.OneMonth) return 11000;  // 1.1x
-        if (lock == LockDuration.TwoMonths) return 12000; // 1.2x
-        if (lock == LockDuration.ThreeMonths) return 13000; // 1.3x
-        if (lock == LockDuration.SixMonths) return 16000; // 1.6x
-        return 10000;
+        if (lock == LockDuration.None) return 10_000; // 1.0x
+        if (lock == LockDuration.OneMonth) return 11_000; // 1.1x
+        if (lock == LockDuration.TwoMonths) return 12_000; // 1.2x
+        if (lock == LockDuration.ThreeMonths) return 13_000; // 1.3x
+        if (lock == LockDuration.SixMonths) return 16_000; // 1.6x
+        return 10_000;
     }
 
     /// @notice Get lock duration in seconds
@@ -785,17 +796,18 @@ contract RewardVaults is
         address asset,
         address delegator,
         address operator
-    ) external view returns (uint256) {
+    )
+        external
+        view
+        returns (uint256)
+    {
         OperatorPool storage pool = operatorPools[asset][operator];
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
         return _calculateDelegatorRewards(pool, debt);
     }
 
     /// @notice Get pending operator commission
-    function pendingOperatorCommission(
-        address asset,
-        address operator
-    ) external view returns (uint256) {
+    function pendingOperatorCommission(address asset, address operator) external view returns (uint256) {
         return operatorPools[asset][operator].pendingCommission;
     }
 
@@ -825,8 +837,7 @@ contract RewardVaults is
         VaultState storage state = vaultStates[asset];
         uint256 depositCapRemaining =
             state.totalDeposits >= config.depositCap ? 0 : config.depositCap - state.totalDeposits;
-        uint256 utilizationBps =
-            (state.totalDeposits * BPS_DENOMINATOR) / config.depositCap;
+        uint256 utilizationBps = (state.totalDeposits * BPS_DENOMINATOR) / config.depositCap;
 
         return VaultSummary({
             asset: asset,
@@ -862,7 +873,11 @@ contract RewardVaults is
     function getDelegatorPositions(
         address asset,
         address delegator
-    ) external view returns (DelegatorPosition[] memory positions) {
+    )
+        external
+        view
+        returns (DelegatorPosition[] memory positions)
+    {
         address[] storage operators = delegatorOperators[asset][delegator];
         positions = new DelegatorPosition[](operators.length);
         for (uint256 i = 0; i < operators.length; i++) {
@@ -884,7 +899,11 @@ contract RewardVaults is
     function pendingDelegatorRewardsAll(
         address asset,
         address delegator
-    ) external view returns (PendingRewardsView[] memory rewards, uint256 totalPending) {
+    )
+        external
+        view
+        returns (PendingRewardsView[] memory rewards, uint256 totalPending)
+    {
         address[] storage operators = delegatorOperators[asset][delegator];
         rewards = new PendingRewardsView[](operators.length);
 
@@ -903,5 +922,5 @@ contract RewardVaults is
     // UPGRADES
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) {}
+    function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
 }

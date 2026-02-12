@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {BeaconTestBase} from "./BeaconTestBase.sol";
-import {ValidatorPod} from "../../src/beacon/ValidatorPod.sol";
-import {ValidatorPodManager} from "../../src/beacon/ValidatorPodManager.sol";
-import {ValidatorTypes} from "../../src/beacon/ValidatorTypes.sol";
-import {BeaconChainProofs} from "../../src/beacon/BeaconChainProofs.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {console2} from "forge-std/Test.sol";
+import { BeaconTestBase } from "./BeaconTestBase.sol";
+import { ValidatorPod } from "../../src/beacon/ValidatorPod.sol";
+import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
+import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
+import { BeaconChainProofs } from "../../src/beacon/BeaconChainProofs.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { console2 } from "forge-std/Test.sol";
 
 /// @title ValidatorPodTest
 /// @notice Tests for ValidatorPod contract
@@ -57,14 +57,13 @@ contract ValidatorPodTest is BeaconTestBase {
         bytes32 withdrawalCredentials,
         uint64 effectiveBalanceGwei,
         bytes32 salt
-    ) internal pure returns (RestakeProofData memory data) {
+    )
+        internal
+        pure
+        returns (RestakeProofData memory data)
+    {
         bytes32[] memory fields = _generateValidatorFields(
-            pubkeyHash,
-            withdrawalCredentials,
-            effectiveBalanceGwei,
-            false,
-            1234,
-            type(uint64).max - 1024
+            pubkeyHash, withdrawalCredentials, effectiveBalanceGwei, false, 1234, type(uint64).max - 1024
         );
 
         bytes32 validatorLeaf = _hashValidatorFields(fields);
@@ -76,18 +75,13 @@ contract ValidatorPodTest is BeaconTestBase {
         );
 
         (bytes memory stateProofBytes, bytes32 beaconBlockRoot) = _buildProofFromIndex(
-            beaconStateRoot,
-            STATE_ROOT_INDEX,
-            STATE_ROOT_TREE_HEIGHT,
-            keccak256(abi.encodePacked(salt, "state"))
+            beaconStateRoot, STATE_ROOT_INDEX, STATE_ROOT_TREE_HEIGHT, keccak256(abi.encodePacked(salt, "state"))
         );
 
         data.beaconTimestamp = beaconTimestamp;
         data.beaconBlockRoot = beaconBlockRoot;
-        data.stateRootProof = ValidatorTypes.StateRootProof({
-            beaconStateRoot: beaconStateRoot,
-            proof: stateProofBytes
-        });
+        data.stateRootProof =
+            ValidatorTypes.StateRootProof({ beaconStateRoot: beaconStateRoot, proof: stateProofBytes });
 
         data.validatorIndices = new uint40[](1);
         data.validatorIndices[0] = validatorIndex;
@@ -104,7 +98,11 @@ contract ValidatorPodTest is BeaconTestBase {
         bytes32 pubkeyHash,
         uint64 balanceGwei,
         bytes32 salt
-    ) internal pure returns (CheckpointProofData memory data) {
+    )
+        internal
+        pure
+        returns (CheckpointProofData memory data)
+    {
         bytes32 balanceLeaf = _buildBalanceLeaf(validatorIndex, balanceGwei);
 
         (bytes memory balanceProofBytes, bytes32 balanceContainerRoot) = _buildProofFromIndex(
@@ -129,21 +127,15 @@ contract ValidatorPodTest is BeaconTestBase {
         );
 
         data.beaconBlockRoot = beaconBlockRoot;
-        data.stateRootProof = ValidatorTypes.StateRootProof({
-            beaconStateRoot: beaconStateRoot,
-            proof: stateProofBytes
-        });
+        data.stateRootProof =
+            ValidatorTypes.StateRootProof({ beaconStateRoot: beaconStateRoot, proof: stateProofBytes });
         data.balanceContainerProof = ValidatorTypes.BalanceContainerProof({
-            balanceContainerRoot: balanceContainerRoot,
-            proof: balanceContainerProofBytes
+            balanceContainerRoot: balanceContainerRoot, proof: balanceContainerProofBytes
         });
 
         data.proofs = new ValidatorTypes.BalanceProof[](1);
-        data.proofs[0] = ValidatorTypes.BalanceProof({
-            pubkeyHash: pubkeyHash,
-            balanceRoot: balanceLeaf,
-            proof: balanceProofBytes
-        });
+        data.proofs[0] =
+            ValidatorTypes.BalanceProof({ pubkeyHash: pubkeyHash, balanceRoot: balanceLeaf, proof: balanceProofBytes });
     }
 
     function _buildProofFromIndex(
@@ -151,7 +143,11 @@ contract ValidatorPodTest is BeaconTestBase {
         uint256 index,
         uint256 depth,
         bytes32 salt
-    ) internal pure returns (bytes memory proof, bytes32 root) {
+    )
+        internal
+        pure
+        returns (bytes memory proof, bytes32 root)
+    {
         proof = new bytes(depth * 32);
         bytes32 computed = leaf;
         uint256 idx = index;
@@ -176,7 +172,11 @@ contract ValidatorPodTest is BeaconTestBase {
         uint256 gindex,
         uint256 depth,
         bytes32 salt
-    ) internal pure returns (bytes memory proof, bytes32 root) {
+    )
+        internal
+        pure
+        returns (bytes memory proof, bytes32 root)
+    {
         proof = new bytes(depth * 32);
         bytes32 computed = leaf;
         uint256 idx = gindex;
@@ -205,12 +205,7 @@ contract ValidatorPodTest is BeaconTestBase {
     function _buildBalanceLeaf(uint40 validatorIndex, uint64 balanceGwei) internal pure returns (bytes32) {
         uint64[4] memory packedBalances;
         packedBalances[validatorIndex % VALIDATORS_PER_BALANCE_LEAF] = balanceGwei;
-        return _generateBalanceRoot(
-            packedBalances[0],
-            packedBalances[1],
-            packedBalances[2],
-            packedBalances[3]
-        );
+        return _generateBalanceRoot(packedBalances[0], packedBalances[1], packedBalances[2], packedBalances[3]);
     }
 
     function _validatorGindex(uint40 validatorIndex) internal pure returns (uint256) {
@@ -352,12 +347,7 @@ contract ValidatorPodTest is BeaconTestBase {
         bytes32 wrongCredentials = ValidatorTypes.computeWithdrawalCredentials(makeAddr("otherWithdrawal"));
 
         RestakeProofData memory proof = _buildRestakeProof(
-            uint64(block.timestamp),
-            3,
-            pubkeyHash,
-            wrongCredentials,
-            32_000_000_000,
-            bytes32("invalidWithdrawals")
+            uint64(block.timestamp), 3, pubkeyHash, wrongCredentials, 32_000_000_000, bytes32("invalidWithdrawals")
         );
 
         _setBeaconRoot(proof.beaconTimestamp, proof.beaconBlockRoot);
@@ -376,20 +366,12 @@ contract ValidatorPodTest is BeaconTestBase {
     function test_verifyWithdrawalCredentials_revertsWhenProofIsStale() public {
         vm.warp(1_000_000);
         uint64 staleTimestamp = uint64(block.timestamp - (27 hours + 1));
-        ValidatorTypes.StateRootProof memory dummyProof = ValidatorTypes.StateRootProof({
-            beaconStateRoot: bytes32(0),
-            proof: ""
-        });
+        ValidatorTypes.StateRootProof memory dummyProof =
+            ValidatorTypes.StateRootProof({ beaconStateRoot: bytes32(0), proof: "" });
 
         vm.expectRevert(ValidatorPod.StaleProof.selector);
         vm.prank(podOwner1);
-        pod.verifyWithdrawalCredentials(
-            staleTimestamp,
-            dummyProof,
-            new uint40[](0),
-            new bytes[](0),
-            new bytes32[][](0)
-        );
+        pod.verifyWithdrawalCredentials(staleTimestamp, dummyProof, new uint40[](0), new bytes[](0), new bytes32[][](0));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -436,12 +418,8 @@ contract ValidatorPodTest is BeaconTestBase {
 
         uint64 checkpointTimestamp = restakeProof.beaconTimestamp + 12;
         uint64 newBalance = 31_000_000_000;
-        CheckpointProofData memory checkpointProof = _buildCheckpointProof(
-            validatorIndex,
-            pubkeyHash,
-            newBalance,
-            bytes32("checkpointProof")
-        );
+        CheckpointProofData memory checkpointProof =
+            _buildCheckpointProof(validatorIndex, pubkeyHash, newBalance, bytes32("checkpointProof"));
 
         _setBeaconRoot(checkpointTimestamp, checkpointProof.beaconBlockRoot);
         vm.warp(checkpointTimestamp);
@@ -450,9 +428,7 @@ contract ValidatorPodTest is BeaconTestBase {
         pod.startCheckpoint(false);
 
         pod.verifyCheckpointProofs(
-            checkpointProof.stateRootProof,
-            checkpointProof.balanceContainerProof,
-            checkpointProof.proofs
+            checkpointProof.stateRootProof, checkpointProof.balanceContainerProof, checkpointProof.proofs
         );
 
         assertEq(pod.activeValidatorCount(), 1, "validator still active");
@@ -462,17 +438,12 @@ contract ValidatorPodTest is BeaconTestBase {
         assertEq(pod.totalRestakedBalanceGwei(), newBalance, "restaked balance updated");
         assertEq(podManager.getShares(podOwner1), 31 ether, "shares reflect new balance");
 
-        uint64 expectedFactor =
-            uint64((uint256(1e18) * uint256(newBalance)) / uint256(initialBalance));
+        uint64 expectedFactor = uint64((uint256(1e18) * uint256(newBalance)) / uint256(initialBalance));
         assertEq(pod.beaconChainSlashingFactor(), expectedFactor, "slashing factor applied");
 
         ValidatorTypes.ValidatorInfo memory info = pod.getValidatorInfo(pubkeyHash);
         assertEq(info.restakedBalanceGwei, newBalance, "validator balance updated");
-        assertEq(
-            uint8(info.status),
-            uint8(ValidatorTypes.ValidatorStatus.ACTIVE),
-            "validator remains active"
-        );
+        assertEq(uint8(info.status), uint8(ValidatorTypes.ValidatorStatus.ACTIVE), "validator remains active");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -519,7 +490,7 @@ contract ValidatorPodTest is BeaconTestBase {
         uint256 balanceBefore = address(pod).balance;
 
         // Send ETH to pod
-        (bool success,) = address(pod).call{value: 1 ether}("");
+        (bool success,) = address(pod).call{ value: 1 ether }("");
         assertTrue(success, "Should accept ETH");
 
         assertEq(address(pod).balance, balanceBefore + 1 ether, "Pod should hold ETH");
@@ -531,11 +502,11 @@ contract ValidatorPodTest is BeaconTestBase {
         vm.deal(address(0x2), 2 ether);
 
         vm.prank(address(0x1));
-        (bool s1,) = address(pod).call{value: 1 ether}("");
+        (bool s1,) = address(pod).call{ value: 1 ether }("");
         assertTrue(s1);
 
         vm.prank(address(0x2));
-        (bool s2,) = address(pod).call{value: 2 ether}("");
+        (bool s2,) = address(pod).call{ value: 2 ether }("");
         assertTrue(s2);
 
         assertEq(address(pod).balance, 3 ether, "Pod should hold all ETH");
@@ -551,9 +522,7 @@ contract ValidatorPodTest is BeaconTestBase {
 
         assertEq(info.validatorIndex, 0, "Unknown validator should have zero index");
         assertEq(info.restakedBalanceGwei, 0, "Unknown validator should have zero balance");
-        assertTrue(
-            info.status == ValidatorTypes.ValidatorStatus.INACTIVE, "Unknown validator should be inactive"
-        );
+        assertTrue(info.status == ValidatorTypes.ValidatorStatus.INACTIVE, "Unknown validator should be inactive");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

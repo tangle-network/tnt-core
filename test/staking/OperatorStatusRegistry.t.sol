@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test, Vm} from "forge-std/Test.sol";
+import { Test, Vm } from "forge-std/Test.sol";
 
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import {OperatorStatusRegistry, IOperatorStatusRegistry} from "../../src/staking/OperatorStatusRegistry.sol";
-import {IMetricsRecorder} from "../../src/interfaces/IMetricsRecorder.sol";
+import { OperatorStatusRegistry, IOperatorStatusRegistry } from "../../src/staking/OperatorStatusRegistry.sol";
+import { IMetricsRecorder } from "../../src/interfaces/IMetricsRecorder.sol";
 
 contract MockMetricsRecorder is IMetricsRecorder {
     uint256 public heartbeatCount;
     address public lastOperator;
     uint64 public lastServiceId;
 
-    function recordStake(address, address, address, uint256) external {}
-    function recordUnstake(address, address, address, uint256) external {}
-    function recordOperatorRegistered(address, address, uint256) external {}
+    function recordStake(address, address, address, uint256) external { }
+    function recordUnstake(address, address, address, uint256) external { }
+    function recordOperatorRegistered(address, address, uint256) external { }
 
     function recordHeartbeat(address operator, uint64 serviceId, uint64) external override {
         heartbeatCount++;
@@ -23,14 +23,14 @@ contract MockMetricsRecorder is IMetricsRecorder {
         lastServiceId = serviceId;
     }
 
-    function recordJobCompletion(address, uint64, uint64, bool) external {}
-    function recordSlash(address, uint64, uint256) external {}
-    function recordServiceCreated(uint64, uint64, address, uint256) external {}
-    function recordServiceTerminated(uint64, uint256) external {}
-    function recordJobCall(uint64, address, uint64) external {}
-    function recordPayment(address, uint64, address, uint256) external {}
-    function recordBlueprintCreated(uint64, address) external {}
-    function recordBlueprintRegistration(uint64, address) external {}
+    function recordJobCompletion(address, uint64, uint64, bool) external { }
+    function recordSlash(address, uint64, uint256) external { }
+    function recordServiceCreated(uint64, uint64, address, uint256) external { }
+    function recordServiceTerminated(uint64, uint256) external { }
+    function recordJobCall(uint64, address, uint64) external { }
+    function recordPayment(address, uint64, address, uint256) external { }
+    function recordBlueprintCreated(uint64, address) external { }
+    function recordBlueprintRegistration(uint64, address) external { }
 }
 
 contract OperatorStatusRegistryTest is Test {
@@ -71,9 +71,7 @@ contract OperatorStatusRegistryTest is Test {
 
     function _signHeartbeat(uint8 statusCode, bytes memory metricsData) internal view returns (bytes memory) {
         bytes32 messageHash = keccak256(abi.encodePacked(SERVICE_ID, BLUEPRINT_ID, statusCode, metricsData));
-        bytes32 ethSignedHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
-        );
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(operatorKey, ethSignedHash);
         return abi.encodePacked(r, s, v);
     }
@@ -85,8 +83,7 @@ contract OperatorStatusRegistryTest is Test {
         vm.prank(operatorAddr);
         registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, metricsData, signature);
 
-        IOperatorStatusRegistry.StatusCode status =
-            registry.getOperatorStatus(SERVICE_ID, operatorAddr);
+        IOperatorStatusRegistry.StatusCode status = registry.getOperatorStatus(SERVICE_ID, operatorAddr);
         assertEq(uint8(status), uint8(IOperatorStatusRegistry.StatusCode.Healthy));
         assertEq(registry.getLastHeartbeat(SERVICE_ID, operatorAddr), block.timestamp);
         assertTrue(registry.isHeartbeatCurrent(SERVICE_ID, operatorAddr));
@@ -121,8 +118,7 @@ contract OperatorStatusRegistryTest is Test {
         vm.warp(block.timestamp + 1 hours);
         registry.checkOperatorStatus(SERVICE_ID, operatorAddr);
 
-        IOperatorStatusRegistry.StatusCode status =
-            registry.getOperatorStatus(SERVICE_ID, operatorAddr);
+        IOperatorStatusRegistry.StatusCode status = registry.getOperatorStatus(SERVICE_ID, operatorAddr);
         assertEq(uint8(status), uint8(IOperatorStatusRegistry.StatusCode.Offline));
     }
 
@@ -130,8 +126,7 @@ contract OperatorStatusRegistryTest is Test {
         vm.startPrank(operatorAddr);
         registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
         registry.goOffline(SERVICE_ID);
-        IOperatorStatusRegistry.StatusCode status =
-            registry.getOperatorStatus(SERVICE_ID, operatorAddr);
+        IOperatorStatusRegistry.StatusCode status = registry.getOperatorStatus(SERVICE_ID, operatorAddr);
         assertEq(uint8(status), uint8(IOperatorStatusRegistry.StatusCode.Exiting));
 
         registry.goOnline(SERVICE_ID);
@@ -189,8 +184,7 @@ contract OperatorStatusRegistryTest is Test {
         vm.prank(slashingOracle);
         registry.reportForSlashing(SERVICE_ID, operatorAddr, "misbehavior");
 
-        IOperatorStatusRegistry.StatusCode status =
-            registry.getOperatorStatus(SERVICE_ID, operatorAddr);
+        IOperatorStatusRegistry.StatusCode status = registry.getOperatorStatus(SERVICE_ID, operatorAddr);
         assertEq(uint8(status), uint8(IOperatorStatusRegistry.StatusCode.Slashed));
     }
 
@@ -437,7 +431,8 @@ contract OperatorStatusRegistryTest is Test {
 
         // Hex produced by Rust alloy-sol-types encoder for:
         //   [("response_time_ms", 150), ("uptime_percent", 99)]
-        bytes memory rustEncoded = hex"00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000960000000000000000000000000000000000000000000000000000000000000010726573706f6e73655f74696d655f6d730000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000063000000000000000000000000000000000000000000000000000000000000000e757074696d655f70657263656e74000000000000000000000000000000000000";
+        bytes memory rustEncoded =
+            hex"00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000960000000000000000000000000000000000000000000000000000000000000010726573706f6e73655f74696d655f6d730000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000063000000000000000000000000000000000000000000000000000000000000000e757074696d655f70657263656e74000000000000000000000000000000000000";
 
         vm.prank(operatorAddr);
         registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, rustEncoded);
@@ -731,7 +726,7 @@ contract OperatorStatusRegistryTest is Test {
         vm.prank(operatorAddr);
         registry.submitHeartbeatDirect(SERVICE_ID, BLUEPRINT_ID, 0, "");
 
-        (uint64 interval, uint8 maxMissed, ) = registry.heartbeatConfigs(SERVICE_ID);
+        (uint64 interval, uint8 maxMissed,) = registry.heartbeatConfigs(SERVICE_ID);
         uint64 lowerBound = interval > 1 ? interval / 2 : 1;
         uint64 upperBound = interval * (uint64(maxMissed) + 5);
         warpSeconds = uint64(bound(warpSeconds, lowerBound, upperBound));
@@ -759,14 +754,20 @@ contract OperatorStatusRegistryTest is Test {
 
         vm.prank(slashingOracle);
         registry.reportForSlashing(SERVICE_ID, operatorAddr, "misbehavior");
-        assertEq(uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)), uint8(IOperatorStatusRegistry.StatusCode.Slashed));
+        assertEq(
+            uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)),
+            uint8(IOperatorStatusRegistry.StatusCode.Slashed)
+        );
 
         // Warp way past offline threshold
         vm.warp(block.timestamp + 10_000);
         registry.checkOperatorStatus(SERVICE_ID, operatorAddr);
 
         // Must still be Slashed, not Offline
-        assertEq(uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)), uint8(IOperatorStatusRegistry.StatusCode.Slashed));
+        assertEq(
+            uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)),
+            uint8(IOperatorStatusRegistry.StatusCode.Slashed)
+        );
     }
 
     /// @notice #2 High: Deregistered operators can still be slashed (prevents slash-immunity race)
@@ -786,7 +787,10 @@ contract OperatorStatusRegistryTest is Test {
         // Oracle can still slash — operator is in _allOperators
         vm.prank(slashingOracle);
         registry.reportForSlashing(SERVICE_ID, operatorAddr, "late slash");
-        assertEq(uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)), uint8(IOperatorStatusRegistry.StatusCode.Slashed));
+        assertEq(
+            uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)),
+            uint8(IOperatorStatusRegistry.StatusCode.Slashed)
+        );
     }
 
     /// @notice #3 High: Fail-closed validation — catch block must not store unvalidated metrics
@@ -814,7 +818,9 @@ contract OperatorStatusRegistryTest is Test {
     /// @notice #3 High: Metric name length cap
     function test_addMetricDefinition_NameTooLongReverts() public {
         bytes memory longName = new bytes(65);
-        for (uint256 i = 0; i < 65; i++) longName[i] = "a";
+        for (uint256 i = 0; i < 65; i++) {
+            longName[i] = "a";
+        }
 
         vm.prank(serviceOwner);
         vm.expectRevert("Name too long");
@@ -828,7 +834,9 @@ contract OperatorStatusRegistryTest is Test {
         registry.registerOperator(SERVICE_ID, newOp);
 
         // Should be Offline, not Healthy
-        assertEq(uint8(registry.getOperatorStatus(SERVICE_ID, newOp)), uint8(IOperatorStatusRegistry.StatusCode.Offline));
+        assertEq(
+            uint8(registry.getOperatorStatus(SERVICE_ID, newOp)), uint8(IOperatorStatusRegistry.StatusCode.Offline)
+        );
         // isOnline should return false
         assertFalse(registry.isOnline(SERVICE_ID, newOp));
     }
@@ -843,7 +851,8 @@ contract OperatorStatusRegistryTest is Test {
         address[] memory onlineBefore = registry.getOnlineOperators(SERVICE_ID);
         bool found = false;
         for (uint256 i = 0; i < onlineBefore.length; i++) {
-            if (onlineBefore[i] == newOp) { found = true; break; }
+            if (onlineBefore[i] == newOp) found = true;
+            break;
         }
         assertFalse(found, "Should not be online before heartbeat");
 
@@ -855,7 +864,8 @@ contract OperatorStatusRegistryTest is Test {
         address[] memory onlineAfter = registry.getOnlineOperators(SERVICE_ID);
         found = false;
         for (uint256 i = 0; i < onlineAfter.length; i++) {
-            if (onlineAfter[i] == newOp) { found = true; break; }
+            if (onlineAfter[i] == newOp) found = true;
+            break;
         }
         assertTrue(found, "Should be online after first heartbeat");
         assertTrue(registry.isOnline(SERVICE_ID, newOp));
@@ -891,7 +901,7 @@ contract OperatorStatusRegistryTest is Test {
 
         // Submit a metric with an undefined name
         IOperatorStatusRegistry.MetricPair[] memory pairs = new IOperatorStatusRegistry.MetricPair[](2);
-        pairs[0] = IOperatorStatusRegistry.MetricPair("cpu", 50);           // defined — should be stored
+        pairs[0] = IOperatorStatusRegistry.MetricPair("cpu", 50); // defined — should be stored
         pairs[1] = IOperatorStatusRegistry.MetricPair("rogue_metric", 999); // undefined — should be rejected
         bytes memory metricsData = abi.encode(pairs);
 

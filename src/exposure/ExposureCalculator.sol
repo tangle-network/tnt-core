@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Types} from "../libraries/Types.sol";
-import {ExposureTypes} from "./ExposureTypes.sol";
-import {IPriceOracle} from "../oracles/interfaces/IPriceOracle.sol";
+import { Types } from "../libraries/Types.sol";
+import { ExposureTypes } from "./ExposureTypes.sol";
+import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
 
 /// @title ExposureCalculator
 /// @notice Library for calculating operator exposure across multiple assets
@@ -20,7 +20,11 @@ library ExposureCalculator {
     function calculateExposedAmount(
         uint256 delegatedAmount,
         uint16 exposureBps
-    ) internal pure returns (uint256 exposedAmount) {
+    )
+        internal
+        pure
+        returns (uint256 exposedAmount)
+    {
         return (delegatedAmount * exposureBps) / ExposureTypes.BPS_DENOMINATOR;
     }
 
@@ -32,7 +36,11 @@ library ExposureCalculator {
     function calculateWeightedExposure(
         uint256[] memory delegations,
         uint16[] memory exposureBps
-    ) internal pure returns (uint16 weightedExposureBps) {
+    )
+        internal
+        pure
+        returns (uint16 weightedExposureBps)
+    {
         require(delegations.length == exposureBps.length, "Length mismatch");
 
         if (delegations.length == 0) return 0;
@@ -65,7 +73,11 @@ library ExposureCalculator {
         uint256[] memory delegations,
         uint16[] memory exposureBps,
         IPriceOracle oracle
-    ) internal view returns (uint16 weightedExposureBps, uint256 totalValueUsd) {
+    )
+        internal
+        view
+        returns (uint16 weightedExposureBps, uint256 totalValueUsd)
+    {
         require(tokens.length == delegations.length, "Length mismatch");
         require(delegations.length == exposureBps.length, "Length mismatch");
 
@@ -108,7 +120,11 @@ library ExposureCalculator {
         uint256 delegatedAmount,
         uint16 exposureBps,
         uint16 slashBps
-    ) internal pure returns (uint256 slashAmount) {
+    )
+        internal
+        pure
+        returns (uint256 slashAmount)
+    {
         uint256 exposedAmount = calculateExposedAmount(delegatedAmount, exposureBps);
         return (exposedAmount * slashBps) / ExposureTypes.BPS_DENOMINATOR;
     }
@@ -120,7 +136,11 @@ library ExposureCalculator {
     function calculateMaxSlashable(
         uint256 delegatedAmount,
         uint16 exposureBps
-    ) internal pure returns (uint256 maxSlashable) {
+    )
+        internal
+        pure
+        returns (uint256 maxSlashable)
+    {
         return calculateExposedAmount(delegatedAmount, exposureBps);
     }
 
@@ -140,7 +160,11 @@ library ExposureCalculator {
         uint16 exposureBps,
         uint256 totalReward,
         uint256 totalExposedValue
-    ) internal pure returns (uint256 rewardShare) {
+    )
+        internal
+        pure
+        returns (uint256 rewardShare)
+    {
         if (totalExposedValue == 0) return 0;
 
         uint256 exposedAmount = calculateExposedAmount(delegatedAmount, exposureBps);
@@ -154,7 +178,11 @@ library ExposureCalculator {
     function calculateTotalExposedValue(
         uint256[] memory delegations,
         uint16[] memory exposureBps
-    ) internal pure returns (uint256 totalExposed) {
+    )
+        internal
+        pure
+        returns (uint256 totalExposed)
+    {
         require(delegations.length == exposureBps.length, "Length mismatch");
 
         for (uint256 i = 0; i < delegations.length; i++) {
@@ -170,8 +198,7 @@ library ExposureCalculator {
     /// @param exposureBps Exposure to validate
     /// @return valid True if exposure is between MIN and MAX
     function isValidExposure(uint16 exposureBps) internal pure returns (bool valid) {
-        return exposureBps >= ExposureTypes.MIN_EXPOSURE_BPS &&
-               exposureBps <= ExposureTypes.MAX_EXPOSURE_BPS;
+        return exposureBps >= ExposureTypes.MIN_EXPOSURE_BPS && exposureBps <= ExposureTypes.MAX_EXPOSURE_BPS;
     }
 
     /// @notice Check if exposure is within specified bounds
@@ -179,11 +206,7 @@ library ExposureCalculator {
     /// @param minBps Minimum allowed exposure
     /// @param maxBps Maximum allowed exposure
     /// @return valid True if exposure is within bounds
-    function isWithinBounds(
-        uint16 exposureBps,
-        uint16 minBps,
-        uint16 maxBps
-    ) internal pure returns (bool valid) {
+    function isWithinBounds(uint16 exposureBps, uint16 minBps, uint16 maxBps) internal pure returns (bool valid) {
         return exposureBps >= minBps && exposureBps <= maxBps;
     }
 
@@ -217,7 +240,11 @@ library ExposureCalculator {
         uint256 delegatedAmount,
         uint16 exposureBps,
         uint64 serviceId
-    ) internal pure returns (ExposureTypes.CalculatedExposure memory exposure) {
+    )
+        internal
+        pure
+        returns (ExposureTypes.CalculatedExposure memory exposure)
+    {
         exposure.operator = operator;
         exposure.asset = asset;
         exposure.delegatedAmount = delegatedAmount;
@@ -235,7 +262,11 @@ library ExposureCalculator {
         ExposureTypes.CalculatedExposure[] memory exposures,
         address operator,
         uint64 serviceId
-    ) internal pure returns (ExposureTypes.AggregateExposure memory aggregate) {
+    )
+        internal
+        pure
+        returns (ExposureTypes.AggregateExposure memory aggregate)
+    {
         aggregate.operator = operator;
         aggregate.serviceId = serviceId;
         aggregate.perAsset = exposures;

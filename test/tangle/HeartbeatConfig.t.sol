@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {BaseTest} from "../BaseTest.sol";
-import {BlueprintServiceManagerBase} from "../../src/BlueprintServiceManagerBase.sol";
-import {IOperatorStatusRegistry} from "../../src/staking/OperatorStatusRegistry.sol";
+import { BaseTest } from "../BaseTest.sol";
+import { BlueprintServiceManagerBase } from "../../src/BlueprintServiceManagerBase.sol";
+import { IOperatorStatusRegistry } from "../../src/staking/OperatorStatusRegistry.sol";
 
 contract MockStatusRegistry is IOperatorStatusRegistry {
     bool public registerCalled;
@@ -13,13 +13,7 @@ contract MockStatusRegistry is IOperatorStatusRegistry {
     uint64 public configuredInterval;
     uint8 public configuredMaxMissed;
 
-    function submitHeartbeat(
-        uint64,
-        uint64,
-        uint8,
-        bytes calldata,
-        bytes calldata
-    ) external override {}
+    function submitHeartbeat(uint64, uint64, uint8, bytes calldata, bytes calldata) external override { }
 
     function isOnline(uint64, address) external pure override returns (bool) {
         return false;
@@ -46,31 +40,79 @@ contract MockStatusRegistry is IOperatorStatusRegistry {
         configuredMaxMissed = maxMissed;
     }
 
-    function submitHeartbeatDirect(uint64, uint64, uint8, bytes calldata) external override {}
-    function getOperatorState(uint64, address) external pure override returns (IOperatorStatusRegistry.OperatorState memory) {
+    function submitHeartbeatDirect(uint64, uint64, uint8, bytes calldata) external override { }
+
+    function getOperatorState(
+        uint64,
+        address
+    )
+        external
+        pure
+        override
+        returns (IOperatorStatusRegistry.OperatorState memory)
+    {
         return IOperatorStatusRegistry.OperatorState(0, 0, 0, IOperatorStatusRegistry.StatusCode.Healthy, bytes32(0));
     }
-    function getOnlineOperators(uint64) external pure override returns (address[] memory) { return new address[](0); }
-    function getHeartbeatConfig(uint64) external pure override returns (IOperatorStatusRegistry.HeartbeatConfig memory) {
+
+    function getOnlineOperators(uint64) external pure override returns (address[] memory) {
+        return new address[](0);
+    }
+
+    function getHeartbeatConfig(uint64)
+        external
+        pure
+        override
+        returns (IOperatorStatusRegistry.HeartbeatConfig memory)
+    {
         return IOperatorStatusRegistry.HeartbeatConfig(0, 0, false);
     }
-    function isHeartbeatCurrent(uint64, address) external pure override returns (bool) { return false; }
-    function getMetricValue(uint64, address, string calldata) external pure override returns (uint256) { return 0; }
-    function getMetricDefinitions(uint64) external pure override returns (IOperatorStatusRegistry.MetricDefinition[] memory) {
+
+    function isHeartbeatCurrent(uint64, address) external pure override returns (bool) {
+        return false;
+    }
+
+    function getMetricValue(uint64, address, string calldata) external pure override returns (uint256) {
+        return 0;
+    }
+
+    function getMetricDefinitions(uint64)
+        external
+        pure
+        override
+        returns (IOperatorStatusRegistry.MetricDefinition[] memory)
+    {
         return new IOperatorStatusRegistry.MetricDefinition[](0);
     }
-    function enableCustomMetrics(uint64, bool) external override {}
-    function setMetricDefinitions(uint64, IOperatorStatusRegistry.MetricDefinition[] calldata) external override {}
-    function addMetricDefinition(uint64, string calldata, uint256, uint256, bool) external override {}
-    function reportForSlashing(uint64, address, string calldata) external override {}
-    function getSlashableOperators(uint64) external pure override returns (address[] memory) { return new address[](0); }
-    function getSlashableOperatorsPaginated(uint64, uint256, uint256) external pure override returns (address[] memory, uint256) { return (new address[](0), 0); }
-    function removeInactiveOperator(uint64, address) external override {}
-    function goOffline(uint64) external override {}
-    function goOnline(uint64) external override {}
-    function registerOperator(uint64, address) external override {}
-    function deregisterOperator(uint64, address) external override {}
-    function isRegisteredOperator(uint64, address) external pure override returns (bool) { return true; }
+    function enableCustomMetrics(uint64, bool) external override { }
+    function setMetricDefinitions(uint64, IOperatorStatusRegistry.MetricDefinition[] calldata) external override { }
+    function addMetricDefinition(uint64, string calldata, uint256, uint256, bool) external override { }
+    function reportForSlashing(uint64, address, string calldata) external override { }
+
+    function getSlashableOperators(uint64) external pure override returns (address[] memory) {
+        return new address[](0);
+    }
+
+    function getSlashableOperatorsPaginated(
+        uint64,
+        uint256,
+        uint256
+    )
+        external
+        pure
+        override
+        returns (address[] memory, uint256)
+    {
+        return (new address[](0), 0);
+    }
+    function removeInactiveOperator(uint64, address) external override { }
+    function goOffline(uint64) external override { }
+    function goOnline(uint64) external override { }
+    function registerOperator(uint64, address) external override { }
+    function deregisterOperator(uint64, address) external override { }
+
+    function isRegisteredOperator(uint64, address) external pure override returns (bool) {
+        return true;
+    }
 }
 
 contract HeartbeatBSM is BlueprintServiceManagerBase {

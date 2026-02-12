@@ -170,7 +170,10 @@ abstract contract SlashingManager is RewardsManager {
         uint64 serviceId,
         uint16 slashBps,
         bytes32 evidence
-    ) internal returns (uint256 actualSlashed) {
+    )
+        internal
+        returns (uint256 actualSlashed)
+    {
         if (slashBps == 0) return 0;
         if (slashBps > BPS_DENOMINATOR) revert DelegationErrors.InvalidSlashBps(slashBps);
         Types.OperatorMetadata storage meta = _operatorMetadata[operator];
@@ -189,15 +192,7 @@ abstract contract SlashingManager is RewardsManager {
             Types.Asset memory asset = Types.Asset(Types.AssetKind.Native, address(0));
             bytes32 assetHash = _assetHash(asset);
             totalSlashed += _slashBlueprintPoolsForAsset(
-                operator,
-                blueprintId,
-                serviceId,
-                asset,
-                assetHash,
-                bondHash,
-                slashBps,
-                evidence,
-                meta
+                operator, blueprintId, serviceId, asset, assetHash, bondHash, slashBps, evidence, meta
             );
             if (totalSlashed > 0) slashed = true;
         }
@@ -208,21 +203,15 @@ abstract contract SlashingManager is RewardsManager {
             Types.Asset memory asset = Types.Asset(Types.AssetKind.ERC20, token);
             bytes32 assetHash = _assetHash(asset);
             uint256 assetSlashed = _slashBlueprintPoolsForAsset(
-                operator,
-                blueprintId,
-                serviceId,
-                asset,
-                assetHash,
-                bondHash,
-                slashBps,
-                evidence,
-                meta
+                operator, blueprintId, serviceId, asset, assetHash, bondHash, slashBps, evidence, meta
             );
             if (assetSlashed > 0) {
                 totalSlashed += assetSlashed;
                 slashed = true;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
         if (!slashed) return 0;
@@ -255,7 +244,10 @@ abstract contract SlashingManager is RewardsManager {
         Types.AssetSecurityCommitment[] calldata commitments,
         uint16 slashBps,
         bytes32 evidence
-    ) internal returns (uint256 actualSlashed) {
+    )
+        internal
+        returns (uint256 actualSlashed)
+    {
         if (slashBps == 0) return 0;
         if (slashBps > BPS_DENOMINATOR) revert DelegationErrors.InvalidSlashBps(slashBps);
         Types.OperatorMetadata storage meta = _operatorMetadata[operator];
@@ -282,7 +274,9 @@ abstract contract SlashingManager is RewardsManager {
                 effectiveBps = 1;
             }
             if (effectiveBps == 0) {
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
                 continue;
             }
 
@@ -299,7 +293,9 @@ abstract contract SlashingManager is RewardsManager {
                 meta
             );
             totalSlashed += assetSlashed;
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
         if (totalSlashed == 0) return 0;
@@ -327,7 +323,10 @@ abstract contract SlashingManager is RewardsManager {
         uint64 serviceId,
         uint16 slashBps,
         bytes32 evidence
-    ) internal returns (uint256 actualSlashed) {
+    )
+        internal
+        returns (uint256 actualSlashed)
+    {
         if (slashBps == 0) return 0;
         if (slashBps > BPS_DENOMINATOR) revert DelegationErrors.InvalidSlashBps(slashBps);
         if (!_operators.contains(operator)) {
@@ -370,9 +369,13 @@ abstract contract SlashingManager is RewardsManager {
             // Collect callback data instead of making external call during iteration
             if (fixedHasDelegators && actualFixedSlash > 0) {
                 callbackBlueprintIds[callbackCount] = blueprintId;
-                unchecked { ++callbackCount; }
+                unchecked {
+                    ++callbackCount;
+                }
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
         if (totalSlashed == 0) return 0;
@@ -394,11 +397,16 @@ abstract contract SlashingManager is RewardsManager {
         // H-6 FIX: Execute all callbacks AFTER state updates complete
         if (_serviceFeeDistributor != address(0)) {
             if (allHasDelegators && actualAllSlash > 0) {
-                try IServiceFeeDistributor(_serviceFeeDistributor).onAllModeSlashed(operator, asset, slashBps) {} catch {}
+                try IServiceFeeDistributor(_serviceFeeDistributor).onAllModeSlashed(operator, asset, slashBps) { }
+                    catch { }
             }
             for (uint256 i = 0; i < callbackCount;) {
-                try IServiceFeeDistributor(_serviceFeeDistributor).onFixedModeSlashed(operator, callbackBlueprintIds[i], asset, slashBps) {} catch {}
-                unchecked { ++i; }
+                try IServiceFeeDistributor(_serviceFeeDistributor)
+                    .onFixedModeSlashed(operator, callbackBlueprintIds[i], asset, slashBps) { }
+                    catch { }
+                unchecked {
+                    ++i;
+                }
             }
         }
 
@@ -424,10 +432,7 @@ abstract contract SlashingManager is RewardsManager {
     }
 
     /// @notice Slash operator's self-stake
-    function _slashOperatorStake(
-        address operator,
-        uint256 amount
-    ) internal returns (uint256 slashed) {
+    function _slashOperatorStake(address operator, uint256 amount) internal returns (uint256 slashed) {
         Types.OperatorMetadata storage meta = _operatorMetadata[operator];
 
         if (meta.stake >= amount) {
@@ -448,11 +453,7 @@ abstract contract SlashingManager is RewardsManager {
     /// @param operator Operator whose pool to slash
     /// @param amount Amount to slash from the pool
     /// @return slashed Actual amount slashed
-    function _slashAllModePool(
-        address operator,
-        bytes32 assetHash,
-        uint256 amount
-    ) internal returns (uint256 slashed) {
+    function _slashAllModePool(address operator, bytes32 assetHash, uint256 amount) internal returns (uint256 slashed) {
         Types.OperatorRewardPool storage pool = _rewardPools[operator][assetHash];
 
         if (pool.totalAssets == 0 || amount == 0) {
@@ -483,7 +484,10 @@ abstract contract SlashingManager is RewardsManager {
         uint64 blueprintId,
         bytes32 assetHash,
         uint256 amount
-    ) internal returns (uint256 slashed) {
+    )
+        internal
+        returns (uint256 slashed)
+    {
         Types.OperatorRewardPool storage pool = _blueprintPools[operator][blueprintId][assetHash];
 
         if (pool.totalAssets == 0 || amount == 0) {
@@ -512,7 +516,10 @@ abstract contract SlashingManager is RewardsManager {
         uint16 slashBps,
         bytes32 evidence,
         Types.OperatorMetadata storage meta
-    ) internal returns (uint256 assetSlashed) {
+    )
+        internal
+        returns (uint256 assetSlashed)
+    {
         Types.OperatorRewardPool storage allPool = _rewardPools[operator][assetHash];
         Types.OperatorRewardPool storage bpPool = _blueprintPools[operator][blueprintId][assetHash];
         bool allHasDelegators = allPool.totalShares > 0;
@@ -554,10 +561,13 @@ abstract contract SlashingManager is RewardsManager {
 
         if (_serviceFeeDistributor != address(0)) {
             if (allHasDelegators && actualAllModeSlash > 0) {
-                try IServiceFeeDistributor(_serviceFeeDistributor).onAllModeSlashed(operator, asset, slashBps) {} catch {}
+                try IServiceFeeDistributor(_serviceFeeDistributor).onAllModeSlashed(operator, asset, slashBps) { }
+                    catch { }
             }
             if (fixedHasDelegators && actualFixedModeSlash > 0) {
-                try IServiceFeeDistributor(_serviceFeeDistributor).onFixedModeSlashed(operator, blueprintId, asset, slashBps) {} catch {}
+                try IServiceFeeDistributor(_serviceFeeDistributor)
+                    .onFixedModeSlashed(operator, blueprintId, asset, slashBps) { }
+                    catch { }
             }
         }
 
@@ -587,7 +597,11 @@ abstract contract SlashingManager is RewardsManager {
         address operator,
         uint64 slashId,
         address delegator
-    ) external view returns (uint256 lostAmount) {
+    )
+        external
+        view
+        returns (uint256 lostAmount)
+    {
         SlashRecord memory record = slashHistory[operator][slashId];
         if (record.round == 0) return 0; // Slash doesn't exist
 
@@ -605,7 +619,11 @@ abstract contract SlashingManager is RewardsManager {
         address delegator,
         address operator,
         bytes32 assetHash
-    ) internal view returns (uint256 totalShares) {
+    )
+        internal
+        view
+        returns (uint256 totalShares)
+    {
         Types.BondInfoDelegator[] storage delegations = _delegations[delegator];
         uint256 delegationsLength = delegations.length;
         for (uint256 i = 0; i < delegationsLength;) {
@@ -613,7 +631,9 @@ abstract contract SlashingManager is RewardsManager {
             if (d.operator == operator && _assetHash(d.asset) == assetHash) {
                 totalShares += d.shares;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -623,10 +643,7 @@ abstract contract SlashingManager is RewardsManager {
     }
 
     /// @notice Get slash record details
-    function getSlashRecord(
-        address operator,
-        uint64 slashId
-    ) external view returns (SlashRecord memory) {
+    function getSlashRecord(address operator, uint64 slashId) external view returns (SlashRecord memory) {
         return slashHistory[operator][slashId];
     }
 
@@ -672,16 +689,12 @@ abstract contract SlashingManager is RewardsManager {
             : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
 
         _atStake[currentRound][operator] = Types.OperatorSnapshot({
-            stake: meta.stake,
-            totalDelegated: _getOperatorDelegatedStakeForAsset(operator, bondHash)
+            stake: meta.stake, totalDelegated: _getOperatorDelegatedStakeForAsset(operator, bondHash)
         });
     }
 
     /// @notice Get snapshot for an operator at a specific round
-    function getSnapshot(
-        uint64 round,
-        address operator
-    ) public view returns (Types.OperatorSnapshot memory) {
+    function getSnapshot(uint64 round, address operator) public view returns (Types.OperatorSnapshot memory) {
         return _atStake[round][operator];
     }
 
@@ -717,5 +730,4 @@ abstract contract SlashingManager is RewardsManager {
         }
         return false;
     }
-
 }

@@ -21,33 +21,16 @@ interface IStreamingPaymentAdapter {
     );
 
     /// @notice Emitted when a stream is updated
-    event StreamUpdated(
-        uint64 indexed serviceId,
-        uint256 indexed streamId,
-        uint256 newRatePerSecond
-    );
+    event StreamUpdated(uint64 indexed serviceId, uint256 indexed streamId, uint256 newRatePerSecond);
 
     /// @notice Emitted when a stream is cancelled
-    event StreamCancelled(
-        uint64 indexed serviceId,
-        uint256 indexed streamId,
-        uint256 refundedAmount
-    );
+    event StreamCancelled(uint64 indexed serviceId, uint256 indexed streamId, uint256 refundedAmount);
 
     /// @notice Emitted when funds are withdrawn from a stream
-    event StreamWithdrawn(
-        uint64 indexed serviceId,
-        uint256 indexed streamId,
-        uint256 amount,
-        address recipient
-    );
+    event StreamWithdrawn(uint64 indexed serviceId, uint256 indexed streamId, uint256 amount, address recipient);
 
     /// @notice Emitted when a stream is settled and distributed
-    event StreamSettled(
-        uint64 indexed serviceId,
-        uint256 indexed streamId,
-        uint256 amount
-    );
+    event StreamSettled(uint64 indexed serviceId, uint256 indexed streamId, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STREAM MANAGEMENT
@@ -66,15 +49,15 @@ interface IStreamingPaymentAdapter {
         uint256 totalAmount,
         uint64 durationSeconds,
         uint64 cliffSeconds
-    ) external payable returns (uint256 streamId);
+    )
+        external
+        payable
+        returns (uint256 streamId);
 
     /// @notice Update the rate of an existing stream
     /// @param streamId The stream ID to update
     /// @param newRatePerSecond New streaming rate
-    function updateStreamRate(
-        uint256 streamId,
-        uint256 newRatePerSecond
-    ) external;
+    function updateStreamRate(uint256 streamId, uint256 newRatePerSecond) external;
 
     /// @notice Cancel a stream and refund remaining balance
     /// @param streamId The stream ID to cancel
@@ -174,7 +157,10 @@ interface ISuperfluidAdapter is IStreamingPaymentAdapter {
     /// @param token The super token
     /// @return availableBalance Current available balance
     /// @return deposit Required deposit/buffer
-    function getRealtimeBalance(address account, address token)
+    function getRealtimeBalance(
+        address account,
+        address token
+    )
         external
         view
         returns (int256 availableBalance, uint256 deposit);
@@ -207,15 +193,15 @@ interface ISuperfluidAdapter is IStreamingPaymentAdapter {
 interface ISablierAdapter is IStreamingPaymentAdapter {
     /// @notice Stream type for Sablier
     enum StreamType {
-        Linear,       // Linear vesting over time
-        Dynamic,      // Custom curve with segments
-        Tranched      // Fixed payment tranches
+        Linear, // Linear vesting over time
+        Dynamic, // Custom curve with segments
+        Tranched // Fixed payment tranches
     }
 
     /// @notice Segment for dynamic streams
     struct Segment {
         uint128 amount;
-        uint64 exponent;  // Curve exponent (scaled by 1e18)
+        uint64 exponent; // Curve exponent (scaled by 1e18)
         uint40 timestamp;
     }
 
@@ -232,7 +218,9 @@ interface ISablierAdapter is IStreamingPaymentAdapter {
         uint128 totalAmount,
         uint40 durationSeconds,
         uint40 cliffSeconds
-    ) external returns (uint256 streamId);
+    )
+        external
+        returns (uint256 streamId);
 
     /// @notice Create a dynamic stream with custom curve
     /// @param serviceId The Tangle service ID
@@ -245,7 +233,9 @@ interface ISablierAdapter is IStreamingPaymentAdapter {
         address token,
         uint128 totalAmount,
         Segment[] calldata segments
-    ) external returns (uint256 streamId);
+    )
+        external
+        returns (uint256 streamId);
 
     /// @notice Check if a stream is cancelable
     /// @param streamId The stream ID

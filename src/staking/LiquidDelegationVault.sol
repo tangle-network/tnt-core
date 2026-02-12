@@ -268,10 +268,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Create request record
         requestId = _nextRequestId[controller]++;
         _redeemRequests[controller][requestId] = RedeemRequestData({
-            shares: shares,
-            unstakeShares: unstakeShares,
-            requestedRound: requestRound,
-            claimed: false
+            shares: shares, unstakeShares: unstakeShares, requestedRound: requestRound, claimed: false
         });
 
         emit RedeemRequest(controller, owner, requestId, msg.sender, shares);
@@ -354,11 +351,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
         // Execute the exact bond-less request and withdraw the resulting assets directly to the receiver.
         assets = staking.executeDelegatorUnstakeAndWithdraw(
-            operator,
-            address(asset),
-            req.unstakeShares,
-            req.requestedRound,
-            receiver
+            operator, address(asset), req.unstakeShares, req.requestedRound, receiver
         );
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);

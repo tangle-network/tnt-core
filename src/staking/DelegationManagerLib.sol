@@ -25,24 +25,24 @@ abstract contract DelegationManagerLib is OperatorManager {
         address indexed delegator,
         address indexed operator,
         address indexed token,
-        uint256 amount,                 // The actual ETH/token amount deposited
-        uint256 shares,                 // The shares received
+        uint256 amount, // The actual ETH/token amount deposited
+        uint256 shares, // The shares received
         Types.BlueprintSelectionMode selectionMode
     );
     event DelegatorUnstakeScheduled(
         address indexed delegator,
         address indexed operator,
         address indexed token,
-        uint256 shares,                 // Shares scheduled for unstake
-        uint256 estimatedAmount,        // Estimated amount at current rate
+        uint256 shares, // Shares scheduled for unstake
+        uint256 estimatedAmount, // Estimated amount at current rate
         uint64 readyRound
     );
     event DelegatorUnstakeExecuted(
         address indexed delegator,
         address indexed operator,
         address indexed token,
-        uint256 shares,                 // Shares burned
-        uint256 amount                  // Actual amount returned
+        uint256 shares, // Shares burned
+        uint256 amount // Actual amount returned
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -59,7 +59,15 @@ abstract contract DelegationManagerLib is OperatorManager {
     /// @param assetHash Asset hash for the pool
     /// @param amount The asset amount to convert
     /// @return shares The number of shares
-    function _amountToShares(address operator, bytes32 assetHash, uint256 amount) internal view returns (uint256 shares) {
+    function _amountToShares(
+        address operator,
+        bytes32 assetHash,
+        uint256 amount
+    )
+        internal
+        view
+        returns (uint256 shares)
+    {
         Types.OperatorRewardPool storage pool = _rewardPools[operator][assetHash];
         // C-1 FIX: Use virtual offset to prevent inflation attack
         // This works even for empty pools (totalShares=0, totalAssets=0)
@@ -73,7 +81,15 @@ abstract contract DelegationManagerLib is OperatorManager {
     /// @param assetHash Asset hash for the pool
     /// @param shares The number of shares to convert
     /// @return amount The asset amount
-    function _sharesToAmount(address operator, bytes32 assetHash, uint256 shares) internal view returns (uint256 amount) {
+    function _sharesToAmount(
+        address operator,
+        bytes32 assetHash,
+        uint256 shares
+    )
+        internal
+        view
+        returns (uint256 amount)
+    {
         Types.OperatorRewardPool storage pool = _rewardPools[operator][assetHash];
         // C-1 FIX: Use virtual offset - consistent with _amountToShares
         // amount = shares * (totalAssets + VIRTUAL_ASSETS) / (totalShares + VIRTUAL_SHARES)
@@ -120,7 +136,9 @@ abstract contract DelegationManagerLib is OperatorManager {
         uint256 amount,
         Types.BlueprintSelectionMode selectionMode,
         uint64[] memory blueprintIds
-    ) internal {
+    )
+        internal
+    {
         Types.Asset memory asset = token == address(0)
             ? Types.Asset(Types.AssetKind.Native, address(0))
             : Types.Asset(Types.AssetKind.ERC20, token);
@@ -134,7 +152,9 @@ abstract contract DelegationManagerLib is OperatorManager {
         uint256 amount,
         Types.BlueprintSelectionMode selectionMode,
         uint64[] memory blueprintIds
-    ) internal {
+    )
+        internal
+    {
         if (amount == 0) revert DelegationErrors.ZeroAmount();
 
         // Enforce invariant: "All blueprints" is a distinct mode from "Fixed".
@@ -191,9 +211,7 @@ abstract contract DelegationManagerLib is OperatorManager {
             blueprintShares = new uint256[](blueprintIds.length);
             uint256 remaining = amount;
             for (uint256 i = 0; i < blueprintIds.length; i++) {
-                uint256 splitAmount = i == blueprintIds.length - 1
-                    ? remaining
-                    : amount / blueprintIds.length;
+                uint256 splitAmount = i == blueprintIds.length - 1 ? remaining : amount / blueprintIds.length;
                 remaining -= splitAmount;
 
                 uint256 bpShares = _amountToSharesForBlueprint(operator, blueprintIds[i], assetHash, splitAmount);
@@ -235,7 +253,9 @@ abstract contract DelegationManagerLib is OperatorManager {
         Types.BlueprintSelectionMode selectionMode,
         uint64[] memory blueprintIds,
         uint256[] memory blueprintShares
-    ) private {
+    )
+        private
+    {
         Types.BondInfoDelegator[] storage delegations = _delegations[msg.sender];
 
         for (uint256 i = 0; i < delegations.length; i++) {
@@ -276,7 +296,9 @@ abstract contract DelegationManagerLib is OperatorManager {
         bytes32 assetHash,
         uint64[] memory blueprintIds,
         uint256[] memory blueprintShares
-    ) private {
+    )
+        private
+    {
         if (blueprintIds.length == 0) return;
         if (blueprintIds.length != blueprintShares.length) {
             revert DelegationErrors.InvalidBlueprintShares();
@@ -293,7 +315,9 @@ abstract contract DelegationManagerLib is OperatorManager {
         uint64 blueprintId,
         uint256 newShares,
         uint256 newAmount
-    ) private {
+    )
+        private
+    {
         uint256 currentShares = _delegatorBlueprintShares[delegator][operator][assetHash][blueprintId];
         uint256 currentAmount = _sharesToAmountForBlueprint(operator, blueprintId, assetHash, currentShares);
         if (currentShares == newShares && currentAmount == newAmount) return;
@@ -333,7 +357,11 @@ abstract contract DelegationManagerLib is OperatorManager {
         address operator,
         bytes32 assetHash,
         uint256 amount
-    ) internal view returns (uint256 sharesToUnstake, Types.BlueprintSelectionMode selectionMode) {
+    )
+        internal
+        view
+        returns (uint256 sharesToUnstake, Types.BlueprintSelectionMode selectionMode)
+    {
         for (uint256 i = 0; i < _delegations[delegator].length; i++) {
             Types.BondInfoDelegator storage d = _delegations[delegator][i];
             if (d.operator != operator || _assetHash(d.asset) != assetHash) continue;
@@ -384,11 +412,7 @@ abstract contract DelegationManagerLib is OperatorManager {
     /// @param operator Operator to undelegate from
     /// @param token Token address
     /// @param amount Amount to undelegate (at current exchange rate)
-    function _scheduleDelegatorUnstake(
-        address operator,
-        address token,
-        uint256 amount
-    ) internal {
+    function _scheduleDelegatorUnstake(address operator, address token, uint256 amount) internal {
         if (amount == 0) revert DelegationErrors.ZeroAmount();
 
         // M-9 FIX: Block withdrawals if operator has pending slashes
@@ -406,21 +430,23 @@ abstract contract DelegationManagerLib is OperatorManager {
         (uint256 sharesToUnstake, Types.BlueprintSelectionMode selectionMode) =
             _previewDelegatorUnstakeShares(msg.sender, operator, assetHash, amount);
 
-        _unstakeRequests[msg.sender].push(Types.BondLessRequest({
-            operator: operator,
-            asset: asset,
-            shares: sharesToUnstake,  // Store shares, not amount
-            requestedRound: currentRound,
-            selectionMode: selectionMode,
-            slashFactorSnapshot: 0
-        }));
+        _unstakeRequests[msg.sender].push(
+            Types.BondLessRequest({
+                operator: operator,
+                asset: asset,
+                shares: sharesToUnstake, // Store shares, not amount
+                requestedRound: currentRound,
+                selectionMode: selectionMode,
+                slashFactorSnapshot: 0
+            })
+        );
 
         emit DelegatorUnstakeScheduled(
             msg.sender,
             operator,
             token,
             sharesToUnstake,
-            amount,  // Estimated amount at request time
+            amount, // Estimated amount at request time
             currentRound + delegationBondLessDelay
         );
     }
@@ -456,8 +482,9 @@ abstract contract DelegationManagerLib is OperatorManager {
 
                         uint256[] memory blueprintShares = new uint256[](blueprintIds.length);
                         if (d.selectionMode == Types.BlueprintSelectionMode.Fixed && blueprintIds.length > 0) {
-                            amountToReturn =
-                                _computeUnstakeAmountsWithBlueprints(msg.sender, req, assetHash, blueprintIds, blueprintShares);
+                            amountToReturn = _computeUnstakeAmountsWithBlueprints(
+                                msg.sender, req, assetHash, blueprintIds, blueprintShares
+                            );
                         } else {
                             amountToReturn = _sharesToAmount(req.operator, assetHash, req.shares);
                         }
@@ -483,9 +510,8 @@ abstract contract DelegationManagerLib is OperatorManager {
                         // Update deposit (with actual amount returned)
                         Types.Deposit storage dep = _deposits[msg.sender][assetHash];
                         // Cap at delegatedAmount to handle slashing edge cases
-                        uint256 depReduction = amountToReturn > dep.delegatedAmount
-                            ? dep.delegatedAmount
-                            : amountToReturn;
+                        uint256 depReduction =
+                            amountToReturn > dep.delegatedAmount ? dep.delegatedAmount : amountToReturn;
                         dep.delegatedAmount -= depReduction;
 
                         // Remove delegation if zero shares
@@ -521,7 +547,10 @@ abstract contract DelegationManagerLib is OperatorManager {
         bytes32 assetHash,
         uint64[] memory blueprintIds,
         uint256[] memory blueprintShares
-    ) internal returns (uint256 amountToReturn) {
+    )
+        internal
+        returns (uint256 amountToReturn)
+    {
         uint256 totalBpShares = 0;
         for (uint256 k = 0; k < blueprintIds.length; k++) {
             totalBpShares += _delegatorBlueprintShares[delegator][req.operator][assetHash][blueprintIds[k]];
@@ -529,17 +558,13 @@ abstract contract DelegationManagerLib is OperatorManager {
 
         uint256 remainingShares = req.shares;
         for (uint256 k = 0; k < blueprintIds.length; k++) {
-            uint256 currentBpShares =
-                _delegatorBlueprintShares[delegator][req.operator][assetHash][blueprintIds[k]];
+            uint256 currentBpShares = _delegatorBlueprintShares[delegator][req.operator][assetHash][blueprintIds[k]];
             uint256 bpShare = 0;
             if (totalBpShares > 0) {
-                bpShare = k == blueprintIds.length - 1
-                    ? remainingShares
-                    : (req.shares * currentBpShares) / totalBpShares;
+                bpShare =
+                    k == blueprintIds.length - 1 ? remainingShares : (req.shares * currentBpShares) / totalBpShares;
             } else {
-                bpShare = k == blueprintIds.length - 1
-                    ? remainingShares
-                    : req.shares / blueprintIds.length;
+                bpShare = k == blueprintIds.length - 1 ? remainingShares : req.shares / blueprintIds.length;
             }
             remainingShares = remainingShares > bpShare ? remainingShares - bpShare : 0;
             blueprintShares[k] = bpShare;
@@ -555,9 +580,7 @@ abstract contract DelegationManagerLib is OperatorManager {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get all delegations for a delegator (returns shares, use _sharesToAmount for values)
-    function _getDelegations(
-        address delegator
-    ) internal view returns (Types.BondInfoDelegator[] memory) {
+    function _getDelegations(address delegator) internal view returns (Types.BondInfoDelegator[] memory) {
         return _delegations[delegator];
     }
 
@@ -565,7 +588,11 @@ abstract contract DelegationManagerLib is OperatorManager {
     function _getDelegationBlueprints(
         address delegator,
         uint256 delegationIndex
-    ) internal view returns (uint64[] memory) {
+    )
+        internal
+        view
+        returns (uint64[] memory)
+    {
         return _delegationBlueprints[delegator][delegationIndex];
     }
 
@@ -605,7 +632,11 @@ abstract contract DelegationManagerLib is OperatorManager {
     function _getOperatorDelegatedStakeForAsset(
         address operator,
         bytes32 assetHash
-    ) internal view returns (uint256 total) {
+    )
+        internal
+        view
+        returns (uint256 total)
+    {
         total += _rewardPools[operator][assetHash].totalAssets;
 
         uint256 bpCount = _operatorBlueprints[operator].length();
@@ -638,9 +669,7 @@ abstract contract DelegationManagerLib is OperatorManager {
     }
 
     /// @notice Get pending unstake requests (returns shares)
-    function _getPendingUnstakes(
-        address delegator
-    ) internal view returns (Types.BondLessRequest[] memory) {
+    function _getPendingUnstakes(address delegator) internal view returns (Types.BondLessRequest[] memory) {
         return _unstakeRequests[delegator];
     }
 
@@ -652,7 +681,11 @@ abstract contract DelegationManagerLib is OperatorManager {
     function _getDelegatorSharesForOperator(
         address delegator,
         address operator
-    ) internal view returns (uint256 totalShares) {
+    )
+        internal
+        view
+        returns (uint256 totalShares)
+    {
         for (uint256 i = 0; i < _delegations[delegator].length; i++) {
             if (_delegations[delegator][i].operator == operator) {
                 totalShares += _delegations[delegator][i].shares;
@@ -662,10 +695,7 @@ abstract contract DelegationManagerLib is OperatorManager {
 
     /// @notice Get total delegation to a specific operator (in underlying amount)
     /// @dev Converts shares to amount at current exchange rate, handling both All and Fixed modes
-    function _getDelegationToOperator(
-        address delegator,
-        address operator
-    ) internal view returns (uint256 totalAmount) {
+    function _getDelegationToOperator(address delegator, address operator) internal view returns (uint256 totalAmount) {
         // Need to calculate separately for All mode vs Fixed mode delegations
         for (uint256 i = 0; i < _delegations[delegator].length; i++) {
             Types.BondInfoDelegator storage d = _delegations[delegator][i];
@@ -693,7 +723,11 @@ abstract contract DelegationManagerLib is OperatorManager {
         uint64 blueprintId,
         bytes32 assetHash,
         uint256 shares
-    ) internal view returns (uint256 amount) {
+    )
+        internal
+        view
+        returns (uint256 amount)
+    {
         Types.OperatorRewardPool storage pool = _blueprintPools[operator][blueprintId][assetHash];
         // C-1 FIX: Use virtual offset - consistent with main pool
         return (shares * (pool.totalAssets + VIRTUAL_ASSETS)) / (pool.totalShares + VIRTUAL_SHARES);
@@ -706,7 +740,11 @@ abstract contract DelegationManagerLib is OperatorManager {
         uint64 blueprintId,
         bytes32 assetHash,
         uint256 amount
-    ) internal view returns (uint256 shares) {
+    )
+        internal
+        view
+        returns (uint256 shares)
+    {
         Types.OperatorRewardPool storage pool = _blueprintPools[operator][blueprintId][assetHash];
         // C-1 FIX: Use virtual offset - consistent with main pool
         shares = (amount * (pool.totalShares + VIRTUAL_SHARES)) / (pool.totalAssets + VIRTUAL_ASSETS);
@@ -717,7 +755,11 @@ abstract contract DelegationManagerLib is OperatorManager {
         address delegator,
         address operator,
         bytes32 assetHash
-    ) internal view returns (uint256 pendingShares) {
+    )
+        internal
+        view
+        returns (uint256 pendingShares)
+    {
         Types.BondLessRequest[] storage requests = _unstakeRequests[delegator];
         for (uint256 i = 0; i < requests.length; i++) {
             if (requests[i].operator == operator && _assetHash(requests[i].asset) == assetHash) {
@@ -729,7 +771,11 @@ abstract contract DelegationManagerLib is OperatorManager {
     function _getActiveLockTotals(
         address delegator,
         bytes32 assetHash
-    ) internal view returns (uint256 lockedAmount, uint256 weightedBpsSum) {
+    )
+        internal
+        view
+        returns (uint256 lockedAmount, uint256 weightedBpsSum)
+    {
         Types.LockInfo[] storage locks = _depositLocks[delegator][assetHash];
         for (uint256 i = 0; i < locks.length; i++) {
             Types.LockInfo storage info = locks[i];
@@ -746,7 +792,11 @@ abstract contract DelegationManagerLib is OperatorManager {
         bytes32 assetHash,
         uint256 delegatedAfter,
         uint256 amount
-    ) internal view returns (uint16) {
+    )
+        internal
+        view
+        returns (uint16)
+    {
         if (amount == 0) {
             return _getLockMultiplierBps(Types.LockMultiplier.None);
         }
@@ -790,14 +840,18 @@ abstract contract DelegationManagerLib is OperatorManager {
         uint64[] memory blueprintIds,
         uint256[] memory blueprintShares,
         uint16 lockMultiplierBps
-    ) internal virtual;
+    )
+        internal
+        virtual;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT MANAGEMENT FOR DELEGATORS
     // ═══════════════════════════════════════════════════════════════════════════
 
     event BlueprintAddedToDelegation(address indexed delegator, uint256 indexed delegationIndex, uint64 blueprintId);
-    event BlueprintRemovedFromDelegation(address indexed delegator, uint256 indexed delegationIndex, uint64 blueprintId);
+    event BlueprintRemovedFromDelegation(
+        address indexed delegator, uint256 indexed delegationIndex, uint64 blueprintId
+    );
 
     /// @notice Add a blueprint to a Fixed mode delegation
     /// @dev Only works for Fixed mode delegations. Liquid vaults are safe because
@@ -850,12 +904,7 @@ abstract contract DelegationManagerLib is OperatorManager {
         uint256 newBlueprintAmount = baseAmount + remainder;
         uint256 newBlueprintShares = _amountToSharesForBlueprint(d.operator, blueprintId, assetHash, newBlueprintAmount);
         _setDelegatorBlueprintPosition(
-            msg.sender,
-            d.operator,
-            assetHash,
-            blueprintId,
-            newBlueprintShares,
-            newBlueprintAmount
+            msg.sender, d.operator, assetHash, blueprintId, newBlueprintShares, newBlueprintAmount
         );
         totalShares += newBlueprintShares;
         d.shares = totalShares;
@@ -875,13 +924,9 @@ abstract contract DelegationManagerLib is OperatorManager {
                 blueprintAmounts[i] = i == updatedCount - 1 ? baseAmount + remainder : baseAmount;
             }
 
-            try IServiceFeeDistributor(_serviceFeeDistributor).onBlueprintsRebalanced(
-                msg.sender,
-                d.operator,
-                d.asset,
-                updatedBlueprintIds,
-                blueprintAmounts
-            ) {} catch {}
+            try IServiceFeeDistributor(_serviceFeeDistributor)
+                .onBlueprintsRebalanced(msg.sender, d.operator, d.asset, updatedBlueprintIds, blueprintAmounts) { }
+                catch { }
         }
     }
 
@@ -962,13 +1007,9 @@ abstract contract DelegationManagerLib is OperatorManager {
                 blueprintAmounts[i] = i == newCount - 1 ? baseAmount + remainder : baseAmount;
             }
 
-            try IServiceFeeDistributor(_serviceFeeDistributor).onBlueprintsRebalanced(
-                msg.sender,
-                d.operator,
-                d.asset,
-                updatedBlueprintIds,
-                blueprintAmounts
-            ) {} catch {}
+            try IServiceFeeDistributor(_serviceFeeDistributor)
+                .onBlueprintsRebalanced(msg.sender, d.operator, d.asset, updatedBlueprintIds, blueprintAmounts) { }
+                catch { }
         }
     }
 }

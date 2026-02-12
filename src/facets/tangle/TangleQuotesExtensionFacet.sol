@@ -10,7 +10,11 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 contract TangleQuotesExtensionFacet is QuotesExtend, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
         selectorList = new bytes4[](1);
-        selectorList[0] = bytes4(keccak256("extendServiceFromQuotes(uint64,((uint64,uint64,uint256,uint64,uint64,((uint8,address),uint16)[]),bytes,address)[],uint64)"));
+        selectorList[0] = bytes4(
+            keccak256(
+                "extendServiceFromQuotes(uint64,((uint64,uint64,uint256,uint64,uint64,((uint8,address),uint16)[],(uint8,uint64)[]),bytes,address)[],uint64)"
+            )
+        );
     }
 
     /// @notice Distribute extension payment as streaming (called from Quotes mixin)
@@ -22,19 +26,17 @@ contract TangleQuotesExtensionFacet is QuotesExtend, IFacetSelectors {
         address[] memory operators,
         uint64 startTime,
         uint64 endTime
-    ) internal override {
+    )
+        internal
+        override
+    {
         if (amount == 0) return;
 
-        // Payments currently distribute "immediate" amounts; streaming is handled by ServiceFeeDistributor/StreamingPaymentManager.
+        // Payments currently distribute "immediate" amounts; streaming is handled by
+        // ServiceFeeDistributor/StreamingPaymentManager.
         startTime;
         endTime;
 
-        ITanglePaymentsInternal(address(this)).distributePayment(
-            serviceId,
-            blueprintId,
-            address(0),
-            amount,
-            operators
-        );
+        ITanglePaymentsInternal(address(this)).distributePayment(serviceId, blueprintId, address(0), amount, operators);
     }
 }

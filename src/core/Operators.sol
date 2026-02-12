@@ -25,10 +25,7 @@ abstract contract Operators is Base {
     /// @param ecdsaPublicKey The ECDSA public key for gossip network identity
     /// @param rpcAddress The operator's RPC endpoint
     event OperatorRegistered(
-        uint64 indexed blueprintId,
-        address indexed operator,
-        bytes ecdsaPublicKey,
-        string rpcAddress
+        uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress
     );
 
     event OperatorUnregistered(uint64 indexed blueprintId, address indexed operator);
@@ -38,10 +35,7 @@ abstract contract Operators is Base {
 
     /// @notice Emitted when an operator updates their preferences
     event OperatorPreferencesUpdated(
-        uint64 indexed blueprintId,
-        address indexed operator,
-        bytes ecdsaPublicKey,
-        string rpcAddress
+        uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -77,7 +71,10 @@ abstract contract Operators is Base {
         uint64 blueprintId,
         bytes calldata ecdsaPublicKey,
         string calldata rpcAddress
-    ) external whenNotPaused {
+    )
+        external
+        whenNotPaused
+    {
         _registerOperator(blueprintId, ecdsaPublicKey, rpcAddress, bytes(""));
     }
 
@@ -87,7 +84,10 @@ abstract contract Operators is Base {
         bytes calldata ecdsaPublicKey,
         string calldata rpcAddress,
         bytes calldata registrationInputs
-    ) external whenNotPaused {
+    )
+        external
+        whenNotPaused
+    {
         _registerOperator(blueprintId, ecdsaPublicKey, rpcAddress, registrationInputs);
     }
 
@@ -96,7 +96,9 @@ abstract contract Operators is Base {
         bytes calldata ecdsaPublicKey,
         string calldata rpcAddress,
         bytes memory registrationInputs
-    ) private {
+    )
+        private
+    {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
 
@@ -130,54 +132,45 @@ abstract contract Operators is Base {
         // Validate minimum stake requirement
         uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
+            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (
+                bool useDefault, uint256 customMin
+            ) {
                 if (!useDefault && customMin > 0) {
                     minStake = customMin;
                 }
-            } catch {}
+            } catch { }
         }
         if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
             revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
         }
 
         SchemaLib.validatePayload(
-            _registrationSchemas[blueprintId],
-            registrationInputs,
-            Types.SchemaTarget.Registration,
-            blueprintId,
-            0
+            _registrationSchemas[blueprintId], registrationInputs, Types.SchemaTarget.Registration, blueprintId, 0
         );
 
         string memory rpcAddressCopy = rpcAddress;
 
         // Encode preferences for backwards-compatible manager hooks
         {
-            bytes memory encodedPreferences = abi.encode(
-                Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy })
-            );
+            bytes memory encodedPreferences =
+                abi.encode(Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy }));
 
             // Call manager hook first (may reject)
             if (bp.manager != address(0)) {
                 bytes memory managerPayload = registrationInputs.length > 0 ? registrationInputs : encodedPreferences;
                 _callManager(
-                    bp.manager,
-                    abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, managerPayload))
+                    bp.manager, abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, managerPayload))
                 );
             }
 
             // Store preferences (including ECDSA public key for gossip)
-            _operatorPreferences[blueprintId][msg.sender] = Types.OperatorPreferences({
-                ecdsaPublicKey: ecdsaPublicKey,
-                rpcAddress: rpcAddressCopy
-            });
+            _operatorPreferences[blueprintId][msg.sender] =
+                Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy });
         }
 
         // Register
         _operatorRegistrations[blueprintId][msg.sender] = Types.OperatorRegistration({
-            registeredAt: uint64(block.timestamp),
-            updatedAt: uint64(block.timestamp),
-            active: true,
-            online: true
+            registeredAt: uint64(block.timestamp), updatedAt: uint64(block.timestamp), active: true, online: true
         });
 
         _blueprintOperatorKeys[blueprintId][keyHash] = msg.sender;
@@ -216,10 +209,7 @@ abstract contract Operators is Base {
 
         // Call manager hook
         if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onUnregister, (msg.sender))
-            );
+            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onUnregister, (msg.sender)));
         }
 
         bytes32 keyHash;
@@ -253,7 +243,9 @@ abstract contract Operators is Base {
         uint64 blueprintId,
         bytes calldata ecdsaPublicKey,
         string calldata rpcAddress
-    ) external {
+    )
+        external
+    {
         Types.OperatorRegistration storage reg = _operatorRegistrations[blueprintId][msg.sender];
         if (reg.registeredAt == 0) {
             revert Errors.OperatorNotRegistered(blueprintId, msg.sender);
@@ -316,5 +308,4 @@ abstract contract Operators is Base {
             count += _operatorActiveServiceCount[i][operator];
         }
     }
-
 }

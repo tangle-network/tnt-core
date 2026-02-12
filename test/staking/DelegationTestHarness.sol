@@ -22,7 +22,7 @@ import { StakingAdminFacet } from "../../src/facets/staking/StakingAdminFacet.so
 
 /// @notice Standard Mock ERC20 for testing
 contract MockERC20 is ERC20 {
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) { }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
@@ -40,7 +40,7 @@ contract ReentrantERC20 is ERC20 {
     bool public attackExecuted;
     bytes public attackCalldata;
 
-    constructor() ERC20("ReentrantToken", "REENT") {}
+    constructor() ERC20("ReentrantToken", "REENT") { }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
@@ -100,11 +100,11 @@ contract ReentrantReceiver {
 
     // Forward calls to target for testing
     function deposit() external payable {
-        target.deposit{value: msg.value}();
+        target.deposit{ value: msg.value }();
     }
 
     function depositAndDelegate(address operator) external payable {
-        target.depositAndDelegate{value: msg.value}(operator);
+        target.depositAndDelegate{ value: msg.value }(operator);
     }
 
     function scheduleWithdraw(address token, uint256 amount) external {
@@ -128,7 +128,7 @@ contract ReentrantReceiver {
 contract FailingERC20 is ERC20 {
     bool public shouldFail;
 
-    constructor() ERC20("FailingToken", "FAIL") {}
+    constructor() ERC20("FailingToken", "FAIL") { }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
@@ -183,7 +183,7 @@ abstract contract DelegationTestHarness is Test {
 
     // Precision
     uint256 public constant PRECISION = 1e18;
-    uint256 public constant BPS_DENOMINATOR = 10000;
+    uint256 public constant BPS_DENOMINATOR = 10_000;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SETUP
@@ -211,10 +211,8 @@ abstract contract DelegationTestHarness is Test {
     function _deployContracts() internal {
         // Deploy delegation contract
         MultiAssetDelegation impl = new MultiAssetDelegation();
-        bytes memory initData = abi.encodeCall(
-            MultiAssetDelegation.initialize,
-            (admin, MIN_OPERATOR_STAKE, 0, OPERATOR_COMMISSION_BPS)
-        );
+        bytes memory initData =
+            abi.encodeCall(MultiAssetDelegation.initialize, (admin, MIN_OPERATOR_STAKE, 0, OPERATOR_COMMISSION_BPS));
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         delegation = IMultiAssetDelegation(payable(address(proxy)));
 
@@ -228,8 +226,8 @@ abstract contract DelegationTestHarness is Test {
     function _configureAssets() internal {
         vm.startPrank(admin);
         // Enable ERC20 tokens
-        delegation.enableAsset(address(token), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
-        delegation.enableAsset(address(token2), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10000);
+        delegation.enableAsset(address(token), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10_000);
+        delegation.enableAsset(address(token2), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10_000);
         // Add slasher role
         delegation.addSlasher(slasher);
         // Add tangle role for blueprint management
@@ -272,7 +270,7 @@ abstract contract DelegationTestHarness is Test {
 
     function _registerDefaultOperator() internal {
         vm.prank(operator1);
-        delegation.registerOperator{value: 10 ether}();
+        delegation.registerOperator{ value: 10 ether }();
         vm.prank(operator1);
         delegation.setDelegationMode(Types.DelegationMode.Open);
     }
@@ -284,7 +282,7 @@ abstract contract DelegationTestHarness is Test {
     /// @notice Register an operator with specified stake
     function _registerOperator(address operator, uint256 stake) internal {
         vm.prank(operator);
-        delegation.registerOperator{value: stake}();
+        delegation.registerOperator{ value: stake }();
         vm.prank(operator);
         delegation.setDelegationMode(Types.DelegationMode.Open);
     }
@@ -292,24 +290,15 @@ abstract contract DelegationTestHarness is Test {
     /// @notice Deposit and delegate native ETH
     function _depositAndDelegate(address delegator, address operator, uint256 amount) internal {
         vm.prank(delegator);
-        delegation.depositAndDelegate{value: amount}(operator);
+        delegation.depositAndDelegate{ value: amount }(operator);
     }
 
     /// @notice Deposit and delegate ERC20
-    function _depositAndDelegateErc20(
-        address delegator,
-        address operator,
-        address tokenAddr,
-        uint256 amount
-    ) internal {
+    function _depositAndDelegateErc20(address delegator, address operator, address tokenAddr, uint256 amount) internal {
         vm.startPrank(delegator);
         ERC20(tokenAddr).approve(address(delegation), amount);
         delegation.depositAndDelegateWithOptions(
-            operator,
-            tokenAddr,
-            amount,
-            Types.BlueprintSelectionMode.All,
-            new uint64[](0)
+            operator, tokenAddr, amount, Types.BlueprintSelectionMode.All, new uint64[](0)
         );
         vm.stopPrank();
     }
@@ -317,13 +306,13 @@ abstract contract DelegationTestHarness is Test {
     /// @notice Deposit native ETH only (no delegation)
     function _depositNative(address delegator, uint256 amount) internal {
         vm.prank(delegator);
-        delegation.deposit{value: amount}();
+        delegation.deposit{ value: amount }();
     }
 
     /// @notice Deposit native ETH with lock
     function _depositNativeWithLock(address delegator, uint256 amount, Types.LockMultiplier lock) internal {
         vm.prank(delegator);
-        delegation.depositWithLock{value: amount}(lock);
+        delegation.depositWithLock{ value: amount }(lock);
     }
 
     /// @notice Deposit ERC20 only (no delegation)
@@ -421,7 +410,11 @@ abstract contract DelegationTestHarness is Test {
         uint256 slashAmount,
         uint256 operatorStake,
         uint256 delegatedStake
-    ) internal pure returns (uint256 operatorSlash, uint256 delegatorSlash) {
+    )
+        internal
+        pure
+        returns (uint256 operatorSlash, uint256 delegatorSlash)
+    {
         uint256 totalStake = operatorStake + delegatedStake;
         if (totalStake == 0) return (0, 0);
         operatorSlash = (slashAmount * operatorStake) / totalStake;
@@ -439,7 +432,15 @@ abstract contract DelegationTestHarness is Test {
     }
 
     /// @notice Assert delegation is approximately equal (within 1 wei for rounding)
-    function assertDelegationApproxEq(address delegator, address operator, uint256 expected, uint256 tolerance) internal view {
+    function assertDelegationApproxEq(
+        address delegator,
+        address operator,
+        uint256 expected,
+        uint256 tolerance
+    )
+        internal
+        view
+    {
         uint256 actual = _getDelegation(delegator, operator);
         assertApproxEqAbs(actual, expected, tolerance, "Delegation approx mismatch");
     }

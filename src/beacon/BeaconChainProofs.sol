@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ValidatorTypes} from "./ValidatorTypes.sol";
+import { ValidatorTypes } from "./ValidatorTypes.sol";
 
 /// @title BeaconChainProofs
 /// @notice Library for verifying Merkle proofs against beacon chain state
@@ -139,7 +139,11 @@ library BeaconChainProofs {
     function verifyStateRoot(
         bytes32 beaconBlockRoot,
         ValidatorTypes.StateRootProof calldata stateRootProof
-    ) internal pure returns (bool) {
+    )
+        internal
+        pure
+        returns (bool)
+    {
         // M-11 FIX: Reject zero beacon block root (could be genesis block or invalid root)
         // EIP-4788 returns 0 for timestamps before the fork or invalid timestamps
         if (beaconBlockRoot == bytes32(0)) {
@@ -157,12 +161,8 @@ library BeaconChainProofs {
             revert InvalidProofLength();
         }
 
-        return _verifyMerkleProof(
-            stateRootProof.proof,
-            beaconBlockRoot,
-            stateRootProof.beaconStateRoot,
-            STATE_ROOT_INDEX
-        );
+        return
+            _verifyMerkleProof(stateRootProof.proof, beaconBlockRoot, stateRootProof.beaconStateRoot, STATE_ROOT_INDEX);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -178,7 +178,11 @@ library BeaconChainProofs {
         bytes32 beaconStateRoot,
         uint40 validatorIndex,
         ValidatorTypes.ValidatorFieldsProof memory proof
-    ) internal pure returns (bool) {
+    )
+        internal
+        pure
+        returns (bool)
+    {
         if (proof.validatorFields.length != VALIDATOR_FIELDS_LENGTH) {
             revert InvalidValidatorFieldsLength();
         }
@@ -200,12 +204,7 @@ library BeaconChainProofs {
             revert InvalidProofLength();
         }
 
-        return _verifyMerkleProofFromGIndexMemory(
-            proof.proof,
-            beaconStateRoot,
-            validatorLeaf,
-            validatorGIndex
-        );
+        return _verifyMerkleProofFromGIndexMemory(proof.proof, beaconStateRoot, validatorLeaf, validatorGIndex);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -220,7 +219,11 @@ library BeaconChainProofs {
     function verifyBalanceContainer(
         bytes32 beaconStateRoot,
         ValidatorTypes.BalanceContainerProof calldata proof
-    ) internal pure returns (bool) {
+    )
+        internal
+        pure
+        returns (bool)
+    {
         // Balance container is at generalized index 44 in the beacon state
         // Proof length: BEACON_STATE_TREE_HEIGHT levels to reach balances from state root
         uint256 expectedProofLength = BEACON_STATE_TREE_HEIGHT * 32;
@@ -229,10 +232,7 @@ library BeaconChainProofs {
         }
 
         return _verifyMerkleProofFromGIndex(
-            proof.proof,
-            beaconStateRoot,
-            proof.balanceContainerRoot,
-            BALANCE_CONTAINER_GINDEX
+            proof.proof, beaconStateRoot, proof.balanceContainerRoot, BALANCE_CONTAINER_GINDEX
         );
     }
 
@@ -245,7 +245,11 @@ library BeaconChainProofs {
         bytes32 balanceContainerRoot,
         uint40 validatorIndex,
         ValidatorTypes.BalanceProof calldata proof
-    ) internal pure returns (uint64 balance) {
+    )
+        internal
+        pure
+        returns (uint64 balance)
+    {
         // Each balance leaf contains 4 validator balances packed together
         // Leaf index = validatorIndex / 4
         uint256 balanceLeafIndex = validatorIndex / VALIDATORS_PER_BALANCE_LEAF;
@@ -255,12 +259,7 @@ library BeaconChainProofs {
             revert InvalidProofLength();
         }
 
-        bool valid = _verifyMerkleProof(
-            proof.proof,
-            balanceContainerRoot,
-            proof.balanceRoot,
-            balanceLeafIndex
-        );
+        bool valid = _verifyMerkleProof(proof.proof, balanceContainerRoot, proof.balanceRoot, balanceLeafIndex);
 
         if (!valid) {
             revert ProofVerificationFailed();
@@ -346,10 +345,7 @@ library BeaconChainProofs {
     /// @param balanceRoot The 32-byte leaf containing 4 packed balances
     /// @param validatorIndex The validator's global index
     /// @return The 64-bit balance in gwei
-    function _extractBalanceFromLeaf(
-        bytes32 balanceRoot,
-        uint40 validatorIndex
-    ) internal pure returns (uint64) {
+    function _extractBalanceFromLeaf(bytes32 balanceRoot, uint40 validatorIndex) internal pure returns (uint64) {
         // Position within the leaf (0-3)
         uint256 position = validatorIndex % VALIDATORS_PER_BALANCE_LEAF;
         // Each balance is 8 bytes (64 bits), little-endian
@@ -369,7 +365,11 @@ library BeaconChainProofs {
         bytes32 root,
         bytes32 leaf,
         uint256 index
-    ) internal pure returns (bool) {
+    )
+        internal
+        pure
+        returns (bool)
+    {
         bytes32 computedHash = leaf;
 
         for (uint256 i = 0; i < proof.length; i += 32) {
@@ -396,7 +396,11 @@ library BeaconChainProofs {
         bytes32 root,
         bytes32 leaf,
         uint256 gindex
-    ) internal pure returns (bool) {
+    )
+        internal
+        pure
+        returns (bool)
+    {
         bytes32 computedHash = leaf;
 
         // Number of levels = log2(gindex) = position of highest bit
@@ -423,7 +427,11 @@ library BeaconChainProofs {
         bytes32 root,
         bytes32 leaf,
         uint256 gindex
-    ) internal pure returns (bool) {
+    )
+        internal
+        pure
+        returns (bool)
+    {
         bytes32 computedHash = leaf;
 
         for (uint256 i = 0; i < proof.length; i += 32) {

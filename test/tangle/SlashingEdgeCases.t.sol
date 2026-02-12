@@ -246,7 +246,8 @@ contract SlashingEdgeCasesTest is BaseTest {
             subscriptionInterval: 0,
             eventRate: 0
         });
-        uint64 dynamicBpId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
+        uint64 dynamicBpId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(0), config));
 
         // Register operator2
         _registerOperator(operator2, 5 ether);
@@ -329,7 +330,7 @@ contract SlashingEdgeCasesTest is BaseTest {
     function test_CustomSlashingWindow_ShortWindow() public {
         // Set short dispute window
         vm.prank(admin);
-        tangle.setSlashConfig(1 hours, false, 10000);
+        tangle.setSlashConfig(1 hours, false, 10_000);
 
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
@@ -347,7 +348,7 @@ contract SlashingEdgeCasesTest is BaseTest {
     function test_CustomSlashingWindow_LongWindow() public {
         // Set long dispute window
         vm.prank(admin);
-        tangle.setSlashConfig(30 days, false, 10000);
+        tangle.setSlashConfig(30 days, false, 10_000);
 
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
@@ -381,7 +382,8 @@ contract SlashingEdgeCasesTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(exposureBpId, ops, exposures, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestServiceWithExposure(exposureBpId, ops, exposures, "", callers, 0, address(0), 0);
 
         _approveService(operator1, requestId);
 

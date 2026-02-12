@@ -42,10 +42,7 @@ contract PaymentFuzzTest is BaseTest {
 
         // Set the payment split
         Types.PaymentSplit memory split = Types.PaymentSplit({
-            developerBps: devBps,
-            protocolBps: protoBps,
-            operatorBps: opBps,
-            stakerBps: stakerBps
+            developerBps: devBps, protocolBps: protoBps, operatorBps: opBps, stakerBps: stakerBps
         });
         vm.prank(admin);
         tangle.setPaymentSplit(split);
@@ -84,13 +81,7 @@ contract PaymentFuzzTest is BaseTest {
         uint64 requestId;
         vm.prank(user1);
         requestId = tangle.requestService{ value: payment }(
-            blueprintId,
-            _singleOperator(operator1),
-            "",
-            new address[](0),
-            0,
-            address(0),
-            payment
+            blueprintId, _singleOperator(operator1), "", new address[](0), 0, address(0), payment
         );
 
         // Should not overflow during payment distribution
@@ -107,15 +98,11 @@ contract PaymentFuzzTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Fuzz test exposure-weighted distribution across multiple operators
-    function testFuzz_ExposureWeightedDistribution(
-        uint256 payment,
-        uint16 exposure1,
-        uint16 exposure2
-    ) public {
+    function testFuzz_ExposureWeightedDistribution(uint256 payment, uint16 exposure1, uint16 exposure2) public {
         // Bound inputs
         payment = bound(payment, 1 ether, 100 ether);
-        exposure1 = uint16(bound(uint256(exposure1), 1000, 10000)); // Min 10%, Max 100%
-        exposure2 = uint16(bound(uint256(exposure2), 1000, 10000));
+        exposure1 = uint16(bound(uint256(exposure1), 1000, 10_000)); // Min 10%, Max 100%
+        exposure2 = uint16(bound(uint256(exposure2), 1000, 10_000));
 
         // Register second operator
         _registerOperator(operator2, 10 ether);
@@ -149,8 +136,8 @@ contract PaymentFuzzTest is BaseTest {
 
         // Check that exposure ratios are approximately preserved
         if (totalOpRewards > 0 && totalExposure > 0) {
-            uint256 expectedRatio1 = (uint256(exposure1) * 10000) / totalExposure;
-            uint256 actualRatio1 = totalOpRewards > 0 ? (op1Rewards * 10000) / totalOpRewards : 0;
+            uint256 expectedRatio1 = (uint256(exposure1) * 10_000) / totalExposure;
+            uint256 actualRatio1 = totalOpRewards > 0 ? (op1Rewards * 10_000) / totalOpRewards : 0;
 
             // Allow 1% tolerance for rounding
             assertApproxEqAbs(expectedRatio1, actualRatio1, 100, "Exposure ratio not preserved");
@@ -162,11 +149,7 @@ contract PaymentFuzzTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Fuzz test subscription escrow doesn't go negative
-    function testFuzz_SubscriptionEscrow_NeverNegative(
-        uint256 initialEscrow,
-        uint256 rate,
-        uint8 billCount
-    ) public {
+    function testFuzz_SubscriptionEscrow_NeverNegative(uint256 initialEscrow, uint256 rate, uint8 billCount) public {
         // Bound inputs
         initialEscrow = bound(initialEscrow, 0.1 ether, 100 ether);
         rate = bound(rate, 0.01 ether, 1 ether);

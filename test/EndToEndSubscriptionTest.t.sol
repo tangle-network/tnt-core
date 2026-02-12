@@ -41,15 +41,8 @@ contract EndToEndSubscriptionTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: payment }(
-            blueprintId,
-            operators,
-            "",
-            callers,
-            0,
-            address(0),
-            payment
-        );
+        uint64 requestId =
+            tangle.requestService{ value: payment }(blueprintId, operators, "", callers, 0, address(0), payment);
 
         // Step 5: Operator approves - payment is distributed
         vm.prank(operator1);
@@ -63,7 +56,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
     /// @notice Test subscription billing fails when escrow is exhausted
     function test_E2E_Subscription_EscrowExhaustion() public {
-        uint256 startTime = 1000000;
+        uint256 startTime = 1_000_000;
         vm.warp(startTime);
 
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
@@ -77,8 +70,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId =
-            _createBlueprintWithConfigAsSender("ipfs://exhaustion-test", address(0), config);
+        uint64 blueprintId = _createBlueprintWithConfigAsSender("ipfs://exhaustion-test", address(0), config);
 
         vm.prank(operator1);
         staking.registerOperator{ value: 5 ether }();
@@ -120,7 +112,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
     /// @notice Test subscription with dynamic membership (operators join/leave)
     function test_E2E_Subscription_DynamicMembership() public {
-        uint256 startTime = 1000000;
+        uint256 startTime = 1_000_000;
         vm.warp(startTime);
 
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
@@ -134,8 +126,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId =
-            _createBlueprintWithConfigAsSender("ipfs://dynamic-subscription", address(0), config);
+        uint64 blueprintId = _createBlueprintWithConfigAsSender("ipfs://dynamic-subscription", address(0), config);
 
         // Register all operators
         vm.prank(operator1);
@@ -161,7 +152,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         address[] memory operators = new address[](1);
         operators[0] = operator1;
         uint16[] memory exposures = new uint16[](1);
-        exposures[0] = 10000; // 100%
+        exposures[0] = 10_000; // 100%
         address[] memory callers = new address[](0);
 
         vm.deal(address(tangle), 100 ether);
@@ -219,7 +210,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
     /// @notice Test rewards distribution proportional to delegation stake
     function test_E2E_Subscription_RewardsProportionalToDelegation() public {
-        uint256 startTime = 1000000;
+        uint256 startTime = 1_000_000;
         vm.warp(startTime);
 
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
@@ -233,8 +224,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId =
-            _createBlueprintWithConfigAsSender("ipfs://proportional-rewards", address(0), config);
+        uint64 blueprintId = _createBlueprintWithConfigAsSender("ipfs://proportional-rewards", address(0), config);
 
         vm.prank(operator1);
         staking.registerOperator{ value: 5 ether }();
@@ -280,7 +270,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
     /// @notice Test subscription termination and refund
     function test_E2E_Subscription_TerminationRefund() public {
-        uint256 startTime = 1000000;
+        uint256 startTime = 1_000_000;
         vm.warp(startTime);
 
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
@@ -294,8 +284,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 blueprintId =
-            _createBlueprintWithConfigAsSender("ipfs://termination", address(0), config);
+        uint64 blueprintId = _createBlueprintWithConfigAsSender("ipfs://termination", address(0), config);
 
         vm.prank(operator1);
         staking.registerOperator{ value: 5 ether }();

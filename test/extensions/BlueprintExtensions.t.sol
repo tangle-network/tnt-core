@@ -1,28 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Test } from "forge-std/Test.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {BlueprintHookBase} from "../../src/interfaces/IBlueprintHook.sol";
-import {TokenizedBlueprintBase} from "../../src/extensions/TokenizedBlueprintBase.sol";
-import {
-    BuybackBlueprintBase,
-    ISwapRouter,
-    IWETH
-} from "../../src/extensions/BuybackBlueprintBase.sol";
-import {MockERC20} from "../MockERC20.sol";
+import { BlueprintHookBase } from "../../src/interfaces/IBlueprintHook.sol";
+import { TokenizedBlueprintBase } from "../../src/extensions/TokenizedBlueprintBase.sol";
+import { BuybackBlueprintBase, ISwapRouter, IWETH } from "../../src/extensions/BuybackBlueprintBase.sol";
+import { MockERC20 } from "../MockERC20.sol";
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TEST HARNESS CONTRACTS
 // ═════════════════════════════════════════════════════════════════════════════
 
-contract BlueprintHookHarness is BlueprintHookBase {}
+contract BlueprintHookHarness is BlueprintHookBase { }
 
 contract TokenizedBlueprintHarness is TokenizedBlueprintBase {
-    constructor() TokenizedBlueprintBase("Harness Blueprint Token", "HBT") {}
+    constructor() TokenizedBlueprintBase("Harness Blueprint Token", "HBT") { }
 
     function bootstrap(uint64 blueprintId, address owner, address tangle) external {
         this.onBlueprintCreated(blueprintId, owner, tangle);
@@ -43,7 +39,7 @@ contract TokenizedBlueprintHarness is TokenizedBlueprintBase {
 }
 
 contract MockWETH is ERC20("MockWETH", "MWETH"), IWETH {
-    constructor() {}
+    constructor() { }
 
     function deposit() external payable {
         _mint(msg.sender, msg.value);
@@ -51,7 +47,7 @@ contract MockWETH is ERC20("MockWETH", "MWETH"), IWETH {
 
     function withdraw(uint256 amount) external {
         _burn(msg.sender, amount);
-        (bool ok,) = msg.sender.call{value: amount}("");
+        (bool ok,) = msg.sender.call{ value: amount }("");
         require(ok, "ETH send failed");
     }
 
@@ -106,9 +102,7 @@ contract MockSwapRouter is ISwapRouter {
 contract BuybackBlueprintHarness is BuybackBlueprintBase {
     uint256 internal expectedOutOverride;
 
-    constructor(address router, address weth)
-        BuybackBlueprintBase("Buyback Blueprint Token", "BBT", router, weth)
-    {}
+    constructor(address router, address weth) BuybackBlueprintBase("Buyback Blueprint Token", "BBT", router, weth) { }
 
     function bootstrap(uint64 blueprintId, address owner, address tangle) external {
         this.onBlueprintCreated(blueprintId, owner, tangle);
@@ -229,7 +223,7 @@ contract TokenizedBlueprintBaseTest is Test {
         blueprint.stake(80 ether);
 
         vm.deal(address(this), 1 ether);
-        (bool ok,) = address(blueprint).call{value: 1 ether}("");
+        (bool ok,) = address(blueprint).call{ value: 1 ether }("");
         require(ok, "payment failed");
 
         assertEq(staker.balance, 0);
@@ -261,7 +255,7 @@ contract TokenizedBlueprintBaseTest is Test {
         blueprint.stake(50 ether);
 
         vm.deal(address(this), 1 ether);
-        (bool ok,) = address(blueprint).call{value: 1 ether}("");
+        (bool ok,) = address(blueprint).call{ value: 1 ether }("");
         require(ok, "payment failed");
 
         vm.warp(block.timestamp + 3 days);
@@ -290,7 +284,7 @@ contract BuybackBlueprintBaseTest is Test {
     address internal staker = address(0x7777);
 
     function _sendEther(address target, uint256 amount) internal {
-        (bool ok, bytes memory data) = target.call{value: amount}("");
+        (bool ok, bytes memory data) = target.call{ value: amount }("");
         if (!ok) {
             assembly {
                 revert(add(data, 0x20), mload(data))
@@ -304,7 +298,7 @@ contract BuybackBlueprintBaseTest is Test {
         buyback = new BuybackBlueprintHarness(address(router), address(weth));
         buyback.bootstrap(1, owner, tangle);
         buyback.mintToken(address(router), 10_000 ether);
-        buyback.mintToken(staker, 1_000 ether);
+        buyback.mintToken(staker, 1000 ether);
     }
 
     function test_AutoModeExecutesBuybackAndDistributesRewards() public {
@@ -343,7 +337,9 @@ contract BuybackBlueprintBaseTest is Test {
     }
 
     function test_ThresholdModeTriggersWhenBalanceReached() public {
-        buyback.configure(BuybackBlueprintBase.BuybackMode.THRESHOLD, BuybackBlueprintBase.TokenDestination.TREASURY, 1 ether);
+        buyback.configure(
+            BuybackBlueprintBase.BuybackMode.THRESHOLD, BuybackBlueprintBase.TokenDestination.TREASURY, 1 ether
+        );
         buyback.setTreasury(treasury);
         buyback.setExpectedOutput(150 ether);
         router.setFixedAmountOut(150 ether);
@@ -365,7 +361,9 @@ contract BuybackBlueprintBaseTest is Test {
     }
 
     function test_ThresholdModeSlippageFailureKeepsPendingBalance() public {
-        buyback.configure(BuybackBlueprintBase.BuybackMode.THRESHOLD, BuybackBlueprintBase.TokenDestination.DISTRIBUTE, 5 ether);
+        buyback.configure(
+            BuybackBlueprintBase.BuybackMode.THRESHOLD, BuybackBlueprintBase.TokenDestination.DISTRIBUTE, 5 ether
+        );
         buyback.setExpectedOutput(150 ether);
         router.setFixedAmountOut(10 ether);
 

@@ -40,18 +40,16 @@ abstract contract Services is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
-    event ServiceRequestedWithSecurity(
-        uint64 indexed requestId,
-        uint64 indexed blueprintId,
-        address indexed requester
-    );
+    event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
     event ServiceApproved(uint64 indexed requestId, address indexed operator);
     event ServiceRejected(uint64 indexed requestId, address indexed operator);
     // ServiceActivated defined in Base.sol
     event ServiceTerminated(uint64 indexed serviceId);
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
     event OperatorSecurityCommitmentsStored(uint64 indexed serviceId, address indexed operator, uint256 count);
-    event OperatorSecurityCommitment(uint64 indexed serviceId, address indexed operator, uint8 assetKind, address asset, uint16 exposureBps);
+    event OperatorSecurityCommitment(
+        uint64 indexed serviceId, address indexed operator, uint8 assetKind, address asset, uint16 exposureBps
+    );
     event OperatorLeftService(uint64 indexed serviceId, address indexed operator);
     event ExitScheduled(uint64 indexed serviceId, address indexed operator, uint64 executeAfter);
     event ExitCanceled(uint64 indexed serviceId, address indexed operator);
@@ -70,7 +68,13 @@ abstract contract Services is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (uint64 requestId)
+    {
         _validateRequestConfig(blueprintId, config);
         requestId = _requestServiceWithDefaultExposure(
             blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount
@@ -89,7 +93,13 @@ abstract contract Services is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (uint64 requestId)
+    {
         if (operators.length != exposures.length) revert Errors.LengthMismatch();
         _validateRequestConfig(blueprintId, config);
         requestId = _requestServiceInternal(
@@ -109,7 +119,13 @@ abstract contract Services is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) external payable whenNotPaused nonReentrant returns (uint64 requestId) {
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (uint64 requestId)
+    {
         _validateSecurityRequirements(securityRequirements);
 
         requestId = _requestServiceWithDefaultExposure(
@@ -128,7 +144,10 @@ abstract contract Services is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) private returns (uint64 requestId) {
+    )
+        private
+        returns (uint64 requestId)
+    {
         uint16[] memory exposures = _defaultExposures(operators.length);
         _validateRequestConfig(blueprintId, config);
         return _requestServiceInternal(
@@ -146,7 +165,10 @@ abstract contract Services is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) internal returns (uint64 requestId) {
+    )
+        internal
+        returns (uint64 requestId)
+    {
         if (operators.length == 0) revert Errors.NoOperators();
 
         BlueprintRequestData memory blueprintData = _loadBlueprintRequestData(blueprintId);
@@ -158,14 +180,7 @@ abstract contract Services is Base {
 
         RequestBounds memory bounds = _computeRequestBounds(blueprintId, uint32(operators.length));
 
-        requestId = _createServiceRequest(
-            blueprintId,
-            ttl,
-            paymentToken,
-            paymentAmount,
-            blueprintData,
-            bounds
-        );
+        requestId = _createServiceRequest(blueprintId, ttl, paymentToken, paymentAmount, blueprintData, bounds);
 
         _storeRequestOperators(requestId, operators, exposures);
         _storePermittedCallers(requestId, permittedCallers);
@@ -176,20 +191,10 @@ abstract contract Services is Base {
     }
 
     function _validateRequestConfig(uint64 blueprintId, bytes calldata config) private view {
-        SchemaLib.validatePayload(
-            _requestSchemas[blueprintId],
-            config,
-            Types.SchemaTarget.Request,
-            blueprintId,
-            0
-        );
+        SchemaLib.validatePayload(_requestSchemas[blueprintId], config, Types.SchemaTarget.Request, blueprintId, 0);
     }
 
-    function _validateRequestPaymentAsset(
-        address manager,
-        address paymentToken,
-        uint256 paymentAmount
-    ) private view {
+    function _validateRequestPaymentAsset(address manager, address paymentToken, uint256 paymentAmount) private view {
         if (manager == address(0) || paymentAmount == 0) {
             return;
         }
@@ -206,7 +211,10 @@ abstract contract Services is Base {
         uint64 blueprintId,
         address[] calldata operators,
         uint16[] memory exposures
-    ) private view {
+    )
+        private
+        view
+    {
         for (uint256 i = 0; i < operators.length; i++) {
             if (_operatorRegistrations[blueprintId][operators[i]].registeredAt == 0) {
                 revert Errors.OperatorNotRegistered(blueprintId, operators[i]);
@@ -224,11 +232,7 @@ abstract contract Services is Base {
         return bpConfig.minOperators > 0 ? bpConfig.minOperators : 1;
     }
 
-    function _validateOperatorBounds(
-        uint32 maxOperators,
-        uint32 operatorCount,
-        uint32 minOps
-    ) private pure {
+    function _validateOperatorBounds(uint32 maxOperators, uint32 operatorCount, uint32 minOps) private pure {
         if (operatorCount < minOps) {
             revert Errors.InsufficientOperators(minOps, operatorCount);
         }
@@ -237,11 +241,7 @@ abstract contract Services is Base {
         }
     }
 
-    function _storeRequestOperators(
-        uint64 requestId,
-        address[] calldata operators,
-        uint16[] memory exposures
-    ) private {
+    function _storeRequestOperators(uint64 requestId, address[] calldata operators, uint16[] memory exposures) private {
         for (uint256 i = 0; i < operators.length; i++) {
             _requestOperators[requestId].push(operators[i]);
             _requestExposures[requestId][operators[i]] = exposures[i];
@@ -259,7 +259,9 @@ abstract contract Services is Base {
         uint64 requestId,
         address[] calldata operators,
         bytes calldata config
-    ) private {
+    )
+        private
+    {
         if (manager == address(0)) {
             return;
         }
@@ -293,7 +295,9 @@ abstract contract Services is Base {
     function _storeSecurityRequirements(
         uint64 requestId,
         Types.AssetSecurityRequirement[] calldata requirements
-    ) private {
+    )
+        private
+    {
         for (uint256 i = 0; i < requirements.length; i++) {
             _requestSecurityRequirements[requestId].push(requirements[i]);
         }
@@ -302,17 +306,21 @@ abstract contract Services is Base {
     function _storeDefaultTntRequirement(uint64 requestId) private {
         if (_tntToken == address(0)) return;
 
-        _requestSecurityRequirements[requestId].push(Types.AssetSecurityRequirement({
-            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: _tntToken }),
-            minExposureBps: _defaultTntMinExposureBps,
-            maxExposureBps: BPS_DENOMINATOR
-        }));
+        _requestSecurityRequirements[requestId].push(
+            Types.AssetSecurityRequirement({
+                asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: _tntToken }),
+                minExposureBps: _defaultTntMinExposureBps,
+                maxExposureBps: BPS_DENOMINATOR
+            })
+        );
     }
 
     function _storeSecurityRequirementsWithDefaultTnt(
         uint64 requestId,
         Types.AssetSecurityRequirement[] calldata requirements
-    ) private {
+    )
+        private
+    {
         if (_tntToken == address(0)) {
             _storeSecurityRequirements(requestId, requirements);
             return;
@@ -354,18 +362,17 @@ abstract contract Services is Base {
         existing.push(Types.AssetSecurityCommitment({ asset: req.asset, exposureBps: req.minExposureBps }));
     }
 
-    function _loadBlueprintRequestData(uint64 blueprintId)
-        private
-        view
-        returns (BlueprintRequestData memory data)
-    {
+    function _loadBlueprintRequestData(uint64 blueprintId) private view returns (BlueprintRequestData memory data) {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
         data.manager = bp.manager;
         data.membership = bp.membership;
     }
 
-    function _computeRequestBounds(uint64 blueprintId, uint32 operatorCount)
+    function _computeRequestBounds(
+        uint64 blueprintId,
+        uint32 operatorCount
+    )
         private
         view
         returns (RequestBounds memory bounds)
@@ -384,7 +391,10 @@ abstract contract Services is Base {
         uint256 paymentAmount,
         BlueprintRequestData memory blueprintData,
         RequestBounds memory bounds
-    ) private returns (uint64 requestId) {
+    )
+        private
+        returns (uint64 requestId)
+    {
         requestId = _serviceRequestCount++;
         _serviceRequests[requestId] = Types.ServiceRequest({
             blueprintId: blueprintId,
@@ -412,9 +422,8 @@ abstract contract Services is Base {
         // TTL of 0 means no expiration
         if (req.ttl == 0) return false;
 
-        uint64 gracePeriod = _requestExpiryGracePeriod > 0
-            ? _requestExpiryGracePeriod
-            : ProtocolConfig.REQUEST_EXPIRY_GRACE_PERIOD;
+        uint64 gracePeriod =
+            _requestExpiryGracePeriod > 0 ? _requestExpiryGracePeriod : ProtocolConfig.REQUEST_EXPIRY_GRACE_PERIOD;
 
         uint64 expiryWithGrace = req.createdAt + req.ttl + gracePeriod;
         return block.timestamp > expiryWithGrace;
@@ -459,8 +468,7 @@ abstract contract Services is Base {
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
             );
         }
 
@@ -473,7 +481,11 @@ abstract contract Services is Base {
     function approveServiceWithCommitments(
         uint64 requestId,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) external whenNotPaused nonReentrant {
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
@@ -514,8 +526,7 @@ abstract contract Services is Base {
         uint8 stakingPercent = commitments.length > 0 ? uint8(commitments[0].exposureBps / 100) : 100;
         if (bp.manager != address(0)) {
             _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
             );
         }
 
@@ -528,11 +539,16 @@ abstract contract Services is Base {
     function _validateSecurityCommitments(
         Types.AssetSecurityRequirement[] storage requirements,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) internal view {
+    )
+        internal
+        view
+    {
         for (uint256 i = 0; i < commitments.length; i++) {
             for (uint256 j = i + 1; j < commitments.length; j++) {
-                if (commitments[i].asset.token == commitments[j].asset.token &&
-                    commitments[i].asset.kind == commitments[j].asset.kind) {
+                if (
+                    commitments[i].asset.token == commitments[j].asset.token
+                        && commitments[i].asset.kind == commitments[j].asset.kind
+                ) {
                     revert Errors.DuplicateAssetCommitment(uint8(commitments[i].asset.kind), commitments[i].asset.token);
                 }
             }
@@ -543,13 +559,16 @@ abstract contract Services is Base {
             bool found = false;
 
             for (uint256 j = 0; j < commitments.length; j++) {
-                if (commitments[j].asset.token == req.asset.token &&
-                    commitments[j].asset.kind == req.asset.kind) {
+                if (commitments[j].asset.token == req.asset.token && commitments[j].asset.kind == req.asset.kind) {
                     if (commitments[j].exposureBps < req.minExposureBps) {
-                        revert Errors.CommitmentBelowMinimum(req.asset.token, commitments[j].exposureBps, req.minExposureBps);
+                        revert Errors.CommitmentBelowMinimum(
+                            req.asset.token, commitments[j].exposureBps, req.minExposureBps
+                        );
                     }
                     if (commitments[j].exposureBps > req.maxExposureBps) {
-                        revert Errors.CommitmentAboveMaximum(req.asset.token, commitments[j].exposureBps, req.maxExposureBps);
+                        revert Errors.CommitmentAboveMaximum(
+                            req.asset.token, commitments[j].exposureBps, req.maxExposureBps
+                        );
                     }
                     found = true;
                     break;
@@ -586,10 +605,7 @@ abstract contract Services is Base {
 
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
         if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onReject, (msg.sender, requestId))
-            );
+            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onReject, (msg.sender, requestId)));
         }
     }
 
@@ -628,14 +644,13 @@ abstract contract Services is Base {
 
         // Refund remaining streamed payments to the service owner
         if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onServiceTerminated(serviceId, svc.owner) {} catch {}
+            try IServiceFeeDistributor(_serviceFeeDistributor).onServiceTerminated(serviceId, svc.owner) { } catch { }
         }
 
         Types.Blueprint storage bp = _blueprints[blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onServiceTermination, (serviceId, msg.sender))
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onServiceTermination, (serviceId, msg.sender))
             );
         }
     }
@@ -691,11 +706,13 @@ abstract contract Services is Base {
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
+            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (
+                bool useDefault, uint256 customMin
+            ) {
                 if (!useDefault && customMin > 0) {
                     minStake = customMin;
                 }
-            } catch {}
+            } catch { }
         }
         if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
             revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
@@ -707,14 +724,11 @@ abstract contract Services is Base {
                 if (!allowed) {
                     revert Errors.Unauthorized();
                 }
-            } catch {}
+            } catch { }
         }
 
         _serviceOperators[serviceId][msg.sender] = Types.ServiceOperator({
-            exposureBps: exposureBps,
-            joinedAt: uint64(block.timestamp),
-            leftAt: 0,
-            active: true
+            exposureBps: exposureBps, joinedAt: uint64(block.timestamp), leftAt: 0, active: true
         });
         _serviceOperatorSet[serviceId].add(msg.sender);
         svc.operatorCount++;
@@ -724,7 +738,7 @@ abstract contract Services is Base {
 
         // Register operator in heartbeat registry for liveness tracking
         if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) {} catch {}
+            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) { } catch { }
         }
 
         emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
@@ -743,7 +757,11 @@ abstract contract Services is Base {
         uint64 serviceId,
         uint16 exposureBps,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) external whenNotPaused nonReentrant {
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         Types.Service storage svc = _getService(serviceId);
         if (svc.status != Types.ServiceStatus.Active) {
             revert Errors.ServiceNotActive(serviceId);
@@ -785,11 +803,13 @@ abstract contract Services is Base {
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (bool useDefault, uint256 customMin) {
+            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (
+                bool useDefault, uint256 customMin
+            ) {
                 if (!useDefault && customMin > 0) {
                     minStake = customMin;
                 }
-            } catch {}
+            } catch { }
         }
         if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
             revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
@@ -801,14 +821,11 @@ abstract contract Services is Base {
                 if (!allowed) {
                     revert Errors.Unauthorized();
                 }
-            } catch {}
+            } catch { }
         }
 
         _serviceOperators[serviceId][msg.sender] = Types.ServiceOperator({
-            exposureBps: exposureBps,
-            joinedAt: uint64(block.timestamp),
-            leftAt: 0,
-            active: true
+            exposureBps: exposureBps, joinedAt: uint64(block.timestamp), leftAt: 0, active: true
         });
         _serviceOperatorSet[serviceId].add(msg.sender);
         svc.operatorCount++;
@@ -818,7 +835,7 @@ abstract contract Services is Base {
 
         // Register operator in heartbeat registry for liveness tracking
         if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) {} catch {}
+            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) { } catch { }
         }
 
         emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
@@ -869,10 +886,7 @@ abstract contract Services is Base {
 
         // Store exit request
         _exitRequests[serviceId][msg.sender] = Types.ExitRequest({
-            serviceId: serviceId,
-            scheduledAt: uint64(block.timestamp),
-            executeAfter: executeAfter,
-            pending: true
+            serviceId: serviceId, scheduledAt: uint64(block.timestamp), executeAfter: executeAfter, pending: true
         });
 
         emit ExitScheduled(serviceId, msg.sender, executeAfter);
@@ -922,8 +936,7 @@ abstract contract Services is Base {
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onExitCanceled, (serviceId, msg.sender))
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onExitCanceled, (serviceId, msg.sender))
             );
         }
     }
@@ -977,7 +990,9 @@ abstract contract Services is Base {
 
         // If exit queue is required, must use scheduleExit/executeExit
         if (exitConfig.exitQueueDuration > 0) {
-            revert Errors.ExitNotExecutable(serviceId, msg.sender, uint64(block.timestamp) + exitConfig.exitQueueDuration, uint64(block.timestamp));
+            revert Errors.ExitNotExecutable(
+                serviceId, msg.sender, uint64(block.timestamp) + exitConfig.exitQueueDuration, uint64(block.timestamp)
+            );
         }
 
         _executeLeave(serviceId, msg.sender);
@@ -1003,12 +1018,12 @@ abstract contract Services is Base {
                 if (!allowed) {
                     revert Errors.Unauthorized();
                 }
-            } catch {}
+            } catch { }
         }
 
         // Drip streaming payments BEFORE removing operator (ensures fair distribution)
         if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) {} catch {}
+            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) { } catch { }
         }
 
         opData.active = false;
@@ -1023,17 +1038,14 @@ abstract contract Services is Base {
 
         // Deregister operator from heartbeat registry
         if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) {} catch {}
+            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) { } catch { }
         }
 
         emit OperatorLeftService(serviceId, operator);
 
         // Notify manager of successful leave
         if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator))
-            );
+            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator)));
         }
     }
 
@@ -1060,7 +1072,7 @@ abstract contract Services is Base {
 
         // Drip streaming payments before removal
         if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) {} catch {}
+            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) { } catch { }
         }
 
         opData.active = false;
@@ -1079,24 +1091,25 @@ abstract contract Services is Base {
         emit OperatorLeftService(serviceId, operator);
 
         // Notify manager (it called us, but we still notify for consistency)
-        _tryCallManager(
-            bp.manager,
-            abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator))
-        );
+        _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator)));
     }
 
     /// @notice Get exit configuration for a service
     /// @dev Checks manager hook first, falls back to protocol defaults
-    function _getExitConfig(uint64 blueprintId, uint64 serviceId) internal view returns (Types.ExitConfig memory config) {
+    function _getExitConfig(
+        uint64 blueprintId,
+        uint64 serviceId
+    )
+        internal
+        view
+        returns (Types.ExitConfig memory config)
+    {
         Types.Blueprint storage bp = _blueprints[blueprintId];
 
         // Check if manager provides custom exit config
         if (bp.manager != address(0)) {
             try IBlueprintServiceManager(bp.manager).getExitConfig(serviceId) returns (
-                bool useDefault,
-                uint64 minCommitmentDuration,
-                uint64 exitQueueDuration,
-                bool forceExitAllowed
+                bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed
             ) {
                 if (!useDefault) {
                     return Types.ExitConfig({
@@ -1105,7 +1118,7 @@ abstract contract Services is Base {
                         forceExitAllowed: forceExitAllowed
                     });
                 }
-            } catch {}
+            } catch { }
         }
 
         // Use protocol defaults
@@ -1151,7 +1164,14 @@ abstract contract Services is Base {
     }
 
     /// @notice Check if operator can schedule exit now
-    function canScheduleExit(uint64 serviceId, address operator) external view returns (bool canExit, string memory reason) {
+    function canScheduleExit(
+        uint64 serviceId,
+        address operator
+    )
+        external
+        view
+        returns (bool canExit, string memory reason)
+    {
         Types.Service storage svc = _services[serviceId];
         if (svc.membership != Types.MembershipModel.Dynamic) {
             return (false, "Not dynamic membership");

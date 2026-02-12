@@ -2,12 +2,12 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
-import {ExposureManager} from "../../src/exposure/ExposureManager.sol";
-import {ExposureTypes} from "../../src/exposure/ExposureTypes.sol";
-import {ExposureCalculator} from "../../src/exposure/ExposureCalculator.sol";
-import {Types} from "../../src/libraries/Types.sol";
-import {SlashingLib} from "../../src/libraries/SlashingLib.sol";
-import {IStaking} from "../../src/interfaces/IStaking.sol";
+import { ExposureManager } from "../../src/exposure/ExposureManager.sol";
+import { ExposureTypes } from "../../src/exposure/ExposureTypes.sol";
+import { ExposureCalculator } from "../../src/exposure/ExposureCalculator.sol";
+import { Types } from "../../src/libraries/Types.sol";
+import { SlashingLib } from "../../src/libraries/SlashingLib.sol";
+import { IStaking } from "../../src/interfaces/IStaking.sol";
 
 /// @notice Mock staking for testing
 contract MockStakingEdge is IStaking {
@@ -15,48 +15,100 @@ contract MockStakingEdge is IStaking {
     mapping(address => uint256) public stakes;
     mapping(address => uint256) public delegatedStakes;
 
-    function setOperator(address operator, bool isOp) external { operators[operator] = isOp; }
-    function setStake(address operator, uint256 amount) external { stakes[operator] = amount; }
-    function setDelegatedStake(address operator, uint256 amount) external { delegatedStakes[operator] = amount; }
+    function setOperator(address operator, bool isOp) external {
+        operators[operator] = isOp;
+    }
 
-    function isOperator(address account) external view returns (bool) { return operators[account]; }
-    function isOperatorActive(address) external pure returns (bool) { return true; }
-    function getOperatorStake(address operator) external view returns (uint256) { return stakes[operator]; }
-    function getOperatorSelfStake(address operator) external view returns (uint256) { return stakes[operator]; }
-    function getOperatorDelegatedStake(address operator) external view returns (uint256) { return delegatedStakes[operator]; }
+    function setStake(address operator, uint256 amount) external {
+        stakes[operator] = amount;
+    }
+
+    function setDelegatedStake(address operator, uint256 amount) external {
+        delegatedStakes[operator] = amount;
+    }
+
+    function isOperator(address account) external view returns (bool) {
+        return operators[account];
+    }
+
+    function isOperatorActive(address) external pure returns (bool) {
+        return true;
+    }
+
+    function getOperatorStake(address operator) external view returns (uint256) {
+        return stakes[operator];
+    }
+
+    function getOperatorSelfStake(address operator) external view returns (uint256) {
+        return stakes[operator];
+    }
+
+    function getOperatorDelegatedStake(address operator) external view returns (uint256) {
+        return delegatedStakes[operator];
+    }
+
     function getOperatorDelegatedStakeForAsset(address operator, Types.Asset calldata) external view returns (uint256) {
         return delegatedStakes[operator];
     }
+
     function getOperatorStakeForAsset(address operator, Types.Asset calldata) external view returns (uint256) {
         return stakes[operator];
     }
-    function getDelegation(address, address) external pure returns (uint256) { return 0; }
-    function getTotalDelegation(address) external pure returns (uint256) { return 0; }
-    function minOperatorStake() external pure returns (uint256) { return 0; }
-    function meetsStakeRequirement(address, uint256) external pure returns (bool) { return true; }
+
+    function getDelegation(address, address) external pure returns (uint256) {
+        return 0;
+    }
+
+    function getTotalDelegation(address) external pure returns (uint256) {
+        return 0;
+    }
+
+    function minOperatorStake() external pure returns (uint256) {
+        return 0;
+    }
+
+    function meetsStakeRequirement(address, uint256) external pure returns (bool) {
+        return true;
+    }
+
     function slashForBlueprint(address, uint64, uint64, uint16 slashBps, bytes32) external pure returns (uint256) {
         return slashBps;
     }
-    function slashForService(address, uint64, uint64, Types.AssetSecurityCommitment[] calldata, uint16 slashBps, bytes32)
+
+    function slashForService(
+        address,
+        uint64,
+        uint64,
+        Types.AssetSecurityCommitment[] calldata,
+        uint16 slashBps,
+        bytes32
+    )
         external
         pure
         returns (uint256)
     {
         return slashBps;
     }
+
     function slash(address, uint64, uint16 slashBps, bytes32) external pure returns (uint256) {
         return slashBps;
     }
-    function isSlasher(address) external pure returns (bool) { return false; }
-    function notifyRewardForBlueprint(address, uint64, uint64, uint256) external {}
-    function notifyReward(address, uint64, uint256) external {}
-    function addBlueprintForOperator(address, uint64) external override {}
-    function removeBlueprintForOperator(address, uint64) external override {}
+
+    function isSlasher(address) external pure returns (bool) {
+        return false;
+    }
+    function notifyRewardForBlueprint(address, uint64, uint64, uint256) external { }
+    function notifyReward(address, uint64, uint256) external { }
+    function addBlueprintForOperator(address, uint64) external override { }
+    function removeBlueprintForOperator(address, uint64) external override { }
 
     // M-9 FIX: Pending slash tracking (no-op for mock)
-    function incrementPendingSlash(address) external override {}
-    function decrementPendingSlash(address) external override {}
-    function getPendingSlashCount(address) external pure override returns (uint64) { return 0; }
+    function incrementPendingSlash(address) external override { }
+    function decrementPendingSlash(address) external override { }
+
+    function getPendingSlashCount(address) external pure override returns (uint64) {
+        return 0;
+    }
 }
 
 /// @title ExposureEdgeCasesTest
@@ -101,7 +153,7 @@ contract ExposureEdgeCasesTest is Test {
         requirements[0] = Types.AssetSecurityRequirement({
             asset: nativeAsset,
             minExposureBps: 1, // Minimum is 0.01%
-            maxExposureBps: 10000
+            maxExposureBps: 10_000
         });
 
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
@@ -119,11 +171,8 @@ contract ExposureEdgeCasesTest is Test {
 
     function test_Exposure_BoundaryOne_MinimumValid() public {
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
-        requirements[0] = Types.AssetSecurityRequirement({
-            asset: nativeAsset,
-            minExposureBps: 1,
-            maxExposureBps: 10000
-        });
+        requirements[0] =
+            Types.AssetSecurityRequirement({ asset: nativeAsset, minExposureBps: 1, maxExposureBps: 10_000 });
 
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
         commitments[0] = Types.AssetSecurityCommitment({
@@ -137,25 +186,22 @@ contract ExposureEdgeCasesTest is Test {
 
     function test_Exposure_Boundary9999_JustUnderMax() public {
         vm.prank(operator1);
-        manager.setAssetExposureLimit(nativeAsset, 10000, 5000, true);
+        manager.setAssetExposureLimit(nativeAsset, 10_000, 5000, true);
 
         (bool canAccept, uint16 limit) = manager.canAcceptExposure(operator1, nativeAsset, 9999);
         assertTrue(canAccept);
-        assertEq(limit, 10000);
+        assertEq(limit, 10_000);
     }
 
     function test_Exposure_Boundary10000_FullExposure() public {
         Types.AssetSecurityRequirement[] memory requirements = new Types.AssetSecurityRequirement[](1);
-        requirements[0] = Types.AssetSecurityRequirement({
-            asset: nativeAsset,
-            minExposureBps: 1,
-            maxExposureBps: 10000
-        });
+        requirements[0] =
+            Types.AssetSecurityRequirement({ asset: nativeAsset, minExposureBps: 1, maxExposureBps: 10_000 });
 
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
         commitments[0] = Types.AssetSecurityCommitment({
             asset: nativeAsset,
-            exposureBps: 10000 // 100%
+            exposureBps: 10_000 // 100%
         });
 
         (bool valid,) = manager.validateCommitments(operator1, requirements, commitments);
@@ -165,7 +211,7 @@ contract ExposureEdgeCasesTest is Test {
     function test_Exposure_Boundary10001_ExceedsMax() public {
         vm.prank(operator1);
         vm.expectRevert();
-        manager.setAssetExposureLimit(nativeAsset, 10001, 5000, true);
+        manager.setAssetExposureLimit(nativeAsset, 10_001, 5000, true);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -178,8 +224,7 @@ contract ExposureEdgeCasesTest is Test {
         staking.setOperator(bigOperator, true);
         staking.setStake(bigOperator, type(uint128).max);
 
-        (uint256 delegated, uint256 exposed) =
-            manager.calculateExposedAmount(bigOperator, nativeAsset, 10000);
+        (uint256 delegated, uint256 exposed) = manager.calculateExposedAmount(bigOperator, nativeAsset, 10_000);
 
         assertEq(delegated, type(uint128).max);
         assertEq(exposed, type(uint128).max); // 100% exposure
@@ -190,8 +235,7 @@ contract ExposureEdgeCasesTest is Test {
         staking.setOperator(bigOperator, true);
         staking.setStake(bigOperator, type(uint128).max);
 
-        (uint256 delegated, uint256 exposed) =
-            manager.calculateExposedAmount(bigOperator, nativeAsset, 5000);
+        (uint256 delegated, uint256 exposed) = manager.calculateExposedAmount(bigOperator, nativeAsset, 5000);
 
         assertEq(delegated, type(uint128).max);
         assertEq(exposed, type(uint128).max / 2); // 50% exposure
@@ -201,14 +245,14 @@ contract ExposureEdgeCasesTest is Test {
         uint256 largeAmount = type(uint128).max;
 
         // Should not overflow
-        uint256 exposed = ExposureCalculator.calculateExposedAmount(largeAmount, 10000);
+        uint256 exposed = ExposureCalculator.calculateExposedAmount(largeAmount, 10_000);
         assertEq(exposed, largeAmount);
 
         exposed = ExposureCalculator.calculateExposedAmount(largeAmount, 5000);
         assertEq(exposed, largeAmount / 2);
 
         exposed = ExposureCalculator.calculateExposedAmount(largeAmount, 1);
-        assertEq(exposed, largeAmount / 10000);
+        assertEq(exposed, largeAmount / 10_000);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -217,16 +261,14 @@ contract ExposureEdgeCasesTest is Test {
 
     function test_ExposedAmount_TinyStake_RoundsDown() public {
         // operator3 has 1 wei stake
-        (uint256 delegated, uint256 exposed) =
-            manager.calculateExposedAmount(operator3, nativeAsset, 5000);
+        (uint256 delegated, uint256 exposed) = manager.calculateExposedAmount(operator3, nativeAsset, 5000);
 
         assertEq(delegated, 1);
         assertEq(exposed, 0); // 1 * 5000 / 10000 = 0 (rounds down)
     }
 
     function test_ExposedAmount_TinyStake_FullExposure() public {
-        (uint256 delegated, uint256 exposed) =
-            manager.calculateExposedAmount(operator3, nativeAsset, 10000);
+        (uint256 delegated, uint256 exposed) = manager.calculateExposedAmount(operator3, nativeAsset, 10_000);
 
         assertEq(delegated, 1);
         assertEq(exposed, 1); // 100% of 1 wei = 1 wei
@@ -237,7 +279,7 @@ contract ExposureEdgeCasesTest is Test {
         assertEq(ExposureCalculator.calculateExposedAmount(1, 1), 0);
 
         // 10000 wei with 1 bps = 1 wei
-        assertEq(ExposureCalculator.calculateExposedAmount(10000, 1), 1);
+        assertEq(ExposureCalculator.calculateExposedAmount(10_000, 1), 1);
 
         // 99 with 100 bps (1%) = 0 (rounds down)
         assertEq(ExposureCalculator.calculateExposedAmount(99, 100), 0);
@@ -259,7 +301,7 @@ contract ExposureEdgeCasesTest is Test {
         manager.setAssetExposureLimit(nativeAsset, 5000, 2500, true); // Max 50%
 
         vm.prank(operator3);
-        manager.setAssetExposureLimit(nativeAsset, 10000, 5000, true); // Max 100%
+        manager.setAssetExposureLimit(nativeAsset, 10_000, 5000, true); // Max 100%
 
         // Verify each operator's limit is independent
         (bool canAccept1,) = manager.canAcceptExposure(operator1, nativeAsset, 3000);
@@ -267,8 +309,8 @@ contract ExposureEdgeCasesTest is Test {
         (bool canAccept3,) = manager.canAcceptExposure(operator3, nativeAsset, 3000);
 
         assertFalse(canAccept1); // 30% exceeds 25% limit
-        assertTrue(canAccept2);  // 30% within 50% limit
-        assertTrue(canAccept3);  // 30% within 100% limit
+        assertTrue(canAccept2); // 30% within 50% limit
+        assertTrue(canAccept3); // 30% within 100% limit
     }
 
     function test_MultiOperator_SameAsset_DifferentExposures() public {
@@ -276,14 +318,14 @@ contract ExposureEdgeCasesTest is Test {
         // Simulate weighted exposure calculation
 
         uint256[] memory delegations = new uint256[](3);
-        delegations[0] = 100 ether;  // operator1
+        delegations[0] = 100 ether; // operator1
         delegations[1] = 1000 ether; // operator2
-        delegations[2] = 50 ether;   // operator3
+        delegations[2] = 50 ether; // operator3
 
         uint16[] memory exposures = new uint16[](3);
-        exposures[0] = 5000;  // 50%
-        exposures[1] = 2500;  // 25%
-        exposures[2] = 10000; // 100%
+        exposures[0] = 5000; // 50%
+        exposures[1] = 2500; // 25%
+        exposures[2] = 10_000; // 100%
 
         uint16 weighted = ExposureCalculator.calculateWeightedExposure(delegations, exposures);
 
@@ -301,8 +343,8 @@ contract ExposureEdgeCasesTest is Test {
 
         vm.startPrank(operator1);
         manager.setAssetExposureLimit(nativeAsset, 5000, 2500, true); // Native: 50%
-        manager.setAssetExposureLimit(erc20Asset, 3000, 1500, true);  // Token1: 30%
-        manager.setAssetExposureLimit(asset2, 10000, 5000, true);     // Token2: 100%
+        manager.setAssetExposureLimit(erc20Asset, 3000, 1500, true); // Token1: 30%
+        manager.setAssetExposureLimit(asset2, 10_000, 5000, true); // Token2: 100%
         // asset3 has no limit set
         vm.stopPrank();
 
@@ -311,33 +353,26 @@ contract ExposureEdgeCasesTest is Test {
         (bool canAccept3,) = manager.canAcceptExposure(operator1, asset2, 4000);
         (bool canAccept4,) = manager.canAcceptExposure(operator1, asset3, 4000);
 
-        assertTrue(canAccept1);  // 40% < 50%
+        assertTrue(canAccept1); // 40% < 50%
         assertFalse(canAccept2); // 40% > 30%
-        assertTrue(canAccept3);  // 40% < 100%
-        assertTrue(canAccept4);  // No limit, defaults to 100%
+        assertTrue(canAccept3); // 40% < 100%
+        assertTrue(canAccept4); // No limit, defaults to 100%
     }
 
     function test_MultiAsset_BatchSet_AllApplied() public {
-        ExposureTypes.OperatorAssetExposureLimit[] memory limits =
-            new ExposureTypes.OperatorAssetExposureLimit[](3);
+        ExposureTypes.OperatorAssetExposureLimit[] memory limits = new ExposureTypes.OperatorAssetExposureLimit[](3);
 
         limits[0] = ExposureTypes.OperatorAssetExposureLimit({
-            asset: nativeAsset,
-            maxExposureBps: 5000,
-            defaultExposureBps: 2500,
-            enabled: true
+            asset: nativeAsset, maxExposureBps: 5000, defaultExposureBps: 2500, enabled: true
         });
 
         limits[1] = ExposureTypes.OperatorAssetExposureLimit({
-            asset: erc20Asset,
-            maxExposureBps: 3000,
-            defaultExposureBps: 1500,
-            enabled: true
+            asset: erc20Asset, maxExposureBps: 3000, defaultExposureBps: 1500, enabled: true
         });
 
         limits[2] = ExposureTypes.OperatorAssetExposureLimit({
             asset: Types.Asset(Types.AssetKind.ERC20, makeAddr("token2")),
-            maxExposureBps: 10000,
+            maxExposureBps: 10_000,
             defaultExposureBps: 5000,
             enabled: true
         });
@@ -346,10 +381,8 @@ contract ExposureEdgeCasesTest is Test {
         manager.batchSetAssetExposureLimits(limits);
 
         // Verify all were set
-        ExposureTypes.OperatorAssetExposureLimit memory l1 =
-            manager.getAssetExposureLimit(operator1, nativeAsset);
-        ExposureTypes.OperatorAssetExposureLimit memory l2 =
-            manager.getAssetExposureLimit(operator1, erc20Asset);
+        ExposureTypes.OperatorAssetExposureLimit memory l1 = manager.getAssetExposureLimit(operator1, nativeAsset);
+        ExposureTypes.OperatorAssetExposureLimit memory l2 = manager.getAssetExposureLimit(operator1, erc20Asset);
 
         assertEq(l1.maxExposureBps, 5000);
         assertEq(l2.maxExposureBps, 3000);
@@ -393,7 +426,7 @@ contract ExposureEdgeCasesTest is Test {
 
         // Without per-asset limit, defaults to max (100%)
         assertTrue(canAccept);
-        assertEq(limit, 10000);
+        assertEq(limit, 10_000);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -412,8 +445,8 @@ contract ExposureEdgeCasesTest is Test {
         assertEq(effective, 2500);
 
         // 100% exposure
-        effective = SlashingLib.calculateEffectiveSlashBps(slashBps, 10000);
-        assertEq(effective, 10000);
+        effective = SlashingLib.calculateEffectiveSlashBps(slashBps, 10_000);
+        assertEq(effective, 10_000);
 
         // 1% exposure
         effective = SlashingLib.calculateEffectiveSlashBps(slashBps, 100);
@@ -427,12 +460,12 @@ contract ExposureEdgeCasesTest is Test {
 
     function test_SlashingLib_CapSlashBps() public pure {
         // Slash 50% with 100% max = 50%
-        uint16 capped = SlashingLib.capSlashBps(5000, 10000);
+        uint16 capped = SlashingLib.capSlashBps(5000, 10_000);
         assertEq(capped, 5000);
 
         // Slash 120% with 100% max = 100% (capped)
-        capped = SlashingLib.capSlashBps(12000, 10000);
-        assertEq(capped, 10000);
+        capped = SlashingLib.capSlashBps(12_000, 10_000);
+        assertEq(capped, 10_000);
 
         // Slash 50% with 25% max = 25% (capped)
         capped = SlashingLib.capSlashBps(5000, 2500);
@@ -493,8 +526,7 @@ contract ExposureEdgeCasesTest is Test {
         vm.prank(operator1);
         manager.setAssetExposureLimit(nativeAsset, 5000, 2500, false); // Disabled
 
-        ExposureTypes.OperatorAssetExposureLimit memory limit =
-            manager.getAssetExposureLimit(operator1, nativeAsset);
+        ExposureTypes.OperatorAssetExposureLimit memory limit = manager.getAssetExposureLimit(operator1, nativeAsset);
 
         assertFalse(limit.enabled);
         assertEq(limit.maxExposureBps, 5000); // Limit still stored
@@ -519,10 +551,7 @@ contract ExposureEdgeCasesTest is Test {
         assertEq(staking.getTotalDelegation(tempOperator), 0);
         assertEq(staking.minOperatorStake(), 0);
         assertTrue(staking.meetsStakeRequirement(tempOperator, 1 ether));
-        assertEq(
-            staking.slashForBlueprint(tempOperator, 1, 2, 5000, keccak256("bp-slash")),
-            5000
-        );
+        assertEq(staking.slashForBlueprint(tempOperator, 1, 2, 5000, keccak256("bp-slash")), 5000);
         assertEq(staking.slash(tempOperator, 3, 4000, keccak256("plain-slash")), 4000);
         assertFalse(staking.isSlasher(tempOperator));
 
@@ -573,13 +602,13 @@ contract ExposureFuzzTest is Test {
     function testFuzz_CalculateExposedAmount(uint256 delegation, uint16 exposureBps) public pure {
         // Bound inputs to reasonable ranges
         delegation = bound(delegation, 0, type(uint128).max);
-        exposureBps = uint16(bound(uint256(exposureBps), 0, 10000));
+        exposureBps = uint16(bound(uint256(exposureBps), 0, 10_000));
 
         uint256 exposed = ExposureCalculator.calculateExposedAmount(delegation, exposureBps);
 
         // Verify invariants
         assertLe(exposed, delegation); // Exposed <= Delegated
-        if (exposureBps == 10000) {
+        if (exposureBps == 10_000) {
             assertEq(exposed, delegation); // 100% exposure = full amount
         }
         if (exposureBps == 0) {
@@ -587,14 +616,10 @@ contract ExposureFuzzTest is Test {
         }
     }
 
-    function testFuzz_CalculateSlashAmount(
-        uint256 delegation,
-        uint16 exposureBps,
-        uint16 slashBps
-    ) public pure {
+    function testFuzz_CalculateSlashAmount(uint256 delegation, uint16 exposureBps, uint16 slashBps) public pure {
         delegation = bound(delegation, 0, type(uint128).max);
-        exposureBps = uint16(bound(uint256(exposureBps), 0, 10000));
-        slashBps = uint16(bound(uint256(slashBps), 0, 10000));
+        exposureBps = uint16(bound(uint256(exposureBps), 0, 10_000));
+        slashBps = uint16(bound(uint256(slashBps), 0, 10_000));
 
         uint256 slashAmount = ExposureCalculator.calculateSlashAmount(delegation, exposureBps, slashBps);
         uint256 maxSlashable = ExposureCalculator.calculateMaxSlashable(delegation, exposureBps);
@@ -606,7 +631,7 @@ contract ExposureFuzzTest is Test {
 
     function testFuzz_WeightedExposure_SingleElement(uint256 delegation, uint16 exposureBps) public pure {
         delegation = bound(delegation, 1, type(uint128).max);
-        exposureBps = uint16(bound(uint256(exposureBps), 0, 10000));
+        exposureBps = uint16(bound(uint256(exposureBps), 0, 10_000));
 
         uint256[] memory delegations = new uint256[](1);
         delegations[0] = delegation;
@@ -626,12 +651,15 @@ contract ExposureFuzzTest is Test {
         uint256 delegation2,
         uint16 exposure1,
         uint16 exposure2
-    ) public pure {
+    )
+        public
+        pure
+    {
         totalReward = bound(totalReward, 0, type(uint128).max);
         delegation1 = bound(delegation1, 1, type(uint64).max);
         delegation2 = bound(delegation2, 1, type(uint64).max);
-        exposure1 = uint16(bound(uint256(exposure1), 1, 10000));
-        exposure2 = uint16(bound(uint256(exposure2), 1, 10000));
+        exposure1 = uint16(bound(uint256(exposure1), 1, 10_000));
+        exposure2 = uint16(bound(uint256(exposure2), 1, 10_000));
 
         uint256 exposed1 = ExposureCalculator.calculateExposedAmount(delegation1, exposure1);
         uint256 exposed2 = ExposureCalculator.calculateExposedAmount(delegation2, exposure2);
@@ -649,13 +677,13 @@ contract ExposureFuzzTest is Test {
     }
 
     function testFuzz_SlashingLib_EffectiveSlashBps(uint16 slashBps, uint16 exposureBps) public pure {
-        slashBps = uint16(bound(uint256(slashBps), 0, 10000));
-        exposureBps = uint16(bound(uint256(exposureBps), 0, 10000));
+        slashBps = uint16(bound(uint256(slashBps), 0, 10_000));
+        exposureBps = uint16(bound(uint256(exposureBps), 0, 10_000));
 
         uint16 effective = SlashingLib.calculateEffectiveSlashBps(slashBps, exposureBps);
 
         assertLe(effective, slashBps);
-        if (exposureBps == 10000) {
+        if (exposureBps == 10_000) {
             assertEq(effective, slashBps);
         }
     }
@@ -663,7 +691,7 @@ contract ExposureFuzzTest is Test {
     function testFuzz_IsValidExposure(uint16 exposureBps) public pure {
         bool valid = ExposureCalculator.isValidExposure(exposureBps);
 
-        if (exposureBps >= 1 && exposureBps <= 10000) {
+        if (exposureBps >= 1 && exposureBps <= 10_000) {
             assertTrue(valid);
         } else {
             assertFalse(valid);
@@ -674,9 +702,9 @@ contract ExposureFuzzTest is Test {
         uint16 clamped = ExposureCalculator.clampExposure(exposureBps);
 
         assertGe(clamped, 1); // Min
-        assertLe(clamped, 10000); // Max
+        assertLe(clamped, 10_000); // Max
 
-        if (exposureBps >= 1 && exposureBps <= 10000) {
+        if (exposureBps >= 1 && exposureBps <= 10_000) {
             assertEq(clamped, exposureBps); // Unchanged if valid
         }
     }

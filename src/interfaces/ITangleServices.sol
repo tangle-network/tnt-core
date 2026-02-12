@@ -13,11 +13,7 @@ interface ITangleServices {
 
     event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
 
-    event ServiceRequestedWithSecurity(
-        uint64 indexed requestId,
-        uint64 indexed blueprintId,
-        address indexed requester
-    );
+    event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
 
     event ServiceApproved(uint64 indexed requestId, address indexed operator);
 
@@ -46,7 +42,10 @@ interface ITangleServices {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) external payable returns (uint64 requestId);
+    )
+        external
+        payable
+        returns (uint64 requestId);
 
     /// @notice Request a service with explicit exposure commitments
     function requestServiceWithExposure(
@@ -58,7 +57,10 @@ interface ITangleServices {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) external payable returns (uint64 requestId);
+    )
+        external
+        payable
+        returns (uint64 requestId);
 
     /// @notice Request a service with multi-asset security requirements
     /// @dev Each operator must provide security commitments matching these requirements when approving
@@ -71,7 +73,16 @@ interface ITangleServices {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount
-    ) external payable returns (uint64 requestId);
+    )
+        external
+        payable
+        returns (uint64 requestId);
+
+    /// @notice Get resource requirements for a service request
+    function getServiceRequestResourceRequirements(uint64 requestId)
+        external
+        view
+        returns (Types.ResourceCommitment[] memory);
 
     /// @notice Approve a service request (as operator) - simple version
     function approveService(uint64 requestId, uint8 stakingPercent) external;
@@ -81,17 +92,14 @@ interface ITangleServices {
     function approveServiceWithCommitments(
         uint64 requestId,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) external;
+    )
+        external;
 
     /// @notice Approve a service request with BLS public key for aggregated signature verification
     /// @param requestId The service request ID
     /// @param stakingPercent The staking percentage (0-100)
     /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
-    function approveServiceWithBls(
-        uint64 requestId,
-        uint8 stakingPercent,
-        uint256[4] calldata blsPubkey
-    ) external;
+    function approveServiceWithBls(uint64 requestId, uint8 stakingPercent, uint256[4] calldata blsPubkey) external;
 
     /// @notice Approve a service request with both security commitments and BLS public key
     /// @param requestId The service request ID
@@ -101,7 +109,8 @@ interface ITangleServices {
         uint64 requestId,
         Types.AssetSecurityCommitment[] calldata commitments,
         uint256[4] calldata blsPubkey
-    ) external;
+    )
+        external;
 
     /// @notice Reject a service request (as operator)
     function rejectService(uint64 requestId) external;
@@ -123,14 +132,19 @@ interface ITangleServices {
         bytes calldata config,
         address[] calldata permittedCallers,
         uint64 ttl
-    ) external payable returns (uint64 serviceId);
+    )
+        external
+        payable
+        returns (uint64 serviceId);
 
     /// @notice Extend a service using pre-signed operator quotes
     function extendServiceFromQuotes(
         uint64 serviceId,
         Types.SignedQuote[] calldata quotes,
         uint64 extensionDuration
-    ) external payable;
+    )
+        external
+        payable;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE MANAGEMENT FUNCTIONS
@@ -157,7 +171,8 @@ interface ITangleServices {
         uint64 serviceId,
         uint16 exposureBps,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) external;
+    )
+        external;
 
     /// @notice Leave an active service (Dynamic membership only)
     function leaveService(uint64 serviceId) external;
@@ -211,7 +226,10 @@ interface ITangleServices {
         returns (Types.AssetSecurityRequirement[] memory);
 
     /// @notice Get security commitments for a service request by operator
-    function getServiceRequestSecurityCommitments(uint64 requestId, address operator)
+    function getServiceRequestSecurityCommitments(
+        uint64 requestId,
+        address operator
+    )
         external
         view
         returns (Types.AssetSecurityCommitment[] memory);
@@ -226,10 +244,7 @@ interface ITangleServices {
     function isServiceOperator(uint64 serviceId, address operator) external view returns (bool);
 
     /// @notice Get operator info for a service
-    function getServiceOperator(uint64 serviceId, address operator)
-        external
-        view
-        returns (Types.ServiceOperator memory);
+    function getServiceOperator(uint64 serviceId, address operator) external view returns (Types.ServiceOperator memory);
 
     /// @notice Get the list of operators for a service
     function getServiceOperators(uint64 serviceId) external view returns (address[] memory);
@@ -253,10 +268,19 @@ interface ITangleServices {
     function getExitConfig(uint64 serviceId) external view returns (Types.ExitConfig memory);
 
     /// @notice Check if operator can schedule exit now
-    function canScheduleExit(uint64 serviceId, address operator) external view returns (bool canExit, string memory reason);
+    function canScheduleExit(
+        uint64 serviceId,
+        address operator
+    )
+        external
+        view
+        returns (bool canExit, string memory reason);
 
     /// @notice Get persisted security commitments for an active service by operator
-    function getServiceSecurityCommitments(uint64 serviceId, address operator)
+    function getServiceSecurityCommitments(
+        uint64 serviceId,
+        address operator
+    )
         external
         view
         returns (Types.AssetSecurityCommitment[] memory);
@@ -273,5 +297,17 @@ interface ITangleServices {
     /// @param serviceId The service ID
     /// @param operator The operator address
     /// @return blsPubkey The BLS G2 public key [x0, x1, y0, y1], all zeros if not registered
-    function getOperatorBlsPubkey(uint64 serviceId, address operator) external view returns (uint256[4] memory blsPubkey);
+    function getOperatorBlsPubkey(
+        uint64 serviceId,
+        address operator
+    )
+        external
+        view
+        returns (uint256[4] memory blsPubkey);
+
+    /// @notice Get the resource commitment hash for an operator in a service
+    /// @param serviceId The service ID
+    /// @param operator The operator address
+    /// @return The keccak256 of EIP-712-hashed ResourceCommitment[] (bytes32(0) if none)
+    function getServiceResourceCommitmentHash(uint64 serviceId, address operator) external view returns (bytes32);
 }

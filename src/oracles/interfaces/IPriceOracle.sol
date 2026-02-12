@@ -31,10 +31,10 @@ interface IPriceOracle {
 
     /// @notice Price data with metadata
     struct PriceData {
-        uint256 price;          // Price in USD with 18 decimals
-        uint256 updatedAt;      // Timestamp of last update
-        uint8 decimals;         // Decimals of the underlying token
-        bool isValid;           // Whether price is considered valid
+        uint256 price; // Price in USD with 18 decimals
+        uint256 updatedAt; // Timestamp of last update
+        uint8 decimals; // Decimals of the underlying token
+        bool isValid; // Whether price is considered valid
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -80,10 +80,7 @@ interface IPriceOracle {
     /// @param amounts Array of amounts in each token's native decimals
     /// @return totalUsd Total USD value with 18 decimals
     // forge-lint: disable-next-line(mixed-case-function)
-    function batchToUSD(
-        address[] calldata tokens,
-        uint256[] calldata amounts
-    ) external view returns (uint256 totalUsd);
+    function batchToUSD(address[] calldata tokens, uint256[] calldata amounts) external view returns (uint256 totalUsd);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONFIGURATION

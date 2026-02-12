@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Types} from "../libraries/Types.sol";
-import {ExposureTypes} from "./ExposureTypes.sol";
+import { Types } from "../libraries/Types.sol";
+import { ExposureTypes } from "./ExposureTypes.sol";
 
 /// @title IExposureManager
 /// @notice Interface for managing operator per-asset exposure limits
@@ -25,18 +25,12 @@ interface IExposureManager {
 
     /// @notice Emitted when operator sets per-asset exposure limit
     event AssetExposureLimitSet(
-        address indexed operator,
-        Types.Asset asset,
-        uint16 maxExposureBps,
-        uint16 defaultExposureBps,
-        bool enabled
+        address indexed operator, Types.Asset asset, uint16 maxExposureBps, uint16 defaultExposureBps, bool enabled
     );
 
     /// @notice Emitted when operator updates global config
     event OperatorExposureConfigUpdated(
-        address indexed operator,
-        uint16 globalMaxExposureBps,
-        bool requireExplicitApproval
+        address indexed operator, uint16 globalMaxExposureBps, bool requireExplicitApproval
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -53,20 +47,16 @@ interface IExposureManager {
         uint16 maxExposureBps,
         uint16 defaultExposureBps,
         bool enabled
-    ) external;
+    )
+        external;
 
     /// @notice Batch set exposure limits for multiple assets
-    function batchSetAssetExposureLimits(
-        ExposureTypes.OperatorAssetExposureLimit[] calldata limits
-    ) external;
+    function batchSetAssetExposureLimits(ExposureTypes.OperatorAssetExposureLimit[] calldata limits) external;
 
     /// @notice Set global exposure configuration
     /// @param globalMaxExposureBps Default max for assets without explicit limit
     /// @param requireExplicitApproval If true, all assets must have explicit limits
-    function setOperatorExposureConfig(
-        uint16 globalMaxExposureBps,
-        bool requireExplicitApproval
-    ) external;
+    function setOperatorExposureConfig(uint16 globalMaxExposureBps, bool requireExplicitApproval) external;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VALIDATION
@@ -82,7 +72,10 @@ interface IExposureManager {
         address operator,
         Types.AssetSecurityRequirement[] calldata requirements,
         Types.AssetSecurityCommitment[] calldata commitments
-    ) external view returns (bool valid, ExposureTypes.CommitmentValidationResult memory result);
+    )
+        external
+        view
+        returns (bool valid, ExposureTypes.CommitmentValidationResult memory result);
 
     /// @notice Check if operator can accept a specific exposure for an asset
     /// @param operator The operator address
@@ -94,7 +87,10 @@ interface IExposureManager {
         address operator,
         Types.Asset calldata asset,
         uint16 exposureBps
-    ) external view returns (bool canAccept, uint16 effectiveLimit);
+    )
+        external
+        view
+        returns (bool canAccept, uint16 effectiveLimit);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EXPOSURE CALCULATION
@@ -110,7 +106,10 @@ interface IExposureManager {
         address operator,
         Types.Asset calldata asset,
         uint16 exposureBps
-    ) external view returns (uint256 delegatedAmount, uint256 exposedAmount);
+    )
+        external
+        view
+        returns (uint256 delegatedAmount, uint256 exposedAmount);
 
     /// @notice Get full exposure breakdown for an operator in a service
     /// @param operator The operator
@@ -119,7 +118,10 @@ interface IExposureManager {
     function getOperatorServiceExposure(
         address operator,
         uint64 serviceId
-    ) external view returns (ExposureTypes.AggregateExposure memory exposure);
+    )
+        external
+        view
+        returns (ExposureTypes.AggregateExposure memory exposure);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
@@ -132,14 +134,18 @@ interface IExposureManager {
     function getAssetExposureLimit(
         address operator,
         Types.Asset calldata asset
-    ) external view returns (ExposureTypes.OperatorAssetExposureLimit memory limit);
+    )
+        external
+        view
+        returns (ExposureTypes.OperatorAssetExposureLimit memory limit);
 
     /// @notice Get operator's global exposure config
     /// @param operator The operator address
     /// @return config The exposure configuration
-    function getOperatorExposureConfig(
-        address operator
-    ) external view returns (ExposureTypes.OperatorExposureConfig memory config);
+    function getOperatorExposureConfig(address operator)
+        external
+        view
+        returns (ExposureTypes.OperatorExposureConfig memory config);
 
     /// @notice Get the effective exposure limit for an operator-asset pair
     /// @dev Returns per-asset limit if set, else global limit
@@ -150,5 +156,8 @@ interface IExposureManager {
     function getEffectiveExposureLimit(
         address operator,
         Types.Asset calldata asset
-    ) external view returns (uint16 effectiveLimit, bool isExplicit);
+    )
+        external
+        view
+        returns (uint16 effectiveLimit, bool isExplicit);
 }

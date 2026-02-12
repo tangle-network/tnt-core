@@ -36,39 +36,85 @@ contract LifecycleMockBSM is BlueprintServiceManagerBase {
         tangleCore = _tangleCore;
     }
 
-    function onRegister(address, bytes calldata) external payable override onlyFromTangle {}
-    function onUnregister(address) external override onlyFromTangle {}
-    function onUpdatePreferences(address, bytes calldata) external payable override onlyFromTangle {}
+    function onRegister(address, bytes calldata) external payable override onlyFromTangle { }
+    function onUnregister(address) external override onlyFromTangle { }
+    function onUpdatePreferences(address, bytes calldata) external payable override onlyFromTangle { }
 
-    function onRequest(uint64, address, address[] calldata, bytes calldata, uint64, address, uint256) external payable override onlyFromTangle {
+    function onRequest(
+        uint64,
+        address,
+        address[] calldata,
+        bytes calldata,
+        uint64,
+        address,
+        uint256
+    )
+        external
+        payable
+        override
+        onlyFromTangle
+    {
         if (rejectRequests) revert("Request rejected by BSM");
     }
 
-    function onApprove(address, uint64, uint8) external payable override onlyFromTangle {}
-    function onReject(address, uint64) external override onlyFromTangle {}
+    function onApprove(address, uint64, uint8) external payable override onlyFromTangle { }
+    function onReject(address, uint64) external override onlyFromTangle { }
 
-    function onServiceInitialized(uint64, uint64, uint64, address, address[] calldata, uint64) external override onlyFromTangle {}
+    function onServiceInitialized(
+        uint64,
+        uint64,
+        uint64,
+        address,
+        address[] calldata,
+        uint64
+    )
+        external
+        override
+        onlyFromTangle
+    { }
 
     function onServiceTermination(uint64 serviceId, address) external override onlyFromTangle {
         terminationCount++;
         terminatedServices[serviceId] = true;
     }
 
-    function onJobCall(uint64 serviceId, uint8, uint64 jobCallId, bytes calldata) external payable override onlyFromTangle {
+    function onJobCall(
+        uint64 serviceId,
+        uint8,
+        uint64 jobCallId,
+        bytes calldata
+    )
+        external
+        payable
+        override
+        onlyFromTangle
+    {
         jobCallCount++;
         pendingJobs[serviceId][jobCallId] = true;
     }
 
-    function onJobResult(uint64 serviceId, uint8, uint64 jobCallId, address, bytes calldata, bytes calldata) external payable override onlyFromTangle {
+    function onJobResult(
+        uint64 serviceId,
+        uint8,
+        uint64 jobCallId,
+        address,
+        bytes calldata,
+        bytes calldata
+    )
+        external
+        payable
+        override
+        onlyFromTangle
+    {
         jobResultCount++;
         pendingJobs[serviceId][jobCallId] = false;
     }
 
-    function onUnappliedSlash(uint64, bytes calldata, uint8) external override onlyFromTangle {}
-    function onSlash(uint64, bytes calldata, uint8) external override onlyFromTangle {}
+    function onUnappliedSlash(uint64, bytes calldata, uint8) external override onlyFromTangle { }
+    function onSlash(uint64, bytes calldata, uint8) external override onlyFromTangle { }
 
-    function onOperatorJoined(uint64, address, uint16) external override onlyFromTangle {}
-    function onOperatorLeft(uint64, address) external override onlyFromTangle {}
+    function onOperatorJoined(uint64, address, uint16) external override onlyFromTangle { }
+    function onOperatorLeft(uint64, address) external override onlyFromTangle { }
 
     function canJoin(uint64, address) external view override returns (bool) {
         return !rejectJoins;
@@ -79,12 +125,12 @@ contract LifecycleMockBSM is BlueprintServiceManagerBase {
     }
 
     /// @notice Allow immediate exits for testing (no commitment/queue durations)
-    function getExitConfig(uint64) external pure override returns (
-        bool useDefault,
-        uint64 minCommitmentDuration,
-        uint64 exitQueueDuration,
-        bool forceExitAllowed
-    ) {
+    function getExitConfig(uint64)
+        external
+        pure
+        override
+        returns (bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed)
+    {
         return (false, 0, 0, false);
     }
 }
@@ -122,7 +168,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         });
 
         vm.prank(developer);
-        dynamicBlueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(mockBsm), dynamicConfig));
+        dynamicBlueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://dynamic", address(mockBsm), dynamicConfig));
 
         // Register operators for both blueprints
         _registerForBlueprint(operator1, blueprintId);
@@ -180,7 +227,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 subBlueprintId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://sub", address(0), subConfig));
+        uint64 subBlueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://sub", address(0), subConfig));
 
         _registerForBlueprint(operator1, subBlueprintId);
 
@@ -189,9 +237,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: 5 ether }(
-            subBlueprintId, ops, "", callers, 365 days, address(0), 5 ether
-        );
+        uint64 requestId =
+            tangle.requestService{ value: 5 ether }(subBlueprintId, ops, "", callers, 365 days, address(0), 5 ether);
 
         _approveService(operator1, requestId);
 
@@ -284,7 +331,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 limitedBpId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://limited", address(0), config));
+        uint64 limitedBpId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://limited", address(0), config));
 
         _registerForBlueprint(operator1, limitedBpId);
         _registerForBlueprint(operator2, limitedBpId);
@@ -307,7 +355,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         // operator3 tries to join but max reached
         vm.prank(operator3);
         vm.expectRevert(Errors.InvalidState.selector);
-        tangle.joinService(serviceId, 10000);
+        tangle.joinService(serviceId, 10_000);
     }
 
     function test_LeaveService_AtMinOperators_Reverts() public {
@@ -324,7 +372,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         LifecycleMockBSM localBsm = new LifecycleMockBSM();
         vm.prank(developer);
-        uint64 minOpBpId = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://minop", address(localBsm), config));
+        uint64 minOpBpId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://minop", address(localBsm), config));
 
         _registerForBlueprint(operator1, minOpBpId);
         _registerForBlueprint(operator2, minOpBpId);
@@ -356,7 +405,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         vm.prank(operator2);
         vm.expectRevert(Errors.Unauthorized.selector);
-        tangle.joinService(serviceId, 10000);
+        tangle.joinService(serviceId, 10_000);
     }
 
     function test_LeaveService_BSMRejects() public {
@@ -364,7 +413,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         // operator2 joins
         vm.prank(operator2);
-        tangle.joinService(serviceId, 10000);
+        tangle.joinService(serviceId, 10_000);
 
         mockBsm.setRejectLeaves(true);
 
@@ -384,8 +433,10 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         // Operator is registered with staking but not for this blueprint
         vm.prank(unregisteredOp);
-        vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotRegistered.selector, dynamicBlueprintId, unregisteredOp));
-        tangle.joinService(serviceId, 10000);
+        vm.expectRevert(
+            abi.encodeWithSelector(Errors.OperatorNotRegistered.selector, dynamicBlueprintId, unregisteredOp)
+        );
+        tangle.joinService(serviceId, 10_000);
     }
 
     function test_JoinService_AlreadyInService_Reverts() public {
@@ -394,7 +445,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         // operator1 is already in service from creation
         vm.prank(operator1);
         vm.expectRevert(Errors.InvalidState.selector);
-        tangle.joinService(serviceId, 10000);
+        tangle.joinService(serviceId, 10_000);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -514,8 +565,9 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         // Behavior depends on implementation - may allow or reject duplicates
         // This tests the actual behavior
         try tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0) {
-            // If it succeeds, verify service state
-        } catch {
+        // If it succeeds, verify service state
+        }
+            catch {
             // If it fails, that's also a valid behavior
         }
     }
