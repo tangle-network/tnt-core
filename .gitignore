@@ -1,8 +1,8 @@
 # Build
 target
 
-# Docs
-/docs/
+# Docs (auto-generated API docs only)
+/docs/api/
 
 # directories
 .yarn/*
