@@ -108,6 +108,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     uint64[] public serviceIds; // All service IDs when multiple instances mode is enabled
     uint256 public numServiceInstances = 1; // Default to 1 service instance
     bool public subscriptionMode; // If true, create subscription blueprint instead of PayOnce
+    bool public rewardsQaMode; // If true, seed Tangle Payments rewards for frontend QA
 
     function run() external {
         _executeSetup(true);
@@ -131,6 +132,12 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         if (_envBoolOrFalse("SUBSCRIPTION_MODE")) {
             subscriptionMode = true;
             console2.log("Subscription mode enabled: blueprint will use Subscription pricing");
+        }
+
+        // Check for rewards QA mode
+        if (_envBoolOrFalse("REWARDS_QA")) {
+            rewardsQaMode = true;
+            console2.log("Rewards QA mode enabled: will seed Tangle Payments rewards for frontend testing");
         }
 
         // Derive addresses
@@ -175,6 +182,10 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         _seedRewardVaults();
         _createAndApproveService();
 
+        if (rewardsQaMode) {
+            _setupRewardsQA();
+        }
+
         console2.log("\n=== Local Testnet Ready ===");
         console2.log("Tangle:", tangleProxy);
         console2.log("MultiAssetDelegation:", stakingProxy);
@@ -217,6 +228,14 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             console2.log("Rate: 0.1 ETH per interval");
             console2.log("Interval: 60 seconds");
             console2.log("Escrow deposit: 1 ETH per service (~10 billing cycles)");
+        }
+        if (rewardsQaMode) {
+            console2.log("\n=== Rewards QA Scenarios ===");
+            console2.log("Operator1:", operator1, "- Native-only pending rewards (10 ETH)");
+            console2.log("Operator2:", operator2, "- ERC20-only pending rewards (5000 USDC)");
+            console2.log("Operator3:", operator3, "- Multi-token pending rewards (native + USDC + USDT + DAI + WETH + stETH)");
+            console2.log("Payment split: 20% dev, 5% protocol, 65% operator, 10% staker");
+            console2.log("Shell script will execute 3 claims from Op3 for claim history after indexer sync");
         }
         console2.log("\nService is active and ready for jobs");
 
@@ -1046,6 +1065,136 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         } else {
             vm.stopPrank();
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REWARDS QA SETUP
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function _setupRewardsQA() internal {
+        console2.log("\n=== Setting Up Rewards QA Scenarios ===");
+        console2.log("This seeds real pending rewards in the Tangle Payments system");
+        console2.log("(distinct from RewardVaults which is the staking rewards system)");
+
+        ITangleFull tangle = ITangleFull(payable(tangleProxy));
+
+        // 1. Set payment split: 20% dev, 5% protocol, 65% operator, 10% staker
+        if (useBroadcastKeys) vm.startBroadcast(DEPLOYER_KEY);
+        else vm.startPrank(deployer);
+
+        tangle.setPaymentSplit(Types.PaymentSplit({
+            developerBps: 2000,
+            protocolBps: 500,
+            operatorBps: 6500,
+            stakerBps: 1000
+        }));
+        console2.log("Payment split set: 20% dev, 5% protocol, 65% operator, 10% staker");
+
+        // 2. Create rewards QA blueprint (PayOnce, single operator minimum)
+        Types.BlueprintDefinition memory def = _blueprintDefinition("http://localhost:3334/rewards-qa", address(0));
+        def.config.membership = Types.MembershipModel.Dynamic;
+        def.config.minOperators = 1;
+        def.config.maxOperators = 0;
+        uint64 rqaBpId = tangle.createBlueprint(def);
+        console2.log("Rewards QA blueprint created:", rqaBpId);
+
+        if (useBroadcastKeys) vm.stopBroadcast();
+        else vm.stopPrank();
+
+        // 3. Register all 3 operators for this blueprint
+        bytes memory op1Key = hex"040102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40";
+        bytes memory op2Key = hex"044142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80";
+        bytes memory op3Key = hex"048182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0";
+
+        _registerOpForQABlueprint(OPERATOR1_KEY, operator1, rqaBpId, op1Key);
+        _registerOpForQABlueprint(OPERATOR2_KEY, operator2, rqaBpId, op2Key);
+        _registerOpForQABlueprint(OPERATOR3_KEY, operator3, rqaBpId, op3Key);
+        console2.log("All 3 operators registered for rewards QA blueprint");
+
+        // 4. Approve ERC20 tokens from deployer to Tangle (for ERC20 service payments)
+        if (useBroadcastKeys) vm.startBroadcast(DEPLOYER_KEY);
+        else vm.startPrank(deployer);
+
+        usdc.approve(tangleProxy, type(uint256).max);
+        usdt.approve(tangleProxy, type(uint256).max);
+        dai.approve(tangleProxy, type(uint256).max);
+        weth.approve(tangleProxy, type(uint256).max);
+        stETH.approve(tangleProxy, type(uint256).max);
+
+        if (useBroadcastKeys) vm.stopBroadcast();
+        else vm.stopPrank();
+
+        // 5. Create services per scenario
+        // Each service: deployer requests with payment, single operator approves → activates → rewards credited
+
+        // Scenario A: Operator1 — native-only rewards (10 ETH)
+        _createQAServiceAndApprove(tangle, rqaBpId, operator1, OPERATOR1_KEY, address(0), 10 ether);
+        console2.log("  Op1: 10 ETH native rewards seeded");
+
+        // Scenario B: Operator2 — ERC20-only rewards (5000 USDC)
+        _createQAServiceAndApprove(tangle, rqaBpId, operator2, OPERATOR2_KEY, address(usdc), 5000 * 10 ** 6);
+        console2.log("  Op2: 5000 USDC rewards seeded");
+
+        // Scenario C: Operator3 — multi-token rewards (6 different tokens)
+        // After shell script claims 3, Op3 will still have 3 tokens for batch testing
+        _createQAServiceAndApprove(tangle, rqaBpId, operator3, OPERATOR3_KEY, address(0), 5 ether);
+        _createQAServiceAndApprove(tangle, rqaBpId, operator3, OPERATOR3_KEY, address(usdc), 2000 * 10 ** 6);
+        _createQAServiceAndApprove(tangle, rqaBpId, operator3, OPERATOR3_KEY, address(usdt), 2000 * 10 ** 6);
+        _createQAServiceAndApprove(tangle, rqaBpId, operator3, OPERATOR3_KEY, address(dai), 1000 ether);
+        _createQAServiceAndApprove(tangle, rqaBpId, operator3, OPERATOR3_KEY, address(weth), 5 ether);
+        _createQAServiceAndApprove(tangle, rqaBpId, operator3, OPERATOR3_KEY, address(stETH), 5 ether);
+        console2.log("  Op3: 6-token rewards seeded (native, USDC, USDT, DAI, WETH, stETH)");
+
+        console2.log("Rewards QA setup complete");
+    }
+
+    function _registerOpForQABlueprint(
+        uint256 opKey,
+        address opAddr,
+        uint64 bpId,
+        bytes memory pubKey
+    ) internal {
+        if (useBroadcastKeys) vm.startBroadcast(opKey);
+        else vm.startPrank(opAddr);
+
+        ITangleFull(payable(tangleProxy)).registerOperator(bpId, pubKey, "http://rewards-qa.local:8545");
+
+        if (useBroadcastKeys) vm.stopBroadcast();
+        else vm.stopPrank();
+    }
+
+    function _createQAServiceAndApprove(
+        ITangleFull tangle,
+        uint64 bpId,
+        address operator,
+        uint256 operatorKey,
+        address paymentToken,
+        uint256 paymentAmount
+    ) internal {
+        address[] memory ops = new address[](1);
+        ops[0] = operator;
+        address[] memory permittedCallers = new address[](0);
+        uint256 nativeValue = paymentToken == address(0) ? paymentAmount : 0;
+
+        // Deployer requests the service (pays for it)
+        if (useBroadcastKeys) vm.startBroadcast(DEPLOYER_KEY);
+        else vm.startPrank(deployer);
+
+        uint64 reqId = tangle.requestService{ value: nativeValue }(
+            bpId, ops, "", permittedCallers, 0, paymentToken, paymentAmount
+        );
+
+        if (useBroadcastKeys) vm.stopBroadcast();
+        else vm.stopPrank();
+
+        // Operator approves → service activates → payment distributed → rewards credited
+        if (useBroadcastKeys) vm.startBroadcast(operatorKey);
+        else vm.startPrank(operator);
+
+        tangle.approveService(reqId, 50);
+
+        if (useBroadcastKeys) vm.stopBroadcast();
+        else vm.stopPrank();
     }
 
     function _envAddressOrZero(string memory key) internal view returns (address) {

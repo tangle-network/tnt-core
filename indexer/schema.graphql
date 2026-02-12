@@ -128,6 +128,9 @@ type Blueprint {
   updatedAt: BigInt!
   operatorCount: BigInt!
   services: [Service!]! @derivedFrom(field: "blueprint")
+  paymentDistributions: [PaymentDistribution!]! @derivedFrom(field: "blueprint")
+  developerPayments: [DeveloperPayment!]! @derivedFrom(field: "blueprint")
+  operatorRewardAccruals: [OperatorRewardAccrual!]! @derivedFrom(field: "blueprint")
   registrations: [OperatorRegistration!]! @derivedFrom(field: "blueprint")
   requests: [ServiceRequest!]! @derivedFrom(field: "blueprint")
   operatorBlueprints: [OperatorBlueprint!]! @derivedFrom(field: "blueprint")
@@ -206,6 +209,7 @@ type Operator {
   memberships: [ServiceOperator!]! @derivedFrom(field: "operator")
   jobResults: [JobResult!]! @derivedFrom(field: "operator")
   stakeEvents: [OperatorStakeChange!]! @derivedFrom(field: "operator")
+  rewardAccruals: [OperatorRewardAccrual!]! @derivedFrom(field: "operator")
   delegationPositions: [DelegationPosition!]! @derivedFrom(field: "operator")
   heartbeats: [OperatorHeartbeat!]! @derivedFrom(field: "operator")
   blueprintMemberships: [OperatorBlueprint!]! @derivedFrom(field: "operator")
@@ -268,6 +272,9 @@ type Service {
   terminatedAt: BigInt
   serviceOperators: [ServiceOperator!]! @derivedFrom(field: "service")
   jobCalls: [JobCall!]! @derivedFrom(field: "service")
+  paymentDistributions: [PaymentDistribution!]! @derivedFrom(field: "service")
+  developerPayments: [DeveloperPayment!]! @derivedFrom(field: "service")
+  operatorRewardAccruals: [OperatorRewardAccrual!]! @derivedFrom(field: "service")
 }
 
 type ServiceOperator {
@@ -345,6 +352,50 @@ type RewardClaim {
   token: String!
   amount: BigInt!
   claimedAt: BigInt!
+  txHash: String!
+}
+
+type PaymentDistribution {
+  id: ID!
+  service: Service
+  serviceId: BigInt!
+  blueprint: Blueprint
+  blueprintId: BigInt!
+  token: String!
+  grossAmount: BigInt!
+  developerRecipient: String!
+  developerAmount: BigInt!
+  protocolAmount: BigInt!
+  operatorPoolAmount: BigInt!
+  restakerPoolAmount: BigInt!
+  distributedAt: BigInt!
+  txHash: String!
+}
+
+type DeveloperPayment {
+  id: ID!
+  distribution: PaymentDistribution!
+  service: Service
+  serviceId: BigInt!
+  blueprint: Blueprint
+  blueprintId: BigInt!
+  recipient: String!
+  token: String!
+  amount: BigInt!
+  paidAt: BigInt!
+  txHash: String!
+}
+
+type OperatorRewardAccrual {
+  id: ID!
+  service: Service
+  serviceId: BigInt!
+  blueprint: Blueprint
+  blueprintId: BigInt!
+  operator: Operator
+  token: String!
+  amount: BigInt!
+  accruedAt: BigInt!
   txHash: String!
 }
 

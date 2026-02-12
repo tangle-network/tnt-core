@@ -39,6 +39,9 @@ SUBSCRIPTION_MODE="${SUBSCRIPTION_MODE:-false}"
 # Service leavable flag (advances time past min commitment so operators can schedule exit)
 SERVICE_LEAVABLE="${SERVICE_LEAVABLE:-false}"
 
+# Rewards QA flag (seeds Tangle Payments rewards and executes claims for frontend QA)
+REWARDS_QA="${REWARDS_QA:-false}"
+
 # Default Anvil account (account 0)
 ANVIL_KEY="${ANVIL_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
 
@@ -267,6 +270,9 @@ run_local_testnet_setup() {
     if [[ "$SERVICE_LEAVABLE" == "true" ]]; then
         log "Service leavable mode: Will advance time past min commitment after setup"
     fi
+    if [[ "$REWARDS_QA" == "true" ]]; then
+        log "Rewards QA mode: Will seed Tangle Payments rewards for frontend testing"
+    fi
 
     cd "$ROOT_DIR"
 
@@ -275,6 +281,7 @@ run_local_testnet_setup() {
     # Removed --slow since Anvil auto-mines transactions immediately
     MULTIPLE_INSTANCES="$MULTIPLE_INSTANCES" \
     SUBSCRIPTION_MODE="$SUBSCRIPTION_MODE" \
+    REWARDS_QA="$REWARDS_QA" \
     forge script script/LocalTestnet.s.sol:LocalTestnetSetup \
         --rpc-url "$RPC_URL" \
         --private-key "$ANVIL_KEY" \
@@ -509,6 +516,81 @@ wait_for_indexer_sync() {
     fi
 }
 
+execute_rewards_qa_claims() {
+    if [[ "$REWARDS_QA" != "true" ]]; then
+        return
+    fi
+
+    log "Executing reward claims for QA claim history..."
+
+    local BROADCAST_DIR="$ROOT_DIR/broadcast/LocalTestnet.s.sol/$ANVIL_CHAIN_ID"
+    local LATEST_BROADCAST
+    LATEST_BROADCAST=$(ls -t "$BROADCAST_DIR"/run-*.json 2>/dev/null | head -1)
+
+    if [[ -z "$LATEST_BROADCAST" ]]; then
+        log "WARNING: Could not find broadcast file, skipping reward claims"
+        return
+    fi
+
+    # Extract Tangle proxy address (2nd ERC1967Proxy deployed)
+    local TANGLE_ADDR
+    TANGLE_ADDR=$(jq -r '[.transactions[] | select(.contractName == "ERC1967Proxy") | .contractAddress] | .[1]' "$LATEST_BROADCAST" 2>/dev/null || true)
+
+    if [[ -z "$TANGLE_ADDR" || "$TANGLE_ADDR" == "null" ]]; then
+        log "WARNING: Could not extract Tangle address, skipping reward claims"
+        return
+    fi
+
+    # Extract mock token addresses (deployment order: USDC, USDT, DAI, WETH, stETH, wstETH, EIGEN)
+    local MOCK_TOKENS
+    MOCK_TOKENS=$(jq -r '[.transactions[] | select(.contractName == "MockToken") | .contractAddress] | .[]' "$LATEST_BROADCAST" 2>/dev/null || true)
+
+    local DAI_ADDR WETH_ADDR STETH_ADDR
+    DAI_ADDR=$(echo "$MOCK_TOKENS" | sed -n '3p')
+    WETH_ADDR=$(echo "$MOCK_TOKENS" | sed -n '4p')
+    STETH_ADDR=$(echo "$MOCK_TOKENS" | sed -n '5p')
+
+    # Operator3 private key (Anvil account 4)
+    local OP3_KEY="0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
+
+    log "Tangle: $TANGLE_ADDR"
+    log "Claiming DAI ($DAI_ADDR), WETH ($WETH_ADDR), stETH ($STETH_ADDR) from Operator3..."
+
+    # Execute 3 claims from Op3 to create RewardClaim entries in indexer
+    # After these claims, Op3 will still have native + USDC + USDT = 3 tokens for batch testing
+    cast send "$TANGLE_ADDR" "claimRewards(address)" "$DAI_ADDR" \
+        --private-key "$OP3_KEY" --rpc-url "$RPC_URL" >/dev/null 2>&1
+    log "  Claimed DAI rewards"
+
+    cast send "$TANGLE_ADDR" "claimRewards(address)" "$WETH_ADDR" \
+        --private-key "$OP3_KEY" --rpc-url "$RPC_URL" >/dev/null 2>&1
+    log "  Claimed WETH rewards"
+
+    cast send "$TANGLE_ADDR" "claimRewards(address)" "$STETH_ADDR" \
+        --private-key "$OP3_KEY" --rpc-url "$RPC_URL" >/dev/null 2>&1
+    log "  Claimed stETH rewards"
+
+    log "Waiting for indexer to sync claim events..."
+    sleep 5
+
+    # Verify claims were indexed
+    local claims_response
+    local op3_addr="0x15d34aaf54267db7d7c367839aaf71a00a2c6a65"
+    claims_response=$(curl -s --max-time 5 "http://localhost:$HASURA_PORT/v1/graphql" \
+        -H "Content-Type: application/json" \
+        -d "{\"query\": \"{ RewardClaim(where: {account: {_eq: \\\"$op3_addr\\\"}}) { id token amount } }\"}" 2>/dev/null || echo "{}")
+
+    if echo "$claims_response" | grep -q '"RewardClaim"'; then
+        local claim_count
+        claim_count=$(echo "$claims_response" | jq '.data.RewardClaim | length' 2>/dev/null || echo "0")
+        log "Reward claims indexed: $claim_count entries for Op3"
+    else
+        log "WARNING: Could not verify indexed claims (indexer may need more time)"
+    fi
+
+    log "Rewards QA claims complete"
+}
+
 verify_setup() {
     log "Verifying setup..."
 
@@ -604,6 +686,25 @@ show_summary() {
     if [[ "$SERVICE_LEAVABLE" == "true" ]]; then
         log "  ✓ Time advanced past min commitment (operators can schedule exit)"
     fi
+    if [[ "$REWARDS_QA" == "true" ]]; then
+        log ""
+        log "Rewards QA State (Tangle Payments system):"
+        log "  Operator1 (0x70997970C51812dc3A010C7d01b50e0d17dc79C8):"
+        log "    Pending: 10 ETH (native only)"
+        log "  Operator2 (0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC):"
+        log "    Pending: 5000 USDC (ERC20 only)"
+        log "  Operator3 (0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65):"
+        log "    Pending: native + USDC + USDT (3 tokens, for batch claim testing)"
+        log "    Claimed: DAI + WETH + stETH (3 entries in claim history)"
+        log ""
+        log "  Covers: RWD-001 to RWD-009 scenarios from QA plan"
+        log "  Payment split: 20% dev, 5% protocol, 65% operator, 10% staker"
+        log ""
+        log "Earnings QA State (DeveloperPayment entries):"
+        log "  Blueprint owner (deployer): 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+        log "  Developer payouts: 8 entries across 6 tokens (ETH, USDC, USDT, DAI, WETH, stETH)"
+        log "  Payment split: 20% dev, 5% protocol, 65% operator, 10% staker"
+    fi
     log ""
     log "Press Ctrl+C to stop all services"
     log ""
@@ -629,6 +730,8 @@ main() {
                 echo "  --multiple-instances    Create 3 service instances instead of 1"
                 echo "  --subscription          Create subscription blueprint (0.1 ETH/60s) instead of PayOnce"
                 echo "  --service-leavable      Advance time past min commitment so operators can schedule exit"
+                echo "  --with-rewards          Seed Tangle Payments rewards for frontend QA testing"
+                echo "                          Op1=native-only, Op2=ERC20-only, Op3=multi-token + claim history"
                 exit 0
                 ;;
             --multiple-instances)
@@ -641,6 +744,10 @@ main() {
                 ;;
             --service-leavable)
                 SERVICE_LEAVABLE="true"
+                shift
+                ;;
+            --with-rewards)
+                REWARDS_QA="true"
                 shift
                 ;;
             *)
@@ -660,6 +767,7 @@ main() {
     setup_indexer
     start_indexer
     wait_for_indexer_sync
+    execute_rewards_qa_claims
     verify_setup
     show_summary
 
