@@ -8,6 +8,26 @@ interface ITangleRewards {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    event PaymentDistributed(
+        uint64 indexed serviceId,
+        uint64 indexed blueprintId,
+        address indexed token,
+        uint256 grossAmount,
+        address developerRecipient,
+        uint256 developerAmount,
+        uint256 protocolAmount,
+        uint256 operatorPoolAmount,
+        uint256 restakerPoolAmount
+    );
+
+    event OperatorRewardAccrued(
+        uint64 indexed serviceId,
+        address indexed operator,
+        address indexed token,
+        uint64 blueprintId,
+        uint256 amount
+    );
+
     event RewardsClaimed(address indexed account, address indexed token, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════

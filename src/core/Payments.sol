@@ -34,6 +34,24 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
 
     event EscrowFunded(uint64 indexed serviceId, address indexed token, uint256 amount);
     event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
+    event PaymentDistributed(
+        uint64 indexed serviceId,
+        uint64 indexed blueprintId,
+        address indexed token,
+        uint256 grossAmount,
+        address developerRecipient,
+        uint256 developerAmount,
+        uint256 protocolAmount,
+        uint256 operatorPoolAmount,
+        uint256 restakerPoolAmount
+    );
+    event OperatorRewardAccrued(
+        uint64 indexed serviceId,
+        address indexed operator,
+        address indexed token,
+        uint64 blueprintId,
+        uint256 amount
+    );
     event RewardsClaimed(address indexed account, address indexed token, uint256 amount);
     event TntPaymentDiscountApplied(
         uint64 indexed serviceId, address indexed recipient, address indexed token, uint256 amount
@@ -411,6 +429,25 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         // Protocol payment
         PaymentLib.transferPayment(_treasury, token, amounts.protocolAmount);
 
+        uint256 operatorPoolAmount = operatorsLength == 0
+            ? 0
+            : amounts.operatorAmount + (hasSecurityCommitments ? 0 : amounts.restakerAmount);
+        uint256 restakerPoolAmount = operatorsLength == 0
+            ? 0
+            : (hasSecurityCommitments ? amounts.restakerAmount : 0);
+
+        emit PaymentDistributed(
+            serviceId,
+            blueprintId,
+            token,
+            amount,
+            developerAddr,
+            amounts.developerAmount,
+            amounts.protocolAmount,
+            operatorPoolAmount,
+            restakerPoolAmount
+        );
+
         // Operator payments — operators always get paid for providing compute.
         // When no restakers back operators, restaker share merges into operator pool.
         if (operatorsLength == 0) return;
@@ -432,6 +469,13 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
                 PaymentLib.addPendingReward(_pendingRewards, opPayments[i].operator, token, opPayments[i].operatorShare);
                 if (opPayments[i].operatorShare > 0) {
                     _pendingRewardTokens[opPayments[i].operator].add(token);
+                    emit OperatorRewardAccrued(
+                        serviceId,
+                        opPayments[i].operator,
+                        token,
+                        blueprintId,
+                        opPayments[i].operatorShare
+                    );
                 }
 
                 if (opPayments[i].restakerShare > 0) {
@@ -458,6 +502,13 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
                 PaymentLib.addPendingReward(_pendingRewards, operators[i], token, share);
                 if (share > 0) {
                     _pendingRewardTokens[operators[i]].add(token);
+                    emit OperatorRewardAccrued(
+                        serviceId,
+                        operators[i],
+                        token,
+                        blueprintId,
+                        share
+                    );
                 }
                 distributed += share;
                 unchecked {

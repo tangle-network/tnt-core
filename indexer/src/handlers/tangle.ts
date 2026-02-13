@@ -2,13 +2,16 @@ import { Tangle } from "generated";
 import { decodeFunctionData, parseAbi } from "viem";
 import type {
   Blueprint,
+  DeveloperPayment,
   EscrowBalance,
   JobCall,
   JobEventRate,
   JobResult,
+  OperatorRewardAccrual,
   Operator,
   OperatorIntent,
   OperatorRegistration,
+  PaymentDistribution,
   ProtocolState,
   QuoteUsage,
   RewardClaim,
@@ -718,6 +721,71 @@ export function registerTangleHandlers() {
       txHash: getTxHash(event),
     } as SubscriptionBilling;
     context.SubscriptionBilling.set(billing);
+  });
+
+  Tangle.PaymentDistributed.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const serviceIdValue = toBigInt(event.params.serviceId);
+    const serviceId = serviceIdValue.toString();
+    const blueprintIdValue = toBigInt(event.params.blueprintId);
+    const blueprintId = blueprintIdValue.toString();
+    const distributionId = getEventId(event);
+
+    const distribution: PaymentDistribution = {
+      id: distributionId,
+      service_id: serviceId,
+      serviceId: serviceIdValue,
+      blueprint_id: blueprintId,
+      blueprintId: blueprintIdValue,
+      token: normalizeAddress(event.params.token),
+      grossAmount: toBigInt(event.params.grossAmount),
+      developerRecipient: normalizeAddress(event.params.developerRecipient),
+      developerAmount: toBigInt(event.params.developerAmount),
+      protocolAmount: toBigInt(event.params.protocolAmount),
+      operatorPoolAmount: toBigInt(event.params.operatorPoolAmount),
+      restakerPoolAmount: toBigInt(event.params.restakerPoolAmount),
+      distributedAt: timestamp,
+      txHash: getTxHash(event),
+    } as PaymentDistribution;
+    context.PaymentDistribution.set(distribution);
+
+    const developerPayment: DeveloperPayment = {
+      id: `${distributionId}-developer`,
+      distribution_id: distributionId,
+      service_id: serviceId,
+      serviceId: serviceIdValue,
+      blueprint_id: blueprintId,
+      blueprintId: blueprintIdValue,
+      recipient: normalizeAddress(event.params.developerRecipient),
+      token: normalizeAddress(event.params.token),
+      amount: toBigInt(event.params.developerAmount),
+      paidAt: timestamp,
+      txHash: getTxHash(event),
+    } as DeveloperPayment;
+    context.DeveloperPayment.set(developerPayment);
+  });
+
+  Tangle.OperatorRewardAccrued.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const serviceIdValue = toBigInt(event.params.serviceId);
+    const serviceId = serviceIdValue.toString();
+    const blueprintIdValue = toBigInt(event.params.blueprintId);
+    const blueprintId = blueprintIdValue.toString();
+    const operator = await ensureOperator(context, event.params.operator, timestamp);
+
+    const accrual: OperatorRewardAccrual = {
+      id: getEventId(event),
+      service_id: serviceId,
+      serviceId: serviceIdValue,
+      blueprint_id: blueprintId,
+      blueprintId: blueprintIdValue,
+      operator_id: operator.id,
+      token: normalizeAddress(event.params.token),
+      amount: toBigInt(event.params.amount),
+      accruedAt: timestamp,
+      txHash: getTxHash(event),
+    } as OperatorRewardAccrual;
+    context.OperatorRewardAccrual.set(accrual);
   });
 
   Tangle.RewardsClaimed.handler(async ({ event, context }) => {

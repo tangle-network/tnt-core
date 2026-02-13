@@ -38,7 +38,9 @@ networks:
           - event: Initialized(uint64 version)
           - event: JobCompleted(uint64 indexed serviceId, uint64 indexed callId)
           - event: JobResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, address indexed operator, bytes output)
+          - event: JobEventRateSet(uint64 indexed blueprintId, uint8 indexed jobIndex, uint256 rate)
           - event: JobSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint8 jobIndex, address caller, bytes inputs)
+          - event: JobSubmittedFromQuote(uint64 indexed serviceId, uint64 indexed callId, uint8 jobIndex, address caller, address[] quotedOperators, uint256 totalPrice, bytes inputs)
           - event: OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps)
           - event: OperatorLeftService(uint64 indexed serviceId, address indexed operator)
           - event: OperatorPreRegistered(uint64 indexed blueprintId, address indexed operator)
@@ -46,6 +48,8 @@ networks:
           - event: OperatorRegistered(uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress)
           - event: OperatorUnregistered(uint64 indexed blueprintId, address indexed operator)
           - event: Paused(address account)
+          - event: PaymentDistributed(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed token, uint256 grossAmount, address developerRecipient, uint256 developerAmount, uint256 protocolAmount, uint256 operatorPoolAmount, uint256 restakerPoolAmount)
+          - event: OperatorRewardAccrued(uint64 indexed serviceId, address indexed operator, address indexed token, uint64 blueprintId, uint256 amount)
           - event: QuoteUsed(address indexed operator, bytes32 indexed quoteHash)
           - event: RewardsClaimed(address indexed account, address indexed token, uint256 amount)
           - event: RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
@@ -67,7 +71,7 @@ networks:
           - event: Upgraded(address indexed implementation)
       - name: MasterBlueprintServiceManager
         address:
-          - "0xc351628eb244ec633d5f21fbd6621e1a683b1181"  # nonce 7
+          - "0xcbeaf3bde82155f56486fb5a1072cb8baaf547cc"  # nonce 7
         handler: src/EventHandlers.ts
         events:
           - event: BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition)
@@ -103,7 +107,7 @@ networks:
           - event: OperatorWhitelistUpdated(address indexed operator, address indexed delegator, bool approved)
       - name: OperatorStatusRegistry
         address:
-          - "0x99bba657f2bbc93c02d617f8ba121cb8fc104acf"  # nonce 4
+          - "0x8f86403a4de0bb5791fa46b8e795c547942fe4cf"  # nonce 4
         handler: src/EventHandlers.ts
         events:
           - event: HeartbeatReceived(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed operator, uint8 statusCode, uint256 timestamp)
@@ -115,7 +119,7 @@ networks:
           - event: SlashingTriggered(uint64 indexed serviceId, address indexed operator, string reason)
       - name: ValidatorPodManager
         address:
-          - "0x71089ba41e478702e1904692385be3972b2cbf9e"
+          - "0xc66ab83418c20a65c3f8e83b3d11c8c3a6097b6f"
         handler: src/EventHandlers.ts
         events:
           - event: PodCreated(address indexed owner, address indexed pod)
@@ -129,7 +133,7 @@ networks:
           - event: WithdrawalCompleted(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares)
       - name: LiquidDelegationFactory
         address:
-          - "0xc66ab83418c20a65c3f8e83b3d11c8c3a6097b6f"
+          - "0x12bcb546bc60ff39f1adfc7ce4605d5bd6a6a876"
         handler: src/EventHandlers.ts
         events:
           - event: VaultCreated(address indexed vault, address indexed operator, address indexed asset, uint64[] blueprintIds, string name, string symbol)
@@ -145,7 +149,7 @@ networks:
           - event: Transfer(address indexed from, address indexed to, uint256 value)
       - name: RewardVaults
         address:
-          - "0xdbc43ba45381e02825b14322cddd15ec4b3164e6"
+          - "0x4c4a2f8c81640e47606d3fd77b353e87ba015584"
         handler: src/EventHandlers.ts
         events:
           - event: VaultCreated(address indexed asset, uint256 depositCap)
@@ -161,7 +165,7 @@ networks:
           - event: LockDurationsUpdated(uint256 oneMonth, uint256 twoMonths, uint256 threeMonths, uint256 sixMonths)
       - name: InflationPool
         address:
-          - "0x4c4a2f8c81640e47606d3fd77b353e87ba015584"
+          - "0x2e2ed0cfd3ad2f1d34481277b3204d807ca2f8c2"
         handler: src/EventHandlers.ts
         events:
           - event: OperatorRewardClaimed(address indexed operator, uint256 amount)
