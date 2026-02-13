@@ -298,14 +298,16 @@ do_submit_job() {
     local tx_hash
     tx_hash=$(echo "$tx_result" | jq -r '.transactionHash // empty' 2>/dev/null || echo "unknown")
 
-    # Extract callId from the JobCalled event logs
-    # JobCalled event: event JobCalled(uint64 indexed serviceId, uint64 indexed callId, ...)
+    # Extract callId from the JobSubmitted event logs
+    # JobSubmitted event: event JobSubmitted(uint64 indexed serviceId, uint64 indexed callId, ...)
     # Topic[0] = event signature hash, Topic[1] = serviceId, Topic[2] = callId
     local call_id=""
     local logs
     logs=$(echo "$tx_result" | jq -r '.logs // []' 2>/dev/null || echo "[]")
     local num_logs
     num_logs=$(echo "$logs" | jq 'length' 2>/dev/null || echo "0")
+    local job_submitted_topic0
+    job_submitted_topic0=$(cast keccak "JobSubmitted(uint64,uint64,uint8,address,bytes)" 2>/dev/null | tr '[:upper:]' '[:lower:]')
 
     for ((i = 0; i < num_logs; i++)); do
         local topics
@@ -314,6 +316,12 @@ do_submit_job() {
         num_topics=$(echo "$topics" | jq 'length' 2>/dev/null || echo "0")
 
         if [[ "$num_topics" -ge 3 ]]; then
+            local topic0_hex
+            topic0_hex=$(echo "$topics" | jq -r '.[0]' 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            if [[ -z "$topic0_hex" || "$topic0_hex" == "null" || "$topic0_hex" != "$job_submitted_topic0" ]]; then
+                continue
+            fi
+
             local topic2_hex
             topic2_hex=$(echo "$topics" | jq -r '.[2]' 2>/dev/null || echo "")
             if [[ -n "$topic2_hex" && "$topic2_hex" != "null" ]]; then
