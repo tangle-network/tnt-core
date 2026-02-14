@@ -110,6 +110,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     uint256 public numServiceInstances = 1; // Default to 1 service instance
     bool public subscriptionMode; // If true, create subscription blueprint instead of PayOnce
     bool public rewardsQaMode; // If true, seed Tangle Payments rewards for frontend QA
+    bool public operatorQaRegistrationMode; // If true, create registration-specific QA blueprints
+    uint64 public operatorQaEmptySchemaBlueprintId;
+    uint64 public operatorQaRequiredSchemaBlueprintId;
 
     function run() external {
         _executeSetup(true);
@@ -139,6 +142,10 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         if (_envBoolOrFalse("REWARDS_QA")) {
             rewardsQaMode = true;
             console2.log("Rewards QA mode enabled: will seed Tangle Payments rewards for frontend testing");
+        }
+        if (_envBoolOrFalse("OPERATOR_QA_REGISTRATION")) {
+            operatorQaRegistrationMode = true;
+            console2.log("Operator QA registration mode enabled: creating extra registration fixture blueprints");
         }
 
         // Derive addresses
@@ -182,6 +189,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         _delegatorStakeERC20();
         _seedRewardVaults();
         _createAndApproveService();
+        if (operatorQaRegistrationMode) {
+            _setupOperatorQaRegistrationFixtures();
+        }
 
         if (rewardsQaMode) {
             _setupRewardsQA();
@@ -230,11 +240,20 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             console2.log("Interval: 60 seconds");
             console2.log("Escrow deposit: 1 ETH per service (~10 billing cycles)");
         }
+        if (operatorQaRegistrationMode) {
+            console2.log("\n=== Operator Registration QA Fixtures ===");
+            console2.log("Empty-schema blueprint ID:", operatorQaEmptySchemaBlueprintId);
+            console2.log("Required-schema blueprint ID:", operatorQaRequiredSchemaBlueprintId);
+            console2.log("Required schema fields: bool(flag), uint32(value)");
+            console2.log("Operator1/Operator2 are intentionally not pre-registered on these fixtures");
+        }
         if (rewardsQaMode) {
             console2.log("\n=== Rewards QA Scenarios ===");
             console2.log("Operator1:", operator1, "- Native-only pending rewards (10 ETH)");
             console2.log("Operator2:", operator2, "- ERC20-only pending rewards (5000 USDC)");
-            console2.log("Operator3:", operator3, "- Multi-token pending rewards (native + USDC + USDT + DAI + WETH + stETH)");
+            console2.log(
+                "Operator3:", operator3, "- Multi-token pending rewards (native + USDC + USDT + DAI + WETH + stETH)"
+            );
             console2.log("Payment split: 20% dev, 5% protocol, 65% operator, 10% staker");
             console2.log("Shell script will execute 3 claims from Op3 for claim history after indexer sync");
         }
@@ -1069,6 +1088,46 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // OPERATOR REGISTRATION QA SETUP
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function _setupOperatorQaRegistrationFixtures() internal {
+        console2.log("\n=== Setting Up Operator Registration QA Fixtures ===");
+        ITangleFull tangle = ITangleFull(payable(tangleProxy));
+
+        if (useBroadcastKeys) vm.startBroadcast(DEPLOYER_KEY);
+        else vm.startPrank(deployer);
+
+        // Fixture A: empty registration schema, no pre-registrations.
+        Types.BlueprintDefinition memory emptySchemaDef =
+            _blueprintDefinition("http://localhost:3335/operator-qa-empty-schema", address(0));
+        emptySchemaDef.config.membership = Types.MembershipModel.Dynamic;
+        emptySchemaDef.config.minOperators = 1;
+        emptySchemaDef.config.maxOperators = 0;
+        emptySchemaDef.metadata.name = "Operator QA Empty Schema";
+        emptySchemaDef.metadata.description = "Fixture blueprint for REG-OP-02 (empty registration schema).";
+
+        operatorQaEmptySchemaBlueprintId = tangle.createBlueprint(emptySchemaDef);
+        console2.log("Operator QA empty-schema blueprint created:", operatorQaEmptySchemaBlueprintId);
+
+        // Fixture B: required registration schema (bool + uint32), no pre-registrations.
+        Types.BlueprintDefinition memory requiredSchemaDef =
+            _blueprintDefinition("http://localhost:3336/operator-qa-required-schema", address(0));
+        requiredSchemaDef.config.membership = Types.MembershipModel.Dynamic;
+        requiredSchemaDef.config.minOperators = 1;
+        requiredSchemaDef.config.maxOperators = 0;
+        requiredSchemaDef.registrationSchema = _boolUintSchema();
+        requiredSchemaDef.metadata.name = "Operator QA Required Schema";
+        requiredSchemaDef.metadata.description = "Fixture blueprint for REG-OP-03/04 (required registration params).";
+
+        operatorQaRequiredSchemaBlueprintId = tangle.createBlueprint(requiredSchemaDef);
+        console2.log("Operator QA required-schema blueprint created:", operatorQaRequiredSchemaBlueprintId);
+
+        if (useBroadcastKeys) vm.stopBroadcast();
+        else vm.stopPrank();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // REWARDS QA SETUP
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1083,12 +1142,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         if (useBroadcastKeys) vm.startBroadcast(DEPLOYER_KEY);
         else vm.startPrank(deployer);
 
-        tangle.setPaymentSplit(Types.PaymentSplit({
-            developerBps: 2000,
-            protocolBps: 500,
-            operatorBps: 6500,
-            stakerBps: 1000
-        }));
+        tangle.setPaymentSplit(
+            Types.PaymentSplit({ developerBps: 2000, protocolBps: 500, operatorBps: 6500, stakerBps: 1000 })
+        );
         console2.log("Payment split set: 20% dev, 5% protocol, 65% operator, 10% staker");
 
         // 2. Create rewards QA blueprint (PayOnce, single operator minimum)
@@ -1103,9 +1159,12 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         else vm.stopPrank();
 
         // 3. Register all 3 operators for this blueprint
-        bytes memory op1Key = hex"040102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40";
-        bytes memory op2Key = hex"044142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80";
-        bytes memory op3Key = hex"048182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0";
+        bytes memory op1Key =
+            hex"040102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40";
+        bytes memory op2Key =
+            hex"044142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80";
+        bytes memory op3Key =
+            hex"048182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0";
 
         _registerOpForQABlueprint(OPERATOR1_KEY, operator1, rqaBpId, op1Key);
         _registerOpForQABlueprint(OPERATOR2_KEY, operator2, rqaBpId, op2Key);
@@ -1149,12 +1208,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         console2.log("Rewards QA setup complete");
     }
 
-    function _registerOpForQABlueprint(
-        uint256 opKey,
-        address opAddr,
-        uint64 bpId,
-        bytes memory pubKey
-    ) internal {
+    function _registerOpForQABlueprint(uint256 opKey, address opAddr, uint64 bpId, bytes memory pubKey) internal {
         if (useBroadcastKeys) vm.startBroadcast(opKey);
         else vm.startPrank(opAddr);
 
@@ -1171,7 +1225,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         uint256 operatorKey,
         address paymentToken,
         uint256 paymentAmount
-    ) internal {
+    )
+        internal
+    {
         address[] memory ops = new address[](1);
         ops[0] = operator;
         address[] memory permittedCallers = new address[](0);
