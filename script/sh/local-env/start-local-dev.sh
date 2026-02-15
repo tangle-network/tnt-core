@@ -42,6 +42,12 @@ SERVICE_LEAVABLE="${SERVICE_LEAVABLE:-false}"
 # Rewards QA flag (seeds Tangle Payments rewards and executes claims for frontend QA)
 REWARDS_QA="${REWARDS_QA:-false}"
 
+# Operator registration QA fixtures (adds extra blueprints for operator registration cases)
+OPERATOR_QA_REGISTRATION="${OPERATOR_QA_REGISTRATION:-false}"
+
+# Operator slashing QA fixtures (seeds a single pending slash with readable context)
+OPERATOR_QA_SLASHING="${OPERATOR_QA_SLASHING:-false}"
+
 # Default Anvil account (account 0)
 ANVIL_KEY="${ANVIL_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
 
@@ -58,8 +64,35 @@ log() {
     echo "[local-dev] $*"
 }
 
+notify() {
+    local title="$1"
+    local message="$2"
+    case "$(uname -s)" in
+        Darwin)
+            osascript -e "display notification \"${message}\" with title \"${title}\"" 2>/dev/null || true
+            ;;
+        Linux)
+            if command -v notify-send >/dev/null 2>&1; then
+                notify-send "$title" "$message" 2>/dev/null || true
+            fi
+            ;;
+    esac
+}
+
 ANVIL_PID=""
 INDEXER_PID=""
+CURRENT_STEP=""
+
+on_error() {
+    local exit_code=$?
+    if [[ -n "$CURRENT_STEP" ]]; then
+        log "ERROR: Failed during: $CURRENT_STEP (exit code $exit_code)"
+        notify "Tangle Local Dev Failed" "Failed during: $CURRENT_STEP"
+    else
+        notify "Tangle Local Dev Failed" "Setup failed (exit code $exit_code)"
+    fi
+}
+trap on_error ERR
 
 cleanup() {
     log "Cleaning up..."
@@ -83,6 +116,7 @@ check_prerequisites() {
 
     command -v anvil >/dev/null 2>&1 || missing+=("anvil (foundry)")
     command -v forge >/dev/null 2>&1 || missing+=("forge (foundry)")
+    command -v cast >/dev/null 2>&1 || missing+=("cast (foundry)")
     command -v docker >/dev/null 2>&1 || missing+=("docker")
     command -v pnpm >/dev/null 2>&1 || missing+=("pnpm")
     command -v curl >/dev/null 2>&1 || missing+=("curl")
@@ -273,6 +307,12 @@ run_local_testnet_setup() {
     if [[ "$REWARDS_QA" == "true" ]]; then
         log "Rewards QA mode: Will seed Tangle Payments rewards for frontend testing"
     fi
+    if [[ "$OPERATOR_QA_REGISTRATION" == "true" ]]; then
+        log "Operator QA registration fixtures: Will create extra empty + required-schema blueprints"
+    fi
+    if [[ "$OPERATOR_QA_SLASHING" == "true" ]]; then
+        log "Operator QA slashing fixtures: Will seed one pending slash with readable claim context"
+    fi
 
     cd "$ROOT_DIR"
 
@@ -282,6 +322,7 @@ run_local_testnet_setup() {
     MULTIPLE_INSTANCES="$MULTIPLE_INSTANCES" \
     SUBSCRIPTION_MODE="$SUBSCRIPTION_MODE" \
     REWARDS_QA="$REWARDS_QA" \
+    OPERATOR_QA_REGISTRATION="$OPERATOR_QA_REGISTRATION" \
     forge script script/LocalTestnet.s.sol:LocalTestnetSetup \
         --rpc-url "$RPC_URL" \
         --private-key "$ANVIL_KEY" \
@@ -291,6 +332,71 @@ run_local_testnet_setup() {
 
     # Update indexer config with deployed contract addresses
     update_indexer_config
+}
+
+seed_operator_qa_slashing() {
+    if [[ "$OPERATOR_QA_SLASHING" != "true" ]]; then
+        return
+    fi
+
+    log "Seeding operator slashing QA fixtures..."
+
+    local BROADCAST_DIR="$ROOT_DIR/broadcast/LocalTestnet.s.sol/$ANVIL_CHAIN_ID"
+    local LATEST_BROADCAST
+    LATEST_BROADCAST=$(ls -t "$BROADCAST_DIR"/run-*.json 2>/dev/null | head -1)
+
+    if [[ -z "$LATEST_BROADCAST" ]]; then
+        log "WARNING: Could not find broadcast file, skipping operator slashing fixtures"
+        return
+    fi
+
+    if ! command -v jq >/dev/null 2>&1; then
+        log "WARNING: jq not installed, skipping operator slashing fixtures"
+        return
+    fi
+
+    # Extract Tangle proxy address (2nd ERC1967Proxy deployed)
+    local TANGLE_ADDR
+    TANGLE_ADDR=$(jq -r '[.transactions[] | select(.contractName == "ERC1967Proxy") | .contractAddress] | .[1]' "$LATEST_BROADCAST" 2>/dev/null || true)
+
+    if [[ -z "$TANGLE_ADDR" || "$TANGLE_ADDR" == "null" ]]; then
+        log "WARNING: Could not extract Tangle address, skipping operator slashing fixtures"
+        return
+    fi
+
+    local OPERATOR_A="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+    local SETUP_PK="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    local SERVICE_ID="${OPERATOR_QA_SERVICE_ID:-}"
+
+    # Discover a service where Operator A is an active service operator unless explicit ID is provided.
+    if [[ -z "$SERVICE_ID" ]]; then
+        for i in $(seq 0 32); do
+            local is_service_operator
+            is_service_operator=$(cast call "$TANGLE_ADDR" "isServiceOperator(uint64,address)(bool)" "$i" "$OPERATOR_A" --rpc-url "$RPC_URL" 2>/dev/null || true)
+            if [[ "$is_service_operator" == "true" ]]; then
+                SERVICE_ID="$i"
+                break
+            fi
+        done
+    fi
+
+    if [[ -z "$SERVICE_ID" ]]; then
+        log "WARNING: Could not discover a service for Operator A; skipping operator slashing fixtures"
+        log "Set OPERATOR_QA_SERVICE_ID explicitly if needed."
+        return
+    fi
+
+    # bytes32("QA: SLA proof missing") padded with zeros.
+    # UI can decode this into human-readable claim context while slash remains Pending.
+    local EVIDENCE_PENDING_CONTEXT="0x51413a20534c412070726f6f66206d697373696e670000000000000000000000"
+
+    # Seed exactly one pending slash for Operator A with readable claim context.
+    cast send "$TANGLE_ADDR" "proposeSlash(uint64,address,uint16,bytes32)" "$SERVICE_ID" "$OPERATOR_A" 1500 "$EVIDENCE_PENDING_CONTEXT" \
+        --private-key "$SETUP_PK" --rpc-url "$RPC_URL" >/dev/null
+
+    log "Operator slashing QA fixtures seeded:"
+    log "  - Service ID: $SERVICE_ID"
+    log "  - Operator A: one pending slash with readable claim context"
 }
 
 advance_time_for_leavable() {
@@ -686,6 +792,13 @@ show_summary() {
     if [[ "$SERVICE_LEAVABLE" == "true" ]]; then
         log "  ✓ Time advanced past min commitment (operators can schedule exit)"
     fi
+    if [[ "$OPERATOR_QA_REGISTRATION" == "true" ]]; then
+        log "  ✓ Extra operator registration QA blueprints (empty + required-schema)"
+    fi
+    if [[ "$OPERATOR_QA_SLASHING" == "true" ]]; then
+        log "  ✓ Seeded operator slashing QA fixtures"
+        log "    - Operator A: one pending slash with readable claim context"
+    fi
     if [[ "$REWARDS_QA" == "true" ]]; then
         log ""
         log "Rewards QA State (Tangle Payments system):"
@@ -708,6 +821,8 @@ show_summary() {
     log ""
     log "Press Ctrl+C to stop all services"
     log ""
+
+    notify "Tangle Local Dev" "Local development environment is ready!"
 }
 
 main() {
@@ -732,6 +847,14 @@ main() {
                 echo "  --service-leavable      Advance time past min commitment so operators can schedule exit"
                 echo "  --with-rewards          Seed Tangle Payments rewards for frontend QA testing"
                 echo "                          Op1=native-only, Op2=ERC20-only, Op3=multi-token + claim history"
+                echo "  --with-operator-qa-registration"
+                echo "                          Add extra blueprints for operator registration QA"
+                echo "                          (empty-schema blueprint + required-schema blueprint)"
+                echo "  --with-operator-qa-slashing"
+                echo "                          Seed operator slashing QA fixtures"
+                echo "                          (single OpA pending slash with readable claim context)"
+                echo "  --with-operator-qa-fixtures"
+                echo "                          Enable both operator QA fixture options above"
                 exit 0
                 ;;
             --multiple-instances)
@@ -750,6 +873,19 @@ main() {
                 REWARDS_QA="true"
                 shift
                 ;;
+            --with-operator-qa-registration)
+                OPERATOR_QA_REGISTRATION="true"
+                shift
+                ;;
+            --with-operator-qa-slashing)
+                OPERATOR_QA_SLASHING="true"
+                shift
+                ;;
+            --with-operator-qa-fixtures)
+                OPERATOR_QA_REGISTRATION="true"
+                OPERATOR_QA_SLASHING="true"
+                shift
+                ;;
             *)
                 log "Unknown argument: $1"
                 log "Use --help for usage information"
@@ -758,17 +894,31 @@ main() {
         esac
     done
 
+    CURRENT_STEP="Checking prerequisites"
     check_prerequisites
+    CURRENT_STEP="Starting Anvil"
     ensure_anvil
+    CURRENT_STEP="Deploying Multicall3"
     deploy_multicall3
+    CURRENT_STEP="Running LocalTestnet setup (contract deployment)"
     run_local_testnet_setup
+    CURRENT_STEP="Advancing time for leavable services"
     advance_time_for_leavable
+    CURRENT_STEP="Seeding operator slashing fixtures"
+    seed_operator_qa_slashing
+    CURRENT_STEP="Starting Docker containers"
     start_docker
+    CURRENT_STEP="Setting up indexer"
     setup_indexer
+    CURRENT_STEP="Starting indexer"
     start_indexer
+    CURRENT_STEP="Waiting for indexer sync"
     wait_for_indexer_sync
+    CURRENT_STEP="Executing rewards QA claims"
     execute_rewards_qa_claims
+    CURRENT_STEP="Verifying setup"
     verify_setup
+    CURRENT_STEP=""
     show_summary
 
     # Keep running until Ctrl+C

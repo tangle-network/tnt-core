@@ -65,7 +65,7 @@ networks:
           - event: SlashConfigUpdated(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps)
           - event: SlashDisputed(uint64 indexed slashId, address indexed disputer, string reason)
           - event: SlashExecuted(uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, uint256 actualSlashed)
-          - event: SlashProposed(uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, address proposer, uint256 amount, uint256 effectiveAmount, bytes32 evidence, uint64 executeAfter)
+          - event: SlashProposed(uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, address proposer, uint16 slashBps, uint16 effectiveSlashBps, bytes32 evidence, uint64 executeAfter)
           - event: SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period)
           - event: Unpaused(address account)
           - event: Upgraded(address indexed implementation)
