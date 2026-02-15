@@ -98,7 +98,7 @@ Six principles guide Tangle's design. Each addresses a specific failure mode in 
 
 The dominant model for AI infrastructure concentrates value in platform operators. Cloud providers capture margin on every API call. Platforms retain customer relationships, reducing developers and operators to commoditized inputs.
 
-Tangle inverts this model. Value flows to those who create it: developers earn from blueprints, operators earn from compute, delegators earn from stake. The protocol captures only a governance-controlled fee (currently 10\%) funding ongoing development. This fee is not rent but payment for coordination.
+Tangle inverts this model. Value flows to those who create it: developers earn from blueprints, operators earn from compute, delegators earn from stake. The protocol captures only a governance-controlled fee (currently 20\%) funding ongoing development. This fee is not rent but payment for coordination.
 
 The inflation distribution allocates 25\% to developers and 25\% to operators, ensuring both blueprint creators and compute providers share in network growth. Payment splits route value to participants who earned it. Governance grants voting power proportional to stake.
 
@@ -279,11 +279,19 @@ Operators configure delegation mode:
     \item \textbf{Open}: Any address may delegate
 \end{itemize}
 
+\subsection{Liquid Delegation Vaults}
+
+Tangle implements liquid delegation through \texttt{LiquidDelegationVault}, an ERC-7540 compliant vault enabling asynchronous deposit and redemption of delegation positions. Delegators deposit assets and receive vault shares representing their proportional claim on the operator's staked position. These shares are transferable, enabling liquid delegation positions that can be used in DeFi while the underlying assets remain staked.
+
+The vault uses asynchronous request-fulfill flow per ERC-7540: delegators submit deposit or redemption requests, which are fulfilled after the protocol's delay periods (28 rounds for delegators). A virtual share offset ($V = 10^3$) prevents first-depositor attacks on the share exchange rate. When slashing occurs, total vault assets decrease while shares remain constant, automatically distributing losses proportionally across all vault participants.
+
 \subsection{Exposure Selection}
 
 When operators approve service requests, they commit an exposure in basis points (0-10000). This determines what fraction of stake backs the service.
 
 Exposure has two consequences: it determines reward share (higher exposure = more rewards) and bounds slashing (operators lose at most their committed percentage).
+
+The protocol's \texttt{ExposureManager} implements granular per-asset exposure tracking. Rather than a single exposure value per operator per service, the system maintains exposure limits for each staked asset independently. Operators can configure per-asset exposure caps, and services can specify minimum and maximum exposure requirements per asset type. The \texttt{ExposureCalculator} computes effective exposure across an operator's portfolio, enabling precise risk management when operators participate in multiple services with different collateral compositions.
 
 This design enables participation in multiple services with bounded total risk.
 
@@ -482,6 +490,12 @@ Six Months & 1.6x \\
 
 A delegator's score is amount $\times$ multiplier. Rewards distribute proportionally using accumulated-per-share accounting for O(1) efficiency.
 
+\subsection{Streaming Payments}
+
+For subscription-based services, the \texttt{StreamingPaymentManager} distributes payments continuously over the service's time-to-live (TTL) rather than as a lump sum. When a customer funds a service, the payment enters a stream that releases tokens proportionally as time elapses. Operators can claim accrued payments at any point. If a service terminates early, unstreamed funds return to the customer.
+
+This mechanism aligns payment with service delivery: operators earn as they work, customers pay only for time consumed, and early termination automatically handles refunds without manual intervention.
+
 \subsection{Developer Rewards}
 
 Developers earn from service fees and inflation rewards through scoring:
@@ -523,11 +537,12 @@ Stakers (delegators) & 40\% \\
 Operators (performance) & 25\% \\
 Developers (merit) & 25\% \\
 Customers (usage) & 10\% \\
+Restakers (exposure rewards) & 0\% \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Governance can adjust weights to steer network growth.
+The protocol defines five distribution categories. The restaker category exists for future activation via governance to reward participants who restake assets from external protocols (e.g., beacon chain validators). It is currently set to 0\% but can be activated by adjusting weights. Governance can adjust all weights to steer network growth.
 
 \subsection{Operator Scoring}
 
@@ -550,7 +565,7 @@ Slashing provides consequences for misbehavior, making economic security meaning
 
 The protocol provides slashing mechanism; developers define when to use it. Each service type has different requirements the protocol cannot anticipate.
 
-Developers implement conditions through hooks: \texttt{querySlashingOrigin} specifies who may propose slashes; \texttt{onSlash} executes when slashing finalizes.
+Developers implement conditions through hooks: \texttt{querySlashingOrigin} specifies who may propose slashes; \texttt{onUnappliedSlash} executes when slashing finalizes.
 
 \subsection{The Dispute Window}
 
@@ -675,6 +690,10 @@ Governance controls comprehensive protocol parameters:
 Contract upgrades use UUPS (Universal Upgradeable Proxy Standard). Each upgradeable contract (Tangle, MultiAssetDelegation, InflationPool) deploys behind a proxy. Upgrading replaces implementation while preserving storage.
 
 UUPS places upgrade logic in implementation rather than proxy, reducing proxy size and attack surface. UUPS allows disabling upgradeability if desired. Upgrades follow standard governance with longest timelock (7 days) and highest scrutiny.
+
+\subsubsection{Diamond/Facet Architecture}
+
+The core Tangle contracts use a diamond pattern (EIP-2535) to manage code complexity. The protocol's functionality is split across approximately 20 facets, each handling a specific domain: staking, delegation, slashing, service lifecycle, blueprint management, exposure, rewards, and governance. Facets share storage through a unified diamond proxy, enabling atomic cross-domain operations while keeping individual facet code auditable and upgradeable independently. Developers interacting with the protocol should be aware that function selectors route through the diamond proxy to the appropriate facet implementation.
 
 Upgrades are the most powerful governance action. A malicious upgrade could drain funds or disable slashing. Every upgrade proposal should be treated as dangerous until proven otherwise.
 
@@ -889,6 +908,14 @@ Developer rewards & Protocol inflation & None & None & None \\
 \textbf{Choose Karak} when: your application spans multiple chains and needs unified security across them.
 
 \textbf{Choose Tangle} when: you're building compute services (AI, data processing, automation), you want SDK tooling for rapid development, you need granular exposure control, or you're building at scale requiring O(1) operations.
+
+%==============================================================================
+\section{Beacon Chain Integration}
+%==============================================================================
+
+Tangle includes a beacon chain module enabling Ethereum validators to restake their beacon chain credentials. The \texttt{ValidatorPodManager} manages \texttt{ValidatorPod} contracts that verify beacon chain proofs (withdrawal credentials, balance snapshots, validator status) to attest restaked ETH positions. Validators deploy a pod, point their withdrawal credentials to it, and gain restaking capacity proportional to their beacon chain balance.
+
+For cross-layer slashing enforcement, the \texttt{L2SlashingConnector} and \texttt{L2SlashingReceiver} bridge slashing decisions between L1 and L2 deployments. A \texttt{TangleL2Slasher} executes slashing on L2 based on L1-originated proofs. This architecture enables ETH validator restaking on Tangle regardless of which layer the services operate on.
 
 %==============================================================================
 \section{Conclusion}
