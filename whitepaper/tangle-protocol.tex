@@ -323,15 +323,30 @@ Request-for-quote asks operators to provide binding prices for specific requests
 
 \subsection{The RFQ Flow}
 
-Operators register with ECDSA keys and RPC endpoints. They run software that listens for quote requests and returns signed quotes containing:
+Operators register with ECDSA and BLS keys and RPC endpoints. They run software that listens for quote requests and returns signed quotes containing:
 \begin{itemize}[noitemsep]
     \item Blueprint ID and service duration (TTL)
     \item Total cost and payment token
     \item Timestamp and expiry
-    \item Security commitments (exposure per asset)
+    \item Security commitments (per-asset exposure commitments)
+    \item Resource pricing breakdown
 \end{itemize}
 
 Customers collect quotes, verify terms, and submit all quotes in a single transaction. The protocol verifies signatures, checks expiry and replay protection, validates registrations, and confirms payment.
+
+\subsection{Resource Pricing}
+
+Quotes include granular resource pricing via \texttt{ResourcePricing} entries. Each entry specifies a resource kind (CPU, MemoryMB, StorageMB, GPU), a quantity, and a per-unit price in the payment token. This enables customers to compare operators on a per-resource basis rather than opaque flat rates.
+
+Operators competing for the same blueprint quote different resource prices based on their hardware, utilization, and margins. A GPU-heavy AI inference operator prices GPU cycles competitively but charges more for storage; a lightweight oracle operator offers low CPU prices. The market discovers efficient pricing without protocol-imposed schedules.
+
+\subsection{Security Commitments and Developer Requirements}
+
+Quotes include \texttt{AssetSecurityCommitment} entries specifying the exact exposure (in basis points) the operator pledges per staked asset. These commitments are binding: once accepted, the operator's stake is locked at the committed exposure level for the service duration.
+
+Blueprint developers control the security floor through \texttt{AssetSecurityRequirement} entries on their blueprint, specifying minimum and maximum exposure per asset type. An AI training blueprint might require at least 50\% exposure on staked ETH; a lightweight notification service might cap exposure at 5\%. Quotes that fail to meet these requirements are rejected at the protocol level.
+
+This two-sided mechanism gives developers fine-grained control over the economic security backing their service, while operators retain flexibility to differentiate on price and risk appetite within those bounds.
 
 \subsection{Quote Security}
 
@@ -566,6 +581,8 @@ Slashing provides consequences for misbehavior, making economic security meaning
 The protocol provides slashing mechanism; developers define when to use it. Each service type has different requirements the protocol cannot anticipate.
 
 Developers implement conditions through hooks: \texttt{querySlashingOrigin} specifies who may propose slashes; \texttt{onUnappliedSlash} executes when slashing finalizes.
+
+Combined with the SDK's QoS package (see \textit{Blueprint SDK Guide}, Quality of Service), developers can build automated SLA enforcement. QoS monitors collect operator metrics (heartbeat, latency, availability, throughput). When metrics breach developer-defined thresholds, the monitor proposes a slash through the protocol. The blueprint's \texttt{querySlashingOrigin} hook authorizes the monitor, and the dispute window gives operators recourse. This creates a closed loop: developers set quality requirements, operators commit resources, QoS measures compliance, and slashing enforces consequences.
 
 \subsection{The Dispute Window}
 
