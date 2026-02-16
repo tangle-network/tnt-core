@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 /**
  * Convert `evm-claims.json` into one or more distribution JSON files compatible with
- * `tnt-core/script/v2/DistributeTNTWithLockup.s.sol`.
+ * `tnt-core/script/DistributeTNTWithLockup.s.sol`.
  *
  * Usage:
  *   npx ts-node scripts/evmClaimsToDistribution.ts \

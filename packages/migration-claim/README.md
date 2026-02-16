@@ -53,7 +53,7 @@ Leaf hash (matches `TangleMigration.sol`):
 - `cd packages/migration-claim/scripts && npm i`
 - `npx ts-node evmClaimsToDistribution.ts --input ../evm-claims.json --token 0xYourTNT --unlock-timestamp <unix> --unlocked-bps 1000 --chunk-size 200 --out-dir ../../deploy/config/evm-airdrop`
 
-Then run distributions from repo root with `script/v2/DistributeTNTWithLockup.s.sol`.
+Then run distributions from repo root with `script/DistributeTNTWithLockup.s.sol`.
 
 ## Testing
 
