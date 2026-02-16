@@ -203,7 +203,7 @@ main() {
     log "Using config: $FULL_DEPLOY_CONFIG"
     log "Writing manifests under deployments/anvil/"
 
-    forge script "$ROOT_DIR/script/v2/FullDeploy.s.sol:FullDeploy" \
+    forge script "$ROOT_DIR/script/FullDeploy.s.sol:FullDeploy" \
         --rpc-url "$RPC_URL" \
         --broadcast \
         --non-interactive \

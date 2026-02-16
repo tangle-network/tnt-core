@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Convert `packages/migration-claim/evm-claims.json` into one or more distribution JSON files compatible with:
- *   `script/v2/DistributeTNTWithLockup.s.sol:DistributeTNTWithLockup`
+ *   `script/DistributeTNTWithLockup.s.sol:DistributeTNTWithLockup`
  *
  * Usage:
  *   node scripts/evm-claims-to-distribution.mjs \

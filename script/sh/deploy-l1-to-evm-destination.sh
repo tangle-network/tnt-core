@@ -69,7 +69,7 @@ L2_SLASHING_MANIFEST_PATH="${L2_SLASHING_MANIFEST_PATH:-$MANIFEST_DIR/l2-slashin
 
 echo "==> 1/4 Deploy protocol core on destination (chainId=$DEST_CHAIN_ID)"
 FULL_DEPLOY_CONFIG="$FULL_DEPLOY_CONFIG" \
-forge script script/v2/FullDeploy.s.sol:FullDeploy \
+forge script script/FullDeploy.s.sol:FullDeploy \
   --rpc-url "$DEST_RPC" \
   --broadcast \
   --non-interactive
@@ -89,7 +89,7 @@ fi
 SKIP_CHAIN_CONFIG=true \
 TANGLE_CHAIN_ID="$DEST_CHAIN_ID" \
 BEACON_SLASHING_MANIFEST="$L1_MANIFEST_PATH" \
-forge script "script/v2/DeployBeaconSlashing.s.sol:$L1_SCRIPT" \
+forge script "script/DeployBeaconSlashing.s.sol:$L1_SCRIPT" \
   --rpc-url "$L1_RPC" \
   --broadcast \
   --non-interactive
@@ -113,7 +113,7 @@ SOURCE_CHAIN_ID="$SOURCE_CHAIN_ID" \
 L1_CONNECTOR="$L1_CONNECTOR_ADDR" \
 L1_MESSENGER="$L1_MESSENGER_ADDR" \
 L2_SLASHING_MANIFEST="$L2_SLASHING_MANIFEST_PATH" \
-forge script "script/v2/DeployL2Slashing.s.sol:$L2_BRIDGE_CONTRACT" \
+forge script "script/DeployL2Slashing.s.sol:$L2_BRIDGE_CONTRACT" \
   --rpc-url "$DEST_RPC" \
   --broadcast \
   --non-interactive
@@ -129,7 +129,7 @@ CONNECTOR="$L1_CONNECTOR_ADDR" \
 MESSENGER="$L1_MESSENGER_ADDR" \
 TANGLE_CHAIN_ID="$DEST_CHAIN_ID" \
 L2_RECEIVER="$L2_RECEIVER_ADDR" \
-forge script script/v2/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector \
+forge script script/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector \
   --rpc-url "$L1_RPC" \
   --broadcast \
   --non-interactive

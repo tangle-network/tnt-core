@@ -206,7 +206,7 @@ for f in "${FILES[@]}"; do
   TNT_TOKEN="$TNT_TOKEN_ADDRESS" \
   PRIVATE_KEY="$PRIVATE_KEY" \
   LOCK_FACTORY="$LOCK_FACTORY" \
-  forge script script/v2/DistributeTNTWithLockup.s.sol:DistributeTNTWithLockup \
+  forge script script/DistributeTNTWithLockup.s.sol:DistributeTNTWithLockup \
     --rpc-url "$RPC_URL" \
     --broadcast \
     --non-interactive

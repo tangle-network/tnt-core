@@ -371,7 +371,7 @@ run_local_testnet_setup() {
 
     # Capture deployment output to extract addresses
     local deploy_output
-    deploy_output=$(forge script script/v2/LocalTestnet.s.sol:LocalTestnetSetup \
+    deploy_output=$(forge script script/LocalTestnet.s.sol:LocalTestnetSetup \
         --rpc-url "$RPC_URL" \
         --private-key "$ANVIL_KEY" \
         --broadcast \

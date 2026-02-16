@@ -107,7 +107,7 @@ phase1() {
 
     export FULL_DEPLOY_CONFIG="$CONFIG"
 
-    run_cmd forge script script/v2/FullDeploy.s.sol:FullDeploy \
+    run_cmd forge script script/FullDeploy.s.sol:FullDeploy \
         --rpc-url "$L2_RPC_URL" \
         --broadcast \
         --slow
@@ -139,7 +139,7 @@ phase2() {
         script_name="DeployBeaconSlashingL1"
     fi
 
-    run_cmd forge script "script/v2/DeployBeaconSlashing.s.sol:$script_name" \
+    run_cmd forge script "script/DeployBeaconSlashing.s.sol:$script_name" \
         --rpc-url "$L1_RPC_URL" \
         --broadcast \
         --slow
@@ -190,7 +190,7 @@ phase3() {
         script_name="DeployL2SlashingHyperlane"
     fi
 
-    run_cmd forge script "script/v2/DeployL2Slashing.s.sol:$script_name" \
+    run_cmd forge script "script/DeployL2Slashing.s.sol:$script_name" \
         --rpc-url "$L2_RPC_URL" \
         --broadcast \
         --slow
@@ -236,7 +236,7 @@ phase4() {
     log_info "L2 Receiver: $L2_RECEIVER"
     log_info "Target Chain: $TANGLE_CHAIN_ID"
 
-    run_cmd forge script script/v2/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector \
+    run_cmd forge script script/DeployBeaconSlashing.s.sol:ConfigureL2SlashingConnector \
         --rpc-url "$L1_RPC_URL" \
         --broadcast
 
