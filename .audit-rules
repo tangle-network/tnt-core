@@ -1,0 +1,36 @@
+# TNT Core (Tangle) - Audit Rules
+
+FOCUS:
+- Solidity security patterns
+- Reentrancy vulnerabilities
+- Access control (onlyOwner, roles)
+- Integer overflow/underflow (pre-0.8 patterns)
+- Gas optimization
+- Upgrade patterns (proxy safety)
+- Event emissions for off-chain indexing
+- Storage layout for upgradeable contracts
+
+IGNORE:
+- **/node_modules/**
+- **/artifacts/**
+- **/cache/**
+- **/typechain-types/**
+- **/*.test.sol
+- **/test/**
+- **/script/**
+
+STRICT:
+- Reentrancy without checks-effects-interactions
+- Missing access control on sensitive functions
+- Unchecked external calls
+- tx.origin usage
+- Delegatecall to untrusted contracts
+- Hardcoded addresses without constants
+- Missing zero-address checks
+- Storage collisions in proxies
+
+CONTEXT:
+Tangle Network core protocol contracts.
+Solidity-based, likely using Foundry or Hardhat.
+Security-critical: handles staking, slashing, operator registration.
+Upgradeable contracts - watch for storage layout issues.
