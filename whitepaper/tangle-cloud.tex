@@ -67,7 +67,7 @@ Every interaction with Tangle Cloud products generates economic activity that ac
     \item[Operators] provide compute by staking tokens and running infrastructure. They earn fees proportional to services provided, and can serve more services as they accumulate more stake.
     \item[Developers] create blueprints defining service behavior and earn from fee splits and inflation rewards proportional to adoption.
     \item[Delegators] provide additional stake to operators and share in operator rewards proportional to their delegation.
-    \item[Protocol] captures a governance-controlled fee (currently 10\%) funding development, security audits, and ecosystem growth.
+    \item[Protocol] captures a governance-controlled fee (currently 20\%) funding development, security audits, and ecosystem growth.
 \end{description}
 
 \subsection{Network Effects}
@@ -234,18 +234,20 @@ Users return to ongoing projects, review agent work, provide feedback, and itera
 
 \subsection{Technical Architecture}
 
-The workbench connects to the sandbox runtime through the protocol:
+The current workbench implementation uses a centralized client-server architecture:
 
 \begin{enumerate}[noitemsep]
-    \item User initiates coding session
-    \item Workbench requests service from operator via RFQ
-    \item Operator provisions sandbox container with specified isolation
-    \item P2P connection established (see \textit{Blueprint SDK Guide}, P2P Networking)
-    \item User inputs flow to agent; outputs flow back via gossipsub
+    \item User initiates coding session via the web application
+    \item An orchestrator service provisions and manages sandbox containers
+    \item WebSocket connections carry user inputs to the agent and stream outputs back
+    \item The orchestrator handles container lifecycle, auto-scaling, and resource allocation
+    \item A collaboration server enables real-time multiplayer features
     \item Protocol handles payment splits (developer, operator, delegator, protocol)
 \end{enumerate}
 
-The user sees a seamless environment; the decentralized infrastructure operates through the same mechanisms described in the \textit{Tangle Protocol Specification}, blueprints define the workbench service, operators stake to provide compute, and slashing conditions enforce isolation guarantees.
+The orchestrator manages container provisioning, health monitoring, and session routing. This centralized architecture provides reliable performance and simplified operations during the current phase of development.
+
+\textbf{Target architecture.} The roadmap calls for progressive decentralization of the workbench infrastructure. In the target architecture, session provisioning will use the protocol's RFQ marketplace for operator selection, operators will stake assets and compete to serve workbench sessions, and P2P communication (gossipsub) will replace the centralized WebSocket relay. This transition will bring the workbench in line with the cryptoeconomic accountability model described in the \textit{Tangle Protocol Specification}. The centralized orchestrator will be replaced by protocol-level coordination, where blueprints define the workbench service, operators stake to provide compute, and slashing conditions enforce isolation guarantees.
 
 \subsection{Collaborative Features}
 

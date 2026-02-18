@@ -213,7 +213,7 @@ Blueprints customize protocol behavior through hooks, functions called at specif
     \item[onRegister] validates operator registrations. A blueprint for AI services might require operators to prove GPU capability.
     \item[onRequest] validates service requests. A membership service might verify the customer's eligibility.
     \item[onApprove] processes operator approvals. A DeFi service might lock collateral or initialize state.
-    \item[onSlash] executes custom slashing logic. A threshold service might redistribute key shares.
+    \item[onUnappliedSlash] executes custom slashing logic when a slash is finalized. A threshold service might redistribute key shares.
     \item[onServiceTermination] handles cleanup. A subscription service might finalize billing.
 \end{description}
 
@@ -266,7 +266,7 @@ contract MyBlueprintBSM is BlueprintServiceManagerBase {
     }
 
     // Handle slashing events
-    function onSlash(
+    function onUnappliedSlash(
         uint64 serviceId,
         bytes calldata offender,
         uint8 slashPercent
@@ -282,6 +282,16 @@ contract MyBlueprintBSM is BlueprintServiceManagerBase {
     }
 }
 \end{lstlisting}
+
+\subsection{Blueprint Extensions}
+
+The SDK provides base contracts that extend \texttt{BlueprintServiceManagerBase} with reusable economic mechanics:
+
+\textbf{TokenizedBlueprintBase} enables blueprints to issue community tokens tied to their service. Operators and users can stake these tokens to earn Synthetix-style staking rewards, creating aligned incentives around blueprint adoption. The base contract handles token issuance, staking accounting, and reward distribution.
+
+\textbf{BuybackBlueprintBase} adds AMM buyback mechanics. A portion of service fees is automatically used to buy back the blueprint's community token on decentralized exchanges, creating sustained demand. Blueprint developers configure the buyback percentage and target AMM pool.
+
+These extensions compose with each other and with custom hooks, enabling blueprints to build sophisticated token economies around their services.
 
 \subsection{Slashing Customization}
 
