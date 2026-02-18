@@ -311,7 +311,7 @@ The operator configures per-job prices in a config map `(service_id, job_index) 
 3. Define your pricing dimensions (per-model, per-resource, flat rate) and expose operator-configurable cost parameters
 4. The operator runs your software and configures their prices — the protocol handles the rest
 
-See `blueprint-sdk/crates/pricing-engine/` for the complete reference implementation including benchmarking, caching, and gRPC transport.
+See [`tangle-network/blueprint` `crates/pricing-engine`](https://github.com/tangle-network/blueprint/tree/main/crates/pricing-engine) for the complete reference implementation including benchmarking, caching, and gRPC transport.
 
 ---
 

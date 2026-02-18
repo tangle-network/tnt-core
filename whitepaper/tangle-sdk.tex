@@ -152,7 +152,7 @@ cd my-blueprint
 Add dependencies to \texttt{Cargo.toml}:
 \begin{lstlisting}
 [dependencies]
-blueprint-sdk = { version = "0.8", features = ["tangle-evm"] }
+blueprint-sdk = { git = "https://github.com/tangle-network/blueprint", branch = "main", features = ["tangle"] }
 tokio = { version = "1", features = ["full"] }
 \end{lstlisting}
 
@@ -161,6 +161,7 @@ tokio = { version = "1", features = ["full"] }
 \begin{lstlisting}
 use blueprint_sdk::tangle::extract::{TangleArg, TangleResult};
 use blueprint_sdk::tangle::{TangleConsumer, TangleProducer, TangleLayer};
+use blueprint_sdk::contexts::tangle::TangleClientContext;
 use blueprint_sdk::runner::{BlueprintRunner, config::BlueprintEnvironment};
 use blueprint_sdk::runner::tangle::TangleConfig;
 use blueprint_sdk::Router;
@@ -179,12 +180,13 @@ pub fn router() -> Router {
 #[tokio::main]
 async fn main() -> Result<(), blueprint_sdk::Error> {
     let env = BlueprintEnvironment::load()?;
+    let client = env.tangle_client().await?;
     let service_id = env.protocol_settings.tangle()?.service_id.unwrap();
 
     BlueprintRunner::builder(TangleConfig::default(), env)
         .router(router())
-        .producer(TangleProducer::new(service_id))
-        .consumer(TangleConsumer::new())
+        .producer(TangleProducer::new(client.clone(), service_id))
+        .consumer(TangleConsumer::new(client))
         .run()
         .await
 }
@@ -327,12 +329,12 @@ Triggers initiate job execution. The SDK provides multiple trigger types.
 
 \subsection{Event Triggers}
 
-\texttt{TangleProducer} watches blockchain events via WebSocket:
+\texttt{TangleProducer} watches blockchain events via standard EVM JSON-RPC:
 \begin{itemize}[noitemsep]
-    \item Subscribes to Tangle contract events
-    \item Filters for configured service
-    \item Extracts job parameters
-    \item Handles reconnection and reorgs
+    \item Queries Tangle contract logs
+    \item Filters for the configured service ID
+    \item Extracts job parameters and metadata
+    \item Retries transient RPC failures with backoff
 \end{itemize}
 
 \subsection{Cron Triggers}
@@ -348,6 +350,17 @@ Triggers initiate job execution. The SDK provides multiple trigger types.
 // Daily at midnight
 "0 0 0 * * *"
 \end{lstlisting}
+
+\subsection{Webhook Triggers}
+
+When your service needs to react to external systems (monitoring, exchanges, schedulers), operators can expose HTTP
+endpoints that translate inbound requests into job executions. This is implemented as a gateway (HTTP server) plus a
+producer that injects \texttt{JobCall}s into the runner.
+
+\subsection{x402 Paid Triggers}
+
+For HTTP-first services that want stablecoin settlement on EVM chains, operators can optionally accept paid HTTP job
+calls via the x402 protocol. After payment is verified and settled, the request is translated into a job execution.
 
 Cron triggers suit periodic tasks: heartbeats, maintenance, report generation, API polling.
 
@@ -649,39 +662,50 @@ pub async fn fetch_price(
 
 \subsection{Submission Failures}
 
-The consumer retries with exponential backoff on network errors, nonce conflicts, or insufficient gas. Configuration specifies retry limits and backoff parameters.
+Operators should assume transient RPC failures during result submission (rate limits, timeouts, nonce conflicts, temporary insufficient funds). The SDK surfaces submission errors to the runner. In practice, operators run blueprints under a supervisor (systemd, Kubernetes) and apply retries at the process or RPC layer.
 
 \begin{lstlisting}
-// Consumer automatically handles retries
-// Configure via TangleConsumer builder
-let consumer = TangleConsumer::builder()
-    .max_retries(5)
-    .initial_backoff(Duration::from_millis(100))
-    .max_backoff(Duration::from_secs(30))
-    .build();
+let client = env.tangle_client().await?;
+let service_id = env.protocol_settings.tangle()?.service_id.unwrap();
+
+let producer = TangleProducer::new(client.clone(), service_id);
+
+let consumer = TangleConsumer::new(client);
+
+BlueprintRunner::builder(TangleConfig::default(), env)
+    .router(router())
+    .producer(producer)
+    .consumer(consumer)
+    .run()
+    .await
 \end{lstlisting}
 
 \subsection{Chain Reorganizations}
 
-The SDK tracks submitted transactions and monitors for inclusion. If a reorg orphans a transaction, the consumer resubmits.
+EVM chains can reorganize. If your service requires stricter finality, consider polling behind the head block, or reprocessing a small block window on restart. Job handlers should be idempotent where possible.
 
 \subsection{Crash Recovery}
 
-The SDK can checkpoint job processing progress, ensuring restarted operators do not miss or double-process jobs. Enable checkpointing in the runner configuration:
+The simplest recovery strategy is to restart the process and resume from a known block height. The producer supports starting from a specific block; operators can persist the last processed block (or a conservative checkpoint) in their own storage.
 
 \begin{lstlisting}
+let client = env.tangle_client().await?;
+let service_id = env.protocol_settings.tangle()?.service_id.unwrap();
+
+// Resume from a stored checkpoint (or start from genesis)
+let start_block: u64 = load_checkpoint().unwrap_or(0);
+
 BlueprintRunner::builder(TangleConfig::default(), env)
     .router(router())
-    .producer(TangleProducer::new(service_id))
-    .consumer(TangleConsumer::new())
-    .checkpoint_dir(env.data_dir.join("checkpoints"))
+    .producer(TangleProducer::from_block(client.clone(), service_id, start_block))
+    .consumer(TangleConsumer::new(client))
     .run()
     .await
 \end{lstlisting}
 
 \subsection{Graceful Shutdown}
 
-On SIGTERM/SIGINT, the SDK completes in-progress jobs, flushes pending submissions, and closes connections before exiting. The runner handles shutdown signals automatically.
+On shutdown, operators typically rely on their process supervisor and implement application-level draining when needed. Job handlers should be cancellation-safe and side-effect aware.
 
 %==============================================================================
 \section{Quality of Service}
@@ -1248,7 +1272,7 @@ Required key types depend on the blueprint:
 %==============================================================================
 
 \begin{itemize}[noitemsep]
-    \item \textbf{SDK Repository}: \url{https://github.com/tangle-network/blueprint-sdk}
+    \item \textbf{Blueprint SDK Repository}: \url{https://github.com/tangle-network/blueprint}
     \item \textbf{API Documentation}: \url{https://docs.tangle.tools/sdk}
     \item \textbf{Example Blueprints}: \url{https://github.com/tangle-network/blueprints}
     \item \textbf{Discord}: \url{https://discord.gg/tangle}
