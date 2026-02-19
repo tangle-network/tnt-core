@@ -6,7 +6,6 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { Base } from "./Base.sol";
 import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
-import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { SignatureLib } from "../libraries/SignatureLib.sol";
 
 /// @title QuotesExtend
@@ -57,6 +56,10 @@ abstract contract QuotesExtend is Base {
 
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         _requireBlueprintActive(bp, svc.blueprintId);
+
+        if (msg.value > 0) {
+            _requireManagerAllowsNativeExtension(bp.manager, serviceId);
+        }
 
         // Gather operators from quotes and verify they're current service operators
         address[] memory quoteOperators = _gatherQuoteOperators(quotes);
@@ -139,7 +142,14 @@ abstract contract QuotesExtend is Base {
             revert Errors.InsufficientPaymentForQuotes(totalCost, msg.value);
         }
         if (msg.value > totalCost) {
-            PaymentLib.transferPayment(msg.sender, address(0), msg.value - totalCost);
+            revert Errors.InvalidMsgValue(totalCost, msg.value);
+        }
+    }
+
+    function _requireManagerAllowsNativeExtension(address manager, uint64 serviceId) private view {
+        if (manager == address(0)) return;
+        if (!_isPaymentAssetAllowedByManager(manager, serviceId, address(0))) {
+            revert Errors.TokenNotAllowed(address(0));
         }
     }
 

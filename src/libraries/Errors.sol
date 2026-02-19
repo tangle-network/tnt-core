@@ -121,6 +121,9 @@ library Errors {
     /// @notice Service is not active
     error ServiceNotActive(uint64 serviceId);
 
+    /// @notice Service is not terminated
+    error ServiceNotTerminated(uint64 serviceId);
+
     /// @notice Service has expired
     error ServiceExpired(uint64 serviceId);
 
@@ -221,6 +224,11 @@ library Errors {
     /// @notice Insufficient payment sent
     error InsufficientPayment(uint256 required, uint256 sent);
 
+    /// @notice msg.value does not match expected payment semantics
+    /// @dev For native payments: expected == required amount.
+    ///      For ERC20 payments: expected == 0.
+    error InvalidMsgValue(uint256 expected, uint256 sent);
+
     /// @notice Payment transfer failed
     error PaymentFailed();
 
@@ -293,10 +301,6 @@ library Errors {
 
     /// @notice Quote already used (replay protection)
     error QuoteAlreadyUsed(address operator);
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ESCROW
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Insufficient escrow balance
     error InsufficientEscrowBalance(uint256 required, uint256 available);

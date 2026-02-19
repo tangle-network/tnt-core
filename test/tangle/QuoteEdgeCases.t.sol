@@ -190,7 +190,7 @@ contract QuoteEdgeCasesTest is BaseTest {
         );
     }
 
-    function test_CreateServiceFromQuotes_ExcessPayment_Refunded() public {
+    function test_CreateServiceFromQuotes_ExcessPayment_Reverts() public {
         uint64 ttl = 30 days;
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
         quotes[0] = _createSignedQuote(operator1Key, operator1, 1 ether, uint64(block.timestamp + 1 hours), uint64(ttl));
@@ -200,12 +200,10 @@ contract QuoteEdgeCasesTest is BaseTest {
         uint256 userBalanceBefore = user1.balance;
 
         vm.prank(user1);
-        tangle.createServiceFromQuotes{ value: 2 ether }( // 1 ETH excess
-            blueprintId, quotes, "", callers, ttl
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, 1 ether, 2 ether));
+        tangle.createServiceFromQuotes{ value: 2 ether }(blueprintId, quotes, "", callers, ttl);
 
-        // User should have received 1 ETH refund
-        assertEq(user1.balance, userBalanceBefore - 1 ether, "User should only pay quote price");
+        assertEq(user1.balance, userBalanceBefore, "User balance unchanged on revert");
     }
 
     function test_CreateServiceFromQuotes_ZeroPriceQuote() public {

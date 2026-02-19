@@ -156,6 +156,10 @@ abstract contract JobsSubmission is Base {
         if (svc.pricing == Types.PricingModel.EventDriven) {
             uint256 perJob = _jobEventRates[svc.blueprintId][jobIndex];
             payment = perJob > 0 ? perJob : _blueprintConfigs[svc.blueprintId].eventRate;
+            address manager = _blueprints[svc.blueprintId].manager;
+            if (payment > 0 && !_isPaymentAssetAllowedByManager(manager, serviceId, address(0))) {
+                revert Errors.TokenNotAllowed(address(0));
+            }
             PaymentLib.collectPayment(address(0), payment, msgValue);
             _recordPayment(payer, serviceId, address(0), payment);
         }

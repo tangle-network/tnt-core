@@ -459,10 +459,10 @@ contract StakeRequirementTests is BaseTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // EXCESS ETH REFUND TESTS
+    // EXCESS ETH INVARIANT TESTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function test_FundService_ExcessETH_Refunded() public {
+    function test_FundService_ExcessETH_Reverts() public {
         // Setup subscription service
         vm.prank(operator1);
         staking.registerOperator{ value: 5 ether }();
@@ -497,18 +497,17 @@ contract StakeRequirementTests is BaseTest {
 
         // Fund with excess ETH
         uint256 userBalanceBefore = user1.balance;
+        PaymentLib.ServiceEscrow memory escrowBefore = tangle.getServiceEscrow(serviceId);
 
         vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, 1 ether, 2 ether));
         tangle.fundService{ value: 2 ether }(serviceId, 1 ether); // Send 2 ETH but only deposit 1 ETH
 
-        uint256 userBalanceAfter = user1.balance;
-
-        // User should have received 1 ETH refund
-        assertEq(userBalanceBefore - userBalanceAfter, 1 ether, "User should only lose 1 ETH (excess refunded)");
-
-        // Escrow should have 2 ETH (1 initial + 1 funded)
-        PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(serviceId);
-        assertEq(escrow.balance, 2 ether);
+        PaymentLib.ServiceEscrow memory escrowAfter = tangle.getServiceEscrow(serviceId);
+        assertEq(escrowAfter.balance, escrowBefore.balance);
+        assertEq(escrowAfter.totalDeposited, escrowBefore.totalDeposited);
+        assertEq(escrowAfter.totalReleased, escrowBefore.totalReleased);
+        assertEq(user1.balance, userBalanceBefore);
     }
 
     function test_FundService_ExactAmount_NoRefund() public {

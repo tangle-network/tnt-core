@@ -425,10 +425,10 @@ contract RFQPaymentDistributionTest is BaseTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // OVERPAYMENT: excess ETH stays in contract (not refunded)
+    // OVERPAYMENT: exact quote payment is required
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function test_RFQ_OverpaymentNotRefunded() public {
+    function test_RFQ_OverpaymentReverts() public {
         uint256 quotePrice = 1 ether;
         uint256 overpay = 2 ether;
 
@@ -439,14 +439,11 @@ contract RFQPaymentDistributionTest is BaseTest {
         quotes[0] = _createJobQuote(operator1, OPERATOR1_PK, serviceId, 0, quotePrice);
 
         vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, quotePrice, overpay));
         tangle.submitJobFromQuote{ value: overpay }(serviceId, 0, "", quotes);
 
-        // User paid full overpay amount (no refund)
-        assertEq(user1.balance, userBefore - overpay, "user loses full msg.value including overpay");
-
-        // Excess sits in contract
-        uint256 excess = overpay - quotePrice;
-        assertEq(address(tangleProxy).balance, contractBefore + overpay, "contract holds full msg.value");
+        assertEq(user1.balance, userBefore, "user balance unchanged on revert");
+        assertEq(address(tangleProxy).balance, contractBefore, "contract balance unchanged");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

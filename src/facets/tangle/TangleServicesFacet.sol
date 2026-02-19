@@ -172,17 +172,29 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     )
         private
     {
+        if (pricing == Types.PricingModel.Subscription) {
+            // Persist selected settlement token even when initial deposit is zero.
+            // This keeps later top-ups coherent and prevents accidental native locking.
+            if (_serviceEscrows[serviceId].totalDeposited == 0) {
+                _serviceEscrows[serviceId].token = paymentToken;
+            }
+
+            if (paymentAmount > 0) {
+                ITanglePaymentsInternal(address(this)).depositToEscrow(serviceId, paymentToken, paymentAmount);
+            }
+            return;
+        }
+
         if (paymentAmount == 0) {
             return;
         }
-        if (pricing == Types.PricingModel.PayOnce) {
+
+        if (pricing == Types.PricingModel.PayOnce || pricing == Types.PricingModel.EventDriven) {
             address[] memory operators = _copyRequestOperators(requestId);
 
             // Payment distribution computes effective exposures internally
             ITanglePaymentsInternal(address(this))
                 .distributePayment(serviceId, blueprintId, paymentToken, paymentAmount, operators);
-        } else if (pricing == Types.PricingModel.Subscription) {
-            ITanglePaymentsInternal(address(this)).depositToEscrow(serviceId, paymentToken, paymentAmount);
         }
     }
 

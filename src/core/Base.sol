@@ -686,6 +686,56 @@ abstract contract Base is
     // can manipulate state during callbacks. Only register audited managers.
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice Query whether a manager allows a payment asset in a specific context.
+    /// @dev Backwards compatible behavior:
+    ///      - First tries `contextId`
+    ///      - Then falls back to legacy `0` context when `contextId != 0`
+    ///      - If query hooks are missing/unimplemented, defaults to allow
+    function _isPaymentAssetAllowedByManager(
+        address manager,
+        uint64 contextId,
+        address asset
+    )
+        internal
+        view
+        returns (bool)
+    {
+        if (manager == address(0)) return true;
+
+        (bool hasContextResult, bool contextAllowed) = _tryQueryPaymentAssetAllowed(manager, contextId, asset);
+        if (hasContextResult) {
+            if (contextAllowed) return true;
+            if (contextId == 0) return false;
+
+            (bool hasLegacyResult, bool legacyAllowed) = _tryQueryPaymentAssetAllowed(manager, 0, asset);
+            return hasLegacyResult ? legacyAllowed : false;
+        }
+
+        if (contextId != 0) {
+            (bool hasLegacyResult, bool legacyAllowed) = _tryQueryPaymentAssetAllowed(manager, 0, asset);
+            if (hasLegacyResult) return legacyAllowed;
+        }
+
+        // Hook missing/unimplemented: keep backwards compatibility.
+        return true;
+    }
+
+    function _tryQueryPaymentAssetAllowed(
+        address manager,
+        uint64 contextId,
+        address asset
+    )
+        private
+        view
+        returns (bool hasResult, bool allowed)
+    {
+        try IBlueprintServiceManager(manager).queryIsPaymentAssetAllowed(contextId, asset) returns (bool isAllowed) {
+            return (true, isAllowed);
+        } catch {
+            return (false, false);
+        }
+    }
+
     /// @notice Call manager with revert on failure
     function _callManager(address manager, bytes memory data) internal {
         (bool success, bytes memory returnData) = manager.call(data);

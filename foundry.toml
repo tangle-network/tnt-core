@@ -13,6 +13,16 @@ evm_version = "cancun"
 via_ir = true
 allow_internal_expect_revert = true
 
+[profile.fast]
+# Local iteration profile: much faster compile/test cycles.
+# Use with: `FOUNDRY_PROFILE=fast forge test ...`
+via_ir = true
+optimizer = false
+sparse_mode = true
+gas_reports = []
+fuzz = { runs = 256 }
+invariant = { runs = 64, depth = 64, fail_on_revert = false }
+
 [profile.coverage]
 via_ir = true
 optimizer = true

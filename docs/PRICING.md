@@ -44,7 +44,7 @@ BlueprintConfig({
 ### Flow
 
 1. Operators publish off-chain `SignedQuote`s (EIP-712) with their `totalCost` for the requested TTL
-2. User calls `createServiceFromQuotes(blueprintId, quotes, config, permittedCallers, ttl)` with `msg.value >= sum(quote.totalCost)`
+2. User calls `createServiceFromQuotes(blueprintId, quotes, config, permittedCallers, ttl)` with `msg.value == sum(quote.totalCost)`
 3. Payment is distributed immediately via `PaymentSplit`
 
 ### What the developer controls
@@ -95,13 +95,15 @@ function getBillableServices(uint64[] calldata serviceIds) external view returns
 
 - Token is set at service creation (native or ERC-20)
 - `getServiceEscrow(serviceId)` returns `{ token, balance, totalDeposited, totalReleased }`
-- No auto-termination on empty escrow — billing simply fails until refunded
+- No auto-termination on empty escrow — billing simply fails until re-funded
+- After service termination, remaining escrow can be withdrawn via `withdrawRemainingEscrow(serviceId)`
 
 ---
 
 ## EventDriven
 
 The most flexible model. Each job submission pays on the spot.
+Optionally, a one-time setup fee can also be charged at service activation.
 
 ### Blueprint config
 
@@ -115,6 +117,12 @@ BlueprintConfig({
 })
 ```
 
+### Settlement asset (current behavior)
+
+- Event-driven payments are currently native-token settled.
+- Request-time `paymentToken` must be `address(0)` for EventDriven services.
+- Job payments from `submitJob()` and `submitJobFromQuote()` are native.
+
 ### Rate resolution
 
 When a job is submitted, the protocol resolves the price in this order:
@@ -123,6 +131,8 @@ When a job is submitted, the protocol resolves the price in this order:
 per-job override (_jobEventRates[blueprintId][jobIndex])
     └─ if 0 → fallback to BlueprintConfig.eventRate
 ```
+
+If the service request includes a non-zero upfront `paymentAmount`, that setup fee is distributed when the service activates (in addition to per-job billing).
 
 Source: `JobsSubmission.sol:146-162`
 
@@ -472,7 +482,7 @@ Pricing-related storage in `TangleStorage.sol`:
 
 ### Service consumer
 
-1. For `EventDriven` (fixed rates): call `submitJob()` with `msg.value >= getJobEventRate(blueprintId, jobIndex)`
+1. For `EventDriven` (fixed rates): call `submitJob()` with exact `msg.value == getJobEventRate(blueprintId, jobIndex)` (or configured per-job override)
 2. For `EventDriven` (RFQ): request quotes from operators via their gRPC endpoint, call `submitJobFromQuote()` with signed quotes
 3. For `Subscription`: call `fundService()` to keep escrow funded
 4. For `PayOnce`: pay at service creation via `createServiceFromQuotes()`

@@ -1272,7 +1272,7 @@ contract RFQTest is BaseTest {
         assertEq(tangle.getService(serviceId).operatorCount, 2);
     }
 
-    function test_CreateServiceFromQuotes_RefundsExcessPayment() public {
+    function test_CreateServiceFromQuotes_ExcessPaymentReverts() public {
         vm.prank(developer);
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://rfq-refund", address(0)));
 
@@ -1303,12 +1303,11 @@ contract RFQTest is BaseTest {
         address[] memory callers = new address[](0);
         uint256 userBalanceBefore = user1.balance;
 
-        // Send more than required
         vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, cost, 5 ether));
         tangle.createServiceFromQuotes{ value: 5 ether }(blueprintId, quotes, "", callers, ttl);
 
-        // User should get excess back (5 - 1 = 4 ETH refund)
-        assertEq(user1.balance, userBalanceBefore - cost);
+        assertEq(user1.balance, userBalanceBefore);
     }
 
     function test_CreateServiceFromQuotes_RevertExpiredQuote() public {

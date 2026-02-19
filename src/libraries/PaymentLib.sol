@@ -185,7 +185,12 @@ library PaymentLib {
     /// @param amount Amount to collect
     /// @param msgValue msg.value for native payments
     function collectPayment(address token, uint256 amount, uint256 msgValue) internal {
-        if (amount == 0) return;
+        if (amount == 0) {
+            if (msgValue != 0) {
+                revert Errors.InvalidMsgValue(0, msgValue);
+            }
+            return;
+        }
 
         // M-5 FIX: Reject dust-only payments that would be too small to distribute meaningfully
         if (amount < MINIMUM_PAYMENT_AMOUNT) {
@@ -193,10 +198,15 @@ library PaymentLib {
         }
 
         if (token == address(0)) {
-            if (msgValue < amount) {
-                revert Errors.InsufficientPayment(amount, msgValue);
+            // Exact native payment required to prevent silent overpayment trapping.
+            if (msgValue != amount) {
+                revert Errors.InvalidMsgValue(amount, msgValue);
             }
         } else {
+            // ERC20 payments must not carry native value.
+            if (msgValue != 0) {
+                revert Errors.InvalidMsgValue(0, msgValue);
+            }
             IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         }
     }
@@ -235,7 +245,10 @@ library PaymentLib {
     /// @param amount Amount to deposit
     /// @param msgValue msg.value for native payments
     function depositToEscrow(ServiceEscrow storage escrow, address token, uint256 amount, uint256 msgValue) internal {
-        if (amount == 0) return;
+        if (amount == 0) {
+            collectPayment(token, amount, msgValue);
+            return;
+        }
 
         // Initialize token if first deposit
         if (escrow.totalDeposited == 0) {

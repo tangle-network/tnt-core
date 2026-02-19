@@ -325,4 +325,151 @@ contract EndToEndSubscriptionTest is BaseTest {
         // Some protocols refund remaining escrow, others don't
         assertFalse(tangle.isServiceActive(serviceId), "Service should be terminated");
     }
+
+    function test_E2E_Subscription_WithdrawAfterTermination() public {
+        uint256 startTime = 1_000_000;
+        vm.warp(startTime);
+
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 5,
+            subscriptionRate: SUBSCRIPTION_RATE,
+            subscriptionInterval: SUBSCRIPTION_INTERVAL,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        uint64 blueprintId = _createBlueprintWithConfigAsSender("ipfs://withdraw-after-termination", address(0), config);
+
+        vm.prank(operator1);
+        staking.registerOperator{ value: 5 ether }();
+        vm.prank(operator1);
+        staking.setDelegationMode(Types.DelegationMode.Open);
+        _directRegisterOperator(operator1, blueprintId, "");
+
+        uint256 escrowAmount = SUBSCRIPTION_RATE * 6;
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService{ value: escrowAmount }(
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+        );
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        uint64 serviceId = 0;
+
+        vm.warp(startTime + 31 days);
+        tangle.billSubscription(serviceId);
+
+        vm.prank(user1);
+        tangle.terminateService(serviceId);
+
+        uint256 userBalanceBeforeWithdraw = user1.balance;
+        vm.prank(user1);
+        tangle.withdrawRemainingEscrow(serviceId);
+
+        assertEq(user1.balance, userBalanceBeforeWithdraw + (SUBSCRIPTION_RATE * 5), "Should withdraw 5 months");
+        assertEq(tangle.getServiceEscrow(serviceId).balance, 0, "Escrow should be empty");
+    }
+
+    function test_E2E_Subscription_WithdrawBeforeTerminationReverts() public {
+        uint256 startTime = 1_000_000;
+        vm.warp(startTime);
+
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 5,
+            subscriptionRate: SUBSCRIPTION_RATE,
+            subscriptionInterval: SUBSCRIPTION_INTERVAL,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        uint64 blueprintId =
+            _createBlueprintWithConfigAsSender("ipfs://withdraw-before-termination", address(0), config);
+
+        vm.prank(operator1);
+        staking.registerOperator{ value: 5 ether }();
+        vm.prank(operator1);
+        staking.setDelegationMode(Types.DelegationMode.Open);
+        _directRegisterOperator(operator1, blueprintId, "");
+
+        uint256 escrowAmount = SUBSCRIPTION_RATE * 2;
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService{ value: escrowAmount }(
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+        );
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        uint64 serviceId = 0;
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ServiceNotTerminated.selector, serviceId));
+        tangle.withdrawRemainingEscrow(serviceId);
+    }
+
+    function test_E2E_Subscription_WithdrawZeroBalanceReverts() public {
+        uint256 startTime = 1_000_000;
+        vm.warp(startTime);
+
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 5,
+            subscriptionRate: SUBSCRIPTION_RATE,
+            subscriptionInterval: SUBSCRIPTION_INTERVAL,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        uint64 blueprintId = _createBlueprintWithConfigAsSender("ipfs://withdraw-zero-balance", address(0), config);
+
+        vm.prank(operator1);
+        staking.registerOperator{ value: 5 ether }();
+        vm.prank(operator1);
+        staking.setDelegationMode(Types.DelegationMode.Open);
+        _directRegisterOperator(operator1, blueprintId, "");
+
+        uint256 escrowAmount = SUBSCRIPTION_RATE;
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService{ value: escrowAmount }(
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+        );
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        uint64 serviceId = 0;
+
+        vm.warp(startTime + 31 days);
+        tangle.billSubscription(serviceId);
+
+        assertEq(tangle.getServiceEscrow(serviceId).balance, 0, "Escrow should be exhausted");
+
+        vm.prank(user1);
+        tangle.terminateService(serviceId);
+
+        vm.prank(user1);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        tangle.withdrawRemainingEscrow(serviceId);
+    }
 }
