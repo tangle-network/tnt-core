@@ -212,6 +212,9 @@ interface ITangleServices {
     /// @notice Fund a service escrow balance
     function fundService(uint64 serviceId, uint256 amount) external payable;
 
+    /// @notice Withdraw remaining escrow after termination
+    function withdrawRemainingEscrow(uint64 serviceId) external;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════

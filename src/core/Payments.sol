@@ -33,6 +33,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     // ═══════════════════════════════════════════════════════════════════════════
 
     event EscrowFunded(uint64 indexed serviceId, address indexed token, uint256 amount);
+    event EscrowRefunded(uint64 indexed serviceId, address indexed owner, address indexed token, uint256 amount);
     event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
     event PaymentDistributed(
         uint64 indexed serviceId,
@@ -46,11 +47,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         uint256 restakerPoolAmount
     );
     event OperatorRewardAccrued(
-        uint64 indexed serviceId,
-        address indexed operator,
-        address indexed token,
-        uint64 blueprintId,
-        uint256 amount
+        uint64 indexed serviceId, address indexed operator, address indexed token, uint64 blueprintId, uint256 amount
     );
     event RewardsClaimed(address indexed account, address indexed token, uint256 amount);
     event TntPaymentDiscountApplied(
@@ -76,13 +73,27 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
 
         PaymentLib.depositToEscrow(escrow, token, amount, msg.value);
 
-        // Refund excess ETH for native token payments
-        if (token == address(0) && msg.value > amount) {
-            PaymentLib.transferPayment(msg.sender, address(0), msg.value - amount);
-        }
-
         emit EscrowFunded(serviceId, token, amount);
         _recordPayment(msg.sender, serviceId, token, amount);
+    }
+
+    /// @notice Withdraw remaining escrow balance after service termination
+    function withdrawRemainingEscrow(uint64 serviceId) external nonReentrant {
+        Types.Service storage svc = _getService(serviceId);
+        if (svc.status != Types.ServiceStatus.Terminated) {
+            revert Errors.ServiceNotTerminated(serviceId);
+        }
+
+        PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
+        uint256 remaining = escrow.balance;
+        if (remaining == 0) revert Errors.ZeroAmount();
+
+        address token = escrow.token;
+        escrow.balance = 0;
+        escrow.totalReleased += remaining;
+
+        PaymentLib.transferPayment(svc.owner, token, remaining);
+        emit EscrowRefunded(serviceId, svc.owner, token, remaining);
     }
 
     /// @notice Bill a subscription service
@@ -429,12 +440,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         // Protocol payment
         PaymentLib.transferPayment(_treasury, token, amounts.protocolAmount);
 
-        uint256 operatorPoolAmount = operatorsLength == 0
-            ? 0
-            : amounts.operatorAmount + (hasSecurityCommitments ? 0 : amounts.restakerAmount);
-        uint256 restakerPoolAmount = operatorsLength == 0
-            ? 0
-            : (hasSecurityCommitments ? amounts.restakerAmount : 0);
+        uint256 operatorPoolAmount =
+            operatorsLength == 0 ? 0 : amounts.operatorAmount + (hasSecurityCommitments ? 0 : amounts.restakerAmount);
+        uint256 restakerPoolAmount = operatorsLength == 0 ? 0 : (hasSecurityCommitments ? amounts.restakerAmount : 0);
 
         emit PaymentDistributed(
             serviceId,
@@ -470,11 +478,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
                 if (opPayments[i].operatorShare > 0) {
                     _pendingRewardTokens[opPayments[i].operator].add(token);
                     emit OperatorRewardAccrued(
-                        serviceId,
-                        opPayments[i].operator,
-                        token,
-                        blueprintId,
-                        opPayments[i].operatorShare
+                        serviceId, opPayments[i].operator, token, blueprintId, opPayments[i].operatorShare
                     );
                 }
 
@@ -502,13 +506,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
                 PaymentLib.addPendingReward(_pendingRewards, operators[i], token, share);
                 if (share > 0) {
                     _pendingRewardTokens[operators[i]].add(token);
-                    emit OperatorRewardAccrued(
-                        serviceId,
-                        operators[i],
-                        token,
-                        blueprintId,
-                        share
-                    );
+                    emit OperatorRewardAccrued(serviceId, operators[i], token, blueprintId, share);
                 }
                 distributed += share;
                 unchecked {

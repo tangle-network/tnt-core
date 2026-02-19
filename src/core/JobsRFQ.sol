@@ -84,6 +84,10 @@ abstract contract JobsRFQ is Base {
         uint64 effectiveMaxQuoteAge = _maxQuoteAge > 0 ? _maxQuoteAge : ProtocolConfig.MAX_QUOTE_AGE;
         uint256 totalPrice = _verifyQuotesAndRecordOperators(serviceId, jobIndex, quotes, effectiveMaxQuoteAge);
 
+        if (totalPrice > 0 && !_isPaymentAssetAllowedByManager(bp.manager, serviceId, address(0))) {
+            revert Errors.TokenNotAllowed(address(0));
+        }
+
         // Collect payment
         PaymentLib.collectPayment(address(0), totalPrice, msg.value);
         _recordPayment(msg.sender, serviceId, address(0), totalPrice);

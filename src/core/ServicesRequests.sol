@@ -19,6 +19,7 @@ abstract contract ServicesRequests is Base {
     struct BlueprintRequestData {
         address manager;
         Types.MembershipModel membership;
+        Types.PricingModel pricing;
     }
 
     struct RequestBounds {
@@ -157,8 +158,10 @@ abstract contract ServicesRequests is Base {
         _validateServiceTtl(ttl);
 
         BlueprintRequestData memory blueprintData = _loadBlueprintRequestData(blueprintId);
+        _validatePricingPaymentConsistency(blueprintData.pricing, paymentToken);
 
-        _validateRequestPaymentAsset(blueprintData.manager, paymentToken, paymentAmount);
+        uint64 requestContextId = _serviceRequestCount;
+        _validateRequestPaymentAsset(blueprintData.manager, requestContextId, paymentToken, paymentAmount);
         _validateRequestOperators(blueprintId, operators, exposures);
 
         PaymentLib.collectPayment(paymentToken, paymentAmount, msg.value);
@@ -179,16 +182,27 @@ abstract contract ServicesRequests is Base {
         SchemaLib.validatePayload(_requestSchemas[blueprintId], config, Types.SchemaTarget.Request, blueprintId, 0);
     }
 
-    function _validateRequestPaymentAsset(address manager, address paymentToken, uint256 paymentAmount) private view {
+    function _validateRequestPaymentAsset(
+        address manager,
+        uint64 requestContextId,
+        address paymentToken,
+        uint256 paymentAmount
+    )
+        private
+        view
+    {
         if (manager == address(0) || paymentAmount == 0) {
             return;
         }
-        try IBlueprintServiceManager(manager).queryIsPaymentAssetAllowed(0, paymentToken) returns (bool allowed) {
-            if (!allowed) {
-                revert Errors.TokenNotAllowed(paymentToken);
-            }
-        } catch {
-            // If hook not implemented, allow any token (backwards compatible)
+        if (!_isPaymentAssetAllowedByManager(manager, requestContextId, paymentToken)) {
+            revert Errors.TokenNotAllowed(paymentToken);
+        }
+    }
+
+    function _validatePricingPaymentConsistency(Types.PricingModel pricing, address paymentToken) private pure {
+        // Event-driven services are currently native-settled for both initial and per-job payments.
+        if (pricing == Types.PricingModel.EventDriven && paymentToken != address(0)) {
+            revert Errors.InvalidPaymentToken();
         }
     }
 
@@ -331,6 +345,7 @@ abstract contract ServicesRequests is Base {
         if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
         data.manager = bp.manager;
         data.membership = bp.membership;
+        data.pricing = bp.pricing;
     }
 
     function _computeRequestBounds(

@@ -6,7 +6,6 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { Base } from "./Base.sol";
 import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
-import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { SignatureLib } from "../libraries/SignatureLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 
@@ -53,7 +52,7 @@ abstract contract QuotesCreate is Base {
 
         uint256 totalCost = _verifyQuotesAndGetCost(quotes, blueprintId, ttl);
 
-        _ensureQuotePaymentAsset(bp.manager, totalCost);
+        _ensureQuotePaymentAsset(bp.manager, _serviceCount, totalCost);
         _collectQuotePayment(totalCost);
         _notifyManagerQuoteRequest(bp.manager, operators, config, ttl, totalCost);
 
@@ -103,11 +102,11 @@ abstract contract QuotesCreate is Base {
         }
     }
 
-    function _ensureQuotePaymentAsset(address manager, uint256 totalCost) private view {
+    function _ensureQuotePaymentAsset(address manager, uint64 quoteContextId, uint256 totalCost) private view {
         if (manager != address(0) && totalCost > 0) {
-            try IBlueprintServiceManager(manager).queryIsPaymentAssetAllowed(0, address(0)) returns (bool allowed) {
-                if (!allowed) revert Errors.TokenNotAllowed(address(0));
-            } catch { }
+            if (!_isPaymentAssetAllowedByManager(manager, quoteContextId, address(0))) {
+                revert Errors.TokenNotAllowed(address(0));
+            }
         }
     }
 
@@ -134,7 +133,7 @@ abstract contract QuotesCreate is Base {
             revert Errors.InsufficientPaymentForQuotes(totalCost, msg.value);
         }
         if (msg.value > totalCost) {
-            PaymentLib.transferPayment(msg.sender, address(0), msg.value - totalCost);
+            revert Errors.InvalidMsgValue(totalCost, msg.value);
         }
     }
 
