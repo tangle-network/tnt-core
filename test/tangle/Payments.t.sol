@@ -292,6 +292,65 @@ contract PaymentsTest is BaseTest {
         assertEq(tangle.pendingRewards(operator1), 0);
     }
 
+    function test_EventDriven_InitialPayment_DistributesOnActivation() public {
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.EventDriven,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 0,
+            subscriptionInterval: 0,
+            eventRate: 0.1 ether
+        });
+
+        vm.prank(developer);
+        uint64 eventBlueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://event-initial-payment", address(0), config));
+        _registerForBlueprint(operator1, eventBlueprintId);
+
+        uint256 upfront = 10 ether;
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId =
+            tangle.requestService{ value: upfront }(eventBlueprintId, operators, "", callers, 0, address(0), upfront);
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        // No security commitments: operator receives operator + restaker share.
+        assertEq(tangle.pendingRewards(operator1), 6 ether);
+    }
+
+    function test_EventDriven_RequestService_RevertERC20InitialPaymentToken() public {
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.EventDriven,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 0,
+            subscriptionInterval: 0,
+            eventRate: 0.1 ether
+        });
+
+        vm.prank(developer);
+        uint64 eventBlueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://event-native-only", address(0), config));
+        _registerForBlueprint(operator1, eventBlueprintId);
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.startPrank(user1);
+        token.approve(address(tangle), 1 ether);
+        vm.expectRevert(Errors.InvalidPaymentToken.selector);
+        tangle.requestService(eventBlueprintId, operators, "", callers, 0, address(token), 1 ether);
+        vm.stopPrank();
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // REWARD CLAIMING
     // ═══════════════════════════════════════════════════════════════════════════
@@ -421,38 +480,36 @@ contract PaymentsTest is BaseTest {
         assertEq(escrow.balance, escrowBefore + 0.5 ether);
     }
 
-    function test_Subscription_FundServiceRefundsExcessETH() public {
+    function test_Subscription_FundServiceExcessETHReverts() public {
         uint64 subServiceId = _setupSubscriptionService();
 
         uint256 escrowBefore = tangle.getServiceEscrow(subServiceId).balance;
         uint256 userBalanceBefore = user1.balance;
 
         vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, 0.25 ether, 0.5 ether));
         tangle.fundService{ value: 0.5 ether }(subServiceId, 0.25 ether);
 
-        uint256 userBalanceAfter = user1.balance;
-        assertEq(userBalanceBefore - userBalanceAfter, 0.25 ether);
-
         PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(subServiceId);
-        assertEq(escrow.balance, escrowBefore + 0.25 ether);
+        assertEq(escrow.balance, escrowBefore);
+        assertEq(user1.balance, userBalanceBefore);
     }
 
-    function test_Subscription_FundServiceZeroAmountFullRefund() public {
+    function test_Subscription_FundServiceZeroAmountRevertsWithValue() public {
         uint64 subServiceId = _setupSubscriptionService();
 
         PaymentLib.ServiceEscrow memory escrowBefore = tangle.getServiceEscrow(subServiceId);
         uint256 userBalanceBefore = user1.balance;
 
         vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, 0, 0.2 ether));
         tangle.fundService{ value: 0.2 ether }(subServiceId, 0);
-
-        // Entire msg.value should be returned when funding amount is zero.
-        assertEq(user1.balance, userBalanceBefore, "all ETH refunded for zero-amount funding");
 
         PaymentLib.ServiceEscrow memory escrowAfter = tangle.getServiceEscrow(subServiceId);
         assertEq(escrowAfter.balance, escrowBefore.balance, "escrow balance unchanged");
         assertEq(escrowAfter.totalDeposited, escrowBefore.totalDeposited, "total deposited unchanged");
         assertEq(escrowAfter.totalReleased, escrowBefore.totalReleased, "total released unchanged");
+        assertEq(user1.balance, userBalanceBefore, "user balance unchanged on revert");
     }
 
     function test_Subscription_FundService_RevertNotActive() public {
@@ -522,6 +579,48 @@ contract PaymentsTest is BaseTest {
         PaymentLib.ServiceEscrow memory escrowAfter = tangle.getServiceEscrow(serviceId);
         assertEq(escrowAfter.balance, escrowBefore.balance + topUp);
         assertEq(escrowAfter.token, address(token));
+    }
+
+    function test_Subscription_ZeroInitialDepositERC20_InitializesToken() public {
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 10 ether,
+            subscriptionInterval: 30 days,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        uint64 ercBlueprintId =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://erc20-sub-zero-init", address(0), config));
+        _registerForBlueprint(operator1, ercBlueprintId);
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService(ercBlueprintId, operators, "", callers, 0, address(token), 0);
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        uint64 serviceId = tangle.serviceCount() - 1;
+        PaymentLib.ServiceEscrow memory escrowBefore = tangle.getServiceEscrow(serviceId);
+        assertEq(escrowBefore.token, address(token));
+        assertEq(escrowBefore.balance, 0);
+
+        uint256 topUp = 25 ether;
+        vm.startPrank(user1);
+        token.approve(address(tangle), topUp);
+        tangle.fundService(serviceId, topUp);
+        vm.stopPrank();
+
+        PaymentLib.ServiceEscrow memory escrowAfter = tangle.getServiceEscrow(serviceId);
+        assertEq(escrowAfter.token, address(token));
+        assertEq(escrowAfter.balance, topUp);
     }
 
     function test_Subscription_BillReducesEscrow() public {

@@ -87,7 +87,7 @@ contract QuoteExtensionTest is BaseTest {
         tangle.extendServiceFromQuotes{ value: 0.5 ether }(serviceId, quotes, additionalTtl);
     }
 
-    function test_ExtendService_ExcessPaymentRefunded() public {
+    function test_ExtendService_ExcessPaymentReverts() public {
         uint64 additionalTtl = 15 days;
 
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
@@ -96,10 +96,10 @@ contract QuoteExtensionTest is BaseTest {
         uint256 balBefore = user1.balance;
 
         vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, 1 ether, 2 ether));
         tangle.extendServiceFromQuotes{ value: 2 ether }(serviceId, quotes, additionalTtl);
 
-        // User should get 1 ether back
-        assertEq(user1.balance, balBefore - 1 ether, "Excess should be refunded");
+        assertEq(user1.balance, balBefore, "User balance unchanged on revert");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

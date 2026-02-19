@@ -336,18 +336,16 @@ contract QuoteVerificationTest is BaseTest {
         );
     }
 
-    function test_CreateFromQuote_RefundsExcessPayment() public {
+    function test_CreateFromQuote_OverpaymentReverts() public {
         Types.SignedQuote[] memory quotes = _createSingleQuote(operator1, OPERATOR1_PK, blueprintId, 100, 1 ether);
 
         uint256 userBalanceBefore = user1.balance;
 
         vm.prank(user1);
-        tangle.createServiceFromQuotes{ value: 5 ether }( // Overpaying
-            blueprintId, quotes, "", new address[](0), 100
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, 1 ether, 5 ether));
+        tangle.createServiceFromQuotes{ value: 5 ether }(blueprintId, quotes, "", new address[](0), 100);
 
-        // Should have been refunded 4 ETH
-        assertEq(user1.balance, userBalanceBefore - 1 ether);
+        assertEq(user1.balance, userBalanceBefore);
     }
 
     function test_CreateFromQuote_ZeroCost() public {
