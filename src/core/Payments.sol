@@ -183,7 +183,8 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         }
 
         address token = PaymentLib.releaseFromEscrow(escrow, rate);
-        svc.lastPaymentAt = uint64(block.timestamp);
+        // Advance by exactly one interval so missed periods can be caught up over repeated calls.
+        svc.lastPaymentAt += interval;
 
         address[] memory operators = _serviceOperatorSet[serviceId].values();
 
@@ -218,7 +219,8 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         if (escrow.balance < rate) return false;
 
         address token = PaymentLib.releaseFromEscrow(escrow, rate);
-        svc.lastPaymentAt = uint64(block.timestamp);
+        // Advance by exactly one interval so missed periods can be caught up over repeated calls.
+        svc.lastPaymentAt += bpConfig.subscriptionInterval;
 
         address[] memory operators = _serviceOperatorSet[serviceId].values();
 
@@ -255,6 +257,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         // Must be past billing interval
         Types.BlueprintConfig storage bpConfig = _blueprintConfigs[svc.blueprintId];
         if (block.timestamp < svc.lastPaymentAt + bpConfig.subscriptionInterval) return false;
+        if (_serviceEscrows[serviceId].balance < bpConfig.subscriptionRate) return false;
 
         return true;
     }
