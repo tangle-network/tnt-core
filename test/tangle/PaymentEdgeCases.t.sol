@@ -377,15 +377,16 @@ contract PaymentEdgeCasesTest is BaseTest {
         // Warp past multiple intervals
         vm.warp(block.timestamp + 90 days); // 3 intervals
 
-        // First bill works
+        // With catch-up semantics, all elapsed intervals can be billed immediately.
+        tangle.billSubscription(serviceId);
+        tangle.billSubscription(serviceId);
         tangle.billSubscription(serviceId);
 
-        // Second bill also works (since enough time has passed)
-        vm.warp(block.timestamp + 30 days);
+        vm.expectRevert(Errors.DeadlineExpired.selector);
         tangle.billSubscription(serviceId);
 
         PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(serviceId);
-        assertEq(escrow.totalReleased, 2 ether);
+        assertEq(escrow.totalReleased, 3 ether);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

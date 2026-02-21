@@ -758,16 +758,18 @@ contract PaymentsTest is BaseTest {
     function test_GetBillableServices_FiltersResults() public {
         uint64 activeService = _setupSubscriptionService();
         uint64 expiredService = _setupSubscriptionServiceWithTTL(1 days);
+        uint64 underfundedService = _setupSubscriptionServiceWithDeposit(0.05 ether);
 
         vm.warp(block.timestamp + 40 days);
 
         // Create a fresh service after the warp so it hasn't reached its first interval yet
         uint64 freshService = _setupSubscriptionService();
 
-        uint64[] memory candidates = new uint64[](3);
+        uint64[] memory candidates = new uint64[](4);
         candidates[0] = activeService;
         candidates[1] = expiredService;
-        candidates[2] = freshService;
+        candidates[2] = underfundedService;
+        candidates[3] = freshService;
 
         uint64[] memory billable = tangle.getBillableServices(candidates);
         assertEq(billable.length, 1);

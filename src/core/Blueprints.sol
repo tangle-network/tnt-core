@@ -191,6 +191,12 @@ abstract contract Blueprints is Base {
         if (def.jobs.length == 0) revert Errors.InvalidState();
         if (def.sources.length == 0) revert Errors.BlueprintSourcesRequired();
         if (def.supportedMemberships.length == 0) revert Errors.BlueprintMembershipRequired();
+        if (
+            def.hasConfig && def.config.pricing == Types.PricingModel.Subscription
+                && (def.config.subscriptionRate == 0 || def.config.subscriptionInterval == 0)
+        ) {
+            revert Errors.InvalidState();
+        }
         for (uint256 i = 0; i < def.sources.length; ++i) {
             Types.BlueprintSource calldata source = def.sources[i];
             if (source.binaries.length == 0) revert Errors.BlueprintBinaryRequired();

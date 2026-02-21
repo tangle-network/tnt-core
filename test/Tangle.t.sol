@@ -892,6 +892,38 @@ contract TangleTest is BaseTest {
         assertEq(uint8(bp.pricing), uint8(Types.PricingModel.Subscription));
     }
 
+    function test_CreateBlueprintWithConfig_Subscription_RevertZeroRate() public {
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 0,
+            subscriptionInterval: 30 days,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        vm.expectRevert(Errors.InvalidState.selector);
+        tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://invalid-sub-zero-rate", address(0), config));
+    }
+
+    function test_CreateBlueprintWithConfig_Subscription_RevertZeroInterval() public {
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 0.1 ether,
+            subscriptionInterval: 0,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        vm.expectRevert(Errors.InvalidState.selector);
+        tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://invalid-sub-zero-interval", address(0), config));
+    }
+
     function test_BillSubscription() public {
         // Create subscription blueprint
         Types.BlueprintConfig memory config = Types.BlueprintConfig({

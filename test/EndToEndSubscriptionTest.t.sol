@@ -14,9 +14,8 @@ contract EndToEndSubscriptionTest is BaseTest {
     uint256 constant SUBSCRIPTION_RATE = 1 ether;
     uint64 constant SUBSCRIPTION_INTERVAL = 30 days;
 
-    /// @notice Full E2E: Customer subscribes to a blueprint service and delegators receive rewards
-    /// Note: Basic subscription billing and reward claiming is tested in Integration.t.sol
-    function test_E2E_Subscription_FullLifecycle() public {
+    /// @notice Full E2E: Customer provisions a pay-once service and delegation plumbing works
+    function test_E2E_PayOnce_FullLifecycle() public {
         // Step 1: Create PayOnce blueprint (simpler for this test)
         vm.prank(developer);
         uint64 blueprintId = _createBlueprintAsSender("ipfs://subscription-service", address(0));
