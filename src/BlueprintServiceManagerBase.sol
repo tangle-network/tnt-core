@@ -139,6 +139,16 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         return (true, 0, 0, false);
     }
 
+    /// @inheritdoc IBlueprintServiceManager
+    function getNonPaymentTerminationPolicy(uint64)
+        external
+        view
+        virtual
+        returns (bool useDefault, uint64 graceIntervals)
+    {
+        return (true, 0); // Use protocol default grace intervals
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════════

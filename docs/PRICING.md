@@ -73,7 +73,8 @@ BlueprintConfig({
 2. Service owner calls `fundService(serviceId, amount)` to deposit into escrow
 3. Anyone calls `billSubscription(serviceId)` after each interval elapses
 4. Protocol deducts `subscriptionRate` from escrow and distributes via `PaymentSplit`
-5. If escrow is insufficient, billing reverts — service stays active but unpaid
+5. If escrow is insufficient, billing reverts
+6. If still underfunded after the configured grace window, anyone can terminate via `terminateServiceForNonPayment(serviceId)`
 
 ### Key functions
 
@@ -89,14 +90,46 @@ function billSubscriptionBatch(uint64[] calldata serviceIds) external returns (u
 
 // Check what's billable (view)
 function getBillableServices(uint64[] calldata serviceIds) external view returns (uint64[] memory billable);
+
+// Permissionless non-payment termination (after grace)
+function terminateServiceForNonPayment(uint64 serviceId) external;
 ```
 
 ### Escrow details
 
 - Token is set at service creation (native or ERC-20)
 - `getServiceEscrow(serviceId)` returns `{ token, balance, totalDeposited, totalReleased }`
-- No auto-termination on empty escrow — billing simply fails until re-funded
+- Billing failure alone does not terminate immediately; termination becomes permissionless after grace
+- Default grace is 1 interval (eligible at `lastPaymentAt + 2 * interval` when underfunded)
+- Blueprint managers may override grace via `getNonPaymentTerminationPolicy(serviceId)`; core caps custom grace intervals for safety
 - After service termination, remaining escrow can be withdrawn via `withdrawRemainingEscrow(serviceId)`
+
+### Blueprint override example
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+import { BlueprintServiceManagerBase } from "tnt-core/src/BlueprintServiceManagerBase.sol";
+
+contract MySubscriptionPolicyBlueprint is BlueprintServiceManagerBase {
+    // Wait 3 extra intervals after first missed due-time before
+    // permissionless non-payment termination is eligible.
+    function getNonPaymentTerminationPolicy(uint64)
+        external
+        pure
+        override
+        returns (bool useDefault, uint64 graceIntervals)
+    {
+        return (false, 3);
+    }
+}
+```
+
+Notes:
+- Return `(true, 0)` to use protocol default behavior.
+- Return `(false, 0)` to allow termination immediately at first due time when underfunded.
+- Core caps custom grace intervals for safety.
 
 ---
 

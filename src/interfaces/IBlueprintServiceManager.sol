@@ -84,6 +84,19 @@ interface IBlueprintServiceManager {
         view
         returns (bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed);
 
+    /// @notice Get non-payment termination policy for subscription services
+    /// @dev Core computes eligibility as:
+    ///      `lastPaymentAt + subscriptionInterval + (subscriptionInterval * graceIntervals)`.
+    ///      `graceIntervals = 0` means termination is eligible immediately at first due time.
+    ///      Implementations should return `useDefault=true` unless they need custom grace behavior.
+    /// @param serviceId The service ID
+    /// @return useDefault True to use protocol default
+    /// @return graceIntervals Additional full intervals to wait after first missed payment
+    function getNonPaymentTerminationPolicy(uint64 serviceId)
+        external
+        view
+        returns (bool useDefault, uint64 graceIntervals);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════════
