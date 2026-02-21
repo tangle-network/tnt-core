@@ -10,6 +10,7 @@ interface IBlueprintServiceManager {
     function getHeartbeatInterval(uint64 serviceId) external view returns (bool useDefault, uint64 interval);
     function getHeartbeatThreshold(uint64 serviceId) external view returns (bool useDefault, uint8 threshold);
     function getMinOperatorStake() external view returns (bool useDefault, uint256 minStake);
+    function getNonPaymentTerminationPolicy(uint64 serviceId) external view returns (bool useDefault, uint64 graceIntervals);
     function getRequiredResultCount(uint64 serviceId, uint8 jobIndex) external view returns (uint32 required);
     function getSlashingWindow(uint64 serviceId) external view returns (bool useDefault, uint64 window);
     function onAggregatedResult(uint64 serviceId, uint8 job, uint64 jobCallId, bytes memory output, uint256 signerBitmap, uint256[2] memory aggregatedSignature, uint256[4] memory aggregatedPubkey) external;
@@ -214,6 +215,30 @@ interface IBlueprintServiceManager {
         "name": "minStake",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNonPaymentTerminationPolicy",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "useDefault",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "graceIntervals",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -2055,6 +2080,179 @@ function getMinOperatorStake() external view returns (bool useDefault, uint256 m
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 getMinOperatorStakeReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getNonPaymentTerminationPolicy(uint64)` and selector `0x71e8e85d`.
+```solidity
+function getNonPaymentTerminationPolicy(uint64 serviceId) external view returns (bool useDefault, uint64 graceIntervals);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getNonPaymentTerminationPolicyCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getNonPaymentTerminationPolicy(uint64)`](getNonPaymentTerminationPolicyCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getNonPaymentTerminationPolicyReturn {
+        #[allow(missing_docs)]
+        pub useDefault: bool,
+        #[allow(missing_docs)]
+        pub graceIntervals: u64,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getNonPaymentTerminationPolicyCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getNonPaymentTerminationPolicyCall) -> Self {
+                    (value.serviceId,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getNonPaymentTerminationPolicyCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { serviceId: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Bool,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (bool, u64);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getNonPaymentTerminationPolicyReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getNonPaymentTerminationPolicyReturn) -> Self {
+                    (value.useDefault, value.graceIntervals)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getNonPaymentTerminationPolicyReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        useDefault: tuple.0,
+                        graceIntervals: tuple.1,
+                    }
+                }
+            }
+        }
+        impl getNonPaymentTerminationPolicyReturn {
+            fn _tokenize(
+                &self,
+            ) -> <getNonPaymentTerminationPolicyCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        &self.useDefault,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.graceIntervals),
+                )
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getNonPaymentTerminationPolicyCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = getNonPaymentTerminationPolicyReturn;
+            type ReturnTuple<'a> = (
+                alloy::sol_types::sol_data::Bool,
+                alloy::sol_types::sol_data::Uint<64>,
+            );
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getNonPaymentTerminationPolicy(uint64)";
+            const SELECTOR: [u8; 4] = [113u8, 232u8, 232u8, 93u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                getNonPaymentTerminationPolicyReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -6422,6 +6620,8 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
         #[allow(missing_docs)]
         getMinOperatorStake(getMinOperatorStakeCall),
         #[allow(missing_docs)]
+        getNonPaymentTerminationPolicy(getNonPaymentTerminationPolicyCall),
+        #[allow(missing_docs)]
         getRequiredResultCount(getRequiredResultCountCall),
         #[allow(missing_docs)]
         getSlashingWindow(getSlashingWindowCall),
@@ -6494,6 +6694,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             [84u8, 64u8, 102u8, 44u8],
             [84u8, 220u8, 230u8, 194u8],
             [103u8, 121u8, 60u8, 198u8],
+            [113u8, 232u8, 232u8, 93u8],
             [116u8, 206u8, 235u8, 85u8],
             [126u8, 20u8, 185u8, 25u8],
             [130u8, 161u8, 236u8, 228u8],
@@ -6529,6 +6730,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             ::core::stringify!(onExitCanceled),
             ::core::stringify!(getMinOperatorStake),
             ::core::stringify!(onRegister),
+            ::core::stringify!(getNonPaymentTerminationPolicy),
             ::core::stringify!(querySlashingOrigin),
             ::core::stringify!(onSlash),
             ::core::stringify!(onServiceInitialized),
@@ -6564,6 +6766,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             <onExitCanceledCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getMinOperatorStakeCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onRegisterCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getNonPaymentTerminationPolicyCall as alloy_sol_types::SolCall>::SIGNATURE,
             <querySlashingOriginCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onServiceInitializedCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -6608,7 +6811,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
     impl alloy_sol_types::SolInterface for IBlueprintServiceManagerCalls {
         const NAME: &'static str = "IBlueprintServiceManagerCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 32usize;
+        const COUNT: usize = 33usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -6628,6 +6831,9 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                 }
                 Self::getMinOperatorStake(_) => {
                     <getMinOperatorStakeCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getNonPaymentTerminationPolicy(_) => {
+                    <getNonPaymentTerminationPolicyCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::getRequiredResultCount(_) => {
                     <getRequiredResultCountCall as alloy_sol_types::SolCall>::SELECTOR
@@ -6874,6 +7080,19 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                             .map(IBlueprintServiceManagerCalls::onRegister)
                     }
                     onRegister
+                },
+                {
+                    fn getNonPaymentTerminationPolicy(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
+                        <getNonPaymentTerminationPolicyCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(
+                                IBlueprintServiceManagerCalls::getNonPaymentTerminationPolicy,
+                            )
+                    }
+                    getNonPaymentTerminationPolicy
                 },
                 {
                     fn querySlashingOrigin(
@@ -7238,6 +7457,19 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                     onRegister
                 },
                 {
+                    fn getNonPaymentTerminationPolicy(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
+                        <getNonPaymentTerminationPolicyCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(
+                                IBlueprintServiceManagerCalls::getNonPaymentTerminationPolicy,
+                            )
+                    }
+                    getNonPaymentTerminationPolicy
+                },
+                {
                     fn querySlashingOrigin(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
@@ -7482,6 +7714,11 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                         inner,
                     )
                 }
+                Self::getNonPaymentTerminationPolicy(inner) => {
+                    <getNonPaymentTerminationPolicyCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::getRequiredResultCount(inner) => {
                     <getRequiredResultCountCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -7635,6 +7872,12 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                 }
                 Self::getMinOperatorStake(inner) => {
                     <getMinOperatorStakeCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getNonPaymentTerminationPolicy(inner) => {
+                    <getNonPaymentTerminationPolicyCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -8019,6 +8262,17 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::SolCallBuilder<&P, getMinOperatorStakeCall, N> {
             self.call_builder(&getMinOperatorStakeCall)
+        }
+        ///Creates a new call builder for the [`getNonPaymentTerminationPolicy`] function.
+        pub fn getNonPaymentTerminationPolicy(
+            &self,
+            serviceId: u64,
+        ) -> alloy_contract::SolCallBuilder<&P, getNonPaymentTerminationPolicyCall, N> {
+            self.call_builder(
+                &getNonPaymentTerminationPolicyCall {
+                    serviceId,
+                },
+            )
         }
         ///Creates a new call builder for the [`getRequiredResultCount`] function.
         pub fn getRequiredResultCount(

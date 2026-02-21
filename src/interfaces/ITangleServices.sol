@@ -22,6 +22,14 @@ interface ITangleServices {
     event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId);
 
     event ServiceTerminated(uint64 indexed serviceId);
+    event ServiceTerminatedForNonPayment(
+        uint64 indexed serviceId,
+        address indexed triggeredBy,
+        uint64 dueAt,
+        uint64 graceEndsAt,
+        uint256 requiredAmount,
+        uint256 escrowBalance
+    );
 
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
 
@@ -152,6 +160,9 @@ interface ITangleServices {
 
     /// @notice Terminate a service (as owner)
     function terminateService(uint64 serviceId) external;
+
+    /// @notice Permissionlessly terminate an unpaid subscription after grace period
+    function terminateServiceForNonPayment(uint64 serviceId) external;
 
     /// @notice Add a permitted caller to a service
     function addPermittedCaller(uint64 serviceId, address caller) external;

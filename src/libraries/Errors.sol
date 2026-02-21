@@ -124,6 +124,11 @@ library Errors {
     /// @notice Service is not terminated
     error ServiceNotTerminated(uint64 serviceId);
 
+    /// @notice Service is not yet eligible for permissionless non-payment termination
+    error NonPaymentTerminationNotEligible(
+        uint64 serviceId, uint256 dueAt, uint256 graceEndsAt, uint256 requiredAmount, uint256 escrowBalance
+    );
+
     /// @notice Service has expired
     error ServiceExpired(uint64 serviceId);
 

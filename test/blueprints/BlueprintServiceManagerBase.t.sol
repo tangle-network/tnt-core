@@ -81,6 +81,10 @@ contract BlueprintServiceManagerBaseTest is Test {
         assertEq(exitQueue, 0);
         assertFalse(forceExitAllowed);
 
+        (bool useDefaultNonPayment, uint64 graceIntervals) = bsm.getNonPaymentTerminationPolicy(1);
+        assertTrue(useDefaultNonPayment);
+        assertEq(graceIntervals, 0);
+
         assertEq(bsm.queryDeveloperPaymentAddress(1), blueprintOwner);
         assertEq(bsm.querySlashingOrigin(1), address(bsm));
         assertEq(bsm.queryDisputeOrigin(1), address(bsm));

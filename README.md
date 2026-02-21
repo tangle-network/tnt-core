@@ -49,6 +49,17 @@ contract MyBlueprint is BlueprintServiceManagerBase {
     ) external payable override onlyFromTangle {
         // Process job results, verify outputs, distribute rewards
     }
+
+    // Optional: customize subscription non-payment grace policy.
+    // Default protocol behavior is one extra interval.
+    function getNonPaymentTerminationPolicy(uint64)
+        external
+        pure
+        override
+        returns (bool useDefault, uint64 graceIntervals)
+    {
+        return (false, 2); // wait 2 extra intervals
+    }
 }
 ```
 
@@ -120,6 +131,7 @@ contract MyBlueprint is BlueprintServiceManagerBase {
 
 - [Deployment Guide](https://github.com/tangle-network/tnt-core/blob/main/docs/DEPLOYMENT_RUNBOOK.md)
 - [Full Deploy Config](https://github.com/tangle-network/tnt-core/blob/main/docs/full-deploy.md)
+- [Pricing Models](https://github.com/tangle-network/tnt-core/blob/main/docs/PRICING.md)
 - [Interfaces](https://github.com/tangle-network/tnt-core/tree/main/src/interfaces)
 
 ## Rust Bindings

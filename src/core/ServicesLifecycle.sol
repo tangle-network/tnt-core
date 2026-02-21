@@ -15,11 +15,22 @@ import { IOperatorStatusRegistry } from "../staking/OperatorStatusRegistry.sol";
 abstract contract ServicesLifecycle is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    uint64 internal constant DEFAULT_NON_PAYMENT_GRACE_INTERVALS = 1;
+    uint64 internal constant MAX_NON_PAYMENT_GRACE_INTERVALS = 12;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
     event ServiceTerminated(uint64 indexed serviceId);
+    event ServiceTerminatedForNonPayment(
+        uint64 indexed serviceId,
+        address indexed triggeredBy,
+        uint64 dueAt,
+        uint64 graceEndsAt,
+        uint256 requiredAmount,
+        uint256 escrowBalance
+    );
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
     event OperatorSecurityCommitmentsStored(uint64 indexed serviceId, address indexed operator, uint256 count);
     event OperatorSecurityCommitment(
@@ -41,6 +52,70 @@ abstract contract ServicesLifecycle is Base {
         Types.Service storage svc = _getService(serviceId);
         if (svc.owner != msg.sender) {
             revert Errors.NotServiceOwner(serviceId, msg.sender);
+        }
+
+        _terminateService(serviceId);
+    }
+
+    /// @notice Permissionlessly terminate an unpaid subscription after grace period
+    /// @dev Eligibility: service is active subscription, escrow cannot cover one period,
+    ///      and manager-resolved grace windows have elapsed past the billing due time.
+    function terminateServiceForNonPayment(uint64 serviceId) external {
+        Types.Service storage svc = _getService(serviceId);
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
+        if (svc.pricing != Types.PricingModel.Subscription) {
+            revert Errors.InvalidState();
+        }
+
+        Types.BlueprintConfig storage bpConfig = _blueprintConfigs[svc.blueprintId];
+        uint64 interval = bpConfig.subscriptionInterval;
+        uint256 rate = bpConfig.subscriptionRate;
+        uint256 balance = _serviceEscrows[serviceId].balance;
+        uint64 graceIntervals = _resolveNonPaymentGraceIntervals(svc.blueprintId, serviceId);
+
+        uint256 dueAt = uint256(svc.lastPaymentAt) + interval;
+        uint256 graceEndsAt = dueAt + (uint256(interval) * graceIntervals);
+        if (interval == 0 || balance >= rate || block.timestamp < graceEndsAt) {
+            revert Errors.NonPaymentTerminationNotEligible(serviceId, dueAt, graceEndsAt, rate, balance);
+        }
+
+        _terminateService(serviceId);
+        emit ServiceTerminatedForNonPayment(
+            serviceId, msg.sender, uint64(dueAt), uint64(graceEndsAt), rate, balance
+        );
+    }
+
+    function _resolveNonPaymentGraceIntervals(
+        uint64 blueprintId,
+        uint64 serviceId
+    )
+        internal
+        view
+        returns (uint64 graceIntervals)
+    {
+        graceIntervals = DEFAULT_NON_PAYMENT_GRACE_INTERVALS;
+        Types.Blueprint storage bp = _blueprints[blueprintId];
+        if (bp.manager == address(0)) return graceIntervals;
+
+        try IBlueprintServiceManager(bp.manager).getNonPaymentTerminationPolicy(serviceId) returns (
+            bool useDefault, uint64 customGraceIntervals
+        ) {
+            if (useDefault) return graceIntervals;
+            if (customGraceIntervals > MAX_NON_PAYMENT_GRACE_INTERVALS) {
+                return MAX_NON_PAYMENT_GRACE_INTERVALS;
+            }
+            return customGraceIntervals;
+        } catch {
+            return graceIntervals;
+        }
+    }
+
+    function _terminateService(uint64 serviceId) internal {
+        Types.Service storage svc = _getService(serviceId);
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
         }
 
         svc.status = Types.ServiceStatus.Terminated;
@@ -74,7 +149,7 @@ abstract contract ServicesLifecycle is Base {
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         if (bp.manager != address(0)) {
             _tryCallManager(
-                bp.manager, abi.encodeCall(IBlueprintServiceManager.onServiceTermination, (serviceId, msg.sender))
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onServiceTermination, (serviceId, svc.owner))
             );
         }
     }

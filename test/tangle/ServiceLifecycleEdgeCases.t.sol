@@ -17,6 +17,8 @@ contract LifecycleMockBSM is BlueprintServiceManagerBase {
     bool public rejectRequests;
     bool public rejectJoins;
     bool public rejectLeaves;
+    bool public useDefaultNonPaymentPolicy = true;
+    uint64 public nonPaymentGraceIntervals;
 
     function setRejectRequests(bool reject) external {
         rejectRequests = reject;
@@ -28,6 +30,11 @@ contract LifecycleMockBSM is BlueprintServiceManagerBase {
 
     function setRejectLeaves(bool reject) external {
         rejectLeaves = reject;
+    }
+
+    function setNonPaymentTerminationPolicy(bool useDefault, uint64 graceIntervals) external {
+        useDefaultNonPaymentPolicy = useDefault;
+        nonPaymentGraceIntervals = graceIntervals;
     }
 
     function onBlueprintCreated(uint64 _blueprintId, address owner, address _tangleCore) external override {
@@ -133,6 +140,15 @@ contract LifecycleMockBSM is BlueprintServiceManagerBase {
     {
         return (false, 0, 0, false);
     }
+
+    function getNonPaymentTerminationPolicy(uint64)
+        external
+        view
+        override
+        returns (bool useDefault, uint64 graceIntervals)
+    {
+        return (useDefaultNonPaymentPolicy, nonPaymentGraceIntervals);
+    }
 }
 
 /// @title ServiceLifecycleEdgeCasesTest
@@ -210,8 +226,9 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         vm.prank(user1);
         tangle.terminateService(serviceId);
 
-        // Cannot terminate again - status check will fail
-        // The contract may not explicitly check this, but let's verify behavior
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ServiceNotActive.selector, serviceId));
+        tangle.terminateService(serviceId);
     }
 
     function test_TerminateService_WithPendingPayment() public {
@@ -262,6 +279,122 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         assertEq(mockBsm.terminationCount(), 1);
         assertTrue(mockBsm.terminatedServices(serviceId));
+    }
+
+    function test_TerminateServiceForNonPayment_AfterGrace_Succeeds() public {
+        uint64 interval = 30 days;
+        uint256 rate = 0.1 ether;
+        uint256 initialDeposit = 0.05 ether;
+        uint64 serviceId = _createSubscriptionServiceWithBSM(initialDeposit, interval, rate);
+
+        vm.warp(block.timestamp + (2 * interval));
+
+        vm.prank(user2);
+        tangle.terminateServiceForNonPayment(serviceId);
+
+        Types.Service memory svc = tangle.getService(serviceId);
+        assertEq(uint8(svc.status), uint8(Types.ServiceStatus.Terminated));
+        assertEq(mockBsm.terminationCount(), 1);
+        assertTrue(mockBsm.terminatedServices(serviceId));
+    }
+
+    function test_TerminateServiceForNonPayment_BeforeGrace_Reverts() public {
+        uint64 interval = 30 days;
+        uint256 rate = 0.1 ether;
+        uint256 initialDeposit = 0.05 ether;
+        uint64 serviceId = _createSubscriptionServiceWithBSM(initialDeposit, interval, rate);
+        Types.Service memory svc = tangle.getService(serviceId);
+
+        uint256 dueAt = uint256(svc.lastPaymentAt) + interval;
+        uint256 graceEndsAt = dueAt + interval;
+
+        vm.warp(block.timestamp + (2 * interval) - 1);
+
+        vm.prank(user2);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.NonPaymentTerminationNotEligible.selector, serviceId, dueAt, graceEndsAt, rate, initialDeposit
+            )
+        );
+        tangle.terminateServiceForNonPayment(serviceId);
+    }
+
+    function test_TerminateServiceForNonPayment_SufficientEscrow_Reverts() public {
+        uint64 interval = 30 days;
+        uint256 rate = 0.1 ether;
+        uint256 initialDeposit = 1 ether;
+        uint64 serviceId = _createSubscriptionServiceWithBSM(initialDeposit, interval, rate);
+        Types.Service memory svc = tangle.getService(serviceId);
+
+        uint256 dueAt = uint256(svc.lastPaymentAt) + interval;
+        uint256 graceEndsAt = dueAt + interval;
+
+        vm.warp(block.timestamp + (2 * interval));
+
+        vm.prank(user2);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.NonPaymentTerminationNotEligible.selector, serviceId, dueAt, graceEndsAt, rate, initialDeposit
+            )
+        );
+        tangle.terminateServiceForNonPayment(serviceId);
+    }
+
+    function test_TerminateServiceForNonPayment_CustomGraceZero_AllowsAtFirstDue() public {
+        uint64 interval = 30 days;
+        uint256 rate = 0.1 ether;
+        uint256 initialDeposit = 0.05 ether;
+        mockBsm.setNonPaymentTerminationPolicy(false, 0);
+        uint64 serviceId = _createSubscriptionServiceWithBSM(initialDeposit, interval, rate);
+
+        vm.warp(block.timestamp + interval);
+
+        vm.prank(user2);
+        tangle.terminateServiceForNonPayment(serviceId);
+
+        Types.Service memory svc = tangle.getService(serviceId);
+        assertEq(uint8(svc.status), uint8(Types.ServiceStatus.Terminated));
+    }
+
+    function test_TerminateServiceForNonPayment_CustomGraceThree_Honored() public {
+        uint64 interval = 30 days;
+        uint256 rate = 0.1 ether;
+        uint256 initialDeposit = 0.05 ether;
+        mockBsm.setNonPaymentTerminationPolicy(false, 3);
+        uint64 serviceId = _createSubscriptionServiceWithBSM(initialDeposit, interval, rate);
+        Types.Service memory svc = tangle.getService(serviceId);
+        uint256 dueAt = uint256(svc.lastPaymentAt) + interval;
+        uint256 graceEndsAt = dueAt + (3 * interval);
+
+        vm.warp(block.timestamp + (4 * interval) - 1);
+        vm.prank(user2);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.NonPaymentTerminationNotEligible.selector, serviceId, dueAt, graceEndsAt, rate, initialDeposit
+            )
+        );
+        tangle.terminateServiceForNonPayment(serviceId);
+
+        vm.warp(block.timestamp + 1);
+        vm.prank(user2);
+        tangle.terminateServiceForNonPayment(serviceId);
+    }
+
+    function test_TerminateServiceForNonPayment_CustomGraceBoundedByCoreCap() public {
+        uint64 interval = 30 days;
+        uint256 rate = 0.1 ether;
+        uint256 initialDeposit = 0.05 ether;
+        // Core caps manager-provided grace intervals at 12.
+        mockBsm.setNonPaymentTerminationPolicy(false, 100);
+        uint64 serviceId = _createSubscriptionServiceWithBSM(initialDeposit, interval, rate);
+
+        vm.warp(block.timestamp + (13 * interval));
+
+        vm.prank(user2);
+        tangle.terminateServiceForNonPayment(serviceId);
+
+        Types.Service memory svc = tangle.getService(serviceId);
+        assertEq(uint8(svc.status), uint8(Types.ServiceStatus.Terminated));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -633,6 +766,41 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         uint64 requestId = tangle.requestService(dynamicBlueprintId, ops, "", callers, 0, address(0), 0);
 
         _approveService(op, requestId);
+
+        return tangle.serviceCount() - 1;
+    }
+
+    function _createSubscriptionServiceWithBSM(
+        uint256 initialDeposit,
+        uint64 interval,
+        uint256 rate
+    )
+        internal
+        returns (uint64)
+    {
+        Types.BlueprintConfig memory subConfig = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: rate,
+            subscriptionInterval: interval,
+            eventRate: 0
+        });
+
+        uint64 subBlueprintId = _createBlueprintWithConfig(developer, address(mockBsm), subConfig);
+        _registerForBlueprint(operator1, subBlueprintId);
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService{ value: initialDeposit }(
+            subBlueprintId, ops, "", callers, 365 days, address(0), initialDeposit
+        );
+
+        _approveService(operator1, requestId);
 
         return tangle.serviceCount() - 1;
     }
