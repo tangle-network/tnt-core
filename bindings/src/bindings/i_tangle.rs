@@ -10143,6 +10143,7 @@ interface ITangle {
     event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
     event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
     event ServiceTerminated(uint64 indexed serviceId);
+    event ServiceTerminatedForNonPayment(uint64 indexed serviceId, address indexed triggeredBy, uint64 dueAt, uint64 graceEndsAt, uint256 requiredAmount, uint256 escrowBalance);
     event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
 
     function addPermittedCaller(uint64 serviceId, address caller) external;
@@ -10228,6 +10229,7 @@ interface ITangle {
     function submitResult(uint64 serviceId, uint64 callId, bytes memory result) external;
     function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory results) external;
     function terminateService(uint64 serviceId) external;
+    function terminateServiceForNonPayment(uint64 serviceId) external;
     function transferBlueprint(uint64 blueprintId, address newOwner) external;
     function unregisterOperator(uint64 blueprintId) external;
     function updateBlueprint(uint64 blueprintId, string memory metadataUri) external;
@@ -13610,6 +13612,19 @@ interface ITangle {
   },
   {
     "type": "function",
+    "name": "terminateServiceForNonPayment",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "transferBlueprint",
     "inputs": [
       {
@@ -14306,6 +14321,49 @@ interface ITangle {
         "type": "uint64",
         "indexed": true,
         "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ServiceTerminatedForNonPayment",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "triggeredBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "dueAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "graceEndsAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "requiredAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "escrowBalance",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -17341,6 +17399,159 @@ event ServiceTerminated(uint64 indexed serviceId);
         impl From<&ServiceTerminated> for alloy_sol_types::private::LogData {
             #[inline]
             fn from(this: &ServiceTerminated) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `ServiceTerminatedForNonPayment(uint64,address,uint64,uint64,uint256,uint256)` and selector `0x177f493cbd61eeae5a0c02d976ea06b25f860b94279db11adec411729ecde57f`.
+```solidity
+event ServiceTerminatedForNonPayment(uint64 indexed serviceId, address indexed triggeredBy, uint64 dueAt, uint64 graceEndsAt, uint256 requiredAmount, uint256 escrowBalance);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct ServiceTerminatedForNonPayment {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub triggeredBy: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub dueAt: u64,
+        #[allow(missing_docs)]
+        pub graceEndsAt: u64,
+        #[allow(missing_docs)]
+        pub requiredAmount: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub escrowBalance: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for ServiceTerminatedForNonPayment {
+            type DataTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            const SIGNATURE: &'static str = "ServiceTerminatedForNonPayment(uint64,address,uint64,uint64,uint256,uint256)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                23u8, 127u8, 73u8, 60u8, 189u8, 97u8, 238u8, 174u8, 90u8, 12u8, 2u8,
+                217u8, 118u8, 234u8, 6u8, 178u8, 95u8, 134u8, 11u8, 148u8, 39u8, 157u8,
+                177u8, 26u8, 222u8, 196u8, 17u8, 114u8, 158u8, 205u8, 229u8, 127u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    serviceId: topics.1,
+                    triggeredBy: topics.2,
+                    dueAt: data.0,
+                    graceEndsAt: data.1,
+                    requiredAmount: data.2,
+                    escrowBalance: data.3,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.dueAt),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.graceEndsAt),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.requiredAmount),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.escrowBalance),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.serviceId.clone(),
+                    self.triggeredBy.clone(),
+                )
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
+                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.triggeredBy,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for ServiceTerminatedForNonPayment {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&ServiceTerminatedForNonPayment>
+        for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(
+                this: &ServiceTerminatedForNonPayment,
+            ) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
         }
@@ -31393,6 +31604,156 @@ function terminateService(uint64 serviceId) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `terminateServiceForNonPayment(uint64)` and selector `0x13d36a66`.
+```solidity
+function terminateServiceForNonPayment(uint64 serviceId) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct terminateServiceForNonPaymentCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+    }
+    ///Container type for the return parameters of the [`terminateServiceForNonPayment(uint64)`](terminateServiceForNonPaymentCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct terminateServiceForNonPaymentReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<terminateServiceForNonPaymentCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: terminateServiceForNonPaymentCall) -> Self {
+                    (value.serviceId,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for terminateServiceForNonPaymentCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { serviceId: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<terminateServiceForNonPaymentReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: terminateServiceForNonPaymentReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for terminateServiceForNonPaymentReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl terminateServiceForNonPaymentReturn {
+            fn _tokenize(
+                &self,
+            ) -> <terminateServiceForNonPaymentCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for terminateServiceForNonPaymentCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = terminateServiceForNonPaymentReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "terminateServiceForNonPayment(uint64)";
+            const SELECTOR: [u8; 4] = [19u8, 211u8, 106u8, 102u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                terminateServiceForNonPaymentReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `transferBlueprint(uint64,address)` and selector `0x8a4cf763`.
 ```solidity
 function transferBlueprint(uint64 blueprintId, address newOwner) external;
@@ -32359,6 +32720,8 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
         #[allow(missing_docs)]
         terminateService(terminateServiceCall),
         #[allow(missing_docs)]
+        terminateServiceForNonPayment(terminateServiceForNonPaymentCall),
+        #[allow(missing_docs)]
         transferBlueprint(transferBlueprintCall),
         #[allow(missing_docs)]
         unregisterOperator(unregisterOperatorCall),
@@ -32384,6 +32747,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             [13u8, 237u8, 139u8, 249u8],
             [14u8, 154u8, 117u8, 222u8],
             [16u8, 138u8, 125u8, 99u8],
+            [19u8, 211u8, 106u8, 102u8],
             [24u8, 12u8, 174u8, 103u8],
             [24u8, 198u8, 128u8, 23u8],
             [35u8, 215u8, 179u8, 225u8],
@@ -32475,6 +32839,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             ::core::stringify!(getOperatorTotalActiveServices),
             ::core::stringify!(approveServiceWithCommitmentsAndBls),
             ::core::stringify!(requestServiceWithExposure),
+            ::core::stringify!(terminateServiceForNonPayment),
             ::core::stringify!(getOperatorPublicKey),
             ::core::stringify!(preRegister),
             ::core::stringify!(approveServiceWithCommitments),
@@ -32566,6 +32931,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             <getOperatorTotalActiveServicesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <approveServiceWithCommitmentsAndBlsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <requestServiceWithExposureCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <terminateServiceForNonPaymentCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorPublicKeyCall as alloy_sol_types::SolCall>::SIGNATURE,
             <preRegisterCall as alloy_sol_types::SolCall>::SIGNATURE,
             <approveServiceWithCommitmentsCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -32673,7 +33039,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
     impl alloy_sol_types::SolInterface for ITangleCalls {
         const NAME: &'static str = "ITangleCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 88usize;
+        const COUNT: usize = 89usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -32926,6 +33292,9 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 Self::terminateService(_) => {
                     <terminateServiceCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::terminateServiceForNonPayment(_) => {
+                    <terminateServiceForNonPaymentCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::transferBlueprint(_) => {
                     <transferBlueprintCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -33034,6 +33403,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                             .map(ITangleCalls::requestServiceWithExposure)
                     }
                     requestServiceWithExposure
+                },
+                {
+                    fn terminateServiceForNonPayment(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleCalls> {
+                        <terminateServiceForNonPaymentCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleCalls::terminateServiceForNonPayment)
+                    }
+                    terminateServiceForNonPayment
                 },
                 {
                     fn getOperatorPublicKey(
@@ -34008,6 +34388,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                             .map(ITangleCalls::requestServiceWithExposure)
                     }
                     requestServiceWithExposure
+                },
+                {
+                    fn terminateServiceForNonPayment(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleCalls> {
+                        <terminateServiceForNonPaymentCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleCalls::terminateServiceForNonPayment)
+                    }
+                    terminateServiceForNonPayment
                 },
                 {
                     fn getOperatorPublicKey(
@@ -35309,6 +35700,11 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                         inner,
                     )
                 }
+                Self::terminateServiceForNonPayment(inner) => {
+                    <terminateServiceForNonPaymentCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::transferBlueprint(inner) => {
                     <transferBlueprintCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -35837,6 +36233,12 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                         out,
                     )
                 }
+                Self::terminateServiceForNonPayment(inner) => {
+                    <terminateServiceForNonPaymentCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::transferBlueprint(inner) => {
                     <transferBlueprintCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -35922,6 +36324,8 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
         #[allow(missing_docs)]
         ServiceTerminated(ServiceTerminated),
         #[allow(missing_docs)]
+        ServiceTerminatedForNonPayment(ServiceTerminatedForNonPayment),
+        #[allow(missing_docs)]
         SubscriptionBilled(SubscriptionBilled),
     }
     impl ITangleEvents {
@@ -35936,6 +36340,11 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 4u8, 85u8, 84u8, 27u8, 245u8, 254u8, 181u8, 252u8, 195u8, 46u8, 130u8,
                 125u8, 193u8, 139u8, 242u8, 23u8, 84u8, 72u8, 66u8, 124u8, 106u8, 231u8,
                 44u8, 141u8, 94u8, 152u8, 92u8, 153u8, 228u8, 16u8, 65u8, 2u8,
+            ],
+            [
+                23u8, 127u8, 73u8, 60u8, 189u8, 97u8, 238u8, 174u8, 90u8, 12u8, 2u8,
+                217u8, 118u8, 234u8, 6u8, 178u8, 95u8, 134u8, 11u8, 148u8, 39u8, 157u8,
+                177u8, 26u8, 222u8, 196u8, 17u8, 114u8, 158u8, 205u8, 229u8, 127u8,
             ],
             [
                 36u8, 87u8, 145u8, 135u8, 150u8, 7u8, 132u8, 64u8, 6u8, 131u8, 133u8,
@@ -36057,6 +36466,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
             ::core::stringify!(OperatorRegistered),
+            ::core::stringify!(ServiceTerminatedForNonPayment),
             ::core::stringify!(OperatorJoinedService),
             ::core::stringify!(SubscriptionBilled),
             ::core::stringify!(BlueprintUpdated),
@@ -36084,6 +36494,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
             <OperatorRegistered as alloy_sol_types::SolEvent>::SIGNATURE,
+            <ServiceTerminatedForNonPayment as alloy_sol_types::SolEvent>::SIGNATURE,
             <OperatorJoinedService as alloy_sol_types::SolEvent>::SIGNATURE,
             <SubscriptionBilled as alloy_sol_types::SolEvent>::SIGNATURE,
             <BlueprintUpdated as alloy_sol_types::SolEvent>::SIGNATURE,
@@ -36132,7 +36543,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for ITangleEvents {
         const NAME: &'static str = "ITangleEvents";
-        const COUNT: usize = 24usize;
+        const COUNT: usize = 25usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -36328,6 +36739,15 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                         .map(Self::ServiceTerminated)
                 }
                 Some(
+                    <ServiceTerminatedForNonPayment as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <ServiceTerminatedForNonPayment as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::ServiceTerminatedForNonPayment)
+                }
+                Some(
                     <SubscriptionBilled as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
                 ) => {
                     <SubscriptionBilled as alloy_sol_types::SolEvent>::decode_raw_log(
@@ -36423,6 +36843,9 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 Self::ServiceTerminated(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
+                Self::ServiceTerminatedForNonPayment(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
                 Self::SubscriptionBilled(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -36497,6 +36920,9 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::ServiceTerminated(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
+                Self::ServiceTerminatedForNonPayment(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::SubscriptionBilled(inner) => {
@@ -37703,6 +38129,17 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, terminateServiceCall, N> {
             self.call_builder(&terminateServiceCall { serviceId })
         }
+        ///Creates a new call builder for the [`terminateServiceForNonPayment`] function.
+        pub fn terminateServiceForNonPayment(
+            &self,
+            serviceId: u64,
+        ) -> alloy_contract::SolCallBuilder<&P, terminateServiceForNonPaymentCall, N> {
+            self.call_builder(
+                &terminateServiceForNonPaymentCall {
+                    serviceId,
+                },
+            )
+        }
         ///Creates a new call builder for the [`transferBlueprint`] function.
         pub fn transferBlueprint(
             &self,
@@ -37914,6 +38351,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::Event<&P, ServiceTerminated, N> {
             self.event_filter::<ServiceTerminated>()
+        }
+        ///Creates a new event filter for the [`ServiceTerminatedForNonPayment`] event.
+        pub fn ServiceTerminatedForNonPayment_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, ServiceTerminatedForNonPayment, N> {
+            self.event_filter::<ServiceTerminatedForNonPayment>()
         }
         ///Creates a new event filter for the [`SubscriptionBilled`] event.
         pub fn SubscriptionBilled_filter(
