@@ -29,7 +29,7 @@ contract TangleJobsAggregationFacet is JobsAggregation, IFacetSelectors {
     }
 
     /// @notice Distribute RFQ job payment to quoted operators at their individual prices
-    function _distributeRFQJobPayment(uint64 serviceId, uint64 callId, uint256 totalPayment) internal override {
+    function _distributeRFQJobPayment(uint64 serviceId, uint64 callId, uint256) internal override {
         Types.Service storage svc = _services[serviceId];
         address[] memory quotedOps = _jobQuotedOperators[serviceId][callId].values();
 

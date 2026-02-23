@@ -64,14 +64,21 @@ The protocol uses a mixin pattern where `Tangle.sol` composes all functionality:
 ```
 src/Tangle.sol          # Main entry point, composes mixins
 src/core/
-├── Base.sol               # Shared state, access control, UUPS upgrade
-├── Blueprints.sol         # Blueprint registration
-├── Operators.sol          # Operator management
-├── Services.sol           # Service lifecycle
-├── Jobs.sol               # Job submission/results
-├── Payments.sol           # Payment processing
-├── Slashing.sol           # Slashing with dispute window
-└── Quotes.sol             # Quote verification
+├── Base.sol                     # Shared state, access control, UUPS upgrade
+├── BlueprintsCreate.sol         # Blueprint registration
+├── BlueprintsManage.sol         # Blueprint params/job metadata management
+├── Operators.sol                # Operator management
+├── ServicesRequests.sol         # Service request creation
+├── ServicesApprovals.sol        # Owner/operator approvals
+├── ServicesLifecycle.sol        # Activation, join/leave, termination
+├── JobsSubmission.sol           # Event-driven job submission
+├── JobsAggregation.sol          # Aggregation job paths
+├── JobsRFQ.sol                  # RFQ quote accept/execute
+├── Payments.sol                 # Payment processing and escrow billing
+├── PaymentsEffectiveExposure.sol # Exposure helpers for payment routing
+├── Slashing.sol                 # Slashing with dispute window
+├── QuotesCreate.sol             # Quote service creation
+└── QuotesExtend.sol             # Quote service extension
 ```
 
 ### Staking Layer
