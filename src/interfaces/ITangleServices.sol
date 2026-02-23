@@ -95,6 +95,12 @@ interface ITangleServices {
     /// @notice Approve a service request (as operator) - simple version
     function approveService(uint64 requestId, uint8 stakingPercent) external;
 
+    /// @notice Approve a service request with custom TNT exposure
+    /// @param requestId The service request ID
+    /// @param stakingPercent The staking percentage (0-100)
+    /// @param tntExposureBps Custom TNT exposure in basis points (0 = use default minimum)
+    function approveService(uint64 requestId, uint8 stakingPercent, uint16 tntExposureBps) external;
+
     /// @notice Approve a service request with multi-asset security commitments
     /// @dev Commitments must match the security requirements specified in the request
     function approveServiceWithCommitments(
@@ -108,6 +114,19 @@ interface ITangleServices {
     /// @param stakingPercent The staking percentage (0-100)
     /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
     function approveServiceWithBls(uint64 requestId, uint8 stakingPercent, uint256[4] calldata blsPubkey) external;
+
+    /// @notice Approve a service request with BLS public key and custom TNT exposure
+    /// @param requestId The service request ID
+    /// @param stakingPercent The staking percentage (0-100)
+    /// @param tntExposureBps Custom TNT exposure in basis points (0 = use default minimum)
+    /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
+    function approveServiceWithBls(
+        uint64 requestId,
+        uint8 stakingPercent,
+        uint16 tntExposureBps,
+        uint256[4] calldata blsPubkey
+    )
+        external;
 
     /// @notice Approve a service request with both security commitments and BLS public key
     /// @param requestId The service request ID

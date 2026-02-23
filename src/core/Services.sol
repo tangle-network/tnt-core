@@ -354,12 +354,23 @@ abstract contract Services is Base {
         return req.minExposureBps == _defaultTntMinExposureBps;
     }
 
-    function _storeDefaultTntCommitment(uint64 requestId, address operator) private {
+    function _storeDefaultTntCommitment(uint64 requestId, address operator, uint16 tntExposureBps) private {
         Types.AssetSecurityCommitment[] storage existing = _requestSecurityCommitments[requestId][operator];
         if (existing.length > 0) return;
 
         Types.AssetSecurityRequirement storage req = _requestSecurityRequirements[requestId][0];
-        existing.push(Types.AssetSecurityCommitment({ asset: req.asset, exposureBps: req.minExposureBps }));
+        uint16 exposure = tntExposureBps == 0 ? req.minExposureBps : tntExposureBps;
+
+        if (tntExposureBps != 0) {
+            if (tntExposureBps < req.minExposureBps) {
+                revert Errors.CommitmentBelowMinimum(req.asset.token, tntExposureBps, req.minExposureBps);
+            }
+            if (tntExposureBps > req.maxExposureBps) {
+                revert Errors.CommitmentAboveMaximum(req.asset.token, tntExposureBps, req.maxExposureBps);
+            }
+        }
+
+        existing.push(Types.AssetSecurityCommitment({ asset: req.asset, exposureBps: exposure }));
     }
 
     function _loadBlueprintRequestData(uint64 blueprintId) private view returns (BlueprintRequestData memory data) {
@@ -431,6 +442,26 @@ abstract contract Services is Base {
 
     /// @notice Approve a service request
     function approveService(uint64 requestId, uint8 stakingPercent) external whenNotPaused nonReentrant {
+        _approveServiceInternal(requestId, stakingPercent, 0);
+    }
+
+    /// @notice Approve a service request with custom TNT exposure
+    /// @param requestId The service request ID
+    /// @param stakingPercent The staking percentage (0-100)
+    /// @param tntExposureBps Custom TNT exposure in basis points (0 = use default minimum)
+    function approveService(
+        uint64 requestId,
+        uint8 stakingPercent,
+        uint16 tntExposureBps
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
+        _approveServiceInternal(requestId, stakingPercent, tntExposureBps);
+    }
+
+    function _approveServiceInternal(uint64 requestId, uint8 stakingPercent, uint16 tntExposureBps) private {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
@@ -457,7 +488,7 @@ abstract contract Services is Base {
             if (!_isOnlyDefaultTntRequirement(requestId)) {
                 revert Errors.SecurityCommitmentsRequired(requestId);
             }
-            _storeDefaultTntCommitment(requestId, msg.sender);
+            _storeDefaultTntCommitment(requestId, msg.sender, tntExposureBps);
         }
 
         _requestApprovals[requestId][msg.sender] = true;

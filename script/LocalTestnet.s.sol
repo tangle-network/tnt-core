@@ -113,6 +113,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     bool public operatorQaRegistrationMode; // If true, create registration-specific QA blueprints
     uint64 public operatorQaEmptySchemaBlueprintId;
     uint64 public operatorQaRequiredSchemaBlueprintId;
+    uint64 public operatorQaRequiredRequestSchemaBlueprintId;
 
     function run() external {
         _executeSetup(true);
@@ -145,7 +146,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
         if (_envBoolOrFalse("OPERATOR_QA_REGISTRATION")) {
             operatorQaRegistrationMode = true;
-            console2.log("Operator QA registration mode enabled: creating extra registration fixture blueprints");
+            console2.log("Operator QA fixture mode enabled: creating registration + deploy fixture blueprints");
         }
 
         // Derive addresses
@@ -244,7 +245,9 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             console2.log("\n=== Operator Registration QA Fixtures ===");
             console2.log("Empty-schema blueprint ID:", operatorQaEmptySchemaBlueprintId);
             console2.log("Required-schema blueprint ID:", operatorQaRequiredSchemaBlueprintId);
+            console2.log("Required request-schema blueprint ID:", operatorQaRequiredRequestSchemaBlueprintId);
             console2.log("Required schema fields: bool(flag), uint32(value)");
+            console2.log("Sample request args JSON for deploy fixture: [true, 42]");
             console2.log("Operator1/Operator2 are intentionally not pre-registered on these fixtures");
         }
         if (rewardsQaMode) {
@@ -1122,6 +1125,22 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         operatorQaRequiredSchemaBlueprintId = tangle.createBlueprint(requiredSchemaDef);
         console2.log("Operator QA required-schema blueprint created:", operatorQaRequiredSchemaBlueprintId);
+
+        // Fixture C: required request schema (bool + uint32), for deploy request-arg QA.
+        Types.BlueprintDefinition memory requiredRequestSchemaDef =
+            _blueprintDefinition("http://localhost:3337/deploy-qa-required-request-schema", address(0));
+        requiredRequestSchemaDef.config.membership = Types.MembershipModel.Dynamic;
+        requiredRequestSchemaDef.config.minOperators = 1;
+        requiredRequestSchemaDef.config.maxOperators = 0;
+        requiredRequestSchemaDef.requestSchema = _boolUintSchema();
+        requiredRequestSchemaDef.metadata.name = "Deploy QA Required Request Schema";
+        requiredRequestSchemaDef.metadata.description =
+            "Fixture blueprint for deploy QA with required request params (bool flag, uint32 value).";
+
+        operatorQaRequiredRequestSchemaBlueprintId = tangle.createBlueprint(requiredRequestSchemaDef);
+        console2.log(
+            "Deploy QA required-request-schema blueprint created:", operatorQaRequiredRequestSchemaBlueprintId
+        );
 
         if (useBroadcastKeys) vm.stopBroadcast();
         else vm.stopPrank();

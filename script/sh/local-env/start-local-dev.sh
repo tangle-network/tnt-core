@@ -42,7 +42,7 @@ SERVICE_LEAVABLE="${SERVICE_LEAVABLE:-false}"
 # Rewards QA flag (seeds Tangle Payments rewards and executes claims for frontend QA)
 REWARDS_QA="${REWARDS_QA:-false}"
 
-# Operator registration QA fixtures (adds extra blueprints for operator registration cases)
+# Operator QA fixtures (adds extra blueprints for registration + deploy request-schema cases)
 OPERATOR_QA_REGISTRATION="${OPERATOR_QA_REGISTRATION:-false}"
 
 # Operator slashing QA fixtures (seeds a single pending slash with readable context)
@@ -54,11 +54,14 @@ ANVIL_KEY="${ANVIL_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5e
 MULTICALL3_ADDRESS="${MULTICALL3_ADDRESS:-0xcA11bde05977b3631167028862bE2a173976CA11}"
 
 # Indexer settings
-ENVIO_PG_PORT="${ENVIO_PG_PORT:-5433}"
+ENVIO_PG_PORT="${ENVIO_PG_PORT:-5435}"
 ENVIO_PG_USER="${ENVIO_PG_USER:-postgres}"
 ENVIO_PG_PASSWORD="${ENVIO_PG_PASSWORD:-testing}"
 ENVIO_PG_DATABASE="${ENVIO_PG_DATABASE:-envio-dev}"
 HASURA_PORT="${HASURA_PORT:-8080}"
+
+# Export so docker compose and child processes pick up the values
+export ENVIO_PG_PORT ENVIO_PG_USER ENVIO_PG_PASSWORD ENVIO_PG_DATABASE HASURA_PORT
 
 log() {
     echo "[local-dev] $*"
@@ -308,7 +311,7 @@ run_local_testnet_setup() {
         log "Rewards QA mode: Will seed Tangle Payments rewards for frontend testing"
     fi
     if [[ "$OPERATOR_QA_REGISTRATION" == "true" ]]; then
-        log "Operator QA registration fixtures: Will create extra empty + required-schema blueprints"
+        log "Operator QA fixtures: Will create empty + required-registration-schema + required-request-schema blueprints"
     fi
     if [[ "$OPERATOR_QA_SLASHING" == "true" ]]; then
         log "Operator QA slashing fixtures: Will seed one pending slash with readable claim context"
@@ -793,7 +796,11 @@ show_summary() {
         log "  ✓ Time advanced past min commitment (operators can schedule exit)"
     fi
     if [[ "$OPERATOR_QA_REGISTRATION" == "true" ]]; then
-        log "  ✓ Extra operator registration QA blueprints (empty + required-schema)"
+        log "  ✓ Extra operator QA blueprints:"
+        log "    - Empty registration-schema blueprint"
+        log "    - Required registration-schema blueprint (bool + uint32)"
+        log "    - Required request-schema deploy blueprint (bool + uint32)"
+        log "    - Sample request args JSON: [true, 42]"
     fi
     if [[ "$OPERATOR_QA_SLASHING" == "true" ]]; then
         log "  ✓ Seeded operator slashing QA fixtures"
@@ -848,8 +855,9 @@ main() {
                 echo "  --with-rewards          Seed Tangle Payments rewards for frontend QA testing"
                 echo "                          Op1=native-only, Op2=ERC20-only, Op3=multi-token + claim history"
                 echo "  --with-operator-qa-registration"
-                echo "                          Add extra blueprints for operator registration QA"
-                echo "                          (empty-schema blueprint + required-schema blueprint)"
+                echo "                          Add extra operator QA blueprints"
+                echo "                          (empty registration-schema + required registration-schema +"
+                echo "                           required request-schema deploy blueprint)"
                 echo "  --with-operator-qa-slashing"
                 echo "                          Seed operator slashing QA fixtures"
                 echo "                          (single OpA pending slash with readable claim context)"
