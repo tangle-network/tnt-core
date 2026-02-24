@@ -51,7 +51,7 @@ npm run test        # Run unit tests
 cargo xtask gen-bindings
 
 # Bump version and publish
-cargo xtask bump-version 0.3.0
+cargo xtask bump-version <VERSION>
 cargo xtask publish
 ```
 
@@ -173,3 +173,20 @@ scripts/local-env/start-local-env.sh
 - O(1) share-based accounting for delegations
 - Events over storage for gas optimization
 - Fuzz testing required for financial logic
+
+## Dependency Bump Playbook (Cross-Repo)
+
+When bumping `tnt-core`/bindings in sibling repos (`blueprint`, `blueprint-template`, docs), use this process:
+
+1. Update versions and lockfiles from tooling, not manual edits:
+   - Rust: `cargo update -p tnt-core-bindings --precise <VERSION>`
+   - Foundry/Soldeer: `forge soldeer install ...` and verify `soldeer.lock`
+2. Validate import/remapping semantics per project:
+   - Some projects import `tnt-core/...` and require `.../src/` remaps.
+   - `--regenerate-remappings` may drop required aliases (`@openzeppelin/...`), so re-check `remappings.txt`.
+3. Expect interface drift across releases:
+   - Rebuild downstream example contracts and adapt hook signatures/modifiers as needed.
+4. On dirty long-lived branches, stage only explicit files for release work:
+   - `git add <exact paths>` to avoid mixing unrelated in-flight changes.
+5. Verify consumers, not just producer:
+   - `tnt-core` tests passing is necessary but insufficient; also run consumer smoke checks (`forge build`, `cargo check`) in dependent repos.
