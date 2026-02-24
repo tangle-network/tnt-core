@@ -80,6 +80,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     /// @notice Withdraw remaining escrow balance after service termination
     function withdrawRemainingEscrow(uint64 serviceId) external nonReentrant {
         Types.Service storage svc = _getService(serviceId);
+        if (svc.owner != msg.sender) {
+            revert Errors.NotServiceOwner(serviceId, msg.sender);
+        }
         if (svc.status != Types.ServiceStatus.Terminated) {
             revert Errors.ServiceNotTerminated(serviceId);
         }

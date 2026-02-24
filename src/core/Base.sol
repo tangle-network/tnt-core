@@ -687,10 +687,10 @@ abstract contract Base is
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Query whether a manager allows a payment asset in a specific context.
-    /// @dev Backwards compatible behavior:
-    ///      - First tries `contextId`
-    ///      - Then falls back to legacy `0` context when `contextId != 0`
-    ///      - If query hooks are missing/unimplemented, defaults to allow
+    /// @dev Strict behavior (fail-closed):
+    ///      - `contextId` is authoritative when implemented by the manager.
+    ///      - No legacy `0` override when a nonzero context is denied.
+    ///      - Missing/reverting hooks deny by default.
     function _isPaymentAssetAllowedByManager(
         address manager,
         uint64 contextId,
@@ -703,21 +703,8 @@ abstract contract Base is
         if (manager == address(0)) return true;
 
         (bool hasContextResult, bool contextAllowed) = _tryQueryPaymentAssetAllowed(manager, contextId, asset);
-        if (hasContextResult) {
-            if (contextAllowed) return true;
-            if (contextId == 0) return false;
-
-            (bool hasLegacyResult, bool legacyAllowed) = _tryQueryPaymentAssetAllowed(manager, 0, asset);
-            return hasLegacyResult ? legacyAllowed : false;
-        }
-
-        if (contextId != 0) {
-            (bool hasLegacyResult, bool legacyAllowed) = _tryQueryPaymentAssetAllowed(manager, 0, asset);
-            if (hasLegacyResult) return legacyAllowed;
-        }
-
-        // Hook missing/unimplemented: keep backwards compatibility.
-        return true;
+        if (hasContextResult) return contextAllowed;
+        return false;
     }
 
     function _tryQueryPaymentAssetAllowed(

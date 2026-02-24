@@ -406,7 +406,7 @@ fn bump_version(version: &str) -> Result<()> {
         version
     );
     println!("   3. Tag: git tag bindings-v{}", version);
-    println!("   4. Push: git push origin v2 --tags");
+    println!("   4. Push: git push origin main --tags");
     println!("   5. Publish: cargo xtask publish");
     println!();
 

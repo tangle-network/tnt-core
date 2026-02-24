@@ -161,7 +161,9 @@ abstract contract ServicesRequests is Base {
         _validatePricingPaymentConsistency(blueprintData.pricing, paymentToken);
 
         uint64 requestContextId = _serviceRequestCount;
-        _validateRequestPaymentAsset(blueprintData.manager, requestContextId, paymentToken, paymentAmount);
+        _validateRequestPaymentAsset(
+            blueprintData.manager, requestContextId, blueprintData.pricing, paymentToken, paymentAmount
+        );
         _validateRequestOperators(blueprintId, operators, exposures);
 
         PaymentLib.collectPayment(paymentToken, paymentAmount, msg.value);
@@ -185,15 +187,18 @@ abstract contract ServicesRequests is Base {
     function _validateRequestPaymentAsset(
         address manager,
         uint64 requestContextId,
+        Types.PricingModel pricing,
         address paymentToken,
         uint256 paymentAmount
     )
         private
         view
     {
-        if (manager == address(0) || paymentAmount == 0) {
+        if (manager == address(0)) {
             return;
         }
+        // Subscription requests must always validate the selected settlement token, even with zero initial deposit.
+        if (paymentAmount == 0 && pricing != Types.PricingModel.Subscription) return;
         if (!_isPaymentAssetAllowedByManager(manager, requestContextId, paymentToken)) {
             revert Errors.TokenNotAllowed(paymentToken);
         }

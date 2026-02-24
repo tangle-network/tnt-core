@@ -5,8 +5,33 @@ import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
 import { PaymentLib } from "../../src/libraries/PaymentLib.sol";
+import { BlueprintServiceManagerBase } from "../../src/BlueprintServiceManagerBase.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockServiceFeeDistributor } from "../mocks/MockServiceFeeDistributor.sol";
+
+contract MockPaymentAssetManager is BlueprintServiceManagerBase {
+    mapping(address => bool) internal _assetAllowed;
+
+    function setAssetAllowed(address asset, bool allowed) external {
+        _assetAllowed[asset] = allowed;
+    }
+
+    function queryIsPaymentAssetAllowed(uint64, address asset) external view override returns (bool) {
+        return _assetAllowed[asset];
+    }
+}
+
+contract MockContextPaymentManager is BlueprintServiceManagerBase {
+    mapping(uint64 => mapping(address => bool)) internal _contextAssetAllowed;
+
+    function setContextAssetAllowed(uint64 contextId, address asset, bool allowed) external {
+        _contextAssetAllowed[contextId][asset] = allowed;
+    }
+
+    function queryIsPaymentAssetAllowed(uint64 contextId, address asset) external view override returns (bool) {
+        return _contextAssetAllowed[contextId][asset];
+    }
+}
 
 /// @title PaymentsTest
 /// @notice Comprehensive tests for payment distribution, escrow, and rewards
@@ -621,6 +646,58 @@ contract PaymentsTest is BaseTest {
         PaymentLib.ServiceEscrow memory escrowAfter = tangle.getServiceEscrow(serviceId);
         assertEq(escrowAfter.token, address(token));
         assertEq(escrowAfter.balance, topUp);
+    }
+
+    function test_Subscription_ZeroInitialDeposit_RespectsManagerTokenPolicy() public {
+        MockPaymentAssetManager manager = new MockPaymentAssetManager();
+        manager.setAssetAllowed(address(token), false);
+
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 10 ether,
+            subscriptionInterval: 30 days,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        uint64 guardedBp =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://guarded-subscription", address(manager), config));
+        _registerForBlueprint(operator1, guardedBp);
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(token)));
+        tangle.requestService(guardedBp, operators, "", callers, 0, address(token), 0);
+    }
+
+    function test_RequestPaymentAsset_ContextDenyCannotBeOverriddenByLegacyGlobalAllow() public {
+        MockContextPaymentManager manager = new MockContextPaymentManager();
+        manager.setContextAssetAllowed(0, address(token), true);
+        manager.setContextAssetAllowed(1, address(token), false);
+
+        vm.prank(developer);
+        uint64 guardedBp = tangle.createBlueprint(_blueprintDefinition("ipfs://context-asset-policy", address(manager)));
+        _registerForBlueprint(operator1, guardedBp);
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        // Consume requestContextId=0 first so next request uses contextId=1.
+        vm.prank(user1);
+        tangle.requestService(guardedBp, operators, "", callers, 0, address(0), 0);
+
+        vm.startPrank(user1);
+        token.approve(address(tangle), 1 ether);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(token)));
+        tangle.requestService(guardedBp, operators, "", callers, 0, address(token), 1 ether);
+        vm.stopPrank();
     }
 
     function test_Subscription_BillReducesEscrow() public {
