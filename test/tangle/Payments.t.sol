@@ -21,6 +21,18 @@ contract MockPaymentAssetManager is BlueprintServiceManagerBase {
     }
 }
 
+contract MockContextPaymentManager is BlueprintServiceManagerBase {
+    mapping(uint64 => mapping(address => bool)) internal _contextAssetAllowed;
+
+    function setContextAssetAllowed(uint64 contextId, address asset, bool allowed) external {
+        _contextAssetAllowed[contextId][asset] = allowed;
+    }
+
+    function queryIsPaymentAssetAllowed(uint64 contextId, address asset) external view override returns (bool) {
+        return _contextAssetAllowed[contextId][asset];
+    }
+}
+
 /// @title PaymentsTest
 /// @notice Comprehensive tests for payment distribution, escrow, and rewards
 contract PaymentsTest is BaseTest {
@@ -662,6 +674,30 @@ contract PaymentsTest is BaseTest {
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(token)));
         tangle.requestService(guardedBp, operators, "", callers, 0, address(token), 0);
+    }
+
+    function test_RequestPaymentAsset_ContextDenyCannotBeOverriddenByLegacyGlobalAllow() public {
+        MockContextPaymentManager manager = new MockContextPaymentManager();
+        manager.setContextAssetAllowed(0, address(token), true);
+        manager.setContextAssetAllowed(1, address(token), false);
+
+        vm.prank(developer);
+        uint64 guardedBp = tangle.createBlueprint(_blueprintDefinition("ipfs://context-asset-policy", address(manager)));
+        _registerForBlueprint(operator1, guardedBp);
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        // Consume requestContextId=0 first so next request uses contextId=1.
+        vm.prank(user1);
+        tangle.requestService(guardedBp, operators, "", callers, 0, address(0), 0);
+
+        vm.startPrank(user1);
+        token.approve(address(tangle), 1 ether);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(token)));
+        tangle.requestService(guardedBp, operators, "", callers, 0, address(token), 1 ether);
+        vm.stopPrank();
     }
 
     function test_Subscription_BillReducesEscrow() public {
