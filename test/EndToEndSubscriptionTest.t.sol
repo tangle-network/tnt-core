@@ -313,9 +313,6 @@ contract EndToEndSubscriptionTest is BaseTest {
         vm.warp(startTime + 31 days);
         tangle.billSubscription(serviceId);
 
-        // User balance before termination
-        uint256 userBalanceBefore = user1.balance;
-
         // User terminates after 1 month (5 months unused)
         vm.prank(user1);
         tangle.terminateService(serviceId);
@@ -418,6 +415,55 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.ServiceNotTerminated.selector, serviceId));
+        tangle.withdrawRemainingEscrow(serviceId);
+    }
+
+    function test_E2E_Subscription_WithdrawOnlyOwnerRevertsForNonOwner() public {
+        uint256 startTime = 1_000_000;
+        vm.warp(startTime);
+
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.Subscription,
+            minOperators: 1,
+            maxOperators: 5,
+            subscriptionRate: SUBSCRIPTION_RATE,
+            subscriptionInterval: SUBSCRIPTION_INTERVAL,
+            eventRate: 0
+        });
+
+        vm.prank(developer);
+        uint64 blueprintId = _createBlueprintWithConfigAsSender("ipfs://withdraw-only-owner", address(0), config);
+
+        vm.prank(operator1);
+        staking.registerOperator{ value: 5 ether }();
+        vm.prank(operator1);
+        staking.setDelegationMode(Types.DelegationMode.Open);
+        _directRegisterOperator(operator1, blueprintId, "");
+
+        uint256 escrowAmount = SUBSCRIPTION_RATE * 2;
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService{ value: escrowAmount }(
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+        );
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+
+        uint64 serviceId = 0;
+
+        vm.warp(startTime + 31 days);
+        tangle.billSubscription(serviceId);
+
+        vm.prank(user1);
+        tangle.terminateService(serviceId);
+
+        vm.prank(user2);
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotServiceOwner.selector, serviceId, user2));
         tangle.withdrawRemainingEscrow(serviceId);
     }
 
