@@ -5,13 +5,13 @@ Tangle Network's EVM-native staking and service blueprint protocol. Build decent
 ## Installation
 
 ```bash
-forge soldeer install tnt-core~0.8.0
+forge soldeer install tnt-core~0.10.3
 ```
 
 Or add to `foundry.toml`:
 ```toml
 [dependencies]
-tnt-core = "0.8.0"
+tnt-core = "0.10.3"
 ```
 
 ## Quick Start
