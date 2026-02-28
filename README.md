@@ -1,4 +1,22 @@
+![Tangle Network Banner](https://raw.githubusercontent.com/tangle-network/tangle/refs/heads/main/assets/Tangle%20%20Banner.png)
+
 # TNT Core
+
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-7289da?logo=discord&logoColor=white)](https://discord.gg/cv8EfJu3Tn)
+[![Twitter](https://img.shields.io/twitter/follow/tangle_network?style=social)](https://twitter.com/tangle_network)
+
+**TNT Core** is an EVM-native staking and service protocol for Tangle Network. It provides multi-asset staking, operator networks, slashing, and x402 payment settlement through a modular Solidity contract architecture.
+
+### How Tangle Staking Compares
+
+| Feature | TNT Core (Tangle) | EigenLayer | Symbiotic |
+|---------|-------------------|------------|-----------|
+| Multi-asset staking | Native ERC-20 support | ETH and LSTs | Multi-asset via vaults |
+| Service registration | On-chain Blueprint registry | AVS contracts (separate) | Vault-based |
+| Payment models | PayOnce, Subscription, EventBased | Not built-in | Not built-in |
+| x402 payment settlement | Built-in | Not supported | Not supported |
+| Liquid delegation | LiquidDelegationVault | Via third-party LRT protocols | Via external vaults |
+| Operator management | OperatorStatusRegistry | Operator contract per AVS | Per-vault configuration |
 
 Tangle Network's EVM-native staking and service blueprint protocol. Build decentralized services with customizable operator networks, multi-asset staking, and flexible payment models.
 
@@ -141,6 +159,33 @@ cargo add tnt-core-bindings
 ```
 
 See [crates.io/crates/tnt-core-bindings](https://crates.io/crates/tnt-core-bindings)
+
+## Key Concepts
+
+- **Blueprint**: A specification for a verifiable, decentralized service on Tangle Network. Blueprints define jobs, verification logic, and slashing conditions through on-chain smart contracts.
+- **Operator**: A node runner who registers to provide services defined by a Blueprint. Operators stake assets via MultiAssetDelegation and earn rewards for honest execution.
+- **TNT**: The native token of Tangle Network, used for staking, governance, and payment settlement.
+- **Slashing**: The penalty mechanism that deducts staked assets from operators who misbehave or fail to perform their duties. Each Blueprint Service Manager defines its own slashing rules.
+- **x402**: An HTTP-native payment protocol (HTTP 402 Payment Required) that enables per-request micropayments for Blueprint services, with on-chain settlement through TNT Core contracts.
+- **MultiAssetDelegation**: The core staking contract that manages operator deposits, delegator stakes, and asset accounting across multiple ERC-20 tokens.
+- **BlueprintServiceManagerBase**: The base contract that Blueprint developers extend to define custom service logic, including request handling (`onRequest`), result processing (`onJobResult`), and termination policies.
+
+## FAQ
+
+### What is TNT Core?
+**TNT Core** is the on-chain smart contract protocol that powers Tangle Network's staking, delegation, and service management system. It is written in Solidity and deployed on Tangle's EVM-compatible chain.
+
+### What assets can be staked?
+TNT Core supports **multi-asset staking** through the MultiAssetDelegation contract. Operators and delegators can stake various ERC-20 tokens, not just the native TNT token. Each Blueprint can specify which assets it accepts.
+
+### How does slashing work?
+When an operator misbehaves or fails to perform their duties, the **BlueprintServiceManager** can slash their staked assets according to predefined rules. Slashing conditions are defined per-Blueprint and enforced through the MasterBlueprintServiceManager.
+
+### What payment models are available?
+TNT Core supports three payment models: **PayOnce** (one-time payment at service creation), **Subscription** (recurring payments), and **EventBased** (pay per event or job execution). These are configured in the Blueprint's pricing contract.
+
+### How do I build a custom Blueprint with TNT Core?
+Extend `BlueprintServiceManagerBase` in Solidity and implement the `onRequest` and `onJobResult` hooks. Install TNT Core via `forge soldeer install tnt-core~0.10.4` and import the base contract. See the Quick Start section above for a working example.
 
 ## License
 
