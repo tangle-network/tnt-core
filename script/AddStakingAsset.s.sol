@@ -52,7 +52,7 @@ abstract contract BasicEnv is Script {
 /// @title AddStakingAsset
 /// @notice Helper forge script to register new ERC20 assets with MultiAssetDelegation.enableAsset
 /// @dev Usage:
-///      PRIVATE_KEY=<pk> RESTAKING=<delegation> ASSET_TOKEN=<token>
+///      PRIVATE_KEY=<pk> STAKING=<delegation> ASSET_TOKEN=<token>
 ///      MIN_OPERATOR_STAKE=1e18 MIN_DELEGATION=1e17 DEPOSIT_CAP=0 REWARD_MULTIPLIER_BPS=10000
 ///      forge script script/AddStakingAsset.s.sol:AddStakingAsset --rpc-url <rpc> --broadcast
 contract AddStakingAsset is BasicEnv {

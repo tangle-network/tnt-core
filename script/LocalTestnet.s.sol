@@ -84,7 +84,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
     address public credits;
     address public priceOracle;
 
-    // Mock ERC20 tokens for restaking
+    // Mock ERC20 tokens for staking
     MockToken public usdc;
     MockToken public usdt;
     MockToken public dai;
@@ -179,7 +179,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         _deployMockTokens();
         _configureRewardVaults();
         _deployPodManager();
-        _registerOperatorsRestaking();
+        _registerOperatorsStaking();
         _setupDelegationModes();
         _deployLiquidDelegation();
         _registerPodManagerOperators();
@@ -385,7 +385,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         priceOracle = _envAddressOrZero("PRICE_ORACLE");
         console2.log("PriceOracle:", priceOracle);
 
-        // Deploy ServiceFeeDistributor (for multi-token restaker fee payouts)
+        // Deploy ServiceFeeDistributor (for multi-token staker fee payouts)
         ServiceFeeDistributor distImpl = new ServiceFeeDistributor();
         serviceFeeDistributor = address(
             new ERC1967Proxy(
@@ -425,15 +425,15 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         if (!vaults.hasRole(rmRole, stakingProxy)) vaults.grantRole(rmRole, stakingProxy);
         if (!vaults.hasRole(rmRole, inflationPool)) vaults.grantRole(rmRole, inflationPool);
 
-        // Wire fee distributor into Tangle + restaking
+        // Wire fee distributor into Tangle + staking
         Tangle(payable(tangleProxy)).setServiceFeeDistributor(serviceFeeDistributor);
         if (priceOracle != address(0)) {
             Tangle(payable(tangleProxy)).setPriceOracle(priceOracle);
         }
         staking.setServiceFeeDistributor(serviceFeeDistributor);
 
-        // Wire restaker inflation to ServiceFeeDistributor
-        InflationPool(payable(inflationPool)).setRestakerInflationConfig(tangleProxy, serviceFeeDistributor);
+        // Wire staker inflation to ServiceFeeDistributor
+        InflationPool(payable(inflationPool)).setStakerInflationConfig(tangleProxy, serviceFeeDistributor);
         ServiceFeeDistributor(payable(serviceFeeDistributor)).setInflationPool(inflationPool);
 
         // Wire RewardVaults into Tangle for TNT-specific incentives
@@ -589,8 +589,8 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         }
     }
 
-    function _registerOperatorsRestaking() internal {
-        console2.log("\n=== Registering Operators in Restaking ===");
+    function _registerOperatorsStaking() internal {
+        console2.log("\n=== Registering Operators in Staking ===");
         IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingProxy));
         uint256 operatorBond = 100 ether; // 100 TNT bond
 
@@ -799,7 +799,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         );
         console2.log("Deposited 10k USDC, delegated 5k to Operator2");
 
-        // Deposit and delegate TNT to enable TNT restaker incentive testing.
+        // Deposit and delegate TNT to enable TNT staker incentive testing.
         uint256 tntBalance = tntToken.balanceOf(delegator);
         if (tntBalance >= 2000 ether) {
             tntToken.approve(stakingProxy, type(uint256).max);

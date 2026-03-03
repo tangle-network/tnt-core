@@ -47,7 +47,7 @@ contract CreateServiceForTLV2Test is Script {
         // 3. Approve service as operator1
         console2.log("Approving service as operator1...");
         vm.startBroadcast(OPERATOR1_KEY);
-        tangle.approveService(serviceId, 100); // 100% restaking
+        tangle.approveService(serviceId, 100); // 100% staking
         vm.stopBroadcast();
         console2.log("Service approved and active");
 

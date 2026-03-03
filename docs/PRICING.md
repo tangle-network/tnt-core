@@ -391,7 +391,7 @@ struct PaymentSplit {
     uint16 developerBps;   // To blueprint owner (default: 2000 = 20%)
     uint16 protocolBps;    // To protocol treasury (default: 2000 = 20%)
     uint16 operatorBps;    // To service operators (default: 4000 = 40%)
-    uint16 stakerBps;      // To delegators/restakers (default: 2000 = 20%)
+    uint16 stakerBps;      // To delegators/stakers (default: 2000 = 20%)
 }
 // Must sum to 10000 (100%)
 ```
@@ -403,7 +403,7 @@ Total payment
 ├── developerBps% → blueprint owner (or BSM's queryDeveloperPaymentAddress)
 ├── protocolBps%  → protocol treasury
 ├── operatorBps%  → operator pool (split by effective exposure)
-└── stakerBps%    → restaker pool (forwarded to ServiceFeeDistributor)
+└── stakerBps%    → staker pool (forwarded to ServiceFeeDistributor)
 ```
 
 ### Operator weighting
@@ -414,7 +414,7 @@ Operators are paid proportionally to their **effective exposure**:
 effective_exposure = delegation_amount × exposureBps
 ```
 
-If no restakers exist (`totalEffectiveExposure == 0`), the restaker share merges into the operator pool and operators split equally based on their stored `exposureBps`.
+If no stakers exist (`totalEffectiveExposure == 0`), the staker share merges into the operator pool and operators split equally based on their stored `exposureBps`.
 
 ### Developer payment address
 
@@ -433,7 +433,7 @@ If the payment token is TNT, the protocol can apply a discount (`_tntPaymentDisc
 
 ### Claiming rewards
 
-Operator and restaker shares are accrued as pending rewards, not transferred immediately:
+Operator and staker shares are accrued as pending rewards, not transferred immediately:
 
 ```solidity
 function claimRewards() external;                          // Native token

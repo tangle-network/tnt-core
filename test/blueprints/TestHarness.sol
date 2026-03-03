@@ -45,7 +45,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
     ITangleFull public tangle;
     IMultiAssetDelegation public staking;
     ERC1967Proxy public tangleProxy;
-    ERC1967Proxy public restakingProxy;
+    ERC1967Proxy public stakingProxy;
     MasterBlueprintServiceManager public masterManager;
     MBSMRegistry public mbsmRegistry;
 
@@ -93,19 +93,19 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
     function setUp() public virtual {
         _deployProtocol();
         _fundActors();
-        _registerOperatorsWithRestaking();
+        _registerOperatorsWithStaking();
     }
 
     function _deployProtocol() internal {
         // Deploy implementations
         Tangle tangleImpl = new Tangle();
-        MultiAssetDelegation restakingImpl = new MultiAssetDelegation();
+        MultiAssetDelegation stakingImpl = new MultiAssetDelegation();
 
         // Deploy staking proxy
-        restakingProxy = new ERC1967Proxy(
-            address(restakingImpl), abi.encodeCall(MultiAssetDelegation.initialize, (admin, 1 ether, 0.1 ether, 1000))
+        stakingProxy = new ERC1967Proxy(
+            address(stakingImpl), abi.encodeCall(MultiAssetDelegation.initialize, (admin, 1 ether, 0.1 ether, 1000))
         );
-        staking = IMultiAssetDelegation(payable(address(restakingProxy)));
+        staking = IMultiAssetDelegation(payable(address(stakingProxy)));
 
         // Deploy tangle proxy
         tangleProxy = new ERC1967Proxy(
@@ -137,7 +137,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         Tangle(payable(address(tangleProxy))).setMBSMRegistry(address(mbsmRegistry));
         vm.stopPrank();
 
-        // Default payment split includes a restaker share; configure a distributor in the harness
+        // Default payment split includes a staker share; configure a distributor in the harness
         // so service creation/tests don't depend on treasury fallback behavior.
         MockServiceFeeDistributor distributor = new MockServiceFeeDistributor();
         vm.startPrank(admin);
@@ -163,7 +163,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
     }
 
     function _registerStakingFacets() internal {
-        MultiAssetDelegation router = MultiAssetDelegation(payable(address(restakingProxy)));
+        MultiAssetDelegation router = MultiAssetDelegation(payable(address(stakingProxy)));
         router.registerFacet(address(new StakingOperatorsFacet()));
         router.registerFacet(address(new StakingDepositsFacet()));
         router.registerFacet(address(new StakingDelegationsFacet()));
@@ -182,7 +182,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         vm.deal(operator3, 100 ether);
     }
 
-    function _registerOperatorsWithRestaking() internal {
+    function _registerOperatorsWithStaking() internal {
         vm.prank(operator1);
         staking.registerOperator{ value: 10 ether }();
         vm.prank(operator2);

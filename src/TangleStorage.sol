@@ -272,7 +272,7 @@ abstract contract TangleStorage {
     // INCENTIVES STORAGE (Slot 111-120)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice TNT token used for default security requirements + TNT restaker incentives
+    /// @notice TNT token used for default security requirements + TNT staker incentives
     address internal _tntToken;
 
     /// @notice Reward vaults contract that tracks TNT delegations and distributes TNT rewards
@@ -281,13 +281,13 @@ abstract contract TangleStorage {
     /// @notice Default minimum TNT exposure for all service requests (bps)
     uint16 internal _defaultTntMinExposureBps;
 
-    /// @notice Deprecated (reserved storage): was "TNT restaker fee bps"
-    uint16 internal _deprecatedTntRestakerFeeBps;
+    /// @notice Deprecated (reserved storage): was "TNT staker fee bps"
+    uint16 internal _deprecatedTntStakerFeeBps;
 
     /// @notice Discount applied to service payments made in TNT (bps of the payment amount; capped to protocol share)
     uint16 internal _tntPaymentDiscountBps;
 
-    /// @notice Distributor for service-fee payouts to restakers (multi-asset, per-asset commitments)
+    /// @notice Distributor for service-fee payouts to stakers (multi-asset, per-asset commitments)
     address internal _serviceFeeDistributor;
 
     /// @notice Price oracle for USD-normalized scoring (optional, but required for USD-weighted splits)

@@ -433,7 +433,7 @@ contract UpgradeTangle is DeployScriptBase {
 contract UpgradeMultiAssetDelegation is DeployScriptBase {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address stakingProxy = vm.envAddress("RESTAKING_PROXY");
+        address stakingProxy = vm.envAddress("STAKING_PROXY");
 
         console2.log("Upgrading MultiAssetDelegation proxy:", stakingProxy);
 

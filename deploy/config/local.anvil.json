@@ -14,7 +14,7 @@
     "operatorCommissionBps": 1000,
     "maxBlueprintsPerOperator": 0
   },
-  "restakeAssets": [],
+  "stakeAssets": [],
   "incentives": {
     "deployMetrics": true,
     "metrics": "0x0000000000000000000000000000000000000000",

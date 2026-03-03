@@ -41,14 +41,14 @@ export const awardOperatorServiceJoin = async (points: PointsManager, operatorId
   await points.award(operatorId, "operator-service", OPERATOR_SERVICE_JOIN_BONUS, `joined service ${serviceId}`);
 };
 
-export const awardRestakerVaultStake = async (
+export const awardStakingVaultStake = async (
   points: PointsManager,
   delegator: string | undefined,
   asset: string | undefined,
   amount: bigint
 ) => {
   if (!delegator) return;
-  await points.award(delegator, "restaker-vault", toPointsValue(amount), `vault stake ${asset ?? ""}`);
+  await points.award(delegator, "staking-vault", toPointsValue(amount), `vault stake ${asset ?? ""}`);
 };
 
 export const awardLiquidVaultStake = async (points: PointsManager, delegator: string | undefined, vault: string, amount: bigint) => {

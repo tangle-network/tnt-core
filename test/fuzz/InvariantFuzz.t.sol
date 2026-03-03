@@ -64,11 +64,11 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     function setUp() public {
         // Deploy implementations
         Tangle tangleImpl = new Tangle();
-        MultiAssetDelegation restakingImpl = new MultiAssetDelegation();
+        MultiAssetDelegation stakingImpl = new MultiAssetDelegation();
 
         // Deploy staking proxy
         ERC1967Proxy stakingProxy = new ERC1967Proxy(
-            address(restakingImpl), abi.encodeCall(MultiAssetDelegation.initialize, (admin, 1 ether, 0.1 ether, 1000))
+            address(stakingImpl), abi.encodeCall(MultiAssetDelegation.initialize, (admin, 1 ether, 0.1 ether, 1000))
         );
         staking = IMultiAssetDelegation(payable(address(stakingProxy)));
 
@@ -102,7 +102,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         Tangle(payable(address(tangleProxy))).setMBSMRegistry(address(mbsmRegistry));
         vm.stopPrank();
 
-        // Default payment split includes a restaker share; invariants assume payments won't revert.
+        // Default payment split includes a staker share; invariants assume payments won't revert.
         MockServiceFeeDistributor distributor = new MockServiceFeeDistributor();
         vm.startPrank(admin);
         tangle.setServiceFeeDistributor(address(distributor));

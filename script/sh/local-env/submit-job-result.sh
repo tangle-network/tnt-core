@@ -28,7 +28,7 @@ set -euo pipefail
 #   3 = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65  (Account 4)
 #
 # Note: Only operators 1 and 2 are registered for the blueprint in the default
-# LocalTestnet setup. Operator 3 is registered in restaking but NOT for the blueprint.
+# LocalTestnet setup. Operator 3 is registered in staking but NOT for the blueprint.
 #
 # Examples:
 #   # Submit a job first (to get a callId):
@@ -170,7 +170,7 @@ verify_operator_on_service() {
         log_error "Operator $operator_num ($operator_addr) is NOT an active operator on service $service_id"
         log_error "Active operators: $operators_result"
         if [[ "$operator_num" == "3" ]]; then
-            log_error "Hint: Operator 3 is registered in restaking but not for the blueprint in the default LocalTestnet setup."
+            log_error "Hint: Operator 3 is registered in staking but not for the blueprint in the default LocalTestnet setup."
             log_error "Only operators 1 and 2 are registered for the blueprint."
         fi
         exit 1

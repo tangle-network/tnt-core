@@ -1,4 +1,4 @@
-export type AssetCategory = "RESTAKING" | "VAULT" | "STABLE" | "REWARD";
+export type AssetCategory = "STAKING" | "VAULT" | "STABLE" | "REWARD";
 
 export type AssetMetadata = {
   address: string;
@@ -40,7 +40,7 @@ export const upsertAssetMetadata = (metadata: Partial<AssetMetadata> & { address
       address: key,
       symbol: `token-${key.slice(2, 6)}`,
       decimals: 18,
-      category: "RESTAKING",
+      category: "STAKING",
     } satisfies AssetMetadata);
   const next: AssetMetadata = { ...base, ...metadata };
   registry.set(key, next);
@@ -53,7 +53,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "TNT",
     decimals: 18,
     priceId: process.env.TNT_COINGECKO_ID || "tangle",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Native TNT staking/bond asset",
   },
   {
@@ -61,7 +61,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "WETH",
     decimals: 18,
     priceId: "weth",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Canonical wrapped ETH",
   },
   {
@@ -69,7 +69,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "stETH",
     decimals: 18,
     priceId: "staked-ether",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Lido staked ETH",
   },
   {
@@ -77,7 +77,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "wstETH",
     decimals: 18,
     priceId: "wrapped-steth",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Wrapped stETH (non-rebasing)",
   },
   {
@@ -85,7 +85,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "rETH",
     decimals: 18,
     priceId: "rocket-pool-eth",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Rocket Pool staked ETH",
   },
   {
@@ -93,7 +93,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "cbETH",
     decimals: 18,
     priceId: "coinbase-wrapped-staked-eth",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Coinbase wrapped staked ETH",
   },
   {
@@ -101,7 +101,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "WBETH",
     decimals: 18,
     priceId: "wrapped-beacon-eth",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Binance wrapped beacon ETH",
   },
   {
@@ -109,7 +109,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "ETHx",
     decimals: 18,
     priceId: "stader-ethx",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Stader ETHx",
   },
   {
@@ -117,7 +117,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "sfrxETH",
     decimals: 18,
     priceId: "frax-ether",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Frax staked ETH",
   },
   {
@@ -125,7 +125,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "ezETH",
     decimals: 18,
     priceId: "renzo-restaked-eth",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Renzo ezETH",
   },
   {
@@ -133,7 +133,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "rsETH",
     decimals: 18,
     priceId: "kelp-dao-restaked-eth",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Kelp DAO rsETH",
   },
   {
@@ -141,7 +141,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "mETH",
     decimals: 18,
     priceId: "mantle-staked-ether",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Mantle staked ETH",
   },
   {
@@ -149,7 +149,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "ankrETH",
     decimals: 18,
     priceId: "ankreth",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Ankr liquid staking token",
   },
   {
@@ -157,7 +157,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "swETH",
     decimals: 18,
     priceId: "swell-staked-eth",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Swell swETH",
   },
   {
@@ -165,7 +165,7 @@ const STATIC_ASSETS: AssetMetadata[] = [
     symbol: "WBTC",
     decimals: 8,
     priceId: "wrapped-bitcoin",
-    category: "RESTAKING",
+    category: "STAKING",
     description: "Wrapped Bitcoin",
   },
   {
@@ -216,7 +216,7 @@ export const getAssetMetadata = (address: string | undefined | null): AssetMetad
     address: key,
     symbol: `token-${key.slice(2, 6)}`,
     decimals: 18,
-    category: "RESTAKING",
+    category: "STAKING",
   };
   registry.set(key, metadata);
   return metadata;

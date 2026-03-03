@@ -13,7 +13,7 @@ import { resolve } from "node:path";
 type Manifest = {
   chainId?: number;
   tangle?: string;
-  restaking?: string;
+  staking?: string;
   statusRegistry?: string;
   rewardVaults?: string;
   inflationPool?: string;
@@ -90,9 +90,10 @@ function main() {
   if (!manifestPath) throw new Error("--manifest required");
 
   const manifest = JSON.parse(readFileSync(resolve(manifestPath), "utf-8")) as Manifest;
+  const stakingAddress = isAddress(manifest.staking) ? manifest.staking : null;
   const updates: Array<{ name: string; address: string | null }> = [
     { name: "Tangle", address: isAddress(manifest.tangle) ? manifest.tangle : null },
-    { name: "MultiAssetDelegation", address: isAddress(manifest.restaking) ? manifest.restaking : null },
+    { name: "MultiAssetDelegation", address: stakingAddress },
     { name: "OperatorStatusRegistry", address: isAddress(manifest.statusRegistry) ? manifest.statusRegistry : null },
     { name: "RewardVaults", address: isAddress(manifest.rewardVaults) ? manifest.rewardVaults : null },
     { name: "InflationPool", address: isAddress(manifest.inflationPool) ? manifest.inflationPool : null },

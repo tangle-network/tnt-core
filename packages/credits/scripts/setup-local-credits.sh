@@ -53,7 +53,7 @@ CLAIM_ADDRESS=""
 # Contract addresses (populated after deployment)
 TNT_TOKEN=""
 CREDITS_ADDRESS=""
-RESTAKING_PROXY=""
+STAKING_PROXY=""
 
 # Process IDs
 ANVIL_PID=""
@@ -385,20 +385,20 @@ run_local_testnet_setup() {
     # Extract addresses from deployment output (macOS compatible)
     TNT_TOKEN=$(echo "$deploy_output" | sed -n 's/.*TangleToken: \(0x[a-fA-F0-9]\{40\}\).*/\1/p' | head -1)
     CREDITS_ADDRESS=$(echo "$deploy_output" | sed -n 's/.*Credits: \(0x[a-fA-F0-9]\{40\}\).*/\1/p' | head -1)
-    RESTAKING_PROXY=$(echo "$deploy_output" | sed -n 's/.*MultiAssetDelegation: \(0x[a-fA-F0-9]\{40\}\).*/\1/p' | head -1)
+    STAKING_PROXY=$(echo "$deploy_output" | sed -n 's/.*MultiAssetDelegation: \(0x[a-fA-F0-9]\{40\}\).*/\1/p' | head -1)
 
-    if [[ -z "$TNT_TOKEN" || -z "$CREDITS_ADDRESS" || -z "$RESTAKING_PROXY" ]]; then
+    if [[ -z "$TNT_TOKEN" || -z "$CREDITS_ADDRESS" || -z "$STAKING_PROXY" ]]; then
         error "Failed to extract contract addresses from deployment output"
         log "TNT_TOKEN: $TNT_TOKEN"
         log "CREDITS_ADDRESS: $CREDITS_ADDRESS"
-        log "RESTAKING_PROXY: $RESTAKING_PROXY"
+        log "STAKING_PROXY: $STAKING_PROXY"
         exit 1
     fi
 
     log "Contracts deployed:"
     log "  TNT Token: $TNT_TOKEN"
     log "  Credits: $CREDITS_ADDRESS"
-    log "  Restaking: $RESTAKING_PROXY"
+    log "  Staking: $STAKING_PROXY"
 }
 
 start_docker() {
@@ -511,22 +511,22 @@ fund_claim_account() {
 delegate_tnt() {
     log "Delegating TNT from claim account..."
 
-    # Approve TNT to restaking contract
-    cast send "$TNT_TOKEN" "approve(address,uint256)" "$RESTAKING_PROXY" "$TNT_DELEGATION_AMOUNT" \
+    # Approve TNT to staking contract
+    cast send "$TNT_TOKEN" "approve(address,uint256)" "$STAKING_PROXY" "$TNT_DELEGATION_AMOUNT" \
         --private-key "$CLAIM_PRIVATE_KEY" \
         --rpc-url "$RPC_URL" >/dev/null
 
-    log "Approved TNT for restaking"
+    log "Approved TNT for staking"
 
     # Deposit TNT
-    cast send "$RESTAKING_PROXY" "depositERC20(address,uint256)" "$TNT_TOKEN" "$TNT_DELEGATION_AMOUNT" \
+    cast send "$STAKING_PROXY" "depositERC20(address,uint256)" "$TNT_TOKEN" "$TNT_DELEGATION_AMOUNT" \
         --private-key "$CLAIM_PRIVATE_KEY" \
         --rpc-url "$RPC_URL" >/dev/null
 
     log "Deposited $TNT_DELEGATION_AMOUNT wei TNT"
 
     # Delegate to operator1 with BlueprintSelectionMode.All (0) and empty blueprints array
-    cast send "$RESTAKING_PROXY" \
+    cast send "$STAKING_PROXY" \
         "delegateWithOptions(address,address,uint256,uint8,uint64[])" \
         "$OPERATOR1_ADDRESS" "$TNT_TOKEN" "$TNT_DELEGATION_AMOUNT" 0 "[]" \
         --private-key "$CLAIM_PRIVATE_KEY" \
@@ -631,7 +631,7 @@ print_summary() {
     log "Contract Addresses:"
     log "  Credits:    $CREDITS_ADDRESS"
     log "  TNT Token:  $TNT_TOKEN"
-    log "  Restaking:  $RESTAKING_PROXY"
+    log "  Staking:  $STAKING_PROXY"
     log ""
     log "Claim Account:"
     log "  Address:    $CLAIM_ADDRESS"

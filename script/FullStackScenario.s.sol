@@ -234,7 +234,7 @@ contract FullStackScenario is Script {
         if (tick % 3 == 0) {
             vm.deal(address(delegation), address(delegation).balance + 0.05 ether);
             vm.startBroadcast(adminKey);
-            // Restaking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
+            // Staking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
             vm.stopBroadcast();
         }
 

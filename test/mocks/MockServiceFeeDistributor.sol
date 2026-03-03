@@ -4,8 +4,8 @@ pragma solidity ^0.8.26;
 import { Types } from "../../src/libraries/Types.sol";
 import { IServiceFeeDistributor } from "../../src/interfaces/IServiceFeeDistributor.sol";
 
-/// @notice Minimal test stub that accepts service-fee restaker shares without redistributing.
-/// @dev Used by payment-split tests to ensure protocol/treasury accounting is stable even when no restakers exist.
+/// @notice Minimal test stub that accepts service-fee staker shares without redistributing.
+/// @dev Used by payment-split tests to ensure protocol/treasury accounting is stable even when no stakers exist.
 contract MockServiceFeeDistributor is IServiceFeeDistributor {
     event ServiceFeeReceived(
         uint64 indexed serviceId,

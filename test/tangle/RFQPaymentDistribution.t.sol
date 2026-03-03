@@ -134,13 +134,13 @@ contract RFQPaymentDistributionTest is BaseTest {
         tangle.submitResult(serviceId, callId, "result");
 
         // Operator should have pending rewards.
-        // No restakers → operator gets operatorBps + stakerBps (merged).
+        // No stakers → operator gets operatorBps + stakerBps (merged).
         uint256 expectedOp = (payment * OPERATOR_BPS) / 10_000;
         uint256 expectedStaker = payment - (payment * DEV_BPS) / 10_000 - (payment * PROTOCOL_BPS) / 10_000 - expectedOp;
-        uint256 expectedTotal = expectedOp + expectedStaker; // No restakers → merged
+        uint256 expectedTotal = expectedOp + expectedStaker; // No stakers → merged
         uint256 pending = tangle.pendingRewards(operator1);
 
-        assertEq(pending, expectedTotal, "operator should receive operator+staker share (no restakers)");
+        assertEq(pending, expectedTotal, "operator should receive operator+staker share (no stakers)");
     }
 
     function test_RFQPayment_FullSplitSumsToPayment() public {
@@ -540,14 +540,14 @@ contract RFQPaymentDistributionTest is BaseTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // RESTAKER SHARE FORWARDING
+    // STAKER SHARE FORWARDING
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice When a ServiceFeeDistributor is set and there are security commitments,
-    ///         the restaker share should be forwarded to the distributor (not merged into operator).
-    ///         Without actual delegations, restaker share merges into operator pool.
-    function test_RFQPayment_RestakerShareBehavior() public {
-        // With the default test setup there are no restakers, so restaker share
+    ///         the staker share should be forwarded to the distributor (not merged into operator).
+    ///         Without actual delegations, staker share merges into operator pool.
+    function test_RFQPayment_StakerShareBehavior() public {
+        // With the default test setup there are no stakers, so staker share
         // should be merged into operator pool. Verify this explicitly.
         uint256 payment = 10 ether;
 
@@ -565,9 +565,9 @@ contract RFQPaymentDistributionTest is BaseTest {
         uint256 expectedOpBase = (payment * OPERATOR_BPS) / 10_000;
         uint256 expectedStaker = payment - expectedDev - expectedProtocol - expectedOpBase;
 
-        // No restakers → staker share merges into operator pending rewards
+        // No stakers → staker share merges into operator pending rewards
         uint256 opPending = tangle.pendingRewards(operator1);
-        assertEq(opPending, expectedOpBase + expectedStaker, "no restakers: staker share merges into operator");
+        assertEq(opPending, expectedOpBase + expectedStaker, "no stakers: staker share merges into operator");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -591,7 +591,7 @@ contract RFQPaymentDistributionTest is BaseTest {
         uint256 treasuryGot = treasury.balance;
         uint256 opPending = tangle.pendingRewards(operator1);
 
-        // M-5 fix: restaker (last recipient) gets rounding dust
+        // M-5 fix: staker (last recipient) gets rounding dust
         assertEq(devGot + treasuryGot + opPending, payment, "odd payment: no dust lost");
     }
 

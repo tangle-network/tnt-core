@@ -34,7 +34,7 @@ set -euo pipefail
 #   TREASURY_RECIPIENT required (treasury carveout exists in snapshot artifacts)
 #   PROGRAM_VKEY required unless USE_MOCK_VERIFIER=true
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 : "${PRIVATE_KEY:?Missing PRIVATE_KEY}"
@@ -74,9 +74,9 @@ forge script script/FullDeploy.s.sol:FullDeploy \
   --broadcast \
   --non-interactive
 
-RESTAKING_ADDR="$(jq -r '.restaking' "$MANIFEST_PATH")"
-if [[ -z "$RESTAKING_ADDR" || "$RESTAKING_ADDR" == "null" || "$RESTAKING_ADDR" == "0x0000000000000000000000000000000000000000" ]]; then
-  echo "Missing restaking address in manifest: $MANIFEST_PATH" >&2
+STAKING_ADDR="$(jq -r '.staking' "$MANIFEST_PATH")"
+if [[ -z "$STAKING_ADDR" || "$STAKING_ADDR" == "null" || "$STAKING_ADDR" == "0x0000000000000000000000000000000000000000" ]]; then
+  echo "Missing staking address in manifest: $MANIFEST_PATH" >&2
   exit 1
 fi
 
@@ -108,7 +108,7 @@ case "$SLASHING_BRIDGE" in
   *) echo "Unsupported SLASHING_BRIDGE: $SLASHING_BRIDGE (expected hyperlane|layerzero)" >&2; exit 1 ;;
 esac
 
-RESTAKING="$RESTAKING_ADDR" \
+STAKING="$STAKING_ADDR" \
 SOURCE_CHAIN_ID="$SOURCE_CHAIN_ID" \
 L1_CONNECTOR="$L1_CONNECTOR_ADDR" \
 L1_MESSENGER="$L1_MESSENGER_ADDR" \

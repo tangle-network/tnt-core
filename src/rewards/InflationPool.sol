@@ -69,7 +69,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint16 operatorsBps; // Operator performance (e.g., 2000 = 20%)
         uint16 customersBps; // Service usage (e.g., 1000 = 10%)
         uint16 developersBps; // Blueprint developers (e.g., 1500 = 15%)
-        uint16 restakersBps; // Restaker exposure rewards (e.g., 3000 = 30%)
+        uint16 stakersBps; // Staker exposure rewards (e.g., 3000 = 30%)
     }
 
     /// @notice Epoch tracking data
@@ -81,7 +81,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256 operatorsDistributed;
         uint256 customersDistributed;
         uint256 developersDistributed;
-        uint256 restakersDistributed;
+        uint256 stakersDistributed;
         bool distributed;
     }
 
@@ -106,10 +106,10 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     /// @notice Reward vaults for staking distribution
     RewardVaults public vaults;
 
-    /// @notice Tangle view for service/operator data (restaker inflation)
+    /// @notice Tangle view for service/operator data (staker inflation)
     ITangleSecurityView public tangle;
 
-    /// @notice Service-fee distributor used to pay restaker inflation
+    /// @notice Service-fee distributor used to pay staker inflation
     IServiceFeeDistributor public serviceFeeDistributor;
 
     /// @notice Distribution weights
@@ -195,13 +195,13 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256 operatorsAmount,
         uint256 customersAmount,
         uint256 developersAmount,
-        uint256 restakersAmount,
+        uint256 stakersAmount,
         uint256 totalDistributed
     );
     event WeightsUpdated(
-        uint16 stakingBps, uint16 operatorsBps, uint16 customersBps, uint16 developersBps, uint16 restakersBps
+        uint16 stakingBps, uint16 operatorsBps, uint16 customersBps, uint16 developersBps, uint16 stakersBps
     );
-    event RestakerInflationConfigured(address indexed tangle, address indexed distributor);
+    event StakerInflationConfigured(address indexed tangle, address indexed distributor);
     event EpochLengthUpdated(uint256 newLength);
     event OperatorRewardClaimed(address indexed operator, uint256 amount);
     event CustomerRewardClaimed(address indexed customer, uint256 amount);
@@ -280,10 +280,10 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
 
         epochLength = _epochLength;
 
-        // Default weights: restaker inflation disabled (0%) until configured.
+        // Default weights: staker inflation disabled (0%) until configured.
         // Inflation focuses on staking incentives + merit-based rewards by default.
         weights = DistributionWeights({
-            stakingBps: 4000, operatorsBps: 2500, customersBps: 1000, developersBps: 2500, restakersBps: 0
+            stakingBps: 4000, operatorsBps: 2500, customersBps: 1000, developersBps: 2500, stakersBps: 0
         });
 
         // Initialize first epoch
@@ -304,7 +304,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
             operatorsDistributed: 0,
             customersDistributed: 0,
             developersDistributed: 0,
-            restakersDistributed: 0,
+            stakersDistributed: 0,
             distributed: false
         });
 
@@ -359,13 +359,13 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     // EPOCH DISTRIBUTION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Distribute rewards for current epoch (no restaker inflation).
+    /// @notice Distribute rewards for current epoch (no staker inflation).
     /// @dev Can be called by anyone once epoch is complete.
     function distributeEpoch() external nonReentrant {
         _distributeEpoch(new uint64[](0));
     }
 
-    /// @notice Distribute rewards for current epoch, including restaker inflation for listed services.
+    /// @notice Distribute rewards for current epoch, including staker inflation for listed services.
     /// @dev `serviceIds` should include active services whose operators should receive exposure-weighted inflation.
     /// @dev Modifier order: access control (onlyRole) first, then reentrancy guard
     function distributeEpochWithServices(uint64[] calldata serviceIds)
@@ -407,15 +407,15 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256 stakingTarget = (epochBudget * weights.stakingBps) / BPS_DENOMINATOR;
         uint256 operatorsTarget = (epochBudget * weights.operatorsBps) / BPS_DENOMINATOR;
         uint256 customersTarget = (epochBudget * weights.customersBps) / BPS_DENOMINATOR;
-        uint256 restakersTarget = (epochBudget * weights.restakersBps) / BPS_DENOMINATOR;
-        uint256 developersTarget = epochBudget - stakingTarget - operatorsTarget - customersTarget - restakersTarget;
+        uint256 stakersTarget = (epochBudget * weights.stakersBps) / BPS_DENOMINATOR;
+        uint256 developersTarget = epochBudget - stakingTarget - operatorsTarget - customersTarget - stakersTarget;
 
         // Distribute to each category
         uint256 stakingActual = _distributeStakingRewards(stakingTarget);
         uint256 operatorsActual = _distributeOperatorRewards(operatorsTarget);
         uint256 customersActual = _distributeCustomerRewards(customersTarget);
         uint256 developersActual = _distributeDeveloperRewards(developersTarget);
-        uint256 restakersActual = _distributeRestakerInflation(serviceIds, restakersTarget);
+        uint256 stakersActual = _distributeStakerInflation(serviceIds, stakersTarget);
 
         // Handle undistributed amounts
         uint256 undistributed = (stakingTarget - stakingActual) + (operatorsTarget - operatorsActual)
@@ -426,34 +426,34 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
             bool hasOperators = operatorsActual > 0;
             bool hasCustomers = customersActual > 0;
             bool hasDevelopers = developersActual > 0;
-            bool hasRestakers = restakersActual > 0;
+            bool hasStakers = stakersActual > 0;
 
-            if (hasStaking || hasOperators || hasCustomers || hasDevelopers || hasRestakers) {
+            if (hasStaking || hasOperators || hasCustomers || hasDevelopers || hasStakers) {
                 (
                     uint256 stakingExtra,
                     uint256 operatorsExtra,
                     uint256 customersExtra,
                     uint256 developersExtra,
-                    uint256 restakersExtra
+                    uint256 stakersExtra
                 ) = _redistributeUndistributed(
-                    serviceIds, undistributed, hasStaking, hasOperators, hasCustomers, hasDevelopers, hasRestakers
+                    serviceIds, undistributed, hasStaking, hasOperators, hasCustomers, hasDevelopers, hasStakers
                 );
                 stakingActual += stakingExtra;
                 operatorsActual += operatorsExtra;
                 customersActual += customersExtra;
                 developersActual += developersExtra;
-                restakersActual += restakersExtra;
+                stakersActual += stakersExtra;
             }
         }
 
         // Track distributed amount
         uint256 totalEpochDistributed =
-            stakingActual + operatorsActual + customersActual + developersActual + restakersActual;
+            stakingActual + operatorsActual + customersActual + developersActual + stakersActual;
         distributedThisPeriod += totalEpochDistributed;
         totalDistributed += totalEpochDistributed;
 
         // Advance to next epoch
-        _advanceEpoch(stakingActual, operatorsActual, customersActual, developersActual, restakersActual);
+        _advanceEpoch(stakingActual, operatorsActual, customersActual, developersActual, stakersActual);
 
         emit EpochDistributed(
             currentEpoch - 1,
@@ -461,7 +461,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
             operatorsActual,
             customersActual,
             developersActual,
-            restakersActual,
+            stakersActual,
             totalEpochDistributed
         );
     }
@@ -472,7 +472,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256 operatorsDistributed,
         uint256 customersDistributed,
         uint256 developersDistributed,
-        uint256 restakersDistributed
+        uint256 stakersDistributed
     )
         internal
     {
@@ -481,7 +481,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         epochs[currentEpoch].operatorsDistributed = operatorsDistributed;
         epochs[currentEpoch].customersDistributed = customersDistributed;
         epochs[currentEpoch].developersDistributed = developersDistributed;
-        epochs[currentEpoch].restakersDistributed = restakersDistributed;
+        epochs[currentEpoch].stakersDistributed = stakersDistributed;
 
         currentEpoch++;
         uint256 newEndTimestamp = block.timestamp + epochLength;
@@ -493,7 +493,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
             operatorsDistributed: 0,
             customersDistributed: 0,
             developersDistributed: 0,
-            restakersDistributed: 0,
+            stakersDistributed: 0,
             distributed: false
         });
 
@@ -723,12 +723,12 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // RESTAKER INFLATION DISTRIBUTION
+    // STAKER INFLATION DISTRIBUTION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Distribute restaker inflation by service exposure via ServiceFeeDistributor.
+    /// @notice Distribute staker inflation by service exposure via ServiceFeeDistributor.
     /// @dev Requires tangle + serviceFeeDistributor to be set, and relies on serviceIds supplied by keeper.
-    function _distributeRestakerInflation(
+    function _distributeStakerInflation(
         uint64[] memory serviceIds,
         uint256 amount
     )
@@ -833,7 +833,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         bool hasOperators,
         bool hasCustomers,
         bool hasDevelopers,
-        bool hasRestakers
+        bool hasStakers
     )
         internal
         returns (
@@ -841,7 +841,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
             uint256 operatorsExtra,
             uint256 customersExtra,
             uint256 developersExtra,
-            uint256 restakersExtra
+            uint256 stakersExtra
         )
     {
         uint256 activeCount = 0;
@@ -849,7 +849,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         if (hasOperators) activeCount++;
         if (hasCustomers) activeCount++;
         if (hasDevelopers) activeCount++;
-        if (hasRestakers) activeCount++;
+        if (hasStakers) activeCount++;
 
         if (activeCount == 0) return (0, 0, 0, 0, 0);
 
@@ -868,8 +868,8 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         if (hasStaking) {
             stakingExtra = _distributeStakingRewards(sharePerCategory + remainder);
         }
-        if (hasRestakers) {
-            restakersExtra = _distributeRestakerInflation(serviceIds, sharePerCategory);
+        if (hasStakers) {
+            stakersExtra = _distributeStakerInflation(serviceIds, sharePerCategory);
         }
     }
 
@@ -990,12 +990,12 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint16 operatorsBps,
         uint16 customersBps,
         uint16 developersBps,
-        uint16 restakersBps
+        uint16 stakersBps
     )
         external
         onlyRole(ADMIN_ROLE)
     {
-        if (stakingBps + operatorsBps + customersBps + developersBps + restakersBps != BPS_DENOMINATOR) {
+        if (stakingBps + operatorsBps + customersBps + developersBps + stakersBps != BPS_DENOMINATOR) {
             revert InvalidWeights();
         }
 
@@ -1004,10 +1004,10 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
             operatorsBps: operatorsBps,
             customersBps: customersBps,
             developersBps: developersBps,
-            restakersBps: restakersBps
+            stakersBps: stakersBps
         });
 
-        emit WeightsUpdated(stakingBps, operatorsBps, customersBps, developersBps, restakersBps);
+        emit WeightsUpdated(stakingBps, operatorsBps, customersBps, developersBps, stakersBps);
     }
 
     /// @notice Update epoch length
@@ -1035,11 +1035,11 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         if (_vaults != address(0)) vaults = RewardVaults(_vaults);
     }
 
-    /// @notice Configure restaker inflation dependencies.
-    function setRestakerInflationConfig(address tangle_, address distributor_) external onlyRole(ADMIN_ROLE) {
+    /// @notice Configure staker inflation dependencies.
+    function setStakerInflationConfig(address tangle_, address distributor_) external onlyRole(ADMIN_ROLE) {
         if (tangle_ != address(0)) tangle = ITangleSecurityView(tangle_);
         if (distributor_ != address(0)) serviceFeeDistributor = IServiceFeeDistributor(distributor_);
-        emit RestakerInflationConfigured(address(tangle), address(serviceFeeDistributor));
+        emit StakerInflationConfigured(address(tangle), address(serviceFeeDistributor));
     }
 
     /// @notice Emergency withdraw all tokens to a new pool
@@ -1105,7 +1105,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     function getWeights()
         external
         view
-        returns (uint16 stakingBps, uint16 operatorsBps, uint16 customersBps, uint16 developersBps, uint16 restakersBps)
+        returns (uint16 stakingBps, uint16 operatorsBps, uint16 customersBps, uint16 developersBps, uint16 stakersBps)
     {
         return
             (
@@ -1113,7 +1113,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
                 weights.operatorsBps,
                 weights.customersBps,
                 weights.developersBps,
-                weights.restakersBps
+                weights.stakersBps
             );
     }
 

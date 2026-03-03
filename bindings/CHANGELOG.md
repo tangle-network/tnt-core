@@ -65,10 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **BREAKING**: Renamed `IRestaking` to `IStaking` interface
-- **BREAKING**: Renamed `restaking` module to `staking`
-- **BREAKING**: Renamed `PaymentSplit.restakerBps` to `stakerBps`
-- Updated all bindings from TNT Core contracts with restaking→staking terminology refactoring
+- **BREAKING**: Normalized interface names to `IStaking`
+- **BREAKING**: Normalized module naming to `staking`
+- **BREAKING**: Normalized `PaymentSplit` staking weight field naming
+- Updated all bindings from TNT Core contracts with canonical staking terminology
 
 ## [0.6.1] - 2026-01-17
 

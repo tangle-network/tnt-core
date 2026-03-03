@@ -91,7 +91,7 @@ if [[ "$SKIP_DEPLOY" != "true" ]]; then
 
     # Use deterministic addresses (from Anvil default deployer nonce sequence)
     TANGLE_ADDR="0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
-    RESTAKING_ADDR="0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+    STAKING_ADDR="0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
     STATUS_REG_ADDR="0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
     CREDITS_ADDR=$(grep -Eo "Credits: 0x[0-9a-fA-F]{40}" /tmp/deploy.log | awk '{print $2}' | tail -n 1 || true)
     BLUEPRINT_ID="0"
@@ -99,7 +99,7 @@ if [[ "$SKIP_DEPLOY" != "true" ]]; then
 
     log "Deployed addresses:"
     log "  Tangle: $TANGLE_ADDR"
-    log "  MultiAssetDelegation: $RESTAKING_ADDR"
+    log "  MultiAssetDelegation: $STAKING_ADDR"
     log "  OperatorStatusRegistry: $STATUS_REG_ADDR"
     if [[ -n "${CREDITS_ADDR:-}" ]]; then
         log "  Credits: $CREDITS_ADDR"
@@ -205,7 +205,7 @@ if [[ "$RUN_TESTS" == "true" ]]; then
     log "Testing: Query operators..."
     OPERATORS=$(curl -s "$HASURA_URL" \
         -H "Content-Type: application/json" \
-        -d '{"query": "{ Operator { id restakingStake } }"}')
+        -d '{"query": "{ Operator { id stakingStake } }"}')
 
     if echo "$OPERATORS" | grep -q '"Operator"'; then
         success "Operators query successful"
@@ -269,7 +269,7 @@ if [[ "$KEEP_RUNNING" == "true" ]]; then
 
     # Export addresses for use by other scripts
     export TANGLE_PROXY="${TANGLE_ADDR:-0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9}"
-    export RESTAKING_PROXY="${RESTAKING_ADDR:-0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512}"
+    export STAKING_PROXY="${STAKING_ADDR:-0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512}"
     export STATUS_REGISTRY="${STATUS_REG_ADDR:-0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9}"
     export BLUEPRINT_ID="${BLUEPRINT_ID:-1}"
     export SERVICE_ID="${SERVICE_ID:-1}"

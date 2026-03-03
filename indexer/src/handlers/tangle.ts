@@ -65,34 +65,106 @@ const SERVICE_REQUEST_ABI = parseAbi([
   "function requestServiceWithSecurity(uint64 blueprintId, address[] operators, ((uint8,address),uint16,uint16)[] securityRequirements, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount)",
 ]);
 
+type ServiceRequestInputMetadata = {
+  operatorCandidates: string[];
+  permittedCallers: string[];
+  securityRequirements?: string;
+};
+
+const stringifyWithBigInt = (value: unknown): string | undefined => {
+  try {
+    return JSON.stringify(value, (_key, jsonValue) =>
+      typeof jsonValue === "bigint" ? jsonValue.toString() : jsonValue
+    );
+  } catch {
+    return undefined;
+  }
+};
+
+const normalizeSecurityRequirements = (value: unknown): unknown => {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return value.map((item) => {
+    if (Array.isArray(item) && item.length >= 3) {
+      const assetTuple = item[0];
+      const minExposureBps = item[1];
+      const maxExposureBps = item[2];
+
+      if (Array.isArray(assetTuple) && assetTuple.length >= 2) {
+        return {
+          asset: {
+            kind: Number(assetTuple[0]),
+            token: normalizeAddress(String(assetTuple[1])),
+          },
+          minExposureBps: Number(minExposureBps),
+          maxExposureBps: Number(maxExposureBps),
+        };
+      }
+    }
+
+    return item;
+  });
+};
+
 /**
- * Extracts the operators array from transaction input data.
- * Validates the decoded function name and extracts operators from the correct position.
+ * Extracts request metadata from transaction input data.
+ * Validates decoded function and reads operators/permittedCallers/securityRequirements
+ * from known argument positions for requestService variants.
  */
-const extractOperatorsFromInput = (input: string | undefined): string[] => {
-  if (!input) return [];
+const extractServiceRequestMetadataFromInput = (
+  input: string | undefined
+): ServiceRequestInputMetadata => {
+  const empty: ServiceRequestInputMetadata = {
+    operatorCandidates: [],
+    permittedCallers: [],
+  };
+
+  if (!input) return empty;
   try {
     const decoded = decodeFunctionData({
       abi: SERVICE_REQUEST_ABI,
       data: input as `0x${string}`,
     });
-    // Validate we decoded a known function and extract operators by function name
+
     switch (decoded.functionName) {
-      case "requestService":
-      case "requestServiceWithExposure":
-      case "requestServiceWithSecurity":
-        // operators is always the second argument (index 1) in all variants
-        if (!decoded.args || decoded.args.length < 2) return [];
-        return (decoded.args[1] as string[]).map(normalizeAddress);
+      case "requestService": {
+        if (!decoded.args || decoded.args.length < 4) return empty;
+
+        return {
+          operatorCandidates: (decoded.args[1] as string[]).map(normalizeAddress),
+          permittedCallers: (decoded.args[3] as string[]).map(normalizeAddress),
+        };
+      }
+      case "requestServiceWithExposure": {
+        if (!decoded.args || decoded.args.length < 5) return empty;
+
+        return {
+          operatorCandidates: (decoded.args[1] as string[]).map(normalizeAddress),
+          permittedCallers: (decoded.args[4] as string[]).map(normalizeAddress),
+        };
+      }
+      case "requestServiceWithSecurity": {
+        if (!decoded.args || decoded.args.length < 5) return empty;
+
+        return {
+          operatorCandidates: (decoded.args[1] as string[]).map(normalizeAddress),
+          permittedCallers: (decoded.args[4] as string[]).map(normalizeAddress),
+          securityRequirements: stringifyWithBigInt(
+            normalizeSecurityRequirements(decoded.args[2])
+          ),
+        };
+      }
       default:
-        return [];
+        return empty;
     }
   } catch (error) {
     // Log for debugging but don't throw to maintain backward compatibility
     console.warn(
       `Failed to decode transaction input: ${error instanceof Error ? error.message : "Unknown error"}`
     );
-    return [];
+    return empty;
   }
 };
 
@@ -364,8 +436,7 @@ export function registerTangleHandlers() {
     const timestamp = getTimestamp(event);
     const id = toBigInt(event.params.requestId).toString();
 
-    // Extract operators from transaction input
-    const operatorCandidates = extractOperatorsFromInput(event.transaction?.input);
+    const requestMetadata = extractServiceRequestMetadataFromInput(event.transaction?.input);
 
     const request: ServiceRequest = {
       id,
@@ -378,8 +449,9 @@ export function registerTangleHandlers() {
       approvalCount: 0n,
       approvedOperators: [],
       rejectedOperators: [],
-      operatorCandidates,
-      securityRequirements: undefined,
+      operatorCandidates: requestMetadata.operatorCandidates,
+      permittedCallers: requestMetadata.permittedCallers,
+      securityRequirements: requestMetadata.securityRequirements ?? "[]",
     } as ServiceRequest;
     context.ServiceRequest.set(request);
     const points = getPointsManager(pointsContext(context), event);
@@ -392,8 +464,7 @@ export function registerTangleHandlers() {
     const blueprintId = toBigInt(event.params.blueprintId).toString();
     const requester = normalizeAddress(event.params.requester);
 
-    // Extract operators from transaction input
-    const operatorCandidates = extractOperatorsFromInput(event.transaction?.input);
+    const requestMetadata = extractServiceRequestMetadataFromInput(event.transaction?.input);
 
     let request = await context.ServiceRequest.get(id);
     const created = !request;
@@ -409,8 +480,9 @@ export function registerTangleHandlers() {
         approvalCount: 0n,
         approvedOperators: [],
         rejectedOperators: [],
-        operatorCandidates,
-        securityRequirements: undefined,
+        operatorCandidates: requestMetadata.operatorCandidates,
+        permittedCallers: requestMetadata.permittedCallers,
+        securityRequirements: requestMetadata.securityRequirements,
       } as ServiceRequest;
     }
     const updated: ServiceRequest = {
@@ -418,7 +490,14 @@ export function registerTangleHandlers() {
       blueprint_id: blueprintId,
       requester: request.requester ?? requester,
       // If we have new operator candidates and the existing list is empty, update it
-      operatorCandidates: request.operatorCandidates?.length ? request.operatorCandidates : operatorCandidates,
+      operatorCandidates: request.operatorCandidates?.length
+        ? request.operatorCandidates
+        : requestMetadata.operatorCandidates,
+      permittedCallers: request.permittedCallers?.length
+        ? request.permittedCallers
+        : requestMetadata.permittedCallers,
+      securityRequirements:
+        requestMetadata.securityRequirements ?? request.securityRequirements,
       updatedAt: timestamp,
     } as ServiceRequest;
     context.ServiceRequest.set(updated);
@@ -743,7 +822,7 @@ export function registerTangleHandlers() {
       developerAmount: toBigInt(event.params.developerAmount),
       protocolAmount: toBigInt(event.params.protocolAmount),
       operatorPoolAmount: toBigInt(event.params.operatorPoolAmount),
-      restakerPoolAmount: toBigInt(event.params.restakerPoolAmount),
+      stakingPoolAmount: toBigInt(event.params.stakingPoolAmount),
       distributedAt: timestamp,
       txHash: getTxHash(event),
     } as PaymentDistribution;

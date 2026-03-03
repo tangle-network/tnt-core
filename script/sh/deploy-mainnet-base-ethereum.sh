@@ -14,7 +14,7 @@ set -euo pipefail
 #
 # LayerZero note: you may need to set LAYERZERO_SOURCE_EID (defaults include ETH mainnet).
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 : "${PRIVATE_KEY:?Missing PRIVATE_KEY}"
@@ -51,9 +51,9 @@ forge script script/FullDeploy.s.sol:FullDeploy \
   --broadcast \
   --non-interactive
 
-RESTAKING_ADDR="$(jq -r '.restaking' "$MANIFEST_PATH")"
-if [[ -z "$RESTAKING_ADDR" || "$RESTAKING_ADDR" == "null" || "$RESTAKING_ADDR" == "0x0000000000000000000000000000000000000000" ]]; then
-  echo "Missing restaking address in manifest: $MANIFEST_PATH" >&2
+STAKING_ADDR="$(jq -r '.staking' "$MANIFEST_PATH")"
+if [[ -z "$STAKING_ADDR" || "$STAKING_ADDR" == "null" || "$STAKING_ADDR" == "0x0000000000000000000000000000000000000000" ]]; then
+  echo "Missing staking address in manifest: $MANIFEST_PATH" >&2
   exit 1
 fi
 
@@ -90,7 +90,7 @@ case "$SLASHING_BRIDGE" in
     ;;
 esac
 
-RESTAKING="$RESTAKING_ADDR" \
+STAKING="$STAKING_ADDR" \
 SOURCE_CHAIN_ID=1 \
 L1_CONNECTOR="$L1_CONNECTOR_ADDR" \
 L1_MESSENGER="$L1_MESSENGER_ADDR" \

@@ -42,7 +42,7 @@ describe("convertAmountToUsd", () => {
       symbol: "BASE",
       decimals: 18,
       fallbackPriceUsd: 2,
-      category: "RESTAKING",
+      category: "STAKING",
     });
     registerAssetMetadata({
       address: "0xvault",
@@ -150,7 +150,7 @@ describe("processParticipation", () => {
         { id: "s3-0xop", operator_id: "0xop", service_id: "s3", active: true } as any,
         { id: "s4-0xop", operator_id: "0xop", service_id: "s4", active: true } as any,
       ]),
-      Operator: createStore([{ id: "0xop", restakingStake: 0n } as any]),
+      Operator: createStore([{ id: "0xop", stakingStake: 0n } as any]),
     };
     const points = new PointsManager(pointsContext(context), 20n, 7200n, "0xsvc");
     await processParticipation(context, "operator-service-hourly", 20n, 7200n, points);

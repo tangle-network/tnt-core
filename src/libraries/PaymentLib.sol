@@ -19,7 +19,7 @@ library PaymentLib {
     uint16 internal constant BPS_DENOMINATOR = 10_000;
 
     /// @notice Minimum payment amount required to ensure all recipients receive non-zero amounts
-    /// @dev This ensures that when split 4 ways (developer, protocol, operator, restaker) at minimum
+    /// @dev This ensures that when split 4 ways (developer, protocol, operator, staker) at minimum
     ///      splits (e.g., 10% each), each party receives at least 1 wei.
     ///      Calculation: 10000 / min_bps_per_party = 10000 / 1000 = 10 (for 10% minimum split)
     ///      We use 100 as a conservative minimum to handle edge cases.
@@ -60,7 +60,7 @@ library PaymentLib {
         uint256 developerAmount,
         uint256 protocolAmount,
         uint256 operatorAmount,
-        uint256 restakerAmount
+        uint256 stakerAmount
     );
 
     event EscrowDeposited(uint64 indexed serviceId, address indexed token, uint256 amount);
@@ -75,14 +75,14 @@ library PaymentLib {
         uint256 developerAmount;
         uint256 protocolAmount;
         uint256 operatorAmount;
-        uint256 restakerAmount;
+        uint256 stakerAmount;
     }
 
     /// @notice Per-operator payment allocation
     struct OperatorPayment {
         address operator;
         uint256 operatorShare; // Direct operator payment
-        uint256 restakerShare; // Payment to delegators via restaking
+        uint256 stakerShare; // Payment to delegators via staking
     }
 
     /// @notice Service escrow account (for subscriptions)
@@ -99,7 +99,7 @@ library PaymentLib {
 
     /// @notice Calculate payment split amounts
     /// @dev M-5 FIX: Uses floor division for first N-1 recipients, then gives remainder
-    ///      to final recipient (restaker) to capture all dust from rounding.
+    ///      to final recipient (staker) to capture all dust from rounding.
     /// @param amount Total payment amount
     /// @param split Payment split configuration
     /// @return amounts Calculated amounts for each recipient type
@@ -115,9 +115,9 @@ library PaymentLib {
         amounts.developerAmount = (amount * split.developerBps) / BPS_DENOMINATOR;
         amounts.protocolAmount = (amount * split.protocolBps) / BPS_DENOMINATOR;
         amounts.operatorAmount = (amount * split.operatorBps) / BPS_DENOMINATOR;
-        // M-5 FIX: Final recipient (restaker) gets remainder to capture all rounding dust
+        // M-5 FIX: Final recipient (staker) gets remainder to capture all rounding dust
         // This ensures no dust is lost: sum of all amounts == original amount
-        amounts.restakerAmount = amount - amounts.developerAmount - amounts.protocolAmount - amounts.operatorAmount;
+        amounts.stakerAmount = amount - amounts.developerAmount - amounts.protocolAmount - amounts.operatorAmount;
     }
 
     /// @notice Calculate weighted operator payments based on effective exposure
@@ -126,7 +126,7 @@ library PaymentLib {
     ///      Effective exposure = delegation × exposureBps for each asset, summed across assets.
     ///      This ensures operators are paid proportionally to actual security provided.
     /// @param totalOperatorAmount Total amount for all operators
-    /// @param totalRestakerAmount Total amount for all restakers
+    /// @param totalStakerAmount Total amount for all stakers
     /// @param operators Array of operator addresses
     /// @param effectiveExposures Array of effective exposure values (parallel to operators)
     ///        These should be pre-calculated as: Σ(delegation[asset] × exposureBps[asset])
@@ -134,7 +134,7 @@ library PaymentLib {
     /// @return payments Array of per-operator payment allocations
     function calculateOperatorPayments(
         uint256 totalOperatorAmount,
-        uint256 totalRestakerAmount,
+        uint256 totalStakerAmount,
         address[] memory operators,
         uint256[] memory effectiveExposures,
         uint256 totalEffectiveExposure
@@ -150,7 +150,7 @@ library PaymentLib {
         payments = new OperatorPayment[](operators.length);
 
         uint256 operatorDistributed = 0;
-        uint256 restakerDistributed = 0;
+        uint256 stakerDistributed = 0;
 
         for (uint256 i = 0; i < operators.length; i++) {
             uint256 effectiveExposure = effectiveExposures[i];
@@ -160,17 +160,17 @@ library PaymentLib {
                 payments[i] = OperatorPayment({
                     operator: operators[i],
                     operatorShare: totalOperatorAmount - operatorDistributed,
-                    restakerShare: totalRestakerAmount - restakerDistributed
+                    stakerShare: totalStakerAmount - stakerDistributed
                 });
             } else {
                 uint256 opShare = (totalOperatorAmount * effectiveExposure) / totalEffectiveExposure;
-                uint256 restakeShare = (totalRestakerAmount * effectiveExposure) / totalEffectiveExposure;
+                uint256 stakeShare = (totalStakerAmount * effectiveExposure) / totalEffectiveExposure;
 
                 payments[i] =
-                    OperatorPayment({ operator: operators[i], operatorShare: opShare, restakerShare: restakeShare });
+                    OperatorPayment({ operator: operators[i], operatorShare: opShare, stakerShare: stakeShare });
 
                 operatorDistributed += opShare;
-                restakerDistributed += restakeShare;
+                stakerDistributed += stakeShare;
             }
         }
     }

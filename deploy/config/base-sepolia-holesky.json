@@ -24,9 +24,9 @@
     "_todo_tnt_token": "TODO: point to the Base Sepolia TNT deployment once available",
     "maxBlueprintsPerOperator": 0
   },
-  "_todo_restake_assets": "TODO: replace placeholder token/adapter addresses with live deployments",
+  "_todo_stake_assets": "TODO: replace placeholder token/adapter addresses with live deployments",
   "_todo_deposit_caps": "TODO: revisit deposit caps as TVL ramps to control protocol exposure",
-  "restakeAssets": [
+  "stakeAssets": [
     {
       "symbol": "TNT",
       "token": "0x0000000000000000000000000000000000000001",
@@ -148,7 +148,7 @@
       "operatorsBps": 2500,
       "customersBps": 1000,
       "developersBps": 1000,
-      "restakersBps": 0
+      "stakersBps": 0
     },
     "_todo_vault_rewards": "TODO: adjust per-asset vault incentives before enabling payouts",
     "vaults": [

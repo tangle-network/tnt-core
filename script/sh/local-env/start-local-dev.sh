@@ -59,6 +59,8 @@ ENVIO_PG_USER="${ENVIO_PG_USER:-postgres}"
 ENVIO_PG_PASSWORD="${ENVIO_PG_PASSWORD:-testing}"
 ENVIO_PG_DATABASE="${ENVIO_PG_DATABASE:-envio-dev}"
 HASURA_PORT="${HASURA_PORT:-8080}"
+HASURA_EXTERNAL_PORT="${HASURA_EXTERNAL_PORT:-$HASURA_PORT}"
+ENVIO_INDEXER_PORT="${ENVIO_INDEXER_PORT:-19898}"
 
 log() {
     echo "[local-dev] $*"
@@ -495,13 +497,13 @@ start_docker() {
     # Always start fresh to ensure clean database schema
     # (Anvil starts fresh each time, so database should match)
     log "Stopping any existing containers and removing volumes..."
-    docker compose down -v 2>/dev/null || true
+    HASURA_EXTERNAL_PORT="$HASURA_EXTERNAL_PORT" ENVIO_PG_PORT="$ENVIO_PG_PORT" docker compose down -v 2>/dev/null || true
 
     # Remove persisted state file to ensure fresh sync
     rm -f "$INDEXER_DIR/generated/persisted_state.envio.json"
 
     log "Starting fresh containers..."
-    docker compose up -d
+    HASURA_EXTERNAL_PORT="$HASURA_EXTERNAL_PORT" ENVIO_PG_PORT="$ENVIO_PG_PORT" docker compose up -d
 
     # Wait for containers to be healthy
     log "Waiting for containers to be healthy..."
@@ -538,6 +540,9 @@ setup_indexer() {
         log "Installing indexer dependencies..."
         pnpm install
     fi
+
+    # Keep generated indexer RPC source aligned with whichever local Anvil endpoint this script started.
+    perl -i -pe "s#(^\\s*url:\\s*)http://[^\\s]+#\\1$RPC_URL#" config.local.yaml
 
     # Run codegen with local config for chain 31337
     log "Running codegen with local config..."
@@ -579,6 +584,9 @@ start_indexer() {
     ENVIO_PG_USER="$ENVIO_PG_USER" \
     ENVIO_PG_PASSWORD="$ENVIO_PG_PASSWORD" \
     ENVIO_PG_DATABASE="$ENVIO_PG_DATABASE" \
+    HASURA_GRAPHQL_ENDPOINT="http://localhost:$HASURA_PORT/v1/metadata" \
+    HASURA_GRAPHQL_ADMIN_SECRET="testing" \
+    ENVIO_INDEXER_PORT="$ENVIO_INDEXER_PORT" \
     TUI_OFF=true \
     pnpm start &
     INDEXER_PID=$!
@@ -704,7 +712,7 @@ verify_setup() {
     local response
     response=$(curl -s "http://localhost:$HASURA_PORT/v1/graphql" \
         -H "Content-Type: application/json" \
-        -d '{"query": "{ Operator(limit: 5) { id restakingStatus } RestakingAsset(limit: 5) { id enabled } }"}')
+        -d '{"query": "{ Operator(limit: 5) { id stakingStatus } StakingAsset(limit: 5) { id enabled } }"}')
 
     if echo "$response" | grep -q '"data"'; then
         # grep -c returns count (0 if no matches), || true prevents exit on no matches
@@ -906,10 +914,10 @@ main() {
     advance_time_for_leavable
     CURRENT_STEP="Seeding operator slashing fixtures"
     seed_operator_qa_slashing
-    CURRENT_STEP="Starting Docker containers"
-    start_docker
     CURRENT_STEP="Setting up indexer"
     setup_indexer
+    CURRENT_STEP="Starting Docker containers"
+    start_docker
     CURRENT_STEP="Starting indexer"
     start_indexer
     CURRENT_STEP="Waiting for indexer sync"

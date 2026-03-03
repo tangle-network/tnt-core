@@ -146,7 +146,7 @@ contract PaymentsTest is BaseTest {
         assertEq(developer.balance, developerBefore + developerExpected, "Developer payment incorrect");
         assertEq(treasury.balance, treasuryBefore + protocolExpected, "Protocol payment incorrect");
 
-        // No security commitments: operator gets operator + restaker share (60% of 10 ETH = 6 ETH)
+        // No security commitments: operator gets operator + staker share (60% of 10 ETH = 6 ETH)
         uint256 operatorPending = tangle.pendingRewards(operator1);
         assertEq(operatorPending, 6 ether, "Operator pending rewards incorrect");
     }
@@ -173,7 +173,7 @@ contract PaymentsTest is BaseTest {
 
         assertEq(tangle.pendingRewards(operator1), 0, "Native rewards should be claimed");
         assertEq(tangle.pendingRewards(operator1, address(token)), 0, "ERC20 rewards should be claimed");
-        // No security commitments: operator gets operator + restaker share
+        // No security commitments: operator gets operator + staker share
         assertEq(operator1.balance, operatorEthBefore + 6 ether, "Native rewards mismatch");
         assertEq(token.balanceOf(operator1), operatorTokenBefore + 30 ether, "ERC20 rewards mismatch");
     }
@@ -190,7 +190,7 @@ contract PaymentsTest is BaseTest {
         tangle.claimRewardsAll();
 
         assertEq(tangle.pendingRewards(operator1), 0, "Native rewards should be claimed");
-        // No security commitments: operator gets operator + restaker share (60% of 5 = 3 ETH)
+        // No security commitments: operator gets operator + staker share (60% of 5 = 3 ETH)
         assertEq(operator1.balance, operatorEthBefore + 3 ether, "Native rewards mismatch");
         assertEq(tangle.rewardTokens(operator1).length, 0, "Tracked token set should be empty");
     }
@@ -269,7 +269,7 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator2);
         tangle.approveService(requestId, 0);
 
-        // No security commitments: each operator gets half of (operator + restaker) share = 3 ETH each
+        // No security commitments: each operator gets half of (operator + staker) share = 3 ETH each
         uint256 op1Pending = tangle.pendingRewards(operator1);
         uint256 op2Pending = tangle.pendingRewards(operator2);
         assertEq(op1Pending, 3 ether, "Operator1 pending incorrect");
@@ -298,7 +298,7 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator2);
         tangle.approveService(requestId, 0);
 
-        // No security commitments: operator pool = operator + restaker = 6 ETH total
+        // No security commitments: operator pool = operator + staker = 6 ETH total
         // Op1 should get 70% = 4.2 ETH
         // Op2 should get 30% = 1.8 ETH
         uint256 op1Pending = tangle.pendingRewards(operator1);
@@ -345,7 +345,7 @@ contract PaymentsTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        // No security commitments: operator receives operator + restaker share.
+        // No security commitments: operator receives operator + staker share.
         assertEq(tangle.pendingRewards(operator1), 6 ether);
     }
 

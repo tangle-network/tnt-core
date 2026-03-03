@@ -13,21 +13,21 @@ import type {
   OperatorHeartbeat,
   OperatorLifecycleEvent,
   OperatorMetricSnapshot,
-  RestakingAsset,
-  RestakingRound,
-  RestakingSlash,
+  StakingAsset,
+  StakingRound,
+  StakingSlash,
   SlashRecord,
   WithdrawRequest,
 } from "generated/src/Types.gen";
 import {
   ZERO_ADDRESS,
-  createRestakingRewardClaim,
+  createStakingRewardClaim,
   createRewardDistribution,
   ensureAssetPosition,
   ensureDelegationPosition,
   ensureDelegator,
   ensureOperator,
-  ensureRestakingAsset,
+  ensureStakingAsset,
   getBlockNumber,
   getEventId,
   getPointsManager,
@@ -50,13 +50,31 @@ import { activateParticipation, deactivateParticipation, pointsContext } from ".
 import { toPointsValue } from "../points/math";
 import { awardOperatorUptime } from "../points/awards";
 
-export function registerRestakingHandlers() {
+const getOperatorStakingStake = (operator: Operator) => operator.stakingStake ?? 0n;
+
+const getOperatorStakingDelegationCount = (operator: Operator) => operator.stakingDelegationCount ?? 0n;
+
+const setStakingAsset = (context: any, asset: StakingAsset) => {
+  context.StakingAsset.set(asset);
+};
+
+const setStakingRound = (context: any, round: StakingRound) => {
+  context.StakingRound.set(round);
+};
+
+const setStakingSlash = (context: any, slash: StakingSlash) => {
+  context.StakingSlash.set(slash);
+};
+
+export function registerStakingHandlers() {
   /* ────────────────────────────────────────────────────────────────────────────
      MULTI-ASSET DELEGATION EVENTS
      ────────────────────────────────────────────────────────────────────────── */
 
-  const latestRound = async (context: { RestakingRound: { get: (id: string) => Promise<RestakingRound | undefined> } }) =>
-    (await context.RestakingRound.get("latest"))?.round ?? 0n;
+  const latestRound = async (context: any) => {
+    const stakingRound = await context.StakingRound.get("latest");
+    return stakingRound?.round ?? 0n;
+  };
 
   const ensureDelegationBalance = async (
     context: { DelegationBalance: { get: (id: string) => Promise<DelegationBalance | undefined>; set: (entity: DelegationBalance) => void } },
@@ -107,11 +125,16 @@ export function registerRestakingHandlers() {
   MultiAssetDelegation.OperatorRegistered.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const stake = toBigInt(event.params.stake);
-    const operator = await ensureOperator(context, event.params.operator, timestamp, {
-      restakingStatus: "ACTIVE",
-      restakingStake: stake,
-      restakingUpdatedAt: timestamp,
-    });
+    const operator = await ensureOperator(
+      context,
+      event.params.operator,
+      timestamp,
+      ({
+        stakingStatus: "ACTIVE",
+        stakingStake: stake,
+        stakingUpdatedAt: timestamp,
+      })
+    );
     await recordOperatorStakeChange(context, operator, "REGISTERED", stake, undefined, event);
     await getPointsManager(pointsContext(context), event).award(operator.id, "operator-registration", toPointsValue(stake), "operator registered");
     await activateParticipation(context, "operator-hourly", operator.id, "OPERATOR", timestamp);
@@ -121,8 +144,14 @@ export function registerRestakingHandlers() {
     const timestamp = getTimestamp(event);
     const amount = toBigInt(event.params.amount);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
-    const stake = (operator.restakingStake ?? 0n) + amount;
-    context.Operator.set({ ...operator, restakingStake: stake, restakingUpdatedAt: timestamp } as Operator);
+    const stake = getOperatorStakingStake(operator) + amount;
+    context.Operator.set({
+      ...operator,
+      ...({
+        stakingStake: stake,
+        stakingUpdatedAt: timestamp,
+      }),
+    } as Operator);
     await recordOperatorStakeChange(context, operator, "STAKE_INCREASED", amount, undefined, event);
     await getPointsManager(pointsContext(context), event).award(operator.id, "operator-stake", toPointsValue(amount), "stake increased");
   });
@@ -131,25 +160,32 @@ export function registerRestakingHandlers() {
     const timestamp = getTimestamp(event);
     const amount = toBigInt(event.params.amount);
     const readyAtRound = toBigInt(event.params.readyRound);
-    const operator = await ensureOperator(context, event.params.operator, timestamp, {
-      restakingScheduledUnstakeAmount: amount,
-      restakingScheduledUnstakeRound: readyAtRound,
-      restakingUpdatedAt: timestamp,
-    });
+    const operator = await ensureOperator(
+      context,
+      event.params.operator,
+      timestamp,
+      ({
+        stakingScheduledUnstakeAmount: amount,
+        stakingScheduledUnstakeRound: readyAtRound,
+        stakingUpdatedAt: timestamp,
+      })
+    );
     await recordOperatorStakeChange(context, operator, "UNSTAKE_SCHEDULED", amount, readyAtRound, event);
   });
 
   MultiAssetDelegation.OperatorUnstakeExecuted.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
-    const stake = (operator.restakingStake ?? 0n) - toBigInt(event.params.amount);
+    const stake = getOperatorStakingStake(operator) - toBigInt(event.params.amount);
     const nextStake = stake < 0n ? 0n : stake;
     const updatedOperator: Operator = {
       ...operator,
-      restakingStake: nextStake,
-      restakingScheduledUnstakeAmount: undefined,
-      restakingScheduledUnstakeRound: undefined,
-      restakingUpdatedAt: timestamp,
+      ...({
+        stakingStake: nextStake,
+        stakingScheduledUnstakeAmount: undefined,
+        stakingScheduledUnstakeRound: undefined,
+        stakingUpdatedAt: timestamp,
+      }),
     } as Operator;
     context.Operator.set(updatedOperator);
     await recordOperatorStakeChange(context, operator, "UNSTAKE_EXECUTED", toBigInt(event.params.amount), undefined, event);
@@ -158,22 +194,32 @@ export function registerRestakingHandlers() {
 
   MultiAssetDelegation.OperatorLeavingScheduled.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
-    const operator = await ensureOperator(context, event.params.operator, timestamp, {
-      restakingStatus: "LEAVING",
-      restakingLeavingRound: toBigInt(event.params.readyRound),
-      restakingUpdatedAt: timestamp,
-    });
+    const operator = await ensureOperator(
+      context,
+      event.params.operator,
+      timestamp,
+      ({
+        stakingStatus: "LEAVING",
+        stakingLeavingRound: toBigInt(event.params.readyRound),
+        stakingUpdatedAt: timestamp,
+      })
+    );
     await recordOperatorStakeChange(context, operator, "LEAVING_SCHEDULED", undefined, toBigInt(event.params.readyRound), event);
   });
 
   MultiAssetDelegation.OperatorLeft.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
-    const operator = await ensureOperator(context, event.params.operator, timestamp, {
-      restakingStatus: "INACTIVE",
-      restakingStake: 0n,
-      restakingDelegationCount: 0n,
-      restakingUpdatedAt: timestamp,
-    });
+    const operator = await ensureOperator(
+      context,
+      event.params.operator,
+      timestamp,
+      ({
+        stakingStatus: "INACTIVE",
+        stakingStake: 0n,
+        stakingDelegationCount: 0n,
+        stakingUpdatedAt: timestamp,
+      })
+    );
     await recordOperatorStakeChange(context, operator, "LEFT", undefined, undefined, event);
     await deactivateParticipation(context, "operator-hourly", operator.id, timestamp);
   });
@@ -209,12 +255,12 @@ export function registerRestakingHandlers() {
     const timestamp = getTimestamp(event);
     const amount = toBigInt(event.params.amount);
     const delegator = await ensureDelegator(context, event.params.delegator, timestamp);
-    const asset = await ensureRestakingAsset(context, event.params.token, timestamp);
-    const updatedAsset: RestakingAsset = {
+    const asset = await ensureStakingAsset(context, event.params.token, timestamp);
+    const updatedAsset: StakingAsset = {
       ...asset,
       currentDeposits: (asset.currentDeposits ?? 0n) + amount,
-    } as RestakingAsset;
-    context.RestakingAsset.set(updatedAsset);
+    } as StakingAsset;
+    setStakingAsset(context, updatedAsset);
     const position = await ensureAssetPosition(context, delegator, event.params.token, timestamp);
     const updatedPosition: DelegatorAssetPosition = {
       ...position,
@@ -300,14 +346,16 @@ export function registerRestakingHandlers() {
       totalDelegated: (delegator.totalDelegated ?? 0n) + amount,
     } as Delegator;
     context.Delegator.set(updatedDelegator);
-    let delegationCount = operator.restakingDelegationCount ?? 0n;
+    let delegationCount = getOperatorStakingDelegationCount(operator);
     if (wasZero && shares > 0n) {
       delegationCount += 1n;
     }
     const updatedOperator: Operator = {
       ...operator,
-      restakingDelegationCount: delegationCount,
-      restakingUpdatedAt: timestamp,
+      ...({
+        stakingDelegationCount: delegationCount,
+        stakingUpdatedAt: timestamp,
+      }),
     } as Operator;
     context.Operator.set(updatedOperator);
     await getPointsManager(pointsContext(context), event).award(delegator.id, "delegation", toPointsValue(amount), "delegated");
@@ -372,8 +420,10 @@ export function registerRestakingHandlers() {
       if (operator) {
         const updatedOperator: Operator = {
           ...operator,
-          restakingDelegationCount: subtractToZero(operator.restakingDelegationCount, 1n),
-          restakingUpdatedAt: timestamp,
+          ...({
+            stakingDelegationCount: subtractToZero(getOperatorStakingDelegationCount(operator), 1n),
+            stakingUpdatedAt: timestamp,
+          }),
         } as Operator;
         context.Operator.set(updatedOperator);
       }
@@ -398,8 +448,8 @@ export function registerRestakingHandlers() {
 
   MultiAssetDelegation.AssetEnabled.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
-    const asset = await ensureRestakingAsset(context, event.params.token, timestamp);
-    context.RestakingAsset.set({
+    const asset = await ensureStakingAsset(context, event.params.token, timestamp);
+    setStakingAsset(context, {
       ...asset,
       enabled: true,
       minOperatorStake: toBigInt(event.params.minOperatorStake),
@@ -410,39 +460,45 @@ export function registerRestakingHandlers() {
 
   MultiAssetDelegation.AssetDisabled.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
-    const asset = await ensureRestakingAsset(context, event.params.token, timestamp);
-    context.RestakingAsset.set({ ...asset, enabled: false, updatedAt: timestamp });
+    const asset = await ensureStakingAsset(context, event.params.token, timestamp);
+    setStakingAsset(context, { ...asset, enabled: false, updatedAt: timestamp });
   });
 
   MultiAssetDelegation.RoundAdvanced.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const roundValue = toBigInt(event.params.round);
-    const round: RestakingRound = {
+    const round: StakingRound = {
       id: roundValue.toString(),
       round: roundValue,
       blockNumber: getBlockNumber(event),
       timestamp,
-    } as RestakingRound;
-    context.RestakingRound.set(round);
-    context.RestakingRound.set({ ...round, id: "latest" });
+    } as StakingRound;
+    setStakingRound(context, round);
+    setStakingRound(context, { ...round, id: "latest" });
   });
 
   MultiAssetDelegation.Slashed.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
-    const slash: RestakingSlash = {
+    const slash: StakingSlash = {
       id: getEventId(event),
       operator_id: operator.id,
       serviceId: toBigInt(event.params.serviceId),
       operatorSlashed: toBigInt(event.params.operatorSlashed),
       delegatorsSlashed: toBigInt(event.params.delegatorsSlashed),
-      exchangeRateAfter: toBigInt(event.params.newExchangeRate),
+      exchangeRateAfter: toBigInt(event.params.exchangeRateAfter),
       blockNumber: getBlockNumber(event),
       txHash: getTxHash(event),
-    } as RestakingSlash;
-    context.RestakingSlash.set(slash);
-    const remainingStake = subtractToZero(operator.restakingStake, toBigInt(event.params.operatorSlashed));
-    const updatedOperator: Operator = { ...operator, restakingStake: remainingStake } as Operator;
+    } as StakingSlash;
+    setStakingSlash(context, slash);
+    const remainingStake = subtractToZero(getOperatorStakingStake(operator), toBigInt(event.params.operatorSlashed));
+    const updatedOperator: Operator = {
+      ...operator,
+      ...({
+        stakingStake: remainingStake,
+        stakingUpdatedAt: timestamp,
+      }),
+    } as Operator;
     context.Operator.set(updatedOperator);
     await maybeDeactivateOperatorParticipation(context, updatedOperator, timestamp);
   });
@@ -472,7 +528,7 @@ export function registerRestakingHandlers() {
 
   MultiAssetDelegation.RewardClaimed.handler(async ({ event, context }) => {
     const delegator = await ensureDelegator(context, event.params.account, getTimestamp(event));
-    createRestakingRewardClaim(context, "DELEGATOR_CLAIM", event, {
+    createStakingRewardClaim(context, "DELEGATOR_CLAIM", event, {
       delegator_id: delegator.id,
       amount: toBigInt(event.params.amount),
     });
@@ -486,7 +542,9 @@ export function registerRestakingHandlers() {
     context.Operator.set({
       ...operator,
       delegationMode: toNumber(event.params.mode),
-      restakingUpdatedAt: timestamp,
+      ...({
+        stakingUpdatedAt: timestamp,
+      }),
     } as Operator);
   });
 

@@ -21,7 +21,7 @@ enum SlashStatus {
   CANCELLED
 }
 
-enum RestakingOperatorStatus {
+enum StakingOperatorStatus {
   ACTIVE
   LEAVING
   INACTIVE
@@ -196,13 +196,13 @@ type Operator {
   rpcAddress: String
   createdAt: BigInt
   updatedAt: BigInt
-  restakingStatus: RestakingOperatorStatus
-  restakingStake: BigInt
-  restakingDelegationCount: BigInt
-  restakingLeavingRound: BigInt
-  restakingScheduledUnstakeAmount: BigInt
-  restakingScheduledUnstakeRound: BigInt
-  restakingUpdatedAt: BigInt
+  stakingStatus: StakingOperatorStatus
+  stakingStake: BigInt
+  stakingDelegationCount: BigInt
+  stakingLeavingRound: BigInt
+  stakingScheduledUnstakeAmount: BigInt
+  stakingScheduledUnstakeRound: BigInt
+  stakingUpdatedAt: BigInt
   delegationMode: Int  # 0=Disabled, 1=Whitelist, 2=Open (null treated as 0=Disabled)
   registrations: [OperatorRegistration!]! @derivedFrom(field: "operator")
   intents: [OperatorIntent!]! @derivedFrom(field: "operator")
@@ -257,6 +257,7 @@ type ServiceRequest {
   approvedOperators: [String!]!
   rejectedOperators: [String!]!
   operatorCandidates: [String!]
+  permittedCallers: [String!]!
   securityRequirements: String
   services: [Service!]! @derivedFrom(field: "request")
 }
@@ -367,7 +368,7 @@ type PaymentDistribution {
   developerAmount: BigInt!
   protocolAmount: BigInt!
   operatorPoolAmount: BigInt!
-  restakerPoolAmount: BigInt!
+  stakingPoolAmount: BigInt!
   distributedAt: BigInt!
   txHash: String!
 }
@@ -474,9 +475,10 @@ type RoleAssignment {
 }
 
 """
-ERC20/LST assets enabled in MultiAssetDelegation. Populated from AssetEnabled/AssetDisabled events.
+ERC20/LST assets enabled in MultiAssetDelegation.
+Canonical staking-facing entity populated from AssetEnabled/AssetDisabled events.
 """
-type RestakingAsset {
+type StakingAsset {
   id: ID!
   token: String!
   enabled: Boolean!
@@ -490,9 +492,9 @@ type RestakingAsset {
 }
 
 """
-Tracks the on-chain restaking round (MultiAssetDelegation.RoundAdvanced).
+Tracks the on-chain staking round (MultiAssetDelegation.RoundAdvanced).
 """
-type RestakingRound {
+type StakingRound {
   id: ID!
   round: BigInt!
   blockNumber: BigInt!
@@ -629,7 +631,7 @@ type DelegationBalanceDelta {
   txHash: String!
 }
 
-type RestakingSlash {
+type StakingSlash {
   id: ID!
   operator: Operator!
   serviceId: BigInt!
@@ -684,7 +686,7 @@ type RewardDistribution {
   txHash: String!
 }
 
-type RestakingRewardClaim {
+type StakingRewardClaim {
   id: ID!
   delegator: Delegator
   operator: Operator
@@ -886,7 +888,7 @@ type LiquidDelegationVault {
   isNative: Boolean!
   operator: Operator!
   assetAddress: String!
-  asset: RestakingAsset
+  stakingAsset: StakingAsset
   blueprintSelection: BlueprintSelectionMode!
   blueprintIds: [BigInt!]!
   totalAssets: BigInt!

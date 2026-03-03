@@ -1,5 +1,5 @@
 import { registerTangleHandlers } from "./handlers/tangle";
-import { registerRestakingHandlers } from "./handlers/staking";
+import { registerStakingHandlers } from "./handlers/staking";
 import { registerRewardVaultHandlers } from "./handlers/rewardVaults";
 import { registerBlueprintManagerHandlers } from "./handlers/blueprintManager";
 import { registerCreditHandlers } from "./handlers/credits";
@@ -8,7 +8,7 @@ import { registerLiquidDelegationHandlers } from "./handlers/liquidDelegation";
 import { registerValidatorPodHandlers } from "./handlers/validatorPods";
 
 registerTangleHandlers();
-registerRestakingHandlers();
+registerStakingHandlers();
 registerRewardVaultHandlers();
 registerBlueprintManagerHandlers();
 registerCreditHandlers();

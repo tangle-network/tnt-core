@@ -51,7 +51,7 @@ export const PROGRAMS = {
   "delegator-deposit": {
     id: "delegator-deposit",
     name: "Delegator Deposit",
-    description: "Depositing assets into restaking",
+    description: "Depositing assets into staking",
     category: "DELEGATOR",
     network: getProgramNetwork("delegator-deposit"),
     weight: 5,
@@ -64,12 +64,12 @@ export const PROGRAMS = {
     network: getProgramNetwork("delegation"),
     weight: 8,
   },
-  "restaker-vault": {
-    id: "restaker-vault",
+  "staking-vault": {
+    id: "staking-vault",
     name: "Vault Stake",
-    description: "Locking restaked assets into vaults",
+    description: "Locking staked assets into vaults",
     category: "DELEGATOR",
-    network: getProgramNetwork("restaker-vault"),
+    network: getProgramNetwork("staking-vault"),
     weight: 6,
   },
   "liquid-vault-deposit": {

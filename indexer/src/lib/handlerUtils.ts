@@ -10,8 +10,8 @@ import type {
   Operator,
   OperatorStakeChange,
   ProtocolState,
-  RestakingAsset,
-  RestakingRewardClaim,
+  StakingAsset,
+  StakingRewardClaim,
   RewardDistribution,
   RewardVaultEvent,
   SlashConfig,
@@ -152,13 +152,15 @@ export const ensureOperator = async (
   return operator;
 };
 
-export const ensureRestakingAsset = async (
-  context: { RestakingAsset: { get: (id: string) => Promise<RestakingAsset | undefined>; set: (entity: RestakingAsset) => void } },
+export const ensureStakingAsset = async (
+  context: {
+    StakingAsset: { get: (id: string) => Promise<StakingAsset | undefined>; set: (entity: StakingAsset) => void };
+  },
   token: string | undefined,
   timestamp: bigint
 ) => {
   const id = normalizeAddress(token ?? ZERO_ADDRESS);
-  let asset = await context.RestakingAsset.get(id);
+  let asset = await context.StakingAsset.get(id);
   if (!asset) {
     asset = {
       id,
@@ -171,10 +173,10 @@ export const ensureRestakingAsset = async (
       rewardMultiplierBps: 0,
       createdAt: timestamp,
       updatedAt: timestamp,
-    } as RestakingAsset;
+    } as StakingAsset;
   }
   asset = { ...asset, updatedAt: timestamp };
-  context.RestakingAsset.set(asset);
+  context.StakingAsset.set(asset);
   return asset;
 };
 
@@ -363,14 +365,16 @@ export const createRewardDistribution = (
   context.RewardDistribution.set(entity);
 };
 
-export const createRestakingRewardClaim = (
-  context: { RestakingRewardClaim: { set: (entity: RestakingRewardClaim) => void } },
+export const createStakingRewardClaim = (
+  context: {
+    StakingRewardClaim: { set: (entity: StakingRewardClaim) => void };
+  },
   kind: RewardDistributionKind,
   event: EventLike,
-  data: Partial<RestakingRewardClaim>
+  data: Partial<StakingRewardClaim>
 ) => {
-  const entity: RestakingRewardClaim = {
-    id: `restaking-claim-${getEventId(event)}`,
+  const entity: StakingRewardClaim = {
+    id: `staking-claim-${getEventId(event)}`,
     kind,
     asset: ZERO_ADDRESS,
     amount: 0n,
@@ -378,8 +382,8 @@ export const createRestakingRewardClaim = (
     timestamp: getTimestamp(event),
     txHash: getTxHash(event),
     ...data,
-  } as RestakingRewardClaim;
-  context.RestakingRewardClaim.set(entity);
+  } as StakingRewardClaim;
+  context.StakingRewardClaim.set(entity);
 };
 
 export const recordDelegationBlueprintEvent = (
@@ -486,7 +490,8 @@ export const maybeDeactivateDelegatorParticipation = async (context: any, delega
 };
 
 export const maybeDeactivateOperatorParticipation = async (context: any, operator: Operator, timestamp: bigint) => {
-  if ((operator.restakingStake ?? 0n) <= 0n) {
+  const stake = operator.stakingStake ?? 0n;
+  if (stake <= 0n) {
     await deactivateParticipation(context, "operator-hourly", operator.id, timestamp);
   }
 };

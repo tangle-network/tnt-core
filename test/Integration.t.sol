@@ -75,7 +75,7 @@ contract IntegrationTest is BaseTest {
         assertTrue(tangle.isServiceActive(0));
 
         // Step 7: Check payment was distributed (PayOnce model)
-        // Default split: developer=2000, protocol=2000, operator=4000, restaker=2000
+        // Default split: developer=2000, protocol=2000, operator=4000, staker=2000
         uint256 developerAmount = (payment * 2000) / 10_000;
         uint256 protocolAmount = (payment * 2000) / 10_000;
 
@@ -96,7 +96,7 @@ contract IntegrationTest is BaseTest {
         Types.JobCall memory job = tangle.getJobCall(0, callId);
         assertTrue(job.completed);
 
-        // Service-fee restaker rewards are handled by ServiceFeeDistributor during payment distribution.
+        // Service-fee staker rewards are handled by ServiceFeeDistributor during payment distribution.
     }
 
     function test_FullWorkflow_MultiOperatorExposure() public {
@@ -497,7 +497,7 @@ contract IntegrationTest is BaseTest {
     // EDGE CASES AND ERROR HANDLING
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function test_CannotRegisterWithoutRestakingStake() public {
+    function test_CannotRegisterWithoutStakingStake() public {
         vm.prank(developer);
         uint64 blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://test", address(0)));
 

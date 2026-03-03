@@ -117,7 +117,7 @@ contract StakeRequirementTests is BaseTest {
     }
 
     function test_RegisterOperator_BelowDefaultMinStake_Reverts() public {
-        // Register with staking at below minimum (shouldn't be possible with restaking's own checks)
+        // Register with staking at below minimum (shouldn't be possible with staking's own checks)
         // But we test the Tangle contract's check by using a higher custom minimum
         vm.prank(operator1);
         staking.registerOperator{ value: MIN_OPERATOR_STAKE }();

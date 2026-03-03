@@ -247,11 +247,11 @@ library Errors {
     error ServiceFeeDistributorNotSet();
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // RESTAKING
+    // STAKING
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Restaking module not set
-    error RestakingNotSet();
+    /// @notice Staking module not set
+    error StakingNotSet();
 
     /// @notice Slash amount exceeds stake
     error SlashExceedsStake(address operator, uint256 slashAmount, uint256 stake);

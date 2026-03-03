@@ -102,7 +102,7 @@ abstract contract Operators is Base {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (!bp.active) revert Errors.BlueprintNotActive(blueprintId);
 
-        // Must be active in restaking
+        // Must be active in staking
         if (!_staking.isOperatorActive(msg.sender)) {
             revert Errors.OperatorNotActive(msg.sender);
         }

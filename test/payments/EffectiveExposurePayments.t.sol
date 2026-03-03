@@ -29,30 +29,30 @@ contract EffectiveExposurePaymentsTest is Test {
 
         uint256 totalEffectiveExposure = 70 ether;
         uint256 totalOperatorAmount = 700 ether; // 700 total to distribute
-        uint256 totalRestakerAmount = 300 ether;
+        uint256 totalStakerAmount = 300 ether;
 
         PaymentLib.OperatorPayment[] memory payments = PaymentLib.calculateOperatorPayments(
-            totalOperatorAmount, totalRestakerAmount, operators, effectiveExposures, totalEffectiveExposure
+            totalOperatorAmount, totalStakerAmount, operators, effectiveExposures, totalEffectiveExposure
         );
 
         assertEq(payments.length, 3, "Should have 3 payment entries");
 
         // Alice: 50/70 ≈ 71.4%
-        // Expected: 700 * 50 / 70 = 500 (operator), 300 * 50 / 70 ≈ 214 (restaker)
+        // Expected: 700 * 50 / 70 = 500 (operator), 300 * 50 / 70 ≈ 214 (staker)
         assertEq(payments[0].operator, address(0x1), "First should be Alice");
         assertEq(payments[0].operatorShare, 500 ether, "Alice operator share should be 500 ETH");
-        assertEq(payments[0].restakerShare, 214_285_714_285_714_285_714, "Alice restaker share ~214 ETH");
+        assertEq(payments[0].stakerShare, 214_285_714_285_714_285_714, "Alice staker share ~214 ETH");
 
         // Bob: 20/70 ≈ 28.6%
-        // Expected: 700 * 20 / 70 = 200 (operator), 300 * 20 / 70 ≈ 85.7 (restaker)
+        // Expected: 700 * 20 / 70 = 200 (operator), 300 * 20 / 70 ≈ 85.7 (staker)
         assertEq(payments[1].operator, address(0x2), "Second should be Bob");
         assertEq(payments[1].operatorShare, 200 ether, "Bob operator share should be 200 ETH");
-        assertEq(payments[1].restakerShare, 85_714_285_714_285_714_285, "Bob restaker share ~85.7 ETH");
+        assertEq(payments[1].stakerShare, 85_714_285_714_285_714_285, "Bob staker share ~85.7 ETH");
 
         // Charlie: 0/70 = 0% (last operator gets remainder)
         // Since Charlie has 0 effective exposure, his share should be remainder after Alice and Bob
         assertEq(payments[2].operator, address(0x3), "Third should be Charlie");
-        // Charlie gets remainder: 700 - 500 - 200 = 0 (operator), 300 - 214.28... - 85.71... = 0 (restaker)
+        // Charlie gets remainder: 700 - 500 - 200 = 0 (operator), 300 - 214.28... - 85.71... = 0 (staker)
         assertEq(payments[2].operatorShare, 0, "Charlie operator share should be 0");
     }
 
@@ -90,7 +90,7 @@ contract EffectiveExposurePaymentsTest is Test {
 
         assertEq(payments.length, 1, "Should have 1 payment entry");
         assertEq(payments[0].operatorShare, 1000 ether, "Single operator gets all operator share");
-        assertEq(payments[0].restakerShare, 500 ether, "Single operator gets all restaker share");
+        assertEq(payments[0].stakerShare, 500 ether, "Single operator gets all staker share");
     }
 
     /// @notice Test that dust is properly captured by last operator

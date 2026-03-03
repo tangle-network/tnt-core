@@ -19,7 +19,7 @@ The `setup-local-credits.sh` script sets up a complete local environment for tes
 2. **Deploys Multicall3** - Injects the Multicall3 contract at the canonical address
 3. **Deploys Core Contracts** - Runs `LocalTestnet.s.sol` which deploys:
    - TangleToken (TNT)
-   - MultiAssetDelegation (restaking)
+   - MultiAssetDelegation (staking)
    - Credits contract
    - And other supporting contracts
 4. **Starts Docker Containers** - PostgreSQL and Hasura for the indexer

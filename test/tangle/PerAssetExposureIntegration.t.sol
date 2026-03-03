@@ -44,7 +44,7 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         tangle.setPriceOracle(address(oracle));
         staking.setServiceFeeDistributor(address(distributor));
 
-        // Enable stake ERC20 asset in restaking
+        // Enable stake ERC20 asset in staking
         staking.enableAsset(address(stakeToken), MIN_OPERATOR_STAKE, MIN_DELEGATION, 0, 10_000);
         vm.stopPrank();
 
@@ -89,7 +89,7 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         address[] memory ops = new address[](1);
         ops[0] = operator1;
 
-        // Pay 110 so that restaker share (20%) = 22 and splits cleanly.
+        // Pay 110 so that staker share (20%) = 22 and splits cleanly.
         uint256 paymentAmount = 110 ether;
         vm.startPrank(user1);
         payToken.approve(address(tangle), paymentAmount);
@@ -106,7 +106,7 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         vm.prank(operator1);
         tangle.approveServiceWithCommitments(requestId, commits);
 
-        // Restaker share is 22. With equal stake but 10x lower commitment on ERC20, expected:
+        // Staker share is 22. With equal stake but 10x lower commitment on ERC20, expected:
         // native receives 20, ERC20 receives 2.
         uint256 d1Before = payToken.balanceOf(delegator1);
         uint256 d2Before = payToken.balanceOf(delegator2);

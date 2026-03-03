@@ -24,9 +24,9 @@
     "_todo_tnt_token": "TODO: point to canonical TNT token on Base",
     "maxBlueprintsPerOperator": 0
   },
-  "_todo_restake_assets": "TODO: replace placeholder token/adapter addresses with canonical Base deployments",
+  "_todo_stake_assets": "TODO: replace placeholder token/adapter addresses with canonical Base deployments",
   "_todo_deposit_policy": "TODO: adjust deposit caps/output as the protocol scales",
-  "restakeAssets": [
+  "stakeAssets": [
     {
       "symbol": "TNT",
       "token": "0x0000000000000000000000000000000000000001",
@@ -153,7 +153,7 @@
       "operatorsBps": 2500,
       "customersBps": 1000,
       "developersBps": 1500,
-      "restakersBps": 0
+      "stakersBps": 0
     },
     "vaults": [
       {
