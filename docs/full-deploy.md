@@ -90,12 +90,12 @@ The script reads a JSON config pointed to by the `FULL_DEPLOY_CONFIG` environmen
 ```
 
 - **roles** – admin/treasury overrides plus optional timelock + multisig targets. When `revokeBootstrap` is true, the bootstrap admin (deployer/admin) is removed after roles are granted.
-- **core** – toggles for reusing an existing deployment and overriding the restaking defaults. When `deploy` is `false`, populate `restaking`, `tangle`, and `statusRegistry` in the config.
+- **core** – toggles for reusing an existing deployment and overriding the staking defaults. When `deploy` is `false`, populate `staking`, `tangle`, and `statusRegistry` in the config.
 - **restakeAssets** – array of ERC20 assets onboarded via `enableAsset`/`enableAssetWithAdapter`.
 - **incentives** – optionally deploy the metrics/RewardVaults/InflationPool stack, configure vaults, and set epoch/weight parameters. If any `weights.*Bps` fields are non-zero they must sum to 10_000. If the TNT token already exists, set `tntToken`; otherwise the script deploys a fresh TNT token.
 - **guards** – pause switches, adapter enforcement, delay overrides, and operator blueprint limits.
-- **manifest** – output file for the final address snapshot (directories are created automatically).
-- **migration** – optional metadata bundle (tntToken/restaking/tangle plus an optional `merklePath` string for consumers). The actual v2 claim contract + Merkle artifacts are produced by `packages/migration-claim`.
+- **manifest** – output file for the final address snapshot (directories are created automatically). The output includes both `staking` (canonical) and `restaking` (legacy compatibility) keys pointing to the same MultiAssetDelegation address.
+- **migration** – optional metadata bundle (tntToken/staking/tangle plus an optional `merklePath` string for consumers). The actual v2 claim contract + Merkle artifacts are produced by `packages/migration-claim`.
 
 ### Role handoff
 
@@ -152,7 +152,7 @@ Override `FULL_DEPLOY_CONFIG` to point at another JSON file for bespoke local se
 
 The manifest includes:
 
-- Core contract addresses (Tangle, MultiAssetDelegation, OperatorStatusRegistry)
+- Core contract addresses (Tangle, MultiAssetDelegation, OperatorStatusRegistry), including both `staking` and `restaking` manifest aliases for MultiAssetDelegation
 
 ## Liveness & event expectations
 

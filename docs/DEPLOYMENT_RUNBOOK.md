@@ -65,7 +65,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 
 ### 3) Deploy L2 slashing receiver on Base Sepolia
 - Run `script/DeployL2Slashing.s.sol:DeployL2SlashingHyperlane` (or `...LayerZero`) on Base Sepolia with:
-  - `RESTAKING=<restaking from FullDeploy manifest>`
+  - `RESTAKING=<staking (or legacy restaking) from FullDeploy manifest>`
   - `SOURCE_CHAIN_ID=17000`
   - `L1_CONNECTOR=<connector from Holesky manifest>`
   - `L1_MESSENGER=<messenger from Holesky manifest>`

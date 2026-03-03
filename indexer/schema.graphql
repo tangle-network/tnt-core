@@ -21,6 +21,16 @@ enum SlashStatus {
   CANCELLED
 }
 
+enum StakingOperatorStatus {
+  ACTIVE
+  LEAVING
+  INACTIVE
+}
+
+"""
+Legacy enum retained for external compatibility.
+Use StakingOperatorStatus for new consumers.
+"""
 enum RestakingOperatorStatus {
   ACTIVE
   LEAVING
@@ -196,6 +206,14 @@ type Operator {
   rpcAddress: String
   createdAt: BigInt
   updatedAt: BigInt
+  stakingStatus: StakingOperatorStatus
+  stakingStake: BigInt
+  stakingDelegationCount: BigInt
+  stakingLeavingRound: BigInt
+  stakingScheduledUnstakeAmount: BigInt
+  stakingScheduledUnstakeRound: BigInt
+  stakingUpdatedAt: BigInt
+  # Legacy compatibility fields (mirrored from staking* values)
   restakingStatus: RestakingOperatorStatus
   restakingStake: BigInt
   restakingDelegationCount: BigInt
@@ -257,6 +275,7 @@ type ServiceRequest {
   approvedOperators: [String!]!
   rejectedOperators: [String!]!
   operatorCandidates: [String!]
+  permittedCallers: [String!]!
   securityRequirements: String
   services: [Service!]! @derivedFrom(field: "request")
 }
@@ -474,7 +493,24 @@ type RoleAssignment {
 }
 
 """
-ERC20/LST assets enabled in MultiAssetDelegation. Populated from AssetEnabled/AssetDisabled events.
+ERC20/LST assets enabled in MultiAssetDelegation.
+Canonical staking-facing entity populated from AssetEnabled/AssetDisabled events.
+"""
+type StakingAsset {
+  id: ID!
+  token: String!
+  enabled: Boolean!
+  minOperatorStake: BigInt!
+  minDelegation: BigInt!
+  depositCap: BigInt
+  currentDeposits: BigInt!
+  rewardMultiplierBps: Int!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+"""
+Legacy compatibility alias of StakingAsset for external consumers.
 """
 type RestakingAsset {
   id: ID!
@@ -490,7 +526,17 @@ type RestakingAsset {
 }
 
 """
-Tracks the on-chain restaking round (MultiAssetDelegation.RoundAdvanced).
+Tracks the on-chain staking round (MultiAssetDelegation.RoundAdvanced).
+"""
+type StakingRound {
+  id: ID!
+  round: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+"""
+Legacy compatibility alias of StakingRound.
 """
 type RestakingRound {
   id: ID!
@@ -629,6 +675,20 @@ type DelegationBalanceDelta {
   txHash: String!
 }
 
+type StakingSlash {
+  id: ID!
+  operator: Operator!
+  serviceId: BigInt!
+  operatorSlashed: BigInt!
+  delegatorsSlashed: BigInt!
+  exchangeRateAfter: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+"""
+Legacy compatibility alias of StakingSlash.
+"""
 type RestakingSlash {
   id: ID!
   operator: Operator!
@@ -684,6 +744,21 @@ type RewardDistribution {
   txHash: String!
 }
 
+type StakingRewardClaim {
+  id: ID!
+  delegator: Delegator
+  operator: Operator
+  asset: String!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+  kind: RewardDistributionKind!
+}
+
+"""
+Legacy compatibility alias of StakingRewardClaim.
+"""
 type RestakingRewardClaim {
   id: ID!
   delegator: Delegator
@@ -886,6 +961,8 @@ type LiquidDelegationVault {
   isNative: Boolean!
   operator: Operator!
   assetAddress: String!
+  stakingAsset: StakingAsset
+  # Legacy compatibility relation
   asset: RestakingAsset
   blueprintSelection: BlueprintSelectionMode!
   blueprintIds: [BigInt!]!
