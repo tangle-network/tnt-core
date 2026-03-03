@@ -1,11 +1,21 @@
-FROM rust:1.85-slim AS builder
+FROM rust:1.88-slim AS builder
 
 WORKDIR /repo
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates g++ \
+    && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates g++ curl git \
     && rm -rf /var/lib/apt/lists/*
 
 COPY packages/migration-claim/sp1 ./packages/migration-claim/sp1
+
+# Install SP1 toolchain and build guest ELF before compiling the host API.
+ENV PATH="/root/.sp1/bin:${PATH}"
+RUN curl -L https://sp1up.succinct.xyz | bash \
+    && /root/.sp1/bin/sp1up
+
+WORKDIR /repo/packages/migration-claim/sp1/program
+RUN cargo prove build \
+    && mkdir -p elf \
+    && cp "$(find ../target/elf-compilation -type f -name sr25519-claim-program | head -n1)" elf/riscv32im-succinct-zkvm-elf
 
 WORKDIR /repo/packages/migration-claim/sp1
 RUN cargo build -p tnt-claim-prover-api --release
