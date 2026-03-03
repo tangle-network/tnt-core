@@ -14,7 +14,7 @@
     "operatorCommissionBps": 1200,
     "maxBlueprintsPerOperator": 48
   },
-  "restakeAssets": [
+  "stakeAssets": [
     {
       "symbol": "TNT",
       "token": "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa",
@@ -46,7 +46,7 @@
       "operatorsBps": 2500,
       "customersBps": 1000,
       "developersBps": 1500,
-      "restakersBps": 0
+      "stakersBps": 0
     },
     "vaults": [
       {

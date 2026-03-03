@@ -10,7 +10,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 **Core / Incentives**
 - `script/Deploy.s.sol:DeployV2`: deploys core stack (UUPS proxies) and optionally deploys `TangleToken` (TNT).
 - `script/FullDeploy.s.sol:FullDeploy`: orchestrates `DeployV2` plus:
-  - Restake asset enablement (with optional adapters)
+  - Stake asset enablement (with optional adapters)
   - Optional `TangleMetrics`, `RewardVaults`, `InflationPool`
   - Optional `Credits` (standalone Merkle-root credits claim registry; no token transfers)
   - Writes a manifest JSON (see `deploy/config/*` -> `.manifest.path`)
@@ -65,7 +65,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 
 ### 3) Deploy L2 slashing receiver on Base Sepolia
 - Run `script/DeployL2Slashing.s.sol:DeployL2SlashingHyperlane` (or `...LayerZero`) on Base Sepolia with:
-  - `RESTAKING=<staking (or legacy restaking) from FullDeploy manifest>`
+  - `STAKING=<staking from FullDeploy manifest>`
   - `SOURCE_CHAIN_ID=17000`
   - `L1_CONNECTOR=<connector from Holesky manifest>`
   - `L1_MESSENGER=<messenger from Holesky manifest>`

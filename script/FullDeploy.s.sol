@@ -57,7 +57,7 @@ contract FullDeploy is DeployV2 {
         uint32 maxBlueprintsPerOperator;
     }
 
-    struct RestakeAssetConfig {
+    struct StakeAssetConfig {
         string symbol;
         address token;
         address adapter;
@@ -78,7 +78,7 @@ contract FullDeploy is DeployV2 {
         uint16 operatorsBps;
         uint16 customersBps;
         uint16 developersBps;
-        uint16 restakersBps;
+        uint16 stakersBps;
     }
 
     struct IncentiveConfig {
@@ -103,7 +103,7 @@ contract FullDeploy is DeployV2 {
     }
 
     struct GuardsConfig {
-        bool pauseRestaking;
+        bool pauseStaking;
         bool pauseTangle;
         bool requireAdapters;
         uint64 delegatorDelay;
@@ -155,7 +155,7 @@ contract FullDeploy is DeployV2 {
         string network;
         RolesConfig roles;
         CoreConfig core;
-        RestakeAssetConfig[] restakeAssets;
+        StakeAssetConfig[] stakeAssets;
         IncentiveConfig incentives;
         GuardsConfig guards;
         ManifestConfig manifest;
@@ -179,7 +179,7 @@ contract FullDeploy is DeployV2 {
         address rewardVaults;
         address inflationPool;
         address credits;
-        RestakeAssetConfig[] assets;
+        StakeAssetConfig[] assets;
         RewardVaultConfig[] vaults;
         InflationWeights weights;
         uint256 epochLength;
@@ -239,8 +239,8 @@ contract FullDeploy is DeployV2 {
             streamingPaymentManager = _deployStreamingPaymentManagerProxy(admin, tangle, serviceFeeDistributor);
         }
 
-        _substituteTntSentinel(cfg.restakeAssets, cfg.incentives.vaults, tntToken);
-        _configureRestaking(staking, cfg.restakeAssets);
+        _substituteTntSentinel(cfg.stakeAssets, cfg.incentives.vaults, tntToken);
+        _configureStaking(staking, cfg.stakeAssets);
         _applyRewardsManager(staking, rewardVaults, inflationPool);
         _wireServiceFeeDistributor(staking, tangle, serviceFeeDistributor, streamingPaymentManager, priceOracle);
         _configureRewardVaults(rewardVaults, cfg.incentives.vaults);
@@ -269,7 +269,7 @@ contract FullDeploy is DeployV2 {
         );
         vm.stopBroadcast();
 
-        _runSmokeTests(staking, tangle, rewardVaults, cfg.restakeAssets, cfg.guards);
+        _runSmokeTests(staking, tangle, rewardVaults, cfg.stakeAssets, cfg.guards);
 
         DeploymentArtifacts memory artifacts = DeploymentArtifacts({
             network: bytes(cfg.network).length == 0 ? "unknown" : cfg.network,
@@ -287,7 +287,7 @@ contract FullDeploy is DeployV2 {
             rewardVaults: rewardVaults,
             inflationPool: inflationPool,
             credits: credits,
-            assets: cfg.restakeAssets,
+            assets: cfg.stakeAssets,
             vaults: cfg.incentives.vaults,
             weights: cfg.incentives.weights,
             epochLength: epochLength,
@@ -300,7 +300,7 @@ contract FullDeploy is DeployV2 {
 
         console2.log("\nDeployment complete.");
         console2.log("  Tangle:", tangle);
-        console2.log("  Restaking:", staking);
+        console2.log("  Staking:", staking);
         if (rewardVaults != address(0)) {
             console2.log("  RewardVaults:", rewardVaults);
         }
@@ -362,7 +362,7 @@ contract FullDeploy is DeployV2 {
             cfg.core.maxBlueprintsPerOperator = uint32(jsonBlob.readUint(".core.maxBlueprintsPerOperator"));
         }
 
-        cfg.restakeAssets = _loadRestakeAssets(jsonBlob);
+        cfg.stakeAssets = _loadStakeAssets(jsonBlob);
 
         if (jsonBlob.keyExists(".incentives.deployMetrics")) {
             cfg.incentives.deployMetrics = jsonBlob.readBool(".incentives.deployMetrics");
@@ -427,14 +427,14 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".incentives.weights.developersBps")) {
             cfg.incentives.weights.developersBps = uint16(jsonBlob.readUint(".incentives.weights.developersBps"));
         }
-        if (jsonBlob.keyExists(".incentives.weights.restakersBps")) {
-            cfg.incentives.weights.restakersBps = uint16(jsonBlob.readUint(".incentives.weights.restakersBps"));
+        if (jsonBlob.keyExists(".incentives.weights.stakersBps")) {
+            cfg.incentives.weights.stakersBps = uint16(jsonBlob.readUint(".incentives.weights.stakersBps"));
         }
 
         cfg.incentives.vaults = _loadVaults(jsonBlob);
 
-        if (jsonBlob.keyExists(".guards.pauseRestaking")) {
-            cfg.guards.pauseRestaking = jsonBlob.readBool(".guards.pauseRestaking");
+        if (jsonBlob.keyExists(".guards.pauseStaking")) {
+            cfg.guards.pauseStaking = jsonBlob.readBool(".guards.pauseStaking");
         }
         if (jsonBlob.keyExists(".guards.pauseTangle")) {
             cfg.guards.pauseTangle = jsonBlob.readBool(".guards.pauseTangle");
@@ -531,14 +531,14 @@ contract FullDeploy is DeployV2 {
         if (jsonBlob.keyExists(".credits.credits")) cfg.credits.credits = jsonBlob.readAddress(".credits.credits");
     }
 
-    function _loadRestakeAssets(string memory jsonBlob) internal view returns (RestakeAssetConfig[] memory assets) {
+    function _loadStakeAssets(string memory jsonBlob) internal view returns (StakeAssetConfig[] memory assets) {
         uint256 count;
-        while (jsonBlob.keyExists(string.concat(".restakeAssets[", count.toString(), "].symbol"))) {
+        while (jsonBlob.keyExists(string.concat(".stakeAssets[", count.toString(), "].symbol"))) {
             count++;
         }
-        assets = new RestakeAssetConfig[](count);
+        assets = new StakeAssetConfig[](count);
         for (uint256 i = 0; i < count; i++) {
-            string memory base = string.concat(".restakeAssets[", i.toString(), "]");
+            string memory base = string.concat(".stakeAssets[", i.toString(), "]");
             assets[i].symbol = jsonBlob.readString(string.concat(base, ".symbol"));
             assets[i].token = jsonBlob.readAddress(string.concat(base, ".token"));
             if (jsonBlob.keyExists(string.concat(base, ".adapter"))) {
@@ -591,7 +591,7 @@ contract FullDeploy is DeployV2 {
     }
 
     function _substituteTntSentinel(
-        RestakeAssetConfig[] memory assets,
+        StakeAssetConfig[] memory assets,
         RewardVaultConfig[] memory vaults,
         address tntToken
     )
@@ -773,12 +773,12 @@ contract FullDeploy is DeployV2 {
     // CONFIGURATION TASKS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _configureRestaking(address stakingAddr, RestakeAssetConfig[] memory assets) internal {
+    function _configureStaking(address stakingAddr, StakeAssetConfig[] memory assets) internal {
         if (stakingAddr == address(0)) return;
 
         IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingAddr));
         for (uint256 i = 0; i < assets.length; i++) {
-            RestakeAssetConfig memory asset = assets[i];
+            StakeAssetConfig memory asset = assets[i];
             if (asset.token == address(0)) {
                 console2.log("Skipping asset with zero token (", asset.symbol, ")");
                 continue;
@@ -814,7 +814,7 @@ contract FullDeploy is DeployV2 {
         if (stakingAddr == address(0) || rewardVaultsAddr == address(0)) return;
         IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingAddr));
         staking.setRewardsManager(rewardVaultsAddr);
-        console2.log("Set RewardVaults manager on restaking");
+        console2.log("Set RewardVaults manager on staking");
 
         // RewardVaults is called by:
         // - MultiAssetDelegation (stake tracking + service rewards)
@@ -824,7 +824,7 @@ contract FullDeploy is DeployV2 {
 
         if (!vaultsContract.hasRole(role, stakingAddr)) {
             vaultsContract.grantRole(role, stakingAddr);
-            console2.log("Granted RewardVaults manager role to restaking");
+            console2.log("Granted RewardVaults manager role to staking");
         }
         if (inflationPoolAddr != address(0) && !vaultsContract.hasRole(role, inflationPoolAddr)) {
             vaultsContract.grantRole(role, inflationPoolAddr);
@@ -872,17 +872,17 @@ contract FullDeploy is DeployV2 {
         InflationWeights memory weights = inc.weights;
         if (
             weights.stakingBps != 0 || weights.operatorsBps != 0 || weights.customersBps != 0
-                || weights.developersBps != 0 || weights.restakersBps != 0
+                || weights.developersBps != 0 || weights.stakersBps != 0
         ) {
             uint256 total = uint256(weights.stakingBps) + uint256(weights.operatorsBps) + uint256(weights.customersBps)
-                + uint256(weights.developersBps) + uint256(weights.restakersBps);
+                + uint256(weights.developersBps) + uint256(weights.stakersBps);
             require(total == 10_000, "Inflation weights must sum to 10_000 bps");
             pool.setWeights(
                 weights.stakingBps,
                 weights.operatorsBps,
                 weights.customersBps,
                 weights.developersBps,
-                weights.restakersBps
+                weights.stakersBps
             );
         }
 
@@ -891,7 +891,7 @@ contract FullDeploy is DeployV2 {
         }
 
         if (tangleAddr != address(0) && distributor != address(0)) {
-            pool.setRestakerInflationConfig(tangleAddr, distributor);
+            pool.setStakerInflationConfig(tangleAddr, distributor);
             ServiceFeeDistributor(payable(distributor)).setInflationPool(poolAddr);
         }
     }
@@ -984,7 +984,7 @@ contract FullDeploy is DeployV2 {
             if (guards.delegatorDelay != 0 || guards.operatorDelay != 0 || guards.bondLessDelay != 0) {
                 staking.setDelays(guards.bondLessDelay, guards.delegatorDelay, guards.operatorDelay);
             }
-            if (guards.pauseRestaking) {
+            if (guards.pauseStaking) {
                 staking.pause();
             }
         }
@@ -1313,7 +1313,7 @@ contract FullDeploy is DeployV2 {
         address stakingAddr,
         address tangleAddr,
         address rewardVaultsAddr,
-        RestakeAssetConfig[] memory assets,
+        StakeAssetConfig[] memory assets,
         GuardsConfig memory guards
     )
         internal
@@ -1322,7 +1322,7 @@ contract FullDeploy is DeployV2 {
         if (stakingAddr != address(0)) {
             IMultiAssetDelegation staking = IMultiAssetDelegation(payable(stakingAddr));
             for (uint256 i = 0; i < assets.length; i++) {
-                RestakeAssetConfig memory asset = assets[i];
+                StakeAssetConfig memory asset = assets[i];
                 if (asset.token == address(0)) continue;
                 Types.AssetConfig memory cfg = staking.getAssetConfig(asset.token);
                 if (!cfg.enabled) {
@@ -1375,9 +1375,6 @@ contract FullDeploy is DeployV2 {
                 "\"staking\":\"",
                 _addrToString(artifacts.staking),
                 "\",",
-                "\"restaking\":\"",
-                _addrToString(artifacts.staking),
-                "\",",
                 "\"statusRegistry\":\"",
                 _addrToString(artifacts.statusRegistry),
                 "\",",
@@ -1399,7 +1396,7 @@ contract FullDeploy is DeployV2 {
                 "\"epochLength\":",
                 artifacts.epochLength.toString(),
                 ",",
-                "\"restakeAssets\":",
+                "\"stakeAssets\":",
                 _assetsToJson(artifacts.assets),
                 ",",
                 "\"rewardVaultsConfig\":",
@@ -1462,10 +1459,10 @@ contract FullDeploy is DeployV2 {
     // JSON HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _assetsToJson(RestakeAssetConfig[] memory assets) internal pure returns (string memory) {
+    function _assetsToJson(StakeAssetConfig[] memory assets) internal pure returns (string memory) {
         bytes memory buffer = abi.encodePacked("[");
         for (uint256 i = 0; i < assets.length; i++) {
-            RestakeAssetConfig memory asset = assets[i];
+            StakeAssetConfig memory asset = assets[i];
             buffer = abi.encodePacked(
                 buffer,
                 i == 0 ? "{" : ",{",
@@ -1534,8 +1531,8 @@ contract FullDeploy is DeployV2 {
                 '"developersBps":',
                 uint256(weights.developersBps).toString(),
                 ",",
-                '"restakersBps":',
-                uint256(weights.restakersBps).toString(),
+                '"stakersBps":',
+                uint256(weights.stakersBps).toString(),
                 "}"
             )
         );
@@ -1545,8 +1542,8 @@ contract FullDeploy is DeployV2 {
         return string(
             abi.encodePacked(
                 "{",
-                '"pauseRestaking":',
-                _boolToString(guards.pauseRestaking),
+                '"pauseStaking":',
+                _boolToString(guards.pauseStaking),
                 ",",
                 '"pauseTangle":',
                 _boolToString(guards.pauseTangle),

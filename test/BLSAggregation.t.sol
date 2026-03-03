@@ -595,7 +595,7 @@ contract BLSAggregationTest is BaseTest {
         tangle.submitAggregatedResult(serviceId, callId, "result", twoSigners, sig, pubkey);
     }
 
-    function test_submitResult_RevertsWhenOperatorNotActiveInRestaking() public {
+    function test_submitResult_RevertsWhenOperatorNotActiveInStaking() public {
         // Default: aggregation not required for job 0
         vm.prank(user1);
         uint64 callId = tangle.submitJob(serviceId, 0, "test input");

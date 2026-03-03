@@ -1,6 +1,5 @@
 /**
  * Sync `indexer/config.yaml` contract addresses from a `FullDeploy` manifest JSON.
- * Supports both `staking` (canonical) and `restaking` (legacy) manifest keys.
  *
  * This keeps the indexer aligned when the protocol is redeployed (including facet/diamond refactors where
  * the proxy address changes).
@@ -15,7 +14,6 @@ type Manifest = {
   chainId?: number;
   tangle?: string;
   staking?: string;
-  restaking?: string;
   statusRegistry?: string;
   rewardVaults?: string;
   inflationPool?: string;
@@ -92,11 +90,7 @@ function main() {
   if (!manifestPath) throw new Error("--manifest required");
 
   const manifest = JSON.parse(readFileSync(resolve(manifestPath), "utf-8")) as Manifest;
-  const stakingAddress = isAddress(manifest.staking)
-    ? manifest.staking
-    : isAddress(manifest.restaking)
-      ? manifest.restaking
-      : null;
+  const stakingAddress = isAddress(manifest.staking) ? manifest.staking : null;
   const updates: Array<{ name: string; address: string | null }> = [
     { name: "Tangle", address: isAddress(manifest.tangle) ? manifest.tangle : null },
     { name: "MultiAssetDelegation", address: stakingAddress },

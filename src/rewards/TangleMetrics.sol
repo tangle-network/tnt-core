@@ -351,7 +351,7 @@ contract TangleMetrics is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // RESTAKER EXPOSURE RECORDING
+    // STAKER EXPOSURE RECORDING
     // ═══════════════════════════════════════════════════════════════════════════
 
     // ═══════════════════════════════════════════════════════════════════════════

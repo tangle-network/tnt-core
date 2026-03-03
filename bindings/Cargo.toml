@@ -3,13 +3,13 @@ name = "tnt-core-bindings"
 version = "0.10.4"
 edition = "2021"
 rust-version = "1.81"
-description = "Rust bindings for TNT Core Solidity contracts (Tangle restaking protocol)"
+description = "Rust bindings for TNT Core Solidity contracts (Tangle staking protocol)"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/tangle-network/tnt-core"
 homepage = "https://tangle.tools"
 documentation = "https://docs.rs/tnt-core-bindings"
 readme = "README.md"
-keywords = ["tangle", "restaking", "ethereum", "solidity", "alloy"]
+keywords = ["tangle", "staking", "ethereum", "solidity", "alloy"]
 categories = ["cryptography::cryptocurrencies", "api-bindings"]
 include = [
     "src/**/*",

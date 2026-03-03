@@ -4,13 +4,13 @@ import type {
   LiquidRedeemRequest,
   LiquidVaultPosition,
   Operator,
-  RestakingAsset,
+  StakingAsset,
 } from "generated/src/Types.gen";
 import {
   ZERO_ADDRESS,
   ensureDelegator,
   ensureOperator,
-  ensureRestakingAsset,
+  ensureStakingAsset,
   getPointsManager,
   getTimestamp,
   getTxHash,
@@ -121,7 +121,7 @@ export function registerLiquidDelegationHandlers() {
     const operatorAddress = normalizeAddress(event.params.operator);
     const assetAddress = normalizeAddress(event.params.asset ?? ZERO_ADDRESS);
     const operator = (await ensureOperator(context, operatorAddress, timestamp)) as Operator;
-    const asset = (await ensureRestakingAsset(context, assetAddress, timestamp)) as RestakingAsset;
+    const asset = (await ensureStakingAsset(context, assetAddress, timestamp)) as StakingAsset;
     const existing = await ensureVaultEntity(context, vaultAddress);
     if (existing) {
       return;
@@ -132,7 +132,7 @@ export function registerLiquidDelegationHandlers() {
       id: vaultAddress,
       address: vaultAddress,
       operator_id: operator.id,
-      asset_id: asset.id,
+      stakingAsset_id: asset.id,
       assetAddress: assetAddress,
       name: event.params.name,
       symbol: event.params.symbol,

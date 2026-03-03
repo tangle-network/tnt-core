@@ -142,7 +142,7 @@ contract LiquidDelegationTest is Test {
         assertEq(
             uint8(delegations[0].selectionMode),
             uint8(Types.BlueprintSelectionMode.All),
-            "Restaking delegation should be All mode"
+            "Staking delegation should be All mode"
         );
 
         uint64[] memory delegationBlueprints = staking.getDelegationBlueprints(vaultAddr, 0);

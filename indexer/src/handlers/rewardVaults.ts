@@ -2,7 +2,7 @@ import { InflationPool, RewardVaults } from "generated";
 import type { RewardVault, RewardVaultState } from "generated/src/Types.gen";
 import {
   ZERO_ADDRESS,
-  createRestakingRewardClaim,
+  createStakingRewardClaim,
   createRewardDistribution,
   ensureDelegator,
   ensureOperator,
@@ -13,7 +13,7 @@ import {
   toBigInt,
 } from "../lib/handlerUtils";
 import { pointsContext } from "../points/participation";
-import { awardRestakerVaultStake } from "../points/awards";
+import { awardStakingVaultStake } from "../points/awards";
 
 export function registerRewardVaultHandlers() {
   const ensureRewardVault = async (
@@ -83,7 +83,7 @@ export function registerRewardVaultHandlers() {
       updatedAt: timestamp,
     } as RewardVaultState);
     const points = getPointsManager(pointsContext(context), event);
-    await awardRestakerVaultStake(points, normalizeAddress(event.params.delegator), event.params.asset, toBigInt(event.params.amount));
+    await awardStakingVaultStake(points, normalizeAddress(event.params.delegator), event.params.asset, toBigInt(event.params.amount));
   });
 
   RewardVaults.UnstakeRecorded.handler(async ({ event, context }) => {
@@ -115,7 +115,7 @@ export function registerRewardVaultHandlers() {
 
   RewardVaults.DelegatorRewardsClaimed.handler(async ({ event, context }) => {
     const delegator = await ensureDelegator(context, event.params.delegator, getTimestamp(event));
-    createRestakingRewardClaim(context, "DELEGATOR_CLAIM", event, {
+    createStakingRewardClaim(context, "DELEGATOR_CLAIM", event, {
       delegator_id: delegator.id,
       operator_id: normalizeAddress(event.params.operator),
       asset: normalizeAddress(event.params.asset ?? ZERO_ADDRESS),

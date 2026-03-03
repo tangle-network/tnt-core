@@ -130,7 +130,7 @@ const getOperatorStakeBasis = async (context: any, operatorId: string, blockNumb
   if (!operator) {
     return 0n;
   }
-  return convertAmountToUsd(context, operator.restakingStake ?? 0n, ZERO_ADDRESS, blockNumber, timestamp);
+  return convertAmountToUsd(context, operator.stakingStake ?? 0n, ZERO_ADDRESS, blockNumber, timestamp);
 };
 
 const sumDelegatorPositions = async (

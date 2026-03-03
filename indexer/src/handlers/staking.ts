@@ -13,9 +13,9 @@ import type {
   OperatorHeartbeat,
   OperatorLifecycleEvent,
   OperatorMetricSnapshot,
-  RestakingAsset,
-  RestakingRound,
-  RestakingSlash,
+  StakingAsset,
+  StakingRound,
+  StakingSlash,
   SlashRecord,
   WithdrawRequest,
 } from "generated/src/Types.gen";
@@ -50,43 +50,20 @@ import { activateParticipation, deactivateParticipation, pointsContext } from ".
 import { toPointsValue } from "../points/math";
 import { awardOperatorUptime } from "../points/awards";
 
-const withLegacyRestakingFields = (patch: Partial<Operator>): Partial<Operator> => {
-  return {
-    ...patch,
-    ...(patch.stakingStatus !== undefined ? { restakingStatus: patch.stakingStatus as any } : {}),
-    ...(patch.stakingStake !== undefined ? { restakingStake: patch.stakingStake } : {}),
-    ...(patch.stakingDelegationCount !== undefined
-      ? { restakingDelegationCount: patch.stakingDelegationCount }
-      : {}),
-    ...(patch.stakingLeavingRound !== undefined ? { restakingLeavingRound: patch.stakingLeavingRound } : {}),
-    ...(patch.stakingScheduledUnstakeAmount !== undefined
-      ? { restakingScheduledUnstakeAmount: patch.stakingScheduledUnstakeAmount }
-      : {}),
-    ...(patch.stakingScheduledUnstakeRound !== undefined
-      ? { restakingScheduledUnstakeRound: patch.stakingScheduledUnstakeRound }
-      : {}),
-    ...(patch.stakingUpdatedAt !== undefined ? { restakingUpdatedAt: patch.stakingUpdatedAt } : {}),
-  };
+const getOperatorStakingStake = (operator: Operator) => operator.stakingStake ?? 0n;
+
+const getOperatorStakingDelegationCount = (operator: Operator) => operator.stakingDelegationCount ?? 0n;
+
+const setStakingAsset = (context: any, asset: StakingAsset) => {
+  context.StakingAsset.set(asset);
 };
 
-const getOperatorStakingStake = (operator: Operator) => (operator as any).stakingStake ?? operator.restakingStake ?? 0n;
-
-const getOperatorStakingDelegationCount = (operator: Operator) =>
-  (operator as any).stakingDelegationCount ?? operator.restakingDelegationCount ?? 0n;
-
-const setStakingAsset = (context: any, asset: RestakingAsset) => {
-  context.StakingAsset?.set(asset as any);
-  context.RestakingAsset?.set(asset);
+const setStakingRound = (context: any, round: StakingRound) => {
+  context.StakingRound.set(round);
 };
 
-const setStakingRound = (context: any, round: RestakingRound) => {
-  context.StakingRound?.set(round as any);
-  context.RestakingRound?.set(round);
-};
-
-const setStakingSlash = (context: any, slash: RestakingSlash) => {
-  context.StakingSlash?.set(slash as any);
-  context.RestakingSlash?.set(slash);
+const setStakingSlash = (context: any, slash: StakingSlash) => {
+  context.StakingSlash.set(slash);
 };
 
 export function registerStakingHandlers() {
@@ -95,9 +72,8 @@ export function registerStakingHandlers() {
      ────────────────────────────────────────────────────────────────────────── */
 
   const latestRound = async (context: any) => {
-    const stakingRound = context.StakingRound ? await context.StakingRound.get("latest") : undefined;
-    if (stakingRound) return stakingRound.round ?? 0n;
-    return (await context.RestakingRound?.get("latest"))?.round ?? 0n;
+    const stakingRound = await context.StakingRound.get("latest");
+    return stakingRound?.round ?? 0n;
   };
 
   const ensureDelegationBalance = async (
@@ -153,7 +129,7 @@ export function registerStakingHandlers() {
       context,
       event.params.operator,
       timestamp,
-      withLegacyRestakingFields({
+      ({
         stakingStatus: "ACTIVE",
         stakingStake: stake,
         stakingUpdatedAt: timestamp,
@@ -171,7 +147,7 @@ export function registerStakingHandlers() {
     const stake = getOperatorStakingStake(operator) + amount;
     context.Operator.set({
       ...operator,
-      ...withLegacyRestakingFields({
+      ...({
         stakingStake: stake,
         stakingUpdatedAt: timestamp,
       }),
@@ -188,7 +164,7 @@ export function registerStakingHandlers() {
       context,
       event.params.operator,
       timestamp,
-      withLegacyRestakingFields({
+      ({
         stakingScheduledUnstakeAmount: amount,
         stakingScheduledUnstakeRound: readyAtRound,
         stakingUpdatedAt: timestamp,
@@ -204,7 +180,7 @@ export function registerStakingHandlers() {
     const nextStake = stake < 0n ? 0n : stake;
     const updatedOperator: Operator = {
       ...operator,
-      ...withLegacyRestakingFields({
+      ...({
         stakingStake: nextStake,
         stakingScheduledUnstakeAmount: undefined,
         stakingScheduledUnstakeRound: undefined,
@@ -222,7 +198,7 @@ export function registerStakingHandlers() {
       context,
       event.params.operator,
       timestamp,
-      withLegacyRestakingFields({
+      ({
         stakingStatus: "LEAVING",
         stakingLeavingRound: toBigInt(event.params.readyRound),
         stakingUpdatedAt: timestamp,
@@ -237,7 +213,7 @@ export function registerStakingHandlers() {
       context,
       event.params.operator,
       timestamp,
-      withLegacyRestakingFields({
+      ({
         stakingStatus: "INACTIVE",
         stakingStake: 0n,
         stakingDelegationCount: 0n,
@@ -280,10 +256,10 @@ export function registerStakingHandlers() {
     const amount = toBigInt(event.params.amount);
     const delegator = await ensureDelegator(context, event.params.delegator, timestamp);
     const asset = await ensureStakingAsset(context, event.params.token, timestamp);
-    const updatedAsset: RestakingAsset = {
+    const updatedAsset: StakingAsset = {
       ...asset,
       currentDeposits: (asset.currentDeposits ?? 0n) + amount,
-    } as RestakingAsset;
+    } as StakingAsset;
     setStakingAsset(context, updatedAsset);
     const position = await ensureAssetPosition(context, delegator, event.params.token, timestamp);
     const updatedPosition: DelegatorAssetPosition = {
@@ -376,7 +352,7 @@ export function registerStakingHandlers() {
     }
     const updatedOperator: Operator = {
       ...operator,
-      ...withLegacyRestakingFields({
+      ...({
         stakingDelegationCount: delegationCount,
         stakingUpdatedAt: timestamp,
       }),
@@ -444,7 +420,7 @@ export function registerStakingHandlers() {
       if (operator) {
         const updatedOperator: Operator = {
           ...operator,
-          ...withLegacyRestakingFields({
+          ...({
             stakingDelegationCount: subtractToZero(getOperatorStakingDelegationCount(operator), 1n),
             stakingUpdatedAt: timestamp,
           }),
@@ -491,12 +467,12 @@ export function registerStakingHandlers() {
   MultiAssetDelegation.RoundAdvanced.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const roundValue = toBigInt(event.params.round);
-    const round: RestakingRound = {
+    const round: StakingRound = {
       id: roundValue.toString(),
       round: roundValue,
       blockNumber: getBlockNumber(event),
       timestamp,
-    } as RestakingRound;
+    } as StakingRound;
     setStakingRound(context, round);
     setStakingRound(context, { ...round, id: "latest" });
   });
@@ -504,7 +480,7 @@ export function registerStakingHandlers() {
   MultiAssetDelegation.Slashed.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
-    const slash: RestakingSlash = {
+    const slash: StakingSlash = {
       id: getEventId(event),
       operator_id: operator.id,
       serviceId: toBigInt(event.params.serviceId),
@@ -513,12 +489,12 @@ export function registerStakingHandlers() {
       exchangeRateAfter: toBigInt(event.params.exchangeRateAfter),
       blockNumber: getBlockNumber(event),
       txHash: getTxHash(event),
-    } as RestakingSlash;
+    } as StakingSlash;
     setStakingSlash(context, slash);
     const remainingStake = subtractToZero(getOperatorStakingStake(operator), toBigInt(event.params.operatorSlashed));
     const updatedOperator: Operator = {
       ...operator,
-      ...withLegacyRestakingFields({
+      ...({
         stakingStake: remainingStake,
         stakingUpdatedAt: timestamp,
       }),
@@ -566,7 +542,7 @@ export function registerStakingHandlers() {
     context.Operator.set({
       ...operator,
       delegationMode: toNumber(event.params.mode),
-      ...withLegacyRestakingFields({
+      ...({
         stakingUpdatedAt: timestamp,
       }),
     } as Operator);

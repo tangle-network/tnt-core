@@ -2,13 +2,13 @@
 
 **Date:** 2026-02-03  
 **Auditor:** Subagent (payments-audit)  
-**Scope:** Payment distribution flow, operator vs restaker compensation
+**Scope:** Payment distribution flow, operator vs staker compensation
 
 ---
 
 ## Executive Summary
 
-The claims under investigation are **TECHNICALLY VALID** but the design appears **INTENTIONAL** for a restaking protocol where operator compensation is based on **risk commitment** (exposure) rather than **capital provided** (stake).
+The claims under investigation are **TECHNICALLY VALID** but the design appears **INTENTIONAL** for a staking protocol where operator compensation is based on **risk commitment** (exposure) rather than **capital provided** (stake).
 
 ### Claims Investigated:
 1. ✅ **CONFIRMED**: "Operator payment share is based on exposureBps (their claimed commitment), NOT actual stake"
@@ -74,7 +74,7 @@ function joinService(uint64 serviceId, uint16 exposureBps) external whenNotPause
 ```solidity
 function calculateOperatorPayments(
     uint256 totalOperatorAmount,
-    uint256 totalRestakerAmount,
+    uint256 totalStakerAmount,
     address[] memory operators,
     uint16[] memory exposures,      // <-- This is exposureBps, NOT stake
     uint256 totalExposure
@@ -93,12 +93,12 @@ function calculateOperatorPayments(
             payments[i] = OperatorPayment({
                 operator: operators[i],
                 operatorShare: totalOperatorAmount - operatorDistributed,
-                restakerShare: totalRestakerAmount - restakerDistributed
+                stakerShare: totalStakerAmount - stakerDistributed
             });
         } else {
             // KEY CALCULATION: Payment based on exposure, NOT actual stake
             uint256 opShare = (totalOperatorAmount * exposure) / totalExposure;
-            uint256 restakeShare = (totalRestakerAmount * exposure) / totalExposure;
+            uint256 stakeShare = (totalStakerAmount * exposure) / totalExposure;
             // ...
         }
     }
@@ -110,14 +110,14 @@ The `exposure` variable in the payment calculation is **directly** the `exposure
 
 ---
 
-## 3. Restaker Payment Path (Contrasting Behavior)
+## 3. Staker Payment Path (Contrasting Behavior)
 
 **File:** `src/rewards/ServiceFeeDistributor.sol`
 
-The restaker share flows to `ServiceFeeDistributor.distributeServiceFee()` which **DOES** use actual stake:
+The staker share flows to `ServiceFeeDistributor.distributeServiceFee()` which **DOES** use actual stake:
 
 ```solidity
-// Restaker distribution uses actual delegation scores
+// Staker distribution uses actual delegation scores
 mapping(address => mapping(bytes32 => uint256)) public totalAllScore;
 mapping(address => mapping(uint64 => mapping(bytes32 => uint256))) public totalFixedScore;
 ```
@@ -129,7 +129,7 @@ uint256 scoreDelta = (amount * lockMultiplierBps) / BPS_DENOMINATOR;
 totalAllScore[operator][assetHash] += scoreDelta;
 ```
 
-**Restaker payments ARE weighted by actual capital provided.**
+**Staker payments ARE weighted by actual capital provided.**
 
 ---
 
@@ -166,7 +166,7 @@ Higher exposure = more slashable stake. So `exposureBps` represents **risk commi
 1. **Risk-based compensation**: Operators are paid for slashing risk taken (exposure), not capital provided
 2. **Separation of concerns**: 
    - Operator share → compensation for service provision and risk commitment
-   - Restaker share → return on capital (correctly uses actual stake)
+   - Staker share → return on capital (correctly uses actual stake)
 3. **Slashing alignment**: `exposureBps` directly affects slashable amount, creating economic alignment
 
 ### Evidence Supporting POTENTIAL ISSUE:
@@ -229,7 +229,7 @@ Payments._distributePayment()
     │   • developerAmount
     │   • protocolAmount  
     │   • operatorAmount  ──────────────────────┐
-    │   • restakerAmount  ───────────────────┐  │
+    │   • stakerAmount  ───────────────────┐  │
     │                                        │  │
     ▼                                        │  │
 PaymentLib.calculateOperatorPayments()       │  │
@@ -240,7 +240,7 @@ PaymentLib.calculateOperatorPayments()       │  │
     ├── operatorShare → _pendingRewards      │  │
     │                   (based on exposure)  │  │
     │                                        │  │
-    └── restakerShare ───────────────────────┘  │
+    └── stakerShare ───────────────────────┘  │
               │                                 │
               ▼                                 │
     ServiceFeeDistributor.distributeServiceFee()
@@ -249,7 +249,7 @@ PaymentLib.calculateOperatorPayments()       │  │
               │  (Based on ACTUAL delegated amounts)
               │
               ▼
-        Restaker rewards (stake-weighted)
+        Staker rewards (stake-weighted)
 ```
 
 ---
@@ -261,9 +261,9 @@ The payment system has **two distinct compensation models**:
 | Recipient | Compensation Basis | Variable Used | Correct? |
 |-----------|-------------------|---------------|----------|
 | Operators | Risk commitment (exposure) | `exposureBps` | By design |
-| Restakers | Capital provided (stake) | `totalAllScore` | ✅ Yes |
+| Stakers | Capital provided (stake) | `totalAllScore` | ✅ Yes |
 
-The operator payment path using `exposureBps` instead of actual stake is **likely intentional** for a restaking protocol where operators are compensated for the slashing risk they accept, while restakers are compensated for capital provided.
+The operator payment path using `exposureBps` instead of actual stake is **likely intentional** for a staking protocol where operators are compensated for the slashing risk they accept, while stakers are compensated for capital provided.
 
 **However**, without explicit documentation or proportionality guards, this creates potential for gaming if slashing is not credibly enforced.
 

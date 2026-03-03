@@ -10135,7 +10135,7 @@ interface ITangle {
     event OperatorRegistered(uint64 indexed blueprintId, address indexed operator, bytes ecdsaPublicKey, string rpcAddress);
     event OperatorRewardAccrued(uint64 indexed serviceId, address indexed operator, address indexed token, uint64 blueprintId, uint256 amount);
     event OperatorUnregistered(uint64 indexed blueprintId, address indexed operator);
-    event PaymentDistributed(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed token, uint256 grossAmount, address developerRecipient, uint256 developerAmount, uint256 protocolAmount, uint256 operatorPoolAmount, uint256 restakerPoolAmount);
+    event PaymentDistributed(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed token, uint256 grossAmount, address developerRecipient, uint256 developerAmount, uint256 protocolAmount, uint256 operatorPoolAmount, uint256 stakerPoolAmount);
     event RewardsClaimed(address indexed account, address indexed token, uint256 amount);
     event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId);
     event ServiceApproved(uint64 indexed requestId, address indexed operator);
@@ -14166,7 +14166,7 @@ interface ITangle {
         "internalType": "uint256"
       },
       {
-        "name": "restakerPoolAmount",
+        "name": "stakerPoolAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -16378,7 +16378,7 @@ event OperatorUnregistered(uint64 indexed blueprintId, address indexed operator)
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `PaymentDistributed(uint64,uint64,address,uint256,address,uint256,uint256,uint256,uint256)` and selector `0xbbd9474fbbb06eb636eb470aa71ad2133b5178d91593f96b8083204a60bea278`.
 ```solidity
-event PaymentDistributed(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed token, uint256 grossAmount, address developerRecipient, uint256 developerAmount, uint256 protocolAmount, uint256 operatorPoolAmount, uint256 restakerPoolAmount);
+event PaymentDistributed(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed token, uint256 grossAmount, address developerRecipient, uint256 developerAmount, uint256 protocolAmount, uint256 operatorPoolAmount, uint256 stakerPoolAmount);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -16405,7 +16405,7 @@ event PaymentDistributed(uint64 indexed serviceId, uint64 indexed blueprintId, a
         #[allow(missing_docs)]
         pub operatorPoolAmount: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
-        pub restakerPoolAmount: alloy::sol_types::private::primitives::aliases::U256,
+        pub stakerPoolAmount: alloy::sol_types::private::primitives::aliases::U256,
     }
     #[allow(
         non_camel_case_types,
@@ -16456,7 +16456,7 @@ event PaymentDistributed(uint64 indexed serviceId, uint64 indexed blueprintId, a
                     developerAmount: data.2,
                     protocolAmount: data.3,
                     operatorPoolAmount: data.4,
-                    restakerPoolAmount: data.5,
+                    stakerPoolAmount: data.5,
                 }
             }
             #[inline]
@@ -16494,7 +16494,7 @@ event PaymentDistributed(uint64 indexed serviceId, uint64 indexed blueprintId, a
                     > as alloy_sol_types::SolType>::tokenize(&self.operatorPoolAmount),
                     <alloy::sol_types::sol_data::Uint<
                         256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.restakerPoolAmount),
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakerPoolAmount),
                 )
             }
             #[inline]

@@ -17,7 +17,7 @@ interface ITangleRewards {
         uint256 developerAmount,
         uint256 protocolAmount,
         uint256 operatorPoolAmount,
-        uint256 restakerPoolAmount
+        uint256 stakerPoolAmount
     );
 
     event OperatorRewardAccrued(

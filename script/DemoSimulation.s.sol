@@ -219,7 +219,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         _fundActors();
         _deployContracts();
         _setupTokens();
-        _registerOperatorsInRestaking();
+        _registerOperatorsInStaking();
         _createBlueprints();
         _registerOperatorsForBlueprints();
         _createServices();
@@ -364,7 +364,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
     function _setupTokens() internal {
         vm.startBroadcast(ADMIN_KEY);
 
-        // Enable assets in restaking
+        // Enable assets in staking
         staking.enableAsset(address(usdc), 100e18, 10e18, 0, 10_000);
         staking.enableAsset(address(weth), 0.1 ether, 0.01 ether, 0, 10_000);
 
@@ -384,7 +384,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         console2.log("[Setup] Tokens distributed");
     }
 
-    function _registerOperatorsInRestaking() internal {
+    function _registerOperatorsInStaking() internal {
         console2.log("[Setup] Registering operators in staking...");
 
         for (uint256 i = 0; i < operators.length; i++) {
@@ -688,7 +688,7 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
         vm.deal(address(staking), address(staking).balance + rewardAmount);
 
         vm.startBroadcast(ADMIN_KEY);
-        // Restaking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
+        // Staking-native rewards removed; service fee rewards flow via ServiceFeeDistributor on billing.
         vm.stopBroadcast();
     }
 
@@ -766,7 +766,7 @@ contract DemoSimulationContinuous is DemoSimulation {
         _fundActors();
         _deployContracts();
         _setupTokens();
-        _registerOperatorsInRestaking();
+        _registerOperatorsInStaking();
         _createBlueprints();
         _registerOperatorsForBlueprints();
         _createServices();

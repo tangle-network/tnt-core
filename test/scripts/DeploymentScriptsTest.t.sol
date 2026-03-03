@@ -192,7 +192,7 @@ contract DeploymentScriptsTest is Test {
 
         (address stakingProxy, address tangleProxy, address statusRegistry) = script.deployCoreNoPrank(admin, treasury);
 
-        assertTrue(stakingProxy != address(0), "restaking proxy");
+        assertTrue(stakingProxy != address(0), "staking proxy");
         assertTrue(tangleProxy != address(0), "tangle proxy");
         assertTrue(statusRegistry != address(0), "status registry");
 

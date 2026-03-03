@@ -13,7 +13,7 @@ set -euo pipefail
 #
 # LayerZero note: you likely need to set LAYERZERO_SOURCE_EID for Holesky.
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 : "${PRIVATE_KEY:?Missing PRIVATE_KEY}"
@@ -46,7 +46,24 @@ L2_SLASHING_MANIFEST_PATH="${L2_SLASHING_MANIFEST_PATH:-deployments/base-sepolia
 if [[ "$DEPLOY_MIGRATION" == "true" && -z "${TNT_INITIAL_SUPPLY:-}" ]]; then
   # If we plan to deploy the migration system on Base Sepolia, ensure the default TNT supply
   # is large enough to fund Substrate claims + EVM airdrop + treasury carveout.
-  TNT_INITIAL_SUPPLY="$(node -e \"const fs=require('fs');const m=JSON.parse(fs.readFileSync('packages/migration-claim/merkle-tree.json','utf8'));const e=JSON.parse(fs.readFileSync('packages/migration-claim/evm-claims.json','utf8'));let t=0n;let f=0n;try{t=BigInt(JSON.parse(fs.readFileSync('packages/migration-claim/treasury-carveout.json','utf8')).amount||'0');}catch{};try{f=BigInt(JSON.parse(fs.readFileSync('packages/migration-claim/foundation-carveout.json','utf8')).amount||'0');}catch{};process.stdout.write((BigInt(m.totalValue)+BigInt(e.totalAmount)+t+f).toString());\")"
+  TNT_INITIAL_SUPPLY="$(
+    node <<'NODE'
+const fs = require("fs");
+const merkle = JSON.parse(fs.readFileSync("packages/migration-claim/merkle-tree.json", "utf8"));
+const evm = JSON.parse(fs.readFileSync("packages/migration-claim/evm-claims.json", "utf8"));
+let treasury = 0n;
+let foundation = 0n;
+try {
+  treasury = BigInt(JSON.parse(fs.readFileSync("packages/migration-claim/treasury-carveout.json", "utf8")).amount || "0");
+} catch {}
+try {
+  foundation = BigInt(
+    JSON.parse(fs.readFileSync("packages/migration-claim/foundation-carveout.json", "utf8")).amount || "0"
+  );
+} catch {}
+process.stdout.write((BigInt(merkle.totalValue) + BigInt(evm.totalAmount) + treasury + foundation).toString());
+NODE
+  )"
   export TNT_INITIAL_SUPPLY
   echo "DEPLOY_MIGRATION=true: defaulting TNT_INITIAL_SUPPLY=$TNT_INITIAL_SUPPLY"
 fi
@@ -58,9 +75,9 @@ forge script script/FullDeploy.s.sol:FullDeploy \
   --broadcast \
   --non-interactive
 
-RESTAKING_ADDR="$(jq -r '.restaking' "$MANIFEST_PATH")"
-if [[ -z "$RESTAKING_ADDR" || "$RESTAKING_ADDR" == "null" || "$RESTAKING_ADDR" == "0x0000000000000000000000000000000000000000" ]]; then
-  echo "Missing restaking address in manifest: $MANIFEST_PATH" >&2
+STAKING_ADDR="$(jq -r '.staking' "$MANIFEST_PATH")"
+if [[ -z "$STAKING_ADDR" || "$STAKING_ADDR" == "null" || "$STAKING_ADDR" == "0x0000000000000000000000000000000000000000" ]]; then
+  echo "Missing staking address in manifest: $MANIFEST_PATH" >&2
   exit 1
 fi
 
@@ -101,7 +118,7 @@ case "$SLASHING_BRIDGE" in
     ;;
 esac
 
-RESTAKING="$RESTAKING_ADDR" \
+STAKING="$STAKING_ADDR" \
 SOURCE_CHAIN_ID=17000 \
 L1_CONNECTOR="$L1_CONNECTOR_ADDR" \
 L1_MESSENGER="$L1_MESSENGER_ADDR" \

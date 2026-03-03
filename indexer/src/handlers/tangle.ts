@@ -822,7 +822,7 @@ export function registerTangleHandlers() {
       developerAmount: toBigInt(event.params.developerAmount),
       protocolAmount: toBigInt(event.params.protocolAmount),
       operatorPoolAmount: toBigInt(event.params.operatorPoolAmount),
-      restakerPoolAmount: toBigInt(event.params.restakerPoolAmount),
+      stakingPoolAmount: toBigInt(event.params.stakingPoolAmount),
       distributedAt: timestamp,
       txHash: getTxHash(event),
     } as PaymentDistribution;

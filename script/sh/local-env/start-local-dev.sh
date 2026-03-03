@@ -712,7 +712,7 @@ verify_setup() {
     local response
     response=$(curl -s "http://localhost:$HASURA_PORT/v1/graphql" \
         -H "Content-Type: application/json" \
-        -d '{"query": "{ Operator(limit: 5) { id restakingStatus } RestakingAsset(limit: 5) { id enabled } }"}')
+        -d '{"query": "{ Operator(limit: 5) { id stakingStatus } StakingAsset(limit: 5) { id enabled } }"}')
 
     if echo "$response" | grep -q '"data"'; then
         # grep -c returns count (0 if no matches), || true prevents exit on no matches

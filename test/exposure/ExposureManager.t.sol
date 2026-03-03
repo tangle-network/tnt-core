@@ -140,7 +140,7 @@ contract ExposureManagerTest is Test {
         token1 = makeAddr("token1");
         token2 = makeAddr("token2");
 
-        // Deploy mock restaking
+        // Deploy mock staking
         staking = new MockStaking();
 
         // Setup operators

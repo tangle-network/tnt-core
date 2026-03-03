@@ -533,7 +533,7 @@ contract ExposureEdgeCasesTest is Test {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // MOCK RESTAKING COVERAGE (unused helpers)
+    // MOCK STAKING COVERAGE (unused helpers)
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_MockStakingEdge_HelperCoverage() public {

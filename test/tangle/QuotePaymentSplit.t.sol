@@ -109,8 +109,8 @@ contract QuotePaymentSplitTest is BaseTest {
 
         assertEq(developer.balance, devStart + 0.2 ether, "developer split");
         assertEq(treasury.balance, treasuryStart + 0.2 ether, "treasury split");
-        // No security commitments: restaker share merges into operator pool
-        assertEq(address(serviceFeeDistributor).balance, distributorStart, "restaker split");
+        // No security commitments: staker share merges into operator pool
+        assertEq(address(serviceFeeDistributor).balance, distributorStart, "staker split");
         assertEq(tangle.pendingRewards(operator1), 0.6 ether, "operator pending reward");
 
         assertEq(metrics.serviceCreatedCount(), 1, "metrics service created");

@@ -160,7 +160,7 @@ contract PaymentEdgeCasesTest is BaseTest {
         uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
         _approveService(operator1, requestId);
 
-        // All payment should be distributed (developer + protocol + operator pending + restaker)
+        // All payment should be distributed (developer + protocol + operator pending + staker)
         // Sum of individual amounts should equal original (accounting for operator pending)
     }
 
@@ -177,7 +177,7 @@ contract PaymentEdgeCasesTest is BaseTest {
         (uint16 devBps, uint16 protoBps, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
         uint256 expectedDev = (payment * devBps) / 10_000;
         uint256 expectedTreasury = (payment * protoBps) / 10_000;
-        // No security commitments: operator gets operator + restaker share
+        // No security commitments: operator gets operator + staker share
         uint256 expectedOperator = (payment * (uint256(opBps) + uint256(stakerBps))) / 10_000;
 
         assertEq(developer.balance - developerBefore, expectedDev);
@@ -212,12 +212,12 @@ contract PaymentEdgeCasesTest is BaseTest {
         uint256 op2Pending = tangle.pendingRewards(operator2);
         uint256 op3Pending = tangle.pendingRewards(operator3);
 
-        // No security commitments: operators share (operator + restaker) = 60% of 100 = 60 wei
+        // No security commitments: operators share (operator + staker) = 60% of 100 = 60 wei
         (,, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
         uint256 expectedTotal = (payment * (uint256(opBps) + uint256(stakerBps))) / 10_000;
         assertTrue(
             op1Pending + op2Pending + op3Pending <= expectedTotal,
-            "Total operator rewards should not exceed operator+restaker share"
+            "Total operator rewards should not exceed operator+staker share"
         );
     }
 
@@ -268,7 +268,7 @@ contract PaymentEdgeCasesTest is BaseTest {
 
         _approveService(operator1, requestId);
 
-        // With 0% exposure and no restakers, operator gets (operator + restaker) share equally
+        // With 0% exposure and no stakers, operator gets (operator + staker) share equally
         (,, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
         uint256 expectedOperatorReward = (payment * (uint256(opBps) + uint256(stakerBps))) / 10_000;
         assertEq(tangle.pendingRewards(operator1), expectedOperatorReward);

@@ -15,7 +15,7 @@ Usage: pnpm ts-node scripts/check-asset-registry.ts --endpoint <graphql-url>
        pnpm ts-node scripts/check-asset-registry.ts --from-file <json-file>
 
 Options:
-  --endpoint <url>      GraphQL endpoint exposing RestakingAsset entities
+  --endpoint <url>      GraphQL endpoint exposing StakingAsset entities
   --from-file <path>    Local JSON file containing an array of token addresses
   --bearer <token>      Optional bearer token for authenticated GraphQL endpoints
 `.trim();
@@ -47,8 +47,8 @@ const fetchGraphAssets = async (endpoint: string, bearerToken?: string): Promise
     headers.authorization = `Bearer ${bearerToken}`;
   }
   const query = `
-    query RestakingAssets($skip: Int!) {
-      restakingAssets(first: 1000, skip: $skip) { token }
+    query StakingAssets($skip: Int!) {
+      stakingAssets(first: 1000, skip: $skip) { token }
     }
   `;
   const tokens: string[] = [];
@@ -62,11 +62,11 @@ const fetchGraphAssets = async (endpoint: string, bearerToken?: string): Promise
     if (!response.ok) {
       throw new Error(`Failed to fetch assets: ${response.status} ${response.statusText}`);
     }
-    const payload = (await response.json()) as { data?: { restakingAssets?: Array<{ token: string }> }; errors?: Array<{ message: string }> };
+    const payload = (await response.json()) as { data?: { stakingAssets?: Array<{ token: string }> }; errors?: Array<{ message: string }> };
     if (payload.errors?.length) {
       throw new Error(`GraphQL error: ${payload.errors.map((err) => err.message).join(", ")}`);
     }
-    const batch = payload.data?.restakingAssets ?? [];
+    const batch = payload.data?.stakingAssets ?? [];
     batch.forEach((asset) => tokens.push(asset.token.toLowerCase()));
     if (batch.length < 1000) {
       break;
@@ -98,7 +98,7 @@ const main = async () => {
     process.exit(1);
   }
   if (onChainTokens.length === 0) {
-    console.log("No RestakingAsset entries returned from source.");
+    console.log("No StakingAsset entries returned from source.");
     return;
   }
   const registry = new Set(listRegisteredAssets().map((asset) => asset.address.toLowerCase()));
@@ -108,7 +108,7 @@ const main = async () => {
     missing.forEach((token) => console.error(`  - ${token}`));
     process.exit(1);
   }
-  console.log(`All ${onChainTokens.length} on-chain RestakingAsset tokens are registered.`);
+  console.log(`All ${onChainTokens.length} on-chain StakingAsset tokens are registered.`);
 };
 
 main().catch((error) => {

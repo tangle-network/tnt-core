@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import { Types } from "../libraries/Types.sol";
 
 /// @title IServiceFeeDistributor
-/// @notice Tracks service-fee payouts to restakers across payment tokens
+/// @notice Tracks service-fee payouts to stakers across payment tokens
 /// @dev Receives delegation-change hooks from MultiAssetDelegation and fee-distribution calls from Tangle.
 interface IServiceFeeDistributor {
     function distributeServiceFee(
@@ -17,7 +17,7 @@ interface IServiceFeeDistributor {
         external
         payable;
 
-    /// @notice Distribute inflation-funded restaker rewards using service exposure weights
+    /// @notice Distribute inflation-funded staker rewards using service exposure weights
     /// @dev Intended for InflationPool; rewards are paid in the provided token (TNT).
     function distributeInflationReward(
         uint64 serviceId,

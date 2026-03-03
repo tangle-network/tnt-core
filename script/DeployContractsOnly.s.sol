@@ -27,7 +27,7 @@ import { TangleSlashingFacet } from "../src/facets/tangle/TangleSlashingFacet.so
 import { StakingOperatorsFacet } from "../src/facets/staking/StakingOperatorsFacet.sol";
 import { StakingDepositsFacet } from "../src/facets/staking/StakingDepositsFacet.sol";
 import { StakingDelegationsFacet } from "../src/facets/staking/StakingDelegationsFacet.sol";
-// RestakingRewardsFacet removed - no longer exists
+// StakingRewardsFacet removed - no longer exists
 import { StakingSlashingFacet } from "../src/facets/staking/StakingSlashingFacet.sol";
 import { StakingAssetsFacet } from "../src/facets/staking/StakingAssetsFacet.sol";
 import { StakingViewsFacet } from "../src/facets/staking/StakingViewsFacet.sol";
@@ -54,7 +54,7 @@ contract DeployContractsOnly is Script {
 
         vm.startBroadcast(DEPLOYER_KEY);
 
-        // 1. Deploy MultiAssetDelegation (Restaking)
+        // 1. Deploy MultiAssetDelegation (Staking)
         MultiAssetDelegation stakingImpl = new MultiAssetDelegation();
         bytes memory stakingInit = abi.encodeCall(
             MultiAssetDelegation.initialize,
@@ -69,7 +69,7 @@ contract DeployContractsOnly is Script {
         tangleProxy = address(new ERC1967Proxy(address(tangleImpl), tangleInit));
         console2.log("Tangle:", tangleProxy);
 
-        // 3. Register facets for Restaking
+        // 3. Register facets for Staking
         _registerStakingFacets(stakingProxy);
 
         // 4. Register facets for Tangle
@@ -113,7 +113,7 @@ contract DeployContractsOnly is Script {
         mad.registerFacet(address(new StakingOperatorsFacet()));
         mad.registerFacet(address(new StakingDepositsFacet()));
         mad.registerFacet(address(new StakingDelegationsFacet()));
-        // RestakingRewardsFacet removed - no longer exists
+        // StakingRewardsFacet removed - no longer exists
         mad.registerFacet(address(new StakingSlashingFacet()));
         mad.registerFacet(address(new StakingAssetsFacet()));
         mad.registerFacet(address(new StakingViewsFacet()));

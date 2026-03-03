@@ -27,16 +27,6 @@ enum StakingOperatorStatus {
   INACTIVE
 }
 
-"""
-Legacy enum retained for external compatibility.
-Use StakingOperatorStatus for new consumers.
-"""
-enum RestakingOperatorStatus {
-  ACTIVE
-  LEAVING
-  INACTIVE
-}
-
 enum LockDuration {
   NONE
   ONE_MONTH
@@ -213,14 +203,6 @@ type Operator {
   stakingScheduledUnstakeAmount: BigInt
   stakingScheduledUnstakeRound: BigInt
   stakingUpdatedAt: BigInt
-  # Legacy compatibility fields (mirrored from staking* values)
-  restakingStatus: RestakingOperatorStatus
-  restakingStake: BigInt
-  restakingDelegationCount: BigInt
-  restakingLeavingRound: BigInt
-  restakingScheduledUnstakeAmount: BigInt
-  restakingScheduledUnstakeRound: BigInt
-  restakingUpdatedAt: BigInt
   delegationMode: Int  # 0=Disabled, 1=Whitelist, 2=Open (null treated as 0=Disabled)
   registrations: [OperatorRegistration!]! @derivedFrom(field: "operator")
   intents: [OperatorIntent!]! @derivedFrom(field: "operator")
@@ -386,7 +368,7 @@ type PaymentDistribution {
   developerAmount: BigInt!
   protocolAmount: BigInt!
   operatorPoolAmount: BigInt!
-  restakerPoolAmount: BigInt!
+  stakingPoolAmount: BigInt!
   distributedAt: BigInt!
   txHash: String!
 }
@@ -510,35 +492,9 @@ type StakingAsset {
 }
 
 """
-Legacy compatibility alias of StakingAsset for external consumers.
-"""
-type RestakingAsset {
-  id: ID!
-  token: String!
-  enabled: Boolean!
-  minOperatorStake: BigInt!
-  minDelegation: BigInt!
-  depositCap: BigInt
-  currentDeposits: BigInt!
-  rewardMultiplierBps: Int!
-  createdAt: BigInt!
-  updatedAt: BigInt!
-}
-
-"""
 Tracks the on-chain staking round (MultiAssetDelegation.RoundAdvanced).
 """
 type StakingRound {
-  id: ID!
-  round: BigInt!
-  blockNumber: BigInt!
-  timestamp: BigInt!
-}
-
-"""
-Legacy compatibility alias of StakingRound.
-"""
-type RestakingRound {
   id: ID!
   round: BigInt!
   blockNumber: BigInt!
@@ -686,20 +642,6 @@ type StakingSlash {
   txHash: String!
 }
 
-"""
-Legacy compatibility alias of StakingSlash.
-"""
-type RestakingSlash {
-  id: ID!
-  operator: Operator!
-  serviceId: BigInt!
-  operatorSlashed: BigInt!
-  delegatorsSlashed: BigInt!
-  exchangeRateAfter: BigInt!
-  blockNumber: BigInt!
-  txHash: String!
-}
-
 type SlashRecord {
   id: ID!
   operator: Operator!
@@ -745,21 +687,6 @@ type RewardDistribution {
 }
 
 type StakingRewardClaim {
-  id: ID!
-  delegator: Delegator
-  operator: Operator
-  asset: String!
-  amount: BigInt!
-  blockNumber: BigInt!
-  timestamp: BigInt!
-  txHash: String!
-  kind: RewardDistributionKind!
-}
-
-"""
-Legacy compatibility alias of StakingRewardClaim.
-"""
-type RestakingRewardClaim {
   id: ID!
   delegator: Delegator
   operator: Operator
@@ -962,8 +889,6 @@ type LiquidDelegationVault {
   operator: Operator!
   assetAddress: String!
   stakingAsset: StakingAsset
-  # Legacy compatibility relation
-  asset: RestakingAsset
   blueprintSelection: BlueprintSelectionMode!
   blueprintIds: [BigInt!]!
   totalAssets: BigInt!

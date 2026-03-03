@@ -46,7 +46,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
 
     // Proxies
     ERC1967Proxy public tangleProxy;
-    ERC1967Proxy public restakingProxy;
+    ERC1967Proxy public stakingProxy;
 
     // Actors
     address public admin = makeAddr("admin");
@@ -68,16 +68,16 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     function setUp() public virtual {
         // Deploy implementations
         Tangle tangleImpl = new Tangle();
-        MultiAssetDelegation restakingImpl = new MultiAssetDelegation();
+        MultiAssetDelegation stakingImpl = new MultiAssetDelegation();
 
         // Deploy staking proxy
-        restakingProxy = new ERC1967Proxy(
-            address(restakingImpl),
+        stakingProxy = new ERC1967Proxy(
+            address(stakingImpl),
             abi.encodeCall(
                 MultiAssetDelegation.initialize, (admin, MIN_OPERATOR_STAKE, MIN_DELEGATION, OPERATOR_COMMISSION_BPS)
             )
         );
-        staking = IMultiAssetDelegation(payable(address(restakingProxy)));
+        staking = IMultiAssetDelegation(payable(address(stakingProxy)));
 
         // Deploy tangle proxy
         tangleProxy = new ERC1967Proxy(
@@ -112,7 +112,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         vm.stopPrank();
 
         // Configure a default service-fee distributor so the default payment split
-        // (which includes a restaker share) behaves like production deployments.
+        // (which includes a staker share) behaves like production deployments.
         MockServiceFeeDistributor distributor = new MockServiceFeeDistributor();
         vm.startPrank(admin);
         tangle.setServiceFeeDistributor(address(distributor));
@@ -191,7 +191,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
     }
 
     function _registerStakingFacets() internal {
-        MultiAssetDelegation router = MultiAssetDelegation(payable(address(restakingProxy)));
+        MultiAssetDelegation router = MultiAssetDelegation(payable(address(stakingProxy)));
         router.registerFacet(address(new StakingOperatorsFacet()));
         router.registerFacet(address(new StakingDepositsFacet()));
         router.registerFacet(address(new StakingDelegationsFacet()));

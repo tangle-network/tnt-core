@@ -1,13 +1,13 @@
 # Full Deploy Orchestration
 
-`script/FullDeploy.s.sol` is the production entrypoint for a complete TNT Core deployment. It composes the existing slice scripts (`Deploy.s.sol`, `AddRestakingAsset.s.sol`, inflation + rewards setup, migration helpers) so mainnet/testnet/Sepolia rollouts only need to supply a single configuration file.
+`script/FullDeploy.s.sol` is the production entrypoint for a complete TNT Core deployment. It composes the existing slice scripts (`Deploy.s.sol`, `AddStakingAsset.s.sol`, inflation + rewards setup, migration helpers) so mainnet/testnet/Sepolia rollouts only need to supply a single configuration file.
 
 The script performs the following sequence:
 
 1. Deploy or reuse the core protocol (MultiAssetDelegation, Tangle, OperatorStatusRegistry, TNT token, MBSM registry).
 2. Deploy and wire the incentives stack (TangleMetrics, RewardVaults, InflationPool) as requested.
-3. Register every ERC20 restaking asset and optionally enforce adapters/guards/delays.
-4. Apply operator limits and pausers on both the restaking and protocol contracts.
+3. Register every ERC20 staking asset and optionally enforce adapters/guards/delays.
+4. Apply operator limits and pausers on both the staking and protocol contracts.
 5. Emit a manifest JSON file with every deployed address and the applied configuration.
 6. Optionally emit a migration metadata JSON (TNT token + optional Merkle path string) for downstream tooling.
 
@@ -34,7 +34,7 @@ The script reads a JSON config pointed to by the `FULL_DEPLOY_CONFIG` environmen
     "operatorCommissionBps": 1000,
     "maxBlueprintsPerOperator": 48
   },
-  "restakeAssets": [
+  "stakeAssets": [
     {
       "symbol": "USDC",
       "token": "0xToken",
@@ -57,7 +57,7 @@ The script reads a JSON config pointed to by the `FULL_DEPLOY_CONFIG` environmen
       "operatorsBps": 2500,
       "customersBps": 1000,
       "developersBps": 1500,
-      "restakersBps": 0
+      "stakersBps": 0
     },
     "vaults": [
       {
@@ -71,7 +71,7 @@ The script reads a JSON config pointed to by the `FULL_DEPLOY_CONFIG` environmen
     ]
   },
   "guards": {
-    "pauseRestaking": false,
+    "pauseStaking": false,
     "pauseTangle": false,
     "requireAdapters": false,
     "delegatorDelay": 7,
@@ -91,10 +91,10 @@ The script reads a JSON config pointed to by the `FULL_DEPLOY_CONFIG` environmen
 
 - **roles** – admin/treasury overrides plus optional timelock + multisig targets. When `revokeBootstrap` is true, the bootstrap admin (deployer/admin) is removed after roles are granted.
 - **core** – toggles for reusing an existing deployment and overriding the staking defaults. When `deploy` is `false`, populate `staking`, `tangle`, and `statusRegistry` in the config.
-- **restakeAssets** – array of ERC20 assets onboarded via `enableAsset`/`enableAssetWithAdapter`.
+- **stakeAssets** – array of ERC20 assets onboarded via `enableAsset`/`enableAssetWithAdapter`.
 - **incentives** – optionally deploy the metrics/RewardVaults/InflationPool stack, configure vaults, and set epoch/weight parameters. If any `weights.*Bps` fields are non-zero they must sum to 10_000. If the TNT token already exists, set `tntToken`; otherwise the script deploys a fresh TNT token.
 - **guards** – pause switches, adapter enforcement, delay overrides, and operator blueprint limits.
-- **manifest** – output file for the final address snapshot (directories are created automatically). The output includes both `staking` (canonical) and `restaking` (legacy compatibility) keys pointing to the same MultiAssetDelegation address.
+- **manifest** – output file for the final address snapshot (directories are created automatically).
 - **migration** – optional metadata bundle (tntToken/staking/tangle plus an optional `merklePath` string for consumers). The actual v2 claim contract + Merkle artifacts are produced by `packages/migration-claim`.
 
 ### Role handoff
@@ -152,14 +152,14 @@ Override `FULL_DEPLOY_CONFIG` to point at another JSON file for bespoke local se
 
 The manifest includes:
 
-- Core contract addresses (Tangle, MultiAssetDelegation, OperatorStatusRegistry), including both `staking` and `restaking` manifest aliases for MultiAssetDelegation
+- Core contract addresses (Tangle, MultiAssetDelegation, OperatorStatusRegistry)
 
 ## Liveness & event expectations
 
 - Operator liveness is tracked via `OperatorStatusRegistry` heartbeats submitted by the operator runtime/CLI. Integrators should use `submitHeartbeat` and read `isOnline`, `getOperatorStatus`, or `getLastHeartbeat` from the registry.
 - `JobCompleted` emits only `(serviceId, callId)`. Derive `resultCount` via `getJobCall(serviceId, callId)`. Indexers must match the minimal event signatures in `indexer/config.yaml`.
 - Incentive stack addresses (TNT token, RewardVaults, InflationPool, Metrics)
-- Restaking asset configs and reward vault specs
+- Staking asset configs and reward vault specs
 - Guard/delay settings and migration metadata
 
 Commit the manifest and migration files into the runbook repository you use for change management so reproducible deployments stay auditable. The smoke-test assertions in the script (asset registration + reward manager wiring) run automatically at the tail end; extend those as new modules are added. 

@@ -89,12 +89,12 @@ contract InflationPoolTest is Test {
         assertEq(pool.currentEpoch(), 1);
         assertEq(pool.poolBalance(), POOL_FUNDING);
 
-        (uint16 staking, uint16 operators, uint16 customers, uint16 developers, uint16 restakers) = pool.getWeights();
+        (uint16 staking, uint16 operators, uint16 customers, uint16 developers, uint16 stakers) = pool.getWeights();
         assertEq(staking, 4000);
         assertEq(operators, 2500);
         assertEq(customers, 1000);
         assertEq(developers, 2500);
-        assertEq(restakers, 0);
+        assertEq(stakers, 0);
     }
 
     function test_Initialize_RevertEpochTooShort() public {
@@ -159,12 +159,12 @@ contract InflationPoolTest is Test {
         vm.prank(admin);
         pool.setWeights(3500, 2500, 1500, 2000, 500);
 
-        (uint16 staking, uint16 operators, uint16 customers, uint16 developers, uint16 restakers) = pool.getWeights();
+        (uint16 staking, uint16 operators, uint16 customers, uint16 developers, uint16 stakers) = pool.getWeights();
         assertEq(staking, 3500);
         assertEq(operators, 2500);
         assertEq(customers, 1500);
         assertEq(developers, 2000);
-        assertEq(restakers, 500);
+        assertEq(stakers, 500);
     }
 
     function test_SetWeights_RevertInvalid() public {
@@ -526,7 +526,7 @@ contract InflationPoolTest is Test {
         assertGt(pool.distributedThisPeriod(), 0);
         assertGt(
             epoch.stakingDistributed + epoch.operatorsDistributed + epoch.customersDistributed
-                + epoch.developersDistributed + epoch.restakersDistributed,
+                + epoch.developersDistributed + epoch.stakersDistributed,
             0
         );
 

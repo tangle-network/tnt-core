@@ -44,7 +44,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         uint256 developerAmount,
         uint256 protocolAmount,
         uint256 operatorPoolAmount,
-        uint256 restakerPoolAmount
+        uint256 stakerPoolAmount
     );
     event OperatorRewardAccrued(
         uint64 indexed serviceId, address indexed operator, address indexed token, uint64 blueprintId, uint256 amount
@@ -106,7 +106,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     }
 
     /// @notice Batch bill multiple subscription services
-    /// @dev Recipients (operators, developers, restakers) are naturally incentivized to call this
+    /// @dev Recipients (operators, developers, stakers) are naturally incentivized to call this
     /// @param serviceIds Array of service IDs to bill
     /// @return totalBilled Total amount billed across all services
     /// @return billedCount Number of services successfully billed
@@ -383,8 +383,8 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     }
 
     /// @notice Distribute payment to all stakeholders using effective exposures
-    /// @dev Operators ALWAYS get paid for providing compute. When no restakers exist
-    ///      (hasSecurityCommitments == false), the restaker share is merged into the
+    /// @dev Operators ALWAYS get paid for providing compute. When no stakers exist
+    ///      (hasSecurityCommitments == false), the staker share is merged into the
     ///      operator pool. Customers set minimum exposureBps to prevent gaming.
     /// @param serviceId The service ID
     /// @param blueprintId The blueprint ID
@@ -447,8 +447,8 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         PaymentLib.transferPayment(_treasury, token, amounts.protocolAmount);
 
         uint256 operatorPoolAmount =
-            operatorsLength == 0 ? 0 : amounts.operatorAmount + (hasSecurityCommitments ? 0 : amounts.restakerAmount);
-        uint256 restakerPoolAmount = operatorsLength == 0 ? 0 : (hasSecurityCommitments ? amounts.restakerAmount : 0);
+            operatorsLength == 0 ? 0 : amounts.operatorAmount + (hasSecurityCommitments ? 0 : amounts.stakerAmount);
+        uint256 stakerPoolAmount = operatorsLength == 0 ? 0 : (hasSecurityCommitments ? amounts.stakerAmount : 0);
 
         emit PaymentDistributed(
             serviceId,
@@ -459,23 +459,23 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
             amounts.developerAmount,
             amounts.protocolAmount,
             operatorPoolAmount,
-            restakerPoolAmount
+            stakerPoolAmount
         );
 
         // Operator payments — operators always get paid for providing compute.
-        // When no restakers back operators, restaker share merges into operator pool.
+        // When no stakers back operators, staker share merges into operator pool.
         if (operatorsLength == 0) return;
 
         if (totalEffectiveExposure > 0) {
             // Proportional distribution based on exposure weights.
-            // If real restakers exist, keep restaker share separate for the fee distributor.
-            // If no restakers, merge restaker share into operator pool.
+            // If real stakers exist, keep staker share separate for the fee distributor.
+            // If no stakers, merge staker share into operator pool.
             uint256 operatorPool =
-                hasSecurityCommitments ? amounts.operatorAmount : amounts.operatorAmount + amounts.restakerAmount;
-            uint256 restakerPool = hasSecurityCommitments ? amounts.restakerAmount : 0;
+                hasSecurityCommitments ? amounts.operatorAmount : amounts.operatorAmount + amounts.stakerAmount;
+            uint256 stakerPool = hasSecurityCommitments ? amounts.stakerAmount : 0;
 
             PaymentLib.OperatorPayment[] memory opPayments = PaymentLib.calculateOperatorPayments(
-                operatorPool, restakerPool, operators, effectiveExposures, totalEffectiveExposure
+                operatorPool, stakerPool, operators, effectiveExposures, totalEffectiveExposure
             );
 
             uint256 opPaymentsLength = opPayments.length;
@@ -488,9 +488,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
                     );
                 }
 
-                if (opPayments[i].restakerShare > 0) {
-                    _forwardRestakerShare(
-                        serviceId, blueprintId, opPayments[i].operator, token, opPayments[i].restakerShare
+                if (opPayments[i].stakerShare > 0) {
+                    _forwardStakerShare(
+                        serviceId, blueprintId, opPayments[i].operator, token, opPayments[i].stakerShare
                     );
                 }
                 unchecked {
@@ -499,8 +499,8 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
             }
         } else {
             // No exposure basis at all (all operators have 0% exposureBps).
-            // Equal distribution of (operator + restaker) pool among all operators.
-            uint256 totalPool = amounts.operatorAmount + amounts.restakerAmount;
+            // Equal distribution of (operator + staker) pool among all operators.
+            uint256 totalPool = amounts.operatorAmount + amounts.stakerAmount;
             uint256 perOperator = totalPool / operatorsLength;
             uint256 distributed = 0;
 
@@ -522,7 +522,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         }
     }
 
-    function _forwardRestakerShare(
+    function _forwardStakerShare(
         uint64 serviceId,
         uint64 blueprintId,
         address operator,
@@ -552,7 +552,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     ///      the exposureBps stored on their ServiceOperator record for proportional distribution.
     /// @return effectiveExposures Per-operator exposure weights
     /// @return totalEffectiveExposure Sum of all weights
-    /// @return hasSecurityCommitments True when real delegated stake backs the operators (restakers exist)
+    /// @return hasSecurityCommitments True when real delegated stake backs the operators (stakers exist)
     function _calculateEffectiveExposuresWithFallback(
         uint64 serviceId,
         address[] memory operators
@@ -563,7 +563,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     {
         (effectiveExposures, totalEffectiveExposure) = _calculateEffectiveExposures(serviceId, operators);
 
-        // If commitment-based calculation found real delegated stake, restakers are backing operators
+        // If commitment-based calculation found real delegated stake, stakers are backing operators
         hasSecurityCommitments = totalEffectiveExposure > 0;
 
         // Fallback: when no security commitments exist, use stored exposureBps as weights.

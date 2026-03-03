@@ -18,7 +18,7 @@ contract OperatorLifecycleTest is BaseTest {
         vm.prank(developer);
         blueprintId = tangle.createBlueprint(_blueprintDefinition("ipfs://operator-test", address(0)));
 
-        // Register operators with restaking
+        // Register operators with staking
         _registerOperator(operator1, 5 ether);
         _registerOperator(operator2, 5 ether);
     }

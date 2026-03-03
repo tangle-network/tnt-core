@@ -137,7 +137,7 @@ abstract contract Base is
 
     /// @notice Initialize the contract
     /// @param admin Admin address
-    /// @param staking_ Restaking module address
+    /// @param staking_ Staking module address
     /// @param treasury_ Protocol treasury address
     /// @dev H-5 SECURITY: After deployment, DEFAULT_ADMIN_ROLE should be transferred to a
     ///      TangleTimelock contract to enforce governance delays on critical admin operations.
@@ -229,7 +229,7 @@ abstract contract Base is
         return _operatorStatusRegistry;
     }
 
-    /// @notice Configure the service-fee distributor for restaker payouts
+    /// @notice Configure the service-fee distributor for staker payouts
     /// @dev This contract is expected to be called by `Payments` during fee distribution.
     /// @param distributor The service fee distributor address (set to address(0) to disable)
     function setServiceFeeDistributor(address distributor) external onlyRole(ADMIN_ROLE) {
@@ -284,7 +284,7 @@ abstract contract Base is
         emit MaxBlueprintsPerOperatorUpdated(oldMax, newMax);
     }
 
-    /// @notice TNT token used for default security requirements + TNT restaker incentives
+    /// @notice TNT token used for default security requirements + TNT staker incentives
     /// @return The configured TNT token address (or zero if disabled)
     function tntToken() external view returns (address) {
         return _tntToken;
@@ -297,13 +297,13 @@ abstract contract Base is
         emit TntTokenUpdated(token);
     }
 
-    /// @notice RewardVaults contract used to distribute TNT restaker rewards
+    /// @notice RewardVaults contract used to distribute TNT staker rewards
     /// @return The configured reward vaults address (or zero if disabled)
     function rewardVaults() external view returns (address) {
         return _rewardVaults;
     }
 
-    /// @notice Configure RewardVaults address (set to address(0) to disable TNT restaker payouts)
+    /// @notice Configure RewardVaults address (set to address(0) to disable TNT staker payouts)
     /// @param vaults The reward vaults address
     function setRewardVaults(address vaults) external onlyRole(ADMIN_ROLE) {
         _rewardVaults = vaults;

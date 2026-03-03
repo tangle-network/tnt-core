@@ -16,7 +16,7 @@ import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
 import { IStreamingPaymentManager } from "../interfaces/IStreamingPaymentManager.sol";
 
 /// @title ServiceFeeDistributor
-/// @notice Distributes service-fee restaker shares in the payment token, weighted by USD value and per-asset
+/// @notice Distributes service-fee staker shares in the payment token, weighted by USD value and per-asset
 /// commitments. @dev O(1) per-operator/per-asset/per-token distribution using accumulated-per-score accounting.
 contract ServiceFeeDistributor is
     Initializable,
@@ -44,7 +44,7 @@ contract ServiceFeeDistributor is
     /// @notice Price oracle used for USD weighting (address(0) disables USD weighting and uses raw amounts).
     IPriceOracle public priceOracle;
 
-    /// @notice InflationPool authorized to distribute inflation-funded restaker rewards.
+    /// @notice InflationPool authorized to distribute inflation-funded staker rewards.
     address public inflationPool;
 
     /// @notice StreamingPaymentManager for handling streamed payments
@@ -119,7 +119,7 @@ contract ServiceFeeDistributor is
     mapping(address => mapping(address => EnumerableSet.Bytes32Set)) private _delegatorAssets; // delegator => operator
     // => assetHashes
 
-    event StakingConfigured(address indexed restaking);
+    event StakingConfigured(address indexed staking);
     event TangleConfigured(address indexed tangle);
     event PriceOracleConfigured(address indexed oracle);
     event InflationPoolConfigured(address indexed pool);
@@ -212,7 +212,7 @@ contract ServiceFeeDistributor is
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // HOOKS FROM RESTAKING
+    // HOOKS FROM STAKING
     // ═══════════════════════════════════════════════════════════════════════════
 
     function onDelegationChanged(
@@ -488,7 +488,7 @@ contract ServiceFeeDistributor is
         emit ServiceFeeDistributed(serviceId, blueprintId, operator, paymentToken, amount);
     }
 
-    /// @notice Distribute inflation-funded restaker rewards (no streaming).
+    /// @notice Distribute inflation-funded staker rewards (no streaming).
     function distributeInflationReward(
         uint64 serviceId,
         uint64 blueprintId,

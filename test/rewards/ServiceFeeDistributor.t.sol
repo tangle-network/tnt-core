@@ -110,7 +110,7 @@ contract ServiceFeeDistributorTest is BaseTest {
     }
 
     function test_Distribution_MultiplePaymentTokens_AccruesSeparately() public {
-        // restaker share = 20% of payment, pick amounts divisible.
+        // staker share = 20% of payment, pick amounts divisible.
         _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenA), 100 ether);
         _requestAndApproveWithCommitments(10_000, 10_000, address(payTokenB), 50 ether);
 
@@ -132,7 +132,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.prank(delegator2);
         distributor.claimFor(address(payTokenB), operator1, ercAsset);
 
-        // With equal stake, and equal commitments, each gets half of restaker share:
+        // With equal stake, and equal commitments, each gets half of staker share:
         // A: 20 ether total -> 10/10; B: 10 ether total -> 5/5.
         assertEq(payTokenA.balanceOf(delegator1) - d1A, 10 ether);
         assertEq(payTokenA.balanceOf(delegator2) - d2A, 10 ether);
@@ -162,12 +162,12 @@ contract ServiceFeeDistributorTest is BaseTest {
         assertEq(distributor.pendingRewards(delegator1, address(payTokenB)), 0);
     }
 
-    function test_Fallback_NoSecurityRequirements_RestakerShareGoesToOperator() public {
+    function test_Fallback_NoSecurityRequirements_StakerShareGoesToOperator() public {
         address[] memory ops = new address[](1);
         ops[0] = operator1;
 
         // Pay once via requestService (no per-asset requirements).
-        // Without security commitments, restaker share merges into operator pool.
+        // Without security commitments, staker share merges into operator pool.
         uint256 paymentAmount = 110 ether;
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), paymentAmount);
@@ -178,16 +178,16 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
-        // Operator gets operator share + restaker share since no restakers exist
+        // Operator gets operator share + staker share since no stakers exist
         (,, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
         uint256 expectedOperatorReward = (paymentAmount * (uint256(opBps) + uint256(stakerBps))) / 10_000;
         assertEq(tangle.pendingRewards(operator1, address(payTokenA)), expectedOperatorReward);
 
-        // Distributor received nothing (no restakers to distribute to)
+        // Distributor received nothing (no stakers to distribute to)
         assertEq(payTokenA.balanceOf(address(distributor)), 0);
     }
 
-    function test_Restaking_PreventsSelectionModeMixing() public {
+    function test_Staking_PreventsSelectionModeMixing() public {
         uint64[] memory bps = new uint64[](1);
         bps[0] = 123;
 
@@ -261,7 +261,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.prank(fixedDelB);
         distributor.claimFor(address(payTokenA), operator2, nativeAsset);
 
-        // Restaker share = 20% of payment = 18. fixedDelA has half the blueprint exposure.
+        // Staker share = 20% of payment = 18. fixedDelA has half the blueprint exposure.
         assertEq(payTokenA.balanceOf(fixedDelA) - beforeA, 6 ether);
         assertEq(payTokenA.balanceOf(fixedDelB) - beforeB, 12 ether);
     }
@@ -324,7 +324,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.prank(operator2);
         tangle.approveService(requestId, 0);
 
-        // Treasury should receive the restaker share since no delegators
+        // Treasury should receive the staker share since no delegators
         // (or it stays in distributor - depends on implementation)
     }
 
@@ -344,7 +344,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.prank(delegator2);
         distributor.claimFor(address(payTokenA), operator1, ercAsset);
 
-        // Restaker share = 22 ether
+        // Staker share = 22 ether
         // Native exposed = 10 ETH * 100% = 10 ETH USD
         // ERC20 exposed = 10 tokens * 10% = 1 token USD
         // Total USD = 11
@@ -398,7 +398,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         distributor.claimFor(address(payTokenA), operator1, nativeAsset);
 
         // Should receive rewards from both services
-        // Each service: 20 ether restaker share, half to native = 10 ether
+        // Each service: 20 ether staker share, half to native = 10 ether
         // Two services = 20 ether total
         assertEq(payTokenA.balanceOf(delegator1) - d1Before, 20 ether, "Should accumulate from multiple services");
     }
@@ -495,14 +495,14 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.prank(operator1);
         tangle.approveServiceWithCommitments(requestId, commits);
 
-        // Restaker share = 200 (20% of 1000)
+        // Staker share = 200 (20% of 1000)
         Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
 
         uint256 d1Before = payTokenA.balanceOf(delegator1);
         vm.prank(delegator1);
         distributor.claimFor(address(payTokenA), operator1, nativeAsset);
 
-        // Should get the full restaker share (200)
+        // Should get the full staker share (200)
         assertEq(payTokenA.balanceOf(delegator1) - d1Before, 200, "Should receive full small amount without dust loss");
     }
 
@@ -599,7 +599,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.prank(operator1);
         tangle.approveServiceWithCommitments(requestId, commits);
 
-        // Restaker share is 20% = 60 ether
+        // Staker share is 20% = 60 ether
         // Without TNT boost: native $10, stakeToken $10, TNT $1 = $21 total
         //   - native gets 10/21 * 60 ≈ 28.57 ether
         //   - stakeToken gets 10/21 * 60 ≈ 28.57 ether
@@ -616,7 +616,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         uint256 d3Claimed = payTokenA.balanceOf(delegator3) - d3Before;
 
         // With TNT boost, delegator3 should get 1/3 of 60 ether = 20 ether
-        assertEq(d3Claimed, 20 ether, "TNT holder should get 1/3 of restaker share with score boost");
+        assertEq(d3Claimed, 20 ether, "TNT holder should get 1/3 of staker share with score boost");
     }
 
     /// @notice Test that disabling TNT score rate reverts to oracle price
