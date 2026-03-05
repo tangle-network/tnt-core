@@ -81,7 +81,14 @@ contract PaymentFuzzTest is BaseTest {
         uint64 requestId;
         vm.prank(user1);
         requestId = tangle.requestService{ value: payment }(
-            blueprintId, _singleOperator(operator1), "", new address[](0), 0, address(0), payment
+            blueprintId,
+            _singleOperator(operator1),
+            "",
+            new address[](0),
+            0,
+            address(0),
+            payment,
+            Types.ConfidentialityPolicy.Any
         );
 
         // Should not overflow during payment distribution
@@ -119,7 +126,7 @@ contract PaymentFuzzTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithExposure{ value: payment }(
-            blueprintId, operators, exposures, "", callers, 0, address(0), payment
+            blueprintId, operators, exposures, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -176,7 +183,7 @@ contract PaymentFuzzTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: initialEscrow }(
-            subBp, operators, "", new address[](0), 365 days, address(0), initialEscrow
+            subBp, operators, "", new address[](0), 365 days, address(0), initialEscrow, Types.ConfidentialityPolicy.Any
         );
         vm.prank(operator1);
         tangle.approveService(requestId, 0);

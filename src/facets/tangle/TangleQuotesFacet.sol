@@ -12,7 +12,7 @@ contract TangleQuotesFacet is QuotesCreate, IFacetSelectors {
         selectorList = new bytes4[](2);
         selectorList[0] = bytes4(
             keccak256(
-                "createServiceFromQuotes(uint64,((uint64,uint64,uint256,uint64,uint64,((uint8,address),uint16)[],(uint8,uint64)[]),bytes,address)[],bytes,address[],uint64)"
+                "createServiceFromQuotes(uint64,((uint64,uint64,uint256,uint64,uint64,uint8,((uint8,address),uint16)[],(uint8,uint64)[]),bytes,address)[],bytes,address[],uint64)"
             )
         );
         selectorList[1] = bytes4(keccak256("getServiceResourceCommitmentHash(uint64,address)"));

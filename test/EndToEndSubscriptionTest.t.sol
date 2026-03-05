@@ -40,8 +40,9 @@ contract EndToEndSubscriptionTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: payment }(blueprintId, operators, "", callers, 0, address(0), payment);
+        uint64 requestId = tangle.requestService{ value: payment }(
+            blueprintId, operators, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
+        );
 
         // Step 5: Operator approves - payment is distributed
         vm.prank(operator1);
@@ -87,7 +88,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: escrowAmount }(
-            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -158,7 +159,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithExposure{ value: escrowAmount }(
-            blueprintId, operators, exposures, "", callers, 0, address(0), escrowAmount
+            blueprintId, operators, exposures, "", callers, 0, address(0), escrowAmount, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -253,7 +254,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: escrowAmount }(
-            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -301,7 +302,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: escrowAmount }(
-            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -352,7 +353,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: escrowAmount }(
-            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -405,7 +406,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: escrowAmount }(
-            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -448,7 +449,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: escrowAmount }(
-            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -497,7 +498,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: escrowAmount }(
-            blueprintId, operators, "", callers, 0, address(0), escrowAmount
+            blueprintId, operators, "", callers, 0, address(0), escrowAmount, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);

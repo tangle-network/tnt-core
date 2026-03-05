@@ -181,6 +181,7 @@ contract ResourceCommitmentsTest is BaseTest {
             totalCost: cost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: resources
         });
@@ -207,6 +208,7 @@ contract ResourceCommitmentsTest is BaseTest {
             totalCost: cost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -221,7 +223,7 @@ contract ResourceCommitmentsTest is BaseTest {
         bytes32 resourcesHash = SignatureLib.hashResourceCommitments(details.resourceCommitments);
 
         bytes32 QUOTE_TYPEHASH = keccak256(
-            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
         );
 
         bytes32 domainSeparator = keccak256(
@@ -242,6 +244,7 @@ contract ResourceCommitmentsTest is BaseTest {
                 details.totalCost,
                 details.timestamp,
                 details.expiry,
+                details.confidentiality,
                 commitmentsHash,
                 resourcesHash
             )

@@ -11,15 +11,30 @@ interface ITangleServices {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
+    event ServiceRequested(
+        uint64 indexed requestId,
+        uint64 indexed blueprintId,
+        address indexed requester,
+        Types.ConfidentialityPolicy confidentiality
+    );
 
-    event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
+    event ServiceRequestedWithSecurity(
+        uint64 indexed requestId,
+        uint64 indexed blueprintId,
+        address indexed requester,
+        Types.ConfidentialityPolicy confidentiality
+    );
 
     event ServiceApproved(uint64 indexed requestId, address indexed operator);
 
     event ServiceRejected(uint64 indexed requestId, address indexed operator);
 
-    event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId);
+    event ServiceActivated(
+        uint64 indexed serviceId,
+        uint64 indexed requestId,
+        uint64 indexed blueprintId,
+        Types.ConfidentialityPolicy confidentiality
+    );
 
     event ServiceTerminated(uint64 indexed serviceId);
     event ServiceTerminatedForNonPayment(
@@ -49,7 +64,8 @@ interface ITangleServices {
         address[] calldata permittedCallers,
         uint64 ttl,
         address paymentToken,
-        uint256 paymentAmount
+        uint256 paymentAmount,
+        Types.ConfidentialityPolicy confidentiality
     )
         external
         payable
@@ -64,7 +80,8 @@ interface ITangleServices {
         address[] calldata permittedCallers,
         uint64 ttl,
         address paymentToken,
-        uint256 paymentAmount
+        uint256 paymentAmount,
+        Types.ConfidentialityPolicy confidentiality
     )
         external
         payable
@@ -80,7 +97,8 @@ interface ITangleServices {
         address[] calldata permittedCallers,
         uint64 ttl,
         address paymentToken,
-        uint256 paymentAmount
+        uint256 paymentAmount,
+        Types.ConfidentialityPolicy confidentiality
     )
         external
         payable

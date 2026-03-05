@@ -290,6 +290,15 @@ library Types {
         Terminated // Ended (by owner or expiry)
     }
 
+    /// @notice Confidentiality policy selected for service execution
+    /// @dev Any=0, TeeRequired=1, StandardRequired=2, TeePreferred=3
+    enum ConfidentialityPolicy {
+        Any,
+        TeeRequired,
+        StandardRequired,
+        TeePreferred
+    }
+
     /// @notice Service request - pending service awaiting approval
     /// @dev Struct layout for storage optimization:
     ///      Slot 0: blueprintId (8) + requester (20) = 28 bytes (could be tighter but crossing slot)
@@ -309,6 +318,7 @@ library Types {
         MembershipModel membership; // Fixed or Dynamic
         uint32 minOperators; // For dynamic: minimum required
         uint32 maxOperators; // For dynamic: maximum allowed (0 = unlimited)
+        ConfidentialityPolicy confidentiality; // Requested execution confidentiality
         bool rejected;
     }
 
@@ -330,6 +340,7 @@ library Types {
         uint32 maxOperators; // Maximum allowed (0 = unlimited)
         MembershipModel membership;
         PricingModel pricing;
+        ConfidentialityPolicy confidentiality; // Effective execution confidentiality
         ServiceStatus status;
     }
 
@@ -553,6 +564,7 @@ library Types {
         uint256 totalCost; // Total cost in payment token (wei)
         uint64 timestamp; // When quote was generated
         uint64 expiry; // Quote expiry timestamp
+        ConfidentialityPolicy confidentiality; // Requested execution confidentiality
         AssetSecurityCommitment[] securityCommitments; // Operator's security commitments
         ResourceCommitment[] resourceCommitments; // Operator's resource commitments
     }

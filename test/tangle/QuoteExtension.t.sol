@@ -172,6 +172,7 @@ contract QuoteExtensionTest is BaseTest {
             totalCost: 0.5 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp - 1), // Expired
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -308,6 +309,7 @@ contract QuoteExtensionTest is BaseTest {
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -334,6 +336,7 @@ contract QuoteExtensionTest is BaseTest {
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -360,6 +363,7 @@ contract QuoteExtensionTest is BaseTest {
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 2 hours), // Different expiry
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -387,6 +391,7 @@ contract QuoteExtensionTest is BaseTest {
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -403,13 +408,14 @@ contract QuoteExtensionTest is BaseTest {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+                    "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
                 ),
                 details.blueprintId,
                 details.ttlBlocks,
                 details.totalCost,
                 details.timestamp,
                 details.expiry,
+                details.confidentiality,
                 commitmentsHash,
                 resourcesHash
             )

@@ -95,7 +95,15 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(user1);
         MockERC20(paymentToken).approve(address(tangle), paymentAmount);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, reqs, "", new address[](0), 0, paymentToken, paymentAmount
+            blueprintId,
+            ops,
+            reqs,
+            "",
+            new address[](0),
+            0,
+            paymentToken,
+            paymentAmount,
+            Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 
@@ -171,8 +179,16 @@ contract ServiceFeeDistributorTest is BaseTest {
         uint256 paymentAmount = 110 ether;
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), paymentAmount);
-        uint64 requestId =
-            tangle.requestService(blueprintId, ops, "", new address[](0), 0, address(payTokenA), paymentAmount);
+        uint64 requestId = tangle.requestService(
+            blueprintId,
+            ops,
+            "",
+            new address[](0),
+            0,
+            address(payTokenA),
+            paymentAmount,
+            Types.ConfidentialityPolicy.Any
+        );
         vm.stopPrank();
 
         vm.prank(operator1);
@@ -242,7 +258,15 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), paymentAmount);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), paymentAmount
+            blueprintId,
+            ops,
+            reqs,
+            "",
+            new address[](0),
+            0,
+            address(payTokenA),
+            paymentAmount,
+            Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 
@@ -292,7 +316,15 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), paymentAmount);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), paymentAmount
+            blueprintId,
+            ops,
+            reqs,
+            "",
+            new address[](0),
+            0,
+            address(payTokenA),
+            paymentAmount,
+            Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 
@@ -316,8 +348,9 @@ contract ServiceFeeDistributorTest is BaseTest {
         // Create service with operator2 (who has no delegators)
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), 100 ether);
-        uint64 requestId =
-            tangle.requestService(blueprintId, ops, "", new address[](0), 0, address(payTokenA), 100 ether);
+        uint64 requestId = tangle.requestService(
+            blueprintId, ops, "", new address[](0), 0, address(payTokenA), 100 ether, Types.ConfidentialityPolicy.Any
+        );
         vm.stopPrank();
 
         // Should not revert even though operator has no delegators
@@ -452,7 +485,15 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), 100 ether);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), 100 ether
+            blueprintId,
+            ops,
+            reqs,
+            "",
+            new address[](0),
+            0,
+            address(payTokenA),
+            100 ether,
+            Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 
@@ -485,7 +526,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), 1000);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), 1000
+            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), 1000, Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 
@@ -586,7 +627,15 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.startPrank(user1);
         payTokenA.approve(address(tangle), paymentAmount);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, reqs, "", new address[](0), 0, address(payTokenA), paymentAmount
+            blueprintId,
+            ops,
+            reqs,
+            "",
+            new address[](0),
+            0,
+            address(payTokenA),
+            paymentAmount,
+            Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 

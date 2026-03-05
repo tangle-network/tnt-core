@@ -67,7 +67,9 @@ contract BLSAggregationTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -351,7 +353,9 @@ contract BLSAggregationTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 reqId = tangle.requestService(noBsmBlueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 reqId = tangle.requestService(
+            noBsmBlueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(reqId, 0);

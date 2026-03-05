@@ -94,7 +94,15 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         vm.startPrank(user1);
         payToken.approve(address(tangle), paymentAmount);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, reqs, "", new address[](0), 0, address(payToken), paymentAmount
+            blueprintId,
+            ops,
+            reqs,
+            "",
+            new address[](0),
+            0,
+            address(payToken),
+            paymentAmount,
+            Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 
@@ -139,7 +147,7 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         vm.startPrank(user1);
         payToken.approve(address(tangle), 1 ether);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, reqs, "", new address[](0), 0, address(payToken), 1 ether
+            blueprintId, ops, reqs, "", new address[](0), 0, address(payToken), 1 ether, Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 

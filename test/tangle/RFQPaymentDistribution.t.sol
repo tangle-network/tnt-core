@@ -72,7 +72,8 @@ contract RFQPaymentDistributionTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);

@@ -174,7 +174,9 @@ contract OperatorLifecycleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // First operator approves
         vm.prank(operator1);
@@ -218,7 +220,9 @@ contract OperatorLifecycleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -285,8 +289,9 @@ contract OperatorLifecycleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithExposure(
+            blueprintId, operators, exposures, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -367,8 +372,9 @@ contract OperatorLifecycleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.SecurityCommitmentsRequired.selector, requestId));
@@ -403,7 +409,8 @@ contract OperatorLifecycleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(dynamicBp, operators, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(dynamicBp, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
@@ -459,7 +466,8 @@ contract OperatorLifecycleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(dynamicBp, operators, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(dynamicBp, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
         vm.prank(operator2);
@@ -554,7 +562,9 @@ contract OperatorLifecycleTest is BaseTest {
         callers[1] = makeAddr("caller2");
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
@@ -596,7 +606,9 @@ contract OperatorLifecycleTest is BaseTest {
         callers[0] = makeAddr("removable");
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 
@@ -649,7 +661,9 @@ contract OperatorLifecycleTest is BaseTest {
         uint64 validTtl = 1 hours;
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, validTtl, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, validTtl, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
 

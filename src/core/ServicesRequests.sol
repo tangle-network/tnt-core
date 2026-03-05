@@ -32,8 +32,18 @@ abstract contract ServicesRequests is Base {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event ServiceRequested(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
-    event ServiceRequestedWithSecurity(uint64 indexed requestId, uint64 indexed blueprintId, address indexed requester);
+    event ServiceRequested(
+        uint64 indexed requestId,
+        uint64 indexed blueprintId,
+        address indexed requester,
+        Types.ConfidentialityPolicy confidentiality
+    );
+    event ServiceRequestedWithSecurity(
+        uint64 indexed requestId,
+        uint64 indexed blueprintId,
+        address indexed requester,
+        Types.ConfidentialityPolicy confidentiality
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE REQUESTS
@@ -47,7 +57,8 @@ abstract contract ServicesRequests is Base {
         address[] calldata permittedCallers,
         uint64 ttl,
         address paymentToken,
-        uint256 paymentAmount
+        uint256 paymentAmount,
+        Types.ConfidentialityPolicy confidentiality
     )
         external
         payable
@@ -57,7 +68,7 @@ abstract contract ServicesRequests is Base {
     {
         _validateRequestConfig(blueprintId, config);
         requestId = _requestServiceWithDefaultExposure(
-            blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount
+            blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount, confidentiality
         );
         _storeDefaultTntRequirement(requestId);
         _storeDefaultResourceRequirements(requestId, blueprintId);
@@ -73,7 +84,8 @@ abstract contract ServicesRequests is Base {
         address[] calldata permittedCallers,
         uint64 ttl,
         address paymentToken,
-        uint256 paymentAmount
+        uint256 paymentAmount,
+        Types.ConfidentialityPolicy confidentiality
     )
         external
         payable
@@ -84,7 +96,15 @@ abstract contract ServicesRequests is Base {
         if (operators.length != exposures.length) revert Errors.LengthMismatch();
         _validateRequestConfig(blueprintId, config);
         requestId = _requestServiceInternal(
-            blueprintId, operators, exposures, config, permittedCallers, ttl, paymentToken, paymentAmount
+            blueprintId,
+            operators,
+            exposures,
+            config,
+            permittedCallers,
+            ttl,
+            paymentToken,
+            paymentAmount,
+            confidentiality
         );
         _storeDefaultTntRequirement(requestId);
         _storeDefaultResourceRequirements(requestId, blueprintId);
@@ -100,7 +120,8 @@ abstract contract ServicesRequests is Base {
         address[] calldata permittedCallers,
         uint64 ttl,
         address paymentToken,
-        uint256 paymentAmount
+        uint256 paymentAmount,
+        Types.ConfidentialityPolicy confidentiality
     )
         external
         payable
@@ -111,12 +132,12 @@ abstract contract ServicesRequests is Base {
         _validateSecurityRequirements(securityRequirements);
 
         requestId = _requestServiceWithDefaultExposure(
-            blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount
+            blueprintId, operators, config, permittedCallers, ttl, paymentToken, paymentAmount, confidentiality
         );
 
         _storeSecurityRequirementsWithDefaultTnt(requestId, securityRequirements);
         _storeDefaultResourceRequirements(requestId, blueprintId);
-        emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender);
+        emit ServiceRequestedWithSecurity(requestId, blueprintId, msg.sender, confidentiality);
     }
 
     function _requestServiceWithDefaultExposure(
@@ -126,7 +147,8 @@ abstract contract ServicesRequests is Base {
         address[] calldata permittedCallers,
         uint64 ttl,
         address paymentToken,
-        uint256 paymentAmount
+        uint256 paymentAmount,
+        Types.ConfidentialityPolicy confidentiality
     )
         private
         returns (uint64 requestId)
@@ -134,7 +156,15 @@ abstract contract ServicesRequests is Base {
         uint16[] memory exposures = _defaultExposures(operators.length);
         _validateRequestConfig(blueprintId, config);
         return _requestServiceInternal(
-            blueprintId, operators, exposures, config, permittedCallers, ttl, paymentToken, paymentAmount
+            blueprintId,
+            operators,
+            exposures,
+            config,
+            permittedCallers,
+            ttl,
+            paymentToken,
+            paymentAmount,
+            confidentiality
         );
     }
 
@@ -147,7 +177,8 @@ abstract contract ServicesRequests is Base {
         address[] calldata permittedCallers,
         uint64 ttl,
         address paymentToken,
-        uint256 paymentAmount
+        uint256 paymentAmount,
+        Types.ConfidentialityPolicy confidentiality
     )
         internal
         returns (uint64 requestId)
@@ -170,12 +201,14 @@ abstract contract ServicesRequests is Base {
 
         RequestBounds memory bounds = _computeRequestBounds(blueprintId, uint32(operators.length));
 
-        requestId = _createServiceRequest(blueprintId, ttl, paymentToken, paymentAmount, blueprintData, bounds);
+        requestId = _createServiceRequest(
+            blueprintId, ttl, paymentToken, paymentAmount, confidentiality, blueprintData, bounds
+        );
 
         _storeRequestOperators(requestId, operators, exposures);
         _storePermittedCallers(requestId, permittedCallers);
 
-        emit ServiceRequested(requestId, blueprintId, msg.sender);
+        emit ServiceRequested(requestId, blueprintId, msg.sender, confidentiality);
 
         _notifyManagerOnRequest(blueprintData.manager, requestId, operators, config);
     }
@@ -373,6 +406,7 @@ abstract contract ServicesRequests is Base {
         uint64 ttl,
         address paymentToken,
         uint256 paymentAmount,
+        Types.ConfidentialityPolicy confidentiality,
         BlueprintRequestData memory blueprintData,
         RequestBounds memory bounds
     )
@@ -392,6 +426,7 @@ abstract contract ServicesRequests is Base {
             membership: blueprintData.membership,
             minOperators: bounds.minOperators,
             maxOperators: bounds.maxOperators,
+            confidentiality: confidentiality,
             rejected: false
         });
     }

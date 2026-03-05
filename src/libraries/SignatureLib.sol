@@ -29,7 +29,7 @@ library SignatureLib {
     /// @dev EIP-712 TypeHash for QuoteDetails
     /// @dev Replay protection is handled by marking digests as used
     bytes32 internal constant QUOTE_TYPEHASH = keccak256(
-        "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+        "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
     );
 
     /// @dev EIP-712 TypeHash for JobQuoteDetails (per-job RFQ)
@@ -85,6 +85,7 @@ library SignatureLib {
                 details.totalCost,
                 details.timestamp,
                 details.expiry,
+                details.confidentiality,
                 commitmentsHash,
                 resourcesHash
             )

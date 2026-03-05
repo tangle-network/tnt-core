@@ -50,7 +50,13 @@ abstract contract Base is
     /// @param serviceId The newly created service ID
     /// @param requestId The request ID that was activated
     /// @param blueprintId The blueprint this service is based on
-    event ServiceActivated(uint64 indexed serviceId, uint64 indexed requestId, uint64 indexed blueprintId);
+    /// @param confidentiality The effective execution confidentiality for the service
+    event ServiceActivated(
+        uint64 indexed serviceId,
+        uint64 indexed requestId,
+        uint64 indexed blueprintId,
+        Types.ConfidentialityPolicy confidentiality
+    );
 
     /// @notice Emitted when the MBSM registry is updated
     /// @param registry The new registry address

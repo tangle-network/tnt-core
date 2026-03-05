@@ -342,7 +342,9 @@ contract CrossVersionCompatibilityTest is BlueprintTestHarness {
                 abi.encodeWithSelector(MockBSM_V2.InsufficientPayment.selector, 5 ether, 1 ether)
             )
         );
-        tangle.requestService{ value: 1 ether }(blueprintV2, ops, "", new address[](0), 0, address(0), 1 ether);
+        tangle.requestService{ value: 1 ether }(
+            blueprintV2, ops, "", new address[](0), 0, address(0), 1 ether, Types.ConfidentialityPolicy.Any
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

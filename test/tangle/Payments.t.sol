@@ -261,8 +261,9 @@ contract PaymentsTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: payment }(blueprintId, operators, "", callers, 0, address(0), payment);
+        uint64 requestId = tangle.requestService{ value: payment }(
+            blueprintId, operators, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -290,7 +291,7 @@ contract PaymentsTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithExposure{ value: payment }(
-            blueprintId, operators, exposures, "", callers, 0, address(0), payment
+            blueprintId, operators, exposures, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -339,8 +340,9 @@ contract PaymentsTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: upfront }(eventBlueprintId, operators, "", callers, 0, address(0), upfront);
+        uint64 requestId = tangle.requestService{ value: upfront }(
+            eventBlueprintId, operators, "", callers, 0, address(0), upfront, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -372,7 +374,9 @@ contract PaymentsTest is BaseTest {
         vm.startPrank(user1);
         token.approve(address(tangle), 1 ether);
         vm.expectRevert(Errors.InvalidPaymentToken.selector);
-        tangle.requestService(eventBlueprintId, operators, "", callers, 0, address(token), 1 ether);
+        tangle.requestService(
+            eventBlueprintId, operators, "", callers, 0, address(token), 1 ether, Types.ConfidentialityPolicy.Any
+        );
         vm.stopPrank();
     }
 
@@ -481,8 +485,9 @@ contract PaymentsTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: 1 ether }(subBlueprintId, operators, "", callers, 0, address(0), 1 ether);
+        uint64 requestId = tangle.requestService{ value: 1 ether }(
+            subBlueprintId, operators, "", callers, 0, address(0), 1 ether, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -583,8 +588,9 @@ contract PaymentsTest is BaseTest {
         uint256 initialDeposit = 100 ether;
         vm.startPrank(user1);
         token.approve(address(tangle), initialDeposit);
-        uint64 requestId =
-            tangle.requestService(ercBlueprintId, operators, "", callers, 0, address(token), initialDeposit);
+        uint64 requestId = tangle.requestService(
+            ercBlueprintId, operators, "", callers, 0, address(token), initialDeposit, Types.ConfidentialityPolicy.Any
+        );
         vm.stopPrank();
 
         vm.prank(operator1);
@@ -627,7 +633,9 @@ contract PaymentsTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(ercBlueprintId, operators, "", callers, 0, address(token), 0);
+        uint64 requestId = tangle.requestService(
+            ercBlueprintId, operators, "", callers, 0, address(token), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -663,8 +671,9 @@ contract PaymentsTest is BaseTest {
         });
 
         vm.prank(developer);
-        uint64 guardedBp =
-            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://guarded-subscription", address(manager), config));
+        uint64 guardedBp = tangle.createBlueprint(
+            _blueprintDefinitionWithConfig("ipfs://guarded-subscription", address(manager), config)
+        );
         _registerForBlueprint(operator1, guardedBp);
 
         address[] memory operators = new address[](1);
@@ -673,7 +682,7 @@ contract PaymentsTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(token)));
-        tangle.requestService(guardedBp, operators, "", callers, 0, address(token), 0);
+        tangle.requestService(guardedBp, operators, "", callers, 0, address(token), 0, Types.ConfidentialityPolicy.Any);
     }
 
     function test_RequestPaymentAsset_ContextDenyCannotBeOverriddenByLegacyGlobalAllow() public {
@@ -691,12 +700,14 @@ contract PaymentsTest is BaseTest {
 
         // Consume requestContextId=0 first so next request uses contextId=1.
         vm.prank(user1);
-        tangle.requestService(guardedBp, operators, "", callers, 0, address(0), 0);
+        tangle.requestService(guardedBp, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.startPrank(user1);
         token.approve(address(tangle), 1 ether);
         vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotAllowed.selector, address(token)));
-        tangle.requestService(guardedBp, operators, "", callers, 0, address(token), 1 ether);
+        tangle.requestService(
+            guardedBp, operators, "", callers, 0, address(token), 1 ether, Types.ConfidentialityPolicy.Any
+        );
         vm.stopPrank();
     }
 
@@ -737,8 +748,9 @@ contract PaymentsTest is BaseTest {
 
         // Only deposit 0.5 ETH but rate is 1 ETH
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: 0.5 ether }(bp, operators, "", callers, 0, address(0), 0.5 ether);
+        uint64 requestId = tangle.requestService{ value: 0.5 ether }(
+            bp, operators, "", callers, 0, address(0), 0.5 ether, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -792,7 +804,7 @@ contract PaymentsTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: 1 ether }(
-            expBlueprintId, operators, "", callers, 1 days, address(0), 1 ether
+            expBlueprintId, operators, "", callers, 1 days, address(0), 1 ether, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -979,7 +991,7 @@ contract PaymentsTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: initialDeposit }(
-            bp, operators, "", callers, ttl, address(0), initialDeposit
+            bp, operators, "", callers, ttl, address(0), initialDeposit, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);

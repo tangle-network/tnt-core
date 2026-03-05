@@ -136,7 +136,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
         vm.prank(serviceOwner);
         tangle.requestService{ value: 1 ether }(
-            blueprintId, ops, "test-inputs", new address[](0), 0, address(0), 1 ether
+            blueprintId, ops, "test-inputs", new address[](0), 0, address(0), 1 ether, Types.ConfidentialityPolicy.Any
         );
 
         assertEq(bsm.getHookCalls().onRequest, 1);
@@ -163,11 +163,15 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
                 abi.encodeWithSelector(MockBSM_V2.InsufficientPayment.selector, 1 ether, 0.5 ether)
             )
         );
-        tangle.requestService{ value: 0.5 ether }(blueprintId, ops, "", new address[](0), 0, address(0), 0.5 ether);
+        tangle.requestService{ value: 0.5 ether }(
+            blueprintId, ops, "", new address[](0), 0, address(0), 0.5 ether, Types.ConfidentialityPolicy.Any
+        );
 
         // At minimum succeeds
         vm.prank(serviceOwner);
-        tangle.requestService{ value: 1 ether }(blueprintId, ops, "", new address[](0), 0, address(0), 1 ether);
+        tangle.requestService{ value: 1 ether }(
+            blueprintId, ops, "", new address[](0), 0, address(0), 1 ether, Types.ConfidentialityPolicy.Any
+        );
         assertEq(bsm.getHookCalls().onRequest, 1);
     }
 
@@ -187,8 +191,9 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         ops[1] = operator2;
 
         vm.prank(serviceOwner);
-        uint64 requestId =
-            tangle.requestService{ value: 1 ether }(blueprintId, ops, "", new address[](0), 0, address(0), 1 ether);
+        uint64 requestId = tangle.requestService{ value: 1 ether }(
+            blueprintId, ops, "", new address[](0), 0, address(0), 1 ether, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -221,8 +226,9 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         ops[0] = operator1;
 
         vm.prank(serviceOwner);
-        uint64 requestId =
-            tangle.requestService{ value: 1 ether }(blueprintId, ops, "", new address[](0), 0, address(0), 1 ether);
+        uint64 requestId = tangle.requestService{ value: 1 ether }(
+            blueprintId, ops, "", new address[](0), 0, address(0), 1 ether, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.rejectService(requestId);
@@ -551,7 +557,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         ops[0] = operator1;
         vm.prank(serviceOwner);
         uint64 requestId = tangle.requestService{ value: 1 ether }(
-            blueprintId, ops, "test", new address[](0), 0, address(0), 1 ether
+            blueprintId, ops, "test", new address[](0), 0, address(0), 1 ether, Types.ConfidentialityPolicy.Any
         );
         assertEq(bsm.getHookCalls().onRequest, 1);
 
