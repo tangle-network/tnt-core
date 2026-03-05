@@ -305,7 +305,7 @@ library Types {
     ///      Slot 1: createdAt (8) + ttl (8) + operatorCount (4) + approvalCount (4) = 24 bytes
     ///      Slot 2: paymentToken (20) + membership (1) + minOperators (4) = 25 bytes
     ///      Slot 3: paymentAmount (32)
-    ///      Slot 4: maxOperators (4) + rejected (1) = 5 bytes
+    ///      Slot 4: maxOperators (4) + rejected (1) + confidentiality (1) = 6 bytes
     struct ServiceRequest {
         uint64 blueprintId;
         address requester;
@@ -318,8 +318,8 @@ library Types {
         MembershipModel membership; // Fixed or Dynamic
         uint32 minOperators; // For dynamic: minimum required
         uint32 maxOperators; // For dynamic: maximum allowed (0 = unlimited)
-        ConfidentialityPolicy confidentiality; // Requested execution confidentiality
         bool rejected;
+        ConfidentialityPolicy confidentiality; // Requested execution confidentiality
     }
 
     /// @notice Service - an active instance of a blueprint
@@ -327,7 +327,7 @@ library Types {
     ///      Slot 0: blueprintId (8) + owner (20) = 28 bytes
     ///      Slot 1: createdAt (8) + ttl (8) + terminatedAt (8) = 24 bytes
     ///      Slot 2: lastPaymentAt (8) + operatorCount (4) + minOperators (4) + maxOperators (4) = 20 bytes
-    ///      Slot 3: membership (1) + pricing (1) + status (1) = 3 bytes
+    ///      Slot 3: membership (1) + pricing (1) + status (1) + confidentiality (1) = 4 bytes
     struct Service {
         uint64 blueprintId;
         address owner;
@@ -340,8 +340,8 @@ library Types {
         uint32 maxOperators; // Maximum allowed (0 = unlimited)
         MembershipModel membership;
         PricingModel pricing;
-        ConfidentialityPolicy confidentiality; // Effective execution confidentiality
         ServiceStatus status;
+        ConfidentialityPolicy confidentiality; // Effective execution confidentiality
     }
 
     /// @notice Operator's participation in a service

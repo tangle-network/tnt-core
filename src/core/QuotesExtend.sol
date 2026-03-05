@@ -67,6 +67,7 @@ abstract contract QuotesExtend is Base {
 
         // Verify quotes and get total cost
         uint256 totalCost = _verifyExtensionQuotes(quotes, svc.blueprintId, additionalTtl);
+        _ensureExtensionQuoteConfidentiality(quotes, svc.confidentiality);
 
         // Collect payment
         _collectQuotePayment(totalCost);
@@ -135,6 +136,27 @@ abstract contract QuotesExtend is Base {
         returns (uint256 totalCost)
     {
         (totalCost,) = SignatureLib.verifyQuoteBatch(_usedQuotes, _domainSeparator, quotes, blueprintId, ttl);
+    }
+
+    function _ensureExtensionQuoteConfidentiality(
+        Types.SignedQuote[] calldata quotes,
+        Types.ConfidentialityPolicy expectedPolicy
+    )
+        private
+        pure
+    {
+        if (quotes.length == 0) return;
+
+        Types.ConfidentialityPolicy basePolicy = quotes[0].details.confidentiality;
+        if (basePolicy != expectedPolicy) {
+            revert Errors.InvalidQuoteSignature(quotes[0].operator);
+        }
+
+        for (uint256 i = 1; i < quotes.length; ++i) {
+            if (quotes[i].details.confidentiality != basePolicy) {
+                revert Errors.InvalidQuoteSignature(quotes[i].operator);
+            }
+        }
     }
 
     function _collectQuotePayment(uint256 totalCost) private {
