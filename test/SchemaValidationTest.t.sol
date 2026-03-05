@@ -53,12 +53,16 @@ contract SchemaValidationTest is BaseTest {
                 uint256(1)
             )
         );
-        tangle.requestService(blueprintId, operators, _encodeBool(true), permitted, 0, address(0), 0);
+        tangle.requestService(
+            blueprintId, operators, _encodeBool(true), permitted, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // Valid payload succeeds
         bytes memory validConfig = bytes.concat(_encodeBool(false), _encodeUint32(42));
         vm.prank(user1);
-        tangle.requestService(blueprintId, operators, validConfig, permitted, 0, address(0), 0);
+        tangle.requestService(
+            blueprintId, operators, validConfig, permitted, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
     }
 
     function test_JobParamsAndResultSchemaMismatch() public {
@@ -71,7 +75,9 @@ contract SchemaValidationTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);

@@ -279,7 +279,8 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -334,7 +335,10 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         address[] memory callers = new address[](0);
 
         vm.prank(requester);
-        return tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        return
+            tangle.requestService(
+                blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+            );
     }
 
     /// @notice Request a service with payment
@@ -352,7 +356,9 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         address[] memory callers = new address[](0);
 
         vm.prank(requester);
-        return tangle.requestService{ value: payment }(blueprintId, operators, "", callers, 0, address(0), payment);
+        return tangle.requestService{ value: payment }(
+            blueprintId, operators, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
+        );
     }
 
     /// @notice Approve a service request
@@ -383,7 +389,9 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
 
         address[] memory callers = new address[](0);
         vm.prank(user1);
-        uint64 requestId = tangle.requestServiceWithExposure(blueprintId, ops, exposures, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithExposure(
+            blueprintId, ops, exposures, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         for (uint256 i = 0; i < ops.length; i++) {
             vm.prank(ops[i]);
@@ -410,7 +418,9 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
 
         vm.startPrank(requester);
         IERC20(token).approve(address(tangle), payment);
-        requestId = tangle.requestService(blueprintId, operators, "", callers, 0, token, payment);
+        requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, token, payment, Types.ConfidentialityPolicy.Any
+        );
         vm.stopPrank();
     }
 }

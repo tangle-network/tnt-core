@@ -879,6 +879,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         operators[1] = operator2;
 
         address[] memory permittedCallers = new address[](0);
+        bytes memory requestConfig = "";
 
         for (uint256 i = 0; i < numServiceInstances; i++) {
             if (useBroadcastKeys) {
@@ -892,11 +893,12 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             uint64 currentRequestId = tangle.requestService{ value: escrowAmount }(
                 blueprintId,
                 operators,
-                "", // Empty config
+                requestConfig, // Empty config
                 permittedCallers,
                 0, // No TTL
                 address(0), // Native ETH payment
-                escrowAmount
+                escrowAmount,
+                Types.ConfidentialityPolicy.Any
             );
             console2.log("Service requested, ID:", currentRequestId);
             if (useBroadcastKeys) {
@@ -1231,6 +1233,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         address[] memory ops = new address[](1);
         ops[0] = operator;
         address[] memory permittedCallers = new address[](0);
+        bytes memory requestConfig = "";
         uint256 nativeValue = paymentToken == address(0) ? paymentAmount : 0;
 
         // Deployer requests the service (pays for it)
@@ -1238,7 +1241,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         else vm.startPrank(deployer);
 
         uint64 reqId = tangle.requestService{ value: nativeValue }(
-            bpId, ops, "", permittedCallers, 0, paymentToken, paymentAmount
+            bpId, ops, requestConfig, permittedCallers, 0, paymentToken, paymentAmount, Types.ConfidentialityPolicy.Any
         );
 
         if (useBroadcastKeys) vm.stopBroadcast();

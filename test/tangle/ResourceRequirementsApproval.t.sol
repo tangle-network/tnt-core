@@ -169,7 +169,9 @@ contract ResourceRequirementsApprovalTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // Both approve
         _approveService(operator1, requestId);

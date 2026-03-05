@@ -254,8 +254,9 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: 5 ether }(subBlueprintId, ops, "", callers, 365 days, address(0), 5 ether);
+        uint64 requestId = tangle.requestService{ value: 5 ether }(
+            subBlueprintId, ops, "", callers, 365 days, address(0), 5 ether, Types.ConfidentialityPolicy.Any
+        );
 
         _approveService(operator1, requestId);
 
@@ -407,7 +408,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         _approveService(operator1, requestId);
 
@@ -427,7 +429,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.TTLAboveMaximum.selector, maxTTL, maximum));
-        tangle.requestService(blueprintId, ops, "", callers, maxTTL, address(0), 0);
+        tangle.requestService(blueprintId, ops, "", callers, maxTTL, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     function test_ServiceWithValidMaxTTL() public {
@@ -439,7 +441,9 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         uint64 validMaxTTL = 365 days;
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, validMaxTTL, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, ops, "", callers, validMaxTTL, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         _approveService(operator1, requestId);
 
@@ -478,7 +482,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(limitedBpId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(limitedBpId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         _approveService(operator1, requestId);
         _approveService(operator2, requestId);
@@ -518,7 +523,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(minOpBpId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(minOpBpId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         _approveService(operator1, requestId);
         _approveService(operator2, requestId);
@@ -611,7 +617,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         callers[0] = user2; // Add user2 as permitted caller
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         _approveService(operator1, requestId);
 
@@ -670,7 +677,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(); // BSM reverts
-        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     function test_RequestService_InactiveBlueprint_Reverts() public {
@@ -684,7 +691,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.BlueprintNotActive.selector, blueprintId));
-        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     function test_RequestService_DuplicateOperators() public {
@@ -697,7 +704,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         vm.prank(user1);
         // Behavior depends on implementation - may allow or reject duplicates
         // This tests the actual behavior
-        try tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0) {
+        try tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any) {
         // If it succeeds, verify service state
         }
             catch {
@@ -711,7 +718,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         _approveService(operator1, requestId);
 
@@ -728,7 +736,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         // operator1 rejects
         vm.prank(operator1);
@@ -750,7 +759,8 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(bpId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(bpId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         _approveService(op, requestId);
 
@@ -763,7 +773,9 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(dynamicBlueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            dynamicBlueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         _approveService(op, requestId);
 
@@ -797,7 +809,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: initialDeposit }(
-            subBlueprintId, ops, "", callers, 365 days, address(0), initialDeposit
+            subBlueprintId, ops, "", callers, 365 days, address(0), initialDeposit, Types.ConfidentialityPolicy.Any
         );
 
         _approveService(operator1, requestId);

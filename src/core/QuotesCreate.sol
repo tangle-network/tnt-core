@@ -17,6 +17,7 @@ abstract contract QuotesCreate is Base {
     struct QuoteActivation {
         uint64 serviceId;
         uint256 totalExposure;
+        Types.ConfidentialityPolicy confidentiality;
     }
 
     // ServiceActivated event inherited from Base.sol
@@ -150,6 +151,17 @@ abstract contract QuotesCreate is Base {
         returns (uint256 totalCost)
     {
         (totalCost,) = SignatureLib.verifyQuoteBatch(_usedQuotes, _domainSeparator, quotes, blueprintId, ttl);
+        _ensureQuoteConfidentialityConsistent(quotes);
+    }
+
+    function _ensureQuoteConfidentialityConsistent(Types.SignedQuote[] calldata quotes) private pure {
+        if (quotes.length == 0) return;
+        Types.ConfidentialityPolicy basePolicy = quotes[0].details.confidentiality;
+        for (uint256 i = 1; i < quotes.length; ++i) {
+            if (quotes[i].details.confidentiality != basePolicy) {
+                revert Errors.InvalidQuoteSignature(quotes[i].operator);
+            }
+        }
     }
 
     function _activateQuoteService(
@@ -165,6 +177,7 @@ abstract contract QuotesCreate is Base {
     {
         activation.serviceId = _serviceCount++;
         Types.BlueprintConfig storage bpConfig = _blueprintConfigs[blueprintId];
+        activation.confidentiality = quotes[0].details.confidentiality;
 
         _services[activation.serviceId] = Types.Service({
             blueprintId: blueprintId,
@@ -178,12 +191,13 @@ abstract contract QuotesCreate is Base {
             maxOperators: bpConfig.maxOperators,
             membership: bp.membership,
             pricing: bp.pricing,
+            confidentiality: activation.confidentiality,
             status: Types.ServiceStatus.Active
         });
 
         activation.totalExposure = _processOperatorQuotes(activation.serviceId, operators, exposures, quotes);
 
-        emit ServiceActivated(activation.serviceId, 0, blueprintId);
+        emit ServiceActivated(activation.serviceId, 0, blueprintId, activation.confidentiality);
         _recordServiceCreated(activation.serviceId, blueprintId, msg.sender, operators.length);
         _configureHeartbeat(activation.serviceId, bp.manager, msg.sender, operators);
     }

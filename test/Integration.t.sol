@@ -62,8 +62,9 @@ contract IntegrationTest is BaseTest {
         uint256 developerBefore = developer.balance;
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: payment }(blueprintId, operators, "", callers, 0, address(0), payment);
+        uint64 requestId = tangle.requestService{ value: payment }(
+            blueprintId, operators, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
+        );
 
         // Step 6: All operators approve (service activates after last approval)
         vm.prank(operator1);
@@ -131,7 +132,7 @@ contract IntegrationTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithExposure{ value: payment }(
-            blueprintId, operators, exposures, "", callers, 0, address(0), payment
+            blueprintId, operators, exposures, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
         );
 
         // Both approve
@@ -190,8 +191,9 @@ contract IntegrationTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithExposure(
+            blueprintId, operators, exposures, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -275,7 +277,7 @@ contract IntegrationTest is BaseTest {
         vm.deal(address(tangle), 10 ether);
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithExposure{ value: 1 ether }(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 1 ether
+            blueprintId, operators, exposures, "", callers, 0, address(0), 1 ether, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -435,7 +437,9 @@ contract IntegrationTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -742,8 +746,9 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // Request should be created
         Types.ServiceRequest memory req = tangle.getServiceRequest(requestId);
@@ -779,8 +784,9 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         assertEq(requestId, 0);
     }
@@ -802,7 +808,9 @@ contract MultiAssetSecurityTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(Errors.NoSecurityRequirements.selector);
-        tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
     }
 
     function test_RequestServiceWithSecurity_RevertInvalidMinMax() public {
@@ -829,7 +837,9 @@ contract MultiAssetSecurityTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(Errors.InvalidSecurityRequirement.selector);
-        tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
     }
 
     function test_ApproveWithCommitments_ValidCommitment() public {
@@ -855,8 +865,9 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // Operator approves with valid commitment (7500 bps = 75%)
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
@@ -893,8 +904,9 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // Try to commit only 30% when min is 50%
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
@@ -929,8 +941,9 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // Try to commit 80% when max is 50%
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
@@ -971,8 +984,9 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // Only commit for native asset, missing ERC20
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](1);
@@ -1007,8 +1021,9 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         Types.AssetSecurityCommitment[] memory commitments = new Types.AssetSecurityCommitment[](2);
         commitments[0] = Types.AssetSecurityCommitment({
@@ -1054,8 +1069,9 @@ contract MultiAssetSecurityTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithSecurity(blueprintId, operators, requirements, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId, operators, requirements, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // Both operators commit with different amounts
         Types.AssetSecurityCommitment[] memory commitments1 = new Types.AssetSecurityCommitment[](1);
@@ -1097,7 +1113,7 @@ contract RFQTest is BaseTest {
 
     function _signQuote(Types.QuoteDetails memory details, uint256 privateKey) internal view returns (bytes memory) {
         bytes32 QUOTE_TYPEHASH = keccak256(
-            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
         );
         bytes32 commitmentsHash = _hashSecurityCommitments(details.securityCommitments);
         bytes32 resourcesHash = _hashResourceCommitments(details.resourceCommitments);
@@ -1120,6 +1136,7 @@ contract RFQTest is BaseTest {
                 details.totalCost,
                 details.timestamp,
                 details.expiry,
+                details.confidentiality,
                 commitmentsHash,
                 resourcesHash
             )
@@ -1191,6 +1208,7 @@ contract RFQTest is BaseTest {
             totalCost: cost,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -1238,6 +1256,7 @@ contract RFQTest is BaseTest {
             totalCost: 0.5 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -1248,6 +1267,7 @@ contract RFQTest is BaseTest {
             totalCost: 0.7 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -1292,6 +1312,7 @@ contract RFQTest is BaseTest {
             totalCost: cost,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -1329,6 +1350,7 @@ contract RFQTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -1366,6 +1388,7 @@ contract RFQTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -1405,6 +1428,7 @@ contract RFQTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -1439,6 +1463,7 @@ contract RFQTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -1473,6 +1498,7 @@ contract RFQTest is BaseTest {
             totalCost: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -1513,6 +1539,7 @@ contract RFQTest is BaseTest {
             totalCost: 2 ether, // Costs 2 ETH
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });

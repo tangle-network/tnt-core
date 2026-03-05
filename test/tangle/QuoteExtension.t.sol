@@ -172,6 +172,7 @@ contract QuoteExtensionTest is BaseTest {
             totalCost: 0.5 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp - 1), // Expired
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -198,6 +199,35 @@ contract QuoteExtensionTest is BaseTest {
         vm.prank(user1);
         vm.expectRevert(); // Duplicate operator
         tangle.extendServiceFromQuotes{ value: 1 ether }(serviceId, quotes, additionalTtl);
+    }
+
+    function test_ExtendService_RevertsOnMixedConfidentialityQuotes() public {
+        uint64 additionalTtl = 15 days;
+
+        Types.SignedQuote[] memory quotes = new Types.SignedQuote[](2);
+        quotes[0] = _createExtensionQuoteWithPolicy(
+            operator1Key, operator1, 0.5 ether, additionalTtl, Types.ConfidentialityPolicy.Any
+        );
+        quotes[1] = _createExtensionQuoteWithPolicy(
+            operator2Key, operator2, 0.6 ether, additionalTtl, Types.ConfidentialityPolicy.TeeRequired
+        );
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidQuoteSignature.selector, operator2));
+        tangle.extendServiceFromQuotes{ value: 1.1 ether }(serviceId, quotes, additionalTtl);
+    }
+
+    function test_ExtendService_RevertsOnServiceConfidentialityMismatch() public {
+        uint64 additionalTtl = 15 days;
+
+        Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
+        quotes[0] = _createExtensionQuoteWithPolicy(
+            operator1Key, operator1, 0.5 ether, additionalTtl, Types.ConfidentialityPolicy.TeeRequired
+        );
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidQuoteSignature.selector, operator1));
+        tangle.extendServiceFromQuotes{ value: 0.5 ether }(serviceId, quotes, additionalTtl);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -302,12 +332,29 @@ contract QuoteExtensionTest is BaseTest {
         view
         returns (Types.SignedQuote memory)
     {
+        return _createExtensionQuoteWithPolicy(
+            privateKey, operator, totalCost, additionalTtl, Types.ConfidentialityPolicy.Any
+        );
+    }
+
+    function _createExtensionQuoteWithPolicy(
+        uint256 privateKey,
+        address operator,
+        uint256 totalCost,
+        uint64 additionalTtl,
+        Types.ConfidentialityPolicy confidentiality
+    )
+        internal
+        view
+        returns (Types.SignedQuote memory)
+    {
         Types.QuoteDetails memory details = Types.QuoteDetails({
             blueprintId: blueprintId,
             ttlBlocks: additionalTtl,
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
+            confidentiality: confidentiality,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -334,6 +381,7 @@ contract QuoteExtensionTest is BaseTest {
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -360,6 +408,7 @@ contract QuoteExtensionTest is BaseTest {
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 2 hours), // Different expiry
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -387,6 +436,7 @@ contract QuoteExtensionTest is BaseTest {
             totalCost: totalCost,
             timestamp: uint64(block.timestamp),
             expiry: expiry,
+            confidentiality: Types.ConfidentialityPolicy.Any,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -403,13 +453,14 @@ contract QuoteExtensionTest is BaseTest {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+                    "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
                 ),
                 details.blueprintId,
                 details.ttlBlocks,
                 details.totalCost,
                 details.timestamp,
                 details.expiry,
+                details.confidentiality,
                 commitmentsHash,
                 resourcesHash
             )

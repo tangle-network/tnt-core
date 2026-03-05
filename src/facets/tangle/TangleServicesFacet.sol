@@ -79,7 +79,9 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
             requestId
         );
 
-        _triggerManagerOnActivation(requestId, serviceId, req.blueprintId, req.requester, req.ttl, bp.manager);
+        _triggerManagerOnActivation(
+            requestId, serviceId, req.blueprintId, req.requester, req.ttl, bp.manager, req.confidentiality
+        );
     }
 
     function _persistServiceSecurity(uint64 serviceId, uint64 requestId) private {
@@ -121,6 +123,7 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
             maxOperators: req.maxOperators,
             membership: req.membership,
             pricing: bp.pricing,
+            confidentiality: req.confidentiality,
             status: Types.ServiceStatus.Active
         });
     }
@@ -204,11 +207,12 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         uint64 blueprintId,
         address requester,
         uint64 ttl,
-        address manager
+        address manager,
+        Types.ConfidentialityPolicy confidentiality
     )
         private
     {
-        emit ServiceActivated(serviceId, requestId, blueprintId);
+        emit ServiceActivated(serviceId, requestId, blueprintId, confidentiality);
 
         address[] memory operators = _copyRequestOperators(requestId);
         _configureHeartbeat(serviceId, manager, requester, operators);

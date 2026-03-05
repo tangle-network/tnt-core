@@ -466,7 +466,8 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
                 permittedCallers,
                 0, // No TTL
                 address(0), // Native payment
-                0
+                0,
+                Types.ConfidentialityPolicy.Any
             );
 
             vm.stopBroadcast();

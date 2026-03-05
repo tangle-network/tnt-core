@@ -200,8 +200,9 @@ contract PaymentEdgeCasesTest is BaseTest {
         uint256 payment = 100;
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: payment }(blueprintId, ops, "", callers, 0, address(0), payment);
+        uint64 requestId = tangle.requestService{ value: payment }(
+            blueprintId, ops, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
+        );
 
         _approveService(operator1, requestId);
         _approveService(operator2, requestId);
@@ -232,7 +233,9 @@ contract PaymentEdgeCasesTest is BaseTest {
         vm.startPrank(user1);
         revertToken.approve(address(tangle), 5 ether);
         vm.expectRevert(bytes("TransferFrom disabled"));
-        tangle.requestService(blueprintId, operators, "", callers, 0, address(revertToken), 5 ether);
+        tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(revertToken), 5 ether, Types.ConfidentialityPolicy.Any
+        );
         vm.stopPrank();
     }
 
@@ -263,7 +266,7 @@ contract PaymentEdgeCasesTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithExposure{ value: payment }(
-            blueprintId, ops, exposures, "", callers, 0, address(0), payment
+            blueprintId, ops, exposures, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
         );
 
         _approveService(operator1, requestId);
@@ -288,7 +291,7 @@ contract PaymentEdgeCasesTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithExposure{ value: payment }(
-            blueprintId, ops, exposures, "", callers, 0, address(0), payment
+            blueprintId, ops, exposures, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
         );
 
         _approveService(operator1, requestId);
@@ -472,7 +475,7 @@ contract PaymentEdgeCasesTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestService{ value: initialDeposit }(
-            subBlueprintId, ops, "", callers, 365 days, address(0), initialDeposit
+            subBlueprintId, ops, "", callers, 365 days, address(0), initialDeposit, Types.ConfidentialityPolicy.Any
         );
 
         _approveService(operator1, requestId);

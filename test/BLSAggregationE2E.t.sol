@@ -67,7 +67,9 @@ contract BLSAggregationE2ETest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // Approve with BLS pubkeys - operators use sk=1,2,3 respectively
         vm.prank(operator1);
@@ -274,7 +276,9 @@ contract BLSAggregationE2ETest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 reqId = tangle.requestService(dynamicBpId, operators, "", callers, 0, address(0), 0);
+        uint64 reqId = tangle.requestService(
+            dynamicBpId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(reqId, 0);
@@ -343,7 +347,9 @@ contract BLSAggregationE2ETest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 reqId = tangle.requestService(dynamicBpId, operators, "", callers, 0, address(0), 0);
+        uint64 reqId = tangle.requestService(
+            dynamicBpId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(reqId, 0);

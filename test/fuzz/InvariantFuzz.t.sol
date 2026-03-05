@@ -145,7 +145,9 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         ops[0] = operator1;
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", new address[](0), 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -170,8 +172,9 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         exposures[0] = exposure;
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithExposure(blueprintId, ops, exposures, "", new address[](0), 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithExposure(
+            blueprintId, ops, exposures, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator2);
         tangle.approveService(requestId, 0);
@@ -272,15 +275,21 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         if (requestOps < minOps) {
             vm.prank(user1);
             vm.expectRevert(abi.encodeWithSelector(Errors.InsufficientOperators.selector, minOps, requestOps));
-            tangle.requestService(newBpId, operators, "", new address[](0), 0, address(0), 0);
+            tangle.requestService(
+                newBpId, operators, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+            );
         } else if (requestOps > maxOps) {
             vm.prank(user1);
             vm.expectRevert(abi.encodeWithSelector(Errors.TooManyOperators.selector, maxOps, requestOps));
-            tangle.requestService(newBpId, operators, "", new address[](0), 0, address(0), 0);
+            tangle.requestService(
+                newBpId, operators, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+            );
         } else {
             // Should succeed
             vm.prank(user1);
-            tangle.requestService(newBpId, operators, "", new address[](0), 0, address(0), 0);
+            tangle.requestService(
+                newBpId, operators, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+            );
         }
     }
 
@@ -343,7 +352,9 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
             ops[0] = operator1;
 
             vm.prank(user1);
-            uint64 requestId = tangle.requestService(blueprintId, ops, "", new address[](0), 0, address(0), 0);
+            uint64 requestId = tangle.requestService(
+                blueprintId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+            );
 
             vm.prank(operator1);
             tangle.approveService(requestId, 0);
@@ -424,8 +435,9 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         ops[0] = operator1;
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: deposit }(subBp, ops, "", new address[](0), 365 days, address(0), deposit);
+        uint64 requestId = tangle.requestService{ value: deposit }(
+            subBp, ops, "", new address[](0), 365 days, address(0), deposit, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -480,8 +492,9 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         ops[0] = operator1;
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: payment }(blueprintId, ops, "", new address[](0), 0, address(0), payment);
+        uint64 requestId = tangle.requestService{ value: payment }(
+            blueprintId, ops, "", new address[](0), 0, address(0), payment, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);

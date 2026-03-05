@@ -182,8 +182,9 @@ contract SlashingFuzzTest is BaseTest {
         exposures[0] = exposure;
 
         vm.prank(user1);
-        uint64 reqId =
-            tangle.requestServiceWithExposure(blueprintId, ops, exposures, "", new address[](0), 0, address(0), 0);
+        uint64 reqId = tangle.requestServiceWithExposure(
+            blueprintId, ops, exposures, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
         vm.prank(operator2);
         tangle.approveService(reqId, 0);
         uint64 svcId = tangle.serviceCount() - 1;

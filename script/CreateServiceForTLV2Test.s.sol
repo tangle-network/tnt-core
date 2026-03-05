@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { Script, console2 } from "forge-std/Script.sol";
 import { ITangleFull } from "../src/interfaces/ITangle.sol";
+import { Types } from "../src/libraries/Types.sol";
 
 /// @title CreateServiceForTLV2Test
 /// @notice Create a service for the TLV v2 test blueprint
@@ -31,15 +32,17 @@ contract CreateServiceForTLV2Test is Script {
         address[] memory operators = new address[](1);
         operators[0] = OPERATOR1;
         address[] memory permittedCallers = new address[](0); // Anyone can call
+        bytes memory requestConfig = "";
 
         uint64 serviceId = tangle.requestService(
             1, // blueprintId
             operators, // operators
-            "", // config
+            requestConfig, // config
             permittedCallers, // permittedCallers
             uint64(7 days), // ttl
             address(0), // paymentToken (native)
-            0 // paymentAmount
+            0, // paymentAmount
+            Types.ConfidentialityPolicy.Any
         );
         console2.log("Service requested with ID:", serviceId);
         vm.stopBroadcast();

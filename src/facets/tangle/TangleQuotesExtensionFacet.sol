@@ -12,7 +12,7 @@ contract TangleQuotesExtensionFacet is QuotesExtend, IFacetSelectors {
         selectorList = new bytes4[](1);
         selectorList[0] = bytes4(
             keccak256(
-                "extendServiceFromQuotes(uint64,((uint64,uint64,uint256,uint64,uint64,((uint8,address),uint16)[],(uint8,uint64)[]),bytes,address)[],uint64)"
+                "extendServiceFromQuotes(uint64,((uint64,uint64,uint256,uint64,uint64,uint8,((uint8,address),uint16)[],(uint8,uint64)[]),bytes,address)[],uint64)"
             )
         );
     }

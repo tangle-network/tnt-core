@@ -214,7 +214,8 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -259,7 +260,8 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -317,7 +319,8 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         assertLt(requestId, 100); // Valid request ID (starts from 0 or 1)
     }
@@ -349,7 +352,7 @@ contract StakeRequirementTests is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.InsufficientOperators.selector, 3, 1));
-        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     function test_RequestService_AboveMaxOperators_Reverts() public {
@@ -389,7 +392,7 @@ contract StakeRequirementTests is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.TooManyOperators.selector, 2, 3));
-        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     function test_RequestService_MaxOperatorsZero_NoLimit() public {
@@ -426,7 +429,7 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     function test_RequestService_MinOperatorsZero_DefaultsToOne() public {
@@ -455,7 +458,7 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -487,8 +490,9 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: 1 ether }(blueprintId, ops, "", callers, 365 days, address(0), 1 ether);
+        uint64 requestId = tangle.requestService{ value: 1 ether }(
+            blueprintId, ops, "", callers, 365 days, address(0), 1 ether, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -535,8 +539,9 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: 1 ether }(blueprintId, ops, "", callers, 365 days, address(0), 1 ether);
+        uint64 requestId = tangle.requestService{ value: 1 ether }(
+            blueprintId, ops, "", callers, 365 days, address(0), 1 ether, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -583,8 +588,9 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestService{ value: 1 ether }(blueprintId, ops, "", callers, 365 days, address(0), 1 ether);
+        uint64 requestId = tangle.requestService{ value: 1 ether }(
+            blueprintId, ops, "", callers, 365 days, address(0), 1 ether, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -631,7 +637,7 @@ contract StakeRequirementTests is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0);
+        tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     function test_StakeRequirement_ExactlyAtMinimum() public {

@@ -355,7 +355,15 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, _nativeSecurityReqs(), "", new address[](0), TTL, address(payToken), 0
+            blueprintId,
+            ops,
+            _nativeSecurityReqs(),
+            "",
+            new address[](0),
+            TTL,
+            address(payToken),
+            0,
+            Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -563,7 +571,15 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         vm.startPrank(user1);
         payToken.approve(address(tangle), payment);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, _nativeSecurityReqs(), "", new address[](0), TTL, address(payToken), payment
+            blueprintId,
+            ops,
+            _nativeSecurityReqs(),
+            "",
+            new address[](0),
+            TTL,
+            address(payToken),
+            payment,
+            Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 
@@ -580,7 +596,15 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         vm.startPrank(user1);
         payToken.approve(address(tangle), payment);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, _nativeSecurityReqs(), "", new address[](0), 0, address(payToken), payment
+            blueprintId,
+            ops,
+            _nativeSecurityReqs(),
+            "",
+            new address[](0),
+            0,
+            address(payToken),
+            payment,
+            Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 
@@ -598,7 +622,15 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         vm.startPrank(user1);
         payToken.approve(address(tangle), payment);
         uint64 requestId = tangle.requestServiceWithSecurity(
-            blueprintId, ops, _nativeSecurityReqs(), "", new address[](0), TTL, address(payToken), payment
+            blueprintId,
+            ops,
+            _nativeSecurityReqs(),
+            "",
+            new address[](0),
+            TTL,
+            address(payToken),
+            payment,
+            Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
 

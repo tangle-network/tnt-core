@@ -244,7 +244,9 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         Types.ServiceRequest memory req = tangle.getServiceRequest(requestId);
         assertEq(req.operatorCount, 3);
@@ -258,7 +260,7 @@ contract TangleTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(Errors.NoOperators.selector);
-        tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     function test_RequestService_RevertOperatorNotRegistered() public {
@@ -272,7 +274,7 @@ contract TangleTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotRegistered.selector, blueprintId, operator1));
-        tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -306,7 +308,9 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // First approval - not activated yet
         _approveService(operator1, requestId);
@@ -615,8 +619,9 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithExposure(
+            blueprintId, operators, exposures, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         // Approve to activate service
         vm.prank(operator1);
@@ -685,8 +690,9 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithExposure(
+            blueprintId, operators, exposures, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -726,8 +732,9 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithExposure(
+            blueprintId, operators, exposures, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -788,8 +795,9 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithExposure(
+            blueprintId, operators, exposures, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -822,8 +830,9 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId =
-            tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestServiceWithExposure(
+            blueprintId, operators, exposures, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         assertEq(requestId, 0);
     }
@@ -841,7 +850,9 @@ contract TangleTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(Errors.InvalidState.selector);
-        tangle.requestServiceWithExposure(blueprintId, operators, exposures, "", callers, 0, address(0), 0);
+        tangle.requestServiceWithExposure(
+            blueprintId, operators, exposures, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
     }
 
     function test_GetServiceOperators() public {
@@ -857,7 +868,9 @@ contract TangleTest is BaseTest {
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(blueprintId, operators, "", callers, 0, address(0), 0);
+        uint64 requestId = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
 
         vm.prank(operator1);
         tangle.approveService(requestId, 0);
@@ -952,7 +965,7 @@ contract TangleTest is BaseTest {
         // Request with payment for subscription
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithExposure{ value: 1 ether }(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 1 ether
+            blueprintId, operators, exposures, "", callers, 0, address(0), 1 ether, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);
@@ -1007,7 +1020,7 @@ contract TangleTest is BaseTest {
 
         vm.prank(user1);
         uint64 requestId = tangle.requestServiceWithExposure{ value: 1 ether }(
-            blueprintId, operators, exposures, "", callers, 0, address(0), 1 ether
+            blueprintId, operators, exposures, "", callers, 0, address(0), 1 ether, Types.ConfidentialityPolicy.Any
         );
 
         vm.prank(operator1);

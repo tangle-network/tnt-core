@@ -299,8 +299,9 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         address[] memory callers = new address[](0);
 
         vm.prank(serviceOwner);
-        uint64 requestId =
-            tangle.requestService{ value: payment }(blueprintId, operators, "", callers, 0, address(0), payment);
+        uint64 requestId = tangle.requestService{ value: payment }(
+            blueprintId, operators, "", callers, 0, address(0), payment, Types.ConfidentialityPolicy.Any
+        );
 
         // Approve with all operators
         for (uint256 i = 0; i < operators.length; i++) {
