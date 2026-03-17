@@ -12,11 +12,15 @@
     "./note": "./dist/note/index.js",
     "./contract": "./dist/contract/index.js"
   },
+  "bin": {
+    "tangle-shielded": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
     "lint": "eslint src/",
-    "test": "vitest"
+    "test": "vitest",
+    "cli": "tsx src/cli.ts"
   },
   "dependencies": {
     "@noble/curves": "^1.4.0",

@@ -41,7 +41,12 @@
     "bridge": {
       "type": "layerzero",
       "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
-      "note": "LayerZero V2 endpoint on Base mainnet"
+      "lzEndpointId": 30184,
+      "peers": {
+        "ethereum": { "eid": 30101, "chainId": 1 },
+        "arbitrum": { "eid": 30110, "chainId": 42161 }
+      },
+      "note": "LayerZero V2 mainnet endpoint — same address (0x1a44...728c) on all mainnet chains"
     }
   },
 

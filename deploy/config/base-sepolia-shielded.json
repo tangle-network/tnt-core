@@ -31,7 +31,12 @@
     "bridge": {
       "type": "layerzero",
       "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
-      "note": "LayerZero V2 endpoint on Base Sepolia"
+      "lzEndpointId": 40245,
+      "peers": {
+        "ethereum-sepolia": { "eid": 40161, "chainId": 11155111 },
+        "arbitrum-sepolia": { "eid": 40231, "chainId": 421614 }
+      },
+      "note": "LayerZero V2 testnet endpoint — same address on all testnet chains"
     }
   },
 
