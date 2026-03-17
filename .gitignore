@@ -42,6 +42,8 @@ deployments/**/evm-airdrop/
 
 # Soldeer
 /dependencies
+# Keep the protocol-solidity submodule (audited, unmodified)
+!/dependencies/protocol-solidity
 script/tanglepod-cli/tanglepod-cli
 
 # Migration / SP1 artifacts (generated)
@@ -52,6 +54,15 @@ script/tanglepod-cli/tanglepod-cli
 
 # Local developer scratch
 .local/
+
+# Circuit artifacts (zkeys are 100MB+, download via SDK)
+*.zkey
+*.wasm
+*.wtns
+*.ptau
+*.r1cs
+*.sym
+solidity-fixtures/
 
 # Claude Code
 .claude/

@@ -1,0 +1,39 @@
+{
+  "name": "@tangle-network/shielded-sdk",
+  "version": "0.1.0",
+  "description": "Headless SDK for shielded payments on Tangle — VAnchor UTXO management, ZK proof generation, and ShieldedGateway interaction",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./protocol": "./dist/protocol/index.js",
+    "./proof": "./dist/proof/index.js",
+    "./note": "./dist/note/index.js",
+    "./contract": "./dist/contract/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.4.0",
+    "big-integer": "^1.6.52",
+    "circomlibjs": "^0.0.8",
+    "ethers": "^6.13.0",
+    "snarkjs": "^0.7.2",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/snarkjs": "^0.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
+  },
+  "files": [
+    "dist",
+    "circuits"
+  ],
+  "license": "MIT"
+}

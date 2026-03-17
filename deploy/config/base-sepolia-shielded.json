@@ -1,0 +1,43 @@
+{
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "rpcUrl": "https://sepolia.base.org",
+
+  "shielded": {
+    "treeLevels": 30,
+    "maxEdges": 1,
+
+    "wrapper": {
+      "name": "Tangle Shielded USD",
+      "symbol": "tsUSD",
+      "feeBps": 0,
+      "wrappingLimit": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "allowNative": false
+    },
+
+    "stablecoins": [
+      {
+        "symbol": "USDC",
+        "address": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "note": "Circle native USDC on Base Sepolia"
+      }
+    ],
+
+    "vanchor": {
+      "minimumWithdrawalAmount": "0",
+      "maximumDepositAmount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+    },
+
+    "bridge": {
+      "type": "layerzero",
+      "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+      "note": "LayerZero V2 endpoint on Base Sepolia"
+    }
+  },
+
+  "notes": {
+    "tangle": "Set TANGLE env var to the deployed Tangle proxy address",
+    "poseidon": "Poseidon libraries must be deployed via circomlibjs before running the Forge script. Set POSEIDON_HASHER to the deployed PoseidonHasher address.",
+    "verifiers": "Verifier contracts must be deployed from circuit artifacts. Set VANCHOR_VERIFIER to the deployed VAnchorVerifier address."
+  }
+}

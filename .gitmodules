@@ -1,3 +1,6 @@
 [submodule "dependencies/forge-std"]
 	path = dependencies/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "dependencies/protocol-solidity"]
+	path = dependencies/protocol-solidity
+	url = https://github.com/tangle-network/protocol-solidity.git

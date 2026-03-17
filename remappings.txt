@@ -2,3 +2,5 @@
 @openzeppelin/contracts-upgradeable/=dependencies/@openzeppelin-contracts-upgradeable-5.1.0/
 @openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.1.0/
 forge-std/=dependencies/forge-std-1.9.4/src/
+protocol-solidity/=dependencies/protocol-solidity/packages/contracts/contracts/
+@openzeppelin-v4/contracts/=dependencies/openzeppelin-contracts-4.9.6/contracts/

@@ -1,0 +1,44 @@
+{
+  "$schema": "../deploy-config-schema.json",
+  "comment": "Shielded pool deployment config for Base mainnet",
+
+  "tangle": "0x0000000000000000000000000000000000000000",
+
+  "gatewayOwner": "0x0000000000000000000000000000000000000000",
+  "feeRecipient": "0x0000000000000000000000000000000000000000",
+
+  "poseidon": {
+    "comment": "Deploy Poseidon T2-T6 libraries using circomlibjs, then paste addresses here",
+    "T2": "0x0000000000000000000000000000000000000000",
+    "T3": "0x0000000000000000000000000000000000000000",
+    "T4": "0x0000000000000000000000000000000000000000",
+    "T5": "0x0000000000000000000000000000000000000000",
+    "T6": "0x0000000000000000000000000000000000000000"
+  },
+
+  "verifiers": {
+    "comment": "Deploy verifier contracts from trusted setup ceremony output, then paste addresses here",
+    "v2_2": "0x0000000000000000000000000000000000000000",
+    "v2_16": "0x0000000000000000000000000000000000000000",
+    "v8_2": "0x0000000000000000000000000000000000000000",
+    "v8_16": "0x0000000000000000000000000000000000000000"
+  },
+
+  "merkleTreeLevels": 30,
+  "maxEdges": 1,
+  "wrappingLimit": 10000000000000,
+  "feePercentage": 0,
+  "isNativeAllowed": false,
+
+  "stablecoins": [
+    "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
+    "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb"
+  ],
+
+  "stablecoinLabels": {
+    "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913": "USDC",
+    "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2": "USDT",
+    "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb": "DAI"
+  }
+}

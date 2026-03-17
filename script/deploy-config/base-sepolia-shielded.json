@@ -1,0 +1,40 @@
+{
+  "$schema": "../deploy-config-schema.json",
+  "comment": "Shielded pool deployment config for Base Sepolia testnet",
+
+  "tangle": "0x0000000000000000000000000000000000000000",
+
+  "gatewayOwner": "0x0000000000000000000000000000000000000000",
+  "feeRecipient": "0x0000000000000000000000000000000000000000",
+
+  "poseidon": {
+    "comment": "Deploy Poseidon T2-T6 libraries using circomlibjs, then paste addresses here",
+    "T2": "0x0000000000000000000000000000000000000000",
+    "T3": "0x0000000000000000000000000000000000000000",
+    "T4": "0x0000000000000000000000000000000000000000",
+    "T5": "0x0000000000000000000000000000000000000000",
+    "T6": "0x0000000000000000000000000000000000000000"
+  },
+
+  "verifiers": {
+    "comment": "Deploy verifier contracts from trusted setup ceremony output, then paste addresses here",
+    "v2_2": "0x0000000000000000000000000000000000000000",
+    "v2_16": "0x0000000000000000000000000000000000000000",
+    "v8_2": "0x0000000000000000000000000000000000000000",
+    "v8_16": "0x0000000000000000000000000000000000000000"
+  },
+
+  "merkleTreeLevels": 30,
+  "maxEdges": 1,
+  "wrappingLimit": 1000000000000,
+  "feePercentage": 0,
+  "isNativeAllowed": false,
+
+  "stablecoins": [
+    "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  ],
+
+  "stablecoinLabels": {
+    "0x036CbD53842c5426634e7929541eC2318f3dCF7e": "USDC (Base Sepolia)"
+  }
+}
