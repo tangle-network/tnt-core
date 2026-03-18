@@ -181,6 +181,52 @@ contract LayerZeroAnchorBridge is ILayerZeroAnchorBridge {
         emit HandlerUpdated(old, _handler);
     }
 
+    /// @notice Add a new cross-chain edge in one call.
+    ///         Configures chain mapping + peer + pushes the initial merkle root
+    ///         to the local VAnchor — everything needed for a new chain connection.
+    /// @param chainId         EVM chain ID of the new chain
+    /// @param eid             LayerZero endpoint ID of the new chain
+    /// @param peer            Address of the LayerZeroAnchorBridge on the new chain (bytes32)
+    /// @param merkleRoot      Current merkle root of the remote VAnchor
+    /// @param leafIndex       Current leaf index of the remote VAnchor
+    /// @param srcResourceID   Resource ID of the remote VAnchor
+    function addEdge(
+        uint256 chainId,
+        uint32 eid,
+        bytes32 peer,
+        bytes32 merkleRoot,
+        uint32 leafIndex,
+        bytes32 srcResourceID
+    )
+        external
+        onlyOwner
+    {
+        // 1. Set chain mapping (EVM chain ID ↔ LZ endpoint ID)
+        chainToEid[chainId] = eid;
+        eidToChain[eid] = chainId;
+        emit ChainMappingSet(chainId, eid);
+
+        // 2. Set trusted peer (if non-zero — zero means manual-only, no LZ relay)
+        if (peer != bytes32(0)) {
+            peers[eid] = peer;
+            emit PeerSet(eid, peer);
+        }
+
+        // 3. Push initial merkle root to the local VAnchor
+        bytes memory data = _encodeUpdateEdge(srcResourceID, merkleRoot, leafIndex);
+        IExecutor(handler).executeProposal(srcResourceID, data);
+
+        emit DirectEdgeUpdate(merkleRoot, leafIndex, srcResourceID);
+    }
+
+    /// @notice Push a merkle root directly to the local VAnchor without LayerZero.
+    ///         For manual root updates by the multisig on chains without full LZ relay.
+    function directUpdateEdge(bytes32 merkleRoot, uint32 leafIndex, bytes32 srcResourceID) external onlyOwner {
+        bytes memory data = _encodeUpdateEdge(srcResourceID, merkleRoot, leafIndex);
+        IExecutor(handler).executeProposal(srcResourceID, data);
+        emit DirectEdgeUpdate(merkleRoot, leafIndex, srcResourceID);
+    }
+
     /// @notice Set gas limit for destination chain execution
     function setDstGasLimit(uint128 _gasLimit) external onlyOwner {
         dstGasLimit = _gasLimit;

@@ -22,6 +22,23 @@ interface ILayerZeroAnchorBridge {
     /// @notice Emitted when the handler address is updated
     event HandlerUpdated(address indexed oldHandler, address indexed newHandler);
 
+    /// @notice Emitted when a direct edge update is submitted by the multisig owner
+    event DirectEdgeUpdate(bytes32 merkleRoot, uint32 leafIndex, bytes32 srcResourceID);
+
+    /// @notice Add a new cross-chain edge in one call: chain mapping + peer + initial root push.
+    function addEdge(
+        uint256 chainId,
+        uint32 eid,
+        bytes32 peer,
+        bytes32 merkleRoot,
+        uint32 leafIndex,
+        bytes32 srcResourceID
+    )
+        external;
+
+    /// @notice Push a merkle root directly without LayerZero (manual multisig updates).
+    function directUpdateEdge(bytes32 merkleRoot, uint32 leafIndex, bytes32 srcResourceID) external;
+
     /// @notice Relay a merkle root update to another chain via LayerZero
     /// @param destChainId EVM chain ID of the destination
     /// @param merkleRoot The new merkle root to relay

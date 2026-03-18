@@ -48,10 +48,10 @@
         "optimism":  { "eid": 30111, "chainId": 10 },
         "polygon":   { "eid": 30109, "chainId": 137 },
         "bsc":       { "eid": 30102, "chainId": 56 },
-        "avalanche": { "eid": 30106, "chainId": 43114 },
-        "scroll":    { "eid": 30214, "chainId": 534352 }
+        "avalanche":   { "eid": 30106, "chainId": 43114 },
+        "hyperliquid": { "eid": 30367, "chainId": 999 }
       },
-      "note": "8-chain bridge via LayerZero V2. maxEdges=7 (self + 7 peers). Same endpoint (0x1a44...728c) on all mainnet chains."
+      "note": "8-chain bridge: Ethereum, Arbitrum, Base, Optimism, Polygon, BSC, Avalanche, Hyperliquid. maxEdges=7 (self + 7 peers). Same LZ endpoint on all mainnet chains."
     }
   },
 

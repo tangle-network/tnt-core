@@ -41,7 +41,7 @@ contract ConfigureLZPeers is Script {
     uint256 constant POLYGON = 137;
     uint256 constant BSC = 56;
     uint256 constant AVALANCHE = 43114;
-    uint256 constant SCROLL = 534352;
+    uint256 constant HYPERLIQUID = 999;
 
     // LayerZero V2 Endpoint IDs (mainnet)
     uint32 constant EID_ETHEREUM = 30101;
@@ -51,17 +51,7 @@ contract ConfigureLZPeers is Script {
     uint32 constant EID_POLYGON = 30109;
     uint32 constant EID_BSC = 30102;
     uint32 constant EID_AVALANCHE = 30106;
-    uint32 constant EID_SCROLL = 30214;
-
-    // LayerZero V2 Endpoint IDs (testnet)
-    uint32 constant EID_ETHEREUM_SEPOLIA = 40161;
-    uint32 constant EID_ARBITRUM_SEPOLIA = 40231;
-    uint32 constant EID_BASE_SEPOLIA = 40245;
-    uint32 constant EID_OPTIMISM_SEPOLIA = 40232;
-    uint32 constant EID_POLYGON_AMOY = 40267;
-    uint32 constant EID_BSC_TESTNET = 40102;
-    uint32 constant EID_AVALANCHE_FUJI = 40106;
-    uint32 constant EID_SCROLL_SEPOLIA = 40270;
+    uint32 constant EID_HYPERLIQUID = 30367;
 
     function run() external {
         address bridgeAddr = vm.envAddress("BRIDGE");
@@ -80,7 +70,7 @@ contract ConfigureLZPeers is Script {
         _setMapping(bridge, POLYGON, EID_POLYGON);
         _setMapping(bridge, BSC, EID_BSC);
         _setMapping(bridge, AVALANCHE, EID_AVALANCHE);
-        _setMapping(bridge, SCROLL, EID_SCROLL);
+        _setMapping(bridge, HYPERLIQUID, EID_HYPERLIQUID);
 
         // Register peers from env vars (skip if not set)
         _setPeerFromEnv(bridge, EID_ETHEREUM, "PEER_ETHEREUM");
@@ -90,7 +80,7 @@ contract ConfigureLZPeers is Script {
         _setPeerFromEnv(bridge, EID_POLYGON, "PEER_POLYGON");
         _setPeerFromEnv(bridge, EID_BSC, "PEER_BSC");
         _setPeerFromEnv(bridge, EID_AVALANCHE, "PEER_AVALANCHE");
-        _setPeerFromEnv(bridge, EID_SCROLL, "PEER_SCROLL");
+        _setPeerFromEnv(bridge, EID_HYPERLIQUID, "PEER_HYPERLIQUID");
 
         // Set gas limit (200k default, increase if needed for complex handlers)
         bridge.setDstGasLimit(200_000);
