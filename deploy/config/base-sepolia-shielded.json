@@ -5,7 +5,7 @@
 
   "shielded": {
     "treeLevels": 30,
-    "maxEdges": 1,
+    "maxEdges": 7,
 
     "wrapper": {
       "name": "Tangle Shielded USD",
@@ -33,10 +33,15 @@
       "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
       "lzEndpointId": 40245,
       "peers": {
-        "ethereum-sepolia": { "eid": 40161, "chainId": 11155111 },
-        "arbitrum-sepolia": { "eid": 40231, "chainId": 421614 }
+        "ethereum-sepolia":  { "eid": 40161, "chainId": 11155111 },
+        "arbitrum-sepolia":  { "eid": 40231, "chainId": 421614 },
+        "optimism-sepolia":  { "eid": 40232, "chainId": 11155420 },
+        "polygon-amoy":      { "eid": 40267, "chainId": 80002 },
+        "bsc-testnet":       { "eid": 40102, "chainId": 97 },
+        "avalanche-fuji":    { "eid": 40106, "chainId": 43113 },
+        "scroll-sepolia":    { "eid": 40270, "chainId": 534351 }
       },
-      "note": "LayerZero V2 testnet endpoint — same address on all testnet chains"
+      "note": "8-chain bridge via LayerZero V2. maxEdges=7 (self + 7 peers). Same endpoint on all testnet chains."
     }
   },
 

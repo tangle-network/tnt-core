@@ -5,7 +5,7 @@
 
   "shielded": {
     "treeLevels": 30,
-    "maxEdges": 1,
+    "maxEdges": 7,
 
     "wrapper": {
       "name": "Tangle Shielded USD",
@@ -43,10 +43,15 @@
       "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
       "lzEndpointId": 30184,
       "peers": {
-        "ethereum": { "eid": 30101, "chainId": 1 },
-        "arbitrum": { "eid": 30110, "chainId": 42161 }
+        "ethereum":  { "eid": 30101, "chainId": 1 },
+        "arbitrum":  { "eid": 30110, "chainId": 42161 },
+        "optimism":  { "eid": 30111, "chainId": 10 },
+        "polygon":   { "eid": 30109, "chainId": 137 },
+        "bsc":       { "eid": 30102, "chainId": 56 },
+        "avalanche": { "eid": 30106, "chainId": 43114 },
+        "scroll":    { "eid": 30214, "chainId": 534352 }
       },
-      "note": "LayerZero V2 mainnet endpoint — same address (0x1a44...728c) on all mainnet chains"
+      "note": "8-chain bridge via LayerZero V2. maxEdges=7 (self + 7 peers). Same endpoint (0x1a44...728c) on all mainnet chains."
     }
   },
 
