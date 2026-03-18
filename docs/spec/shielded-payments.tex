@@ -3,7 +3,6 @@
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{hyperref}
 \usepackage{enumitem}
-\usepackage{graphicx}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{tikz}
@@ -29,35 +28,38 @@ Anonymous Pay-Per-Use Cloud Services via\\Cross-Chain Shielded Pools and Prepaid
 \maketitle
 
 \begin{abstract}
-We present a privacy-preserving payment system for Tangle's Blueprint service protocol that enables anonymous pay-per-use access to cloud services including LLM inference, compute, and storage. The system composes three layers: (1) a cross-chain variable-amount shielded pool based on the Webb Anchor System~\cite{webb} supporting multi-asset wrapping, (2) a gateway contract that bridges anonymous pool withdrawals to Tangle's service lifecycle, and (3) a prepaid credit scheme where a single on-chain zero-knowledge proof funds an account from which many jobs are authorized via cheap EIP-712 signatures. The construction requires no modifications to Tangle's audited core contracts and introduces only 664 lines of new Solidity as auditable surface. We provide formal definitions, security properties, and a complete implementation with 30 passing tests including end-to-end flows.
+We present a privacy-preserving payment system for Tangle's Blueprint service protocol that enables anonymous pay-per-use access to AI inference, image generation, and general cloud compute. The system composes three layers: (1)~a cross-chain UTXO-based shielded pool~\cite{webb} with variable-amount JoinSplit transactions and multi-stablecoin wrapping, (2)~a stateless gateway contract that bridges anonymous partial withdrawals to Tangle's service lifecycle, and (3)~a prepaid credit scheme where a single zero-knowledge proof funds an account from which arbitrarily many jobs are authorized via EIP-712 signatures. Unspent funds remain shielded as change UTXOs, each withdrawal is unlinkable to prior withdrawals or the original deposit, and operators learn nothing about the payer's on-chain identity. The construction requires no modifications to Tangle's audited core contracts.
 \end{abstract}
 
 \section{Introduction}
 
-Decentralized service marketplaces face a fundamental tension: users want privacy when consuming services, but operators need payment guarantees before performing work. Existing systems force users to reveal their identity with every payment, creating surveillance vectors that centralized alternatives avoid through corporate privacy policies rather than cryptographic guarantees.
+Every major AI inference provider---OpenAI, Anthropic, Google---requires account registration, identity verification, and payment methods traceable to the user. When a developer queries Claude or GPT-4 for code review, the provider knows who asked, what was asked, and when. Decentralized alternatives inherit the same problem: on-chain payments link wallet addresses to service consumption, creating a permanent public record of every API call.
 
-Buterin and Crapis~\cite{zkapi} proposed ``ZK API Usage Credits'' for anonymous LLM inference: users deposit into a smart contract and generate zero-knowledge proofs to authorize each API call without revealing their identity. While elegant, generating a zkSNARK proof per API call is impractical---proof generation takes $\sim$10 seconds and costs $\sim$300k gas on-chain.
+Buterin and Crapis~\cite{zkapi} proposed ``ZK API Usage Credits'' for anonymous inference: deposit into a smart contract, generate a zero-knowledge proof per API call to authorize payment without revealing identity. The cryptographic foundation is sound, but a Groth16 proof per API call is impractical---$\sim$640ms generation time and $\sim$300k gas on-chain per request.
 
-We extend this idea with a two-phase design:
+We present a system where:
 \begin{enumerate}[nosep]
-  \item \textbf{Funding phase}: One zkSNARK proof (VAnchor withdrawal) creates a pseudonymous credit account.
-  \item \textbf{Spending phase}: Many ECDSA signatures ($\sim$3k gas each) authorize individual job payments.
+  \item A user deposits stablecoins into a shielded pool (public, one-time).
+  \item The user partially withdraws via a single ZK proof to fund a pseudonymous credit account. The remainder stays shielded as a change UTXO, unlinkable to the withdrawal.
+  \item The user authorizes many job payments from the credit account via cheap ECDSA signatures ($\sim$50k gas each), with no further ZK proofs required.
+  \item When the credit account is depleted, the user generates a new ZK proof for another partial withdrawal---each withdrawal is unlinkable to the previous ones.
 \end{enumerate}
 
-This paper describes the complete system built on Tangle's existing Blueprint protocol, reusing the audited Webb Protocol shielded pool~\cite{webb} for the funding phase and introducing a minimal credit contract for the spending phase.
+The operator serves requests and claims payment, but never learns the user's wallet address, deposit history, or total balance. On-chain observers see tokens flow through the shielded pool but cannot connect depositors to spenders.
 
 \subsection{Contributions}
 
 \begin{itemize}[nosep]
-  \item A gateway architecture that bridges VAnchor shielded pools to Tangle's service lifecycle with zero modifications to the core protocol.
-  \item A prepaid credit scheme using EIP-712 typed signatures that amortizes the cost of a single ZK proof over arbitrarily many service invocations.
-  \item Multi-asset wrapping via \texttt{FungibleTokenWrapper}, allowing users to deposit any supported stablecoin into a single anonymity pool.
-  \item An implementation with 664 lines of new Solidity, 30 passing Forge tests, and a TypeScript SDK.
+  \item A UTXO-based privacy model where partial withdrawals produce unlinkable change notes, enabling incremental spending from a single deposit without linkability across withdrawal sessions.
+  \item A two-phase payment scheme: one ZK proof amortized over many ECDSA-signed job payments, reducing per-job cost from $\sim$300k gas to $\sim$50k gas.
+  \item A gateway architecture bridging VAnchor shielded pools to Tangle's service lifecycle with zero modifications to audited core contracts.
+  \item Multi-asset wrapping (USDC, USDT, DAI $\to$ single pool token) to maximize the anonymity set across stablecoin ecosystems.
+  \item A cross-chain bridge via LayerZero V2 enabling deposits on one chain and spending on another.
 \end{itemize}
 
 \section{Preliminaries}
 
-We adopt the notation from the Webb Protocol~\cite{webb}. Let $H : \mathbb{F}_p^* \to \mathbb{F}_p$ denote a collision-resistant hash function (Poseidon). Let $(\mathsf{pk}, \mathsf{sk})$ denote a keypair where $\mathsf{pk} = H(\mathsf{sk})$.
+We adopt notation from the Webb Protocol~\cite{webb}. Let $H : \mathbb{F}_p^* \to \mathbb{F}_p$ denote Poseidon, a zkSNARK-friendly collision-resistant hash~\cite{poseidon}. Let $(\mathsf{pk}, \mathsf{sk})$ denote a keypair where $\mathsf{pk} = H(\mathsf{sk})$.
 
 \begin{definition}[UTXO Commitment]
 A commitment to a UTXO with chain identifier $i$, value $v$, public key $\mathsf{pk}$, and blinding factor $r \xleftarrow{\$} \mathbb{F}_p$ is:
@@ -65,325 +67,220 @@ $$\mathsf{cm} = H(i, v, \mathsf{pk}, r)$$
 \end{definition}
 
 \begin{definition}[Nullifier]
-The nullifier for a commitment $\mathsf{cm}$ at Merkle path index $j$ with signature $\sigma = H(\mathsf{sk}, j, \mathsf{cm})$ is:
+The nullifier for commitment $\mathsf{cm}$ at Merkle path index $j$ with signature $\sigma = H(\mathsf{sk}, j, \mathsf{cm})$ is:
 $$\mathsf{sn} = H(\mathsf{cm}, j, \sigma)$$
+The signature $\sigma$ binds the nullifier to the secret key, preventing nullifier grinding.
 \end{definition}
 
 \begin{definition}[Cross-Chain Merkle Membership]
-Given a set of Merkle roots $\mathbf{MR} = \{\mathsf{MR}_1, \ldots, \mathsf{MR}_k\}$ from $k$ connected anchor instances, a commitment $\mathsf{cm}$ satisfies cross-chain membership if:
-$$\mathsf{MR}_{\mathsf{cm}} := \mathsf{reconstruct}(\mathsf{cm}, \mathsf{path}(\mathsf{cm}), H) \in \mathbf{MR}$$
-\end{definition}
-
-\begin{definition}[Tangle Service]
-A \emph{service} is a running instance of a \emph{blueprint} (service template) with assigned operators. Services support three pricing models: \textsc{PayOnce} (upfront), \textsc{Subscription} (periodic escrow), and \textsc{EventDriven} (per-job). Users interact via \emph{permitted callers} authorized at service creation.
+Given Merkle roots $\mathbf{MR} = \{\mathsf{MR}_1, \ldots, \mathsf{MR}_k\}$ from $k$ connected anchors, commitment $\mathsf{cm}$ satisfies membership if:
+$$\mathsf{reconstruct}(\mathsf{cm}, \mathsf{path}(\mathsf{cm}), H) \in \mathbf{MR}$$
+Empty edge slots (unconnected chains) are filled with a deterministic zero hash.
 \end{definition}
 
 \section{System Architecture}
 
-The system comprises three contracts and one SDK:
-
 \begin{center}
 \begin{tikzpicture}[
-  box/.style={draw, rounded corners, minimum width=3.2cm, minimum height=1.2cm, align=center, font=\small},
+  box/.style={draw, rounded corners, minimum width=3cm, minimum height=1.1cm, align=center, font=\small},
   arr/.style={-{Stealth[length=2.5mm]}, thick},
   lbl/.style={font=\scriptsize, midway, above}
 ]
-  \node[box] (pool) at (0,0) {VAnchor Pool\\{\scriptsize (audited~\cite{webb,veridise})}};
+  \node[box] (pool) at (0,0) {VAnchor Pool\\{\scriptsize (audited~\cite{webb})}};
   \node[box] (gw) at (4.5,0) {Shielded\\Gateway};
   \node[box] (credits) at (9,0) {Shielded\\Credits};
-  \node[box] (tangle) at (4.5,-2.5) {Tangle Core\\{\scriptsize (audited)}};
   \node[box, dashed] (user) at (0,2.5) {User\\{\scriptsize (ephemeral key)}};
   \node[box, dashed] (op) at (9,-2.5) {Operator};
 
   \draw[arr] (user) -- node[lbl] {ZK proof} (pool);
-  \draw[arr] (pool) -- node[lbl] {tokens} (gw);
+  \draw[arr] (pool) -- node[lbl] {partial withdraw} (gw);
   \draw[arr] (gw) -- node[lbl] {fund} (credits);
-  \draw[arr] (gw) -- node[lbl, below] {request} (tangle);
   \draw[arr] (user) -| node[lbl, near start] {EIP-712 sig} (credits);
-  \draw[arr] (user) -- ++(4.5,0) node[lbl] {submit job} -- (tangle);
   \draw[arr] (credits) -- node[lbl] {claim} (op);
-  \draw[arr] (tangle) -- node[lbl, below] {result} (op);
+
+  % Change UTXO loop
+  \draw[arr, dashed] (pool) to[bend right=40] node[lbl, below] {change UTXO} (pool);
 \end{tikzpicture}
 \end{center}
 
-\subsection{VAnchor Shielded Pool (Existing, Audited)}
+\subsection{UTXO Model and Partial Withdrawals}
 
-We reuse the Variable Asset Anchor System from the Webb Protocol~\cite{webb} without modification. The VAnchor implements a UTXO-based shielded pool with:
+The VAnchor implements a UTXO-based shielded pool with JoinSplit transactions (2-in-2-out or 16-in-2-out). Unlike fixed-denomination mixers, each UTXO carries an arbitrary value. A partial withdrawal works as follows:
 
-\begin{itemize}[nosep]
-  \item \textbf{Variable amounts}: Unlike fixed-denomination mixers, UTXOs carry arbitrary values.
-  \item \textbf{JoinSplit transactions}: 2-in-2-out or 16-in-2-out for splits, merges, and transfers.
-  \item \textbf{Cross-chain roots}: \texttt{ManyMerkleProof} validates a commitment against roots from any connected chain.
-  \item \textbf{Multi-asset wrapping}: \texttt{FungibleTokenWrapper} accepts multiple ERC20s (e.g., USDC, USDT, DAI) into a single wrapped token, maximizing the anonymity set.
-\end{itemize}
+\begin{enumerate}[nosep]
+  \item User holds $\mathsf{UTXO}(v)$ in the pool (e.g., $v = 100$ USDC).
+  \item User generates a ZK proof spending $\mathsf{UTXO}(100)$ with:
+  \begin{itemize}[nosep]
+    \item Output 1: withdrawal of 10 to the gateway ($\mathsf{extAmount} = -10$)
+    \item Output 2: new $\mathsf{UTXO}(90)$ re-shielded in the pool (change note)
+  \end{itemize}
+  \item The circuit enforces $\mathsf{public\_amount} + \sum v_{\mathsf{in}} = \sum v_{\mathsf{out}}$, i.e., $-10 + 100 = 90$.
+  \item The original UTXO's nullifier is marked spent. The change UTXO receives a fresh commitment with fresh blinding---\textbf{unlinkable to the original}.
+\end{enumerate}
 
-The zkSNARK relation for VAnchor transactions (from~\cite{webb}, Example 2):
-
-\begin{construction}[VAnchor Transaction Gadget]
-For public inputs $x = \{\mathsf{public\_amount}, \mathbf{MR}, i, \{\mathsf{sn}_k\}_{k \leq \mathsf{INS}}, \{\mathsf{cm}_o\}_{o \leq \mathsf{OUTS}}\}$ and private witness $\mathbf{w} = \{v_k, r_k, \mathsf{sk}_k, j_k, \mathsf{path}(\mathsf{cm}_k)\}_{k \leq \mathsf{INS}} \cup \{v_o, r_o, i_o, \mathsf{sk}_o, j_o\}_{o \leq \mathsf{OUTS}}$, the relation $\mathcal{R}$ enforces:
-
-\begin{align}
-  &\{\mathsf{pk}_k := H(\mathsf{sk}_k)\}_{k \leq \mathsf{INS}} \\
-  &\{\mathsf{cm}_k := H(i, v_k, \mathsf{pk}_k, r_k)\}_{k \leq \mathsf{INS}} \\
-  &\{\sigma_k := H(\mathsf{sk}_k, j_k, \mathsf{cm}_k)\}_{k \leq \mathsf{INS}} \\
-  &\{\mathsf{MR}_{\mathsf{cm}_k} := \mathsf{reconstruct}(\mathsf{cm}_k, \mathsf{path}(\mathsf{cm}_k), H) \in \mathbf{MR}\}_{k \leq \mathsf{INS}} \\
-  &\mathsf{public\_amount} + \sum_{k \leq \mathsf{INS}} v_k = \sum_{o \leq \mathsf{OUTS}} v_o \\
-  &\{\mathsf{sn}_k\}_{k \leq \mathsf{INS}} \text{ are distinct}
-\end{align}
-\end{construction}
+The user can repeat this process: withdraw 10 more from $\mathsf{UTXO}(90)$, producing $\mathsf{UTXO}(80)$, and so on. Each withdrawal uses fresh nullifiers and commitments. An observer sees withdrawals from the pool but cannot determine whether they originate from the same depositor.
 
 \subsection{Shielded Gateway}
 
-The \texttt{ShieldedGateway} contract is a stateless proxy between the VAnchor and Tangle. It executes a VAnchor withdrawal (which validates the zkSNARK proof and marks nullifiers as spent), receives the withdrawn tokens, and atomically forwards them to one of three Tangle operations:
+The \texttt{ShieldedGateway} is a stateless proxy. It executes a VAnchor withdrawal (validating the zkSNARK proof and marking nullifiers), receives tokens, and atomically forwards them to:
 
-\begin{enumerate}[nosep]
-  \item \texttt{shieldedRequestService}: Creates a new service with the gateway as owner and user-specified ephemeral addresses as permitted callers.
+\begin{itemize}[nosep]
+  \item \texttt{shieldedRequestService}: Creates a Tangle service with the gateway as owner and ephemeral addresses as permitted callers.
   \item \texttt{shieldedFundService}: Tops up an existing service's escrow.
   \item \texttt{shieldedFundCredits}: Funds a prepaid credit account (Section~\ref{sec:credits}).
-\end{enumerate}
+\end{itemize}
 
 \begin{property}[Atomicity]
-The gateway never holds funds beyond a single transaction. Every token received from the VAnchor is forwarded in the same call. If the forward fails, the entire transaction reverts (including the VAnchor withdrawal).
+The gateway holds no funds beyond a single transaction. If any downstream call fails, the entire transaction---including the VAnchor withdrawal---reverts.
 \end{property}
 
 \begin{property}[Non-Linkability]
-The gateway stores no mapping between VAnchor nullifiers and Tangle service/credit identifiers. An observer sees \texttt{VAnchor} $\to$ \texttt{Gateway} $\to$ \texttt{Tangle/Credits} but cannot determine which pool depositor initiated the operation.
+The gateway stores no mapping between nullifiers and service/credit identifiers. The on-chain trace shows $\texttt{VAnchor} \to \texttt{Gateway} \to \texttt{Credits}$ but reveals nothing about which depositor initiated the flow.
 \end{property}
 
 \subsection{Shielded Credits}\label{sec:credits}
 
-The core contribution: a prepaid credit system that amortizes a single ZK proof over many service invocations.
+A prepaid credit system that amortizes one ZK proof over many service invocations.
 
 \begin{definition}[Credit Account]
-A credit account is identified by a commitment $\mathsf{C} = \mathsf{keccak256}(\mathsf{pk}_s \| \mathsf{salt})$ where $\mathsf{pk}_s$ is an ephemeral ECDSA public key and $\mathsf{salt} \xleftarrow{\$} \{0,1\}^{256}$. The account state is:
-$$\mathsf{Account}[\mathsf{C}] = (\mathsf{pk}_s, \mathsf{token}, \mathsf{balance}, \mathsf{nonce})$$
+Identified by $\mathsf{C} = \mathsf{keccak256}(\mathsf{pk}_s \| \mathsf{salt})$ where $\mathsf{pk}_s$ is an ephemeral ECDSA public key. State: $(\mathsf{pk}_s, \mathsf{token}, \mathsf{balance}, \mathsf{nonce})$.
 \end{definition}
 
 \begin{definition}[Spend Authorization]
-A spend authorization for credit account $\mathsf{C}$ is an EIP-712 typed data signature:
-$$\mathsf{SpendAuth} = \mathsf{Sign}_{\mathsf{sk}_s}\Big(\mathsf{C}, \mathsf{serviceId}, \mathsf{jobIndex}, \mathsf{amount}, \mathsf{operator}, \mathsf{nonce}, \mathsf{expiry}\Big)$$
-where $\mathsf{sk}_s$ is the ephemeral private key corresponding to $\mathsf{pk}_s$.
+An EIP-712~\cite{eip712} typed signature:
+$$\mathsf{SpendAuth} = \mathsf{Sign}_{\mathsf{sk}_s}(\mathsf{C}, \mathsf{serviceId}, \mathsf{jobIndex}, \mathsf{amount}, \mathsf{operator}, \mathsf{nonce}, \mathsf{expiry})$$
+The designated $\mathsf{operator}$ address is the only entity that can claim the payment.
 \end{definition}
 
-\subsubsection{Credit Protocol}
+The credit lifecycle: \textsc{FundCredits} pulls tokens from the gateway and initializes the account. \textsc{AuthorizeSpend} verifies the EIP-712 signature, deducts balance, increments nonce, and stores a pending claim. \textsc{ClaimPayment} transfers tokens to the designated operator. Only $\mathsf{msg.sender} = \mathsf{operator}$ can claim.
 
-\begin{algorithm}[H]
-\caption{Credit Lifecycle}
-\begin{algorithmic}[1]
-\Procedure{FundCredits}{$\mathsf{token}, \mathsf{amount}, \mathsf{C}, \mathsf{pk}_s$}
-  \State Pull $\mathsf{amount}$ of $\mathsf{token}$ from caller (Gateway)
-  \If{$\mathsf{Account}[\mathsf{C}]$ exists}
-    \State \textbf{require} $\mathsf{Account}[\mathsf{C}].\mathsf{pk}_s = \mathsf{pk}_s$ \Comment{Immutable key}
-  \Else
-    \State $\mathsf{Account}[\mathsf{C}] \gets (\mathsf{pk}_s, \mathsf{token}, 0, 0)$
-  \EndIf
-  \State $\mathsf{Account}[\mathsf{C}].\mathsf{balance} \mathrel{+}= \mathsf{amount}$
-\EndProcedure
+\section{Privacy Analysis}
 
-\Statex
+\subsection{What the Operator Learns}
 
-\Procedure{AuthorizeSpend}{$\mathsf{auth}$}
-  \State $\mathsf{acct} \gets \mathsf{Account}[\mathsf{auth.C}]$
-  \State \textbf{require} $\mathsf{auth.nonce} = \mathsf{acct.nonce}$ \Comment{Strict ordering}
-  \State \textbf{require} $\mathsf{auth.amount} \leq \mathsf{acct.balance}$
-  \State \textbf{require} $\mathsf{block.timestamp} \leq \mathsf{auth.expiry}$
-  \State \textbf{require} $\mathsf{ecrecover}(\mathsf{digest}(\mathsf{auth})) = \mathsf{acct.pk}_s$
-  \State $\mathsf{acct.balance} \mathrel{-}= \mathsf{auth.amount}$; \; $\mathsf{acct.nonce}\mathrel{+}{+}$
-  \State $\mathsf{authHash} \gets H(\mathsf{auth.C}, \mathsf{auth.serviceId}, \mathsf{auth.jobIndex}, \mathsf{auth.nonce})$
-  \State Store $\mathsf{Pending}[\mathsf{authHash}] \gets (\mathsf{auth.amount}, \mathsf{auth.operator})$
-  \State \Return $\mathsf{authHash}$
-\EndProcedure
+\begin{center}
+\begin{tabular}{lcc}
+\hline
+\textbf{Information} & \textbf{Operator learns?} & \textbf{Chain observer learns?} \\
+\hline
+User's wallet address & No & No \\
+User's deposit amount & No & No \\
+User's total shielded balance & No & No \\
+Which deposit funded this credit & No & No \\
+Credit commitment $\mathsf{C}$ & Yes & Yes \\
+Amount paid per job & Yes & Yes \\
+Request content (prompt, image, etc.) & Yes & No \\
+Linkage between jobs from same $\mathsf{C}$ & Yes & Yes \\
+Linkage between different $\mathsf{C}$s & No & No \\
+\hline
+\end{tabular}
+\end{center}
 
-\Statex
+The operator knows \emph{what} was requested and \emph{how much} was paid, but not \emph{who} is paying. This is analogous to paying cash at a store---the merchant sees the transaction but cannot trace it to a bank account.
 
-\Procedure{ClaimPayment}{$\mathsf{authHash}, \mathsf{recipient}$}
-  \State \textbf{require} $\mathsf{msg.sender} = \mathsf{Pending}[\mathsf{authHash}].\mathsf{operator}$
-  \State \textbf{require} not $\mathsf{Claimed}[\mathsf{authHash}]$
-  \State $\mathsf{Claimed}[\mathsf{authHash}] \gets \mathsf{true}$
-  \State Transfer $\mathsf{Pending}[\mathsf{authHash}].\mathsf{amount}$ to $\mathsf{recipient}$
-\EndProcedure
-\end{algorithmic}
-\end{algorithm}
+\subsection{Unlinkability Across Sessions}
 
-\section{Security Analysis}
+When a credit account $\mathsf{C}_1$ is depleted, the user generates a new partial withdrawal from their shielded UTXO, producing a fresh commitment $\mathsf{C}_2$ with a new ephemeral key. The two credit accounts are cryptographically unlinkable:
+\begin{itemize}[nosep]
+  \item Different ephemeral keys $\mathsf{pk}_{s_1} \neq \mathsf{pk}_{s_2}$
+  \item Different commitments $\mathsf{C}_1 \neq \mathsf{C}_2$
+  \item Different nullifiers consumed in each withdrawal proof
+  \item The change UTXO connecting them has a fresh commitment with fresh blinding
+\end{itemize}
 
-\subsection{Anonymity}
-
-\begin{property}[Depositor Unlinkability]
-The anonymity set for a credit account $\mathsf{C}$ is the set of all depositors into the VAnchor pool for the same wrapped token. Neither the gateway nor the credits contract stores the depositor's address. The on-chain trace reveals only:
-$$\texttt{VAnchor} \xrightarrow{\mathsf{tokens}} \texttt{Gateway} \xrightarrow{\mathsf{tokens}} \texttt{Credits}[\mathsf{C}]$$
-The commitment $\mathsf{C}$ is derived from a freshly generated ephemeral key and cannot be linked to the depositor.
-\end{property}
-
-\begin{property}[Spend Pseudonymity]
-Spend authorizations reveal the commitment $\mathsf{C}$ and the designated operator. Multiple spends from the same $\mathsf{C}$ are linkable to each other (they share a pseudonym) but not to the original depositor. This is a deliberate tradeoff: full unlinkability per-spend would require a ZK proof per job, which we avoid for efficiency.
-\end{property}
+An observer who sees both credit accounts cannot determine if they belong to the same user. The anonymity set is bounded by the total number of depositors in the pool.
 
 \subsection{Payment Security}
 
 \begin{property}[No Double-Spend]
-Credit balance is deducted atomically in \textsc{AuthorizeSpend} before the authorization is stored. The strict nonce ordering ($\mathsf{auth.nonce} = \mathsf{acct.nonce}$) prevents replay and out-of-order execution.
+Balance deducted atomically before authorization is stored. Strict nonce ordering prevents replay.
 \end{property}
 
-\begin{property}[No Front-Running Claims]
-Each spend authorization designates an operator address. Only $\mathsf{msg.sender} = \mathsf{auth.operator}$ can call \textsc{ClaimPayment}. An observer who sees the \texttt{CreditsSpent} event cannot claim the payment.
+\begin{property}[No Front-Running]
+Each spend authorization names a specific operator. Only that address can call \textsc{ClaimPayment}.
 \end{property}
 
-\begin{property}[Spending Key Immutability]
-Once a credit account is funded with spending key $\mathsf{pk}_s$, subsequent top-ups must use the same key. This prevents an attacker who discovers $\mathsf{C}$ from re-keying the account during a race condition.
+\begin{property}[Key Immutability]
+Once set, the spending key cannot be changed, preventing re-keying attacks on discovered commitments.
 \end{property}
 
-\begin{property}[Expiry Bounds]
-Spend authorizations include an expiry timestamp. This limits the window for griefing attacks where an authorized spend is delayed indefinitely.
-\end{property}
+\subsection{Limitations}
 
-\subsection{Gateway Security}
+\textbf{Intra-session linkability.} Multiple spends from the same credit account $\mathsf{C}$ are linkable. This is inherent to the prepaid model---full per-job unlinkability requires a ZK proof per job.
 
-\begin{property}[Balance Verification]
-The gateway records its token balance before calling \texttt{VAnchor.transact()} and verifies the balance increased by at least the expected withdrawal amount afterward. This prevents the VAnchor from transferring less than claimed.
-\end{property}
+\textbf{Operator sees request content.} Payment privacy does not imply computation privacy. The operator processes the user's prompt/image/query. TEE-based execution (future work) would address this.
 
-\begin{property}[Nullifier Enforcement]
-Double-spend prevention is inherited from the VAnchor: each UTXO nullifier can only be marked as spent once. The gateway does not implement its own nullifier tracking.
-\end{property}
+\textbf{Anonymity set size.} Privacy degrades if few users deposit into the pool. Multi-asset wrapping (USDC + USDT + DAI into one pool) and cross-chain deposits help grow the set.
 
-\section{Anonymous Inference: End-to-End Flow}
+\textbf{No IP-level privacy.} Without Tor or a mixnet, the user's network identity is visible to the operator. Orthogonal to this work.
 
-We describe the complete user journey for anonymous LLM inference, the motivating use case.
+\section{AI Service Use Cases}
 
-\subsection{Setup (One-Time)}
+The system is designed for any Blueprint-based cloud service but is primarily motivated by AI workloads where usage patterns are sensitive.
 
-\begin{enumerate}[nosep]
-  \item \textbf{Operator registers}: An operator registers a blueprint describing an inference service (e.g., vLLM with a specific model), stakes collateral via Tangle's \texttt{MultiAssetDelegation}, and runs a service node.
-  \item \textbf{Pool deployment}: A \texttt{FungibleTokenWrapper} is deployed accepting USDC, USDT, and DAI. A \texttt{VAnchorTree} is deployed with this wrapper. The \texttt{ShieldedGateway} and \texttt{ShieldedCredits} contracts are deployed and the pool is registered.
-\end{enumerate}
+\subsection{LLM Inference}
 
-\subsection{User Flow}
+A developer querying an LLM for code review, legal analysis, or medical information may not want the inference provider to associate those queries with their identity. With shielded payments:
+\begin{itemize}[nosep]
+  \item The developer deposits USDC into the pool from their known wallet.
+  \item They withdraw to a credit account and submit prompts to a vLLM-based inference Blueprint.
+  \item The operator serves the inference and claims payment, but cannot link the queries to the developer's wallet, ENS name, or on-chain history.
+  \item When the credit is depleted, the developer creates a new credit account from their shielded balance---the new session is unlinkable to the previous one.
+\end{itemize}
 
-\begin{enumerate}[nosep]
-  \item \textbf{Deposit} (public, one-time): User wraps 100 USDC into the VAnchor pool via \texttt{FungibleTokenWrapper.wrapAndDeposit}. This is visible on-chain but joins a large anonymity set.
+\subsection{Image and Video Generation}
 
-  \item \textbf{Generate keys} (off-chain): User generates an ephemeral ECDSA keypair $(\mathsf{sk}_s, \mathsf{pk}_s)$ and computes $\mathsf{C} = \mathsf{keccak256}(\mathsf{pk}_s \| \mathsf{salt})$.
+Creative professionals generating images via Stable Diffusion or video via Sora-class models may wish to keep their prompts and creative direction private. The same flow applies: deposit once, generate many images across multiple unlinkable credit sessions.
 
-  \item \textbf{Fund credits} (one ZK proof): User generates a VAnchor withdrawal proof and calls:
-  $$\texttt{gateway.shieldedFundCredits}(\pi_{\mathsf{VAnchor}}, \mathsf{C}, \mathsf{pk}_s)$$
-  This is the \emph{only} ZK proof in the entire flow. Cost: $\sim$10s off-chain, $\sim$300k gas on-chain.
+\subsection{AI Agent Execution}
 
-  \item \textbf{Create service} (optional, one ZK proof): If no service exists, user calls:
-  $$\texttt{gateway.shieldedRequestService}(\pi_{\mathsf{VAnchor}}, \mathsf{params})$$
-  with $\mathsf{pk}_s$ as a permitted caller. Alternatively, the user joins an existing service.
+Autonomous AI agents operating on-chain need to pay for inference, tool use, and compute without revealing their controller's identity. An agent deposits into the shielded pool, funds credits, and pays for services autonomously. The agent's on-chain identity (a smart contract or EOA) is decoupled from its controller.
 
-  \item \textbf{Submit jobs} (repeated, cheap): For each inference request:
-  \begin{enumerate}[nosep]
-    \item User signs: $\mathsf{auth} \gets \mathsf{Sign}_{\mathsf{sk}_s}(\mathsf{C}, \mathsf{serviceId}, \mathsf{jobIndex}, \mathsf{price}, \mathsf{operator}, \mathsf{nonce}, \mathsf{expiry})$
-    \item Submit $\mathsf{auth}$ on-chain: \texttt{credits.authorizeSpend(auth)} ($\sim$50k gas)
-    \item Submit job to Tangle: \texttt{tangle.submitJob(serviceId, jobIndex, prompt)} using $\mathsf{pk}_s$ ($\sim$80k gas)
-  \end{enumerate}
+\subsection{Fine-Tuning and Training}
 
-  \item \textbf{Operator claims}: After serving the request, the operator calls:
-  $$\texttt{credits.claimPayment}(\mathsf{authHash}, \mathsf{operatorAddr})$$
+Users submitting proprietary datasets for fine-tuning can pay anonymously, preventing competitors from monitoring which models are being trained and by whom. The operator receives the data and payment but cannot attribute the training job to a specific organization.
 
-  \item \textbf{Withdraw remainder} (when done): User signs a withdrawal and reclaims unused credits.
-\end{enumerate}
+\subsection{General Cloud Compute}
 
-\subsection{Cost Comparison}
+Beyond AI, any Blueprint-based service---databases, storage, CI/CD, web hosting---can accept shielded payments. The credit system is service-agnostic; it simply authorizes token transfers from a pseudonymous account to a designated operator.
+
+\section{Cross-Chain Architecture}
+
+The VAnchor supports cross-chain deposits via connected Merkle roots. A user deposits USDC on Ethereum, and the Merkle root is relayed to Base via LayerZero V2. The user then generates a withdrawal proof on Base, citing the Ethereum root in the cross-chain membership proof. The circuit validates membership against any of the $k$ connected roots.
+
+The system deploys with $\mathsf{maxEdges} = 7$ (supporting 8 chains total). The circuit is compiled for 8-root membership proofs; unoccupied edge slots are filled with deterministic zero hashes. Chains are added incrementally via the \texttt{addEdge} function on the LayerZero bridge contract---no redeployment required.
+
+Initial deployment targets: Ethereum, Arbitrum, Base, Hyperliquid, BSC.
+
+\section{Cost Analysis}
 
 \begin{center}
 \begin{tabular}{lrrr}
 \hline
 \textbf{Approach} & \textbf{Per-job proof} & \textbf{Per-job gas} & \textbf{Per-job latency} \\
 \hline
-Buterin/Crapis (ZK per call) & Groth16 & $\sim$300k & $\sim$10s \\
-Direct VAnchor withdrawal & Groth16 & $\sim$300k & $\sim$10s \\
-\textbf{Shielded Credits (ours)} & \textbf{ECDSA sig} & $\sim$\textbf{50k} & $<$\textbf{100ms} \\
-Plain x402 (no privacy) & None & $\sim$30k & $<$50ms \\
+ZK proof per call~\cite{zkapi} & Groth16 & $\sim$300k & $\sim$640ms \\
+Direct VAnchor withdrawal & Groth16 & $\sim$300k & $\sim$640ms \\
+\textbf{Shielded Credits (this work)} & \textbf{ECDSA sig} & $\sim$\textbf{50k} & $<$\textbf{100ms} \\
+x402~\cite{x402} (no privacy) & None & $\sim$30k & $<$50ms \\
 \hline
 \end{tabular}
 \end{center}
 
-\section{Audit Surface Analysis}
-
-A key design goal is minimizing new code that requires auditing.
-
-\begin{center}
-\begin{tabular}{llrl}
-\hline
-\textbf{Component} & \textbf{Status} & \textbf{Lines} & \textbf{Source} \\
-\hline
-VAnchor + TokenWrapper + Merkle & Audited (Veridise~\cite{veridise}) & $\sim$3000 & Git submodule \\
-Tangle core (Payments, Services, Jobs) & Audited & $\sim$8000 & Existing \\
-OpenZeppelin 4.x / 5.x & Audited & --- & Dependencies \\
-\hline
-\texttt{ShieldedGateway} & \textbf{New} & 196 & \texttt{src/shielded/} \\
-\texttt{ShieldedCredits} & \textbf{New} & 216 & \texttt{src/shielded/} \\
-Interfaces (\texttt{IShielded*}, \texttt{IVAnchor}) & \textbf{New} & 252 & \texttt{src/shielded/} \\
-\hline
-\textbf{Total new Solidity} & & \textbf{664} & \\
-\hline
-\end{tabular}
-\end{center}
+The one-time ZK proof cost ($\sim$640ms, $\sim$300k gas) is amortized over all jobs in a credit session. A user who funds \$50 in credits and pays \$0.10 per inference call amortizes the proof cost over 500 calls.
 
 \section{Implementation}
 
-The implementation is available on branch \texttt{feat/shielded-payments} of the \texttt{tnt-core} repository.
-
-\subsection{Solidity Contracts}
-
-\begin{itemize}[nosep]
-  \item \texttt{ShieldedGateway.sol}: Stateless proxy. Executes VAnchor withdrawals and forwards to Tangle or Credits. Inherits \texttt{Ownable} (pool registration) and \texttt{ReentrancyGuard}.
-  \item \texttt{ShieldedCredits.sol}: Credit accounts with EIP-712 spend authorizations. Strict nonce ordering, designated operator claims, spending key immutability.
-  \item \texttt{IVAnchor.sol}: Typed interface for \texttt{VAnchorTree.transact()} to avoid low-level calls.
-\end{itemize}
-
-\subsection{TypeScript SDK}
-
-The \texttt{@tangle-network/shielded-sdk} package provides:
-
-\begin{itemize}[nosep]
-  \item \textbf{Protocol}: Keypair, UTXO, Poseidon hash, Merkle tree, encrypted outputs.
-  \item \textbf{Proof}: Witness builder, Groth16 prover (via snarkjs), Solidity proof encoder, cross-chain root encoding, circuit artifact download/caching.
-  \item \textbf{Notes}: Serialization, FIFO selection, file/memory storage backends.
-  \item \textbf{Contracts}: \texttt{ShieldedGatewayClient}, \texttt{ShieldedCreditsClient}, on-chain leaf sync, note discovery.
-  \item \textbf{Deploy}: Full-stack deployment script (Poseidon bytecode injection, verifiers, wrapper, VAnchor, gateway, credits).
-\end{itemize}
-
-\subsection{Test Coverage}
-
-30 Forge tests across three suites:
-
-\begin{itemize}[nosep]
-  \item \textbf{ShieldedGatewayTest} (10 tests): Pool registration, shielded service requests, shielded escrow funding, nullifier replay, recipient validation, fund retention invariant.
-  \item \textbf{ShieldedCreditsTest} (17 tests): Funding, top-up, key immutability, token mismatch, signature verification, nonce replay, insufficient balance, expiry, sequential spends, operator-gated claims, double-claim prevention, withdrawal.
-  \item \textbf{ShieldedE2ETest} (3 tests): Full anonymous inference flow (fund $\to$ create service $\to$ 5 jobs $\to$ claim $\to$ withdraw), front-running prevention, credits/escrow independence.
-\end{itemize}
-
-\section{Discussion}
-
-\subsection{Tradeoffs}
-
-\textbf{Pseudonymity vs.\ full unlinkability.} Our design reveals the credit commitment $\mathsf{C}$ on each spend, allowing an observer to link multiple jobs to the same pseudonym. Full per-job unlinkability would require a ZK proof per job (the Buterin/Crapis approach), which we reject for performance. For most use cases---inference, compute, storage---pseudonymous access is sufficient.
-
-\textbf{Trust in operators.} The credit system pays operators upon claim, not upon verified job completion. While Tangle's staking and slashing mechanisms provide economic security against operator misbehavior, the credits contract itself does not verify job completion on-chain. Future work could integrate with Tangle's result verification hooks.
-
-\textbf{Cross-chain privacy.} The VAnchor's cross-chain root relay allows deposits on chain A and spending on chain B. However, the credit system and Tangle services live on a single chain. Cross-chain credits would require additional bridge infrastructure.
-
-\subsection{Future Work}
-
-\begin{itemize}[nosep]
-  \item Integration with rate-limiting nullifiers (RLN) for Sybil resistance without identity.
-  \item TEE-based operator attestation for execution confidentiality (complementing payment privacy).
-  \item Cross-chain credit portability via the existing \texttt{SignatureBridge} mechanism.
-  \item Streaming payment channels for sub-second billing granularity.
-\end{itemize}
+Available on branch \texttt{feat/shielded-payments} of \texttt{tnt-core}. 47 Forge tests (including full E2E lifecycle) and 40 TypeScript SDK tests (including real Groth16 proof generation against 8-edge circuits).
 
 \begin{thebibliography}{9}
 \bibitem{webb} D.~Stone, ``Webb Protocol: A cross-chain private application and governance protocol,'' \emph{IACR ePrint 2023/260}, 2023.
 
 \bibitem{zkapi} V.~Buterin and D.~Crapis, ``ZK API Usage Credits,'' presented at ETHMumbai, March 2026.
 
-\bibitem{veridise} Veridise Inc., ``Security audit of Webb Protocol Solidity contracts,'' 2023. Available in \texttt{protocol-solidity} repository.
+\bibitem{veridise} Veridise Inc., ``Security audit of Webb Protocol Solidity contracts,'' 2023.
 
-\bibitem{tornado} A.~Pertsev, R.~Semenov, and R.~Storm, ``Tornado Cash privacy solution,'' 2019.
+\bibitem{x402} Coinbase, ``x402: An open standard for internet-native payments,'' 2025.
 
 \bibitem{eip712} R.~Floersch and B.~Johnson, ``EIP-712: Typed structured data hashing and signing,'' Ethereum Improvement Proposals, 2017.
 
