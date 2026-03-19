@@ -41,9 +41,8 @@ export async function verifyProof(
   proof: Groth16Proof,
   verificationKeyPath: string
 ): Promise<boolean> {
-  const vKey = JSON.parse(
-    await (await fetch(verificationKeyPath)).text()
-  );
+  const { readFileSync } = await import("fs");
+  const vKey = JSON.parse(readFileSync(verificationKeyPath, "utf-8"));
   return snarkjs.groth16.verify(vKey, proof.publicSignals, proof.proof);
 }
 

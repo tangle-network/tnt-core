@@ -47,6 +47,7 @@ interface IShieldedCredits {
     event CreditsSpent(bytes32 indexed commitment, bytes32 indexed authHash, uint256 amount, uint256 remaining);
     event PaymentClaimed(bytes32 indexed authHash, address indexed operator, uint256 amount);
     event CreditsWithdrawn(bytes32 indexed commitment, address indexed recipient, uint256 amount);
+    event CreditsReclaimed(bytes32 indexed authHash, bytes32 indexed commitment, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -62,6 +63,8 @@ interface IShieldedCredits {
     error NotDesignatedOperator(address expected, address got);
     error AuthNotFound(bytes32 authHash);
     error TokenMismatch(address expected, address got);
+    error OperatorRequired();
+    error NotExpiredYet(uint64 expiry, uint256 currentTime);
 
     // ═══════════════════════════════════════════════════════════════════════
     // FUNCTIONS
@@ -99,9 +102,17 @@ interface IShieldedCredits {
     )
         external;
 
+    /// @notice Reclaim funds from an expired spend authorization back to the credit account.
+    /// @param authHash The spend authorization hash
+    /// @param commitment The credit account identifier to return funds to
+    function reclaimExpiredAuth(bytes32 authHash, bytes32 commitment) external;
+
     /// @notice View a credit account's state
     function getAccount(bytes32 commitment) external view returns (CreditAccountView memory);
 
-    /// @notice View a pending spend authorization amount
-    function getSpendAuth(bytes32 authHash) external view returns (uint256 amount, bool claimed);
+    /// @notice View a pending spend authorization
+    function getSpendAuth(bytes32 authHash)
+        external
+        view
+        returns (uint256 amount, address token, address operator, uint64 expiry, bool claimed);
 }

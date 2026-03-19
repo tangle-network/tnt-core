@@ -57,17 +57,16 @@ contract ShieldedCredits is IShieldedCredits, ReentrancyGuard {
     /// @notice commitment => CreditAccount
     mapping(bytes32 => CreditAccount) internal _accounts;
 
-    /// @notice authHash => reserved amount (0 if not found)
-    mapping(bytes32 => uint256) internal _spendAmounts;
+    struct PendingSpend {
+        uint256 amount;
+        address token;
+        address operator;
+        uint64 expiry;
+        bool claimed;
+    }
 
-    /// @notice authHash => token address for the spend
-    mapping(bytes32 => address) internal _spendTokens;
-
-    /// @notice authHash => designated operator who can claim
-    mapping(bytes32 => address) internal _spendOperators;
-
-    /// @notice authHash => claimed flag
-    mapping(bytes32 => bool) internal _claimed;
+    /// @notice authHash => pending spend data
+    mapping(bytes32 => PendingSpend) internal _pendingSpends;
 
     // ═══════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -125,6 +124,8 @@ contract ShieldedCredits is IShieldedCredits, ReentrancyGuard {
 
     /// @inheritdoc IShieldedCredits
     function authorizeSpend(SpendAuth calldata auth) external nonReentrant returns (bytes32 authHash) {
+        if (auth.operator == address(0)) revert OperatorRequired();
+
         CreditAccount storage acct = _accounts[auth.commitment];
         if (acct.spendingKey == address(0)) revert AccountNotFound(auth.commitment);
         if (block.timestamp > auth.expiry) revert SpendExpired(auth.expiry, block.timestamp);
@@ -155,9 +156,9 @@ contract ShieldedCredits is IShieldedCredits, ReentrancyGuard {
 
         // Store the authorization for later claim
         authHash = keccak256(abi.encode(auth.commitment, auth.serviceId, auth.jobIndex, auth.nonce));
-        _spendAmounts[authHash] = auth.amount;
-        _spendTokens[authHash] = acct.token;
-        _spendOperators[authHash] = auth.operator;
+        _pendingSpends[authHash] = PendingSpend({
+            amount: auth.amount, token: acct.token, operator: auth.operator, expiry: auth.expiry, claimed: false
+        });
 
         emit CreditsSpent(auth.commitment, authHash, auth.amount, acct.balance);
     }
@@ -168,11 +169,12 @@ contract ShieldedCredits is IShieldedCredits, ReentrancyGuard {
 
     /// @inheritdoc IShieldedCredits
     function claimPayment(bytes32 authHash, address recipient) external nonReentrant {
-        uint256 amount = _spendAmounts[authHash];
-        if (amount == 0) revert AuthNotFound(authHash);
-        if (_claimed[authHash]) revert AlreadyClaimed(authHash);
+        PendingSpend storage spend = _pendingSpends[authHash];
+        if (spend.amount == 0) revert AuthNotFound(authHash);
+        if (spend.claimed) revert AlreadyClaimed(authHash);
+        if (block.timestamp > spend.expiry) revert SpendExpired(spend.expiry, block.timestamp);
 
-        // Only the designated operator (or anyone if operator is address(0)) can claim.
+        // Only the designated operator can claim.
         //
         // NOTE: We intentionally do NOT verify on-chain job completion via tnt-core here.
         // ShieldedCredits operates independently of tnt-core's job lifecycle because:
@@ -185,17 +187,13 @@ contract ShieldedCredits is IShieldedCredits, ReentrancyGuard {
         //      composability — ShieldedCredits can be used with any service backend.
         //   4. The serviceId and jobIndex in the SpendAuth are commitments for off-chain
         //      correlation and auditability, not on-chain enforcement.
-        address designatedOperator = _spendOperators[authHash];
-        if (designatedOperator != address(0)) {
-            if (msg.sender != designatedOperator) revert NotDesignatedOperator(designatedOperator, msg.sender);
-        }
+        if (msg.sender != spend.operator) revert NotDesignatedOperator(spend.operator, msg.sender);
 
-        _claimed[authHash] = true;
+        spend.claimed = true;
 
-        address token = _spendTokens[authHash];
-        IERC20(token).safeTransfer(recipient, amount);
+        IERC20(spend.token).safeTransfer(recipient, spend.amount);
 
-        emit PaymentClaimed(authHash, recipient, amount);
+        emit PaymentClaimed(authHash, recipient, spend.amount);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -233,6 +231,26 @@ contract ShieldedCredits is IShieldedCredits, ReentrancyGuard {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // RECLAIM
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IShieldedCredits
+    function reclaimExpiredAuth(bytes32 authHash, bytes32 commitment) external nonReentrant {
+        PendingSpend storage spend = _pendingSpends[authHash];
+        if (spend.amount == 0) revert AuthNotFound(authHash);
+        if (spend.claimed) revert AlreadyClaimed(authHash);
+        if (block.timestamp <= spend.expiry) revert NotExpiredYet(spend.expiry, block.timestamp);
+
+        uint256 amount = spend.amount;
+        spend.claimed = true;
+
+        _accounts[commitment].balance += amount;
+        _accounts[commitment].totalSpent -= amount;
+
+        emit CreditsReclaimed(authHash, commitment, amount);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // VIEWS
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -250,7 +268,12 @@ contract ShieldedCredits is IShieldedCredits, ReentrancyGuard {
     }
 
     /// @inheritdoc IShieldedCredits
-    function getSpendAuth(bytes32 authHash) external view returns (uint256 amount, bool claimed) {
-        return (_spendAmounts[authHash], _claimed[authHash]);
+    function getSpendAuth(bytes32 authHash)
+        external
+        view
+        returns (uint256 amount, address token, address operator, uint64 expiry, bool claimed)
+    {
+        PendingSpend storage spend = _pendingSpends[authHash];
+        return (spend.amount, spend.token, spend.operator, spend.expiry, spend.claimed);
     }
 }

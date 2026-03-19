@@ -103,7 +103,7 @@ contract ConfigureLZPeers is Script {
     function _setPeerFromEnv(ILZBridge bridge, uint32 eid, string memory envKey) internal {
         address peer = vm.envOr(envKey, address(0));
         if (peer == address(0)) {
-            console2.log("  Skipping peer for eid", eid, "(env", envKey, "not set)");
+            console2.log("  Skipping peer for eid (env not set):", eid);
             return;
         }
         bytes32 peerBytes = bytes32(uint256(uint160(peer)));

@@ -233,7 +233,8 @@ export class ShieldedCreditsClient {
     const event = receipt.logs.find(
       (l: ethers.Log) => l.topics[0] === ethers.id("CreditsSpent(bytes32,bytes32,uint256,uint256)")
     );
-    const authHash = event?.topics[2] ?? ethers.ZeroHash;
+    if (!event) throw new Error("CreditsSpent event not found in receipt");
+    const authHash = event.topics[2];
 
     return { authHash, spendAuth };
   }

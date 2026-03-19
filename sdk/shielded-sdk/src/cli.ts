@@ -7,8 +7,6 @@
  *
  * Commands:
  *   keygen              Generate ephemeral credit account keys
- *   deposit             Deposit tokens into a VAnchor shielded pool
- *   fund-credits        Fund a credit account via shielded withdrawal
  *   authorize-spend     Sign a spend authorization for a job
  *   claim               Claim payment as an operator
  *   withdraw            Withdraw remaining credits

@@ -10,6 +10,8 @@ import {
   encodeSolidityProof,
   type CircuitArtifacts,
 } from "../proof/index.js";
+import { encodeRootsBytes } from "../proof/roots.js";
+import { syncLeaves } from "./leaf-sync.js";
 import { NoteManager } from "../note/note-store.js";
 import { noteToUtxo, utxoToNote, type NoteData } from "../note/note.js";
 
@@ -36,7 +38,7 @@ export interface GatewayClientConfig {
 const GATEWAY_ABI = [
   "function shieldedRequestService(tuple(bytes proof, bytes auxPublicInputs, bytes externalData, bytes publicInputs, bytes encryptions) anchorProof, tuple(uint64 blueprintId, address[] operators, bytes config, address[] permittedCallers, uint64 ttl, uint8 confidentiality) params) external payable returns (uint64)",
   "function shieldedFundService(tuple(bytes proof, bytes auxPublicInputs, bytes externalData, bytes publicInputs, bytes encryptions) anchorProof, uint64 serviceId) external payable",
-  "function shieldedSubmitJob(tuple(bytes proof, bytes auxPublicInputs, bytes externalData, bytes publicInputs, bytes encryptions) anchorProof, uint64 serviceId, uint8 jobIndex, bytes jobArgs) external payable returns (uint64)",
+  "function shieldedFundCredits(tuple(bytes proof, bytes auxPublicInputs, bytes externalData, bytes publicInputs, bytes encryptions) anchorProof, bytes32 commitment, address spendingKey) external payable",
   "function getPool(address wrappedToken) external view returns (address)",
 ];
 
@@ -147,7 +149,7 @@ export class ShieldedGatewayClient {
         token: this.config.wrappedTokenAddress,
       },
       {
-        roots: new Uint8Array(0), // TODO: encode roots properly
+        roots: encodeRootsBytes(witnessInput.roots.map(BigInt)),
         extensionRoots: new Uint8Array(0),
         inputNullifiers: witnessInput.inputNullifier.map(BigInt),
         outputCommitments: witnessInput.outputCommitment.map(BigInt),
@@ -302,7 +304,7 @@ export class ShieldedGatewayClient {
       ],
       [
         {
-          roots: new Uint8Array(0),
+          roots: encodeRootsBytes(witnessInput.roots.map(BigInt)),
           extensionRoots: new Uint8Array(0),
           inputNullifiers: witnessInput.inputNullifier.map(BigInt),
           outputCommitments: witnessInput.outputCommitment.map(BigInt),
@@ -352,11 +354,43 @@ export class ShieldedGatewayClient {
     };
   }
 
+  /// Fund a shielded credit account via the gateway.
+  async fundCredits(params: {
+    signer: ethers.Signer;
+    keypair: Keypair;
+    amount: bigint;
+    commitment: string;
+    spendingKey: string;
+    noteManager: NoteManager;
+  }): Promise<ethers.TransactionReceipt> {
+    const { signer, keypair, amount, commitment, spendingKey, noteManager } = params;
+
+    const { anchorProof } = await this.buildShieldedWithdrawal({
+      keypair,
+      amount,
+      noteManager,
+    });
+
+    const gateway = new ethers.Contract(
+      this.config.gatewayAddress,
+      GATEWAY_ABI,
+      signer
+    );
+
+    const tx = await gateway.shieldedFundCredits(anchorProof, commitment, spendingKey);
+    return tx.wait();
+  }
+
   /// Fetch the on-chain Merkle tree state
   private async _getTree(): Promise<MerkleTree> {
     if (this._tree) return this._tree;
     this._tree = await MerkleTree.create(this.config.treeLevels);
-    // TODO: sync leaves from on-chain NewCommitment events
+    // Sync existing leaves from on-chain events
+    try {
+      await syncLeaves(this.config.provider, this.config.poolAddress, this._tree);
+    } catch {
+      // If sync fails (e.g., no events yet), continue with empty tree
+    }
     return this._tree;
   }
 

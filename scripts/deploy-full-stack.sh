@@ -58,51 +58,30 @@ else
         node "$SCRIPT_DIR/deploy-poseidon.mjs"
 fi
 
-# Read Poseidon addresses
+# Read ALL Poseidon library addresses (needed by the Forge script via env vars)
+POSEIDON_T2=$(jq -r '.PoseidonT2' "$POSEIDON_FILE")
 POSEIDON_T3=$(jq -r '.PoseidonT3' "$POSEIDON_FILE")
+POSEIDON_T4=$(jq -r '.PoseidonT4' "$POSEIDON_FILE")
+POSEIDON_T5=$(jq -r '.PoseidonT5' "$POSEIDON_FILE")
+POSEIDON_T6=$(jq -r '.PoseidonT6' "$POSEIDON_FILE")
+export POSEIDON_T2 POSEIDON_T3 POSEIDON_T4 POSEIDON_T5 POSEIDON_T6
+echo "  PoseidonT2: $POSEIDON_T2"
 echo "  PoseidonT3: $POSEIDON_T3"
+echo "  PoseidonT4: $POSEIDON_T4"
+echo "  PoseidonT5: $POSEIDON_T5"
+echo "  PoseidonT6: $POSEIDON_T6"
 
-# ─── Step 2: Deploy PoseidonHasher ─────────────────────────────────────────
+# ─── Step 2: Deploy Verifiers ──────────────────────────────────────────────
 echo ""
-echo "Step 2: Deploying PoseidonHasher..."
-HASHER_FILE="$ROOT_DIR/deploy/output/hasher-${CHAIN_ID}.json"
-
-if [ -f "$HASHER_FILE" ]; then
-    POSEIDON_HASHER=$(jq -r '.address' "$HASHER_FILE")
-    echo "  PoseidonHasher already deployed: $POSEIDON_HASHER"
-else
-    # Deploy PoseidonHasher with library linking
-    # The PoseidonHasher uses PoseidonT2-T6 as libraries
-    POSEIDON_T2=$(jq -r '.PoseidonT2' "$POSEIDON_FILE")
-    POSEIDON_T4=$(jq -r '.PoseidonT4' "$POSEIDON_FILE")
-    POSEIDON_T5=$(jq -r '.PoseidonT5' "$POSEIDON_FILE")
-    POSEIDON_T6=$(jq -r '.PoseidonT6' "$POSEIDON_FILE")
-
-    POSEIDON_HASHER=$(forge create \
-        --rpc-url "$RPC_URL" \
-        --private-key "$PRIVATE_KEY" \
-        --json \
-        --libraries "protocol-solidity/hashers/Poseidon.sol:PoseidonT2:$POSEIDON_T2" \
-        --libraries "protocol-solidity/hashers/Poseidon.sol:PoseidonT3:$POSEIDON_T3" \
-        --libraries "protocol-solidity/hashers/Poseidon.sol:PoseidonT4:$POSEIDON_T4" \
-        --libraries "protocol-solidity/hashers/Poseidon.sol:PoseidonT5:$POSEIDON_T5" \
-        --libraries "protocol-solidity/hashers/Poseidon.sol:PoseidonT6:$POSEIDON_T6" \
-        "protocol-solidity/hashers/PoseidonHasher.sol:PoseidonHasher" \
-        | jq -r '.deployedTo')
-
-    mkdir -p "$(dirname "$HASHER_FILE")"
-    echo "{\"address\": \"$POSEIDON_HASHER\"}" > "$HASHER_FILE"
-    echo "  PoseidonHasher deployed: $POSEIDON_HASHER"
-fi
-
-# ─── Step 3: Deploy Verifiers ──────────────────────────────────────────────
-echo ""
-echo "Step 3: Deploying Verifier contracts..."
+echo "Step 2: Deploying Verifier contracts..."
 VERIFIER_FILE="$ROOT_DIR/deploy/output/verifiers-${CHAIN_ID}.json"
 
 if [ -f "$VERIFIER_FILE" ]; then
     echo "  Verifiers already deployed (found $VERIFIER_FILE)"
-    VANCHOR_VERIFIER=$(jq -r '.vanchorVerifier' "$VERIFIER_FILE")
+    V2_2=$(jq -r '.v2_2' "$VERIFIER_FILE")
+    V2_16=$(jq -r '.v2_16' "$VERIFIER_FILE")
+    V8_2=$(jq -r '.v8_2' "$VERIFIER_FILE")
+    V8_16=$(jq -r '.v8_16' "$VERIFIER_FILE")
 else
     VERIFIERS_DIR="$CEREMONY_DIR/verifiers"
     if [ ! -d "$VERIFIERS_DIR" ]; then
@@ -122,27 +101,50 @@ else
         "$VERIFIERS_DIR/poseidon_vanchor_16_8_verifier.sol:Verifier8_16" \
         | jq -r '.deployedTo')
 
-    # Deploy VAnchorVerifier (routes to sub-verifiers)
-    echo "  Deploying VAnchorVerifier..."
-    # Constructor: (v2_2, v2_16, v8_2, v8_16)
-    # We only have 8-edge verifiers; 2-edge slots get zero address
-    VANCHOR_VERIFIER=$(forge create --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --json \
-        "protocol-solidity/verifiers/VAnchorVerifier.sol:VAnchorVerifier" \
-        --constructor-args "0x0000000000000000000000000000000000000000" "0x0000000000000000000000000000000000000000" "$V8_2" "$V8_16" \
-        | jq -r '.deployedTo')
+    # Deploy 2-edge verifiers if available, otherwise reuse 8-edge verifiers
+    # The Forge script requires non-zero addresses for all verifier slots
+    V2_2_SOL="$VERIFIERS_DIR/poseidon_vanchor_2_2_verifier.sol"
+    V2_16_SOL="$VERIFIERS_DIR/poseidon_vanchor_16_2_verifier.sol"
+
+    if [ -f "$V2_2_SOL" ]; then
+        echo "  Deploying Verifier2_2..."
+        V2_2=$(forge create --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --json \
+            "$V2_2_SOL:Verifier2_2" \
+            | jq -r '.deployedTo')
+    else
+        echo "  No 2-edge 2-input verifier found, reusing Verifier8_2"
+        V2_2="$V8_2"
+    fi
+
+    if [ -f "$V2_16_SOL" ]; then
+        echo "  Deploying Verifier2_16..."
+        V2_16=$(forge create --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --json \
+            "$V2_16_SOL:Verifier2_16" \
+            | jq -r '.deployedTo')
+    else
+        echo "  No 2-edge 16-input verifier found, reusing Verifier8_16"
+        V2_16="$V8_16"
+    fi
 
     mkdir -p "$(dirname "$VERIFIER_FILE")"
-    echo "{\"v8_2\": \"$V8_2\", \"v8_16\": \"$V8_16\", \"vanchorVerifier\": \"$VANCHOR_VERIFIER\"}" > "$VERIFIER_FILE"
-    echo "  VAnchorVerifier: $VANCHOR_VERIFIER"
+    echo "{\"v2_2\": \"$V2_2\", \"v2_16\": \"$V2_16\", \"v8_2\": \"$V8_2\", \"v8_16\": \"$V8_16\"}" > "$VERIFIER_FILE"
+    echo "  Verifier2_2:  $V2_2"
+    echo "  Verifier2_16: $V2_16"
+    echo "  Verifier8_2:  $V8_2"
+    echo "  Verifier8_16: $V8_16"
 fi
 
-# ─── Step 4: Deploy pool stack via Forge script ────────────────────────────
+# Export verifier addresses for the Forge script
+export VERIFIER_2_2="$V2_2"
+export VERIFIER_2_16="$V2_16"
+export VERIFIER_8_2="$V8_2"
+export VERIFIER_8_16="$V8_16"
+
+# ─── Step 3: Deploy pool stack via Forge script ────────────────────────────
 echo ""
-echo "Step 4: Deploying pool stack (TokenWrapper, VAnchor, Credits, Gateway)..."
+echo "Step 3: Deploying pool stack (TokenWrapper, VAnchor, Credits, Gateway)..."
 
 export TANGLE="$TANGLE"
-export POSEIDON_HASHER="$POSEIDON_HASHER"
-export VANCHOR_VERIFIER="$VANCHOR_VERIFIER"
 export MAX_EDGES=7
 
 CONFIG_FILE="$ROOT_DIR/deploy/config/${CHAIN_NAME}-shielded.json"
@@ -151,16 +153,23 @@ if [ -f "$CONFIG_FILE" ]; then
     echo "  Using config: $CONFIG_FILE"
 fi
 
+# The Forge script deploys PoseidonHasher which links to Poseidon T2-T6 libraries.
+# These libraries must be linked via --libraries flags at the CLI level.
 forge script script/DeployShieldedPool.s.sol:DeployShieldedPool \
     --rpc-url "$RPC_URL" \
     --private-key "$PRIVATE_KEY" \
     --broadcast \
     --slow \
+    --libraries "protocol-solidity/hashers/Poseidon.sol:PoseidonT2:$POSEIDON_T2" \
+    --libraries "protocol-solidity/hashers/Poseidon.sol:PoseidonT3:$POSEIDON_T3" \
+    --libraries "protocol-solidity/hashers/Poseidon.sol:PoseidonT4:$POSEIDON_T4" \
+    --libraries "protocol-solidity/hashers/Poseidon.sol:PoseidonT5:$POSEIDON_T5" \
+    --libraries "protocol-solidity/hashers/Poseidon.sol:PoseidonT6:$POSEIDON_T6" \
     2>&1 | tee "$ROOT_DIR/deploy/output/deploy-${CHAIN_ID}.log"
 
-# ─── Step 5: Verify deployment ────────────────────────────────────────────
+# ─── Step 4: Verify deployment ────────────────────────────────────────────
 echo ""
-echo "Step 5: Verifying deployment..."
+echo "Step 4: Verifying deployment..."
 echo "  Check deploy/output/deploy-${CHAIN_ID}.log for contract addresses"
 echo ""
 echo "═══════════════════════════════════════════════════════════════"

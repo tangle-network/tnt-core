@@ -187,6 +187,13 @@ contract ShieldedGateway is IShieldedGateway, Ownable, ReentrancyGuard {
         if (balAfter - balBefore < amount) revert InvalidSpendAmount();
     }
 
+    /// @notice Rescue ETH accidentally sent to the gateway.
+    function rescueETH(address payable recipient) external onlyOwner {
+        uint256 balance = address(this).balance;
+        (bool success,) = recipient.call{ value: balance }("");
+        require(success);
+    }
+
     /// @notice Allows the gateway to receive native tokens (for native VAnchor refunds)
     receive() external payable { }
 }

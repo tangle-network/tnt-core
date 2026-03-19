@@ -58,6 +58,7 @@ contract LayerZeroAnchorBridge is ILayerZeroAnchorBridge {
     /// @param _handler AnchorHandler address (this contract must be the bridge in AnchorHandler)
     constructor(address _lzEndpoint, address _handler) {
         require(_lzEndpoint != address(0), "LZ endpoint zero");
+        require(_handler != address(0), "handler zero");
         lzEndpoint = ILayerZeroEndpointV2(_lzEndpoint);
         handler = _handler;
         owner = msg.sender;

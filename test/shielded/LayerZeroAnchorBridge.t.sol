@@ -122,9 +122,11 @@ contract LayerZeroAnchorBridgeTest is Test {
     function setUp() public {
         lzEndpoint = new MockLZEndpoint();
 
-        // Deploy bridge first (need address for handler)
-        // Use CREATE2-style: deploy bridge, then handler pointing to bridge
-        bridge = new LayerZeroAnchorBridge(address(lzEndpoint), address(0));
+        // Pre-compute bridge address to set up circular dependency
+        // Deploy a temporary handler first, then bridge, then real handler, then update
+        address tempHandler = address(new MockAnchorHandler(address(1)));
+
+        bridge = new LayerZeroAnchorBridge(address(lzEndpoint), tempHandler);
 
         // Deploy handler with bridge as the authorized bridge address
         handler = new MockAnchorHandler(address(bridge));

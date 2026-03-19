@@ -6,16 +6,15 @@ import { Utxo } from "./utxo.js";
 const NONCE_LENGTH = 12;
 const TAG_LENGTH = 16;
 
-/// Derive a 32-byte AES key from a keypair's public key using Poseidon.
-/// The key is deterministic for a given keypair, allowing the owner to
-/// decrypt any output encrypted to their public key.
+/// Derive a 32-byte AES key from a keypair's private key using Poseidon.
+/// The key is deterministic for a given keypair, allowing only the owner
+/// (who knows the private key) to decrypt outputs.
 async function deriveEncryptionKey(keypair: Keypair): Promise<Buffer> {
-  const pubKey = await keypair.getPublicKey();
-  // Hash the public key twice to get 256 bits of key material
-  const h1 = await poseidonHash([pubKey, 1n]);
-  const h2 = await poseidonHash([pubKey, 2n]);
-  const hex = h1.toString(16).padStart(32, "0") + h2.toString(16).padStart(32, "0");
-  return Buffer.from(hex.slice(0, 64), "hex");
+  // Use the private key — the public key is in the commitment and discoverable on-chain
+  const h1 = await poseidonHash([keypair.privateKey, 1n]);
+  // BN254 field elements are up to 64 hex chars (32 bytes)
+  const keyHex = h1.toString(16).padStart(64, "0").slice(0, 64);
+  return Buffer.from(keyHex, "hex");
 }
 
 /// Encode UTXO secrets into a plaintext buffer: chainId (32B) + amount (32B) + blinding (32B)

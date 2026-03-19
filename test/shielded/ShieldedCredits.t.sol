@@ -111,8 +111,10 @@ contract ShieldedCreditsTest is Test {
         assertEq(acct.nonce, 1);
 
         // Check spend recorded
-        (uint256 amount, bool claimed) = credits.getSpendAuth(authHash);
+        (uint256 amount,, address op, uint64 exp, bool claimed) = credits.getSpendAuth(authHash);
         assertEq(amount, spendAmount);
+        assertEq(op, operator1);
+        assertTrue(exp > 0);
         assertFalse(claimed);
     }
 
@@ -190,7 +192,7 @@ contract ShieldedCreditsTest is Test {
         assertEq(opBalAfter - opBalBefore, spendAmount);
 
         // Verify claimed
-        (, bool claimed) = credits.getSpendAuth(authHash);
+        (,,,, bool claimed) = credits.getSpendAuth(authHash);
         assertTrue(claimed);
     }
 
@@ -255,6 +257,79 @@ contract ShieldedCreditsTest is Test {
 
         vm.expectRevert(); // ECDSAInvalidSignature or InvalidSignature
         credits.withdrawCredits(commitment, recipient, 10 ether, 0, sig);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // EXPIRY & RECLAIM
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function test_claimPayment_afterExpiry_reverts() public {
+        _fundAccount();
+
+        uint256 spendAmount = 5 ether;
+        IShieldedCredits.SpendAuth memory auth = _signSpend(0, 64, 0, spendAmount, 0);
+        bytes32 authHash = credits.authorizeSpend(auth);
+
+        // Warp past expiry
+        vm.warp(block.timestamp + 3601);
+
+        vm.prank(operator1);
+        vm.expectRevert();
+        credits.claimPayment(authHash, operator1);
+    }
+
+    function test_reclaimExpiredAuth() public {
+        _fundAccount();
+
+        uint256 spendAmount = 5 ether;
+        IShieldedCredits.SpendAuth memory auth = _signSpend(0, 64, 0, spendAmount, 0);
+        bytes32 authHash = credits.authorizeSpend(auth);
+
+        // Balance should be deducted
+        IShieldedCredits.CreditAccountView memory acctBefore = credits.getAccount(commitment);
+        assertEq(acctBefore.balance, CREDIT_AMOUNT - spendAmount);
+
+        // Warp past expiry
+        vm.warp(block.timestamp + 3601);
+
+        // Reclaim
+        credits.reclaimExpiredAuth(authHash, commitment);
+
+        // Balance should be restored
+        IShieldedCredits.CreditAccountView memory acctAfter = credits.getAccount(commitment);
+        assertEq(acctAfter.balance, CREDIT_AMOUNT);
+
+        // Spend should be marked as claimed (preventing double-reclaim)
+        (,,,, bool claimed) = credits.getSpendAuth(authHash);
+        assertTrue(claimed);
+    }
+
+    function test_reclaimExpiredAuth_notExpired_reverts() public {
+        _fundAccount();
+
+        IShieldedCredits.SpendAuth memory auth = _signSpend(0, 64, 0, 1 ether, 0);
+        bytes32 authHash = credits.authorizeSpend(auth);
+
+        vm.expectRevert();
+        credits.reclaimExpiredAuth(authHash, commitment);
+    }
+
+    function test_reclaimExpiredAuth_alreadyClaimed_reverts() public {
+        _fundAccount();
+
+        IShieldedCredits.SpendAuth memory auth = _signSpend(0, 64, 0, 1 ether, 0);
+        bytes32 authHash = credits.authorizeSpend(auth);
+
+        // Operator claims before expiry
+        vm.prank(operator1);
+        credits.claimPayment(authHash, operator1);
+
+        // Warp past expiry
+        vm.warp(block.timestamp + 3601);
+
+        // Reclaim should fail — already claimed
+        vm.expectRevert(abi.encodeWithSelector(IShieldedCredits.AlreadyClaimed.selector, authHash));
+        credits.reclaimExpiredAuth(authHash, commitment);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
