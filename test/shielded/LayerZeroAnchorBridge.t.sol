@@ -270,10 +270,12 @@ contract LayerZeroAnchorBridgeTest is Test {
         bridge.setHandler(address(0));
     }
 
-    function test_transferOwnership() public {
+    function test_transferOwnership_setsPending() public {
         address newOwner = makeAddr("newOwner");
         bridge.transferOwnership(newOwner);
-        assertEq(bridge.owner(), newOwner);
+        // Two-step: owner should NOT change yet
+        assertEq(bridge.owner(), owner);
+        assertEq(bridge.pendingOwner(), newOwner);
     }
 
     function test_transferOwnership_revertsZeroAddress() public {
@@ -290,6 +292,164 @@ contract LayerZeroAnchorBridgeTest is Test {
     function test_setDstGasLimit() public {
         bridge.setDstGasLimit(500_000);
         assertEq(bridge.dstGasLimit(), 500_000);
+    }
+
+    // -- addEdge tests --
+
+    function test_addEdge() public {
+        uint256 newChainId = 10; // Optimism
+        uint32 newEid = 30_111;
+        bytes32 peer = bytes32(uint256(0xcafe));
+        bytes32 merkleRoot = bytes32(uint256(0xbeef));
+        uint32 leafIndex = 7;
+        bytes32 resourceId = bytes32(uint256(0xfeed));
+
+        bridge.addEdge(newChainId, newEid, peer, merkleRoot, leafIndex, resourceId);
+
+        // Verify chain mapping
+        assertEq(bridge.chainToEid(newChainId), newEid);
+        assertEq(bridge.eidToChain(newEid), newChainId);
+
+        // Verify peer set
+        assertEq(bridge.peers(newEid), peer);
+
+        // Verify handler received executeProposal
+        assertEq(handler.lastResourceId(), resourceId);
+        assertEq(handler.lastMerkleRoot(), merkleRoot);
+        assertEq(handler.lastLeafIndex(), leafIndex);
+    }
+
+    function test_addEdge_zeroPeer() public {
+        uint256 newChainId = 10;
+        uint32 newEid = 30_111;
+        bytes32 merkleRoot = bytes32(uint256(0xbeef));
+        uint32 leafIndex = 7;
+        bytes32 resourceId = bytes32(uint256(0xfeed));
+
+        bridge.addEdge(newChainId, newEid, bytes32(0), merkleRoot, leafIndex, resourceId);
+
+        // Chain mapping should be set
+        assertEq(bridge.chainToEid(newChainId), newEid);
+        assertEq(bridge.eidToChain(newEid), newChainId);
+
+        // Peer should NOT be set (manual-only mode)
+        assertEq(bridge.peers(newEid), bytes32(0));
+
+        // Handler still received the proposal
+        assertEq(handler.lastResourceId(), resourceId);
+    }
+
+    function test_addEdge_onlyOwner() public {
+        vm.prank(makeAddr("nobody"));
+        vm.expectRevert(abi.encodeWithSelector(LayerZeroAnchorBridge.OnlyOwner.selector));
+        bridge.addEdge(10, 30_111, bytes32(uint256(0xcafe)), bytes32(uint256(0xbeef)), 7, bytes32(uint256(0xfeed)));
+    }
+
+    function test_addEdge_multipleChainsSequential() public {
+        uint256[3] memory chainIds = [uint256(10), uint256(137), uint256(8453)];
+        uint32[3] memory eids = [uint32(30_111), uint32(30_109), uint32(30_184)];
+        bytes32[3] memory peersArr = [bytes32(uint256(0xaa)), bytes32(uint256(0xbb)), bytes32(uint256(0xcc))];
+
+        for (uint256 i = 0; i < 3; i++) {
+            bridge.addEdge(
+                chainIds[i], eids[i], peersArr[i], bytes32(uint256(i + 1)), uint32(i), bytes32(uint256(0xf0 + i))
+            );
+        }
+
+        for (uint256 i = 0; i < 3; i++) {
+            assertEq(bridge.chainToEid(chainIds[i]), eids[i]);
+            assertEq(bridge.eidToChain(eids[i]), chainIds[i]);
+            assertEq(bridge.peers(eids[i]), peersArr[i]);
+        }
+
+        // Handler should have been called 3 times
+        assertEq(handler.executionCount(), 3);
+    }
+
+    // -- directUpdateEdge tests --
+
+    function test_directUpdateEdge() public {
+        bytes32 merkleRoot = bytes32(uint256(0x9999));
+        uint32 leafIndex = 55;
+        bytes32 resourceId = bytes32(uint256(0xaaaa));
+
+        bridge.directUpdateEdge(merkleRoot, leafIndex, resourceId);
+
+        assertEq(handler.lastResourceId(), resourceId);
+        assertEq(handler.lastMerkleRoot(), merkleRoot);
+        assertEq(handler.lastLeafIndex(), leafIndex);
+        assertEq(handler.executionCount(), 1);
+    }
+
+    function test_directUpdateEdge_onlyOwner() public {
+        vm.prank(makeAddr("nobody"));
+        vm.expectRevert(abi.encodeWithSelector(LayerZeroAnchorBridge.OnlyOwner.selector));
+        bridge.directUpdateEdge(bytes32(uint256(1)), 1, bytes32(uint256(1)));
+    }
+
+    // -- Two-step ownership transfer tests --
+
+    function test_twoStepOwnership_transferAndAccept() public {
+        address newOwner = makeAddr("newOwner");
+
+        bridge.transferOwnership(newOwner);
+
+        // Owner should NOT have changed yet
+        assertEq(bridge.owner(), owner);
+        assertEq(bridge.pendingOwner(), newOwner);
+
+        // Accept ownership
+        vm.prank(newOwner);
+        bridge.acceptOwnership();
+
+        assertEq(bridge.owner(), newOwner);
+        assertEq(bridge.pendingOwner(), address(0));
+    }
+
+    function test_twoStepOwnership_acceptRevertsNonPending() public {
+        address newOwner = makeAddr("newOwner");
+        bridge.transferOwnership(newOwner);
+
+        // Random address cannot accept
+        vm.prank(makeAddr("random"));
+        vm.expectRevert(abi.encodeWithSelector(LayerZeroAnchorBridge.NotPendingOwner.selector));
+        bridge.acceptOwnership();
+    }
+
+    function test_twoStepOwnership_oldOwnerRetainsUntilAccepted() public {
+        address newOwner = makeAddr("newOwner");
+        bridge.transferOwnership(newOwner);
+
+        // Old owner can still do admin operations
+        bridge.setDstGasLimit(300_000);
+        assertEq(bridge.dstGasLimit(), 300_000);
+
+        // New owner cannot do admin operations until they accept
+        vm.prank(newOwner);
+        vm.expectRevert(abi.encodeWithSelector(LayerZeroAnchorBridge.OnlyOwner.selector));
+        bridge.setDstGasLimit(400_000);
+    }
+
+    function test_twoStepOwnership_canOverridePending() public {
+        address newOwner1 = makeAddr("newOwner1");
+        address newOwner2 = makeAddr("newOwner2");
+
+        bridge.transferOwnership(newOwner1);
+        assertEq(bridge.pendingOwner(), newOwner1);
+
+        // Override with a different pending owner
+        bridge.transferOwnership(newOwner2);
+        assertEq(bridge.pendingOwner(), newOwner2);
+
+        // newOwner1 can no longer accept
+        vm.prank(newOwner1);
+        vm.expectRevert(abi.encodeWithSelector(LayerZeroAnchorBridge.NotPendingOwner.selector));
+        bridge.acceptOwnership();
+
+        // newOwner2 can accept
+        vm.prank(newOwner2);
+        bridge.acceptOwnership();
+        assertEq(bridge.owner(), newOwner2);
     }
 
     // -- Helpers --

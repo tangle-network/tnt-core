@@ -14,6 +14,7 @@ import { encodeRootsBytes } from "../proof/roots.js";
 import { syncLeaves } from "./leaf-sync.js";
 import { NoteManager } from "../note/note-store.js";
 import { noteToUtxo, utxoToNote, type NoteData } from "../note/note.js";
+import { encryptUtxo } from "../protocol/encryption.js";
 
 /// Configuration for the ShieldedGatewayClient
 export interface GatewayClientConfig {
@@ -95,6 +96,10 @@ export class ShieldedGatewayClient {
     // Get roots for cross-chain proof
     const roots = await this._getRoots();
 
+    // Encrypt outputs for UTXO discovery
+    const encryptedOutput1 = await encryptUtxo(output);
+    const encryptedOutput2 = await encryptUtxo(changeOutput);
+
     // Build external data
     const signerAddress = await signer.getAddress();
     const extDataHash = computeExtDataHash({
@@ -104,8 +109,8 @@ export class ShieldedGatewayClient {
       fee: 0n,
       refund: 0n,
       token: this.config.wrappedTokenAddress,
-      encryptedOutput1: new Uint8Array(0),
-      encryptedOutput2: new Uint8Array(0),
+      encryptedOutput1,
+      encryptedOutput2,
     });
 
     // Build witness and generate proof
@@ -157,8 +162,8 @@ export class ShieldedGatewayClient {
         extDataHash,
       },
       {
-        encryptedOutput1: new Uint8Array(0),
-        encryptedOutput2: new Uint8Array(0),
+        encryptedOutput1,
+        encryptedOutput2,
       }
     );
 
@@ -248,6 +253,10 @@ export class ShieldedGatewayClient {
     const tree = await this._getTree();
     const roots = await this._getRoots();
 
+    // Encrypt outputs for UTXO discovery
+    const encryptedOutput1 = await encryptUtxo(changeOutput);
+    const encryptedOutput2 = await encryptUtxo(dummyOutput);
+
     // External data: withdraw to the gateway
     const gateway = this.config.gatewayAddress;
     const extDataHash = computeExtDataHash({
@@ -257,8 +266,8 @@ export class ShieldedGatewayClient {
       fee: 0n,
       refund: 0n,
       token: this.config.wrappedTokenAddress,
-      encryptedOutput1: new Uint8Array(0),
-      encryptedOutput2: new Uint8Array(0),
+      encryptedOutput1,
+      encryptedOutput2,
     });
 
     // Build witness and generate proof
@@ -318,8 +327,8 @@ export class ShieldedGatewayClient {
       ["tuple(bytes encryptedOutput1, bytes encryptedOutput2)"],
       [
         {
-          encryptedOutput1: new Uint8Array(0),
-          encryptedOutput2: new Uint8Array(0),
+          encryptedOutput1,
+          encryptedOutput2,
         },
       ]
     );

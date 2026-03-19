@@ -43,6 +43,9 @@ contract LayerZeroAnchorBridge is ILayerZeroAnchorBridge {
     /// @notice Gas limit for lzReceive execution on destination
     uint128 public dstGasLimit = 200_000;
 
+    /// @notice Pending owner for two-step ownership transfer
+    address public pendingOwner;
+
     // -- Errors --
 
     error OnlyOwner();
@@ -51,6 +54,11 @@ contract LayerZeroAnchorBridge is ILayerZeroAnchorBridge {
     error UnsupportedChain(uint256 chainId);
     error MessageAlreadyProcessed(bytes32 guid);
     error ZeroAddress();
+    error NotPendingOwner();
+
+    // -- Events --
+
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
 
     // -- Constructor --
 
@@ -233,10 +241,20 @@ contract LayerZeroAnchorBridge is ILayerZeroAnchorBridge {
         dstGasLimit = _gasLimit;
     }
 
-    /// @notice Transfer ownership
+    /// @notice Start two-step ownership transfer
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert ZeroAddress();
-        owner = newOwner;
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+
+    /// @notice Accept ownership (must be called by the pending owner)
+    function acceptOwnership() external {
+        if (msg.sender != pendingOwner) revert NotPendingOwner();
+        address oldOwner = owner;
+        owner = pendingOwner;
+        pendingOwner = address(0);
+        emit OwnershipTransferStarted(oldOwner, msg.sender);
     }
 
     /// @notice Check if a message GUID has been processed

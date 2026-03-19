@@ -370,6 +370,112 @@ contract ShieldedCreditsTest is Test {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // FUZZ TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function testFuzz_fundAndSpend(uint256 fundAmount, uint256 spendAmount) public {
+        fundAmount = bound(fundAmount, 1 ether, 1000 ether);
+        spendAmount = bound(spendAmount, 1, fundAmount);
+
+        // Mint enough tokens
+        token.mint(funder, fundAmount);
+        vm.prank(funder);
+        credits.fundCredits(address(token), fundAmount, commitment, spendingPubKey);
+
+        IShieldedCredits.SpendAuth memory auth = _signSpend(0, 0, 0, spendAmount, 0);
+        credits.authorizeSpend(auth);
+
+        IShieldedCredits.CreditAccountView memory acct = credits.getAccount(commitment);
+        assertEq(acct.balance + acct.totalSpent, acct.totalFunded, "balance + totalSpent == totalFunded");
+    }
+
+    function testFuzz_multipleSpends(uint256 seed) public {
+        uint256 fundAmount = 500 ether;
+        token.mint(funder, fundAmount);
+        vm.prank(funder);
+        credits.fundCredits(address(token), fundAmount, commitment, spendingPubKey);
+
+        uint256 numSpends = (seed % 10) + 1; // 1..10 spends
+        uint256 remaining = fundAmount;
+
+        for (uint256 i = 0; i < numSpends; i++) {
+            if (remaining == 0) break;
+            // Derive a pseudo-random spend amount from seed + i
+            uint256 spendAmt = (uint256(keccak256(abi.encode(seed, i))) % remaining) + 1;
+            spendAmt = spendAmt > remaining ? remaining : spendAmt;
+
+            IShieldedCredits.SpendAuth memory auth = _signSpend(0, 0, 0, spendAmt, i);
+            credits.authorizeSpend(auth);
+
+            remaining -= spendAmt;
+
+            IShieldedCredits.CreditAccountView memory acct = credits.getAccount(commitment);
+            assertEq(acct.balance + acct.totalSpent, acct.totalFunded, "invariant after each spend");
+        }
+    }
+
+    function testFuzz_fundSpendClaimWithdraw(uint256 fundAmt, uint256 spendAmt) public {
+        fundAmt = bound(fundAmt, 1 ether, 1000 ether);
+        spendAmt = bound(spendAmt, 1, fundAmt);
+
+        // Mint and fund
+        token.mint(funder, fundAmt);
+        vm.prank(funder);
+        credits.fundCredits(address(token), fundAmt, commitment, spendingPubKey);
+
+        uint256 contractBalBefore = token.balanceOf(address(credits));
+
+        // Spend
+        IShieldedCredits.SpendAuth memory auth = _signSpend(0, 0, 0, spendAmt, 0);
+        bytes32 authHash = credits.authorizeSpend(auth);
+
+        // Claim
+        vm.prank(operator1);
+        credits.claimPayment(authHash, operator1);
+        assertEq(token.balanceOf(operator1), spendAmt, "operator got spendAmt");
+
+        // Withdraw remainder
+        uint256 remainder = fundAmt - spendAmt;
+        if (remainder > 0) {
+            address withdrawRecipient = makeAddr("fuzzWithdrawRecipient");
+            bytes memory sig = _signWithdraw(commitment, withdrawRecipient, remainder, 1);
+            credits.withdrawCredits(commitment, withdrawRecipient, remainder, 1, sig);
+            assertEq(token.balanceOf(withdrawRecipient), remainder, "recipient got remainder");
+        }
+
+        IShieldedCredits.CreditAccountView memory acct = credits.getAccount(commitment);
+        assertEq(acct.balance, 0, "credit balance is 0");
+        assertEq(
+            token.balanceOf(address(credits)), contractBalBefore - fundAmt, "contract balance decreased by fundAmt"
+        );
+    }
+
+    function testFuzz_reclaimAfterExpiry(uint256 amount, uint256 expiryOffset) public {
+        amount = bound(amount, 1 ether, 1000 ether);
+        expiryOffset = bound(expiryOffset, 1, 365 days);
+
+        token.mint(funder, amount);
+        vm.prank(funder);
+        credits.fundCredits(address(token), amount, commitment, spendingPubKey);
+
+        uint64 expiry = uint64(block.timestamp + expiryOffset);
+        IShieldedCredits.SpendAuth memory auth = _signSpendWithExpiry(0, 0, 0, amount, 0, expiry);
+        bytes32 authHash = credits.authorizeSpend(auth);
+
+        IShieldedCredits.CreditAccountView memory acctBefore = credits.getAccount(commitment);
+        assertEq(acctBefore.balance, 0, "balance is 0 after full spend");
+
+        // Warp past expiry
+        vm.warp(block.timestamp + expiryOffset + 1);
+
+        credits.reclaimExpiredAuth(authHash, commitment);
+
+        IShieldedCredits.CreditAccountView memory acctAfter = credits.getAccount(commitment);
+        assertEq(acctAfter.balance, amount, "balance restored exactly");
+        assertEq(acctAfter.totalSpent, 0, "totalSpent back to 0");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════
 
