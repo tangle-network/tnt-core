@@ -5,7 +5,12 @@ import { Types } from "./Types.sol";
 
 /// @title BN254
 /// @notice BN254 (alt_bn128) curve operations for BLS signature verification
-/// @dev Uses EVM precompiles at addresses 0x06, 0x07, and 0x08 for efficient operations
+/// @dev Uses EVM precompiles at addresses 0x06, 0x07, and 0x08 for efficient operations.
+///      SECURITY CRITICAL: do not modify this library casually to chase gas or compile-time wins.
+///      Any change must preserve exact cryptographic semantics, be reviewed against the original
+///      source/provenance in git history, and receive dedicated cryptography-focused review.
+///      This header is intentionally conservative and does not claim a standalone audit unless
+///      that provenance is explicitly documented elsewhere.
 library BN254 {
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTANTS

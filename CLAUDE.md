@@ -14,7 +14,10 @@ tnt-core is Tangle's EVM-native staking protocol for creating service blueprints
 # Install dependencies
 forge soldeer update
 
-# Build contracts
+# Fast local build without tests/scripts
+FOUNDRY_PROFILE=local_build forge build
+
+# Full contract build
 forge build
 
 # Run all tests

@@ -6,7 +6,7 @@ pub mod bindings;
 pub use bindings::r#i_blueprint_service_manager::IBlueprintServiceManager;
 pub use bindings::r#operator_status_registry::OperatorStatusRegistry;
 // Backward compat alias
-pub use bindings::r#operator_status_registry::OperatorStatusRegistry as IOperatorStatusRegistry;
+pub use bindings::r#i_multi_asset_delegation::IMultiAssetDelegation;
 pub use bindings::r#i_tangle::ITangle;
 pub use bindings::r#i_tangle_admin::ITangleAdmin;
 pub use bindings::r#i_tangle_blueprints::ITangleBlueprints;
@@ -18,8 +18,8 @@ pub use bindings::r#i_tangle_rewards::ITangleRewards;
 pub use bindings::r#i_tangle_services::ITangleServices;
 pub use bindings::r#i_tangle_slashing::ITangleSlashing;
 pub use bindings::r#i_tangle_token::ITangleToken;
-pub use bindings::r#i_multi_asset_delegation::IMultiAssetDelegation;
 pub use bindings::r#multi_asset_delegation::MultiAssetDelegation;
+pub use bindings::r#operator_status_registry::OperatorStatusRegistry as IOperatorStatusRegistry;
 
 /// Git commit that was used to generate the bindings.
 pub const TNT_CORE_VERSION: &str = include_str!("../TNT_CORE_VERSION");
@@ -34,7 +34,6 @@ pub mod abi {
     pub const OPERATOR_STATUS_REGISTRY: &str = include_str!("../abi/OperatorStatusRegistry.json");
     // Backward compat alias
     pub const IOPERATOR_STATUS_REGISTRY: &str = OPERATOR_STATUS_REGISTRY;
-    pub const IMULTI_ASSET_DELEGATION: &str =
-        include_str!("../abi/IMultiAssetDelegation.json");
+    pub const IMULTI_ASSET_DELEGATION: &str = include_str!("../abi/IMultiAssetDelegation.json");
     pub const MULTI_ASSET_DELEGATION: &str = include_str!("../abi/MultiAssetDelegation.json");
 }

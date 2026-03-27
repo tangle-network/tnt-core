@@ -13,6 +13,16 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    struct FixedModeBondlessContext {
+        address delegator;
+        address operator;
+        bytes32 assetHash;
+        uint256 requestedShares;
+        uint256 totalBlueprintShares;
+        uint256 equalShare;
+        uint256 blueprintCount;
+    }
+
     function selectors() external pure returns (bytes4[] memory selectorList) {
         selectorList = new bytes4[](10);
         selectorList[0] = this.depositAndDelegate.selector;
@@ -211,37 +221,14 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
             Types.BondInfoDelegator storage d = delegations[j];
             if (d.operator != req.operator || _assetHash(d.asset) != assetHash) continue;
 
-            uint64[] memory blueprintIds = d.selectionMode == Types.BlueprintSelectionMode.Fixed
-                ? _delegationBlueprints[delegator][j]
-                : new uint64[](0);
-
-            uint256[] memory blueprintShares = new uint256[](blueprintIds.length);
-            if (d.selectionMode == Types.BlueprintSelectionMode.Fixed && blueprintIds.length > 0) {
-                uint256 totalBpShares = 0;
-                for (uint256 k = 0; k < blueprintIds.length; k++) {
-                    totalBpShares += _delegatorBlueprintShares[delegator][req.operator][assetHash][blueprintIds[k]];
-                }
-
-                uint256 remainingShares = req.shares;
-                for (uint256 k = 0; k < blueprintIds.length; k++) {
-                    uint256 currentBpShares =
-                        _delegatorBlueprintShares[delegator][req.operator][assetHash][blueprintIds[k]];
-                    uint256 bpShare = 0;
-                    if (totalBpShares > 0) {
-                        bpShare = k == blueprintIds.length - 1
-                            ? remainingShares
-                            : (req.shares * currentBpShares) / totalBpShares;
-                    } else {
-                        bpShare = k == blueprintIds.length - 1 ? remainingShares : req.shares / blueprintIds.length;
-                    }
-                    remainingShares = remainingShares > bpShare ? remainingShares - bpShare : 0;
-                    blueprintShares[k] = bpShare;
-                    amountReturned += _sharesToAmountForBlueprint(req.operator, blueprintIds[k], assetHash, bpShare);
-
-                    _delegatorBlueprintShares[delegator][req.operator][assetHash][blueprintIds[k]] =
-                        bpShare > currentBpShares ? 0 : currentBpShares - bpShare;
-                }
+            uint64[] memory blueprintIds;
+            uint256[] memory blueprintShares;
+            if (d.selectionMode == Types.BlueprintSelectionMode.Fixed) {
+                (blueprintIds, blueprintShares, amountReturned) =
+                    _applyFixedModeBondlessUnstake(delegator, j, assetHash, req);
             } else {
+                blueprintIds = new uint64[](0);
+                blueprintShares = new uint256[](0);
                 amountReturned = _sharesToAmount(req.operator, assetHash, req.shares);
             }
 
@@ -278,6 +265,84 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
         if (!updated) {
             revert DelegationErrors.DelegationNotFound(delegator, operator);
         }
+    }
+
+    function _applyFixedModeBondlessUnstake(
+        address delegator,
+        uint256 delegationIndex,
+        bytes32 assetHash,
+        Types.BondLessRequest storage req
+    )
+        private
+        returns (uint64[] memory blueprintIds, uint256[] memory blueprintShares, uint256 amountReturned)
+    {
+        blueprintIds = _delegationBlueprints[delegator][delegationIndex];
+        blueprintShares = new uint256[](blueprintIds.length);
+
+        if (blueprintIds.length == 0) {
+            amountReturned = _sharesToAmount(req.operator, assetHash, req.shares);
+            return (blueprintIds, blueprintShares, amountReturned);
+        }
+
+        uint256 totalBlueprintShares =
+            _getTotalDelegatorBlueprintShares(delegator, req.operator, assetHash, blueprintIds);
+        FixedModeBondlessContext memory ctx = FixedModeBondlessContext({
+            delegator: delegator,
+            operator: req.operator,
+            assetHash: assetHash,
+            requestedShares: req.shares,
+            totalBlueprintShares: totalBlueprintShares,
+            equalShare: req.shares / blueprintIds.length,
+            blueprintCount: blueprintIds.length
+        });
+        uint256 remainingShares = req.shares;
+
+        for (uint256 k = 0; k < blueprintIds.length; k++) {
+            (uint256 bpShare, uint256 amountReturnedDelta) =
+                _applyBlueprintBondlessReduction(ctx, remainingShares, blueprintIds[k], k);
+
+            remainingShares = remainingShares > bpShare ? remainingShares - bpShare : 0;
+            blueprintShares[k] = bpShare;
+            amountReturned += amountReturnedDelta;
+        }
+    }
+
+    function _getTotalDelegatorBlueprintShares(
+        address delegator,
+        address operator,
+        bytes32 assetHash,
+        uint64[] memory blueprintIds
+    )
+        private
+        view
+        returns (uint256 totalBlueprintShares)
+    {
+        for (uint256 k = 0; k < blueprintIds.length; k++) {
+            totalBlueprintShares += _delegatorBlueprintShares[delegator][operator][assetHash][blueprintIds[k]];
+        }
+    }
+
+    function _applyBlueprintBondlessReduction(
+        FixedModeBondlessContext memory ctx,
+        uint256 remainingShares,
+        uint64 blueprintId,
+        uint256 blueprintIndex
+    )
+        private
+        returns (uint256 bpShare, uint256 amountReturnedDelta)
+    {
+        uint256 currentBpShares = _delegatorBlueprintShares[ctx.delegator][ctx.operator][ctx.assetHash][blueprintId];
+        if (ctx.totalBlueprintShares > 0) {
+            bpShare = blueprintIndex == ctx.blueprintCount - 1
+                ? remainingShares
+                : (ctx.requestedShares * currentBpShares) / ctx.totalBlueprintShares;
+        } else {
+            bpShare = blueprintIndex == ctx.blueprintCount - 1 ? remainingShares : ctx.equalShare;
+        }
+
+        _delegatorBlueprintShares[ctx.delegator][ctx.operator][ctx.assetHash][blueprintId] =
+            bpShare > currentBpShares ? 0 : currentBpShares - bpShare;
+        amountReturnedDelta = _sharesToAmountForBlueprint(ctx.operator, blueprintId, ctx.assetHash, bpShare);
     }
 
     function _notifyDelegationChangedForBondlessExecution(

@@ -894,28 +894,44 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         uint256 pageLimit = limit > MAX_PAGE_SIZE ? MAX_PAGE_SIZE : limit;
         uint256 end = offset + pageLimit > total ? total : offset + pageLimit;
 
-        // Single pass: collect slashable operators within [offset, end)
+        operators = _collectSlashableOperators(serviceId, offset, end, threshold);
+    }
+
+    function _collectSlashableOperators(
+        uint64 serviceId,
+        uint256 offset,
+        uint256 end,
+        uint256 threshold
+    )
+        internal
+        view
+        returns (address[] memory operators)
+    {
         address[] memory temp = new address[](end - offset);
         uint256 count = 0;
+
         for (uint256 i = offset; i < end; i++) {
             address op = _allOperators[serviceId].at(i);
-            // Skip deregistered operators — they may have stale heartbeat data
-            if (!_registeredOperators[serviceId].contains(op)) continue;
-            OperatorState memory state = operatorStates[serviceId][op];
-            if (state.lastHeartbeat == 0 || state.status == StatusCode.Slashed) {
-                continue;
-            }
-            if (block.timestamp - state.lastHeartbeat >= threshold) {
+            if (_isSlashableOperator(serviceId, op, threshold)) {
                 temp[count] = op;
                 count++;
             }
         }
 
-        // Trim to actual count
         operators = new address[](count);
         for (uint256 i = 0; i < count; i++) {
             operators[i] = temp[i];
         }
+    }
+
+    function _isSlashableOperator(uint64 serviceId, address operator, uint256 threshold) internal view returns (bool) {
+        // Skip deregistered operators — they may have stale heartbeat data
+        if (!_registeredOperators[serviceId].contains(operator)) return false;
+
+        OperatorState memory state = operatorStates[serviceId][operator];
+        if (state.lastHeartbeat == 0 || state.status == StatusCode.Slashed) return false;
+
+        return block.timestamp - state.lastHeartbeat >= threshold;
     }
 
     /// @notice Remove an operator from the _allOperators tracking set

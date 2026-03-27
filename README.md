@@ -34,6 +34,16 @@ tnt-core = "0.10.4"
 
 ## Quick Start
 
+### Local Build
+
+```bash
+# Fast local build without compiling test/ and script/
+FOUNDRY_PROFILE=local_build forge build
+
+# Full build
+forge build
+```
+
 Create a custom blueprint by extending `BlueprintServiceManagerBase`:
 
 ```solidity
