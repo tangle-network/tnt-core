@@ -16,11 +16,10 @@ library Types {
 pub mod Types {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; }
-```*/
+    struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; }
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct PaymentSplit {
@@ -53,9 +52,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
         type UnderlyingRustTuple<'a> = (u16, u16, u16, u16);
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
+        fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
             match _t {
                 alloy_sol_types::private::AssertTypeEq::<
                     <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -95,18 +92,18 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
             #[inline]
             fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.developerBps),
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.protocolBps),
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operatorBps),
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.stakerBps),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        &self.developerBps,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        &self.protocolBps,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        &self.operatorBps,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        &self.stakerBps,
+                    ),
                 )
             }
             #[inline]
@@ -114,64 +111,50 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                 if let Some(size) = <Self as alloy_sol_types::SolType>::ENCODED_SIZE {
                     return size;
                 }
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
+                let tuple =
+                    <UnderlyingRustTuple<'_> as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
             }
             #[inline]
             fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
                 <Self as alloy_sol_types::SolStruct>::eip712_hash_struct(self)
             }
             #[inline]
-            fn stv_abi_encode_packed_to(
-                &self,
-                out: &mut alloy_sol_types::private::Vec<u8>,
-            ) {
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_encode_packed_to(&tuple, out)
+            fn stv_abi_encode_packed_to(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
+                let tuple =
+                    <UnderlyingRustTuple<'_> as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::abi_encode_packed_to(
+                    &tuple, out,
+                )
             }
             #[inline]
             fn stv_abi_packed_encoded_size(&self) -> usize {
                 if let Some(size) = <Self as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE {
                     return size;
                 }
-                let tuple = <UnderlyingRustTuple<
-                    '_,
-                > as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_packed_encoded_size(&tuple)
+                let tuple =
+                    <UnderlyingRustTuple<'_> as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::abi_packed_encoded_size(
+                    &tuple,
+                )
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolType for PaymentSplit {
             type RustType = Self;
-            type Token<'a> = <UnderlyingSolTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <UnderlyingSolTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SOL_NAME: &'static str = <Self as alloy_sol_types::SolStruct>::NAME;
-            const ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
-                '_,
-            > as alloy_sol_types::SolType>::ENCODED_SIZE;
-            const PACKED_ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
-                '_,
-            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            const ENCODED_SIZE: Option<usize> =
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> =
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
             #[inline]
             fn valid_token(token: &Self::Token<'_>) -> bool {
                 <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::valid_token(token)
             }
             #[inline]
             fn detokenize(token: Self::Token<'_>) -> Self::RustType {
-                let tuple = <UnderlyingSolTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::detokenize(token);
+                let tuple = <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::detokenize(token);
                 <Self as ::core::convert::From<UnderlyingRustTuple<'_>>>::from(tuple)
             }
         }
@@ -185,9 +168,9 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                 )
             }
             #[inline]
-            fn eip712_components() -> alloy_sol_types::private::Vec<
-                alloy_sol_types::private::Cow<'static, str>,
-            > {
+            fn eip712_components(
+            ) -> alloy_sol_types::private::Vec<alloy_sol_types::private::Cow<'static, str>>
+            {
                 alloy_sol_types::private::Vec::new()
             }
             #[inline]
@@ -248,9 +231,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                 rust: &Self::RustType,
                 out: &mut alloy_sol_types::private::Vec<u8>,
             ) {
-                out.reserve(
-                    <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
-                );
+                out.reserve(<Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust));
                 <alloy::sol_types::sol_data::Uint<
                     16,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -277,42 +258,38 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                 );
             }
             #[inline]
-            fn encode_topic(
-                rust: &Self::RustType,
-            ) -> alloy_sol_types::abi::token::WordToken {
+            fn encode_topic(rust: &Self::RustType) -> alloy_sol_types::abi::token::WordToken {
                 let mut out = alloy_sol_types::private::Vec::new();
-                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    rust,
-                    &mut out,
-                );
-                alloy_sol_types::abi::token::WordToken(
-                    alloy_sol_types::private::keccak256(out),
-                )
+                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, &mut out);
+                alloy_sol_types::abi::token::WordToken(alloy_sol_types::private::keccak256(out))
             }
         }
     };
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`Types`](self) contract instance.
 
-See the [wrapper's documentation](`TypesInstance`) for more details.*/
+    See the [wrapper's documentation](`TypesInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(address: alloy_sol_types::private::Address, __provider: P) -> TypesInstance<P, N> {
+    >(
+        address: alloy_sol_types::private::Address,
+        __provider: P,
+    ) -> TypesInstance<P, N> {
         TypesInstance::<P, N>::new(address, __provider)
     }
     /**A [`Types`](self) instance.
 
-Contains type-safe methods for interacting with an on-chain instance of the
-[`Types`](self) contract located at a given `address`, using a given
-provider `P`.
+    Contains type-safe methods for interacting with an on-chain instance of the
+    [`Types`](self) contract located at a given `address`, using a given
+    provider `P`.
 
-If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-be used to deploy a new instance of the contract.
+    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+    be used to deploy a new instance of the contract.
 
-See the [module-level documentation](self) for all the available methods.*/
+    See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct TypesInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -327,18 +304,14 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > TypesInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        TypesInstance<P, N>
+    {
         /**Creates a new wrapper around an on-chain [`Types`](self) contract instance.
 
-See the [wrapper's documentation](`TypesInstance`) for more details.*/
+        See the [wrapper's documentation](`TypesInstance`) for more details.*/
         #[inline]
-        pub const fn new(
-            address: alloy_sol_types::private::Address,
-            __provider: P,
-        ) -> Self {
+        pub const fn new(address: alloy_sol_types::private::Address, __provider: P) -> Self {
             Self {
                 address,
                 provider: __provider,
@@ -378,10 +351,9 @@ See the [wrapper's documentation](`TypesInstance`) for more details.*/
         }
     }
     /// Function calls.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > TypesInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        TypesInstance<P, N>
+    {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -394,10 +366,9 @@ See the [wrapper's documentation](`TypesInstance`) for more details.*/
         }
     }
     /// Event filters.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > TypesInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        TypesInstance<P, N>
+    {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
@@ -864,17 +835,15 @@ pub mod ITangleAdmin {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `defaultTntMinExposureBps()` and selector `0x8eb435a5`.
-```solidity
-function defaultTntMinExposureBps() external view returns (uint16);
-```*/
+    ```solidity
+    function defaultTntMinExposureBps() external view returns (uint16);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct defaultTntMinExposureBpsCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`defaultTntMinExposureBps()`](defaultTntMinExposureBpsCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -898,9 +867,7 @@ function defaultTntMinExposureBps() external view returns (uint16);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -909,16 +876,14 @@ function defaultTntMinExposureBps() external view returns (uint16);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<defaultTntMinExposureBpsCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<defaultTntMinExposureBpsCall> for UnderlyingRustTuple<'_> {
                 fn from(value: defaultTntMinExposureBpsCall) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for defaultTntMinExposureBpsCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for defaultTntMinExposureBpsCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self
                 }
@@ -932,9 +897,7 @@ function defaultTntMinExposureBps() external view returns (uint16);
             type UnderlyingRustTuple<'a> = (u16,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -943,16 +906,14 @@ function defaultTntMinExposureBps() external view returns (uint16);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<defaultTntMinExposureBpsReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<defaultTntMinExposureBpsReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: defaultTntMinExposureBpsReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for defaultTntMinExposureBpsReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for defaultTntMinExposureBpsReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -961,14 +922,10 @@ function defaultTntMinExposureBps() external view returns (uint16);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for defaultTntMinExposureBpsCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = u16;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<16>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "defaultTntMinExposureBps()";
             const SELECTOR: [u8; 4] = [142u8, 180u8, 53u8, 165u8];
             #[inline]
@@ -984,46 +941,41 @@ function defaultTntMinExposureBps() external view returns (uint16);
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: defaultTntMinExposureBpsReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: defaultTntMinExposureBpsReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: defaultTntMinExposureBpsReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `maxBlueprintsPerOperator()` and selector `0x5ece2405`.
-```solidity
-function maxBlueprintsPerOperator() external view returns (uint32);
-```*/
+    ```solidity
+    function maxBlueprintsPerOperator() external view returns (uint32);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct maxBlueprintsPerOperatorCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`maxBlueprintsPerOperator()`](maxBlueprintsPerOperatorCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1047,9 +999,7 @@ function maxBlueprintsPerOperator() external view returns (uint32);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1058,16 +1008,14 @@ function maxBlueprintsPerOperator() external view returns (uint32);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<maxBlueprintsPerOperatorCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<maxBlueprintsPerOperatorCall> for UnderlyingRustTuple<'_> {
                 fn from(value: maxBlueprintsPerOperatorCall) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for maxBlueprintsPerOperatorCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for maxBlueprintsPerOperatorCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self
                 }
@@ -1081,9 +1029,7 @@ function maxBlueprintsPerOperator() external view returns (uint32);
             type UnderlyingRustTuple<'a> = (u32,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1092,16 +1038,14 @@ function maxBlueprintsPerOperator() external view returns (uint32);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<maxBlueprintsPerOperatorReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<maxBlueprintsPerOperatorReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: maxBlueprintsPerOperatorReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for maxBlueprintsPerOperatorReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for maxBlueprintsPerOperatorReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -1110,14 +1054,10 @@ function maxBlueprintsPerOperator() external view returns (uint32);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for maxBlueprintsPerOperatorCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = u32;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<32>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "maxBlueprintsPerOperator()";
             const SELECTOR: [u8; 4] = [94u8, 206u8, 36u8, 5u8];
             #[inline]
@@ -1133,46 +1073,41 @@ function maxBlueprintsPerOperator() external view returns (uint32);
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        32,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
+                    <alloy::sol_types::sol_data::Uint<32> as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: maxBlueprintsPerOperatorReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: maxBlueprintsPerOperatorReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: maxBlueprintsPerOperatorReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `mbsmRegistry()` and selector `0x26c9887b`.
-```solidity
-function mbsmRegistry() external view returns (address);
-```*/
+    ```solidity
+    function mbsmRegistry() external view returns (address);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct mbsmRegistryCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`mbsmRegistry()`](mbsmRegistryCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1196,9 +1131,7 @@ function mbsmRegistry() external view returns (address);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1228,9 +1161,7 @@ function mbsmRegistry() external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1255,14 +1186,10 @@ function mbsmRegistry() external view returns (address);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for mbsmRegistryCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "mbsmRegistry()";
             const SELECTOR: [u8; 4] = [38u8, 201u8, 136u8, 123u8];
             #[inline]
@@ -1285,39 +1212,34 @@ function mbsmRegistry() external view returns (address);
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: mbsmRegistryReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: mbsmRegistryReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: mbsmRegistryReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `metricsRecorder()` and selector `0x2dae1885`.
-```solidity
-function metricsRecorder() external view returns (address);
-```*/
+    ```solidity
+    function metricsRecorder() external view returns (address);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct metricsRecorderCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`metricsRecorder()`](metricsRecorderCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1341,9 +1263,7 @@ function metricsRecorder() external view returns (address);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1373,9 +1293,7 @@ function metricsRecorder() external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1384,16 +1302,14 @@ function metricsRecorder() external view returns (address);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<metricsRecorderReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<metricsRecorderReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: metricsRecorderReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for metricsRecorderReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for metricsRecorderReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -1402,14 +1318,10 @@ function metricsRecorder() external view returns (address);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for metricsRecorderCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "metricsRecorder()";
             const SELECTOR: [u8; 4] = [45u8, 174u8, 24u8, 133u8];
             #[inline]
@@ -1432,39 +1344,34 @@ function metricsRecorder() external view returns (address);
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: metricsRecorderReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: metricsRecorderReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: metricsRecorderReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `operatorStatusRegistry()` and selector `0xd390bbbb`.
-```solidity
-function operatorStatusRegistry() external view returns (address);
-```*/
+    ```solidity
+    function operatorStatusRegistry() external view returns (address);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct operatorStatusRegistryCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`operatorStatusRegistry()`](operatorStatusRegistryCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1488,9 +1395,7 @@ function operatorStatusRegistry() external view returns (address);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1499,16 +1404,14 @@ function operatorStatusRegistry() external view returns (address);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<operatorStatusRegistryCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<operatorStatusRegistryCall> for UnderlyingRustTuple<'_> {
                 fn from(value: operatorStatusRegistryCall) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for operatorStatusRegistryCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for operatorStatusRegistryCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self
                 }
@@ -1522,9 +1425,7 @@ function operatorStatusRegistry() external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1533,16 +1434,14 @@ function operatorStatusRegistry() external view returns (address);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<operatorStatusRegistryReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<operatorStatusRegistryReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: operatorStatusRegistryReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for operatorStatusRegistryReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for operatorStatusRegistryReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -1551,14 +1450,10 @@ function operatorStatusRegistry() external view returns (address);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for operatorStatusRegistryCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "operatorStatusRegistry()";
             const SELECTOR: [u8; 4] = [211u8, 144u8, 187u8, 187u8];
             #[inline]
@@ -1581,34 +1476,30 @@ function operatorStatusRegistry() external view returns (address);
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: operatorStatusRegistryReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: operatorStatusRegistryReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: operatorStatusRegistryReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `pause()` and selector `0x8456cb59`.
-```solidity
-function pause() external;
-```*/
+    ```solidity
+    function pause() external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct pauseCall;
@@ -1632,9 +1523,7 @@ function pause() external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1664,9 +1553,7 @@ function pause() external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1689,23 +1576,17 @@ function pause() external;
             }
         }
         impl pauseReturn {
-            fn _tokenize(
-                &self,
-            ) -> <pauseCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(&self) -> <pauseCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for pauseCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = pauseReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "pause()";
             const SELECTOR: [u8; 4] = [132u8, 86u8, 203u8, 89u8];
             #[inline]
@@ -1724,33 +1605,27 @@ function pause() external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `paymentSplit()` and selector `0xaac7416b`.
-```solidity
-function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
-```*/
+    ```solidity
+    function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct paymentSplitCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`paymentSplit()`](paymentSplitCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1780,9 +1655,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1817,9 +1690,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
             type UnderlyingRustTuple<'a> = (u16, u16, u16, u16);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1852,31 +1723,27 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
             }
         }
         impl paymentSplitReturn {
-            fn _tokenize(
-                &self,
-            ) -> <paymentSplitCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(&self) -> <paymentSplitCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.developerBps),
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.protocolBps),
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.operatorBps),
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.stakerBps),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        &self.developerBps,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        &self.protocolBps,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        &self.operatorBps,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        &self.stakerBps,
+                    ),
                 )
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for paymentSplitCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = paymentSplitReturn;
             type ReturnTuple<'a> = (
                 alloy::sol_types::sol_data::Uint<16>,
@@ -1884,9 +1751,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                 alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::Uint<16>,
             );
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "paymentSplit()";
             const SELECTOR: [u8; 4] = [170u8, 199u8, 65u8, 107u8];
             #[inline]
@@ -1905,33 +1770,27 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `priceOracle()` and selector `0x2630c12f`.
-```solidity
-function priceOracle() external view returns (address);
-```*/
+    ```solidity
+    function priceOracle() external view returns (address);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct priceOracleCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`priceOracle()`](priceOracleCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1955,9 +1814,7 @@ function priceOracle() external view returns (address);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1987,9 +1844,7 @@ function priceOracle() external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2014,14 +1869,10 @@ function priceOracle() external view returns (address);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for priceOracleCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "priceOracle()";
             const SELECTOR: [u8; 4] = [38u8, 48u8, 193u8, 47u8];
             #[inline]
@@ -2044,39 +1895,34 @@ function priceOracle() external view returns (address);
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: priceOracleReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: priceOracleReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: priceOracleReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `rewardVaults()` and selector `0x9ebd65ad`.
-```solidity
-function rewardVaults() external view returns (address);
-```*/
+    ```solidity
+    function rewardVaults() external view returns (address);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct rewardVaultsCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`rewardVaults()`](rewardVaultsCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2100,9 +1946,7 @@ function rewardVaults() external view returns (address);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2132,9 +1976,7 @@ function rewardVaults() external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2159,14 +2001,10 @@ function rewardVaults() external view returns (address);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for rewardVaultsCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "rewardVaults()";
             const SELECTOR: [u8; 4] = [158u8, 189u8, 101u8, 173u8];
             #[inline]
@@ -2189,39 +2027,34 @@ function rewardVaults() external view returns (address);
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: rewardVaultsReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: rewardVaultsReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: rewardVaultsReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `serviceFeeDistributor()` and selector `0x2e40f7fb`.
-```solidity
-function serviceFeeDistributor() external view returns (address);
-```*/
+    ```solidity
+    function serviceFeeDistributor() external view returns (address);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct serviceFeeDistributorCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`serviceFeeDistributor()`](serviceFeeDistributorCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2245,9 +2078,7 @@ function serviceFeeDistributor() external view returns (address);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2256,16 +2087,14 @@ function serviceFeeDistributor() external view returns (address);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<serviceFeeDistributorCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<serviceFeeDistributorCall> for UnderlyingRustTuple<'_> {
                 fn from(value: serviceFeeDistributorCall) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for serviceFeeDistributorCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for serviceFeeDistributorCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self
                 }
@@ -2279,9 +2108,7 @@ function serviceFeeDistributor() external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2290,16 +2117,14 @@ function serviceFeeDistributor() external view returns (address);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<serviceFeeDistributorReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<serviceFeeDistributorReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: serviceFeeDistributorReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for serviceFeeDistributorReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for serviceFeeDistributorReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -2308,14 +2133,10 @@ function serviceFeeDistributor() external view returns (address);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for serviceFeeDistributorCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "serviceFeeDistributor()";
             const SELECTOR: [u8; 4] = [46u8, 64u8, 247u8, 251u8];
             #[inline]
@@ -2338,34 +2159,30 @@ function serviceFeeDistributor() external view returns (address);
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: serviceFeeDistributorReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: serviceFeeDistributorReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: serviceFeeDistributorReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setDefaultTntMinExposureBps(uint16)` and selector `0x78d66be3`.
-```solidity
-function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
-```*/
+    ```solidity
+    function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setDefaultTntMinExposureBpsCall {
@@ -2392,9 +2209,7 @@ function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
             type UnderlyingRustTuple<'a> = (u16,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2403,18 +2218,18 @@ function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setDefaultTntMinExposureBpsCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setDefaultTntMinExposureBpsCall> for UnderlyingRustTuple<'_> {
                 fn from(value: setDefaultTntMinExposureBpsCall) -> Self {
                     (value.minExposureBps,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setDefaultTntMinExposureBpsCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setDefaultTntMinExposureBpsCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { minExposureBps: tuple.0 }
+                    Self {
+                        minExposureBps: tuple.0,
+                    }
                 }
             }
         }
@@ -2426,9 +2241,7 @@ function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2437,16 +2250,14 @@ function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setDefaultTntMinExposureBpsReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setDefaultTntMinExposureBpsReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: setDefaultTntMinExposureBpsReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setDefaultTntMinExposureBpsReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setDefaultTntMinExposureBpsReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -2455,23 +2266,18 @@ function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
         impl setDefaultTntMinExposureBpsReturn {
             fn _tokenize(
                 &self,
-            ) -> <setDefaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
+            ) -> <setDefaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::ReturnToken<'_>
+            {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setDefaultTntMinExposureBpsCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Uint<16>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setDefaultTntMinExposureBpsReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setDefaultTntMinExposureBps(uint16)";
             const SELECTOR: [u8; 4] = [120u8, 214u8, 107u8, 227u8];
             #[inline]
@@ -2483,9 +2289,9 @@ function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.minExposureBps),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        &self.minExposureBps,
+                    ),
                 )
             }
             #[inline]
@@ -2494,28 +2300,23 @@ function setDefaultTntMinExposureBps(uint16 minExposureBps) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setMBSMRegistry(address)` and selector `0x5f807d0a`.
-```solidity
-function setMBSMRegistry(address registry) external;
-```*/
+    ```solidity
+    function setMBSMRegistry(address registry) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setMBSMRegistryCall {
@@ -2542,9 +2343,7 @@ function setMBSMRegistry(address registry) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2574,9 +2373,7 @@ function setMBSMRegistry(address registry) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2585,16 +2382,14 @@ function setMBSMRegistry(address registry) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setMBSMRegistryReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setMBSMRegistryReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: setMBSMRegistryReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setMBSMRegistryReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setMBSMRegistryReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -2610,14 +2405,10 @@ function setMBSMRegistry(address registry) external;
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setMBSMRegistryCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setMBSMRegistryReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setMBSMRegistry(address)";
             const SELECTOR: [u8; 4] = [95u8, 128u8, 125u8, 10u8];
             #[inline]
@@ -2640,28 +2431,23 @@ function setMBSMRegistry(address registry) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setMaxBlueprintsPerOperator(uint32)` and selector `0x1d77351b`.
-```solidity
-function setMaxBlueprintsPerOperator(uint32 newMax) external;
-```*/
+    ```solidity
+    function setMaxBlueprintsPerOperator(uint32 newMax) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setMaxBlueprintsPerOperatorCall {
@@ -2688,9 +2474,7 @@ function setMaxBlueprintsPerOperator(uint32 newMax) external;
             type UnderlyingRustTuple<'a> = (u32,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2699,16 +2483,14 @@ function setMaxBlueprintsPerOperator(uint32 newMax) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setMaxBlueprintsPerOperatorCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setMaxBlueprintsPerOperatorCall> for UnderlyingRustTuple<'_> {
                 fn from(value: setMaxBlueprintsPerOperatorCall) -> Self {
                     (value.newMax,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setMaxBlueprintsPerOperatorCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setMaxBlueprintsPerOperatorCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { newMax: tuple.0 }
                 }
@@ -2722,9 +2504,7 @@ function setMaxBlueprintsPerOperator(uint32 newMax) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2733,16 +2513,14 @@ function setMaxBlueprintsPerOperator(uint32 newMax) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setMaxBlueprintsPerOperatorReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setMaxBlueprintsPerOperatorReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: setMaxBlueprintsPerOperatorReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setMaxBlueprintsPerOperatorReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setMaxBlueprintsPerOperatorReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -2751,23 +2529,18 @@ function setMaxBlueprintsPerOperator(uint32 newMax) external;
         impl setMaxBlueprintsPerOperatorReturn {
             fn _tokenize(
                 &self,
-            ) -> <setMaxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
+            ) -> <setMaxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::ReturnToken<'_>
+            {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setMaxBlueprintsPerOperatorCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Uint<32>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setMaxBlueprintsPerOperatorReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setMaxBlueprintsPerOperator(uint32)";
             const SELECTOR: [u8; 4] = [29u8, 119u8, 53u8, 27u8];
             #[inline]
@@ -2779,9 +2552,9 @@ function setMaxBlueprintsPerOperator(uint32 newMax) external;
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        32,
-                    > as alloy_sol_types::SolType>::tokenize(&self.newMax),
+                    <alloy::sol_types::sol_data::Uint<32> as alloy_sol_types::SolType>::tokenize(
+                        &self.newMax,
+                    ),
                 )
             }
             #[inline]
@@ -2790,28 +2563,23 @@ function setMaxBlueprintsPerOperator(uint32 newMax) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setMetricsRecorder(address)` and selector `0x20812956`.
-```solidity
-function setMetricsRecorder(address recorder) external;
-```*/
+    ```solidity
+    function setMetricsRecorder(address recorder) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setMetricsRecorderCall {
@@ -2838,9 +2606,7 @@ function setMetricsRecorder(address recorder) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2849,16 +2615,14 @@ function setMetricsRecorder(address recorder) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setMetricsRecorderCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setMetricsRecorderCall> for UnderlyingRustTuple<'_> {
                 fn from(value: setMetricsRecorderCall) -> Self {
                     (value.recorder,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setMetricsRecorderCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setMetricsRecorderCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { recorder: tuple.0 }
                 }
@@ -2872,9 +2636,7 @@ function setMetricsRecorder(address recorder) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2883,16 +2645,14 @@ function setMetricsRecorder(address recorder) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setMetricsRecorderReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setMetricsRecorderReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: setMetricsRecorderReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setMetricsRecorderReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setMetricsRecorderReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -2908,14 +2668,10 @@ function setMetricsRecorder(address recorder) external;
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setMetricsRecorderCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setMetricsRecorderReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setMetricsRecorder(address)";
             const SELECTOR: [u8; 4] = [32u8, 129u8, 41u8, 86u8];
             #[inline]
@@ -2938,28 +2694,23 @@ function setMetricsRecorder(address recorder) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setOperatorStatusRegistry(address)` and selector `0x6a64a27e`.
-```solidity
-function setOperatorStatusRegistry(address registry) external;
-```*/
+    ```solidity
+    function setOperatorStatusRegistry(address registry) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setOperatorStatusRegistryCall {
@@ -2986,9 +2737,7 @@ function setOperatorStatusRegistry(address registry) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2997,16 +2746,14 @@ function setOperatorStatusRegistry(address registry) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setOperatorStatusRegistryCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setOperatorStatusRegistryCall> for UnderlyingRustTuple<'_> {
                 fn from(value: setOperatorStatusRegistryCall) -> Self {
                     (value.registry,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorStatusRegistryCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setOperatorStatusRegistryCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { registry: tuple.0 }
                 }
@@ -3020,9 +2767,7 @@ function setOperatorStatusRegistry(address registry) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3031,16 +2776,14 @@ function setOperatorStatusRegistry(address registry) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setOperatorStatusRegistryReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setOperatorStatusRegistryReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: setOperatorStatusRegistryReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setOperatorStatusRegistryReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setOperatorStatusRegistryReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -3049,23 +2792,18 @@ function setOperatorStatusRegistry(address registry) external;
         impl setOperatorStatusRegistryReturn {
             fn _tokenize(
                 &self,
-            ) -> <setOperatorStatusRegistryCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
+            ) -> <setOperatorStatusRegistryCall as alloy_sol_types::SolCall>::ReturnToken<'_>
+            {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setOperatorStatusRegistryCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setOperatorStatusRegistryReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setOperatorStatusRegistry(address)";
             const SELECTOR: [u8; 4] = [106u8, 100u8, 162u8, 126u8];
             #[inline]
@@ -3088,28 +2826,23 @@ function setOperatorStatusRegistry(address registry) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setPaymentSplit((uint16,uint16,uint16,uint16))` and selector `0xb81741ac`.
-```solidity
-function setPaymentSplit(Types.PaymentSplit memory split) external;
-```*/
+    ```solidity
+    function setPaymentSplit(Types.PaymentSplit memory split) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setPaymentSplitCall {
@@ -3133,14 +2866,11 @@ function setPaymentSplit(Types.PaymentSplit memory split) external;
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (Types::PaymentSplit,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                <Types::PaymentSplit as alloy::sol_types::SolType>::RustType,
-            );
+            type UnderlyingRustTuple<'a> =
+                (<Types::PaymentSplit as alloy::sol_types::SolType>::RustType,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3170,9 +2900,7 @@ function setPaymentSplit(Types.PaymentSplit memory split) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3181,16 +2909,14 @@ function setPaymentSplit(Types.PaymentSplit memory split) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setPaymentSplitReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setPaymentSplitReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: setPaymentSplitReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setPaymentSplitReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setPaymentSplitReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -3206,14 +2932,10 @@ function setPaymentSplit(Types.PaymentSplit memory split) external;
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setPaymentSplitCall {
             type Parameters<'a> = (Types::PaymentSplit,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setPaymentSplitReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setPaymentSplit((uint16,uint16,uint16,uint16))";
             const SELECTOR: [u8; 4] = [184u8, 23u8, 65u8, 172u8];
             #[inline]
@@ -3224,11 +2946,9 @@ function setPaymentSplit(Types.PaymentSplit memory split) external;
             }
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <Types::PaymentSplit as alloy_sol_types::SolType>::tokenize(
-                        &self.split,
-                    ),
-                )
+                (<Types::PaymentSplit as alloy_sol_types::SolType>::tokenize(
+                    &self.split,
+                ),)
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
@@ -3236,28 +2956,23 @@ function setPaymentSplit(Types.PaymentSplit memory split) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setPriceOracle(address)` and selector `0x530e784f`.
-```solidity
-function setPriceOracle(address oracle) external;
-```*/
+    ```solidity
+    function setPriceOracle(address oracle) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setPriceOracleCall {
@@ -3284,9 +2999,7 @@ function setPriceOracle(address oracle) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3316,9 +3029,7 @@ function setPriceOracle(address oracle) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3327,16 +3038,14 @@ function setPriceOracle(address oracle) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setPriceOracleReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setPriceOracleReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: setPriceOracleReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setPriceOracleReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setPriceOracleReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -3352,14 +3061,10 @@ function setPriceOracle(address oracle) external;
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setPriceOracleCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setPriceOracleReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setPriceOracle(address)";
             const SELECTOR: [u8; 4] = [83u8, 14u8, 120u8, 79u8];
             #[inline]
@@ -3382,28 +3087,23 @@ function setPriceOracle(address oracle) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setRewardVaults(address)` and selector `0x43a6307d`.
-```solidity
-function setRewardVaults(address vaults) external;
-```*/
+    ```solidity
+    function setRewardVaults(address vaults) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setRewardVaultsCall {
@@ -3430,9 +3130,7 @@ function setRewardVaults(address vaults) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3462,9 +3160,7 @@ function setRewardVaults(address vaults) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3473,16 +3169,14 @@ function setRewardVaults(address vaults) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setRewardVaultsReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setRewardVaultsReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: setRewardVaultsReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setRewardVaultsReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setRewardVaultsReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -3498,14 +3192,10 @@ function setRewardVaults(address vaults) external;
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setRewardVaultsCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setRewardVaultsReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setRewardVaults(address)";
             const SELECTOR: [u8; 4] = [67u8, 166u8, 48u8, 125u8];
             #[inline]
@@ -3528,28 +3218,23 @@ function setRewardVaults(address vaults) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setServiceFeeDistributor(address)` and selector `0xfbcc7b3d`.
-```solidity
-function setServiceFeeDistributor(address distributor) external;
-```*/
+    ```solidity
+    function setServiceFeeDistributor(address distributor) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setServiceFeeDistributorCall {
@@ -3576,9 +3261,7 @@ function setServiceFeeDistributor(address distributor) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3587,18 +3270,18 @@ function setServiceFeeDistributor(address distributor) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setServiceFeeDistributorCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setServiceFeeDistributorCall> for UnderlyingRustTuple<'_> {
                 fn from(value: setServiceFeeDistributorCall) -> Self {
                     (value.distributor,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setServiceFeeDistributorCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setServiceFeeDistributorCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { distributor: tuple.0 }
+                    Self {
+                        distributor: tuple.0,
+                    }
                 }
             }
         }
@@ -3610,9 +3293,7 @@ function setServiceFeeDistributor(address distributor) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3621,16 +3302,14 @@ function setServiceFeeDistributor(address distributor) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setServiceFeeDistributorReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setServiceFeeDistributorReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: setServiceFeeDistributorReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setServiceFeeDistributorReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setServiceFeeDistributorReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -3639,23 +3318,18 @@ function setServiceFeeDistributor(address distributor) external;
         impl setServiceFeeDistributorReturn {
             fn _tokenize(
                 &self,
-            ) -> <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
+            ) -> <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::ReturnToken<'_>
+            {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setServiceFeeDistributorCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setServiceFeeDistributorReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setServiceFeeDistributor(address)";
             const SELECTOR: [u8; 4] = [251u8, 204u8, 123u8, 61u8];
             #[inline]
@@ -3678,28 +3352,23 @@ function setServiceFeeDistributor(address distributor) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setStaking(address)` and selector `0x8ff39099`.
-```solidity
-function setStaking(address staking) external;
-```*/
+    ```solidity
+    function setStaking(address staking) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setStakingCall {
@@ -3726,9 +3395,7 @@ function setStaking(address staking) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3758,9 +3425,7 @@ function setStaking(address staking) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3783,23 +3448,17 @@ function setStaking(address staking) external;
             }
         }
         impl setStakingReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setStakingCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(&self) -> <setStakingCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setStakingCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setStakingReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setStaking(address)";
             const SELECTOR: [u8; 4] = [143u8, 243u8, 144u8, 153u8];
             #[inline]
@@ -3822,28 +3481,23 @@ function setStaking(address staking) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setTntPaymentDiscountBps(uint16)` and selector `0x893a88cd`.
-```solidity
-function setTntPaymentDiscountBps(uint16 discountBps) external;
-```*/
+    ```solidity
+    function setTntPaymentDiscountBps(uint16 discountBps) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setTntPaymentDiscountBpsCall {
@@ -3870,9 +3524,7 @@ function setTntPaymentDiscountBps(uint16 discountBps) external;
             type UnderlyingRustTuple<'a> = (u16,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3881,18 +3533,18 @@ function setTntPaymentDiscountBps(uint16 discountBps) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setTntPaymentDiscountBpsCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setTntPaymentDiscountBpsCall> for UnderlyingRustTuple<'_> {
                 fn from(value: setTntPaymentDiscountBpsCall) -> Self {
                     (value.discountBps,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setTntPaymentDiscountBpsCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setTntPaymentDiscountBpsCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { discountBps: tuple.0 }
+                    Self {
+                        discountBps: tuple.0,
+                    }
                 }
             }
         }
@@ -3904,9 +3556,7 @@ function setTntPaymentDiscountBps(uint16 discountBps) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3915,16 +3565,14 @@ function setTntPaymentDiscountBps(uint16 discountBps) external;
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setTntPaymentDiscountBpsReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setTntPaymentDiscountBpsReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: setTntPaymentDiscountBpsReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for setTntPaymentDiscountBpsReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setTntPaymentDiscountBpsReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -3933,23 +3581,18 @@ function setTntPaymentDiscountBps(uint16 discountBps) external;
         impl setTntPaymentDiscountBpsReturn {
             fn _tokenize(
                 &self,
-            ) -> <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
+            ) -> <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::ReturnToken<'_>
+            {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setTntPaymentDiscountBpsCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Uint<16>,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setTntPaymentDiscountBpsReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setTntPaymentDiscountBps(uint16)";
             const SELECTOR: [u8; 4] = [137u8, 58u8, 136u8, 205u8];
             #[inline]
@@ -3961,9 +3604,9 @@ function setTntPaymentDiscountBps(uint16 discountBps) external;
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.discountBps),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        &self.discountBps,
+                    ),
                 )
             }
             #[inline]
@@ -3972,28 +3615,23 @@ function setTntPaymentDiscountBps(uint16 discountBps) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setTntToken(address)` and selector `0x9fb43d4c`.
-```solidity
-function setTntToken(address token) external;
-```*/
+    ```solidity
+    function setTntToken(address token) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setTntTokenCall {
@@ -4020,9 +3658,7 @@ function setTntToken(address token) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4052,9 +3688,7 @@ function setTntToken(address token) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4077,23 +3711,17 @@ function setTntToken(address token) external;
             }
         }
         impl setTntTokenReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setTntTokenCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(&self) -> <setTntTokenCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setTntTokenCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setTntTokenReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setTntToken(address)";
             const SELECTOR: [u8; 4] = [159u8, 180u8, 61u8, 76u8];
             #[inline]
@@ -4116,28 +3744,23 @@ function setTntToken(address token) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setTreasury(address)` and selector `0xf0f44260`.
-```solidity
-function setTreasury(address treasury) external;
-```*/
+    ```solidity
+    function setTreasury(address treasury) external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setTreasuryCall {
@@ -4164,9 +3787,7 @@ function setTreasury(address treasury) external;
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4196,9 +3817,7 @@ function setTreasury(address treasury) external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4221,23 +3840,17 @@ function setTreasury(address treasury) external;
             }
         }
         impl setTreasuryReturn {
-            fn _tokenize(
-                &self,
-            ) -> <setTreasuryCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(&self) -> <setTreasuryCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for setTreasuryCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = setTreasuryReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setTreasury(address)";
             const SELECTOR: [u8; 4] = [240u8, 244u8, 66u8, 96u8];
             #[inline]
@@ -4260,33 +3873,27 @@ function setTreasury(address treasury) external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `tntPaymentDiscountBps()` and selector `0xcdd3d5ba`.
-```solidity
-function tntPaymentDiscountBps() external view returns (uint16);
-```*/
+    ```solidity
+    function tntPaymentDiscountBps() external view returns (uint16);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct tntPaymentDiscountBpsCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`tntPaymentDiscountBps()`](tntPaymentDiscountBpsCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -4310,9 +3917,7 @@ function tntPaymentDiscountBps() external view returns (uint16);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4321,16 +3926,14 @@ function tntPaymentDiscountBps() external view returns (uint16);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<tntPaymentDiscountBpsCall>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<tntPaymentDiscountBpsCall> for UnderlyingRustTuple<'_> {
                 fn from(value: tntPaymentDiscountBpsCall) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for tntPaymentDiscountBpsCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for tntPaymentDiscountBpsCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self
                 }
@@ -4344,9 +3947,7 @@ function tntPaymentDiscountBps() external view returns (uint16);
             type UnderlyingRustTuple<'a> = (u16,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4355,16 +3956,14 @@ function tntPaymentDiscountBps() external view returns (uint16);
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<tntPaymentDiscountBpsReturn>
-            for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<tntPaymentDiscountBpsReturn> for UnderlyingRustTuple<'_> {
                 fn from(value: tntPaymentDiscountBpsReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for tntPaymentDiscountBpsReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for tntPaymentDiscountBpsReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -4373,14 +3972,10 @@ function tntPaymentDiscountBps() external view returns (uint16);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for tntPaymentDiscountBpsCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = u16;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<16>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "tntPaymentDiscountBps()";
             const SELECTOR: [u8; 4] = [205u8, 211u8, 213u8, 186u8];
             #[inline]
@@ -4396,46 +3991,41 @@ function tntPaymentDiscountBps() external view returns (uint16);
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(ret),
+                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: tntPaymentDiscountBpsReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: tntPaymentDiscountBpsReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: tntPaymentDiscountBpsReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `tntToken()` and selector `0xe3969617`.
-```solidity
-function tntToken() external view returns (address);
-```*/
+    ```solidity
+    function tntToken() external view returns (address);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct tntTokenCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`tntToken()`](tntTokenCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -4459,9 +4049,7 @@ function tntToken() external view returns (address);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4491,9 +4079,7 @@ function tntToken() external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4518,14 +4104,10 @@ function tntToken() external view returns (address);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for tntTokenCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "tntToken()";
             const SELECTOR: [u8; 4] = [227u8, 150u8, 150u8, 23u8];
             #[inline]
@@ -4548,39 +4130,34 @@ function tntToken() external view returns (address);
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: tntTokenReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: tntTokenReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: tntTokenReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `treasury()` and selector `0x61d027b3`.
-```solidity
-function treasury() external view returns (address);
-```*/
+    ```solidity
+    function treasury() external view returns (address);
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct treasuryCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`treasury()`](treasuryCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -4604,9 +4181,7 @@ function treasury() external view returns (address);
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4636,9 +4211,7 @@ function treasury() external view returns (address);
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4663,14 +4236,10 @@ function treasury() external view returns (address);
         #[automatically_derived]
         impl alloy_sol_types::SolCall for treasuryCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "treasury()";
             const SELECTOR: [u8; 4] = [97u8, 208u8, 39u8, 179u8];
             #[inline]
@@ -4693,34 +4262,30 @@ function treasury() external view returns (address);
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
+                    |r| {
                         let r: treasuryReturn = r.into();
                         r._0
-                    })
+                    },
+                )
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: treasuryReturn = r.into();
-                        r._0
-                    })
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(|r| {
+                    let r: treasuryReturn = r.into();
+                    r._0
+                })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `unpause()` and selector `0x3f4ba83a`.
-```solidity
-function unpause() external;
-```*/
+    ```solidity
+    function unpause() external;
+    ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct unpauseCall;
@@ -4744,9 +4309,7 @@ function unpause() external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4776,9 +4339,7 @@ function unpause() external;
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
+            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -4801,23 +4362,17 @@ function unpause() external;
             }
         }
         impl unpauseReturn {
-            fn _tokenize(
-                &self,
-            ) -> <unpauseCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(&self) -> <unpauseCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for unpauseCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
             type Return = unpauseReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "unpause()";
             const SELECTOR: [u8; 4] = [63u8, 75u8, 168u8, 58u8];
             #[inline]
@@ -4836,26 +4391,20 @@ function unpause() external;
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
+            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
+                    data,
+                )
+                .map(Into::into)
             }
         }
     };
     ///Container for all the [`ITangleAdmin`](self) function calls.
-    #[derive(Clone)]
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive()]
+    #[derive(Clone, serde::Serialize, serde::Deserialize)]
     pub enum ITangleAdminCalls {
         #[allow(missing_docs)]
         defaultTntMinExposureBps(defaultTntMinExposureBpsCall),
@@ -5022,9 +4571,7 @@ function unpause() external;
         }
         /// Returns the enum variant name for the given selector, if known.
         #[inline]
-        pub fn name_by_selector(
-            selector: [u8; 4usize],
-        ) -> ::core::option::Option<&'static str> {
+        pub fn name_by_selector(selector: [u8; 4usize]) -> ::core::option::Option<&'static str> {
             let sig = Self::signature_by_selector(selector)?;
             sig.split_once('(').map(|(name, _)| name)
         }
@@ -5043,9 +4590,7 @@ function unpause() external;
                 Self::maxBlueprintsPerOperator(_) => {
                     <maxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::mbsmRegistry(_) => {
-                    <mbsmRegistryCall as alloy_sol_types::SolCall>::SELECTOR
-                }
+                Self::mbsmRegistry(_) => <mbsmRegistryCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::metricsRecorder(_) => {
                     <metricsRecorderCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -5053,15 +4598,9 @@ function unpause() external;
                     <operatorStatusRegistryCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::pause(_) => <pauseCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::paymentSplit(_) => {
-                    <paymentSplitCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::priceOracle(_) => {
-                    <priceOracleCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::rewardVaults(_) => {
-                    <rewardVaultsCall as alloy_sol_types::SolCall>::SELECTOR
-                }
+                Self::paymentSplit(_) => <paymentSplitCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::priceOracle(_) => <priceOracleCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::rewardVaults(_) => <rewardVaultsCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::serviceFeeDistributor(_) => {
                     <serviceFeeDistributorCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -5092,18 +4631,12 @@ function unpause() external;
                 Self::setServiceFeeDistributor(_) => {
                     <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::setStaking(_) => {
-                    <setStakingCall as alloy_sol_types::SolCall>::SELECTOR
-                }
+                Self::setStaking(_) => <setStakingCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::setTntPaymentDiscountBps(_) => {
                     <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::setTntToken(_) => {
-                    <setTntTokenCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::setTreasury(_) => {
-                    <setTreasuryCall as alloy_sol_types::SolCall>::SELECTOR
-                }
+                Self::setTntToken(_) => <setTntTokenCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::setTreasury(_) => <setTreasuryCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::tntPaymentDiscountBps(_) => {
                     <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -5122,13 +4655,8 @@ function unpause() external;
         }
         #[inline]
         #[allow(non_snake_case)]
-        fn abi_decode_raw(
-            selector: [u8; 4],
-            data: &[u8],
-        ) -> alloy_sol_types::Result<Self> {
-            static DECODE_SHIMS: &[fn(
-                &[u8],
-            ) -> alloy_sol_types::Result<ITangleAdminCalls>] = &[
+        fn abi_decode_raw(selector: [u8; 4], data: &[u8]) -> alloy_sol_types::Result<Self> {
+            static DECODE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<ITangleAdminCalls>] = &[
                 {
                     fn setMaxBlueprintsPerOperator(
                         data: &[u8],
@@ -5144,42 +4672,28 @@ function unpause() external;
                     fn setMetricsRecorder(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setMetricsRecorderCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                        <setMetricsRecorderCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::setMetricsRecorder)
                     }
                     setMetricsRecorder
                 },
                 {
-                    fn priceOracle(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <priceOracleCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn priceOracle(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <priceOracleCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::priceOracle)
                     }
                     priceOracle
                 },
                 {
-                    fn mbsmRegistry(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <mbsmRegistryCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn mbsmRegistry(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <mbsmRegistryCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::mbsmRegistry)
                     }
                     mbsmRegistry
                 },
                 {
-                    fn metricsRecorder(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <metricsRecorderCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn metricsRecorder(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <metricsRecorderCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::metricsRecorder)
                     }
                     metricsRecorder
@@ -5189,39 +4703,29 @@ function unpause() external;
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <serviceFeeDistributorCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::serviceFeeDistributor)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::serviceFeeDistributor)
                     }
                     serviceFeeDistributor
                 },
                 {
-                    fn unpause(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn unpause(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <unpauseCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::unpause)
                     }
                     unpause
                 },
                 {
-                    fn setRewardVaults(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn setRewardVaults(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::setRewardVaults)
                     }
                     setRewardVaults
                 },
                 {
-                    fn setPriceOracle(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setPriceOracleCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn setPriceOracle(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setPriceOracleCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::setPriceOracle)
                     }
                     setPriceOracle
@@ -5231,27 +4735,21 @@ function unpause() external;
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <maxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::maxBlueprintsPerOperator)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::maxBlueprintsPerOperator)
                     }
                     maxBlueprintsPerOperator
                 },
                 {
-                    fn setMBSMRegistry(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn setMBSMRegistry(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::setMBSMRegistry)
                     }
                     setMBSMRegistry
                 },
                 {
-                    fn treasury(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn treasury(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <treasuryCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::treasury)
                     }
@@ -5262,9 +4760,9 @@ function unpause() external;
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <setOperatorStatusRegistryCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setOperatorStatusRegistry)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::setOperatorStatusRegistry)
                     }
                     setOperatorStatusRegistry
                 },
@@ -5291,9 +4789,9 @@ function unpause() external;
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setTntPaymentDiscountBps)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::setTntPaymentDiscountBps)
                     }
                     setTntPaymentDiscountBps
                 },
@@ -5302,63 +4800,43 @@ function unpause() external;
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <defaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::defaultTntMinExposureBps)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::defaultTntMinExposureBps)
                     }
                     defaultTntMinExposureBps
                 },
                 {
-                    fn setStaking(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setStakingCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn setStaking(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setStakingCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::setStaking)
                     }
                     setStaking
                 },
                 {
-                    fn rewardVaults(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <rewardVaultsCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn rewardVaults(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <rewardVaultsCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::rewardVaults)
                     }
                     rewardVaults
                 },
                 {
-                    fn setTntToken(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setTntTokenCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn setTntToken(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setTntTokenCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::setTntToken)
                     }
                     setTntToken
                 },
                 {
-                    fn paymentSplit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <paymentSplitCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn paymentSplit(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <paymentSplitCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::paymentSplit)
                     }
                     paymentSplit
                 },
                 {
-                    fn setPaymentSplit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn setPaymentSplit(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::setPaymentSplit)
                     }
                     setPaymentSplit
@@ -5368,9 +4846,9 @@ function unpause() external;
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::tntPaymentDiscountBps)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::tntPaymentDiscountBps)
                     }
                     tntPaymentDiscountBps
                 },
@@ -5379,28 +4857,22 @@ function unpause() external;
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <operatorStatusRegistryCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::operatorStatusRegistry)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::operatorStatusRegistry)
                     }
                     operatorStatusRegistry
                 },
                 {
-                    fn tntToken(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn tntToken(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <tntTokenCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::tntToken)
                     }
                     tntToken
                 },
                 {
-                    fn setTreasury(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setTreasuryCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
+                    fn setTreasury(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setTreasuryCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(ITangleAdminCalls::setTreasury)
                     }
                     setTreasury
@@ -5410,20 +4882,18 @@ function unpause() external;
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setServiceFeeDistributor)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::setServiceFeeDistributor)
                     }
                     setServiceFeeDistributor
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(
-                    alloy_sol_types::Error::unknown_selector(
-                        <Self as alloy_sol_types::SolInterface>::NAME,
-                        selector,
-                    ),
-                );
+                return Err(alloy_sol_types::Error::unknown_selector(
+                    <Self as alloy_sol_types::SolInterface>::NAME,
+                    selector,
+                ));
             };
             DECODE_SHIMS[idx](data)
         }
@@ -5435,7 +4905,8 @@ function unpause() external;
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
-            ) -> alloy_sol_types::Result<ITangleAdminCalls>] = &[
+            )
+                -> alloy_sol_types::Result<ITangleAdminCalls>] = &[
                 {
                     fn setMaxBlueprintsPerOperator(
                         data: &[u8],
@@ -5459,35 +4930,27 @@ function unpause() external;
                     setMetricsRecorder
                 },
                 {
-                    fn priceOracle(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <priceOracleCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
+                    fn priceOracle(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <priceOracleCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
                             .map(ITangleAdminCalls::priceOracle)
                     }
                     priceOracle
                 },
                 {
-                    fn mbsmRegistry(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn mbsmRegistry(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <mbsmRegistryCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::mbsmRegistry)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::mbsmRegistry)
                     }
                     mbsmRegistry
                 },
                 {
-                    fn metricsRecorder(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn metricsRecorder(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <metricsRecorderCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::metricsRecorder)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::metricsRecorder)
                     }
                     metricsRecorder
                 },
@@ -5503,35 +4966,27 @@ function unpause() external;
                     serviceFeeDistributor
                 },
                 {
-                    fn unpause(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <unpauseCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
+                    fn unpause(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <unpauseCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
                             .map(ITangleAdminCalls::unpause)
                     }
                     unpause
                 },
                 {
-                    fn setRewardVaults(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn setRewardVaults(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setRewardVaults)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::setRewardVaults)
                     }
                     setRewardVaults
                 },
                 {
-                    fn setPriceOracle(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn setPriceOracle(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <setPriceOracleCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setPriceOracle)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::setPriceOracle)
                     }
                     setPriceOracle
                 },
@@ -5547,23 +5002,17 @@ function unpause() external;
                     maxBlueprintsPerOperator
                 },
                 {
-                    fn setMBSMRegistry(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn setMBSMRegistry(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setMBSMRegistry)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::setMBSMRegistry)
                     }
                     setMBSMRegistry
                 },
                 {
-                    fn treasury(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <treasuryCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
+                    fn treasury(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <treasuryCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
                             .map(ITangleAdminCalls::treasury)
                     }
                     treasury
@@ -5592,9 +5041,7 @@ function unpause() external;
                 },
                 {
                     fn pause(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <pauseCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
+                        <pauseCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
                             .map(ITangleAdminCalls::pause)
                     }
                     pause
@@ -5622,57 +5069,43 @@ function unpause() external;
                     defaultTntMinExposureBps
                 },
                 {
-                    fn setStaking(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setStakingCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
+                    fn setStaking(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setStakingCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
                             .map(ITangleAdminCalls::setStaking)
                     }
                     setStaking
                 },
                 {
-                    fn rewardVaults(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn rewardVaults(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <rewardVaultsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::rewardVaults)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::rewardVaults)
                     }
                     rewardVaults
                 },
                 {
-                    fn setTntToken(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setTntTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
+                    fn setTntToken(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setTntTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
                             .map(ITangleAdminCalls::setTntToken)
                     }
                     setTntToken
                 },
                 {
-                    fn paymentSplit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn paymentSplit(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <paymentSplitCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::paymentSplit)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::paymentSplit)
                     }
                     paymentSplit
                 },
                 {
-                    fn setPaymentSplit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                    fn setPaymentSplit(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
                         <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setPaymentSplit)
+                            data,
+                        )
+                        .map(ITangleAdminCalls::setPaymentSplit)
                     }
                     setPaymentSplit
                 },
@@ -5699,23 +5132,15 @@ function unpause() external;
                     operatorStatusRegistry
                 },
                 {
-                    fn tntToken(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <tntTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
+                    fn tntToken(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <tntTokenCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
                             .map(ITangleAdminCalls::tntToken)
                     }
                     tntToken
                 },
                 {
-                    fn setTreasury(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setTreasuryCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
+                    fn setTreasury(data: &[u8]) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setTreasuryCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
                             .map(ITangleAdminCalls::setTreasury)
                     }
                     setTreasury
@@ -5733,12 +5158,10 @@ function unpause() external;
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(
-                    alloy_sol_types::Error::unknown_selector(
-                        <Self as alloy_sol_types::SolInterface>::NAME,
-                        selector,
-                    ),
-                );
+                return Err(alloy_sol_types::Error::unknown_selector(
+                    <Self as alloy_sol_types::SolInterface>::NAME,
+                    selector,
+                ));
             };
             DECODE_VALIDATE_SHIMS[idx](data)
         }
@@ -5756,14 +5179,10 @@ function unpause() external;
                     )
                 }
                 Self::mbsmRegistry(inner) => {
-                    <mbsmRegistryCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <mbsmRegistryCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::metricsRecorder(inner) => {
-                    <metricsRecorderCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <metricsRecorderCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::operatorStatusRegistry(inner) => {
                     <operatorStatusRegistryCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -5774,24 +5193,16 @@ function unpause() external;
                     <pauseCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::paymentSplit(inner) => {
-                    <paymentSplitCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <paymentSplitCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::priceOracle(inner) => {
-                    <priceOracleCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <priceOracleCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::rewardVaults(inner) => {
-                    <rewardVaultsCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <rewardVaultsCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::serviceFeeDistributor(inner) => {
-                    <serviceFeeDistributorCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <serviceFeeDistributorCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::setDefaultTntMinExposureBps(inner) => {
                     <setDefaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -5799,9 +5210,7 @@ function unpause() external;
                     )
                 }
                 Self::setMBSMRegistry(inner) => {
-                    <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::setMaxBlueprintsPerOperator(inner) => {
                     <setMaxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -5809,9 +5218,7 @@ function unpause() external;
                     )
                 }
                 Self::setMetricsRecorder(inner) => {
-                    <setMetricsRecorderCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <setMetricsRecorderCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::setOperatorStatusRegistry(inner) => {
                     <setOperatorStatusRegistryCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -5819,19 +5226,13 @@ function unpause() external;
                     )
                 }
                 Self::setPaymentSplit(inner) => {
-                    <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::setPriceOracle(inner) => {
-                    <setPriceOracleCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <setPriceOracleCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::setRewardVaults(inner) => {
-                    <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::setServiceFeeDistributor(inner) => {
                     <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -5847,19 +5248,13 @@ function unpause() external;
                     )
                 }
                 Self::setTntToken(inner) => {
-                    <setTntTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <setTntTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::setTreasury(inner) => {
-                    <setTreasuryCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <setTreasuryCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::tntPaymentDiscountBps(inner) => {
-                    <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
+                    <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::tntToken(inner) => {
                     <tntTokenCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
@@ -5877,156 +5272,101 @@ function unpause() external;
             match self {
                 Self::defaultTntMinExposureBps(inner) => {
                     <defaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
+                        inner, out,
                     )
                 }
                 Self::maxBlueprintsPerOperator(inner) => {
                     <maxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
+                        inner, out,
                     )
                 }
                 Self::mbsmRegistry(inner) => {
-                    <mbsmRegistryCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <mbsmRegistryCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::metricsRecorder(inner) => {
-                    <metricsRecorderCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <metricsRecorderCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::operatorStatusRegistry(inner) => {
                     <operatorStatusRegistryCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
+                        inner, out,
                     )
                 }
                 Self::pause(inner) => {
                     <pauseCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::paymentSplit(inner) => {
-                    <paymentSplitCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <paymentSplitCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::priceOracle(inner) => {
-                    <priceOracleCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <priceOracleCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::rewardVaults(inner) => {
-                    <rewardVaultsCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <rewardVaultsCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::serviceFeeDistributor(inner) => {
                     <serviceFeeDistributorCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
+                        inner, out,
                     )
                 }
                 Self::setDefaultTntMinExposureBps(inner) => {
                     <setDefaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
+                        inner, out,
                     )
                 }
                 Self::setMBSMRegistry(inner) => {
-                    <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setMBSMRegistryCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::setMaxBlueprintsPerOperator(inner) => {
                     <setMaxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
+                        inner, out,
                     )
                 }
                 Self::setMetricsRecorder(inner) => {
-                    <setMetricsRecorderCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setMetricsRecorderCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::setOperatorStatusRegistry(inner) => {
                     <setOperatorStatusRegistryCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
+                        inner, out,
                     )
                 }
                 Self::setPaymentSplit(inner) => {
-                    <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::setPriceOracle(inner) => {
-                    <setPriceOracleCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setPriceOracleCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::setRewardVaults(inner) => {
-                    <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setRewardVaultsCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::setServiceFeeDistributor(inner) => {
                     <setServiceFeeDistributorCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
+                        inner, out,
                     )
                 }
                 Self::setStaking(inner) => {
-                    <setStakingCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setStakingCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::setTntPaymentDiscountBps(inner) => {
                     <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
+                        inner, out,
                     )
                 }
                 Self::setTntToken(inner) => {
-                    <setTntTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setTntTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::setTreasury(inner) => {
-                    <setTreasuryCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <setTreasuryCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::tntPaymentDiscountBps(inner) => {
                     <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
+                        inner, out,
                     )
                 }
                 Self::tntToken(inner) => {
-                    <tntTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <tntTokenCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::treasury(inner) => {
-                    <treasuryCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
+                    <treasuryCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::unpause(inner) => {
                     <unpauseCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
@@ -6037,7 +5377,7 @@ function unpause() external;
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`ITangleAdmin`](self) contract instance.
 
-See the [wrapper's documentation](`ITangleAdminInstance`) for more details.*/
+    See the [wrapper's documentation](`ITangleAdminInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
@@ -6050,43 +5390,41 @@ See the [wrapper's documentation](`ITangleAdminInstance`) for more details.*/
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-Returns a new instance of the contract, if the deployment was successful.
+    Returns a new instance of the contract, if the deployment was successful.
 
-For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+    For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
-    pub fn deploy<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    >(
+    pub fn deploy<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>(
         __provider: P,
-    ) -> impl ::core::future::Future<
-        Output = alloy_contract::Result<ITangleAdminInstance<P, N>>,
-    > {
+    ) -> impl ::core::future::Future<Output = alloy_contract::Result<ITangleAdminInstance<P, N>>>
+    {
         ITangleAdminInstance::<P, N>::deploy(__provider)
     }
     /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-and constructor arguments, if any.
+    and constructor arguments, if any.
 
-This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+    This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+    the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     #[inline]
     pub fn deploy_builder<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
+    >(
+        __provider: P,
+    ) -> alloy_contract::RawCallBuilder<P, N> {
         ITangleAdminInstance::<P, N>::deploy_builder(__provider)
     }
     /**A [`ITangleAdmin`](self) instance.
 
-Contains type-safe methods for interacting with an on-chain instance of the
-[`ITangleAdmin`](self) contract located at a given `address`, using a given
-provider `P`.
+    Contains type-safe methods for interacting with an on-chain instance of the
+    [`ITangleAdmin`](self) contract located at a given `address`, using a given
+    provider `P`.
 
-If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-be used to deploy a new instance of the contract.
+    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+    be used to deploy a new instance of the contract.
 
-See the [module-level documentation](self) for all the available methods.*/
+    See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct ITangleAdminInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -6097,22 +5435,20 @@ See the [module-level documentation](self) for all the available methods.*/
     impl<P, N> ::core::fmt::Debug for ITangleAdminInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("ITangleAdminInstance").field(&self.address).finish()
+            f.debug_tuple("ITangleAdminInstance")
+                .field(&self.address)
+                .finish()
         }
     }
     /// Instantiation and getters/setters.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > ITangleAdminInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        ITangleAdminInstance<P, N>
+    {
         /**Creates a new wrapper around an on-chain [`ITangleAdmin`](self) contract instance.
 
-See the [wrapper's documentation](`ITangleAdminInstance`) for more details.*/
+        See the [wrapper's documentation](`ITangleAdminInstance`) for more details.*/
         #[inline]
-        pub const fn new(
-            address: alloy_sol_types::private::Address,
-            __provider: P,
-        ) -> Self {
+        pub const fn new(address: alloy_sol_types::private::Address, __provider: P) -> Self {
             Self {
                 address,
                 provider: __provider,
@@ -6121,22 +5457,20 @@ See the [wrapper's documentation](`ITangleAdminInstance`) for more details.*/
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-Returns a new instance of the contract, if the deployment was successful.
+        Returns a new instance of the contract, if the deployment was successful.
 
-For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+        For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
-        pub async fn deploy(
-            __provider: P,
-        ) -> alloy_contract::Result<ITangleAdminInstance<P, N>> {
+        pub async fn deploy(__provider: P) -> alloy_contract::Result<ITangleAdminInstance<P, N>> {
             let call_builder = Self::deploy_builder(__provider);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
         }
         /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-and constructor arguments, if any.
+        and constructor arguments, if any.
 
-This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+        This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+        the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
         pub fn deploy_builder(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
@@ -6177,10 +5511,9 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         }
     }
     /// Function calls.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > ITangleAdminInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        ITangleAdminInstance<P, N>
+    {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -6204,9 +5537,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             self.call_builder(&maxBlueprintsPerOperatorCall)
         }
         ///Creates a new call builder for the [`mbsmRegistry`] function.
-        pub fn mbsmRegistry(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, mbsmRegistryCall, N> {
+        pub fn mbsmRegistry(&self) -> alloy_contract::SolCallBuilder<&P, mbsmRegistryCall, N> {
             self.call_builder(&mbsmRegistryCall)
         }
         ///Creates a new call builder for the [`metricsRecorder`] function.
@@ -6226,21 +5557,15 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             self.call_builder(&pauseCall)
         }
         ///Creates a new call builder for the [`paymentSplit`] function.
-        pub fn paymentSplit(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, paymentSplitCall, N> {
+        pub fn paymentSplit(&self) -> alloy_contract::SolCallBuilder<&P, paymentSplitCall, N> {
             self.call_builder(&paymentSplitCall)
         }
         ///Creates a new call builder for the [`priceOracle`] function.
-        pub fn priceOracle(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, priceOracleCall, N> {
+        pub fn priceOracle(&self) -> alloy_contract::SolCallBuilder<&P, priceOracleCall, N> {
             self.call_builder(&priceOracleCall)
         }
         ///Creates a new call builder for the [`rewardVaults`] function.
-        pub fn rewardVaults(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, rewardVaultsCall, N> {
+        pub fn rewardVaults(&self) -> alloy_contract::SolCallBuilder<&P, rewardVaultsCall, N> {
             self.call_builder(&rewardVaultsCall)
         }
         ///Creates a new call builder for the [`serviceFeeDistributor`] function.
@@ -6254,11 +5579,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
             minExposureBps: u16,
         ) -> alloy_contract::SolCallBuilder<&P, setDefaultTntMinExposureBpsCall, N> {
-            self.call_builder(
-                &setDefaultTntMinExposureBpsCall {
-                    minExposureBps,
-                },
-            )
+            self.call_builder(&setDefaultTntMinExposureBpsCall { minExposureBps })
         }
         ///Creates a new call builder for the [`setMBSMRegistry`] function.
         pub fn setMBSMRegistry(
@@ -6272,11 +5593,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
             newMax: u32,
         ) -> alloy_contract::SolCallBuilder<&P, setMaxBlueprintsPerOperatorCall, N> {
-            self.call_builder(
-                &setMaxBlueprintsPerOperatorCall {
-                    newMax,
-                },
-            )
+            self.call_builder(&setMaxBlueprintsPerOperatorCall { newMax })
         }
         ///Creates a new call builder for the [`setMetricsRecorder`] function.
         pub fn setMetricsRecorder(
@@ -6290,11 +5607,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
             registry: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, setOperatorStatusRegistryCall, N> {
-            self.call_builder(
-                &setOperatorStatusRegistryCall {
-                    registry,
-                },
-            )
+            self.call_builder(&setOperatorStatusRegistryCall { registry })
         }
         ///Creates a new call builder for the [`setPaymentSplit`] function.
         pub fn setPaymentSplit(
@@ -6322,11 +5635,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
             distributor: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, setServiceFeeDistributorCall, N> {
-            self.call_builder(
-                &setServiceFeeDistributorCall {
-                    distributor,
-                },
-            )
+            self.call_builder(&setServiceFeeDistributorCall { distributor })
         }
         ///Creates a new call builder for the [`setStaking`] function.
         pub fn setStaking(
@@ -6340,11 +5649,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
             discountBps: u16,
         ) -> alloy_contract::SolCallBuilder<&P, setTntPaymentDiscountBpsCall, N> {
-            self.call_builder(
-                &setTntPaymentDiscountBpsCall {
-                    discountBps,
-                },
-            )
+            self.call_builder(&setTntPaymentDiscountBpsCall { discountBps })
         }
         ///Creates a new call builder for the [`setTntToken`] function.
         pub fn setTntToken(
@@ -6380,10 +5685,9 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         }
     }
     /// Event filters.
-    impl<
-        P: alloy_contract::private::Provider<N>,
-        N: alloy_contract::private::Network,
-    > ITangleAdminInstance<P, N> {
+    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
+        ITangleAdminInstance<P, N>
+    {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.

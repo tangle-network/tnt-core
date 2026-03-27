@@ -16,7 +16,7 @@ cargo xtask gen-bindings
 
 **What it does:**
 1. Cleans `bindings/src/bindings/` directory
-2. Builds Solidity contracts with `forge build`
+2. Builds Solidity contracts with `FOUNDRY_PROFILE=local_build forge build`
 3. Generates Alloy Rust bindings with `forge bind`
 4. Copies ABI JSON files to `bindings/abi/`
 5. Records the git commit hash in `bindings/TNT_CORE_VERSION`
@@ -25,6 +25,9 @@ cargo xtask gen-bindings
 - `bindings/src/bindings/*.rs` - Generated Rust modules
 - `bindings/abi/*.json` - Contract ABIs
 - `bindings/TNT_CORE_VERSION` - Source commit hash
+
+The generator uses the `local_build` Foundry profile so bindings generation does not compile
+`test/` and `script/` directories.
 
 ### Bump Version
 

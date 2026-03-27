@@ -914,20 +914,7 @@ abstract contract DelegationManagerLib is OperatorManager {
 
         emit BlueprintAddedToDelegation(msg.sender, delegationIndex, blueprintId);
 
-        if (_serviceFeeDistributor != address(0)) {
-            uint256 updatedCount = blueprints.length;
-            uint64[] memory updatedBlueprintIds = new uint64[](updatedCount);
-            uint256[] memory blueprintAmounts = new uint256[](updatedCount);
-
-            for (uint256 i = 0; i < updatedCount; i++) {
-                updatedBlueprintIds[i] = blueprints[i];
-                blueprintAmounts[i] = i == updatedCount - 1 ? baseAmount + remainder : baseAmount;
-            }
-
-            try IServiceFeeDistributor(_serviceFeeDistributor)
-                .onBlueprintsRebalanced(msg.sender, d.operator, d.asset, updatedBlueprintIds, blueprintAmounts) { }
-                catch { }
-        }
+        _notifyBlueprintsRebalanced(d.operator, d.asset, blueprints, baseAmount, remainder);
     }
 
     /// @notice Remove a blueprint from a Fixed mode delegation
@@ -997,19 +984,31 @@ abstract contract DelegationManagerLib is OperatorManager {
 
         emit BlueprintRemovedFromDelegation(msg.sender, delegationIndex, blueprintId);
 
-        if (_serviceFeeDistributor != address(0)) {
-            uint256 newCount = blueprints.length;
-            uint64[] memory updatedBlueprintIds = new uint64[](newCount);
-            uint256[] memory blueprintAmounts = new uint256[](newCount);
+        _notifyBlueprintsRebalanced(d.operator, d.asset, blueprints, baseAmount, remainder);
+    }
 
-            for (uint256 i = 0; i < newCount; i++) {
-                updatedBlueprintIds[i] = blueprints[i];
-                blueprintAmounts[i] = i == newCount - 1 ? baseAmount + remainder : baseAmount;
-            }
+    function _notifyBlueprintsRebalanced(
+        address operator,
+        Types.Asset memory asset,
+        uint64[] storage blueprints,
+        uint256 baseAmount,
+        uint256 remainder
+    )
+        internal
+    {
+        if (_serviceFeeDistributor == address(0)) return;
 
-            try IServiceFeeDistributor(_serviceFeeDistributor)
-                .onBlueprintsRebalanced(msg.sender, d.operator, d.asset, updatedBlueprintIds, blueprintAmounts) { }
-                catch { }
+        uint256 blueprintCount = blueprints.length;
+        uint64[] memory updatedBlueprintIds = new uint64[](blueprintCount);
+        uint256[] memory blueprintAmounts = new uint256[](blueprintCount);
+
+        for (uint256 i = 0; i < blueprintCount; i++) {
+            updatedBlueprintIds[i] = blueprints[i];
+            blueprintAmounts[i] = i == blueprintCount - 1 ? baseAmount + remainder : baseAmount;
         }
+
+        try IServiceFeeDistributor(_serviceFeeDistributor)
+            .onBlueprintsRebalanced(msg.sender, operator, asset, updatedBlueprintIds, blueprintAmounts) { }
+            catch { }
     }
 }

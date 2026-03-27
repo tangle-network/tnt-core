@@ -272,6 +272,7 @@ contract SlashingFuzzTest is BaseTest {
 
     /// @notice Fuzz: dispute window timing is enforced correctly
     function testFuzz_DisputeWindow_Enforcement(uint64 disputeWindow) public {
+        uint64 timestampBuffer = 15;
         disputeWindow = uint64(bound(uint256(disputeWindow), 1 hours, 30 days));
 
         vm.prank(admin);
@@ -296,8 +297,13 @@ contract SlashingFuzzTest is BaseTest {
         // Balance unchanged
         assertEq(staking.getOperatorSelfStake(operator1), stakeBefore, "Balance unchanged before window");
 
-        // Execute exactly at window end - should succeed
-        vm.warp(proposalTime + disputeWindow);
+        // M-6 FIX: execution requires the dispute window plus the timestamp buffer.
+        vm.warp(proposalTime + disputeWindow + timestampBuffer - 1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.SlashNotExecutable.selector, slashId));
+        tangle.executeSlash(slashId);
+
+        // Execute exactly at the buffered boundary - should succeed
+        vm.warp(proposalTime + disputeWindow + timestampBuffer);
         tangle.executeSlash(slashId);
 
         // Balance now reduced

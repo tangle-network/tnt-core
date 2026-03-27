@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
+const LOCAL_BUILD_PROFILE: &str = "local_build";
+
 fn main() -> Result<()> {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
@@ -53,6 +55,7 @@ fn gen_bindings() -> Result<()> {
     run_with_progress(
         Command::new("forge")
             .current_dir(&repo_root)
+            .env("FOUNDRY_PROFILE", LOCAL_BUILD_PROFILE)
             .arg("build")
             .arg("--skip")
             .arg("test")
@@ -79,6 +82,7 @@ fn gen_bindings() -> Result<()> {
     run_with_progress(
         Command::new("forge")
             .current_dir(&bindings_crate)
+            .env("FOUNDRY_PROFILE", LOCAL_BUILD_PROFILE)
             .args([
                 "bind",
                 "--module",
@@ -131,24 +135,30 @@ fn gen_bindings() -> Result<()> {
         .with_context(|| format!("failed to create {}", abi_dir.display()))?;
 
     let abi_files = [
-        ("ITangle.json", "out/ITangle.sol/ITangle.json"),
-        ("ITangleFull.json", "out/ITangle.sol/ITangleFull.json"),
-        ("ITangleSlashing.json", "out/ITangleSlashing.sol/ITangleSlashing.json"),
+        ("ITangle.json", "out/local-build/ITangle.sol/ITangle.json"),
+        (
+            "ITangleFull.json",
+            "out/local-build/ITangle.sol/ITangleFull.json",
+        ),
+        (
+            "ITangleSlashing.json",
+            "out/local-build/ITangleSlashing.sol/ITangleSlashing.json",
+        ),
         (
             "IBlueprintServiceManager.json",
-            "out/IBlueprintServiceManager.sol/IBlueprintServiceManager.json",
+            "out/local-build/IBlueprintServiceManager.sol/IBlueprintServiceManager.json",
         ),
         (
             "OperatorStatusRegistry.json",
-            "out/OperatorStatusRegistry.sol/OperatorStatusRegistry.json",
+            "out/local-build/OperatorStatusRegistry.sol/OperatorStatusRegistry.json",
         ),
         (
             "IMultiAssetDelegation.json",
-            "out/IMultiAssetDelegation.sol/IMultiAssetDelegation.json",
+            "out/local-build/IMultiAssetDelegation.sol/IMultiAssetDelegation.json",
         ),
         (
             "MultiAssetDelegation.json",
-            "out/MultiAssetDelegation.sol/MultiAssetDelegation.json",
+            "out/local-build/MultiAssetDelegation.sol/MultiAssetDelegation.json",
         ),
     ];
 
@@ -288,8 +298,7 @@ fn read_binding_version(bindings_crate: &Path) -> Result<String> {
 }
 
 fn update_cargo_version(cargo_toml_path: &Path, version: &str) -> Result<()> {
-    let cargo_toml =
-        fs::read_to_string(cargo_toml_path).context("failed to read Cargo.toml")?;
+    let cargo_toml = fs::read_to_string(cargo_toml_path).context("failed to read Cargo.toml")?;
 
     let mut updated_toml = String::new();
     let mut in_package = false;

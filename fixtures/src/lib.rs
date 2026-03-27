@@ -13,7 +13,8 @@ pub const LOCALTESTNET_BROADCAST_FILENAME: &str = "localtestnet-broadcast.json";
 pub const LOCALTESTNET_STATE_JSON: &str = include_str!("../fixtures/localtestnet-state.json");
 
 /// Raw JSON for the LocalTestnet deployment broadcast.
-pub const LOCALTESTNET_BROADCAST_JSON: &str = include_str!("../fixtures/localtestnet-broadcast.json");
+pub const LOCALTESTNET_BROADCAST_JSON: &str =
+    include_str!("../fixtures/localtestnet-broadcast.json");
 
 /// Returns the LocalTestnet state snapshot JSON.
 pub fn localtestnet_state_json() -> &'static str {

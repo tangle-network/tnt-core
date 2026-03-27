@@ -23,6 +23,18 @@ gas_reports = []
 fuzz = { runs = 256 }
 invariant = { runs = 64, depth = 64, fail_on_revert = false }
 
+[profile.local_build]
+# Local build-only profile that excludes tests and scripts from the compile graph.
+# Use with: `FOUNDRY_PROFILE=local_build forge build`
+via_ir = true
+optimizer = false
+sparse_mode = true
+gas_reports = []
+test = ".foundry/empty-test"
+script = ".foundry/empty-script"
+out = "out/local-build"
+cache_path = "cache/local-build"
+
 [profile.coverage]
 via_ir = true
 optimizer = true
