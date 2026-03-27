@@ -61,7 +61,8 @@ if ! forge script script/LocalTestnet.s.sol:LocalTestnetSetup \
   --code-size-limit "$FOUNDRY_CODE_SIZE_LIMIT" \
   --skip-simulation \
   >"$FORGE_LOG" 2>&1; then
-  echo "forge script exited with a non-zero status; inspect $FORGE_LOG for details" >&2
+  echo "error: forge script exited with a non-zero status; inspect $FORGE_LOG for details" >&2
+  exit 1
 fi
 
 echo "Stopping Anvil and writing snapshot..."
