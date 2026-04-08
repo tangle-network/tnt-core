@@ -34,7 +34,7 @@ library SignatureLib {
 
     /// @dev EIP-712 TypeHash for JobQuoteDetails (per-job RFQ)
     bytes32 internal constant JOB_QUOTE_TYPEHASH =
-        keccak256("JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry)");
+        keccak256("JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)");
 
     /// @dev EIP-712 TypeHash for domain separator
     bytes32 internal constant DOMAIN_TYPEHASH =
@@ -183,7 +183,8 @@ library SignatureLib {
                 details.jobIndex,
                 details.price,
                 details.timestamp,
-                details.expiry
+                details.expiry,
+                details.confidentiality
             )
         );
     }
