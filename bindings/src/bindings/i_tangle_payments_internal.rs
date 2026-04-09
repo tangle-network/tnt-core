@@ -99,11 +99,12 @@ pub mod ITanglePaymentsInternal {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `depositToEscrow(uint64,address,uint256)` and selector `0x948725b4`.
-    ```solidity
-    function depositToEscrow(uint64 serviceId, address token, uint256 amount) external;
-    ```*/
+```solidity
+function depositToEscrow(uint64 serviceId, address token, uint256 amount) external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct depositToEscrowCall {
@@ -142,7 +143,9 @@ pub mod ITanglePaymentsInternal {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -176,7 +179,9 @@ pub mod ITanglePaymentsInternal {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -185,14 +190,16 @@ pub mod ITanglePaymentsInternal {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<depositToEscrowReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<depositToEscrowReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: depositToEscrowReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for depositToEscrowReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for depositToEscrowReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -212,10 +219,14 @@ pub mod ITanglePaymentsInternal {
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = depositToEscrowReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "depositToEscrow(uint64,address,uint256)";
             const SELECTOR: [u8; 4] = [148u8, 135u8, 37u8, 180u8];
             #[inline]
@@ -227,15 +238,15 @@ pub mod ITanglePaymentsInternal {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(
-                        &self.serviceId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.token,
                     ),
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.amount,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
                 )
             }
             #[inline]
@@ -244,23 +255,28 @@ pub mod ITanglePaymentsInternal {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `distributePayment(uint64,uint64,address,uint256,address[])` and selector `0x2111a286`.
-    ```solidity
-    function distributePayment(uint64 serviceId, uint64 blueprintId, address token, uint256 amount, address[] memory operators) external;
-    ```*/
+```solidity
+function distributePayment(uint64 serviceId, uint64 blueprintId, address token, uint256 amount, address[] memory operators) external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct distributePaymentCall {
@@ -273,7 +289,9 @@ pub mod ITanglePaymentsInternal {
         #[allow(missing_docs)]
         pub amount: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
-        pub operators: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
+        pub operators: alloy::sol_types::private::Vec<
+            alloy::sol_types::private::Address,
+        >,
     }
     ///Container type for the return parameters of the [`distributePayment(uint64,uint64,address,uint256,address[])`](distributePaymentCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
@@ -307,7 +325,9 @@ pub mod ITanglePaymentsInternal {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -316,7 +336,8 @@ pub mod ITanglePaymentsInternal {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<distributePaymentCall> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<distributePaymentCall>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: distributePaymentCall) -> Self {
                     (
                         value.serviceId,
@@ -329,7 +350,8 @@ pub mod ITanglePaymentsInternal {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for distributePaymentCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for distributePaymentCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         serviceId: tuple.0,
@@ -349,7 +371,9 @@ pub mod ITanglePaymentsInternal {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -358,14 +382,16 @@ pub mod ITanglePaymentsInternal {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<distributePaymentReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<distributePaymentReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: distributePaymentReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for distributePaymentReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for distributePaymentReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -387,12 +413,15 @@ pub mod ITanglePaymentsInternal {
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = distributePaymentReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str =
-                "distributePayment(uint64,uint64,address,uint256,address[])";
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "distributePayment(uint64,uint64,address,uint256,address[])";
             const SELECTOR: [u8; 4] = [33u8, 17u8, 162u8, 134u8];
             #[inline]
             fn new<'a>(
@@ -426,20 +455,26 @@ pub mod ITanglePaymentsInternal {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
     ///Container for all the [`ITanglePaymentsInternal`](self) function calls.
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
     pub enum ITanglePaymentsInternalCalls {
         #[allow(missing_docs)]
         depositToEscrow(depositToEscrowCall),
@@ -453,8 +488,10 @@ pub mod ITanglePaymentsInternal {
         /// No guarantees are made about the order of the selectors.
         ///
         /// Prefer using `SolInterface` methods instead.
-        pub const SELECTORS: &'static [[u8; 4usize]] =
-            &[[33u8, 17u8, 162u8, 134u8], [148u8, 135u8, 37u8, 180u8]];
+        pub const SELECTORS: &'static [[u8; 4usize]] = &[
+            [33u8, 17u8, 162u8, 134u8],
+            [148u8, 135u8, 37u8, 180u8],
+        ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
             ::core::stringify!(distributePayment),
@@ -479,7 +516,9 @@ pub mod ITanglePaymentsInternal {
         }
         /// Returns the enum variant name for the given selector, if known.
         #[inline]
-        pub fn name_by_selector(selector: [u8; 4usize]) -> ::core::option::Option<&'static str> {
+        pub fn name_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
             let sig = Self::signature_by_selector(selector)?;
             sig.split_once('(').map(|(name, _)| name)
         }
@@ -510,16 +549,20 @@ pub mod ITanglePaymentsInternal {
         }
         #[inline]
         #[allow(non_snake_case)]
-        fn abi_decode_raw(selector: [u8; 4], data: &[u8]) -> alloy_sol_types::Result<Self> {
+        fn abi_decode_raw(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
             static DECODE_SHIMS: &[fn(
                 &[u8],
-            )
-                -> alloy_sol_types::Result<ITanglePaymentsInternalCalls>] = &[
+            ) -> alloy_sol_types::Result<ITanglePaymentsInternalCalls>] = &[
                 {
                     fn distributePayment(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITanglePaymentsInternalCalls> {
-                        <distributePaymentCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <distributePaymentCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITanglePaymentsInternalCalls::distributePayment)
                     }
                     distributePayment
@@ -528,17 +571,21 @@ pub mod ITanglePaymentsInternal {
                     fn depositToEscrow(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITanglePaymentsInternalCalls> {
-                        <depositToEscrowCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <depositToEscrowCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITanglePaymentsInternalCalls::depositToEscrow)
                     }
                     depositToEscrow
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_SHIMS[idx](data)
         }
@@ -550,9 +597,7 @@ pub mod ITanglePaymentsInternal {
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
-            ) -> alloy_sol_types::Result<
-                ITanglePaymentsInternalCalls,
-            >] = &[
+            ) -> alloy_sol_types::Result<ITanglePaymentsInternalCalls>] = &[
                 {
                     fn distributePayment(
                         data: &[u8],
@@ -569,18 +614,20 @@ pub mod ITanglePaymentsInternal {
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITanglePaymentsInternalCalls> {
                         <depositToEscrowCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITanglePaymentsInternalCalls::depositToEscrow)
+                                data,
+                            )
+                            .map(ITanglePaymentsInternalCalls::depositToEscrow)
                     }
                     depositToEscrow
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_VALIDATE_SHIMS[idx](data)
         }
@@ -588,10 +635,14 @@ pub mod ITanglePaymentsInternal {
         fn abi_encoded_size(&self) -> usize {
             match self {
                 Self::depositToEscrow(inner) => {
-                    <depositToEscrowCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <depositToEscrowCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::distributePayment(inner) => {
-                    <distributePaymentCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <distributePaymentCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
             }
         }
@@ -599,10 +650,16 @@ pub mod ITanglePaymentsInternal {
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
                 Self::depositToEscrow(inner) => {
-                    <depositToEscrowCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <depositToEscrowCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::distributePayment(inner) => {
-                    <distributePaymentCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <distributePaymentCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
             }
         }
@@ -610,7 +667,7 @@ pub mod ITanglePaymentsInternal {
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`ITanglePaymentsInternal`](self) contract instance.
 
-    See the [wrapper's documentation](`ITanglePaymentsInternalInstance`) for more details.*/
+See the [wrapper's documentation](`ITanglePaymentsInternalInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
@@ -623,11 +680,14 @@ pub mod ITanglePaymentsInternal {
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-    Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-    For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
-    pub fn deploy<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>(
+    pub fn deploy<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    >(
         __provider: P,
     ) -> impl ::core::future::Future<
         Output = alloy_contract::Result<ITanglePaymentsInternalInstance<P, N>>,
@@ -635,32 +695,33 @@ pub mod ITanglePaymentsInternal {
         ITanglePaymentsInternalInstance::<P, N>::deploy(__provider)
     }
     /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-    and constructor arguments, if any.
+and constructor arguments, if any.
 
-    This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-    the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
     #[inline]
     pub fn deploy_builder<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
-    >(
-        __provider: P,
-    ) -> alloy_contract::RawCallBuilder<P, N> {
+    >(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
         ITanglePaymentsInternalInstance::<P, N>::deploy_builder(__provider)
     }
     /**A [`ITanglePaymentsInternal`](self) instance.
 
-    Contains type-safe methods for interacting with an on-chain instance of the
-    [`ITanglePaymentsInternal`](self) contract located at a given `address`, using a given
-    provider `P`.
+Contains type-safe methods for interacting with an on-chain instance of the
+[`ITanglePaymentsInternal`](self) contract located at a given `address`, using a given
+provider `P`.
 
-    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-    be used to deploy a new instance of the contract.
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
 
-    See the [module-level documentation](self) for all the available methods.*/
+See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
-    pub struct ITanglePaymentsInternalInstance<P, N = alloy_contract::private::Ethereum> {
+    pub struct ITanglePaymentsInternalInstance<
+        P,
+        N = alloy_contract::private::Ethereum,
+    > {
         address: alloy_sol_types::private::Address,
         provider: P,
         _network: ::core::marker::PhantomData<N>,
@@ -675,14 +736,18 @@ pub mod ITanglePaymentsInternal {
         }
     }
     /// Instantiation and getters/setters.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITanglePaymentsInternalInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITanglePaymentsInternalInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`ITanglePaymentsInternal`](self) contract instance.
 
-        See the [wrapper's documentation](`ITanglePaymentsInternalInstance`) for more details.*/
+See the [wrapper's documentation](`ITanglePaymentsInternalInstance`) for more details.*/
         #[inline]
-        pub const fn new(address: alloy_sol_types::private::Address, __provider: P) -> Self {
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            __provider: P,
+        ) -> Self {
             Self {
                 address,
                 provider: __provider,
@@ -691,9 +756,9 @@ pub mod ITanglePaymentsInternal {
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-        Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-        For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
         pub async fn deploy(
             __provider: P,
@@ -703,10 +768,10 @@ pub mod ITanglePaymentsInternal {
             Ok(Self::new(contract_address, call_builder.provider))
         }
         /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-        and constructor arguments, if any.
+and constructor arguments, if any.
 
-        This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-        the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
         pub fn deploy_builder(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
@@ -747,9 +812,10 @@ pub mod ITanglePaymentsInternal {
         }
     }
     /// Function calls.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITanglePaymentsInternalInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITanglePaymentsInternalInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -767,11 +833,13 @@ pub mod ITanglePaymentsInternal {
             token: alloy::sol_types::private::Address,
             amount: alloy::sol_types::private::primitives::aliases::U256,
         ) -> alloy_contract::SolCallBuilder<&P, depositToEscrowCall, N> {
-            self.call_builder(&depositToEscrowCall {
-                serviceId,
-                token,
-                amount,
-            })
+            self.call_builder(
+                &depositToEscrowCall {
+                    serviceId,
+                    token,
+                    amount,
+                },
+            )
         }
         ///Creates a new call builder for the [`distributePayment`] function.
         pub fn distributePayment(
@@ -782,19 +850,22 @@ pub mod ITanglePaymentsInternal {
             amount: alloy::sol_types::private::primitives::aliases::U256,
             operators: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
         ) -> alloy_contract::SolCallBuilder<&P, distributePaymentCall, N> {
-            self.call_builder(&distributePaymentCall {
-                serviceId,
-                blueprintId,
-                token,
-                amount,
-                operators,
-            })
+            self.call_builder(
+                &distributePaymentCall {
+                    serviceId,
+                    blueprintId,
+                    token,
+                    amount,
+                    operators,
+                },
+            )
         }
     }
     /// Event filters.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITanglePaymentsInternalInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITanglePaymentsInternalInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.

@@ -277,11 +277,12 @@ pub mod ITangleRewards {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `OperatorRewardAccrued(uint64,address,address,uint64,uint256)` and selector `0xc9ae6ac81a097fbf4e05aa7a18639c96a396f6fcb1ba75c775a9f0280f8d10fa`.
-    ```solidity
-    event OperatorRewardAccrued(uint64 indexed serviceId, address indexed operator, address indexed token, uint64 blueprintId, uint256 amount);
-    ```*/
+```solidity
+event OperatorRewardAccrued(uint64 indexed serviceId, address indexed operator, address indexed token, uint64 blueprintId, uint256 amount);
+```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -315,21 +316,21 @@ pub mod ITangleRewards {
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<256>,
             );
-            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str =
-                "OperatorRewardAccrued(uint64,address,address,uint64,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
-                alloy_sol_types::private::B256::new([
-                    201u8, 174u8, 106u8, 200u8, 26u8, 9u8, 127u8, 191u8, 78u8, 5u8, 170u8, 122u8,
-                    24u8, 99u8, 156u8, 150u8, 163u8, 150u8, 246u8, 252u8, 177u8, 186u8, 117u8,
-                    199u8, 117u8, 169u8, 240u8, 40u8, 15u8, 141u8, 16u8, 250u8,
-                ]);
+            const SIGNATURE: &'static str = "OperatorRewardAccrued(uint64,address,address,uint64,uint256)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                201u8, 174u8, 106u8, 200u8, 26u8, 9u8, 127u8, 191u8, 78u8, 5u8, 170u8,
+                122u8, 24u8, 99u8, 156u8, 150u8, 163u8, 150u8, 246u8, 252u8, 177u8,
+                186u8, 117u8, 199u8, 117u8, 169u8, 240u8, 40u8, 15u8, 141u8, 16u8, 250u8,
+            ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -350,23 +351,25 @@ pub mod ITangleRewards {
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
-                        Self::SIGNATURE,
-                        topics.0,
-                        Self::SIGNATURE_HASH,
-                    ));
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
                 }
                 Ok(())
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(
-                        &self.blueprintId,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.amount,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
                 )
             }
             #[inline]
@@ -386,7 +389,9 @@ pub mod ITangleRewards {
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
                 out[1usize] = <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
@@ -416,11 +421,12 @@ pub mod ITangleRewards {
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `PaymentDistributed(uint64,uint64,address,uint256,address,uint256,uint256,uint256,uint256)` and selector `0xbbd9474fbbb06eb636eb470aa71ad2133b5178d91593f96b8083204a60bea278`.
-    ```solidity
-    event PaymentDistributed(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed token, uint256 grossAmount, address developerRecipient, uint256 developerAmount, uint256 protocolAmount, uint256 operatorPoolAmount, uint256 stakerPoolAmount);
-    ```*/
+```solidity
+event PaymentDistributed(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed token, uint256 grossAmount, address developerRecipient, uint256 developerAmount, uint256 protocolAmount, uint256 operatorPoolAmount, uint256 stakerPoolAmount);
+```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -466,7 +472,9 @@ pub mod ITangleRewards {
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Uint<256>,
             );
-            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<64>,
@@ -474,12 +482,11 @@ pub mod ITangleRewards {
                 alloy::sol_types::sol_data::Address,
             );
             const SIGNATURE: &'static str = "PaymentDistributed(uint64,uint64,address,uint256,address,uint256,uint256,uint256,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
-                alloy_sol_types::private::B256::new([
-                    187u8, 217u8, 71u8, 79u8, 187u8, 176u8, 110u8, 182u8, 54u8, 235u8, 71u8, 10u8,
-                    167u8, 26u8, 210u8, 19u8, 59u8, 81u8, 120u8, 217u8, 21u8, 147u8, 249u8, 107u8,
-                    128u8, 131u8, 32u8, 74u8, 96u8, 190u8, 162u8, 120u8,
-                ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                187u8, 217u8, 71u8, 79u8, 187u8, 176u8, 110u8, 182u8, 54u8, 235u8, 71u8,
+                10u8, 167u8, 26u8, 210u8, 19u8, 59u8, 81u8, 120u8, 217u8, 21u8, 147u8,
+                249u8, 107u8, 128u8, 131u8, 32u8, 74u8, 96u8, 190u8, 162u8, 120u8,
+            ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -504,35 +511,37 @@ pub mod ITangleRewards {
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
-                        Self::SIGNATURE,
-                        topics.0,
-                        Self::SIGNATURE_HASH,
-                    ));
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
                 }
                 Ok(())
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.grossAmount,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.grossAmount),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.developerRecipient,
                     ),
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.developerAmount,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.protocolAmount,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.operatorPoolAmount,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.stakerPoolAmount,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.developerAmount),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.protocolAmount),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.operatorPoolAmount),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.stakerPoolAmount),
                 )
             }
             #[inline]
@@ -552,7 +561,9 @@ pub mod ITangleRewards {
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
                 out[1usize] = <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
@@ -582,11 +593,12 @@ pub mod ITangleRewards {
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `RewardsClaimed(address,address,uint256)` and selector `0x9310ccfcb8de723f578a9e4282ea9f521f05ae40dc08f3068dfad528a65ee3c7`.
-    ```solidity
-    event RewardsClaimed(address indexed account, address indexed token, uint256 amount);
-    ```*/
+```solidity
+event RewardsClaimed(address indexed account, address indexed token, uint256 amount);
+```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -613,19 +625,20 @@ pub mod ITangleRewards {
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for RewardsClaimed {
             type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Address,
             );
             const SIGNATURE: &'static str = "RewardsClaimed(address,address,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
-                alloy_sol_types::private::B256::new([
-                    147u8, 16u8, 204u8, 252u8, 184u8, 222u8, 114u8, 63u8, 87u8, 138u8, 158u8, 66u8,
-                    130u8, 234u8, 159u8, 82u8, 31u8, 5u8, 174u8, 64u8, 220u8, 8u8, 243u8, 6u8,
-                    141u8, 250u8, 213u8, 40u8, 166u8, 94u8, 227u8, 199u8,
-                ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                147u8, 16u8, 204u8, 252u8, 184u8, 222u8, 114u8, 63u8, 87u8, 138u8, 158u8,
+                66u8, 130u8, 234u8, 159u8, 82u8, 31u8, 5u8, 174u8, 64u8, 220u8, 8u8,
+                243u8, 6u8, 141u8, 250u8, 213u8, 40u8, 166u8, 94u8, 227u8, 199u8,
+            ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -644,29 +657,27 @@ pub mod ITangleRewards {
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
-                        Self::SIGNATURE,
-                        topics.0,
-                        Self::SIGNATURE_HASH,
-                    ));
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
                 }
                 Ok(())
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.amount,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
                 )
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (
-                    Self::SIGNATURE_HASH.into(),
-                    self.account.clone(),
-                    self.token.clone(),
-                )
+                (Self::SIGNATURE_HASH.into(), self.account.clone(), self.token.clone())
             }
             #[inline]
             fn encode_topics_raw(
@@ -676,7 +687,9 @@ pub mod ITangleRewards {
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
                 out[1usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
                     &self.account,
                 );
@@ -703,11 +716,12 @@ pub mod ITangleRewards {
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `claimRewards()` and selector `0x372500ab`.
-    ```solidity
-    function claimRewards() external;
-    ```*/
+```solidity
+function claimRewards() external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct claimRewards_0Call;
@@ -731,7 +745,9 @@ pub mod ITangleRewards {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -761,7 +777,9 @@ pub mod ITangleRewards {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -770,14 +788,16 @@ pub mod ITangleRewards {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<claimRewards_0Return> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<claimRewards_0Return>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: claimRewards_0Return) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for claimRewards_0Return {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimRewards_0Return {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -793,10 +813,14 @@ pub mod ITangleRewards {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for claimRewards_0Call {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = claimRewards_0Return;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "claimRewards()";
             const SELECTOR: [u8; 4] = [55u8, 37u8, 0u8, 171u8];
             #[inline]
@@ -815,23 +839,28 @@ pub mod ITangleRewards {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `claimRewards(address)` and selector `0xef5cfb8c`.
-    ```solidity
-    function claimRewards(address token) external;
-    ```*/
+```solidity
+function claimRewards(address token) external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct claimRewards_1Call {
@@ -858,7 +887,9 @@ pub mod ITangleRewards {
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -888,7 +919,9 @@ pub mod ITangleRewards {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -897,14 +930,16 @@ pub mod ITangleRewards {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<claimRewards_1Return> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<claimRewards_1Return>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: claimRewards_1Return) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for claimRewards_1Return {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimRewards_1Return {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -920,10 +955,14 @@ pub mod ITangleRewards {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for claimRewards_1Call {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = claimRewards_1Return;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "claimRewards(address)";
             const SELECTOR: [u8; 4] = [239u8, 92u8, 251u8, 140u8];
             #[inline]
@@ -946,23 +985,28 @@ pub mod ITangleRewards {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `claimRewardsAll()` and selector `0x62b83dda`.
-    ```solidity
-    function claimRewardsAll() external;
-    ```*/
+```solidity
+function claimRewardsAll() external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct claimRewardsAllCall;
@@ -986,7 +1030,9 @@ pub mod ITangleRewards {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1016,7 +1062,9 @@ pub mod ITangleRewards {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1025,14 +1073,16 @@ pub mod ITangleRewards {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<claimRewardsAllReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<claimRewardsAllReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: claimRewardsAllReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for claimRewardsAllReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimRewardsAllReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -1048,10 +1098,14 @@ pub mod ITangleRewards {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for claimRewardsAllCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = claimRewardsAllReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "claimRewardsAll()";
             const SELECTOR: [u8; 4] = [98u8, 184u8, 61u8, 218u8];
             #[inline]
@@ -1070,23 +1124,28 @@ pub mod ITangleRewards {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `claimRewardsBatch(address[])` and selector `0x8602bba0`.
-    ```solidity
-    function claimRewardsBatch(address[] memory tokens) external;
-    ```*/
+```solidity
+function claimRewardsBatch(address[] memory tokens) external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct claimRewardsBatchCall {
@@ -1108,14 +1167,18 @@ pub mod ITangleRewards {
         {
             #[doc(hidden)]
             #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> =
-                (alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,);
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+            );
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> =
-                (alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1124,14 +1187,16 @@ pub mod ITangleRewards {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<claimRewardsBatchCall> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<claimRewardsBatchCall>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: claimRewardsBatchCall) -> Self {
                     (value.tokens,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for claimRewardsBatchCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimRewardsBatchCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { tokens: tuple.0 }
                 }
@@ -1145,7 +1210,9 @@ pub mod ITangleRewards {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1154,14 +1221,16 @@ pub mod ITangleRewards {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<claimRewardsBatchReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<claimRewardsBatchReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: claimRewardsBatchReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for claimRewardsBatchReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimRewardsBatchReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -1176,12 +1245,17 @@ pub mod ITangleRewards {
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for claimRewardsBatchCall {
-            type Parameters<'a> =
-                (alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = claimRewardsBatchReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "claimRewardsBatch(address[])";
             const SELECTOR: [u8; 4] = [134u8, 2u8, 187u8, 160u8];
             #[inline]
@@ -1192,11 +1266,11 @@ pub mod ITangleRewards {
             }
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
-                (<alloy::sol_types::sol_data::Array<
-                    alloy::sol_types::sol_data::Address,
-                > as alloy_sol_types::SolType>::tokenize(
-                    &self.tokens
-                ),)
+                (
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Address,
+                    > as alloy_sol_types::SolType>::tokenize(&self.tokens),
+                )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
@@ -1204,30 +1278,36 @@ pub mod ITangleRewards {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `pendingRewards(address)` and selector `0x31d7a262`.
-    ```solidity
-    function pendingRewards(address account) external view returns (uint256);
-    ```*/
+```solidity
+function pendingRewards(address account) external view returns (uint256);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct pendingRewards_0Call {
         #[allow(missing_docs)]
         pub account: alloy::sol_types::private::Address,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`pendingRewards(address)`](pendingRewards_0Call) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1251,7 +1331,9 @@ pub mod ITangleRewards {
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1260,14 +1342,16 @@ pub mod ITangleRewards {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<pendingRewards_0Call> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<pendingRewards_0Call>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: pendingRewards_0Call) -> Self {
                     (value.account,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for pendingRewards_0Call {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for pendingRewards_0Call {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { account: tuple.0 }
                 }
@@ -1278,10 +1362,14 @@ pub mod ITangleRewards {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1290,14 +1378,16 @@ pub mod ITangleRewards {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<pendingRewards_0Return> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<pendingRewards_0Return>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: pendingRewards_0Return) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for pendingRewards_0Return {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for pendingRewards_0Return {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -1306,10 +1396,14 @@ pub mod ITangleRewards {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for pendingRewards_0Call {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "pendingRewards(address)";
             const SELECTOR: [u8; 4] = [49u8, 215u8, 162u8, 98u8];
             #[inline]
@@ -1329,37 +1423,41 @@ pub mod ITangleRewards {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: pendingRewards_0Return = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: pendingRewards_0Return = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: pendingRewards_0Return = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `pendingRewards(address,address)` and selector `0x80ac8228`.
-    ```solidity
-    function pendingRewards(address account, address token) external view returns (uint256);
-    ```*/
+```solidity
+function pendingRewards(address account, address token) external view returns (uint256);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct pendingRewards_1Call {
@@ -1368,7 +1466,8 @@ pub mod ITangleRewards {
         #[allow(missing_docs)]
         pub token: alloy::sol_types::private::Address,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`pendingRewards(address,address)`](pendingRewards_1Call) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1398,7 +1497,9 @@ pub mod ITangleRewards {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1407,14 +1508,16 @@ pub mod ITangleRewards {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<pendingRewards_1Call> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<pendingRewards_1Call>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: pendingRewards_1Call) -> Self {
                     (value.account, value.token)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for pendingRewards_1Call {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for pendingRewards_1Call {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         account: tuple.0,
@@ -1428,10 +1531,14 @@ pub mod ITangleRewards {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1440,14 +1547,16 @@ pub mod ITangleRewards {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<pendingRewards_1Return> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<pendingRewards_1Return>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: pendingRewards_1Return) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for pendingRewards_1Return {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for pendingRewards_1Return {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -1459,10 +1568,14 @@ pub mod ITangleRewards {
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Address,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "pendingRewards(address,address)";
             const SELECTOR: [u8; 4] = [128u8, 172u8, 130u8, 40u8];
             #[inline]
@@ -1485,44 +1598,49 @@ pub mod ITangleRewards {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: pendingRewards_1Return = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: pendingRewards_1Return = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: pendingRewards_1Return = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `rewardTokens(address)` and selector `0xf5ab16cc`.
-    ```solidity
-    function rewardTokens(address account) external view returns (address[] memory);
-    ```*/
+```solidity
+function rewardTokens(address account) external view returns (address[] memory);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct rewardTokensCall {
         #[allow(missing_docs)]
         pub account: alloy::sol_types::private::Address,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`rewardTokens(address)`](rewardTokensCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1546,7 +1664,9 @@ pub mod ITangleRewards {
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1571,14 +1691,18 @@ pub mod ITangleRewards {
         {
             #[doc(hidden)]
             #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> =
-                (alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,);
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+            );
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> =
-                (alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1603,11 +1727,18 @@ pub mod ITangleRewards {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for rewardTokensCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
-            type Return = alloy::sol_types::private::Vec<alloy::sol_types::private::Address>;
-            type ReturnTuple<'a> =
-                (alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::Vec<
+                alloy::sol_types::private::Address,
+            >;
+            type ReturnTuple<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Address>,
+            );
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "rewardTokens(address)";
             const SELECTOR: [u8; 4] = [245u8, 171u8, 22u8, 204u8];
             #[inline]
@@ -1626,33 +1757,40 @@ pub mod ITangleRewards {
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (<alloy::sol_types::sol_data::Array<
-                    alloy::sol_types::sol_data::Address,
-                > as alloy_sol_types::SolType>::tokenize(ret),)
+                (
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Address,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: rewardTokensReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: rewardTokensReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: rewardTokensReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
     ///Container for all the [`ITangleRewards`](self) function calls.
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
     pub enum ITangleRewardsCalls {
         #[allow(missing_docs)]
         claimRewards_0(claimRewards_0Call),
@@ -1719,7 +1857,9 @@ pub mod ITangleRewards {
         }
         /// Returns the enum variant name for the given selector, if known.
         #[inline]
-        pub fn name_by_selector(selector: [u8; 4usize]) -> ::core::option::Option<&'static str> {
+        pub fn name_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
             let sig = Self::signature_by_selector(selector)?;
             sig.split_once('(').map(|(name, _)| name)
         }
@@ -1750,7 +1890,9 @@ pub mod ITangleRewards {
                 Self::pendingRewards_1(_) => {
                     <pendingRewards_1Call as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::rewardTokens(_) => <rewardTokensCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::rewardTokens(_) => {
+                    <rewardTokensCall as alloy_sol_types::SolCall>::SELECTOR
+                }
             }
         }
         #[inline]
@@ -1763,20 +1905,31 @@ pub mod ITangleRewards {
         }
         #[inline]
         #[allow(non_snake_case)]
-        fn abi_decode_raw(selector: [u8; 4], data: &[u8]) -> alloy_sol_types::Result<Self> {
-            static DECODE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<ITangleRewardsCalls>] = &[
+        fn abi_decode_raw(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<ITangleRewardsCalls>] = &[
                 {
                     fn pendingRewards_0(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
-                        <pendingRewards_0Call as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <pendingRewards_0Call as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleRewardsCalls::pendingRewards_0)
                     }
                     pendingRewards_0
                 },
                 {
-                    fn claimRewards_0(data: &[u8]) -> alloy_sol_types::Result<ITangleRewardsCalls> {
-                        <claimRewards_0Call as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                    fn claimRewards_0(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
+                        <claimRewards_0Call as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleRewardsCalls::claimRewards_0)
                     }
                     claimRewards_0
@@ -1785,7 +1938,9 @@ pub mod ITangleRewards {
                     fn claimRewardsAll(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
-                        <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleRewardsCalls::claimRewardsAll)
                     }
                     claimRewardsAll
@@ -1794,7 +1949,9 @@ pub mod ITangleRewards {
                     fn pendingRewards_1(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
-                        <pendingRewards_1Call as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <pendingRewards_1Call as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleRewardsCalls::pendingRewards_1)
                     }
                     pendingRewards_1
@@ -1803,31 +1960,43 @@ pub mod ITangleRewards {
                     fn claimRewardsBatch(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
-                        <claimRewardsBatchCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <claimRewardsBatchCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleRewardsCalls::claimRewardsBatch)
                     }
                     claimRewardsBatch
                 },
                 {
-                    fn claimRewards_1(data: &[u8]) -> alloy_sol_types::Result<ITangleRewardsCalls> {
-                        <claimRewards_1Call as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                    fn claimRewards_1(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
+                        <claimRewards_1Call as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleRewardsCalls::claimRewards_1)
                     }
                     claimRewards_1
                 },
                 {
-                    fn rewardTokens(data: &[u8]) -> alloy_sol_types::Result<ITangleRewardsCalls> {
-                        <rewardTokensCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                    fn rewardTokens(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
+                        <rewardTokensCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleRewardsCalls::rewardTokens)
                     }
                     rewardTokens
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_SHIMS[idx](data)
         }
@@ -1839,25 +2008,26 @@ pub mod ITangleRewards {
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
-            )
-                -> alloy_sol_types::Result<ITangleRewardsCalls>] = &[
+            ) -> alloy_sol_types::Result<ITangleRewardsCalls>] = &[
                 {
                     fn pendingRewards_0(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
                         <pendingRewards_0Call as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleRewardsCalls::pendingRewards_0)
+                                data,
+                            )
+                            .map(ITangleRewardsCalls::pendingRewards_0)
                     }
                     pendingRewards_0
                 },
                 {
-                    fn claimRewards_0(data: &[u8]) -> alloy_sol_types::Result<ITangleRewardsCalls> {
+                    fn claimRewards_0(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
                         <claimRewards_0Call as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleRewardsCalls::claimRewards_0)
+                                data,
+                            )
+                            .map(ITangleRewardsCalls::claimRewards_0)
                     }
                     claimRewards_0
                 },
@@ -1866,9 +2036,9 @@ pub mod ITangleRewards {
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
                         <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleRewardsCalls::claimRewardsAll)
+                                data,
+                            )
+                            .map(ITangleRewardsCalls::claimRewardsAll)
                     }
                     claimRewardsAll
                 },
@@ -1877,9 +2047,9 @@ pub mod ITangleRewards {
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
                         <pendingRewards_1Call as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleRewardsCalls::pendingRewards_1)
+                                data,
+                            )
+                            .map(ITangleRewardsCalls::pendingRewards_1)
                     }
                     pendingRewards_1
                 },
@@ -1895,29 +2065,35 @@ pub mod ITangleRewards {
                     claimRewardsBatch
                 },
                 {
-                    fn claimRewards_1(data: &[u8]) -> alloy_sol_types::Result<ITangleRewardsCalls> {
+                    fn claimRewards_1(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
                         <claimRewards_1Call as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleRewardsCalls::claimRewards_1)
+                                data,
+                            )
+                            .map(ITangleRewardsCalls::claimRewards_1)
                     }
                     claimRewards_1
                 },
                 {
-                    fn rewardTokens(data: &[u8]) -> alloy_sol_types::Result<ITangleRewardsCalls> {
+                    fn rewardTokens(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleRewardsCalls> {
                         <rewardTokensCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleRewardsCalls::rewardTokens)
+                                data,
+                            )
+                            .map(ITangleRewardsCalls::rewardTokens)
                     }
                     rewardTokens
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_VALIDATE_SHIMS[idx](data)
         }
@@ -1925,25 +2101,39 @@ pub mod ITangleRewards {
         fn abi_encoded_size(&self) -> usize {
             match self {
                 Self::claimRewards_0(inner) => {
-                    <claimRewards_0Call as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <claimRewards_0Call as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::claimRewards_1(inner) => {
-                    <claimRewards_1Call as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <claimRewards_1Call as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::claimRewardsAll(inner) => {
-                    <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::claimRewardsBatch(inner) => {
-                    <claimRewardsBatchCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <claimRewardsBatchCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::pendingRewards_0(inner) => {
-                    <pendingRewards_0Call as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <pendingRewards_0Call as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::pendingRewards_1(inner) => {
-                    <pendingRewards_1Call as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <pendingRewards_1Call as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::rewardTokens(inner) => {
-                    <rewardTokensCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <rewardTokensCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
             }
         }
@@ -1951,31 +2141,54 @@ pub mod ITangleRewards {
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
                 Self::claimRewards_0(inner) => {
-                    <claimRewards_0Call as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <claimRewards_0Call as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::claimRewards_1(inner) => {
-                    <claimRewards_1Call as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <claimRewards_1Call as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::claimRewardsAll(inner) => {
-                    <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <claimRewardsAllCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::claimRewardsBatch(inner) => {
-                    <claimRewardsBatchCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <claimRewardsBatchCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::pendingRewards_0(inner) => {
-                    <pendingRewards_0Call as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <pendingRewards_0Call as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::pendingRewards_1(inner) => {
-                    <pendingRewards_1Call as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <pendingRewards_1Call as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::rewardTokens(inner) => {
-                    <rewardTokensCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <rewardTokensCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
             }
         }
     }
     ///Container for all the [`ITangleRewards`](self) events.
-    #[derive(Clone, serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq, Hash)]
+    #[derive(Clone)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum ITangleRewardsEvents {
         #[allow(missing_docs)]
         OperatorRewardAccrued(OperatorRewardAccrued),
@@ -1993,19 +2206,19 @@ pub mod ITangleRewards {
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                147u8, 16u8, 204u8, 252u8, 184u8, 222u8, 114u8, 63u8, 87u8, 138u8, 158u8, 66u8,
-                130u8, 234u8, 159u8, 82u8, 31u8, 5u8, 174u8, 64u8, 220u8, 8u8, 243u8, 6u8, 141u8,
-                250u8, 213u8, 40u8, 166u8, 94u8, 227u8, 199u8,
+                147u8, 16u8, 204u8, 252u8, 184u8, 222u8, 114u8, 63u8, 87u8, 138u8, 158u8,
+                66u8, 130u8, 234u8, 159u8, 82u8, 31u8, 5u8, 174u8, 64u8, 220u8, 8u8,
+                243u8, 6u8, 141u8, 250u8, 213u8, 40u8, 166u8, 94u8, 227u8, 199u8,
             ],
             [
-                187u8, 217u8, 71u8, 79u8, 187u8, 176u8, 110u8, 182u8, 54u8, 235u8, 71u8, 10u8,
-                167u8, 26u8, 210u8, 19u8, 59u8, 81u8, 120u8, 217u8, 21u8, 147u8, 249u8, 107u8,
-                128u8, 131u8, 32u8, 74u8, 96u8, 190u8, 162u8, 120u8,
+                187u8, 217u8, 71u8, 79u8, 187u8, 176u8, 110u8, 182u8, 54u8, 235u8, 71u8,
+                10u8, 167u8, 26u8, 210u8, 19u8, 59u8, 81u8, 120u8, 217u8, 21u8, 147u8,
+                249u8, 107u8, 128u8, 131u8, 32u8, 74u8, 96u8, 190u8, 162u8, 120u8,
             ],
             [
-                201u8, 174u8, 106u8, 200u8, 26u8, 9u8, 127u8, 191u8, 78u8, 5u8, 170u8, 122u8, 24u8,
-                99u8, 156u8, 150u8, 163u8, 150u8, 246u8, 252u8, 177u8, 186u8, 117u8, 199u8, 117u8,
-                169u8, 240u8, 40u8, 15u8, 141u8, 16u8, 250u8,
+                201u8, 174u8, 106u8, 200u8, 26u8, 9u8, 127u8, 191u8, 78u8, 5u8, 170u8,
+                122u8, 24u8, 99u8, 156u8, 150u8, 163u8, 150u8, 246u8, 252u8, 177u8,
+                186u8, 117u8, 199u8, 117u8, 169u8, 240u8, 40u8, 15u8, 141u8, 16u8, 250u8,
             ],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
@@ -2034,7 +2247,9 @@ pub mod ITangleRewards {
         }
         /// Returns the enum variant name for the given selector, if known.
         #[inline]
-        pub fn name_by_selector(selector: [u8; 32usize]) -> ::core::option::Option<&'static str> {
+        pub fn name_by_selector(
+            selector: [u8; 32usize],
+        ) -> ::core::option::Option<&'static str> {
             let sig = Self::signature_by_selector(selector)?;
             sig.split_once('(').map(|(name, _)| name)
         }
@@ -2048,29 +2263,42 @@ pub mod ITangleRewards {
             data: &[u8],
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
-                Some(<OperatorRewardAccrued as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
+                Some(
+                    <OperatorRewardAccrued as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
                     <OperatorRewardAccrued as alloy_sol_types::SolEvent>::decode_raw_log(
-                        topics, data,
-                    )
-                    .map(Self::OperatorRewardAccrued)
+                            topics,
+                            data,
+                        )
+                        .map(Self::OperatorRewardAccrued)
                 }
-                Some(<PaymentDistributed as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <PaymentDistributed as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
+                Some(
+                    <PaymentDistributed as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <PaymentDistributed as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
                         .map(Self::PaymentDistributed)
                 }
                 Some(<RewardsClaimed as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <RewardsClaimed as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
+                    <RewardsClaimed as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
                         .map(Self::RewardsClaimed)
                 }
-                _ => alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
-                    name: <Self as alloy_sol_types::SolEventInterface>::NAME,
-                    log: alloy_sol_types::private::Box::new(
-                        alloy_sol_types::private::LogData::new_unchecked(
-                            topics.to_vec(),
-                            data.to_vec().into(),
+                _ => {
+                    alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
+                        name: <Self as alloy_sol_types::SolEventInterface>::NAME,
+                        log: alloy_sol_types::private::Box::new(
+                            alloy_sol_types::private::LogData::new_unchecked(
+                                topics.to_vec(),
+                                data.to_vec().into(),
+                            ),
                         ),
-                    ),
-                }),
+                    })
+                }
             }
         }
     }
@@ -2106,7 +2334,7 @@ pub mod ITangleRewards {
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`ITangleRewards`](self) contract instance.
 
-    See the [wrapper's documentation](`ITangleRewardsInstance`) for more details.*/
+See the [wrapper's documentation](`ITangleRewardsInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
@@ -2119,41 +2347,43 @@ pub mod ITangleRewards {
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-    Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-    For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
-    pub fn deploy<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>(
-        __provider: P,
-    ) -> impl ::core::future::Future<Output = alloy_contract::Result<ITangleRewardsInstance<P, N>>>
-    {
-        ITangleRewardsInstance::<P, N>::deploy(__provider)
-    }
-    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-    and constructor arguments, if any.
-
-    This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-    the bytecode concatenated with the constructor's ABI-encoded arguments.*/
-    #[inline]
-    pub fn deploy_builder<
+    pub fn deploy<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         __provider: P,
-    ) -> alloy_contract::RawCallBuilder<P, N> {
+    ) -> impl ::core::future::Future<
+        Output = alloy_contract::Result<ITangleRewardsInstance<P, N>>,
+    > {
+        ITangleRewardsInstance::<P, N>::deploy(__provider)
+    }
+    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
+and constructor arguments, if any.
+
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+    #[inline]
+    pub fn deploy_builder<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    >(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
         ITangleRewardsInstance::<P, N>::deploy_builder(__provider)
     }
     /**A [`ITangleRewards`](self) instance.
 
-    Contains type-safe methods for interacting with an on-chain instance of the
-    [`ITangleRewards`](self) contract located at a given `address`, using a given
-    provider `P`.
+Contains type-safe methods for interacting with an on-chain instance of the
+[`ITangleRewards`](self) contract located at a given `address`, using a given
+provider `P`.
 
-    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-    be used to deploy a new instance of the contract.
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
 
-    See the [module-level documentation](self) for all the available methods.*/
+See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct ITangleRewardsInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -2164,20 +2394,22 @@ pub mod ITangleRewards {
     impl<P, N> ::core::fmt::Debug for ITangleRewardsInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("ITangleRewardsInstance")
-                .field(&self.address)
-                .finish()
+            f.debug_tuple("ITangleRewardsInstance").field(&self.address).finish()
         }
     }
     /// Instantiation and getters/setters.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITangleRewardsInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITangleRewardsInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`ITangleRewards`](self) contract instance.
 
-        See the [wrapper's documentation](`ITangleRewardsInstance`) for more details.*/
+See the [wrapper's documentation](`ITangleRewardsInstance`) for more details.*/
         #[inline]
-        pub const fn new(address: alloy_sol_types::private::Address, __provider: P) -> Self {
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            __provider: P,
+        ) -> Self {
             Self {
                 address,
                 provider: __provider,
@@ -2186,20 +2418,22 @@ pub mod ITangleRewards {
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-        Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-        For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
-        pub async fn deploy(__provider: P) -> alloy_contract::Result<ITangleRewardsInstance<P, N>> {
+        pub async fn deploy(
+            __provider: P,
+        ) -> alloy_contract::Result<ITangleRewardsInstance<P, N>> {
             let call_builder = Self::deploy_builder(__provider);
             let contract_address = call_builder.deploy().await?;
             Ok(Self::new(contract_address, call_builder.provider))
         }
         /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-        and constructor arguments, if any.
+and constructor arguments, if any.
 
-        This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-        the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
         pub fn deploy_builder(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
@@ -2240,9 +2474,10 @@ pub mod ITangleRewards {
         }
     }
     /// Function calls.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITangleRewardsInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITangleRewardsInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -2254,7 +2489,9 @@ pub mod ITangleRewards {
             alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
         }
         ///Creates a new call builder for the [`claimRewards_0`] function.
-        pub fn claimRewards_0(&self) -> alloy_contract::SolCallBuilder<&P, claimRewards_0Call, N> {
+        pub fn claimRewards_0(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, claimRewards_0Call, N> {
             self.call_builder(&claimRewards_0Call)
         }
         ///Creates a new call builder for the [`claimRewards_1`] function.
@@ -2290,7 +2527,12 @@ pub mod ITangleRewards {
             account: alloy::sol_types::private::Address,
             token: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, pendingRewards_1Call, N> {
-            self.call_builder(&pendingRewards_1Call { account, token })
+            self.call_builder(
+                &pendingRewards_1Call {
+                    account,
+                    token,
+                },
+            )
         }
         ///Creates a new call builder for the [`rewardTokens`] function.
         pub fn rewardTokens(
@@ -2301,9 +2543,10 @@ pub mod ITangleRewards {
         }
     }
     /// Event filters.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITangleRewardsInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITangleRewardsInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
@@ -2326,7 +2569,9 @@ pub mod ITangleRewards {
             self.event_filter::<PaymentDistributed>()
         }
         ///Creates a new event filter for the [`RewardsClaimed`] event.
-        pub fn RewardsClaimed_filter(&self) -> alloy_contract::Event<&P, RewardsClaimed, N> {
+        pub fn RewardsClaimed_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, RewardsClaimed, N> {
             self.event_filter::<RewardsClaimed>()
         }
     }
