@@ -40,7 +40,7 @@ contract EIP712CompatibilityTest is Test {
 
     function test_JobQuoteDigest_Vector1() public pure {
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
-            serviceId: 42, jobIndex: 3, price: 1 ether, timestamp: 1_700_000_000, expiry: 1_700_003_600
+            serviceId: 42, jobIndex: 3, price: 1 ether, timestamp: 1_700_000_000, expiry: 1_700_003_600, confidentiality: 0
         });
 
         bytes32 domainSep = _testDomainSeparator();
@@ -55,12 +55,12 @@ contract EIP712CompatibilityTest is Test {
         );
         assertEq(
             structHash,
-            bytes32(0x2208c3cc800f0d0c2f7fccdf0d30b393a2949eb302b951a9e3468e60b7de9bd3),
+            bytes32(0xb5ad63b2aafeb693bc7fb591fb0cba712fff4cfafaccfb4bf97de29f069da660),
             "struct hash mismatch"
         );
         assertEq(
             digest,
-            bytes32(0x43852f97be3d1f638c99ae231f2790f2476effab2de03e5a6536762c94da2a7b),
+            bytes32(0xe13955facb4fcba51dce076d019e9509fc5d3c028a269e17e5ea1b78ca41fd26),
             "EIP-712 digest mismatch"
         );
     }
@@ -71,14 +71,14 @@ contract EIP712CompatibilityTest is Test {
 
     function test_JobQuoteDigest_Vector2_ZeroPrice() public pure {
         Types.JobQuoteDetails memory details =
-            Types.JobQuoteDetails({ serviceId: 1, jobIndex: 0, price: 0, timestamp: 1_000_000, expiry: 1_003_600 });
+            Types.JobQuoteDetails({ serviceId: 1, jobIndex: 0, price: 0, timestamp: 1_000_000, expiry: 1_003_600, confidentiality: 0 });
 
         bytes32 domainSep = _testDomainSeparator();
         bytes32 digest = SignatureLib.computeJobQuoteDigest(domainSep, details);
 
         assertEq(
             digest,
-            bytes32(0x2e5dfc598e6f1767b01024dd1dd7010623fbf5ed3c6f43f3da16f2fb07fc1bc3),
+            bytes32(0x681b55c8c7602d2069ba2d5503cbec4f25e6067270e5e57bc310a0bb2f4ed7ff),
             "zero-price digest mismatch"
         );
     }
@@ -89,7 +89,7 @@ contract EIP712CompatibilityTest is Test {
 
     function test_JobQuoteDigest_Vector3_LargePrice() public pure {
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
-            serviceId: 999, jobIndex: 7, price: type(uint128).max, timestamp: 1_700_000_000, expiry: 1_700_007_200
+            serviceId: 999, jobIndex: 7, price: type(uint128).max, timestamp: 1_700_000_000, expiry: 1_700_007_200, confidentiality: 0
         });
 
         bytes32 domainSep = _testDomainSeparator();
@@ -97,7 +97,7 @@ contract EIP712CompatibilityTest is Test {
 
         assertEq(
             digest,
-            bytes32(0xa007fedc1503dbe6f87b5dca5c00bef6a306ab0d8e49681e6d8ea81e3ec6d56b),
+            bytes32(0xbdb556510beb8c8e04fac3e8f2edcaa98ef9d8a6afe0048554919af68cc2e603),
             "large-price digest mismatch"
         );
     }
@@ -109,26 +109,19 @@ contract EIP712CompatibilityTest is Test {
 
     function test_JobQuoteSignature_Vector4_Roundtrip() public pure {
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
-            serviceId: 42, jobIndex: 3, price: 1 ether, timestamp: 1_700_000_000, expiry: 1_700_003_600
+            serviceId: 42, jobIndex: 3, price: 1 ether, timestamp: 1_700_000_000, expiry: 1_700_003_600, confidentiality: 0
         });
 
         bytes32 domainSep = _testDomainSeparator();
         bytes32 digest = SignatureLib.computeJobQuoteDigest(domainSep, details);
 
-        // Verify digest matches Vector 1
-        assertEq(
-            digest,
-            bytes32(0x43852f97be3d1f638c99ae231f2790f2476effab2de03e5a6536762c94da2a7b),
-            "digest must match Vector 1"
-        );
-
         // Sign with private key 0x01
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, digest);
 
         // Verify signature components (Rust test must produce the same)
-        assertEq(v, 28, "v mismatch");
-        assertEq(r, bytes32(0xe0eed464a6c3a0f8ffa634987ed23d4fabbe8a4547ecb5c456021f2d741333ad), "r mismatch");
-        assertEq(s, bytes32(0x21252999cf52abde6e3a57ccfbea83e8e82b89b142995f2fd1ba7721b591f3c3), "s mismatch");
+        assertEq(v, 27, "v mismatch");
+        assertEq(r, bytes32(0x960bdb5998cf170ed3046bd786fac54de0aee995b62a3f50d8ee0476d2fd5c1b), "r mismatch");
+        assertEq(s, bytes32(0x6d80a9d5aadcc5f96338e9652a0c21f4f19592838006e3b5749e3346d29a5721), "s mismatch");
 
         // Recover the signer
         address recovered = ecrecover(digest, v, r, s);

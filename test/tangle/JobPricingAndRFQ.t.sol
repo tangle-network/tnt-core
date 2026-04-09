@@ -310,7 +310,8 @@ contract JobPricingAndRFQTest is BaseTest {
             jobIndex: 0,
             price: 1 ether,
             timestamp: uint64(block.timestamp),
-            expiry: uint64(block.timestamp - 1) // Already expired
+            expiry: uint64(block.timestamp - 1), // Already expired
+            confidentiality: 0
         });
 
         bytes memory signature = _signJobQuote(details, OPERATOR1_PK);
@@ -328,7 +329,8 @@ contract JobPricingAndRFQTest is BaseTest {
             jobIndex: 0,
             price: 1 ether,
             timestamp: uint64(block.timestamp),
-            expiry: uint64(block.timestamp + 1 hours)
+            expiry: uint64(block.timestamp + 1 hours),
+            confidentiality: 0
         });
 
         // Sign with wrong key
@@ -508,7 +510,8 @@ contract JobPricingAndRFQTest is BaseTest {
             jobIndex: 0,
             price: 1 ether,
             timestamp: uint64(block.timestamp),
-            expiry: uint64(block.timestamp) // expiry == now — still valid
+            expiry: uint64(block.timestamp), // expiry == now — still valid
+            confidentiality: 0
         });
 
         bytes memory signature = _signJobQuote(details, OPERATOR1_PK);
@@ -531,7 +534,8 @@ contract JobPricingAndRFQTest is BaseTest {
             jobIndex: 0,
             price: 1 ether,
             timestamp: uint64(block.timestamp),
-            expiry: uint64(block.timestamp - 1)
+            expiry: uint64(block.timestamp - 1),
+            confidentiality: 0
         });
 
         bytes memory signature = _signJobQuote(details, OPERATOR1_PK);
@@ -655,7 +659,8 @@ contract JobPricingAndRFQTest is BaseTest {
             jobIndex: jobIndex,
             price: price,
             timestamp: baseTimestamp,
-            expiry: baseTimestamp + 1 hours
+            expiry: baseTimestamp + 1 hours,
+            confidentiality: 0
         });
 
         bytes memory signature = _signJobQuote(details, privateKey);
@@ -672,7 +677,7 @@ contract JobPricingAndRFQTest is BaseTest {
         returns (bytes memory)
     {
         bytes32 JOB_QUOTE_TYPEHASH_LOCAL = keccak256(
-            "JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry)"
+            "JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)"
         );
 
         bytes32 domainSeparator = keccak256(
@@ -692,7 +697,8 @@ contract JobPricingAndRFQTest is BaseTest {
                 details.jobIndex,
                 details.price,
                 details.timestamp,
-                details.expiry
+                details.expiry,
+                details.confidentiality
             )
         );
 
