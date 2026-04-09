@@ -465,7 +465,8 @@ pub mod ITangleGovernance {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct ProposalState(u8);
@@ -476,27 +477,34 @@ pub mod ITangleGovernance {
             #[inline]
             fn stv_to_tokens(
                 &self,
-            ) -> <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::Token<'_>
-            {
+            ) -> <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::Token<'_> {
                 alloy_sol_types::private::SolTypeValue::<
                     alloy::sol_types::sol_data::Uint<8>,
                 >::stv_to_tokens(self)
             }
             #[inline]
             fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::tokenize(self).0
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::tokenize(self)
+                    .0
             }
             #[inline]
-            fn stv_abi_encode_packed_to(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
                 <alloy::sol_types::sol_data::Uint<
                     8,
                 > as alloy_sol_types::SolType>::abi_encode_packed_to(self, out)
             }
             #[inline]
             fn stv_abi_packed_encoded_size(&self) -> usize {
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::abi_encoded_size(
-                    self,
-                )
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::abi_encoded_size(self)
             }
         }
         impl ProposalState {
@@ -540,11 +548,13 @@ pub mod ITangleGovernance {
         #[automatically_derived]
         impl alloy_sol_types::SolType for ProposalState {
             type RustType = u8;
-            type Token<'a> =
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SOL_NAME: &'static str = Self::NAME;
-            const ENCODED_SIZE: Option<usize> =
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
             const PACKED_ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
                 8,
             > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
@@ -554,11 +564,15 @@ pub mod ITangleGovernance {
             }
             #[inline]
             fn type_check(token: &Self::Token<'_>) -> alloy_sol_types::Result<()> {
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::type_check(token)
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::type_check(token)
             }
             #[inline]
             fn detokenize(token: Self::Token<'_>) -> Self::RustType {
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::detokenize(token)
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::detokenize(token)
             }
         }
         #[automatically_derived]
@@ -579,32 +593,37 @@ pub mod ITangleGovernance {
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, out)
             }
             #[inline]
-            fn encode_topic(rust: &Self::RustType) -> alloy_sol_types::abi::token::WordToken {
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::EventTopic>::encode_topic(
-                    rust,
-                )
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::encode_topic(rust)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `cancel(address[],uint256[],bytes[],bytes32)` and selector `0x452115d6`.
-    ```solidity
-    function cancel(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) external returns (uint256 proposalId);
-    ```*/
+```solidity
+function cancel(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) external returns (uint256 proposalId);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct cancelCall {
         #[allow(missing_docs)]
         pub targets: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
         #[allow(missing_docs)]
-        pub values:
-            alloy::sol_types::private::Vec<alloy::sol_types::private::primitives::aliases::U256>,
+        pub values: alloy::sol_types::private::Vec<
+            alloy::sol_types::private::primitives::aliases::U256,
+        >,
         #[allow(missing_docs)]
         pub calldatas: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
         #[allow(missing_docs)]
         pub descriptionHash: alloy::sol_types::private::FixedBytes<32>,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`cancel(address[],uint256[],bytes[],bytes32)`](cancelCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -640,7 +659,9 @@ pub mod ITangleGovernance {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -651,12 +672,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<cancelCall> for UnderlyingRustTuple<'_> {
                 fn from(value: cancelCall) -> Self {
-                    (
-                        value.targets,
-                        value.values,
-                        value.calldatas,
-                        value.descriptionHash,
-                    )
+                    (value.targets, value.values, value.calldatas, value.descriptionHash)
                 }
             }
             #[automatically_derived]
@@ -677,10 +693,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -698,9 +718,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for cancelReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        proposalId: tuple.0,
-                    }
+                    Self { proposalId: tuple.0 }
                 }
             }
         }
@@ -712,10 +730,14 @@ pub mod ITangleGovernance {
                 alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Bytes>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "cancel(address[],uint256[],bytes[],bytes32)";
             const SELECTOR: [u8; 4] = [69u8, 33u8, 21u8, 214u8];
             #[inline]
@@ -744,37 +766,41 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: cancelReturn = r.into();
                         r.proposalId
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: cancelReturn = r.into();
-                    r.proposalId
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: cancelReturn = r.into();
+                        r.proposalId
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `castVote(uint256,uint8)` and selector `0x56781388`.
-    ```solidity
-    function castVote(uint256 proposalId, uint8 support) external returns (uint256 weight);
-    ```*/
+```solidity
+function castVote(uint256 proposalId, uint8 support) external returns (uint256 weight);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct castVoteCall {
@@ -783,7 +809,8 @@ pub mod ITangleGovernance {
         #[allow(missing_docs)]
         pub support: u8,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`castVote(uint256,uint8)`](castVoteCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -807,11 +834,15 @@ pub mod ITangleGovernance {
                 alloy::sol_types::sol_data::Uint<8>,
             );
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> =
-                (alloy::sol_types::private::primitives::aliases::U256, u8);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+                u8,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -841,10 +872,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -872,10 +907,14 @@ pub mod ITangleGovernance {
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Uint<8>,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "castVote(uint256,uint8)";
             const SELECTOR: [u8; 4] = [86u8, 120u8, 19u8, 136u8];
             #[inline]
@@ -887,48 +926,52 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.proposalId,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::tokenize(
-                        &self.support,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.proposalId),
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(&self.support),
                 )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: castVoteReturn = r.into();
                         r.weight
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: castVoteReturn = r.into();
-                    r.weight
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: castVoteReturn = r.into();
+                        r.weight
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `castVoteBySig(uint256,uint8,address,bytes)` and selector `0x8ff262e3`.
-    ```solidity
-    function castVoteBySig(uint256 proposalId, uint8 support, address voter, bytes memory signature) external returns (uint256 weight);
-    ```*/
+```solidity
+function castVoteBySig(uint256 proposalId, uint8 support, address voter, bytes memory signature) external returns (uint256 weight);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct castVoteBySigCall {
@@ -941,7 +984,8 @@ pub mod ITangleGovernance {
         #[allow(missing_docs)]
         pub signature: alloy::sol_types::private::Bytes,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`castVoteBySig(uint256,uint8,address,bytes)`](castVoteBySigCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -975,7 +1019,9 @@ pub mod ITangleGovernance {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -986,12 +1032,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<castVoteBySigCall> for UnderlyingRustTuple<'_> {
                 fn from(value: castVoteBySigCall) -> Self {
-                    (
-                        value.proposalId,
-                        value.support,
-                        value.voter,
-                        value.signature,
-                    )
+                    (value.proposalId, value.support, value.voter, value.signature)
                 }
             }
             #[automatically_derived]
@@ -1012,10 +1053,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1045,10 +1090,14 @@ pub mod ITangleGovernance {
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Bytes,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "castVoteBySig(uint256,uint8,address,bytes)";
             const SELECTOR: [u8; 4] = [143u8, 242u8, 98u8, 227u8];
             #[inline]
@@ -1060,12 +1109,12 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.proposalId,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::tokenize(
-                        &self.support,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.proposalId),
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(&self.support),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.voter,
                     ),
@@ -1077,37 +1126,41 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: castVoteBySigReturn = r.into();
                         r.weight
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: castVoteBySigReturn = r.into();
-                    r.weight
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: castVoteBySigReturn = r.into();
+                        r.weight
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `castVoteWithReason(uint256,uint8,string)` and selector `0x7b3c71d3`.
-    ```solidity
-    function castVoteWithReason(uint256 proposalId, uint8 support, string memory reason) external returns (uint256 weight);
-    ```*/
+```solidity
+function castVoteWithReason(uint256 proposalId, uint8 support, string memory reason) external returns (uint256 weight);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct castVoteWithReasonCall {
@@ -1118,7 +1171,8 @@ pub mod ITangleGovernance {
         #[allow(missing_docs)]
         pub reason: alloy::sol_types::private::String,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`castVoteWithReason(uint256,uint8,string)`](castVoteWithReasonCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1150,7 +1204,9 @@ pub mod ITangleGovernance {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1159,14 +1215,16 @@ pub mod ITangleGovernance {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<castVoteWithReasonCall> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<castVoteWithReasonCall>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: castVoteWithReasonCall) -> Self {
                     (value.proposalId, value.support, value.reason)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for castVoteWithReasonCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for castVoteWithReasonCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         proposalId: tuple.0,
@@ -1181,10 +1239,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1193,14 +1255,16 @@ pub mod ITangleGovernance {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<castVoteWithReasonReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<castVoteWithReasonReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: castVoteWithReasonReturn) -> Self {
                     (value.weight,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for castVoteWithReasonReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for castVoteWithReasonReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { weight: tuple.0 }
                 }
@@ -1213,10 +1277,14 @@ pub mod ITangleGovernance {
                 alloy::sol_types::sol_data::Uint<8>,
                 alloy::sol_types::sol_data::String,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "castVoteWithReason(uint256,uint8,string)";
             const SELECTOR: [u8; 4] = [123u8, 60u8, 113u8, 211u8];
             #[inline]
@@ -1228,12 +1296,12 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.proposalId,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::tokenize(
-                        &self.support,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.proposalId),
+                    <alloy::sol_types::sol_data::Uint<
+                        8,
+                    > as alloy_sol_types::SolType>::tokenize(&self.support),
                     <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
                         &self.reason,
                     ),
@@ -1242,51 +1310,57 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: castVoteWithReasonReturn = r.into();
                         r.weight
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: castVoteWithReasonReturn = r.into();
-                    r.weight
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: castVoteWithReasonReturn = r.into();
+                        r.weight
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `execute(address[],uint256[],bytes[],bytes32)` and selector `0x2656227d`.
-    ```solidity
-    function execute(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) external payable returns (uint256 proposalId);
-    ```*/
+```solidity
+function execute(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) external payable returns (uint256 proposalId);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct executeCall {
         #[allow(missing_docs)]
         pub targets: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
         #[allow(missing_docs)]
-        pub values:
-            alloy::sol_types::private::Vec<alloy::sol_types::private::primitives::aliases::U256>,
+        pub values: alloy::sol_types::private::Vec<
+            alloy::sol_types::private::primitives::aliases::U256,
+        >,
         #[allow(missing_docs)]
         pub calldatas: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
         #[allow(missing_docs)]
         pub descriptionHash: alloy::sol_types::private::FixedBytes<32>,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`execute(address[],uint256[],bytes[],bytes32)`](executeCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1322,7 +1396,9 @@ pub mod ITangleGovernance {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1333,12 +1409,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<executeCall> for UnderlyingRustTuple<'_> {
                 fn from(value: executeCall) -> Self {
-                    (
-                        value.targets,
-                        value.values,
-                        value.calldatas,
-                        value.descriptionHash,
-                    )
+                    (value.targets, value.values, value.calldatas, value.descriptionHash)
                 }
             }
             #[automatically_derived]
@@ -1359,10 +1430,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1380,9 +1455,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for executeReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        proposalId: tuple.0,
-                    }
+                    Self { proposalId: tuple.0 }
                 }
             }
         }
@@ -1394,10 +1467,14 @@ pub mod ITangleGovernance {
                 alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Bytes>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "execute(address[],uint256[],bytes[],bytes32)";
             const SELECTOR: [u8; 4] = [38u8, 86u8, 34u8, 125u8];
             #[inline]
@@ -1426,37 +1503,41 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: executeReturn = r.into();
                         r.proposalId
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: executeReturn = r.into();
-                    r.proposalId
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: executeReturn = r.into();
+                        r.proposalId
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getVotes(address,uint256)` and selector `0xeb9019d4`.
-    ```solidity
-    function getVotes(address account, uint256 blockNumber) external view returns (uint256);
-    ```*/
+```solidity
+function getVotes(address account, uint256 blockNumber) external view returns (uint256);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct getVotesCall {
@@ -1465,7 +1546,8 @@ pub mod ITangleGovernance {
         #[allow(missing_docs)]
         pub blockNumber: alloy::sol_types::private::primitives::aliases::U256,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`getVotes(address,uint256)`](getVotesCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1495,7 +1577,9 @@ pub mod ITangleGovernance {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1525,10 +1609,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1556,10 +1644,14 @@ pub mod ITangleGovernance {
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::Uint<256>,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "getVotes(address,uint256)";
             const SELECTOR: [u8; 4] = [235u8, 144u8, 25u8, 212u8];
             #[inline]
@@ -1574,45 +1666,49 @@ pub mod ITangleGovernance {
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.account,
                     ),
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.blockNumber,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blockNumber),
                 )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: getVotesReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: getVotesReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getVotesReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `hasVoted(uint256,address)` and selector `0x43859632`.
-    ```solidity
-    function hasVoted(uint256 proposalId, address account) external view returns (bool);
-    ```*/
+```solidity
+function hasVoted(uint256 proposalId, address account) external view returns (bool);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct hasVotedCall {
@@ -1621,7 +1717,8 @@ pub mod ITangleGovernance {
         #[allow(missing_docs)]
         pub account: alloy::sol_types::private::Address,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`hasVoted(uint256,address)`](hasVotedCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1651,7 +1748,9 @@ pub mod ITangleGovernance {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1684,7 +1783,9 @@ pub mod ITangleGovernance {
             type UnderlyingRustTuple<'a> = (bool,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1712,10 +1813,14 @@ pub mod ITangleGovernance {
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Address,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = bool;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "hasVoted(uint256,address)";
             const SELECTOR: [u8; 4] = [67u8, 133u8, 150u8, 50u8];
             #[inline]
@@ -1727,9 +1832,9 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.proposalId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.proposalId),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.account,
                     ),
@@ -1737,41 +1842,50 @@ pub mod ITangleGovernance {
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (<alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(ret),)
+                (
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: hasVotedReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: hasVotedReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: hasVotedReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `proposalDeadline(uint256)` and selector `0xc01f9e37`.
-    ```solidity
-    function proposalDeadline(uint256 proposalId) external view returns (uint256);
-    ```*/
+```solidity
+function proposalDeadline(uint256 proposalId) external view returns (uint256);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct proposalDeadlineCall {
         #[allow(missing_docs)]
         pub proposalId: alloy::sol_types::private::primitives::aliases::U256,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`proposalDeadline(uint256)`](proposalDeadlineCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1792,10 +1906,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1804,18 +1922,18 @@ pub mod ITangleGovernance {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<proposalDeadlineCall> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<proposalDeadlineCall>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: proposalDeadlineCall) -> Self {
                     (value.proposalId,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for proposalDeadlineCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for proposalDeadlineCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        proposalId: tuple.0,
-                    }
+                    Self { proposalId: tuple.0 }
                 }
             }
         }
@@ -1824,10 +1942,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1836,14 +1958,16 @@ pub mod ITangleGovernance {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<proposalDeadlineReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<proposalDeadlineReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: proposalDeadlineReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for proposalDeadlineReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for proposalDeadlineReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -1852,10 +1976,14 @@ pub mod ITangleGovernance {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for proposalDeadlineCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "proposalDeadline(uint256)";
             const SELECTOR: [u8; 4] = [192u8, 31u8, 158u8, 55u8];
             #[inline]
@@ -1867,52 +1995,57 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.proposalId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.proposalId),
                 )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: proposalDeadlineReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: proposalDeadlineReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: proposalDeadlineReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `proposalProposer(uint256)` and selector `0x143489d0`.
-    ```solidity
-    function proposalProposer(uint256 proposalId) external view returns (address);
-    ```*/
+```solidity
+function proposalProposer(uint256 proposalId) external view returns (address);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct proposalProposerCall {
         #[allow(missing_docs)]
         pub proposalId: alloy::sol_types::private::primitives::aliases::U256,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`proposalProposer(uint256)`](proposalProposerCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1933,10 +2066,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1945,18 +2082,18 @@ pub mod ITangleGovernance {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<proposalProposerCall> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<proposalProposerCall>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: proposalProposerCall) -> Self {
                     (value.proposalId,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for proposalProposerCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for proposalProposerCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        proposalId: tuple.0,
-                    }
+                    Self { proposalId: tuple.0 }
                 }
             }
         }
@@ -1968,7 +2105,9 @@ pub mod ITangleGovernance {
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1977,14 +2116,16 @@ pub mod ITangleGovernance {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<proposalProposerReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<proposalProposerReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: proposalProposerReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for proposalProposerReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for proposalProposerReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -1993,10 +2134,14 @@ pub mod ITangleGovernance {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for proposalProposerCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::Address;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Address,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "proposalProposer(uint256)";
             const SELECTOR: [u8; 4] = [20u8, 52u8, 137u8, 208u8];
             #[inline]
@@ -2008,9 +2153,9 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.proposalId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.proposalId),
                 )
             }
             #[inline]
@@ -2023,37 +2168,42 @@ pub mod ITangleGovernance {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: proposalProposerReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: proposalProposerReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: proposalProposerReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `proposalSnapshot(uint256)` and selector `0x2d63f693`.
-    ```solidity
-    function proposalSnapshot(uint256 proposalId) external view returns (uint256);
-    ```*/
+```solidity
+function proposalSnapshot(uint256 proposalId) external view returns (uint256);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct proposalSnapshotCall {
         #[allow(missing_docs)]
         pub proposalId: alloy::sol_types::private::primitives::aliases::U256,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`proposalSnapshot(uint256)`](proposalSnapshotCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2074,10 +2224,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2086,18 +2240,18 @@ pub mod ITangleGovernance {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<proposalSnapshotCall> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<proposalSnapshotCall>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: proposalSnapshotCall) -> Self {
                     (value.proposalId,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for proposalSnapshotCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for proposalSnapshotCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        proposalId: tuple.0,
-                    }
+                    Self { proposalId: tuple.0 }
                 }
             }
         }
@@ -2106,10 +2260,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2118,14 +2276,16 @@ pub mod ITangleGovernance {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<proposalSnapshotReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<proposalSnapshotReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: proposalSnapshotReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for proposalSnapshotReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for proposalSnapshotReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -2134,10 +2294,14 @@ pub mod ITangleGovernance {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for proposalSnapshotCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "proposalSnapshot(uint256)";
             const SELECTOR: [u8; 4] = [45u8, 99u8, 246u8, 147u8];
             #[inline]
@@ -2149,49 +2313,54 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.proposalId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.proposalId),
                 )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: proposalSnapshotReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: proposalSnapshotReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: proposalSnapshotReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `proposalThreshold()` and selector `0xb58131b0`.
-    ```solidity
-    function proposalThreshold() external view returns (uint256);
-    ```*/
+```solidity
+function proposalThreshold() external view returns (uint256);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct proposalThresholdCall;
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`proposalThreshold()`](proposalThresholdCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2215,7 +2384,9 @@ pub mod ITangleGovernance {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2224,14 +2395,16 @@ pub mod ITangleGovernance {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<proposalThresholdCall> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<proposalThresholdCall>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: proposalThresholdCall) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for proposalThresholdCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for proposalThresholdCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self
                 }
@@ -2242,10 +2415,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2254,14 +2431,16 @@ pub mod ITangleGovernance {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<proposalThresholdReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<proposalThresholdReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: proposalThresholdReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for proposalThresholdReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for proposalThresholdReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -2270,10 +2449,14 @@ pub mod ITangleGovernance {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for proposalThresholdCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "proposalThreshold()";
             const SELECTOR: [u8; 4] = [181u8, 129u8, 49u8, 176u8];
             #[inline]
@@ -2289,51 +2472,57 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: proposalThresholdReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: proposalThresholdReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: proposalThresholdReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `propose(address[],uint256[],bytes[],string)` and selector `0x7d5e81e2`.
-    ```solidity
-    function propose(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) external returns (uint256 proposalId);
-    ```*/
+```solidity
+function propose(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) external returns (uint256 proposalId);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct proposeCall {
         #[allow(missing_docs)]
         pub targets: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
         #[allow(missing_docs)]
-        pub values:
-            alloy::sol_types::private::Vec<alloy::sol_types::private::primitives::aliases::U256>,
+        pub values: alloy::sol_types::private::Vec<
+            alloy::sol_types::private::primitives::aliases::U256,
+        >,
         #[allow(missing_docs)]
         pub calldatas: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
         #[allow(missing_docs)]
         pub description: alloy::sol_types::private::String,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`propose(address[],uint256[],bytes[],string)`](proposeCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2369,7 +2558,9 @@ pub mod ITangleGovernance {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2380,12 +2571,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<proposeCall> for UnderlyingRustTuple<'_> {
                 fn from(value: proposeCall) -> Self {
-                    (
-                        value.targets,
-                        value.values,
-                        value.calldatas,
-                        value.description,
-                    )
+                    (value.targets, value.values, value.calldatas, value.description)
                 }
             }
             #[automatically_derived]
@@ -2406,10 +2592,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2427,9 +2617,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for proposeReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        proposalId: tuple.0,
-                    }
+                    Self { proposalId: tuple.0 }
                 }
             }
         }
@@ -2441,10 +2629,14 @@ pub mod ITangleGovernance {
                 alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Bytes>,
                 alloy::sol_types::sol_data::String,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "propose(address[],uint256[],bytes[],string)";
             const SELECTOR: [u8; 4] = [125u8, 94u8, 129u8, 226u8];
             #[inline]
@@ -2473,51 +2665,57 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: proposeReturn = r.into();
                         r.proposalId
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: proposeReturn = r.into();
-                    r.proposalId
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: proposeReturn = r.into();
+                        r.proposalId
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `queue(address[],uint256[],bytes[],bytes32)` and selector `0x160cbed7`.
-    ```solidity
-    function queue(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) external returns (uint256 proposalId);
-    ```*/
+```solidity
+function queue(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) external returns (uint256 proposalId);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct queueCall {
         #[allow(missing_docs)]
         pub targets: alloy::sol_types::private::Vec<alloy::sol_types::private::Address>,
         #[allow(missing_docs)]
-        pub values:
-            alloy::sol_types::private::Vec<alloy::sol_types::private::primitives::aliases::U256>,
+        pub values: alloy::sol_types::private::Vec<
+            alloy::sol_types::private::primitives::aliases::U256,
+        >,
         #[allow(missing_docs)]
         pub calldatas: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
         #[allow(missing_docs)]
         pub descriptionHash: alloy::sol_types::private::FixedBytes<32>,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`queue(address[],uint256[],bytes[],bytes32)`](queueCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2553,7 +2751,9 @@ pub mod ITangleGovernance {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2564,12 +2764,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<queueCall> for UnderlyingRustTuple<'_> {
                 fn from(value: queueCall) -> Self {
-                    (
-                        value.targets,
-                        value.values,
-                        value.calldatas,
-                        value.descriptionHash,
-                    )
+                    (value.targets, value.values, value.calldatas, value.descriptionHash)
                 }
             }
             #[automatically_derived]
@@ -2590,10 +2785,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2611,9 +2810,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for queueReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        proposalId: tuple.0,
-                    }
+                    Self { proposalId: tuple.0 }
                 }
             }
         }
@@ -2625,10 +2822,14 @@ pub mod ITangleGovernance {
                 alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Bytes>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "queue(address[],uint256[],bytes[],bytes32)";
             const SELECTOR: [u8; 4] = [22u8, 12u8, 190u8, 215u8];
             #[inline]
@@ -2657,44 +2858,49 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: queueReturn = r.into();
                         r.proposalId
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: queueReturn = r.into();
-                    r.proposalId
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: queueReturn = r.into();
+                        r.proposalId
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `quorum(uint256)` and selector `0xf8ce560a`.
-    ```solidity
-    function quorum(uint256 blockNumber) external view returns (uint256);
-    ```*/
+```solidity
+function quorum(uint256 blockNumber) external view returns (uint256);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct quorumCall {
         #[allow(missing_docs)]
         pub blockNumber: alloy::sol_types::private::primitives::aliases::U256,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`quorum(uint256)`](quorumCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2715,10 +2921,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2736,9 +2946,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for quorumCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        blockNumber: tuple.0,
-                    }
+                    Self { blockNumber: tuple.0 }
                 }
             }
         }
@@ -2747,10 +2955,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2775,10 +2987,14 @@ pub mod ITangleGovernance {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for quorumCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "quorum(uint256)";
             const SELECTOR: [u8; 4] = [248u8, 206u8, 86u8, 10u8];
             #[inline]
@@ -2790,52 +3006,57 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.blockNumber,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blockNumber),
                 )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: quorumReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: quorumReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: quorumReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `state(uint256)` and selector `0x3e4f49e6`.
-    ```solidity
-    function state(uint256 proposalId) external view returns (ProposalState);
-    ```*/
+```solidity
+function state(uint256 proposalId) external view returns (ProposalState);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct stateCall {
         #[allow(missing_docs)]
         pub proposalId: alloy::sol_types::private::primitives::aliases::U256,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`state(uint256)`](stateCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2856,10 +3077,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2877,9 +3102,7 @@ pub mod ITangleGovernance {
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for stateCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        proposalId: tuple.0,
-                    }
+                    Self { proposalId: tuple.0 }
                 }
             }
         }
@@ -2888,11 +3111,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (ProposalState,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> =
-                (<ProposalState as alloy::sol_types::SolType>::RustType,);
+            type UnderlyingRustTuple<'a> = (
+                <ProposalState as alloy::sol_types::SolType>::RustType,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2917,10 +3143,14 @@ pub mod ITangleGovernance {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for stateCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = <ProposalState as alloy::sol_types::SolType>::RustType;
             type ReturnTuple<'a> = (ProposalState,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "state(uint256)";
             const SELECTOR: [u8; 4] = [62u8, 79u8, 73u8, 230u8];
             #[inline]
@@ -2932,9 +3162,9 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.proposalId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.proposalId),
                 )
             }
             #[inline]
@@ -2943,34 +3173,39 @@ pub mod ITangleGovernance {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: stateReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: stateReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: stateReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `votingDelay()` and selector `0x3932abb1`.
-    ```solidity
-    function votingDelay() external view returns (uint256);
-    ```*/
+```solidity
+function votingDelay() external view returns (uint256);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct votingDelayCall;
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`votingDelay()`](votingDelayCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2994,7 +3229,9 @@ pub mod ITangleGovernance {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3021,10 +3258,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3049,10 +3290,14 @@ pub mod ITangleGovernance {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for votingDelayCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "votingDelay()";
             const SELECTOR: [u8; 4] = [57u8, 50u8, 171u8, 177u8];
             #[inline]
@@ -3068,41 +3313,46 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: votingDelayReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: votingDelayReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: votingDelayReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `votingPeriod()` and selector `0x02a251a3`.
-    ```solidity
-    function votingPeriod() external view returns (uint256);
-    ```*/
+```solidity
+function votingPeriod() external view returns (uint256);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct votingPeriodCall;
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`votingPeriod()`](votingPeriodCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -3126,7 +3376,9 @@ pub mod ITangleGovernance {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3153,10 +3405,14 @@ pub mod ITangleGovernance {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -3181,10 +3437,14 @@ pub mod ITangleGovernance {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for votingPeriodCall {
             type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "votingPeriod()";
             const SELECTOR: [u8; 4] = [2u8, 162u8, 81u8, 163u8];
             #[inline]
@@ -3200,34 +3460,39 @@ pub mod ITangleGovernance {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: votingPeriodReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: votingPeriodReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: votingPeriodReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
     ///Container for all the [`ITangleGovernance`](self) function calls.
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
     pub enum ITangleGovernanceCalls {
         #[allow(missing_docs)]
         cancel(cancelCall),
@@ -3344,7 +3609,9 @@ pub mod ITangleGovernance {
         }
         /// Returns the enum variant name for the given selector, if known.
         #[inline]
-        pub fn name_by_selector(selector: [u8; 4usize]) -> ::core::option::Option<&'static str> {
+        pub fn name_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
             let sig = Self::signature_by_selector(selector)?;
             sig.split_once('(').map(|(name, _)| name)
         }
@@ -3359,7 +3626,9 @@ pub mod ITangleGovernance {
             match self {
                 Self::cancel(_) => <cancelCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::castVote(_) => <castVoteCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::castVoteBySig(_) => <castVoteBySigCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::castVoteBySig(_) => {
+                    <castVoteBySigCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::castVoteWithReason(_) => {
                     <castVoteWithReasonCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -3382,8 +3651,12 @@ pub mod ITangleGovernance {
                 Self::queue(_) => <queueCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::quorum(_) => <quorumCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::state(_) => <stateCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::votingDelay(_) => <votingDelayCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::votingPeriod(_) => <votingPeriodCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::votingDelay(_) => {
+                    <votingDelayCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::votingPeriod(_) => {
+                    <votingPeriodCall as alloy_sol_types::SolCall>::SELECTOR
+                }
             }
         }
         #[inline]
@@ -3396,171 +3669,190 @@ pub mod ITangleGovernance {
         }
         #[inline]
         #[allow(non_snake_case)]
-        fn abi_decode_raw(selector: [u8; 4], data: &[u8]) -> alloy_sol_types::Result<Self> {
-            static DECODE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls>] =
-                &[
-                    {
-                        fn votingPeriod(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <votingPeriodCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::votingPeriod)
-                        }
-                        votingPeriod
-                    },
-                    {
-                        fn proposalProposer(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <proposalProposerCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::proposalProposer)
-                        }
-                        proposalProposer
-                    },
-                    {
-                        fn queue(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                            <queueCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::queue)
-                        }
-                        queue
-                    },
-                    {
-                        fn execute(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                            <executeCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::execute)
-                        }
-                        execute
-                    },
-                    {
-                        fn proposalSnapshot(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <proposalSnapshotCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::proposalSnapshot)
-                        }
-                        proposalSnapshot
-                    },
-                    {
-                        fn votingDelay(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <votingDelayCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::votingDelay)
-                        }
-                        votingDelay
-                    },
-                    {
-                        fn state(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                            <stateCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::state)
-                        }
-                        state
-                    },
-                    {
-                        fn hasVoted(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <hasVotedCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::hasVoted)
-                        }
-                        hasVoted
-                    },
-                    {
-                        fn cancel(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                            <cancelCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::cancel)
-                        }
-                        cancel
-                    },
-                    {
-                        fn castVote(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <castVoteCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::castVote)
-                        }
-                        castVote
-                    },
-                    {
-                        fn castVoteWithReason(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <castVoteWithReasonCall as alloy_sol_types::SolCall>::abi_decode_raw(
+        fn abi_decode_raw(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<ITangleGovernanceCalls>] = &[
+                {
+                    fn votingPeriod(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <votingPeriodCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::votingPeriod)
+                    }
+                    votingPeriod
+                },
+                {
+                    fn proposalProposer(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <proposalProposerCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::proposalProposer)
+                    }
+                    proposalProposer
+                },
+                {
+                    fn queue(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <queueCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(ITangleGovernanceCalls::queue)
+                    }
+                    queue
+                },
+                {
+                    fn execute(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <executeCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(ITangleGovernanceCalls::execute)
+                    }
+                    execute
+                },
+                {
+                    fn proposalSnapshot(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <proposalSnapshotCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::proposalSnapshot)
+                    }
+                    proposalSnapshot
+                },
+                {
+                    fn votingDelay(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <votingDelayCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::votingDelay)
+                    }
+                    votingDelay
+                },
+                {
+                    fn state(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <stateCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(ITangleGovernanceCalls::state)
+                    }
+                    state
+                },
+                {
+                    fn hasVoted(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <hasVotedCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(ITangleGovernanceCalls::hasVoted)
+                    }
+                    hasVoted
+                },
+                {
+                    fn cancel(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <cancelCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(ITangleGovernanceCalls::cancel)
+                    }
+                    cancel
+                },
+                {
+                    fn castVote(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <castVoteCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(ITangleGovernanceCalls::castVote)
+                    }
+                    castVote
+                },
+                {
+                    fn castVoteWithReason(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <castVoteWithReasonCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
                             )
                             .map(ITangleGovernanceCalls::castVoteWithReason)
-                        }
-                        castVoteWithReason
-                    },
-                    {
-                        fn propose(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                            <proposeCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::propose)
-                        }
-                        propose
-                    },
-                    {
-                        fn castVoteBySig(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <castVoteBySigCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::castVoteBySig)
-                        }
-                        castVoteBySig
-                    },
-                    {
-                        fn proposalThreshold(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <proposalThresholdCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                    }
+                    castVoteWithReason
+                },
+                {
+                    fn propose(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <proposeCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(ITangleGovernanceCalls::propose)
+                    }
+                    propose
+                },
+                {
+                    fn castVoteBySig(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <castVoteBySigCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::castVoteBySig)
+                    }
+                    castVoteBySig
+                },
+                {
+                    fn proposalThreshold(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <proposalThresholdCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
                             )
                             .map(ITangleGovernanceCalls::proposalThreshold)
-                        }
-                        proposalThreshold
-                    },
-                    {
-                        fn proposalDeadline(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <proposalDeadlineCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::proposalDeadline)
-                        }
-                        proposalDeadline
-                    },
-                    {
-                        fn getVotes(
-                            data: &[u8],
-                        ) -> alloy_sol_types::Result<ITangleGovernanceCalls>
-                        {
-                            <getVotesCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::getVotes)
-                        }
-                        getVotes
-                    },
-                    {
-                        fn quorum(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                            <quorumCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
-                                .map(ITangleGovernanceCalls::quorum)
-                        }
-                        quorum
-                    },
-                ];
+                    }
+                    proposalThreshold
+                },
+                {
+                    fn proposalDeadline(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <proposalDeadlineCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::proposalDeadline)
+                    }
+                    proposalDeadline
+                },
+                {
+                    fn getVotes(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <getVotesCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(ITangleGovernanceCalls::getVotes)
+                    }
+                    getVotes
+                },
+                {
+                    fn quorum(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <quorumCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                            .map(ITangleGovernanceCalls::quorum)
+                    }
+                    quorum
+                },
+            ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_SHIMS[idx](data)
         }
@@ -3572,17 +3864,15 @@ pub mod ITangleGovernance {
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
-            ) -> alloy_sol_types::Result<
-                ITangleGovernanceCalls,
-            >] = &[
+            ) -> alloy_sol_types::Result<ITangleGovernanceCalls>] = &[
                 {
                     fn votingPeriod(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
                         <votingPeriodCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleGovernanceCalls::votingPeriod)
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::votingPeriod)
                     }
                     votingPeriod
                 },
@@ -3591,22 +3881,30 @@ pub mod ITangleGovernance {
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
                         <proposalProposerCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleGovernanceCalls::proposalProposer)
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::proposalProposer)
                     }
                     proposalProposer
                 },
                 {
-                    fn queue(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                        <queueCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn queue(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <queueCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleGovernanceCalls::queue)
                     }
                     queue
                 },
                 {
-                    fn execute(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                        <executeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn execute(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <executeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleGovernanceCalls::execute)
                     }
                     execute
@@ -3616,43 +3914,63 @@ pub mod ITangleGovernance {
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
                         <proposalSnapshotCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleGovernanceCalls::proposalSnapshot)
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::proposalSnapshot)
                     }
                     proposalSnapshot
                 },
                 {
-                    fn votingDelay(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                        <votingDelayCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn votingDelay(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <votingDelayCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleGovernanceCalls::votingDelay)
                     }
                     votingDelay
                 },
                 {
-                    fn state(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                        <stateCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn state(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <stateCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleGovernanceCalls::state)
                     }
                     state
                 },
                 {
-                    fn hasVoted(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                        <hasVotedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn hasVoted(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <hasVotedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleGovernanceCalls::hasVoted)
                     }
                     hasVoted
                 },
                 {
-                    fn cancel(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                        <cancelCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn cancel(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <cancelCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleGovernanceCalls::cancel)
                     }
                     cancel
                 },
                 {
-                    fn castVote(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                        <castVoteCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn castVote(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <castVoteCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleGovernanceCalls::castVote)
                     }
                     castVote
@@ -3669,8 +3987,12 @@ pub mod ITangleGovernance {
                     castVoteWithReason
                 },
                 {
-                    fn propose(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                        <proposeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn propose(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <proposeCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleGovernanceCalls::propose)
                     }
                     propose
@@ -3680,9 +4002,9 @@ pub mod ITangleGovernance {
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
                         <castVoteBySigCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleGovernanceCalls::castVoteBySig)
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::castVoteBySig)
                     }
                     castVoteBySig
                 },
@@ -3702,32 +4024,42 @@ pub mod ITangleGovernance {
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
                         <proposalDeadlineCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleGovernanceCalls::proposalDeadline)
+                                data,
+                            )
+                            .map(ITangleGovernanceCalls::proposalDeadline)
                     }
                     proposalDeadline
                 },
                 {
-                    fn getVotes(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                        <getVotesCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn getVotes(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <getVotesCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleGovernanceCalls::getVotes)
                     }
                     getVotes
                 },
                 {
-                    fn quorum(data: &[u8]) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
-                        <quorumCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn quorum(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleGovernanceCalls> {
+                        <quorumCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleGovernanceCalls::quorum)
                     }
                     quorum
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_VALIDATE_SHIMS[idx](data)
         }
@@ -3741,10 +4073,14 @@ pub mod ITangleGovernance {
                     <castVoteCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::castVoteBySig(inner) => {
-                    <castVoteBySigCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <castVoteBySigCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::castVoteWithReason(inner) => {
-                    <castVoteWithReasonCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <castVoteWithReasonCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::execute(inner) => {
                     <executeCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
@@ -3756,16 +4092,24 @@ pub mod ITangleGovernance {
                     <hasVotedCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::proposalDeadline(inner) => {
-                    <proposalDeadlineCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <proposalDeadlineCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::proposalProposer(inner) => {
-                    <proposalProposerCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <proposalProposerCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::proposalSnapshot(inner) => {
-                    <proposalSnapshotCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <proposalSnapshotCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::proposalThreshold(inner) => {
-                    <proposalThresholdCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <proposalThresholdCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::propose(inner) => {
                     <proposeCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
@@ -3780,10 +4124,14 @@ pub mod ITangleGovernance {
                     <stateCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
                 Self::votingDelay(inner) => {
-                    <votingDelayCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <votingDelayCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::votingPeriod(inner) => {
-                    <votingPeriodCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <votingPeriodCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
             }
         }
@@ -3794,34 +4142,61 @@ pub mod ITangleGovernance {
                     <cancelCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::castVote(inner) => {
-                    <castVoteCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <castVoteCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::castVoteBySig(inner) => {
-                    <castVoteBySigCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <castVoteBySigCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::castVoteWithReason(inner) => {
-                    <castVoteWithReasonCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <castVoteWithReasonCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::execute(inner) => {
                     <executeCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::getVotes(inner) => {
-                    <getVotesCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <getVotesCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::hasVoted(inner) => {
-                    <hasVotedCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <hasVotedCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::proposalDeadline(inner) => {
-                    <proposalDeadlineCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <proposalDeadlineCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::proposalProposer(inner) => {
-                    <proposalProposerCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <proposalProposerCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::proposalSnapshot(inner) => {
-                    <proposalSnapshotCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <proposalSnapshotCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::proposalThreshold(inner) => {
-                    <proposalThresholdCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <proposalThresholdCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::propose(inner) => {
                     <proposeCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
@@ -3836,10 +4211,16 @@ pub mod ITangleGovernance {
                     <stateCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
                 }
                 Self::votingDelay(inner) => {
-                    <votingDelayCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <votingDelayCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::votingPeriod(inner) => {
-                    <votingPeriodCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <votingPeriodCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
             }
         }
@@ -3847,7 +4228,7 @@ pub mod ITangleGovernance {
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`ITangleGovernance`](self) contract instance.
 
-    See the [wrapper's documentation](`ITangleGovernanceInstance`) for more details.*/
+See the [wrapper's documentation](`ITangleGovernanceInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
@@ -3860,41 +4241,43 @@ pub mod ITangleGovernance {
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-    Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-    For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
-    pub fn deploy<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>(
-        __provider: P,
-    ) -> impl ::core::future::Future<Output = alloy_contract::Result<ITangleGovernanceInstance<P, N>>>
-    {
-        ITangleGovernanceInstance::<P, N>::deploy(__provider)
-    }
-    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-    and constructor arguments, if any.
-
-    This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-    the bytecode concatenated with the constructor's ABI-encoded arguments.*/
-    #[inline]
-    pub fn deploy_builder<
+    pub fn deploy<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         __provider: P,
-    ) -> alloy_contract::RawCallBuilder<P, N> {
+    ) -> impl ::core::future::Future<
+        Output = alloy_contract::Result<ITangleGovernanceInstance<P, N>>,
+    > {
+        ITangleGovernanceInstance::<P, N>::deploy(__provider)
+    }
+    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
+and constructor arguments, if any.
+
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+    #[inline]
+    pub fn deploy_builder<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    >(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
         ITangleGovernanceInstance::<P, N>::deploy_builder(__provider)
     }
     /**A [`ITangleGovernance`](self) instance.
 
-    Contains type-safe methods for interacting with an on-chain instance of the
-    [`ITangleGovernance`](self) contract located at a given `address`, using a given
-    provider `P`.
+Contains type-safe methods for interacting with an on-chain instance of the
+[`ITangleGovernance`](self) contract located at a given `address`, using a given
+provider `P`.
 
-    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-    be used to deploy a new instance of the contract.
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
 
-    See the [module-level documentation](self) for all the available methods.*/
+See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct ITangleGovernanceInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -3905,20 +4288,22 @@ pub mod ITangleGovernance {
     impl<P, N> ::core::fmt::Debug for ITangleGovernanceInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("ITangleGovernanceInstance")
-                .field(&self.address)
-                .finish()
+            f.debug_tuple("ITangleGovernanceInstance").field(&self.address).finish()
         }
     }
     /// Instantiation and getters/setters.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITangleGovernanceInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITangleGovernanceInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`ITangleGovernance`](self) contract instance.
 
-        See the [wrapper's documentation](`ITangleGovernanceInstance`) for more details.*/
+See the [wrapper's documentation](`ITangleGovernanceInstance`) for more details.*/
         #[inline]
-        pub const fn new(address: alloy_sol_types::private::Address, __provider: P) -> Self {
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            __provider: P,
+        ) -> Self {
             Self {
                 address,
                 provider: __provider,
@@ -3927,9 +4312,9 @@ pub mod ITangleGovernance {
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-        Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-        For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
         pub async fn deploy(
             __provider: P,
@@ -3939,10 +4324,10 @@ pub mod ITangleGovernance {
             Ok(Self::new(contract_address, call_builder.provider))
         }
         /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-        and constructor arguments, if any.
+and constructor arguments, if any.
 
-        This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-        the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
         pub fn deploy_builder(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
@@ -3983,9 +4368,10 @@ pub mod ITangleGovernance {
         }
     }
     /// Function calls.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITangleGovernanceInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITangleGovernanceInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -4006,12 +4392,14 @@ pub mod ITangleGovernance {
             calldatas: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
             descriptionHash: alloy::sol_types::private::FixedBytes<32>,
         ) -> alloy_contract::SolCallBuilder<&P, cancelCall, N> {
-            self.call_builder(&cancelCall {
-                targets,
-                values,
-                calldatas,
-                descriptionHash,
-            })
+            self.call_builder(
+                &cancelCall {
+                    targets,
+                    values,
+                    calldatas,
+                    descriptionHash,
+                },
+            )
         }
         ///Creates a new call builder for the [`castVote`] function.
         pub fn castVote(
@@ -4019,10 +4407,12 @@ pub mod ITangleGovernance {
             proposalId: alloy::sol_types::private::primitives::aliases::U256,
             support: u8,
         ) -> alloy_contract::SolCallBuilder<&P, castVoteCall, N> {
-            self.call_builder(&castVoteCall {
-                proposalId,
-                support,
-            })
+            self.call_builder(
+                &castVoteCall {
+                    proposalId,
+                    support,
+                },
+            )
         }
         ///Creates a new call builder for the [`castVoteBySig`] function.
         pub fn castVoteBySig(
@@ -4032,12 +4422,14 @@ pub mod ITangleGovernance {
             voter: alloy::sol_types::private::Address,
             signature: alloy::sol_types::private::Bytes,
         ) -> alloy_contract::SolCallBuilder<&P, castVoteBySigCall, N> {
-            self.call_builder(&castVoteBySigCall {
-                proposalId,
-                support,
-                voter,
-                signature,
-            })
+            self.call_builder(
+                &castVoteBySigCall {
+                    proposalId,
+                    support,
+                    voter,
+                    signature,
+                },
+            )
         }
         ///Creates a new call builder for the [`castVoteWithReason`] function.
         pub fn castVoteWithReason(
@@ -4046,11 +4438,13 @@ pub mod ITangleGovernance {
             support: u8,
             reason: alloy::sol_types::private::String,
         ) -> alloy_contract::SolCallBuilder<&P, castVoteWithReasonCall, N> {
-            self.call_builder(&castVoteWithReasonCall {
-                proposalId,
-                support,
-                reason,
-            })
+            self.call_builder(
+                &castVoteWithReasonCall {
+                    proposalId,
+                    support,
+                    reason,
+                },
+            )
         }
         ///Creates a new call builder for the [`execute`] function.
         pub fn execute(
@@ -4062,12 +4456,14 @@ pub mod ITangleGovernance {
             calldatas: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
             descriptionHash: alloy::sol_types::private::FixedBytes<32>,
         ) -> alloy_contract::SolCallBuilder<&P, executeCall, N> {
-            self.call_builder(&executeCall {
-                targets,
-                values,
-                calldatas,
-                descriptionHash,
-            })
+            self.call_builder(
+                &executeCall {
+                    targets,
+                    values,
+                    calldatas,
+                    descriptionHash,
+                },
+            )
         }
         ///Creates a new call builder for the [`getVotes`] function.
         pub fn getVotes(
@@ -4075,10 +4471,12 @@ pub mod ITangleGovernance {
             account: alloy::sol_types::private::Address,
             blockNumber: alloy::sol_types::private::primitives::aliases::U256,
         ) -> alloy_contract::SolCallBuilder<&P, getVotesCall, N> {
-            self.call_builder(&getVotesCall {
-                account,
-                blockNumber,
-            })
+            self.call_builder(
+                &getVotesCall {
+                    account,
+                    blockNumber,
+                },
+            )
         }
         ///Creates a new call builder for the [`hasVoted`] function.
         pub fn hasVoted(
@@ -4086,10 +4484,12 @@ pub mod ITangleGovernance {
             proposalId: alloy::sol_types::private::primitives::aliases::U256,
             account: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, hasVotedCall, N> {
-            self.call_builder(&hasVotedCall {
-                proposalId,
-                account,
-            })
+            self.call_builder(
+                &hasVotedCall {
+                    proposalId,
+                    account,
+                },
+            )
         }
         ///Creates a new call builder for the [`proposalDeadline`] function.
         pub fn proposalDeadline(
@@ -4128,12 +4528,14 @@ pub mod ITangleGovernance {
             calldatas: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
             description: alloy::sol_types::private::String,
         ) -> alloy_contract::SolCallBuilder<&P, proposeCall, N> {
-            self.call_builder(&proposeCall {
-                targets,
-                values,
-                calldatas,
-                description,
-            })
+            self.call_builder(
+                &proposeCall {
+                    targets,
+                    values,
+                    calldatas,
+                    description,
+                },
+            )
         }
         ///Creates a new call builder for the [`queue`] function.
         pub fn queue(
@@ -4145,12 +4547,14 @@ pub mod ITangleGovernance {
             calldatas: alloy::sol_types::private::Vec<alloy::sol_types::private::Bytes>,
             descriptionHash: alloy::sol_types::private::FixedBytes<32>,
         ) -> alloy_contract::SolCallBuilder<&P, queueCall, N> {
-            self.call_builder(&queueCall {
-                targets,
-                values,
-                calldatas,
-                descriptionHash,
-            })
+            self.call_builder(
+                &queueCall {
+                    targets,
+                    values,
+                    calldatas,
+                    descriptionHash,
+                },
+            )
         }
         ///Creates a new call builder for the [`quorum`] function.
         pub fn quorum(
@@ -4167,18 +4571,23 @@ pub mod ITangleGovernance {
             self.call_builder(&stateCall { proposalId })
         }
         ///Creates a new call builder for the [`votingDelay`] function.
-        pub fn votingDelay(&self) -> alloy_contract::SolCallBuilder<&P, votingDelayCall, N> {
+        pub fn votingDelay(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, votingDelayCall, N> {
             self.call_builder(&votingDelayCall)
         }
         ///Creates a new call builder for the [`votingPeriod`] function.
-        pub fn votingPeriod(&self) -> alloy_contract::SolCallBuilder<&P, votingPeriodCall, N> {
+        pub fn votingPeriod(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, votingPeriodCall, N> {
             self.call_builder(&votingPeriodCall)
         }
     }
     /// Event filters.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITangleGovernanceInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITangleGovernanceInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.

@@ -5,12 +5,12 @@
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#i_blueprint_service_manager;
 pub mod r#i_multi_asset_delegation;
-pub mod r#i_operator_status_registry;
 pub mod r#i_tangle;
 pub mod r#i_tangle_admin;
-pub mod r#i_tangle_blueprints;
 pub mod r#i_tangle_full;
+pub mod r#i_tangle_blueprints;
 pub mod r#i_tangle_governance;
+pub mod r#i_tangle_token;
 pub mod r#i_tangle_jobs;
 pub mod r#i_tangle_operators;
 pub mod r#i_tangle_payments_internal;
@@ -18,6 +18,6 @@ pub mod r#i_tangle_rewards;
 pub mod r#i_tangle_security_view;
 pub mod r#i_tangle_services;
 pub mod r#i_tangle_slashing;
-pub mod r#i_tangle_token;
 pub mod r#multi_asset_delegation;
+pub mod r#i_operator_status_registry;
 pub mod r#operator_status_registry;

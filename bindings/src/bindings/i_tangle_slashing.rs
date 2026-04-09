@@ -17,7 +17,8 @@ library SlashingLib {
 pub mod SlashingLib {
     use super::*;
     use alloy::sol_types as alloy_sol_types;
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct SlashStatus(u8);
@@ -28,27 +29,34 @@ pub mod SlashingLib {
             #[inline]
             fn stv_to_tokens(
                 &self,
-            ) -> <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::Token<'_>
-            {
+            ) -> <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::Token<'_> {
                 alloy_sol_types::private::SolTypeValue::<
                     alloy::sol_types::sol_data::Uint<8>,
                 >::stv_to_tokens(self)
             }
             #[inline]
             fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::tokenize(self).0
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::tokenize(self)
+                    .0
             }
             #[inline]
-            fn stv_abi_encode_packed_to(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
                 <alloy::sol_types::sol_data::Uint<
                     8,
                 > as alloy_sol_types::SolType>::abi_encode_packed_to(self, out)
             }
             #[inline]
             fn stv_abi_packed_encoded_size(&self) -> usize {
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::abi_encoded_size(
-                    self,
-                )
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::abi_encoded_size(self)
             }
         }
         impl SlashStatus {
@@ -92,11 +100,13 @@ pub mod SlashingLib {
         #[automatically_derived]
         impl alloy_sol_types::SolType for SlashStatus {
             type RustType = u8;
-            type Token<'a> =
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SOL_NAME: &'static str = Self::NAME;
-            const ENCODED_SIZE: Option<usize> =
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
             const PACKED_ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
                 8,
             > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
@@ -106,11 +116,15 @@ pub mod SlashingLib {
             }
             #[inline]
             fn type_check(token: &Self::Token<'_>) -> alloy_sol_types::Result<()> {
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::type_check(token)
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::type_check(token)
             }
             #[inline]
             fn detokenize(token: Self::Token<'_>) -> Self::RustType {
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::SolType>::detokenize(token)
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::detokenize(token)
             }
         }
         #[automatically_derived]
@@ -131,17 +145,20 @@ pub mod SlashingLib {
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, out)
             }
             #[inline]
-            fn encode_topic(rust: &Self::RustType) -> alloy_sol_types::abi::token::WordToken {
-                <alloy::sol_types::sol_data::Uint<8> as alloy_sol_types::EventTopic>::encode_topic(
-                    rust,
-                )
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::encode_topic(rust)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-    struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; }
-    ```*/
+struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; }
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct SlashProposal {
@@ -203,7 +220,9 @@ pub mod SlashingLib {
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+        fn _type_assertion(
+            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+        ) {
             match _t {
                 alloy_sol_types::private::AssertTypeEq::<
                     <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -290,50 +309,64 @@ pub mod SlashingLib {
                 if let Some(size) = <Self as alloy_sol_types::SolType>::ENCODED_SIZE {
                     return size;
                 }
-                let tuple =
-                    <UnderlyingRustTuple<'_> as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
             }
             #[inline]
             fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
                 <Self as alloy_sol_types::SolStruct>::eip712_hash_struct(self)
             }
             #[inline]
-            fn stv_abi_encode_packed_to(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
-                let tuple =
-                    <UnderlyingRustTuple<'_> as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::abi_encode_packed_to(
-                    &tuple, out,
-                )
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(&tuple, out)
             }
             #[inline]
             fn stv_abi_packed_encoded_size(&self) -> usize {
                 if let Some(size) = <Self as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE {
                     return size;
                 }
-                let tuple =
-                    <UnderlyingRustTuple<'_> as ::core::convert::From<Self>>::from(self.clone());
-                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::abi_packed_encoded_size(
-                    &tuple,
-                )
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_packed_encoded_size(&tuple)
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolType for SlashProposal {
             type RustType = Self;
-            type Token<'a> = <UnderlyingSolTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <UnderlyingSolTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SOL_NAME: &'static str = <Self as alloy_sol_types::SolStruct>::NAME;
-            const ENCODED_SIZE: Option<usize> =
-                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::ENCODED_SIZE;
-            const PACKED_ENCODED_SIZE: Option<usize> =
-                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            const ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
             #[inline]
             fn valid_token(token: &Self::Token<'_>) -> bool {
                 <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::valid_token(token)
             }
             #[inline]
             fn detokenize(token: Self::Token<'_>) -> Self::RustType {
-                let tuple = <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::detokenize(token);
+                let tuple = <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::detokenize(token);
                 <Self as ::core::convert::From<UnderlyingRustTuple<'_>>>::from(tuple)
             }
         }
@@ -347,9 +380,9 @@ pub mod SlashingLib {
                 )
             }
             #[inline]
-            fn eip712_components(
-            ) -> alloy_sol_types::private::Vec<alloy_sol_types::private::Cow<'static, str>>
-            {
+            fn eip712_components() -> alloy_sol_types::private::Vec<
+                alloy_sol_types::private::Cow<'static, str>,
+            > {
                 alloy_sol_types::private::Vec::new()
             }
             #[inline]
@@ -458,7 +491,9 @@ pub mod SlashingLib {
                 rust: &Self::RustType,
                 out: &mut alloy_sol_types::private::Vec<u8>,
             ) {
-                out.reserve(<Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust));
+                out.reserve(
+                    <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
+                );
                 <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -513,17 +548,24 @@ pub mod SlashingLib {
                 );
             }
             #[inline]
-            fn encode_topic(rust: &Self::RustType) -> alloy_sol_types::abi::token::WordToken {
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
                 let mut out = alloy_sol_types::private::Vec::new();
-                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, &mut out);
-                alloy_sol_types::abi::token::WordToken(alloy_sol_types::private::keccak256(out))
+                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    rust,
+                    &mut out,
+                );
+                alloy_sol_types::abi::token::WordToken(
+                    alloy_sol_types::private::keccak256(out),
+                )
             }
         }
     };
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`SlashingLib`](self) contract instance.
 
-    See the [wrapper's documentation](`SlashingLibInstance`) for more details.*/
+See the [wrapper's documentation](`SlashingLibInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
@@ -536,15 +578,15 @@ pub mod SlashingLib {
     }
     /**A [`SlashingLib`](self) instance.
 
-    Contains type-safe methods for interacting with an on-chain instance of the
-    [`SlashingLib`](self) contract located at a given `address`, using a given
-    provider `P`.
+Contains type-safe methods for interacting with an on-chain instance of the
+[`SlashingLib`](self) contract located at a given `address`, using a given
+provider `P`.
 
-    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-    be used to deploy a new instance of the contract.
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
 
-    See the [module-level documentation](self) for all the available methods.*/
+See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct SlashingLibInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -555,20 +597,22 @@ pub mod SlashingLib {
     impl<P, N> ::core::fmt::Debug for SlashingLibInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("SlashingLibInstance")
-                .field(&self.address)
-                .finish()
+            f.debug_tuple("SlashingLibInstance").field(&self.address).finish()
         }
     }
     /// Instantiation and getters/setters.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        SlashingLibInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > SlashingLibInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`SlashingLib`](self) contract instance.
 
-        See the [wrapper's documentation](`SlashingLibInstance`) for more details.*/
+See the [wrapper's documentation](`SlashingLibInstance`) for more details.*/
         #[inline]
-        pub const fn new(address: alloy_sol_types::private::Address, __provider: P) -> Self {
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            __provider: P,
+        ) -> Self {
             Self {
                 address,
                 provider: __provider,
@@ -608,9 +652,10 @@ pub mod SlashingLib {
         }
     }
     /// Function calls.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        SlashingLibInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > SlashingLibInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -623,9 +668,10 @@ pub mod SlashingLib {
         }
     }
     /// Event filters.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        SlashingLibInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > SlashingLibInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
@@ -994,11 +1040,12 @@ pub mod ITangleSlashing {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `SlashExecuted(uint64,address,uint256)` and selector `0x26c5c426df452d68e3b3d27c7b069a62cd268ad9e1cd55c9c9f239320890de23`.
-    ```solidity
-    event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 amount);
-    ```*/
+```solidity
+event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 amount);
+```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -1025,19 +1072,20 @@ pub mod ITangleSlashing {
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for SlashExecuted {
             type DataTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
             );
             const SIGNATURE: &'static str = "SlashExecuted(uint64,address,uint256)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
-                alloy_sol_types::private::B256::new([
-                    38u8, 197u8, 196u8, 38u8, 223u8, 69u8, 45u8, 104u8, 227u8, 179u8, 210u8, 124u8,
-                    123u8, 6u8, 154u8, 98u8, 205u8, 38u8, 138u8, 217u8, 225u8, 205u8, 85u8, 201u8,
-                    201u8, 242u8, 57u8, 50u8, 8u8, 144u8, 222u8, 35u8,
-                ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                38u8, 197u8, 196u8, 38u8, 223u8, 69u8, 45u8, 104u8, 227u8, 179u8, 210u8,
+                124u8, 123u8, 6u8, 154u8, 98u8, 205u8, 38u8, 138u8, 217u8, 225u8, 205u8,
+                85u8, 201u8, 201u8, 242u8, 57u8, 50u8, 8u8, 144u8, 222u8, 35u8,
+            ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -1056,20 +1104,22 @@ pub mod ITangleSlashing {
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
-                        Self::SIGNATURE,
-                        topics.0,
-                        Self::SIGNATURE_HASH,
-                    ));
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
                 }
                 Ok(())
             }
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.amount,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
                 )
             }
             #[inline]
@@ -1088,7 +1138,9 @@ pub mod ITangleSlashing {
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
                 out[1usize] = <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
@@ -1115,11 +1167,12 @@ pub mod ITangleSlashing {
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `SlashProposed(uint64,address,uint16,bytes32)` and selector `0x0f9eb929e655f6ca1293bbddbade0ebf2c4b209d4454d5399825561892404962`.
-    ```solidity
-    event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 slashBps, bytes32 evidence);
-    ```*/
+```solidity
+event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 slashBps, bytes32 evidence);
+```*/
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -1151,19 +1204,20 @@ pub mod ITangleSlashing {
                 alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
-            type DataToken<'a> = <Self::DataTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
             );
             const SIGNATURE: &'static str = "SlashProposed(uint64,address,uint16,bytes32)";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 =
-                alloy_sol_types::private::B256::new([
-                    15u8, 158u8, 185u8, 41u8, 230u8, 85u8, 246u8, 202u8, 18u8, 147u8, 187u8, 221u8,
-                    186u8, 222u8, 14u8, 191u8, 44u8, 75u8, 32u8, 157u8, 68u8, 84u8, 213u8, 57u8,
-                    152u8, 37u8, 86u8, 24u8, 146u8, 64u8, 73u8, 98u8,
-                ]);
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                15u8, 158u8, 185u8, 41u8, 230u8, 85u8, 246u8, 202u8, 18u8, 147u8, 187u8,
+                221u8, 186u8, 222u8, 14u8, 191u8, 44u8, 75u8, 32u8, 157u8, 68u8, 84u8,
+                213u8, 57u8, 152u8, 37u8, 86u8, 24u8, 146u8, 64u8, 73u8, 98u8,
+            ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
             #[inline]
@@ -1183,11 +1237,13 @@ pub mod ITangleSlashing {
                 topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
             ) -> alloy_sol_types::Result<()> {
                 if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(alloy_sol_types::Error::invalid_event_signature_hash(
-                        Self::SIGNATURE,
-                        topics.0,
-                        Self::SIGNATURE_HASH,
-                    ));
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
                 }
                 Ok(())
             }
@@ -1218,7 +1274,9 @@ pub mod ITangleSlashing {
                 if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
                     return Err(alloy_sol_types::Error::Overrun);
                 }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(Self::SIGNATURE_HASH);
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
                 out[1usize] = <alloy::sol_types::sol_data::Uint<
                     64,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
@@ -1245,11 +1303,12 @@ pub mod ITangleSlashing {
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `cancelSlash(uint64,string)` and selector `0x06079dc5`.
-    ```solidity
-    function cancelSlash(uint64 slashId, string memory reason) external;
-    ```*/
+```solidity
+function cancelSlash(uint64 slashId, string memory reason) external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct cancelSlashCall {
@@ -1281,7 +1340,9 @@ pub mod ITangleSlashing {
             type UnderlyingRustTuple<'a> = (u64, alloy::sol_types::private::String);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1314,7 +1375,9 @@ pub mod ITangleSlashing {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1337,7 +1400,9 @@ pub mod ITangleSlashing {
             }
         }
         impl cancelSlashReturn {
-            fn _tokenize(&self) -> <cancelSlashCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(
+                &self,
+            ) -> <cancelSlashCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
@@ -1347,10 +1412,14 @@ pub mod ITangleSlashing {
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::String,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = cancelSlashReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "cancelSlash(uint64,string)";
             const SELECTOR: [u8; 4] = [6u8, 7u8, 157u8, 197u8];
             #[inline]
@@ -1362,9 +1431,9 @@ pub mod ITangleSlashing {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(
-                        &self.slashId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashId),
                     <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
                         &self.reason,
                     ),
@@ -1376,23 +1445,28 @@ pub mod ITangleSlashing {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `disputeSlash(uint64,string)` and selector `0x77380c74`.
-    ```solidity
-    function disputeSlash(uint64 slashId, string memory reason) external;
-    ```*/
+```solidity
+function disputeSlash(uint64 slashId, string memory reason) external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct disputeSlashCall {
@@ -1424,7 +1498,9 @@ pub mod ITangleSlashing {
             type UnderlyingRustTuple<'a> = (u64, alloy::sol_types::private::String);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1457,7 +1533,9 @@ pub mod ITangleSlashing {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1480,7 +1558,9 @@ pub mod ITangleSlashing {
             }
         }
         impl disputeSlashReturn {
-            fn _tokenize(&self) -> <disputeSlashCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+            fn _tokenize(
+                &self,
+            ) -> <disputeSlashCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 ()
             }
         }
@@ -1490,10 +1570,14 @@ pub mod ITangleSlashing {
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::String,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = disputeSlashReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "disputeSlash(uint64,string)";
             const SELECTOR: [u8; 4] = [119u8, 56u8, 12u8, 116u8];
             #[inline]
@@ -1505,9 +1589,9 @@ pub mod ITangleSlashing {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(
-                        &self.slashId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashId),
                     <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
                         &self.reason,
                     ),
@@ -1519,30 +1603,36 @@ pub mod ITangleSlashing {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `executeSlash(uint64)` and selector `0xa5bfbae4`.
-    ```solidity
-    function executeSlash(uint64 slashId) external returns (uint256 actualSlashed);
-    ```*/
+```solidity
+function executeSlash(uint64 slashId) external returns (uint256 actualSlashed);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct executeSlashCall {
         #[allow(missing_docs)]
         pub slashId: u64,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`executeSlash(uint64)`](executeSlashCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1566,7 +1656,9 @@ pub mod ITangleSlashing {
             type UnderlyingRustTuple<'a> = (u64,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1593,10 +1685,14 @@ pub mod ITangleSlashing {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::primitives::aliases::U256,);
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1614,19 +1710,21 @@ pub mod ITangleSlashing {
             #[doc(hidden)]
             impl ::core::convert::From<UnderlyingRustTuple<'_>> for executeSlashReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        actualSlashed: tuple.0,
-                    }
+                    Self { actualSlashed: tuple.0 }
                 }
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for executeSlashCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::primitives::aliases::U256;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "executeSlash(uint64)";
             const SELECTOR: [u8; 4] = [165u8, 191u8, 186u8, 228u8];
             #[inline]
@@ -1638,52 +1736,57 @@ pub mod ITangleSlashing {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(
-                        &self.slashId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashId),
                 )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: executeSlashReturn = r.into();
                         r.actualSlashed
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: executeSlashReturn = r.into();
-                    r.actualSlashed
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: executeSlashReturn = r.into();
+                        r.actualSlashed
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `executeSlashBatch(uint64[])` and selector `0xb055449b`.
-    ```solidity
-    function executeSlashBatch(uint64[] memory slashIds) external returns (uint256 totalSlashed, uint256 executedCount);
-    ```*/
+```solidity
+function executeSlashBatch(uint64[] memory slashIds) external returns (uint256 totalSlashed, uint256 executedCount);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct executeSlashBatchCall {
         #[allow(missing_docs)]
         pub slashIds: alloy::sol_types::private::Vec<u64>,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`executeSlashBatch(uint64[])`](executeSlashBatchCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1704,13 +1807,16 @@ pub mod ITangleSlashing {
         {
             #[doc(hidden)]
             #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> =
-                (alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,);
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,
+            );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Vec<u64>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1719,14 +1825,16 @@ pub mod ITangleSlashing {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<executeSlashBatchCall> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<executeSlashBatchCall>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: executeSlashBatchCall) -> Self {
                     (value.slashIds,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for executeSlashBatchCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for executeSlashBatchCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { slashIds: tuple.0 }
                 }
@@ -1746,7 +1854,9 @@ pub mod ITangleSlashing {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1755,14 +1865,16 @@ pub mod ITangleSlashing {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<executeSlashBatchReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<executeSlashBatchReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: executeSlashBatchReturn) -> Self {
                     (value.totalSlashed, value.executedCount)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for executeSlashBatchReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for executeSlashBatchReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         totalSlashed: tuple.0,
@@ -1776,26 +1888,31 @@ pub mod ITangleSlashing {
                 &self,
             ) -> <executeSlashBatchCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.totalSlashed,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<256> as alloy_sol_types::SolType>::tokenize(
-                        &self.executedCount,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.totalSlashed),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.executedCount),
                 )
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for executeSlashBatchCall {
-            type Parameters<'a> =
-                (alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = executeSlashBatchReturn;
             type ReturnTuple<'a> = (
                 alloy::sol_types::sol_data::Uint<256>,
                 alloy::sol_types::sol_data::Uint<256>,
             );
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "executeSlashBatch(uint64[])";
             const SELECTOR: [u8; 4] = [176u8, 85u8, 68u8, 155u8];
             #[inline]
@@ -1806,11 +1923,11 @@ pub mod ITangleSlashing {
             }
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
-                (<alloy::sol_types::sol_data::Array<
-                    alloy::sol_types::sol_data::Uint<64>,
-                > as alloy_sol_types::SolType>::tokenize(
-                    &self.slashIds
-                ),)
+                (
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Uint<64>,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashIds),
+                )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
@@ -1818,23 +1935,28 @@ pub mod ITangleSlashing {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getExecutableSlashes(uint64,uint64)` and selector `0x110f829b`.
-    ```solidity
-    function getExecutableSlashes(uint64 fromId, uint64 toId) external view returns (uint64[] memory ids);
-    ```*/
+```solidity
+function getExecutableSlashes(uint64 fromId, uint64 toId) external view returns (uint64[] memory ids);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct getExecutableSlashesCall {
@@ -1843,7 +1965,8 @@ pub mod ITangleSlashing {
         #[allow(missing_docs)]
         pub toId: u64,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`getExecutableSlashes(uint64,uint64)`](getExecutableSlashesCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1870,7 +1993,9 @@ pub mod ITangleSlashing {
             type UnderlyingRustTuple<'a> = (u64, u64);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1879,14 +2004,16 @@ pub mod ITangleSlashing {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<getExecutableSlashesCall> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<getExecutableSlashesCall>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: getExecutableSlashesCall) -> Self {
                     (value.fromId, value.toId)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for getExecutableSlashesCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getExecutableSlashesCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {
                         fromId: tuple.0,
@@ -1898,13 +2025,16 @@ pub mod ITangleSlashing {
         {
             #[doc(hidden)]
             #[allow(dead_code)]
-            type UnderlyingSolTuple<'a> =
-                (alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,);
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,
+            );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Vec<u64>,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -1913,14 +2043,16 @@ pub mod ITangleSlashing {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<getExecutableSlashesReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<getExecutableSlashesReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: getExecutableSlashesReturn) -> Self {
                     (value.ids,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for getExecutableSlashesReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getExecutableSlashesReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { ids: tuple.0 }
                 }
@@ -1932,11 +2064,16 @@ pub mod ITangleSlashing {
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<64>,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = alloy::sol_types::private::Vec<u64>;
-            type ReturnTuple<'a> =
-                (alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnTuple<'a> = (
+                alloy::sol_types::sol_data::Array<alloy::sol_types::sol_data::Uint<64>>,
+            );
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "getExecutableSlashes(uint64,uint64)";
             const SELECTOR: [u8; 4] = [17u8, 15u8, 130u8, 155u8];
             #[inline]
@@ -1948,46 +2085,52 @@ pub mod ITangleSlashing {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(
-                        &self.fromId,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(
-                        &self.toId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.fromId),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.toId),
                 )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (<alloy::sol_types::sol_data::Array<
-                    alloy::sol_types::sol_data::Uint<64>,
-                > as alloy_sol_types::SolType>::tokenize(ret),)
+                (
+                    <alloy::sol_types::sol_data::Array<
+                        alloy::sol_types::sol_data::Uint<64>,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: getExecutableSlashesReturn = r.into();
                         r.ids
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: getExecutableSlashesReturn = r.into();
-                    r.ids
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getExecutableSlashesReturn = r.into();
+                        r.ids
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getSlashProposal(uint64)` and selector `0xef1b42a2`.
-    ```solidity
-    function getSlashProposal(uint64 slashId) external view returns (SlashingLib.SlashProposal memory);
-    ```*/
+```solidity
+function getSlashProposal(uint64 slashId) external view returns (SlashingLib.SlashProposal memory);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct getSlashProposalCall {
@@ -1995,6 +2138,7 @@ pub mod ITangleSlashing {
         pub slashId: u64,
     }
     #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
     ///Container type for the return parameters of the [`getSlashProposal(uint64)`](getSlashProposalCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2018,7 +2162,9 @@ pub mod ITangleSlashing {
             type UnderlyingRustTuple<'a> = (u64,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2027,14 +2173,16 @@ pub mod ITangleSlashing {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<getSlashProposalCall> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<getSlashProposalCall>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: getSlashProposalCall) -> Self {
                     (value.slashId,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for getSlashProposalCall {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getSlashProposalCall {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { slashId: tuple.0 }
                 }
@@ -2045,11 +2193,14 @@ pub mod ITangleSlashing {
             #[allow(dead_code)]
             type UnderlyingSolTuple<'a> = (SlashingLib::SlashProposal,);
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> =
-                (<SlashingLib::SlashProposal as alloy::sol_types::SolType>::RustType,);
+            type UnderlyingRustTuple<'a> = (
+                <SlashingLib::SlashProposal as alloy::sol_types::SolType>::RustType,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2058,14 +2209,16 @@ pub mod ITangleSlashing {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<getSlashProposalReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<getSlashProposalReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: getSlashProposalReturn) -> Self {
                     (value._0,)
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for getSlashProposalReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getSlashProposalReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self { _0: tuple.0 }
                 }
@@ -2074,10 +2227,14 @@ pub mod ITangleSlashing {
         #[automatically_derived]
         impl alloy_sol_types::SolCall for getSlashProposalCall {
             type Parameters<'a> = (alloy::sol_types::sol_data::Uint<64>,);
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = <SlashingLib::SlashProposal as alloy::sol_types::SolType>::RustType;
             type ReturnTuple<'a> = (SlashingLib::SlashProposal,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "getSlashProposal(uint64)";
             const SELECTOR: [u8; 4] = [239u8, 27u8, 66u8, 162u8];
             #[inline]
@@ -2089,41 +2246,49 @@ pub mod ITangleSlashing {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(
-                        &self.slashId,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.slashId),
                 )
             }
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (<SlashingLib::SlashProposal as alloy_sol_types::SolType>::tokenize(ret),)
+                (
+                    <SlashingLib::SlashProposal as alloy_sol_types::SolType>::tokenize(
+                        ret,
+                    ),
+                )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: getSlashProposalReturn = r.into();
                         r._0
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: getSlashProposalReturn = r.into();
-                    r._0
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getSlashProposalReturn = r.into();
+                        r._0
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `proposeSlash(uint64,address,uint16,bytes32)` and selector `0x0472d2ff`.
-    ```solidity
-    function proposeSlash(uint64 serviceId, address operator, uint16 slashBps, bytes32 evidence) external returns (uint64 slashId);
-    ```*/
+```solidity
+function proposeSlash(uint64 serviceId, address operator, uint16 slashBps, bytes32 evidence) external returns (uint64 slashId);
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct proposeSlashCall {
@@ -2136,7 +2301,8 @@ pub mod ITangleSlashing {
         #[allow(missing_docs)]
         pub evidence: alloy::sol_types::private::FixedBytes<32>,
     }
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     ///Container type for the return parameters of the [`proposeSlash(uint64,address,uint16,bytes32)`](proposeSlashCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2170,7 +2336,9 @@ pub mod ITangleSlashing {
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2181,12 +2349,7 @@ pub mod ITangleSlashing {
             #[doc(hidden)]
             impl ::core::convert::From<proposeSlashCall> for UnderlyingRustTuple<'_> {
                 fn from(value: proposeSlashCall) -> Self {
-                    (
-                        value.serviceId,
-                        value.operator,
-                        value.slashBps,
-                        value.evidence,
-                    )
+                    (value.serviceId, value.operator, value.slashBps, value.evidence)
                 }
             }
             #[automatically_derived]
@@ -2210,7 +2373,9 @@ pub mod ITangleSlashing {
             type UnderlyingRustTuple<'a> = (u64,);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2240,10 +2405,14 @@ pub mod ITangleSlashing {
                 alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = u64;
             type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<64>,);
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "proposeSlash(uint64,address,uint16,bytes32)";
             const SELECTOR: [u8; 4] = [4u8, 114u8, 210u8, 255u8];
             #[inline]
@@ -2272,37 +2441,41 @@ pub mod ITangleSlashing {
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
                 )
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data).map(
-                    |r| {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
                         let r: proposeSlashReturn = r.into();
                         r.slashId
-                    },
-                )
+                    })
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(|r| {
-                    let r: proposeSlashReturn = r.into();
-                    r.slashId
-                })
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: proposeSlashReturn = r.into();
+                        r.slashId
+                    })
             }
         }
     };
-    #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `setSlashConfig(uint64,bool,uint16)` and selector `0x78867a16`.
-    ```solidity
-    function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps) external;
-    ```*/
+```solidity
+function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps) external;
+```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setSlashConfigCall {
@@ -2337,7 +2510,9 @@ pub mod ITangleSlashing {
             type UnderlyingRustTuple<'a> = (u64, bool, u16);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2348,11 +2523,7 @@ pub mod ITangleSlashing {
             #[doc(hidden)]
             impl ::core::convert::From<setSlashConfigCall> for UnderlyingRustTuple<'_> {
                 fn from(value: setSlashConfigCall) -> Self {
-                    (
-                        value.disputeWindow,
-                        value.instantSlashEnabled,
-                        value.maxSlashBps,
-                    )
+                    (value.disputeWindow, value.instantSlashEnabled, value.maxSlashBps)
                 }
             }
             #[automatically_derived]
@@ -2375,7 +2546,9 @@ pub mod ITangleSlashing {
             type UnderlyingRustTuple<'a> = ();
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(_t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>) {
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
                 match _t {
                     alloy_sol_types::private::AssertTypeEq::<
                         <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
@@ -2384,14 +2557,16 @@ pub mod ITangleSlashing {
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<setSlashConfigReturn> for UnderlyingRustTuple<'_> {
+            impl ::core::convert::From<setSlashConfigReturn>
+            for UnderlyingRustTuple<'_> {
                 fn from(value: setSlashConfigReturn) -> Self {
                     ()
                 }
             }
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>> for setSlashConfigReturn {
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for setSlashConfigReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                     Self {}
                 }
@@ -2411,10 +2586,14 @@ pub mod ITangleSlashing {
                 alloy::sol_types::sol_data::Bool,
                 alloy::sol_types::sol_data::Uint<16>,
             );
-            type Token<'a> = <Self::Parameters<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             type Return = setSlashConfigReturn;
             type ReturnTuple<'a> = ();
-            type ReturnToken<'a> = <Self::ReturnTuple<'a> as alloy_sol_types::SolType>::Token<'a>;
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "setSlashConfig(uint64,bool,uint16)";
             const SELECTOR: [u8; 4] = [120u8, 134u8, 122u8, 22u8];
             #[inline]
@@ -2426,15 +2605,15 @@ pub mod ITangleSlashing {
             #[inline]
             fn tokenize(&self) -> Self::Token<'_> {
                 (
-                    <alloy::sol_types::sol_data::Uint<64> as alloy_sol_types::SolType>::tokenize(
-                        &self.disputeWindow,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.disputeWindow),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.instantSlashEnabled,
                     ),
-                    <alloy::sol_types::sol_data::Uint<16> as alloy_sol_types::SolType>::tokenize(
-                        &self.maxSlashBps,
-                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.maxSlashBps),
                 )
             }
             #[inline]
@@ -2443,20 +2622,26 @@ pub mod ITangleSlashing {
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(Into::into)
             }
             #[inline]
-            fn abi_decode_returns_validate(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<'_> as alloy_sol_types::SolType>::abi_decode_sequence_validate(
-                    data,
-                )
-                .map(Into::into)
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
     ///Container for all the [`ITangleSlashing`](self) function calls.
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Clone)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
     pub enum ITangleSlashingCalls {
         #[allow(missing_docs)]
         cancelSlash(cancelSlashCall),
@@ -2528,7 +2713,9 @@ pub mod ITangleSlashing {
         }
         /// Returns the enum variant name for the given selector, if known.
         #[inline]
-        pub fn name_by_selector(selector: [u8; 4usize]) -> ::core::option::Option<&'static str> {
+        pub fn name_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
             let sig = Self::signature_by_selector(selector)?;
             sig.split_once('(').map(|(name, _)| name)
         }
@@ -2541,9 +2728,15 @@ pub mod ITangleSlashing {
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
-                Self::cancelSlash(_) => <cancelSlashCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::disputeSlash(_) => <disputeSlashCall as alloy_sol_types::SolCall>::SELECTOR,
-                Self::executeSlash(_) => <executeSlashCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::cancelSlash(_) => {
+                    <cancelSlashCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::disputeSlash(_) => {
+                    <disputeSlashCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::executeSlash(_) => {
+                    <executeSlashCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::executeSlashBatch(_) => {
                     <executeSlashBatchCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -2553,7 +2746,9 @@ pub mod ITangleSlashing {
                 Self::getSlashProposal(_) => {
                     <getSlashProposalCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::proposeSlash(_) => <proposeSlashCall as alloy_sol_types::SolCall>::SELECTOR,
+                Self::proposeSlash(_) => {
+                    <proposeSlashCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::setSlashConfig(_) => {
                     <setSlashConfigCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -2569,18 +2764,31 @@ pub mod ITangleSlashing {
         }
         #[inline]
         #[allow(non_snake_case)]
-        fn abi_decode_raw(selector: [u8; 4], data: &[u8]) -> alloy_sol_types::Result<Self> {
-            static DECODE_SHIMS: &[fn(&[u8]) -> alloy_sol_types::Result<ITangleSlashingCalls>] = &[
+        fn abi_decode_raw(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<ITangleSlashingCalls>] = &[
                 {
-                    fn proposeSlash(data: &[u8]) -> alloy_sol_types::Result<ITangleSlashingCalls> {
-                        <proposeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                    fn proposeSlash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                        <proposeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleSlashingCalls::proposeSlash)
                     }
                     proposeSlash
                 },
                 {
-                    fn cancelSlash(data: &[u8]) -> alloy_sol_types::Result<ITangleSlashingCalls> {
-                        <cancelSlashCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                    fn cancelSlash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                        <cancelSlashCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleSlashingCalls::cancelSlash)
                     }
                     cancelSlash
@@ -2589,14 +2797,20 @@ pub mod ITangleSlashing {
                     fn getExecutableSlashes(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
-                        <getExecutableSlashesCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <getExecutableSlashesCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleSlashingCalls::getExecutableSlashes)
                     }
                     getExecutableSlashes
                 },
                 {
-                    fn disputeSlash(data: &[u8]) -> alloy_sol_types::Result<ITangleSlashingCalls> {
-                        <disputeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                    fn disputeSlash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                        <disputeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleSlashingCalls::disputeSlash)
                     }
                     disputeSlash
@@ -2605,14 +2819,20 @@ pub mod ITangleSlashing {
                     fn setSlashConfig(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
-                        <setSlashConfigCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <setSlashConfigCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleSlashingCalls::setSlashConfig)
                     }
                     setSlashConfig
                 },
                 {
-                    fn executeSlash(data: &[u8]) -> alloy_sol_types::Result<ITangleSlashingCalls> {
-                        <executeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                    fn executeSlash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                        <executeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleSlashingCalls::executeSlash)
                     }
                     executeSlash
@@ -2621,7 +2841,9 @@ pub mod ITangleSlashing {
                     fn executeSlashBatch(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
-                        <executeSlashBatchCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <executeSlashBatchCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleSlashingCalls::executeSlashBatch)
                     }
                     executeSlashBatch
@@ -2630,17 +2852,21 @@ pub mod ITangleSlashing {
                     fn getSlashProposal(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
-                        <getSlashProposalCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
+                        <getSlashProposalCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
                             .map(ITangleSlashingCalls::getSlashProposal)
                     }
                     getSlashProposal
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_SHIMS[idx](data)
         }
@@ -2652,20 +2878,25 @@ pub mod ITangleSlashing {
         ) -> alloy_sol_types::Result<Self> {
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
-            )
-                -> alloy_sol_types::Result<ITangleSlashingCalls>] = &[
+            ) -> alloy_sol_types::Result<ITangleSlashingCalls>] = &[
                 {
-                    fn proposeSlash(data: &[u8]) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                    fn proposeSlash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
                         <proposeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleSlashingCalls::proposeSlash)
+                                data,
+                            )
+                            .map(ITangleSlashingCalls::proposeSlash)
                     }
                     proposeSlash
                 },
                 {
-                    fn cancelSlash(data: &[u8]) -> alloy_sol_types::Result<ITangleSlashingCalls> {
-                        <cancelSlashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(data)
+                    fn cancelSlash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                        <cancelSlashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
                             .map(ITangleSlashingCalls::cancelSlash)
                     }
                     cancelSlash
@@ -2682,11 +2913,13 @@ pub mod ITangleSlashing {
                     getExecutableSlashes
                 },
                 {
-                    fn disputeSlash(data: &[u8]) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                    fn disputeSlash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
                         <disputeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleSlashingCalls::disputeSlash)
+                                data,
+                            )
+                            .map(ITangleSlashingCalls::disputeSlash)
                     }
                     disputeSlash
                 },
@@ -2695,18 +2928,20 @@ pub mod ITangleSlashing {
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
                         <setSlashConfigCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleSlashingCalls::setSlashConfig)
+                                data,
+                            )
+                            .map(ITangleSlashingCalls::setSlashConfig)
                     }
                     setSlashConfig
                 },
                 {
-                    fn executeSlash(data: &[u8]) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                    fn executeSlash(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
                         <executeSlashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleSlashingCalls::executeSlash)
+                                data,
+                            )
+                            .map(ITangleSlashingCalls::executeSlash)
                     }
                     executeSlash
                 },
@@ -2726,18 +2961,20 @@ pub mod ITangleSlashing {
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
                         <getSlashProposalCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                            data,
-                        )
-                        .map(ITangleSlashingCalls::getSlashProposal)
+                                data,
+                            )
+                            .map(ITangleSlashingCalls::getSlashProposal)
                     }
                     getSlashProposal
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
-                return Err(alloy_sol_types::Error::unknown_selector(
-                    <Self as alloy_sol_types::SolInterface>::NAME,
-                    selector,
-                ));
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
             };
             DECODE_VALIDATE_SHIMS[idx](data)
         }
@@ -2745,28 +2982,44 @@ pub mod ITangleSlashing {
         fn abi_encoded_size(&self) -> usize {
             match self {
                 Self::cancelSlash(inner) => {
-                    <cancelSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <cancelSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::disputeSlash(inner) => {
-                    <disputeSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <disputeSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::executeSlash(inner) => {
-                    <executeSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <executeSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::executeSlashBatch(inner) => {
-                    <executeSlashBatchCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <executeSlashBatchCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::getExecutableSlashes(inner) => {
-                    <getExecutableSlashesCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <getExecutableSlashesCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::getSlashProposal(inner) => {
-                    <getSlashProposalCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <getSlashProposalCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::proposeSlash(inner) => {
-                    <proposeSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <proposeSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::setSlashConfig(inner) => {
-                    <setSlashConfigCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                    <setSlashConfigCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
             }
         }
@@ -2774,36 +3027,60 @@ pub mod ITangleSlashing {
         fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
             match self {
                 Self::cancelSlash(inner) => {
-                    <cancelSlashCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <cancelSlashCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::disputeSlash(inner) => {
-                    <disputeSlashCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <disputeSlashCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::executeSlash(inner) => {
-                    <executeSlashCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <executeSlashCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::executeSlashBatch(inner) => {
-                    <executeSlashBatchCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <executeSlashBatchCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::getExecutableSlashes(inner) => {
                     <getExecutableSlashesCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner, out,
+                        inner,
+                        out,
                     )
                 }
                 Self::getSlashProposal(inner) => {
-                    <getSlashProposalCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <getSlashProposalCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::proposeSlash(inner) => {
-                    <proposeSlashCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <proposeSlashCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
                 Self::setSlashConfig(inner) => {
-                    <setSlashConfigCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                    <setSlashConfigCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
             }
         }
     }
     ///Container for all the [`ITangleSlashing`](self) events.
-    #[derive(Clone, serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq, Hash)]
+    #[derive(Clone)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum ITangleSlashingEvents {
         #[allow(missing_docs)]
         SlashExecuted(SlashExecuted),
@@ -2819,14 +3096,14 @@ pub mod ITangleSlashing {
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                15u8, 158u8, 185u8, 41u8, 230u8, 85u8, 246u8, 202u8, 18u8, 147u8, 187u8, 221u8,
-                186u8, 222u8, 14u8, 191u8, 44u8, 75u8, 32u8, 157u8, 68u8, 84u8, 213u8, 57u8, 152u8,
-                37u8, 86u8, 24u8, 146u8, 64u8, 73u8, 98u8,
+                15u8, 158u8, 185u8, 41u8, 230u8, 85u8, 246u8, 202u8, 18u8, 147u8, 187u8,
+                221u8, 186u8, 222u8, 14u8, 191u8, 44u8, 75u8, 32u8, 157u8, 68u8, 84u8,
+                213u8, 57u8, 152u8, 37u8, 86u8, 24u8, 146u8, 64u8, 73u8, 98u8,
             ],
             [
-                38u8, 197u8, 196u8, 38u8, 223u8, 69u8, 45u8, 104u8, 227u8, 179u8, 210u8, 124u8,
-                123u8, 6u8, 154u8, 98u8, 205u8, 38u8, 138u8, 217u8, 225u8, 205u8, 85u8, 201u8,
-                201u8, 242u8, 57u8, 50u8, 8u8, 144u8, 222u8, 35u8,
+                38u8, 197u8, 196u8, 38u8, 223u8, 69u8, 45u8, 104u8, 227u8, 179u8, 210u8,
+                124u8, 123u8, 6u8, 154u8, 98u8, 205u8, 38u8, 138u8, 217u8, 225u8, 205u8,
+                85u8, 201u8, 201u8, 242u8, 57u8, 50u8, 8u8, 144u8, 222u8, 35u8,
             ],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
@@ -2853,7 +3130,9 @@ pub mod ITangleSlashing {
         }
         /// Returns the enum variant name for the given selector, if known.
         #[inline]
-        pub fn name_by_selector(selector: [u8; 32usize]) -> ::core::option::Option<&'static str> {
+        pub fn name_by_selector(
+            selector: [u8; 32usize],
+        ) -> ::core::option::Option<&'static str> {
             let sig = Self::signature_by_selector(selector)?;
             sig.split_once('(').map(|(name, _)| name)
         }
@@ -2868,22 +3147,30 @@ pub mod ITangleSlashing {
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
                 Some(<SlashExecuted as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <SlashExecuted as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
+                    <SlashExecuted as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
                         .map(Self::SlashExecuted)
                 }
                 Some(<SlashProposed as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
-                    <SlashProposed as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
+                    <SlashProposed as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
                         .map(Self::SlashProposed)
                 }
-                _ => alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
-                    name: <Self as alloy_sol_types::SolEventInterface>::NAME,
-                    log: alloy_sol_types::private::Box::new(
-                        alloy_sol_types::private::LogData::new_unchecked(
-                            topics.to_vec(),
-                            data.to_vec().into(),
+                _ => {
+                    alloy_sol_types::private::Err(alloy_sol_types::Error::InvalidLog {
+                        name: <Self as alloy_sol_types::SolEventInterface>::NAME,
+                        log: alloy_sol_types::private::Box::new(
+                            alloy_sol_types::private::LogData::new_unchecked(
+                                topics.to_vec(),
+                                data.to_vec().into(),
+                            ),
                         ),
-                    ),
-                }),
+                    })
+                }
             }
         }
     }
@@ -2913,7 +3200,7 @@ pub mod ITangleSlashing {
     use alloy::contract as alloy_contract;
     /**Creates a new wrapper around an on-chain [`ITangleSlashing`](self) contract instance.
 
-    See the [wrapper's documentation](`ITangleSlashingInstance`) for more details.*/
+See the [wrapper's documentation](`ITangleSlashingInstance`) for more details.*/
     #[inline]
     pub const fn new<
         P: alloy_contract::private::Provider<N>,
@@ -2926,41 +3213,43 @@ pub mod ITangleSlashing {
     }
     /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-    Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-    For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
     #[inline]
-    pub fn deploy<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>(
-        __provider: P,
-    ) -> impl ::core::future::Future<Output = alloy_contract::Result<ITangleSlashingInstance<P, N>>>
-    {
-        ITangleSlashingInstance::<P, N>::deploy(__provider)
-    }
-    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-    and constructor arguments, if any.
-
-    This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-    the bytecode concatenated with the constructor's ABI-encoded arguments.*/
-    #[inline]
-    pub fn deploy_builder<
+    pub fn deploy<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
     >(
         __provider: P,
-    ) -> alloy_contract::RawCallBuilder<P, N> {
+    ) -> impl ::core::future::Future<
+        Output = alloy_contract::Result<ITangleSlashingInstance<P, N>>,
+    > {
+        ITangleSlashingInstance::<P, N>::deploy(__provider)
+    }
+    /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
+and constructor arguments, if any.
+
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+    #[inline]
+    pub fn deploy_builder<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    >(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
         ITangleSlashingInstance::<P, N>::deploy_builder(__provider)
     }
     /**A [`ITangleSlashing`](self) instance.
 
-    Contains type-safe methods for interacting with an on-chain instance of the
-    [`ITangleSlashing`](self) contract located at a given `address`, using a given
-    provider `P`.
+Contains type-safe methods for interacting with an on-chain instance of the
+[`ITangleSlashing`](self) contract located at a given `address`, using a given
+provider `P`.
 
-    If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
-    documentation on how to provide it), the `deploy` and `deploy_builder` methods can
-    be used to deploy a new instance of the contract.
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
 
-    See the [module-level documentation](self) for all the available methods.*/
+See the [module-level documentation](self) for all the available methods.*/
     #[derive(Clone)]
     pub struct ITangleSlashingInstance<P, N = alloy_contract::private::Ethereum> {
         address: alloy_sol_types::private::Address,
@@ -2971,20 +3260,22 @@ pub mod ITangleSlashing {
     impl<P, N> ::core::fmt::Debug for ITangleSlashingInstance<P, N> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-            f.debug_tuple("ITangleSlashingInstance")
-                .field(&self.address)
-                .finish()
+            f.debug_tuple("ITangleSlashingInstance").field(&self.address).finish()
         }
     }
     /// Instantiation and getters/setters.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITangleSlashingInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITangleSlashingInstance<P, N> {
         /**Creates a new wrapper around an on-chain [`ITangleSlashing`](self) contract instance.
 
-        See the [wrapper's documentation](`ITangleSlashingInstance`) for more details.*/
+See the [wrapper's documentation](`ITangleSlashingInstance`) for more details.*/
         #[inline]
-        pub const fn new(address: alloy_sol_types::private::Address, __provider: P) -> Self {
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            __provider: P,
+        ) -> Self {
             Self {
                 address,
                 provider: __provider,
@@ -2993,9 +3284,9 @@ pub mod ITangleSlashing {
         }
         /**Deploys this contract using the given `provider` and constructor arguments, if any.
 
-        Returns a new instance of the contract, if the deployment was successful.
+Returns a new instance of the contract, if the deployment was successful.
 
-        For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
+For more fine-grained control over the deployment process, use [`deploy_builder`] instead.*/
         #[inline]
         pub async fn deploy(
             __provider: P,
@@ -3005,10 +3296,10 @@ pub mod ITangleSlashing {
             Ok(Self::new(contract_address, call_builder.provider))
         }
         /**Creates a `RawCallBuilder` for deploying this contract using the given `provider`
-        and constructor arguments, if any.
+and constructor arguments, if any.
 
-        This is a simple wrapper around creating a `RawCallBuilder` with the data set to
-        the bytecode concatenated with the constructor's ABI-encoded arguments.*/
+This is a simple wrapper around creating a `RawCallBuilder` with the data set to
+the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         #[inline]
         pub fn deploy_builder(__provider: P) -> alloy_contract::RawCallBuilder<P, N> {
             alloy_contract::RawCallBuilder::new_raw_deploy(
@@ -3049,9 +3340,10 @@ pub mod ITangleSlashing {
         }
     }
     /// Function calls.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITangleSlashingInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITangleSlashingInstance<P, N> {
         /// Creates a new call builder using this contract instance's provider and address.
         ///
         /// Note that the call can be any function call, not just those defined in this
@@ -3076,7 +3368,12 @@ pub mod ITangleSlashing {
             slashId: u64,
             reason: alloy::sol_types::private::String,
         ) -> alloy_contract::SolCallBuilder<&P, disputeSlashCall, N> {
-            self.call_builder(&disputeSlashCall { slashId, reason })
+            self.call_builder(
+                &disputeSlashCall {
+                    slashId,
+                    reason,
+                },
+            )
         }
         ///Creates a new call builder for the [`executeSlash`] function.
         pub fn executeSlash(
@@ -3098,7 +3395,12 @@ pub mod ITangleSlashing {
             fromId: u64,
             toId: u64,
         ) -> alloy_contract::SolCallBuilder<&P, getExecutableSlashesCall, N> {
-            self.call_builder(&getExecutableSlashesCall { fromId, toId })
+            self.call_builder(
+                &getExecutableSlashesCall {
+                    fromId,
+                    toId,
+                },
+            )
         }
         ///Creates a new call builder for the [`getSlashProposal`] function.
         pub fn getSlashProposal(
@@ -3115,12 +3417,14 @@ pub mod ITangleSlashing {
             slashBps: u16,
             evidence: alloy::sol_types::private::FixedBytes<32>,
         ) -> alloy_contract::SolCallBuilder<&P, proposeSlashCall, N> {
-            self.call_builder(&proposeSlashCall {
-                serviceId,
-                operator,
-                slashBps,
-                evidence,
-            })
+            self.call_builder(
+                &proposeSlashCall {
+                    serviceId,
+                    operator,
+                    slashBps,
+                    evidence,
+                },
+            )
         }
         ///Creates a new call builder for the [`setSlashConfig`] function.
         pub fn setSlashConfig(
@@ -3129,17 +3433,20 @@ pub mod ITangleSlashing {
             instantSlashEnabled: bool,
             maxSlashBps: u16,
         ) -> alloy_contract::SolCallBuilder<&P, setSlashConfigCall, N> {
-            self.call_builder(&setSlashConfigCall {
-                disputeWindow,
-                instantSlashEnabled,
-                maxSlashBps,
-            })
+            self.call_builder(
+                &setSlashConfigCall {
+                    disputeWindow,
+                    instantSlashEnabled,
+                    maxSlashBps,
+                },
+            )
         }
     }
     /// Event filters.
-    impl<P: alloy_contract::private::Provider<N>, N: alloy_contract::private::Network>
-        ITangleSlashingInstance<P, N>
-    {
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > ITangleSlashingInstance<P, N> {
         /// Creates a new event filter using this contract instance's provider and address.
         ///
         /// Note that the type can be any event, not just those defined in this contract.
@@ -3150,11 +3457,15 @@ pub mod ITangleSlashing {
             alloy_contract::Event::new_sol(&self.provider, &self.address)
         }
         ///Creates a new event filter for the [`SlashExecuted`] event.
-        pub fn SlashExecuted_filter(&self) -> alloy_contract::Event<&P, SlashExecuted, N> {
+        pub fn SlashExecuted_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, SlashExecuted, N> {
             self.event_filter::<SlashExecuted>()
         }
         ///Creates a new event filter for the [`SlashProposed`] event.
-        pub fn SlashProposed_filter(&self) -> alloy_contract::Event<&P, SlashProposed, N> {
+        pub fn SlashProposed_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, SlashProposed, N> {
             self.event_filter::<SlashProposed>()
         }
     }
