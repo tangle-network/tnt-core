@@ -619,7 +619,7 @@ contract RFQPaymentDistributionTest is BaseTest {
             price: price,
             timestamp: baseTimestamp,
             expiry: baseTimestamp + 1 hours,
-            confidentiality: 0
+            confidentiality: Types.ConfidentialityPolicy.Any
         });
 
         bytes memory signature = _signJobQuote(details, privateKey);

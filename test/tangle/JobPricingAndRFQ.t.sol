@@ -311,7 +311,7 @@ contract JobPricingAndRFQTest is BaseTest {
             price: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp - 1), // Already expired
-            confidentiality: 0
+            confidentiality: Types.ConfidentialityPolicy.Any
         });
 
         bytes memory signature = _signJobQuote(details, OPERATOR1_PK);
@@ -330,7 +330,7 @@ contract JobPricingAndRFQTest is BaseTest {
             price: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
-            confidentiality: 0
+            confidentiality: Types.ConfidentialityPolicy.Any
         });
 
         // Sign with wrong key
@@ -511,7 +511,7 @@ contract JobPricingAndRFQTest is BaseTest {
             price: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp), // expiry == now — still valid
-            confidentiality: 0
+            confidentiality: Types.ConfidentialityPolicy.Any
         });
 
         bytes memory signature = _signJobQuote(details, OPERATOR1_PK);
@@ -535,7 +535,7 @@ contract JobPricingAndRFQTest is BaseTest {
             price: 1 ether,
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp - 1),
-            confidentiality: 0
+            confidentiality: Types.ConfidentialityPolicy.Any
         });
 
         bytes memory signature = _signJobQuote(details, OPERATOR1_PK);
@@ -660,7 +660,7 @@ contract JobPricingAndRFQTest is BaseTest {
             price: price,
             timestamp: baseTimestamp,
             expiry: baseTimestamp + 1 hours,
-            confidentiality: 0
+            confidentiality: Types.ConfidentialityPolicy.Any
         });
 
         bytes memory signature = _signJobQuote(details, privateKey);

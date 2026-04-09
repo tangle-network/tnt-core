@@ -592,7 +592,7 @@ library Types {
         uint256 price; // Operator's price in native token (wei)
         uint64 timestamp; // When quote generated
         uint64 expiry; // Quote expiry timestamp
-        uint8 confidentiality; // 0=Any, 1=Required, 2=Preferred
+        ConfidentialityPolicy confidentiality; // Execution confidentiality policy
     }
 
     /// @notice Signed per-job quote from an operator

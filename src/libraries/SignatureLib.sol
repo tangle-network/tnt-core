@@ -184,7 +184,7 @@ library SignatureLib {
                 details.price,
                 details.timestamp,
                 details.expiry,
-                details.confidentiality
+                uint8(details.confidentiality)
             )
         );
     }
