@@ -9,6 +9,7 @@ set -euo pipefail
 #
 # Optional env:
 # - FULL_DEPLOY_CONFIG (defaults to deploy/config/base-sepolia.json)
+# - FOUNDRY_PROFILE (defaults to deploy_size to keep ServiceFeeDistributor under EIP-170)
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
@@ -17,6 +18,7 @@ cd "$ROOT_DIR"
 : "${BASE_SEPOLIA_RPC:?Missing BASE_SEPOLIA_RPC}"
 
 FULL_DEPLOY_CONFIG="${FULL_DEPLOY_CONFIG:-deploy/config/base-sepolia.json}"
+FOUNDRY_PROFILE="${FOUNDRY_PROFILE:-deploy_size}"
 
 if [[ ! -f "$FULL_DEPLOY_CONFIG" ]]; then
   echo "Config not found: $FULL_DEPLOY_CONFIG" >&2
@@ -37,8 +39,10 @@ fi
 echo "==> Deploying TNT protocol to Base Sepolia"
 echo "Config:    $FULL_DEPLOY_CONFIG"
 echo "Manifest:  $MANIFEST_PATH"
+echo "Profile:   $FOUNDRY_PROFILE"
 
 FULL_DEPLOY_CONFIG="$FULL_DEPLOY_CONFIG" \
+FOUNDRY_PROFILE="$FOUNDRY_PROFILE" \
 forge script script/FullDeploy.s.sol:FullDeploy \
   --rpc-url "$BASE_SEPOLIA_RPC" \
   --broadcast \
