@@ -21,7 +21,7 @@ optimizer = false
 sparse_mode = true
 gas_reports = []
 fuzz = { runs = 256 }
-invariant = { runs = 64, depth = 64, fail_on_revert = false }
+invariant = { runs = 64, depth = 64, fail_on_revert = true }
 
 [profile.local_build]
 # Local build-only profile that excludes tests and scripts from the compile graph.
@@ -61,7 +61,7 @@ wrap_comments = true
 
 
 [invariant]
-fail_on_revert = false
+fail_on_revert = true
 runs = 256
 depth = 120
 

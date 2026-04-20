@@ -39,6 +39,8 @@ contract MockCrossChainReceiver is ICrossChainReceiver {
     }
 }
 
+uint256 constant SOURCE_CHAIN_ID = 11155111;
+
 contract MockArbitrumInbox is IArbitrumInbox {
     struct TicketParams {
         address to;
@@ -323,7 +325,7 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
         function test_arbitrumL2Receiver_RelaysFromAliasedSender() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
             address l1Sender = makeAddr("l1Sender");
-            ArbitrumL2Receiver l2Receiver = new ArbitrumL2Receiver(l1Sender, address(receiver));
+            ArbitrumL2Receiver l2Receiver = new ArbitrumL2Receiver(l1Sender, address(receiver), SOURCE_CHAIN_ID);
 
             bytes memory data = abi.encode("hello");
             address aliased = l2Receiver.applyL1ToL2Alias(l1Sender);
@@ -331,7 +333,7 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
             vm.prank(aliased);
             l2Receiver.relayMessage(data);
 
-            assertEq(receiver.lastSourceChainId(), 1);
+            assertEq(receiver.lastSourceChainId(), SOURCE_CHAIN_ID);
             assertEq(receiver.lastSender(), l1Sender);
             assertEq(receiver.lastPayload(), data);
         }
@@ -339,10 +341,29 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
         function test_arbitrumL2Receiver_RevertWhenSenderIsNotAliased() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
             address l1Sender = makeAddr("l1Sender");
-            ArbitrumL2Receiver l2Receiver = new ArbitrumL2Receiver(l1Sender, address(receiver));
+            ArbitrumL2Receiver l2Receiver = new ArbitrumL2Receiver(l1Sender, address(receiver), SOURCE_CHAIN_ID);
 
             vm.expectRevert("Invalid sender");
             l2Receiver.relayMessage("bad");
+        }
+
+        function test_arbitrumL2Receiver_RevertOnDuplicatePayload() public {
+            MockCrossChainReceiver receiver = new MockCrossChainReceiver();
+            address l1Sender = makeAddr("l1Sender");
+            ArbitrumL2Receiver l2Receiver = new ArbitrumL2Receiver(l1Sender, address(receiver), SOURCE_CHAIN_ID);
+
+            bytes memory data = abi.encode("hello");
+            address aliased = l2Receiver.applyL1ToL2Alias(l1Sender);
+
+            vm.prank(aliased);
+            l2Receiver.relayMessage(data);
+
+            bytes32 messageId = keccak256(abi.encode(block.chainid, l1Sender, data));
+            assertTrue(l2Receiver.isMessageProcessed(messageId));
+
+            vm.prank(aliased);
+            vm.expectRevert(abi.encodeWithSelector(ArbitrumL2Receiver.MessageAlreadyProcessed.selector, messageId));
+            l2Receiver.relayMessage(data);
         }
     }
 
@@ -380,21 +401,23 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function test_relayMessage_ValidatesMessengerAndSender() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
-            BaseL2Receiver l2Receiver = new BaseL2Receiver(address(baseMessenger), address(this), address(receiver));
+            BaseL2Receiver l2Receiver =
+                new BaseL2Receiver(address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID);
             bytes memory message = abi.encode("data");
 
             baseMessenger.setXDomainMessageSender(address(this));
             vm.prank(address(baseMessenger));
             l2Receiver.relayMessage(message);
 
-            assertEq(receiver.lastSourceChainId(), 1);
+            assertEq(receiver.lastSourceChainId(), SOURCE_CHAIN_ID);
             assertEq(receiver.lastSender(), address(this));
             assertEq(receiver.lastPayload(), message);
         }
 
         function test_relayMessage_RevertWhenMessengerMismatch() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
-            BaseL2Receiver l2Receiver = new BaseL2Receiver(address(baseMessenger), address(this), address(receiver));
+            BaseL2Receiver l2Receiver =
+                new BaseL2Receiver(address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID);
             bytes memory message = abi.encode("data");
 
             vm.expectRevert("Only messenger");
@@ -403,12 +426,31 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function test_relayMessage_RevertWhenSenderMismatch() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
-            BaseL2Receiver l2Receiver = new BaseL2Receiver(address(baseMessenger), address(this), address(receiver));
+            BaseL2Receiver l2Receiver =
+                new BaseL2Receiver(address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID);
             bytes memory message = abi.encode("data");
 
             baseMessenger.setXDomainMessageSender(makeAddr("other"));
             vm.prank(address(baseMessenger));
             vm.expectRevert("Invalid sender");
+            l2Receiver.relayMessage(message);
+        }
+
+        function test_relayMessage_RevertOnDuplicatePayload() public {
+            MockCrossChainReceiver receiver = new MockCrossChainReceiver();
+            BaseL2Receiver l2Receiver =
+                new BaseL2Receiver(address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID);
+            bytes memory message = abi.encode("data");
+
+            baseMessenger.setXDomainMessageSender(address(this));
+            vm.prank(address(baseMessenger));
+            l2Receiver.relayMessage(message);
+
+            bytes32 messageId = keccak256(abi.encode(block.chainid, address(this), message));
+            assertTrue(l2Receiver.isMessageProcessed(messageId));
+
+            vm.prank(address(baseMessenger));
+            vm.expectRevert(abi.encodeWithSelector(BaseL2Receiver.MessageAlreadyProcessed.selector, messageId));
             l2Receiver.relayMessage(message);
         }
     }
