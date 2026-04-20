@@ -6,10 +6,10 @@
   "_todo_tnt_sentinel": "TODO: 0x0000000000000000000000000000000000000001 is a sentinel meaning 'use the deployed/reused TNT token' (FullDeploy replaces it at runtime)",
   "_todo_roles": "TODO: set the production admin/treasury/timelock/multisig addresses before deployment",
   "roles": {
-    "admin": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
-    "treasury": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
-    "timelock": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
-    "multisig": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "admin": "0x03A763af11dC58B459A469A9895389F5880B45F4",
+    "treasury": "0x03A763af11dC58B459A469A9895389F5880B45F4",
+    "timelock": "0x03A763af11dC58B459A469A9895389F5880B45F4",
+    "multisig": "0x03A763af11dC58B459A469A9895389F5880B45F4",
     "revokeBootstrap": false
   },
   "core": {
@@ -74,7 +74,7 @@
     },
     {
       "symbol": "USDC",
-      "token": "0x0000000000000000000000000000000000000000",
+      "token": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 0,
       "minDelegation": 0,
@@ -188,7 +188,7 @@
     "evmClaimsPath": "packages/migration-claim/evm-claims.json",
     "treasuryCarveoutPath": "packages/migration-claim/treasury-carveout.json",
     "foundationCarveoutPath": "packages/migration-claim/foundation-carveout.json",
-    "migrationOwner": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "migrationOwner": "0x03A763af11dC58B459A469A9895389F5880B45F4",
     "sp1VerifierGateway": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B",
     "programVKey": "0x000d74444f16d75f72527687a36c1bd4c49e6799816dac4989be3bc175e86fd7",
     "merkleRoot": "0x54ec5497e0a2f43ec721c1ec5392cb224cf710b1210b579dcaefea002bb51adb",
@@ -196,15 +196,15 @@
     "evmAllocation": "1125776519168932451653760",
     "treasuryAmount": "41844468761091374585756819",
     "foundationAmount": "15040809826744825912214026",
-    "treasuryRecipient": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
-    "foundationRecipient": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "treasuryRecipient": "0x03A763af11dC58B459A469A9895389F5880B45F4",
+    "foundationRecipient": "0x03A763af11dC58B459A469A9895389F5880B45F4",
     "_todo_migration_notes": "TODO: document how these artifacts feed the dashboard",
     "notes": "TODO: add rollout notes"
   },
   "credits": {
     "deploy": true,
     "_todo_owner": "TODO: set to timelock/multisig that should manage credits epochs",
-    "owner": "0x89db5277A310C473d515891cafCD4E66b8A7F06F",
+    "owner": "0x03A763af11dC58B459A469A9895389F5880B45F4",
     "credits": "0x0000000000000000000000000000000000000000"
   }
 }
