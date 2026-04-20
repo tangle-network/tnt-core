@@ -9,6 +9,7 @@ import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockPriceOracle } from "../exposure/MockPriceOracle.sol";
 import { ServiceFeeDistributor } from "../../src/rewards/ServiceFeeDistributor.sol";
 import { SlashingLib } from "../../src/libraries/SlashingLib.sol";
+import { IPriceOracle } from "../../src/oracles/interfaces/IPriceOracle.sol";
 
 contract PerAssetExposureIntegrationTest is BaseTest {
     MockERC20 internal stakeToken;
@@ -169,5 +170,50 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         SlashingLib.SlashProposal memory p = tangle.getSlashProposal(slashId);
         assertEq(p.slashBps, slashBps);
         assertEq(p.effectiveSlashBps, (uint256(slashBps) * 5500) / 10_000);
+    }
+
+    function test_ServiceFee_Distribution_RevertsWhenOraclePriceUnavailable() public {
+        Types.AssetSecurityRequirement[] memory reqs = new Types.AssetSecurityRequirement[](2);
+        reqs[0] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.Native, token: address(0) }),
+            minExposureBps: 1000,
+            maxExposureBps: 10_000
+        });
+        reqs[1] = Types.AssetSecurityRequirement({
+            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(stakeToken) }),
+            minExposureBps: 1000,
+            maxExposureBps: 10_000
+        });
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+
+        uint256 paymentAmount = 110 ether;
+        vm.startPrank(user1);
+        payToken.approve(address(tangle), paymentAmount);
+        uint64 requestId = tangle.requestServiceWithSecurity(
+            blueprintId,
+            ops,
+            reqs,
+            "",
+            new address[](0),
+            0,
+            address(payToken),
+            paymentAmount,
+            Types.ConfidentialityPolicy.Any
+        );
+        vm.stopPrank();
+
+        // Remove ERC20 pricing before approval. Service activation/payment distribution must
+        // fail closed instead of mixing raw token units into USD-normalized exposure weights.
+        oracle.setPrice(address(stakeToken), 0);
+
+        Types.AssetSecurityCommitment[] memory commits = new Types.AssetSecurityCommitment[](2);
+        commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10_000 });
+        commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 1000 });
+
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(IPriceOracle.PriceNotAvailable.selector, address(stakeToken)));
+        tangle.approveServiceWithCommitments(requestId, commits);
     }
 }
