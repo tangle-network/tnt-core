@@ -230,7 +230,10 @@ contract FullDeploy is DeployV2 {
 
         address priceOracle = cfg.incentives.priceOracle;
         address serviceFeeDistributor = cfg.incentives.serviceFeeDistributor;
-        if (cfg.incentives.deployServiceFeeDistributor) {
+        if (
+            cfg.incentives.deployServiceFeeDistributor
+                || (serviceFeeDistributor == address(0) && _serviceFeeDistributorRequired(tangle))
+        ) {
             serviceFeeDistributor = _deployServiceFeeDistributorProxy(admin, staking, tangle, priceOracle);
         }
 
@@ -973,6 +976,12 @@ contract FullDeploy is DeployV2 {
             ServiceFeeDistributor(payable(distributor)).setStreamingManager(streamingMgr);
             console2.log("Configured StreamingPaymentManager on ServiceFeeDistributor");
         }
+    }
+
+    function _serviceFeeDistributorRequired(address tangleAddr) internal view returns (bool) {
+        if (tangleAddr == address(0)) return false;
+        (,,, uint16 stakerBps) = ITangleAdmin(tangleAddr).paymentSplit();
+        return stakerBps > 0;
     }
 
     function _applyGuards(address stakingAddr, address tangleAddr, GuardsConfig memory guards) internal {

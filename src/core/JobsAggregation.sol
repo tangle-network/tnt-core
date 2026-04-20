@@ -48,13 +48,41 @@ abstract contract JobsAggregation is Base {
         whenNotPaused
         nonReentrant
     {
-        (Types.Service storage svc, Types.JobCall storage job, Types.Blueprint storage bp) =
-            _loadServiceJobAndBlueprint(serviceId, callId);
+        Types.Service storage svc = _getService(serviceId);
+        Types.JobCall storage job = _getJobCall(serviceId, callId);
+        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
 
-        _validateAggregatedSubmissionPreconditions(serviceId, callId, output, svc, job, bp.manager);
+        if (job.completed) {
+            revert Errors.JobAlreadyCompleted(serviceId, callId);
+        }
 
-        AggregationConfig memory config = _getAggregationConfig(bp.manager, serviceId, job.jobIndex);
-        _enforceAggregationThreshold(serviceId, callId, signerBitmap, config);
+        bool aggregationRequired;
+        uint16 thresholdBps = DEFAULT_AGGREGATION_THRESHOLD_BPS;
+        uint8 thresholdType = 0;
+        if (bp.manager != address(0)) {
+            try IBlueprintServiceManager(bp.manager).requiresAggregation(serviceId, job.jobIndex) returns (bool aggReq) {
+                aggregationRequired = aggReq;
+            } catch { }
+
+            try IBlueprintServiceManager(bp.manager).getAggregationThreshold(serviceId, job.jobIndex) returns (
+                uint16 customThresholdBps, uint8 customThresholdType
+            ) {
+                thresholdBps = customThresholdBps;
+                thresholdType = customThresholdType;
+            } catch { }
+        }
+        if (!aggregationRequired) {
+            revert Errors.AggregationNotRequired(serviceId, job.jobIndex);
+        }
+
+        Types.StoredJobSchema storage schema = _jobSchema(svc.blueprintId, job.jobIndex);
+        SchemaLib.validateJobResult(schema, output, svc.blueprintId, job.jobIndex);
+
+        (uint256 achieved, uint256 required) =
+            _validateSignersAndThreshold(serviceId, signerBitmap, thresholdBps, thresholdType);
+        if (achieved < required) {
+            revert Errors.AggregationThresholdNotMet(serviceId, callId, achieved, required);
+        }
 
         _verifyAggregatedSignature(serviceId, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey);
 
@@ -92,29 +120,11 @@ abstract contract JobsAggregation is Base {
         }
 
         if (bp.manager != address(0)) {
-            _notifyManagerAggregatedResult(
-                bp.manager, job.jobIndex, serviceId, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey
-            );
-        }
-    }
-
-    function _notifyManagerAggregatedResult(
-        address manager,
-        uint8 jobIndex,
-        uint64 serviceId,
-        uint64 callId,
-        bytes calldata output,
-        uint256 signerBitmap,
-        uint256[2] calldata aggregatedSignature,
-        uint256[4] calldata aggregatedPubkey
-    )
-        private
-    {
-        try IBlueprintServiceManager(manager)
-            .onAggregatedResult(
-                serviceId, jobIndex, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey
+            try IBlueprintServiceManager(bp.manager).onAggregatedResult(
+                serviceId, job.jobIndex, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey
             ) { }
             catch { }
+        }
     }
 
     /// @notice Record job completion metrics for all signers in an aggregated result
@@ -131,57 +141,6 @@ abstract contract JobsAggregation is Base {
                 // This operator signed - record job completion
                 _recordJobCompletion(operators[i], serviceId, callId, true);
             }
-        }
-    }
-
-    function _loadServiceJobAndBlueprint(
-        uint64 serviceId,
-        uint64 callId
-    )
-        private
-        view
-        returns (Types.Service storage svc, Types.JobCall storage job, Types.Blueprint storage bp)
-    {
-        svc = _getService(serviceId);
-        job = _getJobCall(serviceId, callId);
-        bp = _blueprints[svc.blueprintId];
-    }
-
-    function _validateAggregatedSubmissionPreconditions(
-        uint64 serviceId,
-        uint64 callId,
-        bytes calldata output,
-        Types.Service storage svc,
-        Types.JobCall storage job,
-        address manager
-    )
-        private
-        view
-    {
-        if (job.completed) {
-            revert Errors.JobAlreadyCompleted(serviceId, callId);
-        }
-
-        _ensureAggregationRequired(manager, serviceId, job.jobIndex);
-
-        Types.StoredJobSchema storage schema = _jobSchema(svc.blueprintId, job.jobIndex);
-        SchemaLib.validateJobResult(schema, output, svc.blueprintId, job.jobIndex);
-    }
-
-    function _enforceAggregationThreshold(
-        uint64 serviceId,
-        uint64 callId,
-        uint256 signerBitmap,
-        AggregationConfig memory config
-    )
-        private
-        view
-    {
-        (uint256 achieved, uint256 required) =
-            _validateSignersAndThreshold(serviceId, signerBitmap, config.thresholdBps, config.thresholdType);
-
-        if (achieved < required) {
-            revert Errors.AggregationThresholdNotMet(serviceId, callId, achieved, required);
         }
     }
 
@@ -248,45 +207,6 @@ abstract contract JobsAggregation is Base {
                 stats.signerCount++;
                 stats.signerWeight += weight;
             }
-        }
-    }
-
-    struct AggregationConfig {
-        uint16 thresholdBps;
-        uint8 thresholdType;
-    }
-
-    function _getAggregationConfig(
-        address manager,
-        uint64 serviceId,
-        uint8 jobIndex
-    )
-        private
-        view
-        returns (AggregationConfig memory config)
-    {
-        config.thresholdBps = DEFAULT_AGGREGATION_THRESHOLD_BPS;
-        config.thresholdType = 0; // Default CountBased
-
-        if (manager != address(0)) {
-            try IBlueprintServiceManager(manager).getAggregationThreshold(serviceId, jobIndex) returns (
-                uint16 thresholdBps, uint8 thresholdType
-            ) {
-                config.thresholdBps = thresholdBps;
-                config.thresholdType = thresholdType;
-            } catch { }
-        }
-    }
-
-    function _ensureAggregationRequired(address manager, uint64 serviceId, uint8 jobIndex) private view {
-        bool required;
-        if (manager != address(0)) {
-            try IBlueprintServiceManager(manager).requiresAggregation(serviceId, jobIndex) returns (bool aggReq) {
-                required = aggReq;
-            } catch { }
-        }
-        if (!required) {
-            revert Errors.AggregationNotRequired(serviceId, jobIndex);
         }
     }
 

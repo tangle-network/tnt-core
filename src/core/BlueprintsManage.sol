@@ -22,6 +22,48 @@ abstract contract BlueprintsManage is Base {
     // BLUEPRINT MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice Get current blueprint count
+    function blueprintCount() external view returns (uint64) {
+        return _blueprintCount;
+    }
+
+    /// @notice Get blueprint metadata and URI
+    function blueprintMetadata(uint64 blueprintId)
+        external
+        view
+        returns (Types.BlueprintMetadata memory metadata, string memory metadataUri)
+    {
+        metadata = _blueprintMetadata[blueprintId];
+        metadataUri = _blueprintMetadataUri[blueprintId];
+    }
+
+    /// @notice Get blueprint sources
+    function blueprintSources(uint64 blueprintId) external view returns (Types.BlueprintSource[] memory sources) {
+        Types.BlueprintSource[] storage stored = _blueprintSources[blueprintId];
+        sources = new Types.BlueprintSource[](stored.length);
+        for (uint256 i = 0; i < stored.length; ++i) {
+            sources[i] = stored[i];
+        }
+    }
+
+    /// @notice Get blueprint supported membership models
+    function blueprintSupportedMemberships(uint64 blueprintId)
+        external
+        view
+        returns (Types.MembershipModel[] memory memberships)
+    {
+        Types.MembershipModel[] storage stored = _blueprintSupportedMemberships[blueprintId];
+        memberships = new Types.MembershipModel[](stored.length);
+        for (uint256 i = 0; i < stored.length; ++i) {
+            memberships[i] = stored[i];
+        }
+    }
+
+    /// @notice Get master blueprint revision
+    function blueprintMasterRevision(uint64 blueprintId) external view returns (uint32) {
+        return _blueprintMasterRevisions[blueprintId];
+    }
+
     /// @notice Retrieve the original blueprint definition
     function getBlueprintDefinition(uint64 blueprintId)
         external

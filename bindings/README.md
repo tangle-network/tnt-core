@@ -6,7 +6,7 @@ Rust bindings for [TNT Core](https://github.com/tangle-network/tnt-core) Solidit
 
 ```toml
 [dependencies]
-tnt-core-bindings = "0.1"
+tnt-core-bindings = "0.10.7"
 ```
 
 ## Usage

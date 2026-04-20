@@ -485,52 +485,6 @@ abstract contract Base is
         return _operatorBlueprintCounts[operator];
     }
 
-    /// @notice Get stored blueprint metadata
-    /// @param blueprintId The blueprint ID to query
-    /// @return metadata The blueprint's rich metadata
-    /// @return metadataUri The blueprint's metadata URI
-    function blueprintMetadata(uint64 blueprintId)
-        external
-        view
-        returns (Types.BlueprintMetadata memory metadata, string memory metadataUri)
-    {
-        metadata = _blueprintMetadata[blueprintId];
-        metadataUri = _blueprintMetadataUri[blueprintId];
-    }
-
-    /// @notice Get stored blueprint sources
-    /// @param blueprintId The blueprint ID to query
-    /// @return sources The array of implementation sources for the blueprint
-    function blueprintSources(uint64 blueprintId) external view returns (Types.BlueprintSource[] memory sources) {
-        Types.BlueprintSource[] storage stored = _blueprintSources[blueprintId];
-        sources = new Types.BlueprintSource[](stored.length);
-        for (uint256 i = 0; i < stored.length; ++i) {
-            sources[i] = stored[i];
-        }
-    }
-
-    /// @notice Get supported membership models for a blueprint
-    /// @param blueprintId The blueprint ID to query
-    /// @return memberships The array of supported membership models
-    function blueprintSupportedMemberships(uint64 blueprintId)
-        external
-        view
-        returns (Types.MembershipModel[] memory memberships)
-    {
-        Types.MembershipModel[] storage stored = _blueprintSupportedMemberships[blueprintId];
-        memberships = new Types.MembershipModel[](stored.length);
-        for (uint256 i = 0; i < stored.length; ++i) {
-            memberships[i] = stored[i];
-        }
-    }
-
-    /// @notice Get the pinned master blueprint service manager revision for a blueprint
-    /// @param blueprintId The blueprint ID to query
-    /// @return The MBSM revision pinned for this blueprint
-    function blueprintMasterRevision(uint64 blueprintId) external view returns (uint32) {
-        return _blueprintMasterRevisions[blueprintId];
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════
     // METRICS HOOKS (lightweight, fail-safe)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -749,12 +703,6 @@ abstract contract Base is
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice Get total number of blueprints created
-    /// @return The total blueprint count (also used as next blueprint ID)
-    function blueprintCount() external view returns (uint64) {
-        return _blueprintCount;
-    }
 
     /// @notice Get total number of services created
     /// @return The total service count (also used as next service ID)

@@ -175,4 +175,5 @@ abstract contract BlueprintsCreate is Base {
     {
         IMasterBlueprintServiceManager(masterManager).onBlueprintCreated(blueprintId, owner, encodedDefinition);
     }
+
 }

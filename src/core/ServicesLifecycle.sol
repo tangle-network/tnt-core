@@ -174,75 +174,13 @@ abstract contract ServicesLifecycle is Base {
 
     /// @notice Join a dynamic service
     function joinService(uint64 serviceId, uint16 exposureBps) external whenNotPaused nonReentrant {
-        Types.Service storage svc = _getService(serviceId);
-        if (svc.status != Types.ServiceStatus.Active) {
-            revert Errors.ServiceNotActive(serviceId);
-        }
-        if (svc.membership != Types.MembershipModel.Dynamic) {
-            revert Errors.InvalidState();
-        }
+        (Types.Service storage svc, Types.Blueprint storage bp) = _loadJoinContext(serviceId);
         if (_serviceSecurityRequirements[serviceId].length > 0) {
             // Enforce explicit per-asset security commitments when the service requires them.
             revert Errors.SecurityCommitmentsRequired(serviceId);
         }
-        if (svc.maxOperators > 0 && svc.operatorCount >= svc.maxOperators) {
-            revert Errors.InvalidState();
-        }
-        if (_operatorRegistrations[svc.blueprintId][msg.sender].registeredAt == 0) {
-            revert Errors.OperatorNotRegistered(svc.blueprintId, msg.sender);
-        }
-        if (_serviceOperators[serviceId][msg.sender].active) {
-            revert Errors.InvalidState();
-        }
-
-        // Validate minimum stake requirement (re-check in case operator withdrew after registration)
-        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
-        uint256 minStake = _staking.minOperatorStake();
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (
-                bool useDefault, uint256 customMin
-            ) {
-                if (!useDefault && customMin > 0) {
-                    minStake = customMin;
-                }
-            } catch { }
-        }
-        if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
-            revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
-        }
-
-        // Check if manager allows this operator to join
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).canJoin(serviceId, msg.sender) returns (bool allowed) {
-                if (!allowed) {
-                    revert Errors.Unauthorized();
-                }
-            } catch { }
-        }
-
-        _serviceOperators[serviceId][msg.sender] = Types.ServiceOperator({
-            exposureBps: exposureBps, joinedAt: uint64(block.timestamp), leftAt: 0, active: true
-        });
-        _serviceOperatorSet[serviceId].add(msg.sender);
-        svc.operatorCount++;
-
-        // Track active service count per blueprint for operator unregistration checks
-        _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
-
-        // Register operator in heartbeat registry for liveness tracking
-        if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) { } catch { }
-        }
-
-        emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
-
-        // Notify manager of successful join
-        if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onOperatorJoined, (serviceId, msg.sender, exposureBps))
-            );
-        }
+        _validateJoinRequirements(serviceId, bp);
+        _finalizeJoin(serviceId, exposureBps, svc, bp);
     }
 
     /// @notice Join a dynamic service with per-asset security commitments
@@ -255,22 +193,7 @@ abstract contract ServicesLifecycle is Base {
         whenNotPaused
         nonReentrant
     {
-        Types.Service storage svc = _getService(serviceId);
-        if (svc.status != Types.ServiceStatus.Active) {
-            revert Errors.ServiceNotActive(serviceId);
-        }
-        if (svc.membership != Types.MembershipModel.Dynamic) {
-            revert Errors.InvalidState();
-        }
-        if (svc.maxOperators > 0 && svc.operatorCount >= svc.maxOperators) {
-            revert Errors.InvalidState();
-        }
-        if (_operatorRegistrations[svc.blueprintId][msg.sender].registeredAt == 0) {
-            revert Errors.OperatorNotRegistered(svc.blueprintId, msg.sender);
-        }
-        if (_serviceOperators[serviceId][msg.sender].active) {
-            revert Errors.InvalidState();
-        }
+        (Types.Service storage svc, Types.Blueprint storage bp) = _loadJoinContext(serviceId);
 
         Types.AssetSecurityRequirement[] storage requirements = _serviceSecurityRequirements[serviceId];
         if (requirements.length > 0) {
@@ -292,54 +215,8 @@ abstract contract ServicesLifecycle is Base {
         }
         emit OperatorSecurityCommitmentsStored(serviceId, msg.sender, commitments.length);
 
-        // Validate minimum stake requirement (re-check in case operator withdrew after registration)
-        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
-        uint256 minStake = _staking.minOperatorStake();
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (
-                bool useDefault, uint256 customMin
-            ) {
-                if (!useDefault && customMin > 0) {
-                    minStake = customMin;
-                }
-            } catch { }
-        }
-        if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
-            revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
-        }
-
-        // Check if manager allows this operator to join
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).canJoin(serviceId, msg.sender) returns (bool allowed) {
-                if (!allowed) {
-                    revert Errors.Unauthorized();
-                }
-            } catch { }
-        }
-
-        _serviceOperators[serviceId][msg.sender] = Types.ServiceOperator({
-            exposureBps: exposureBps, joinedAt: uint64(block.timestamp), leftAt: 0, active: true
-        });
-        _serviceOperatorSet[serviceId].add(msg.sender);
-        svc.operatorCount++;
-
-        // Track active service count per blueprint for operator unregistration checks
-        _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
-
-        // Register operator in heartbeat registry for liveness tracking
-        if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) { } catch { }
-        }
-
-        emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
-
-        // Notify manager of successful join
-        if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onOperatorJoined, (serviceId, msg.sender, exposureBps))
-            );
-        }
+        _validateJoinRequirements(serviceId, bp);
+        _finalizeJoin(serviceId, exposureBps, svc, bp);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -514,36 +391,7 @@ abstract contract ServicesLifecycle is Base {
             } catch { }
         }
 
-        // Drip streaming payments BEFORE removing operator (ensures fair distribution)
-        // M-15 FIX: Emit event on external call failure
-        if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) { }
-            catch (bytes memory reason) {
-                emit ServiceFeeDistributorCallFailed(serviceId, "onOperatorLeaving", reason);
-            }
-        }
-
-        opData.active = false;
-        opData.leftAt = uint64(block.timestamp);
-        _serviceOperatorSet[serviceId].remove(operator);
-        svc.operatorCount--;
-
-        // Decrement active service count for operator unregistration checks
-        if (_operatorActiveServiceCount[svc.blueprintId][operator] > 0) {
-            _operatorActiveServiceCount[svc.blueprintId][operator]--;
-        }
-
-        // Deregister operator from heartbeat registry
-        if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) { } catch { }
-        }
-
-        emit OperatorLeftService(serviceId, operator);
-
-        // Notify manager of successful leave
-        if (bp.manager != address(0)) {
-            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator)));
-        }
+        _removeOperatorFromService(serviceId, operator, svc, bp);
     }
 
     /// @notice Force remove operator from service - EMERGENCY USE ONLY
@@ -569,37 +417,9 @@ abstract contract ServicesLifecycle is Base {
         // Don't check min operators - force removal is an emergency action
         // Don't check exit queue - this bypasses normal exit process
 
-        // Drip streaming payments before removal
-        // M-15 FIX: Emit event on external call failure
-        if (_serviceFeeDistributor != address(0)) {
-            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) { }
-            catch (bytes memory reason) {
-                emit ServiceFeeDistributorCallFailed(serviceId, "onOperatorLeaving", reason);
-            }
-        }
-
-        opData.active = false;
-        opData.leftAt = uint64(block.timestamp);
-        _serviceOperatorSet[serviceId].remove(operator);
-        svc.operatorCount--;
-
-        // Decrement active service count for operator unregistration checks
-        if (_operatorActiveServiceCount[svc.blueprintId][operator] > 0) {
-            _operatorActiveServiceCount[svc.blueprintId][operator]--;
-        }
-
         // Clear any pending exit request
         delete _exitRequests[serviceId][operator];
-
-        // Deregister operator from heartbeat registry
-        if (_operatorStatusRegistry != address(0)) {
-            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) { } catch { }
-        }
-
-        emit OperatorLeftService(serviceId, operator);
-
-        // Notify manager (it called us, but we still notify for consistency)
-        _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator)));
+        _removeOperatorFromService(serviceId, operator, svc, bp);
     }
 
     /// @notice Get exit configuration for a service
@@ -746,6 +566,124 @@ abstract contract ServicesLifecycle is Base {
 
             if (!found) {
                 revert Errors.MissingAssetCommitment(req.asset.token);
+            }
+        }
+    }
+
+    function _loadJoinContext(
+        uint64 serviceId
+    )
+        private
+        view
+        returns (Types.Service storage svc, Types.Blueprint storage bp)
+    {
+        svc = _getService(serviceId);
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
+        if (svc.membership != Types.MembershipModel.Dynamic) {
+            revert Errors.InvalidState();
+        }
+        if (svc.maxOperators > 0 && svc.operatorCount >= svc.maxOperators) {
+            revert Errors.InvalidState();
+        }
+        if (_operatorRegistrations[svc.blueprintId][msg.sender].registeredAt == 0) {
+            revert Errors.OperatorNotRegistered(svc.blueprintId, msg.sender);
+        }
+        if (_serviceOperators[serviceId][msg.sender].active) {
+            revert Errors.InvalidState();
+        }
+        bp = _blueprints[svc.blueprintId];
+    }
+
+    function _validateJoinRequirements(uint64 serviceId, Types.Blueprint storage bp) private view {
+        uint256 minStake = _staking.minOperatorStake();
+        if (bp.manager != address(0)) {
+            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (
+                bool useDefault, uint256 customMin
+            ) {
+                if (!useDefault && customMin > 0) {
+                    minStake = customMin;
+                }
+            } catch { }
+
+            try IBlueprintServiceManager(bp.manager).canJoin(serviceId, msg.sender) returns (bool allowed) {
+                if (!allowed) {
+                    revert Errors.Unauthorized();
+                }
+            } catch { }
+        }
+
+        if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
+            revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
+        }
+    }
+
+    function _finalizeJoin(
+        uint64 serviceId,
+        uint16 exposureBps,
+        Types.Service storage svc,
+        Types.Blueprint storage bp
+    )
+        private
+    {
+        _serviceOperators[serviceId][msg.sender] = Types.ServiceOperator({
+            exposureBps: exposureBps, joinedAt: uint64(block.timestamp), leftAt: 0, active: true
+        });
+        _serviceOperatorSet[serviceId].add(msg.sender);
+        svc.operatorCount++;
+        _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
+
+        if (_operatorStatusRegistry != address(0)) {
+            try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) { } catch { }
+        }
+
+        emit OperatorJoinedService(serviceId, msg.sender, exposureBps);
+
+        if (bp.manager != address(0)) {
+            _tryCallManager(
+                bp.manager,
+                abi.encodeCall(IBlueprintServiceManager.onOperatorJoined, (serviceId, msg.sender, exposureBps))
+            );
+        }
+    }
+
+    function _removeOperatorFromService(
+        uint64 serviceId,
+        address operator,
+        Types.Service storage svc,
+        Types.Blueprint storage bp
+    )
+        private
+    {
+        _notifyDistributorOperatorLeaving(serviceId, operator);
+
+        Types.ServiceOperator storage opData = _serviceOperators[serviceId][operator];
+        opData.active = false;
+        opData.leftAt = uint64(block.timestamp);
+        _serviceOperatorSet[serviceId].remove(operator);
+        svc.operatorCount--;
+
+        if (_operatorActiveServiceCount[svc.blueprintId][operator] > 0) {
+            _operatorActiveServiceCount[svc.blueprintId][operator]--;
+        }
+
+        if (_operatorStatusRegistry != address(0)) {
+            try IOperatorStatusRegistry(_operatorStatusRegistry).deregisterOperator(serviceId, operator) { } catch { }
+        }
+
+        emit OperatorLeftService(serviceId, operator);
+
+        if (bp.manager != address(0)) {
+            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onOperatorLeft, (serviceId, operator)));
+        }
+    }
+
+    function _notifyDistributorOperatorLeaving(uint64 serviceId, address operator) private {
+        if (_serviceFeeDistributor != address(0)) {
+            try IServiceFeeDistributor(_serviceFeeDistributor).onOperatorLeaving(serviceId, operator) { }
+            catch (bytes memory reason) {
+                emit ServiceFeeDistributorCallFailed(serviceId, "onOperatorLeaving", reason);
             }
         }
     }
