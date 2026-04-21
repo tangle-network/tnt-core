@@ -14,7 +14,10 @@ import { LayerZeroReceiver } from "../../src/beacon/bridges/LayerZeroCrossChainM
 import { IStaking } from "../../src/interfaces/IStaking.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { MultiAssetDelegation } from "../../src/staking/MultiAssetDelegation.sol";
+import { OperatorStatusRegistry } from "../../src/staking/OperatorStatusRegistry.sol";
 import { Tangle } from "../../src/Tangle.sol";
+import { TangleToken } from "../../src/governance/TangleToken.sol";
+import { FullDeploy } from "../../script/FullDeploy.s.sol";
 
 /// @notice Minimal staking stub so L2 slashing scripts can deploy their contracts
 contract MockStaking is IStaking {
@@ -130,6 +133,57 @@ contract DeployV2Harness is DeployV2 {
     {
         (stakingProxy,, tangleProxy,, statusRegistry) = _deployCore(0, admin, admin, treasury, false);
     }
+
+    function deployCoreWithStatusRegistryOwnerNoPrank(
+        address admin,
+        address treasury,
+        address statusRegistryOwner
+    )
+        external
+        returns (address stakingProxy, address tangleProxy, address statusRegistry)
+    {
+        (stakingProxy,, tangleProxy,, statusRegistry) =
+            _deployCore(0, admin, admin, treasury, statusRegistryOwner, false);
+    }
+}
+
+contract FullDeployHarness is FullDeploy {
+    function assertGovernanceConfigurationNoPrank(
+        address bootstrapAdmin,
+        address timelock,
+        address multisig,
+        address tangleAddr,
+        address stakingAddr,
+        address tntToken,
+        address statusRegistryAddr
+    )
+        external
+        view
+    {
+        RolesConfig memory roles = RolesConfig({
+            admin: bootstrapAdmin,
+            treasury: bootstrapAdmin,
+            timelock: timelock,
+            multisig: multisig,
+            revokeBootstrap: true
+        });
+
+        _assertGovernanceConfiguration(
+            roles,
+            bootstrapAdmin,
+            timelock,
+            multisig,
+            tangleAddr,
+            stakingAddr,
+            statusRegistryAddr,
+            tntToken,
+            address(0),
+            address(0),
+            address(0),
+            address(0),
+            address(0)
+        );
+    }
 }
 
 contract DeployBeaconSlashingHarness is DeployBeaconSlashingL1 {
@@ -201,6 +255,81 @@ contract DeploymentScriptsTest is Test {
         assertTrue(staking.hasRole(slasherRole, tangleProxy), "tangle should be slasher");
         assertEq(Tangle(payable(tangleProxy)).operatorStatusRegistry(), statusRegistry, "registry wired");
         assertTrue(Tangle(payable(tangleProxy)).tntToken() != address(0), "tnt token configured");
+    }
+
+    function testDeployCoreCanSetStatusRegistryOwnerToTimelock() public {
+        address admin = makeAddr("admin");
+        address treasury = makeAddr("treasury");
+        address timelock = makeAddr("timelock");
+
+        DeployV2Harness script = new DeployV2Harness();
+        (, address tangleProxy, address statusRegistry) =
+            script.deployCoreWithStatusRegistryOwnerNoPrank(admin, treasury, timelock);
+
+        assertEq(OperatorStatusRegistry(statusRegistry).owner(), timelock, "status registry should start on timelock");
+        assertEq(Tangle(payable(tangleProxy)).operatorStatusRegistry(), statusRegistry, "registry wired");
+    }
+
+    function testFullDeployRoleHandoffRevokesBootstrapAndPinsGovernance() public {
+        address admin = makeAddr("admin");
+        address treasury = makeAddr("treasury");
+        address timelock = makeAddr("timelock");
+        address multisig = makeAddr("multisig");
+
+        DeployV2Harness deployHarness = new DeployV2Harness();
+        (address stakingProxy, address tangleProxy, address statusRegistry) =
+            deployHarness.deployCoreWithStatusRegistryOwnerNoPrank(admin, treasury, timelock);
+
+        FullDeployHarness fullDeploy = new FullDeployHarness();
+        Tangle tangle = Tangle(payable(tangleProxy));
+        MultiAssetDelegation staking = MultiAssetDelegation(payable(stakingProxy));
+        TangleToken token = TangleToken(tangle.tntToken());
+
+        vm.startPrank(admin);
+        tangle.grantRole(tangle.DEFAULT_ADMIN_ROLE(), timelock);
+        tangle.grantRole(tangle.ADMIN_ROLE(), timelock);
+        tangle.grantRole(tangle.UPGRADER_ROLE(), timelock);
+        tangle.grantRole(tangle.PAUSER_ROLE(), multisig);
+        tangle.grantRole(tangle.SLASH_ADMIN_ROLE(), multisig);
+        tangle.revokeRole(tangle.PAUSER_ROLE(), admin);
+        tangle.revokeRole(tangle.SLASH_ADMIN_ROLE(), admin);
+        tangle.revokeRole(tangle.ADMIN_ROLE(), admin);
+        tangle.revokeRole(tangle.UPGRADER_ROLE(), admin);
+        tangle.revokeRole(tangle.DEFAULT_ADMIN_ROLE(), admin);
+
+        staking.grantRole(staking.DEFAULT_ADMIN_ROLE(), timelock);
+        staking.grantRole(staking.ADMIN_ROLE(), timelock);
+        staking.grantRole(staking.ASSET_MANAGER_ROLE(), multisig);
+        staking.revokeRole(staking.ASSET_MANAGER_ROLE(), admin);
+        staking.revokeRole(staking.ADMIN_ROLE(), admin);
+        staking.revokeRole(staking.DEFAULT_ADMIN_ROLE(), admin);
+
+        token.grantRole(token.DEFAULT_ADMIN_ROLE(), timelock);
+        token.grantRole(token.MINTER_ROLE(), timelock);
+        token.grantRole(token.UPGRADER_ROLE(), timelock);
+        token.revokeRole(token.MINTER_ROLE(), admin);
+        token.revokeRole(token.UPGRADER_ROLE(), admin);
+        token.revokeRole(token.DEFAULT_ADMIN_ROLE(), admin);
+        vm.stopPrank();
+
+        fullDeploy.assertGovernanceConfigurationNoPrank(
+            admin, timelock, multisig, tangleProxy, stakingProxy, address(token), statusRegistry
+        );
+
+        assertTrue(tangle.hasRole(tangle.DEFAULT_ADMIN_ROLE(), timelock), "timelock should own tangle admin");
+        assertTrue(tangle.hasRole(tangle.PAUSER_ROLE(), multisig), "multisig should own pauser");
+        assertFalse(tangle.hasRole(tangle.DEFAULT_ADMIN_ROLE(), admin), "bootstrap tangle admin should be revoked");
+        assertFalse(tangle.hasRole(tangle.PAUSER_ROLE(), admin), "bootstrap pauser should be revoked");
+
+        assertTrue(staking.hasRole(staking.DEFAULT_ADMIN_ROLE(), timelock), "timelock should own staking admin");
+        assertTrue(
+            staking.hasRole(staking.ASSET_MANAGER_ROLE(), multisig), "multisig should own staking asset manager"
+        );
+        assertFalse(
+            staking.hasRole(staking.DEFAULT_ADMIN_ROLE(), admin), "bootstrap staking admin should be revoked"
+        );
+
+        assertEq(OperatorStatusRegistry(statusRegistry).owner(), timelock, "status registry owner should stay timelock");
     }
 
     function testDeployBeaconSlashingScriptRunsHyperlane() public {

@@ -91,6 +91,12 @@ read_manifest_address() {
   jq -r "$query // empty" "$MANIFEST_PATH"
 }
 
+read_config_value() {
+  local query="$1"
+  [[ -n "$CONFIG_PATH" ]] || return 1
+  jq -r "$query // empty" "$CONFIG_PATH"
+}
+
 check_code() {
   local label="$1"
   local address="$2"
@@ -117,6 +123,53 @@ require_from_config() {
   [[ "$value" == "true" ]]
 }
 
+normalize_bool_result() {
+  local value
+  value="$(echo "${1:-}" | tr '[:upper:]' '[:lower:]' | tr -d '\n\r[:space:]')"
+  [[ "$value" == "true" || "$value" == "0x0000000000000000000000000000000000000000000000000000000000000001" ]]
+}
+
+check_has_role() {
+  local label="$1"
+  local address="$2"
+  local role="$3"
+  local account="$4"
+  [[ -n "$address" && "$address" != "0x0000000000000000000000000000000000000000" ]] || return 0
+  [[ -n "$account" && "$account" != "0x0000000000000000000000000000000000000000" ]] || return 0
+
+  local result
+  result="$(cast call "$address" "hasRole(bytes32,address)(bool)" "$role" "$account" --rpc-url "$RPC_URL")"
+  normalize_bool_result "$result" || fail "$label missing role $role for $account"
+  echo "Verified $label role $role for $account"
+}
+
+check_missing_role() {
+  local label="$1"
+  local address="$2"
+  local role="$3"
+  local account="$4"
+  [[ -n "$address" && "$address" != "0x0000000000000000000000000000000000000000" ]] || return 0
+  [[ -n "$account" && "$account" != "0x0000000000000000000000000000000000000000" ]] || return 0
+
+  local result
+  result="$(cast call "$address" "hasRole(bytes32,address)(bool)" "$role" "$account" --rpc-url "$RPC_URL")"
+  normalize_bool_result "$result" && fail "$label unexpectedly retains role $role for $account"
+  echo "Verified $label does not grant role $role to $account"
+}
+
+check_owner() {
+  local label="$1"
+  local address="$2"
+  local expected_owner="$3"
+  [[ -n "$address" && "$address" != "0x0000000000000000000000000000000000000000" ]] || return 0
+  [[ -n "$expected_owner" && "$expected_owner" != "0x0000000000000000000000000000000000000000" ]] || return 0
+
+  local owner
+  owner="$(cast call "$address" "owner()(address)" --rpc-url "$RPC_URL" | tr -d '\n\r[:space:]')"
+  [[ "${owner,,}" == "${expected_owner,,}" ]] || fail "$label owner mismatch: expected $expected_owner, got $owner"
+  echo "Verified $label owner: $owner"
+}
+
 CORE_REQUIRED=false
 METRICS_REQUIRED=false
 REWARD_VAULTS_REQUIRED=false
@@ -140,5 +193,95 @@ check_code "inflationPool" "$(read_manifest_address '.inflationPool')" "$INFLATI
 check_code "credits" "$(read_manifest_address '.credits')" "$CREDITS_REQUIRED"
 check_code "tangleMigration" "$(read_manifest_address '.migration.tangleMigration')" "$MIGRATION_REQUIRED"
 check_code "zkVerifier" "$(read_manifest_address '.migration.zkVerifier')" "$MIGRATION_REQUIRED"
+
+if [[ -n "$CONFIG_PATH" ]]; then
+  DEFAULT_ADMIN_ROLE="0x0000000000000000000000000000000000000000000000000000000000000000"
+  ADMIN_ROLE="$(cast keccak "ADMIN_ROLE")"
+  PAUSER_ROLE="$(cast keccak "PAUSER_ROLE")"
+  UPGRADER_ROLE="$(cast keccak "UPGRADER_ROLE")"
+  SLASH_ADMIN_ROLE="$(cast keccak "SLASH_ADMIN_ROLE")"
+  ASSET_MANAGER_ROLE="$(cast keccak "ASSET_MANAGER_ROLE")"
+  MINTER_ROLE="$(cast keccak "MINTER_ROLE")"
+
+  CONFIG_ADMIN="$(read_config_value '.roles.admin')"
+  [[ -n "$CONFIG_ADMIN" ]] || CONFIG_ADMIN="$(read_manifest_address '.admin')"
+  CONFIG_TIMELOCK="$(read_config_value '.roles.timelock')"
+  CONFIG_MULTISIG="$(read_config_value '.roles.multisig')"
+  CONFIG_REVOKE_BOOTSTRAP="$(jq -r '.roles.revokeBootstrap // false' "$CONFIG_PATH")"
+
+  [[ -n "$CONFIG_TIMELOCK" && "$CONFIG_TIMELOCK" != "0x0000000000000000000000000000000000000000" ]] || CONFIG_TIMELOCK="$CONFIG_ADMIN"
+  [[ -n "$CONFIG_MULTISIG" && "$CONFIG_MULTISIG" != "0x0000000000000000000000000000000000000000" ]] || CONFIG_MULTISIG="$CONFIG_ADMIN"
+
+  TANGLE_ADDR="$(read_manifest_address '.tangle')"
+  STAKING_ADDR="$(read_manifest_address '.staking // .restaking')"
+  STATUS_REGISTRY_ADDR="$(read_manifest_address '.statusRegistry')"
+  TNT_TOKEN_ADDR="$(read_manifest_address '.tntToken')"
+  METRICS_ADDR="$(read_manifest_address '.metrics')"
+  REWARD_VAULTS_ADDR="$(read_manifest_address '.rewardVaults')"
+  INFLATION_POOL_ADDR="$(read_manifest_address '.inflationPool')"
+  SERVICE_FEE_DISTRIBUTOR_ADDR="$(read_manifest_address '.serviceFeeDistributor')"
+  STREAMING_PAYMENT_MANAGER_ADDR="$(read_manifest_address '.streamingPaymentManager')"
+  CREDITS_ADDR="$(read_manifest_address '.credits')"
+  MIGRATION_ADDR="$(read_manifest_address '.migration.tangleMigration')"
+
+  check_has_role "tangle" "$TANGLE_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "tangle" "$TANGLE_ADDR" "$ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "tangle" "$TANGLE_ADDR" "$UPGRADER_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "tangle" "$TANGLE_ADDR" "$PAUSER_ROLE" "$CONFIG_MULTISIG"
+  check_has_role "tangle" "$TANGLE_ADDR" "$SLASH_ADMIN_ROLE" "$CONFIG_MULTISIG"
+
+  check_has_role "staking" "$STAKING_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "staking" "$STAKING_ADDR" "$ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "staking" "$STAKING_ADDR" "$ASSET_MANAGER_ROLE" "$CONFIG_MULTISIG"
+
+  check_has_role "tntToken" "$TNT_TOKEN_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "tntToken" "$TNT_TOKEN_ADDR" "$MINTER_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "tntToken" "$TNT_TOKEN_ADDR" "$UPGRADER_ROLE" "$CONFIG_TIMELOCK"
+
+  check_has_role "metrics" "$METRICS_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "metrics" "$METRICS_ADDR" "$UPGRADER_ROLE" "$CONFIG_TIMELOCK"
+
+  check_has_role "rewardVaults" "$REWARD_VAULTS_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "rewardVaults" "$REWARD_VAULTS_ADDR" "$ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "rewardVaults" "$REWARD_VAULTS_ADDR" "$UPGRADER_ROLE" "$CONFIG_TIMELOCK"
+
+  check_has_role "inflationPool" "$INFLATION_POOL_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "inflationPool" "$INFLATION_POOL_ADDR" "$ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "inflationPool" "$INFLATION_POOL_ADDR" "$UPGRADER_ROLE" "$CONFIG_TIMELOCK"
+
+  check_has_role "serviceFeeDistributor" "$SERVICE_FEE_DISTRIBUTOR_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "serviceFeeDistributor" "$SERVICE_FEE_DISTRIBUTOR_ADDR" "$ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "serviceFeeDistributor" "$SERVICE_FEE_DISTRIBUTOR_ADDR" "$UPGRADER_ROLE" "$CONFIG_TIMELOCK"
+
+  check_has_role "streamingPaymentManager" "$STREAMING_PAYMENT_MANAGER_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "streamingPaymentManager" "$STREAMING_PAYMENT_MANAGER_ADDR" "$ADMIN_ROLE" "$CONFIG_TIMELOCK"
+  check_has_role "streamingPaymentManager" "$STREAMING_PAYMENT_MANAGER_ADDR" "$UPGRADER_ROLE" "$CONFIG_TIMELOCK"
+
+  check_owner "statusRegistry" "$STATUS_REGISTRY_ADDR" "$CONFIG_TIMELOCK"
+
+  CREDITS_OWNER="$(read_config_value '.credits.owner')"
+  [[ -n "$CREDITS_OWNER" && "$CREDITS_OWNER" != "0x0000000000000000000000000000000000000000" ]] || CREDITS_OWNER="$CONFIG_TIMELOCK"
+  check_owner "credits" "$CREDITS_ADDR" "$CREDITS_OWNER"
+
+  MIGRATION_OWNER="$(read_config_value '.migration.migrationOwner')"
+  [[ -n "$MIGRATION_OWNER" && "$MIGRATION_OWNER" != "0x0000000000000000000000000000000000000000" ]] || MIGRATION_OWNER="$CONFIG_TIMELOCK"
+  check_owner "tangleMigration" "$MIGRATION_ADDR" "$MIGRATION_OWNER"
+
+  if [[ "$CONFIG_REVOKE_BOOTSTRAP" == "true" && "${CONFIG_ADMIN,,}" != "${CONFIG_TIMELOCK,,}" && "${CONFIG_ADMIN,,}" != "${CONFIG_MULTISIG,,}" ]]; then
+    check_missing_role "tangle" "$TANGLE_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_ADMIN"
+    check_missing_role "tangle" "$TANGLE_ADDR" "$ADMIN_ROLE" "$CONFIG_ADMIN"
+    check_missing_role "tangle" "$TANGLE_ADDR" "$UPGRADER_ROLE" "$CONFIG_ADMIN"
+    check_missing_role "tangle" "$TANGLE_ADDR" "$PAUSER_ROLE" "$CONFIG_ADMIN"
+    check_missing_role "tangle" "$TANGLE_ADDR" "$SLASH_ADMIN_ROLE" "$CONFIG_ADMIN"
+
+    check_missing_role "staking" "$STAKING_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_ADMIN"
+    check_missing_role "staking" "$STAKING_ADDR" "$ADMIN_ROLE" "$CONFIG_ADMIN"
+    check_missing_role "staking" "$STAKING_ADDR" "$ASSET_MANAGER_ROLE" "$CONFIG_ADMIN"
+
+    check_missing_role "tntToken" "$TNT_TOKEN_ADDR" "$DEFAULT_ADMIN_ROLE" "$CONFIG_ADMIN"
+    check_missing_role "tntToken" "$TNT_TOKEN_ADDR" "$MINTER_ROLE" "$CONFIG_ADMIN"
+    check_missing_role "tntToken" "$TNT_TOKEN_ADDR" "$UPGRADER_ROLE" "$CONFIG_ADMIN"
+  fi
+fi
 
 echo "Manifest verification passed."
