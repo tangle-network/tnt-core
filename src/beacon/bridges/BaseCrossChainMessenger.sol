@@ -140,6 +140,7 @@ contract BaseL2Receiver {
     address public immutable l1Sender;
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
     ICrossChainReceiver public immutable receiver;
+    uint256 public immutable sourceChainId;
 
     /// @notice M-12 FIX: Track processed message IDs to prevent replay attacks
     mapping(bytes32 => bool) public processedMessages;
@@ -153,10 +154,11 @@ contract BaseL2Receiver {
     /// @notice M-12 FIX: Error for replayed messages
     error MessageAlreadyProcessed(bytes32 messageId);
 
-    constructor(address _l2Messenger, address _l1Sender, address _receiver) {
+    constructor(address _l2Messenger, address _l1Sender, address _receiver, uint256 _sourceChainId) {
         l2Messenger = IBaseCrossDomainMessenger(_l2Messenger);
         l1Sender = _l1Sender;
         receiver = ICrossChainReceiver(_receiver);
+        sourceChainId = _sourceChainId;
     }
 
     /// @notice Relay message from L1
@@ -165,8 +167,8 @@ contract BaseL2Receiver {
         require(msg.sender == address(l2Messenger), "Only messenger");
         require(l2Messenger.xDomainMessageSender() == l1Sender, "Invalid sender");
 
-        // M-12 FIX: Generate unique message ID from payload and context
-        bytes32 messageId = keccak256(abi.encode(block.chainid, l1Sender, payload, messageNonce));
+        // Deduplicate identical bridged payload deliveries from the same L1 sender.
+        bytes32 messageId = keccak256(abi.encode(block.chainid, l1Sender, payload));
 
         // M-12 FIX: Check for replay attack
         if (processedMessages[messageId]) {
@@ -179,7 +181,7 @@ contract BaseL2Receiver {
 
         emit MessageProcessed(messageId, l1Sender, currentNonce);
 
-        receiver.receiveMessage(1, l1Sender, payload); // chainId 1 = Ethereum mainnet
+        receiver.receiveMessage(sourceChainId, l1Sender, payload);
     }
 
     /// @notice M-12 FIX: Check if a message ID has been processed

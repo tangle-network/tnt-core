@@ -93,6 +93,7 @@ abstract contract JobsSubmission is Base {
     )
         private
     {
+        _validateServiceForResultSubmission(svc, serviceId);
         _ensureAggregationBypass(bp.manager, serviceId, job.jobIndex);
         _validateResultSubmissionState(serviceId, callId, job);
 
@@ -129,6 +130,15 @@ abstract contract JobsSubmission is Base {
     }
 
     function _validateServiceForSubmission(Types.Service storage svc, uint64 serviceId) private view {
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
+        if (svc.ttl > 0 && block.timestamp > svc.createdAt + svc.ttl) {
+            revert Errors.ServiceExpired(serviceId);
+        }
+    }
+
+    function _validateServiceForResultSubmission(Types.Service storage svc, uint64 serviceId) private view {
         if (svc.status != Types.ServiceStatus.Active) {
             revert Errors.ServiceNotActive(serviceId);
         }

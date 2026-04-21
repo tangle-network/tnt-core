@@ -52,6 +52,8 @@ abstract contract JobsAggregation is Base {
         Types.JobCall storage job = _getJobCall(serviceId, callId);
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
 
+        _validateServiceForAggregatedResult(svc, serviceId);
+
         if (job.completed) {
             revert Errors.JobAlreadyCompleted(serviceId, callId);
         }
@@ -166,12 +168,12 @@ abstract contract JobsAggregation is Base {
         if (thresholdType == 0) {
             // CountBased: achieved = signerCount, required = threshold% of operatorCount
             achieved = stats.signerCount;
-            required = (uint256(stats.operatorCount) * thresholdBps) / BPS_DENOMINATOR;
+            required = _ceilDiv(uint256(stats.operatorCount) * thresholdBps, BPS_DENOMINATOR);
             if (required == 0 && stats.operatorCount > 0) required = 1; // At least 1 signer required
         } else {
             // StakeWeighted: achieved = signerWeight, required = threshold% of totalWeight
             achieved = stats.signerWeight;
-            required = (stats.totalWeight * thresholdBps) / BPS_DENOMINATOR;
+            required = _ceilDiv(stats.totalWeight * thresholdBps, BPS_DENOMINATOR);
             if (required == 0 && stats.totalWeight > 0) required = 1;
         }
     }
@@ -281,6 +283,20 @@ abstract contract JobsAggregation is Base {
 
         // If no signers were found (empty bitmap with all inactive operators),
         // the aggregatedPubkey will be all zeros (point at infinity)
+    }
+
+    function _validateServiceForAggregatedResult(Types.Service storage svc, uint64 serviceId) private view {
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
+        if (svc.ttl > 0 && block.timestamp > svc.createdAt + svc.ttl) {
+            revert Errors.ServiceExpired(serviceId);
+        }
+    }
+
+    function _ceilDiv(uint256 numerator, uint256 denominator) private pure returns (uint256) {
+        if (numerator == 0) return 0;
+        return ((numerator - 1) / denominator) + 1;
     }
 
     function _jobSchema(

@@ -60,6 +60,7 @@ require_cmd cp
 require_cmd mktemp
 
 [[ -f "$FULL_DEPLOY_CONFIG" ]] || fail "Config not found: $FULL_DEPLOY_CONFIG"
+[[ "$RELEASE_TAG" =~ ^[A-Za-z0-9._-]+$ ]] || fail "RELEASE_TAG contains unsafe characters: $RELEASE_TAG"
 
 CONFIG_NETWORK="$(json_get "$FULL_DEPLOY_CONFIG" '.network')"
 [[ "$CONFIG_NETWORK" == "base-sepolia" ]] || fail "Expected .network=base-sepolia, found: $CONFIG_NETWORK"
@@ -90,6 +91,9 @@ mkdir -p "$RELEASE_DIR"
 TEMP_CONFIG="$(mktemp "$ROOT_DIR/.base-sepolia-deploy.XXXXXX.json")"
 cleanup() {
   rm -f "$TEMP_CONFIG"
+  if bool_env "$DRY_RUN"; then
+    rm -rf "$RELEASE_DIR"
+  fi
 }
 trap cleanup EXIT
 
@@ -160,6 +164,7 @@ fi
 if ! bool_env "$SKIP_VERIFY"; then
   "$ROOT_DIR/script/sh/verify-full-deploy-manifest.sh" \
     --manifest "$RELEASE_MANIFEST_PATH" \
+    --config "$TEMP_CONFIG" \
     --rpc-url "$BASE_SEPOLIA_RPC" \
     --chain-id "$EXPECTED_CHAIN_ID"
 else

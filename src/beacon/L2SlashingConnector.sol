@@ -4,6 +4,10 @@ pragma solidity ^0.8.26;
 import { ValidatorPodManager } from "./ValidatorPodManager.sol";
 import { ICrossChainMessenger } from "./interfaces/ICrossChainMessenger.sol";
 
+interface IBeaconSlashPod {
+    function beaconChainSlashingFactor() external view returns (uint64);
+}
+
 /// @title L2SlashingConnector
 /// @notice Connects beacon chain slashing events to Tangle L2 slashing mechanism
 /// @dev This contract bridges between beacon chain native staking and Tangle's L2 slashing
@@ -34,6 +38,7 @@ contract L2SlashingConnector {
     error UnsupportedDestinationChain();
     error MessengerNotConfigured();
     error UnknownPod(address pod);
+    error SlashingFactorMismatch(address pod, uint64 expected, uint64 provided);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -241,6 +246,11 @@ contract L2SlashingConnector {
         address operator = _getOperatorForPod(pod);
         if (operator == address(0)) {
             return; // Pod not registered, skip
+        }
+
+        uint64 actualFactor = IBeaconSlashPod(pod).beaconChainSlashingFactor();
+        if (newSlashingFactor != actualFactor) {
+            revert SlashingFactorMismatch(pod, actualFactor, newSlashingFactor);
         }
 
         // Calculate L2 slash amount based on operator's total delegated stake

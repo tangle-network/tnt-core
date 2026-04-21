@@ -579,6 +579,32 @@ contract JobPricingAndRFQTest is BaseTest {
         tangle.submitJobFromQuote{ value: 1 ether }(serviceId, 0, "", quotes);
     }
 
+    function test_SubmitJobFromQuote_ConfidentialityMismatch_Reverts() public {
+        vm.startPrank(user1);
+        tangle.terminateService(serviceId);
+
+        address[] memory ops = new address[](2);
+        ops[0] = operator1;
+        ops[1] = operator2;
+        uint64 requestId =
+            tangle.requestService(blueprintId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.TeeRequired);
+        vm.stopPrank();
+
+        vm.prank(operator1);
+        tangle.approveService(requestId, 0);
+        vm.prank(operator2);
+        tangle.approveService(requestId, 0);
+
+        uint64 confidentialServiceId = tangle.serviceCount() - 1;
+
+        Types.SignedJobQuote[] memory quotes = new Types.SignedJobQuote[](1);
+        quotes[0] = _createJobQuote(operator1, OPERATOR1_PK, confidentialServiceId, 0, 1 ether);
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidQuoteSignature.selector, operator1));
+        tangle.submitJobFromQuote{ value: 1 ether }(confidentialServiceId, 0, "", quotes);
+    }
+
     function test_RFQJob_PerJobRateDoesNotAffectRFQPrice() public {
         // Set per-job rate to 5 ether, but RFQ quote says 1 ether — RFQ uses quote price
         uint8[] memory indexes = new uint8[](1);

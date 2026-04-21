@@ -189,6 +189,26 @@ contract DeployV2 is DeployScriptBase {
             address statusRegistry
         )
     {
+        return _deployCore(deployerPrivateKey, deployer, admin, treasury, admin, broadcast);
+    }
+
+    function _deployCore(
+        uint256 deployerPrivateKey,
+        address deployer,
+        address admin,
+        address treasury,
+        address statusRegistryOwner,
+        bool broadcast
+    )
+        internal
+        returns (
+            address stakingProxy,
+            address stakingImpl,
+            address tangleProxy,
+            address tangleImpl,
+            address statusRegistry
+        )
+    {
         if (broadcast) {
             vm.startBroadcast(deployerPrivateKey);
         } else if (deployer != address(0)) {
@@ -206,7 +226,8 @@ contract DeployV2 is DeployScriptBase {
         _registerStakingFacets(stakingProxy);
         _registerTangleFacets(tangleProxy);
 
-        statusRegistry = deployOperatorStatusRegistry(tangleProxy, admin);
+        address registryOwner = statusRegistryOwner == address(0) ? admin : statusRegistryOwner;
+        statusRegistry = deployOperatorStatusRegistry(tangleProxy, registryOwner);
         console2.log("OperatorStatusRegistry:", statusRegistry);
 
         // Verify proxy deployments

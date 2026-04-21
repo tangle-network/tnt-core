@@ -147,6 +147,9 @@ abstract contract JobsRFQ is Base {
             if (quote.details.jobIndex != jobIndex) {
                 revert Errors.JobQuoteJobIndexMismatch(jobIndex, quote.details.jobIndex);
             }
+            if (quote.details.confidentiality != uint8(_services[serviceId].confidentiality)) {
+                revert Errors.InvalidQuoteSignature(quote.operator);
+            }
 
             // Check for duplicate operators
             for (uint256 j = 0; j < i; j++) {

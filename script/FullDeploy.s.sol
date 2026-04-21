@@ -17,6 +17,7 @@ import { Types } from "../src/libraries/Types.sol";
 import { ITangleAdmin } from "../src/interfaces/ITangle.sol";
 import { IMultiAssetDelegation } from "../src/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../src/staking/MultiAssetDelegation.sol";
+import { OperatorStatusRegistry } from "../src/staking/OperatorStatusRegistry.sol";
 import { RewardVaults } from "../src/rewards/RewardVaults.sol";
 import { TangleMetrics } from "../src/rewards/TangleMetrics.sol";
 import { InflationPool } from "../src/rewards/InflationPool.sol";
@@ -178,6 +179,8 @@ contract FullDeploy is DeployV2 {
         address metrics;
         address rewardVaults;
         address inflationPool;
+        address serviceFeeDistributor;
+        address streamingPaymentManager;
         address credits;
         StakeAssetConfig[] assets;
         RewardVaultConfig[] vaults;
@@ -221,7 +224,7 @@ contract FullDeploy is DeployV2 {
         _applyCoreOverrides(cfg.core);
 
         (address staking, address tangle, address statusRegistry) =
-            _resolveCore(cfg.core, deployerKey, deployer, admin, treasury);
+            _resolveCore(cfg.core, deployerKey, deployer, admin, treasury, timelock);
 
         vm.startBroadcast(deployerKey);
 
@@ -272,6 +275,29 @@ contract FullDeploy is DeployV2 {
         );
         vm.stopBroadcast();
 
+        _assertGovernanceConfiguration(
+            cfg.roles,
+            admin,
+            timelock,
+            multisig,
+            tangle,
+            staking,
+            statusRegistry,
+            tntToken,
+            metrics,
+            rewardVaults,
+            inflationPool,
+            serviceFeeDistributor,
+            streamingPaymentManager
+        );
+
+        address creditsOwner = cfg.credits.owner;
+        if (credits != address(0) && creditsOwner == address(0)) {
+            creditsOwner = timelock != address(0) ? timelock : admin;
+        }
+        _assertOwnableOwner(credits, creditsOwner, "Credits owner mismatch");
+        _assertOwnableOwner(migration.tangleMigration, migration.migrationOwner, "Migration owner mismatch");
+
         _runSmokeTests(staking, tangle, rewardVaults, cfg.stakeAssets, cfg.guards);
 
         DeploymentArtifacts memory artifacts = DeploymentArtifacts({
@@ -289,6 +315,8 @@ contract FullDeploy is DeployV2 {
             metrics: metrics,
             rewardVaults: rewardVaults,
             inflationPool: inflationPool,
+            serviceFeeDistributor: serviceFeeDistributor,
+            streamingPaymentManager: streamingPaymentManager,
             credits: credits,
             assets: cfg.stakeAssets,
             vaults: cfg.incentives.vaults,
@@ -620,7 +648,8 @@ contract FullDeploy is DeployV2 {
         uint256 deployerKey,
         address deployer,
         address admin,
-        address treasury
+        address treasury,
+        address timelock
     )
         internal
         returns (address staking, address tangle, address statusRegistry)
@@ -628,7 +657,9 @@ contract FullDeploy is DeployV2 {
         bool needsDeploy = core.deploy || core.staking == address(0) || core.tangle == address(0);
         if (needsDeploy) {
             console2.log("Deploying core stack...");
-            (staking,, tangle,, statusRegistry) = _deployCore(deployerKey, deployer, admin, treasury, true);
+            address statusRegistryOwner = timelock == address(0) ? admin : timelock;
+            (staking,, tangle,, statusRegistry) =
+                _deployCore(deployerKey, deployer, admin, treasury, statusRegistryOwner, true);
         } else {
             staking = core.staking;
             tangle = core.tangle;
@@ -1033,11 +1064,11 @@ contract FullDeploy is DeployV2 {
             _grantRole(tangleAddr, tangle.SLASH_ADMIN_ROLE(), multisig);
 
             if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
-                _revokeRole(tangleAddr, bytes32(0), bootstrapAdmin);
-                _revokeRole(tangleAddr, tangle.ADMIN_ROLE(), bootstrapAdmin);
-                _revokeRole(tangleAddr, tangle.UPGRADER_ROLE(), bootstrapAdmin);
                 _revokeRole(tangleAddr, tangle.PAUSER_ROLE(), bootstrapAdmin);
                 _revokeRole(tangleAddr, tangle.SLASH_ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(tangleAddr, tangle.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(tangleAddr, tangle.UPGRADER_ROLE(), bootstrapAdmin);
+                _revokeRole(tangleAddr, bytes32(0), bootstrapAdmin);
             }
         }
 
@@ -1048,9 +1079,9 @@ contract FullDeploy is DeployV2 {
             _grantRole(stakingAddr, staking.ASSET_MANAGER_ROLE(), multisig);
 
             if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
-                _revokeRole(stakingAddr, bytes32(0), bootstrapAdmin);
-                _revokeRole(stakingAddr, staking.ADMIN_ROLE(), bootstrapAdmin);
                 _revokeRole(stakingAddr, staking.ASSET_MANAGER_ROLE(), bootstrapAdmin);
+                _revokeRole(stakingAddr, staking.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(stakingAddr, bytes32(0), bootstrapAdmin);
             }
         }
 
@@ -1060,9 +1091,9 @@ contract FullDeploy is DeployV2 {
             _grantRole(tntToken, keccak256("UPGRADER_ROLE"), timelock);
 
             if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
-                _revokeRole(tntToken, bytes32(0), bootstrapAdmin);
                 _revokeRole(tntToken, keccak256("MINTER_ROLE"), bootstrapAdmin);
                 _revokeRole(tntToken, keccak256("UPGRADER_ROLE"), bootstrapAdmin);
+                _revokeRole(tntToken, bytes32(0), bootstrapAdmin);
             }
         }
 
@@ -1071,8 +1102,8 @@ contract FullDeploy is DeployV2 {
             _grantRole(metricsAddr, keccak256("UPGRADER_ROLE"), timelock);
 
             if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
-                _revokeRole(metricsAddr, bytes32(0), bootstrapAdmin);
                 _revokeRole(metricsAddr, keccak256("UPGRADER_ROLE"), bootstrapAdmin);
+                _revokeRole(metricsAddr, bytes32(0), bootstrapAdmin);
             }
         }
 
@@ -1083,10 +1114,10 @@ contract FullDeploy is DeployV2 {
             _grantRole(rewardVaultsAddr, vaults.UPGRADER_ROLE(), timelock);
 
             if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
-                _revokeRole(rewardVaultsAddr, bytes32(0), bootstrapAdmin);
+                _revokeRole(rewardVaultsAddr, vaults.REWARDS_MANAGER_ROLE(), bootstrapAdmin);
                 _revokeRole(rewardVaultsAddr, vaults.ADMIN_ROLE(), bootstrapAdmin);
                 _revokeRole(rewardVaultsAddr, vaults.UPGRADER_ROLE(), bootstrapAdmin);
-                _revokeRole(rewardVaultsAddr, vaults.REWARDS_MANAGER_ROLE(), bootstrapAdmin);
+                _revokeRole(rewardVaultsAddr, bytes32(0), bootstrapAdmin);
             }
         }
 
@@ -1098,13 +1129,13 @@ contract FullDeploy is DeployV2 {
             _grantRole(inflationPoolAddr, pool.FUNDER_ROLE(), treasury);
 
             if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
-                _revokeRole(inflationPoolAddr, bytes32(0), bootstrapAdmin);
-                _revokeRole(inflationPoolAddr, pool.ADMIN_ROLE(), bootstrapAdmin);
-                _revokeRole(inflationPoolAddr, pool.UPGRADER_ROLE(), bootstrapAdmin);
                 if (bootstrapAdmin != treasury) {
                     _revokeRole(inflationPoolAddr, pool.FUNDER_ROLE(), bootstrapAdmin);
                 }
                 _revokeRole(inflationPoolAddr, pool.DISTRIBUTOR_ROLE(), bootstrapAdmin);
+                _revokeRole(inflationPoolAddr, pool.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(inflationPoolAddr, pool.UPGRADER_ROLE(), bootstrapAdmin);
+                _revokeRole(inflationPoolAddr, bytes32(0), bootstrapAdmin);
             }
         }
 
@@ -1115,9 +1146,9 @@ contract FullDeploy is DeployV2 {
             _grantRole(serviceFeeDistributorAddr, distributor.UPGRADER_ROLE(), timelock);
 
             if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
-                _revokeRole(serviceFeeDistributorAddr, bytes32(0), bootstrapAdmin);
-                _revokeRole(serviceFeeDistributorAddr, distributor.ADMIN_ROLE(), bootstrapAdmin);
                 _revokeRole(serviceFeeDistributorAddr, distributor.UPGRADER_ROLE(), bootstrapAdmin);
+                _revokeRole(serviceFeeDistributorAddr, distributor.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(serviceFeeDistributorAddr, bytes32(0), bootstrapAdmin);
             }
         }
 
@@ -1128,9 +1159,9 @@ contract FullDeploy is DeployV2 {
             _grantRole(streamingPaymentManagerAddr, streaming.UPGRADER_ROLE(), timelock);
 
             if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
-                _revokeRole(streamingPaymentManagerAddr, bytes32(0), bootstrapAdmin);
-                _revokeRole(streamingPaymentManagerAddr, streaming.ADMIN_ROLE(), bootstrapAdmin);
                 _revokeRole(streamingPaymentManagerAddr, streaming.UPGRADER_ROLE(), bootstrapAdmin);
+                _revokeRole(streamingPaymentManagerAddr, streaming.ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(streamingPaymentManagerAddr, bytes32(0), bootstrapAdmin);
             }
         }
     }
@@ -1158,6 +1189,181 @@ contract FullDeploy is DeployV2 {
         if (IAccessControl(target).hasRole(role, account)) {
             IAccessControl(target).revokeRole(role, account);
         }
+    }
+
+    function _assertGovernanceConfiguration(
+        RolesConfig memory roles,
+        address bootstrapAdmin,
+        address timelock,
+        address multisig,
+        address tangleAddr,
+        address stakingAddr,
+        address statusRegistryAddr,
+        address tntToken,
+        address metricsAddr,
+        address rewardVaultsAddr,
+        address inflationPoolAddr,
+        address serviceFeeDistributorAddr,
+        address streamingPaymentManagerAddr
+    )
+        internal
+        view
+    {
+        bool requested = roles.timelock != address(0) || roles.multisig != address(0) || roles.revokeBootstrap;
+        if (!requested) return;
+
+        _assertOwnableOwner(statusRegistryAddr, timelock, "OperatorStatusRegistry owner mismatch");
+
+        if (tangleAddr != address(0)) {
+            Tangle tangle = Tangle(payable(tangleAddr));
+            _assertHasRole(tangleAddr, bytes32(0), timelock, "Tangle missing DEFAULT_ADMIN_ROLE");
+            _assertHasRole(tangleAddr, tangle.ADMIN_ROLE(), timelock, "Tangle missing ADMIN_ROLE");
+            _assertHasRole(tangleAddr, tangle.UPGRADER_ROLE(), timelock, "Tangle missing UPGRADER_ROLE");
+            _assertHasRole(tangleAddr, tangle.PAUSER_ROLE(), multisig, "Tangle missing PAUSER_ROLE");
+            _assertHasRole(tangleAddr, tangle.SLASH_ADMIN_ROLE(), multisig, "Tangle missing SLASH_ADMIN_ROLE");
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _assertMissingRole(tangleAddr, bytes32(0), bootstrapAdmin, "Bootstrap still has Tangle admin");
+                _assertMissingRole(tangleAddr, tangle.ADMIN_ROLE(), bootstrapAdmin, "Bootstrap still has Tangle ADMIN_ROLE");
+                _assertMissingRole(
+                    tangleAddr, tangle.UPGRADER_ROLE(), bootstrapAdmin, "Bootstrap still has Tangle UPGRADER_ROLE"
+                );
+                _assertMissingRole(
+                    tangleAddr, tangle.PAUSER_ROLE(), bootstrapAdmin, "Bootstrap still has Tangle PAUSER_ROLE"
+                );
+                _assertMissingRole(
+                    tangleAddr,
+                    tangle.SLASH_ADMIN_ROLE(),
+                    bootstrapAdmin,
+                    "Bootstrap still has Tangle SLASH_ADMIN_ROLE"
+                );
+            }
+        }
+
+        if (stakingAddr != address(0)) {
+            MultiAssetDelegation staking = MultiAssetDelegation(payable(stakingAddr));
+            _assertHasRole(stakingAddr, bytes32(0), timelock, "Staking missing DEFAULT_ADMIN_ROLE");
+            _assertHasRole(stakingAddr, staking.ADMIN_ROLE(), timelock, "Staking missing ADMIN_ROLE");
+            _assertHasRole(stakingAddr, staking.ASSET_MANAGER_ROLE(), multisig, "Staking missing ASSET_MANAGER_ROLE");
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _assertMissingRole(stakingAddr, bytes32(0), bootstrapAdmin, "Bootstrap still has Staking admin");
+                _assertMissingRole(
+                    stakingAddr, staking.ADMIN_ROLE(), bootstrapAdmin, "Bootstrap still has Staking ADMIN_ROLE"
+                );
+                _assertMissingRole(
+                    stakingAddr,
+                    staking.ASSET_MANAGER_ROLE(),
+                    bootstrapAdmin,
+                    "Bootstrap still has Staking ASSET_MANAGER_ROLE"
+                );
+            }
+        }
+
+        if (tntToken != address(0)) {
+            _assertHasRole(tntToken, bytes32(0), timelock, "TNT token missing DEFAULT_ADMIN_ROLE");
+            _assertHasRole(tntToken, keccak256("MINTER_ROLE"), timelock, "TNT token missing MINTER_ROLE");
+            _assertHasRole(tntToken, keccak256("UPGRADER_ROLE"), timelock, "TNT token missing UPGRADER_ROLE");
+            if (roles.revokeBootstrap && bootstrapAdmin != address(0) && bootstrapAdmin != timelock) {
+                _assertMissingRole(tntToken, bytes32(0), bootstrapAdmin, "Bootstrap still has TNT DEFAULT_ADMIN_ROLE");
+                _assertMissingRole(
+                    tntToken, keccak256("MINTER_ROLE"), bootstrapAdmin, "Bootstrap still has TNT MINTER_ROLE"
+                );
+                _assertMissingRole(
+                    tntToken, keccak256("UPGRADER_ROLE"), bootstrapAdmin, "Bootstrap still has TNT UPGRADER_ROLE"
+                );
+            }
+        }
+
+        if (metricsAddr != address(0)) {
+            _assertHasRole(metricsAddr, bytes32(0), timelock, "Metrics missing DEFAULT_ADMIN_ROLE");
+            _assertHasRole(metricsAddr, keccak256("UPGRADER_ROLE"), timelock, "Metrics missing UPGRADER_ROLE");
+            if (roles.revokeBootstrap && bootstrapAdmin != address(0) && bootstrapAdmin != timelock) {
+                _assertMissingRole(
+                    metricsAddr, bytes32(0), bootstrapAdmin, "Bootstrap still has Metrics DEFAULT_ADMIN_ROLE"
+                );
+                _assertMissingRole(
+                    metricsAddr, keccak256("UPGRADER_ROLE"), bootstrapAdmin, "Bootstrap still has Metrics UPGRADER_ROLE"
+                );
+            }
+        }
+
+        _assertManagedContractRoles(
+            rewardVaultsAddr,
+            timelock,
+            bootstrapAdmin,
+            roles.revokeBootstrap,
+            "ADMIN_ROLE",
+            "UPGRADER_ROLE"
+        );
+        _assertManagedContractRoles(
+            inflationPoolAddr,
+            timelock,
+            bootstrapAdmin,
+            roles.revokeBootstrap,
+            "ADMIN_ROLE",
+            "UPGRADER_ROLE"
+        );
+        _assertManagedContractRoles(
+            serviceFeeDistributorAddr,
+            timelock,
+            bootstrapAdmin,
+            roles.revokeBootstrap,
+            "ADMIN_ROLE",
+            "UPGRADER_ROLE"
+        );
+        _assertManagedContractRoles(
+            streamingPaymentManagerAddr,
+            timelock,
+            bootstrapAdmin,
+            roles.revokeBootstrap,
+            "ADMIN_ROLE",
+            "UPGRADER_ROLE"
+        );
+    }
+
+    function _assertManagedContractRoles(
+        address target,
+        address timelock,
+        address bootstrapAdmin,
+        bool revokeBootstrap,
+        string memory adminRoleName,
+        string memory upgraderRoleName
+    )
+        internal
+        view
+    {
+        if (target == address(0)) return;
+        _assertHasRole(target, bytes32(0), timelock, "Managed contract missing DEFAULT_ADMIN_ROLE");
+        _assertHasRole(target, keccak256(bytes(adminRoleName)), timelock, "Managed contract missing ADMIN_ROLE");
+        _assertHasRole(
+            target, keccak256(bytes(upgraderRoleName)), timelock, "Managed contract missing UPGRADER_ROLE"
+        );
+
+        if (revokeBootstrap && bootstrapAdmin != address(0) && bootstrapAdmin != timelock) {
+            _assertMissingRole(target, bytes32(0), bootstrapAdmin, "Bootstrap still has DEFAULT_ADMIN_ROLE");
+            _assertMissingRole(
+                target, keccak256(bytes(adminRoleName)), bootstrapAdmin, "Bootstrap still has ADMIN_ROLE"
+            );
+            _assertMissingRole(
+                target, keccak256(bytes(upgraderRoleName)), bootstrapAdmin, "Bootstrap still has UPGRADER_ROLE"
+            );
+        }
+    }
+
+    function _assertHasRole(address target, bytes32 role, address account, string memory reason) internal view {
+        if (target == address(0) || account == address(0)) return;
+        require(IAccessControl(target).hasRole(role, account), reason);
+    }
+
+    function _assertMissingRole(address target, bytes32 role, address account, string memory reason) internal view {
+        if (target == address(0) || account == address(0)) return;
+        require(!IAccessControl(target).hasRole(role, account), reason);
+    }
+
+    function _assertOwnableOwner(address target, address expectedOwner, string memory reason) internal view {
+        if (target == address(0) || expectedOwner == address(0)) return;
+        require(OperatorStatusRegistry(target).owner() == expectedOwner, reason);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1354,7 +1560,7 @@ contract FullDeploy is DeployV2 {
 
         _ensureParentDir(manifest.path);
 
-        string memory json = string(
+        string memory header = string(
             abi.encodePacked(
                 "{",
                 "\"network\":\"",
@@ -1377,7 +1583,14 @@ contract FullDeploy is DeployV2 {
                 "\",",
                 "\"multisig\":\"",
                 _addrToString(artifacts.multisig),
-                "\",",
+                "\""
+            )
+        );
+
+        string memory coreAddresses = string(
+            abi.encodePacked(
+                header,
+                ",",
                 "\"tangle\":\"",
                 _addrToString(artifacts.tangle),
                 "\",",
@@ -1402,9 +1615,22 @@ contract FullDeploy is DeployV2 {
                 "\"inflationPool\":\"",
                 _addrToString(artifacts.inflationPool),
                 "\",",
+                "\"serviceFeeDistributor\":\"",
+                _addrToString(artifacts.serviceFeeDistributor),
+                "\",",
+                "\"streamingPaymentManager\":\"",
+                _addrToString(artifacts.streamingPaymentManager),
+                "\",",
                 "\"credits\":\"",
                 _addrToString(artifacts.credits),
-                "\",",
+                "\""
+            )
+        );
+
+        string memory json = string(
+            abi.encodePacked(
+                coreAddresses,
+                ",",
                 "\"epochLength\":",
                 artifacts.epochLength.toString(),
                 ",",
@@ -1580,7 +1806,7 @@ contract FullDeploy is DeployV2 {
     }
 
     function _migrationToJson(MigrationConfig memory migration) internal pure returns (string memory) {
-        return string(
+        string memory filePaths = string(
             abi.encodePacked(
                 "{",
                 '"deploy":',
@@ -1609,7 +1835,14 @@ contract FullDeploy is DeployV2 {
                 '",',
                 '"notes":"',
                 migration.notes,
-                '",',
+                '"'
+            )
+        );
+
+        string memory allocationFields = string(
+            abi.encodePacked(
+                filePaths,
+                ",",
                 '"migrationOwner":"',
                 _addrToString(migration.migrationOwner),
                 '",',
@@ -1639,7 +1872,14 @@ contract FullDeploy is DeployV2 {
                 '",',
                 '"foundationAmount":"',
                 migration.foundationAmount.toString(),
-                '",',
+                '"'
+            )
+        );
+
+        return string(
+            abi.encodePacked(
+                allocationFields,
+                ",",
                 '"claimDeadline":"',
                 migration.claimDeadline.toString(),
                 '",',

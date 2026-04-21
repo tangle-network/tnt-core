@@ -89,8 +89,8 @@ contract BLSAggregationE2ETest is BaseTest {
     /// @notice Test with valid BLS signature from single signer (sk=1)
     /// @dev This is the simplest valid BLS test case
     function test_ValidBLS_SingleSigner() public {
-        // Enable aggregation with 34% threshold (1 of 3 = 33.33%)
-        mockBsm.setAggregationConfig(0, true, 3400, 0);
+        // 3333 bps is the highest threshold that still permits 1 of 3 signers with round-up math.
+        mockBsm.setAggregationConfig(0, true, 3333, 0);
 
         // Submit a job
         vm.prank(user1);
@@ -201,15 +201,13 @@ contract BLSAggregationE2ETest is BaseTest {
     }
 
     /// @notice Test that count-based and stake-weighted produce different results
-    /// @dev With 3 operators (5/3/2 ETH stakes), count-based 50% = 2/3 needed,
-    ///      but 50% of 3 with integer math = 1, so single signer passes count-based!
-    ///      This test demonstrates the threshold calculation behavior.
+    /// @dev Count-based and stake-weighted thresholds should diverge under the same signer set.
     function test_CountVsStakeWeighted_Difference() public {
         // Setup: 3 operators with 5/3/2 ETH stakes
         // Total stake = 10 ETH
 
-        // Job 0: Count-based 50% = floor(3 * 0.5) = 1 operator needed
-        mockBsm.setAggregationConfig(0, true, 5000, 0);
+        // Job 0: Count-based 33.33% = 1 operator needed with round-up math.
+        mockBsm.setAggregationConfig(0, true, 3333, 0);
 
         // Job 1: Stake-weighted 50% = need operators with >= 5 ETH total
         // Operator 0 alone (5 ETH) satisfies stake-weighted 50%
@@ -228,8 +226,7 @@ contract BLSAggregationE2ETest is BaseTest {
         Types.BN254G1Point memory sig =
             BLSTestHelper.sign(BLSTestHelper.buildJobResultMessage(serviceId, callId0, output), 1);
 
-        // Count-based with 50% threshold: floor(3 * 0.5) = 1 required
-        // Single signer satisfies this, so it succeeds
+        // Count-based with 33.33% threshold requires exactly 1 signer.
         tangle.submitAggregatedResult(
             serviceId,
             callId0,
@@ -241,7 +238,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
         // Verify job completed
         Types.JobCall memory job = tangle.getJobCall(serviceId, callId0);
-        assertTrue(job.completed, "Count-based job should complete with 1 signer at 50% threshold");
+        assertTrue(job.completed, "Count-based job should complete with 1 signer at 33.33% threshold");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -360,7 +357,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
         uint64 dynamicSvcId = 1;
 
-        mockBsm.setAggregationConfig(0, true, 3400, 0); // 34% threshold
+        mockBsm.setAggregationConfig(0, true, 3333, 0); // 1 of 3 threshold with round-up math
 
         vm.prank(user1);
         uint64 callId = tangle.submitJob(dynamicSvcId, 0, "leave mid-agg");
@@ -391,10 +388,9 @@ contract BLSAggregationE2ETest is BaseTest {
     }
 
     /// @notice Test service termination during pending job
-    /// @dev GAP FOUND: Terminated services can still receive aggregated results!
-    ///      This might be intentional (allow pending jobs to complete) but should be documented.
+    /// @dev Termination is a hard stop: pending aggregated jobs cannot finalize afterward.
     function test_ServiceTermination_PendingJob() public {
-        mockBsm.setAggregationConfig(0, true, 3400, 0);
+        mockBsm.setAggregationConfig(0, true, 3333, 0);
 
         // Submit a job
         vm.prank(user1);
@@ -411,20 +407,17 @@ contract BLSAggregationE2ETest is BaseTest {
         Types.JobCall memory jobAfter = tangle.getJobCall(serviceId, callId);
         assertFalse(jobAfter.completed, "Job still not completed");
 
-        // GAP: Can still submit aggregated result to terminated service!
         bytes memory output = "late result";
         (Types.BN254G1Point memory sig, Types.BN254G2Point memory pubkey) =
             BLSTestHelper.createSingleSignerData(serviceId, callId, output);
 
-        // This SHOULD revert with ServiceNotActive, but it doesn't!
-        // Documenting current behavior: terminated services accept BLS submissions
+        vm.expectRevert(abi.encodeWithSelector(Errors.ServiceNotActive.selector, serviceId));
         tangle.submitAggregatedResult(
             serviceId, callId, output, 0x1, BLSTestHelper.g1ToArray(sig), BLSTestHelper.g2ToArray(pubkey)
         );
 
-        // Job completes even though service is terminated
         Types.JobCall memory jobFinal = tangle.getJobCall(serviceId, callId);
-        assertTrue(jobFinal.completed, "GAP: Job completed on terminated service");
+        assertFalse(jobFinal.completed, "terminated service must not accept aggregated completion");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -433,7 +426,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
     /// @notice Test submitting correct signature with wrong output
     function test_ValidSignature_WrongOutput() public {
-        mockBsm.setAggregationConfig(0, true, 3400, 0);
+        mockBsm.setAggregationConfig(0, true, 3333, 0);
 
         vm.prank(user1);
         uint64 callId = tangle.submitJob(serviceId, 0, "test");
@@ -459,7 +452,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
     /// @notice Test signature for wrong callId
     function test_ValidSignature_WrongCallId() public {
-        mockBsm.setAggregationConfig(0, true, 3400, 0);
+        mockBsm.setAggregationConfig(0, true, 3333, 0);
 
         vm.prank(user1);
         uint64 callId1 = tangle.submitJob(serviceId, 0, "job 1");
@@ -486,7 +479,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
     /// @notice Test double submission (replay protection)
     function test_ValidSignature_ReplayPrevention() public {
-        mockBsm.setAggregationConfig(0, true, 3400, 0);
+        mockBsm.setAggregationConfig(0, true, 3333, 0);
 
         vm.prank(user1);
         uint64 callId = tangle.submitJob(serviceId, 0, "test");

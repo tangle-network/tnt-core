@@ -86,15 +86,12 @@ abstract contract PaymentsEffectiveExposure {
                     uint256 exposedAmount = (delegation * commitment.exposureBps) / _BPS_DENOM;
 
                     if (useOracle && exposedAmount > 0) {
-                        // Convert to USD for cross-asset comparison
+                        // When USD normalization is enabled, fail closed on oracle errors.
+                        // Mixing raw token amounts into a USD-weighted pool silently corrupts
+                        // payout weights across heterogeneous assets.
                         address token =
                             commitment.asset.kind == Types.AssetKind.Native ? address(0) : commitment.asset.token;
-                        try oracle.toUSD(token, exposedAmount) returns (uint256 usdValue) {
-                            operatorEffectiveExposure += usdValue;
-                        } catch {
-                            // Fallback: use raw amount if oracle fails
-                            operatorEffectiveExposure += exposedAmount;
-                        }
+                        operatorEffectiveExposure += oracle.toUSD(token, exposedAmount);
                     } else {
                         // No oracle: use raw amount
                         operatorEffectiveExposure += exposedAmount;

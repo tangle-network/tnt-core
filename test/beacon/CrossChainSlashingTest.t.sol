@@ -233,6 +233,18 @@ contract MockStaking is IStaking {
     }
 }
 
+contract MockSlashPod {
+    uint64 public beaconChainSlashingFactor;
+
+    constructor(uint64 factor) {
+        beaconChainSlashingFactor = factor;
+    }
+
+    function setBeaconChainSlashingFactor(uint64 factor) external {
+        beaconChainSlashingFactor = factor;
+    }
+}
+
 /// @title CrossChainSlashingTest
 /// @notice Tests for cross-chain slashing infrastructure
 contract CrossChainSlashingTest is Test {
@@ -249,17 +261,22 @@ contract CrossChainSlashingTest is Test {
     address public admin = makeAddr("admin");
     address public oracle = makeAddr("oracle");
     address public operator1 = makeAddr("operator1");
-    address public pod1 = makeAddr("pod1");
+    address public pod1;
 
     // Constants
     uint256 public constant TANGLE_CHAIN_ID = 5000;
     uint256 public constant ETH_CHAIN_ID = 1;
     uint256 public constant INITIAL_STAKE = 100 ether;
 
+    function _setPodFactor(address pod, uint64 factor) internal {
+        MockSlashPod(pod).setBeaconChainSlashingFactor(factor);
+    }
+
     function setUp() public {
         vm.deal(admin, 1000 ether);
         vm.deal(oracle, 100 ether);
         vm.deal(operator1, 100 ether);
+        pod1 = address(new MockSlashPod(1e18));
 
         // Deploy beacon oracle
         beaconOracle = new MockBeaconOracle();
@@ -318,6 +335,7 @@ contract CrossChainSlashingTest is Test {
     function test_propagateBeaconSlashing_Success() public {
         // First slash: 100% (implicit) -> 90%
         uint64 newFactor = 0.9e18; // 90% (10% slashed from initial 100%)
+        _setPodFactor(pod1, newFactor);
 
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, newFactor);
@@ -339,6 +357,7 @@ contract CrossChainSlashingTest is Test {
     function test_propagateBeaconSlashingToSpecificChain() public {
         uint256 altChainId = 8453;
         address altReceiver = makeAddr("altReceiver");
+        _setPodFactor(pod1, 0.95e18);
 
         vm.prank(admin);
         connector.setChainConfig(altChainId, altReceiver, 150_000, true);
@@ -354,8 +373,9 @@ contract CrossChainSlashingTest is Test {
     function test_batchPropagateBeaconSlashing_MultiplePods() public {
         messenger.setMockFee(0); // simplify fee accounting for batch calls
 
-        address pod2 = makeAddr("pod2");
+        address pod2 = address(new MockSlashPod(0.85e18));
         address operator2 = makeAddr("operator2");
+        _setPodFactor(pod1, 0.9e18);
 
         vm.prank(admin);
         connector.registerPodOperator(pod2, operator2);
@@ -394,6 +414,7 @@ contract CrossChainSlashingTest is Test {
             abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator1),
             abi.encode(40 ether)
         );
+        _setPodFactor(pod1, 0.9e18);
 
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.9e18);
@@ -416,6 +437,7 @@ contract CrossChainSlashingTest is Test {
             abi.encodeWithSelector(podManager.operatorDelegatedStake.selector, operator1),
             abi.encode(10 ether)
         );
+        _setPodFactor(pod1, 0.95e18);
 
         uint256 fee = connector.estimatePropagationFee(pod1, 0.95e18, TANGLE_CHAIN_ID);
         assertEq(fee, quotedFee);
@@ -431,13 +453,34 @@ contract CrossChainSlashingTest is Test {
 
     function test_propagateBeaconSlashing_RevertInvalidFactor() public {
         // First set up initial factor: 100% -> 90%
+        MockSlashPod slashPod = new MockSlashPod(0.9e18);
+
+        vm.prank(admin);
+        connector.registerPodOperator(address(slashPod), operator1);
+
         vm.prank(oracle);
-        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.9e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(address(slashPod), 0.9e18);
 
         // Try to propagate a higher/equal factor (should revert)
+        slashPod.setBeaconChainSlashingFactor(0.95e18);
         vm.prank(oracle);
         vm.expectRevert(L2SlashingConnector.InvalidSlashingFactor.selector);
-        connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.95e18);
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(address(slashPod), 0.95e18);
+    }
+
+    function test_propagateBeaconSlashing_RevertMismatchedPodFactor() public {
+        MockSlashPod slashPod = new MockSlashPod(0.95e18);
+
+        vm.prank(admin);
+        connector.registerPodOperator(address(slashPod), operator1);
+
+        vm.prank(oracle);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                L2SlashingConnector.SlashingFactorMismatch.selector, address(slashPod), uint64(0.95e18), uint64(0.9e18)
+            )
+        );
+        connector.propagateBeaconSlashing{ value: 0.01 ether }(address(slashPod), 0.9e18);
     }
 
     function test_propagateBeaconSlashing_RevertUnsupportedChain() public {
@@ -462,6 +505,7 @@ contract CrossChainSlashingTest is Test {
 
     function test_propagateBeaconSlashing_RevertInsufficientFee() public {
         messenger.setMockFee(0.1 ether);
+        _setPodFactor(pod1, 0.9e18);
 
         vm.startPrank(oracle);
         vm.expectRevert(L2SlashingConnector.InsufficientFee.selector);
@@ -484,8 +528,9 @@ contract CrossChainSlashingTest is Test {
     }
 
     function test_batchPropagateBeaconSlashing() public {
-        address pod2 = makeAddr("pod2");
+        address pod2 = address(new MockSlashPod(0.9e18));
         address operator2 = makeAddr("operator2");
+        _setPodFactor(pod1, 0.95e18);
 
         vm.prank(admin);
         connector.registerPodOperator(pod2, operator2);
@@ -511,10 +556,12 @@ contract CrossChainSlashingTest is Test {
 
     function test_estimatePropagationFee() public {
         // First propagate to set up state
+        _setPodFactor(pod1, 0.95e18);
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.95e18);
 
         // Now estimate fee for next slash
+        _setPodFactor(pod1, 0.9e18);
         uint256 fee = connector.estimatePropagationFee(pod1, 0.9e18, TANGLE_CHAIN_ID);
         assertEq(fee, messenger.mockFee());
     }
@@ -687,6 +734,7 @@ contract CrossChainSlashingTest is Test {
 
         // 1. Oracle detects beacon chain slashing and calls connector
         uint64 slashedFactor = 0.8e18; // 80% (20% slashed)
+        _setPodFactor(pod1, slashedFactor);
 
         // 2. Propagate slashing
         vm.prank(oracle);
@@ -716,6 +764,7 @@ contract CrossChainSlashingTest is Test {
         );
 
         // First slash: 100% (implicit) -> 90%
+        _setPodFactor(pod1, 0.9e18);
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.9e18);
 
@@ -727,6 +776,7 @@ contract CrossChainSlashingTest is Test {
         assertTrue(firstSlashAmount > 0);
 
         // Second slash: 90% -> 80%
+        _setPodFactor(pod1, 0.8e18);
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.8e18);
 

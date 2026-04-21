@@ -518,6 +518,26 @@ contract TangleTest is BaseTest {
         tangle.submitResult(serviceId, callId, "result2");
     }
 
+    function test_SubmitResult_RevertServiceTerminatedAfterJobSubmission() public {
+        _registerOperator(operator1);
+        uint64 blueprintId = _createBlueprint(developer);
+        _registerForBlueprint(operator1, blueprintId);
+        uint64 requestId = _requestService(user1, blueprintId, operator1);
+        _approveService(operator1, requestId);
+
+        uint64 serviceId = 0;
+
+        vm.prank(user1);
+        uint64 callId = tangle.submitJob(serviceId, 0, "input");
+
+        vm.prank(user1);
+        tangle.terminateService(serviceId);
+
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ServiceNotActive.selector, serviceId));
+        tangle.submitResult(serviceId, callId, "late result");
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN TESTS
     // ═══════════════════════════════════════════════════════════════════════════
