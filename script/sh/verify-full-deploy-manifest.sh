@@ -283,5 +283,4 @@ if [[ -n "$CONFIG_PATH" ]]; then
     check_missing_role "tntToken" "$TNT_TOKEN_ADDR" "$UPGRADER_ROLE" "$CONFIG_ADMIN"
   fi
 fi
-
 echo "Manifest verification passed."
