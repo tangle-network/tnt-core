@@ -123,6 +123,7 @@ type Blueprint {
   owner: String!
   manager: String
   metadataUri: String
+  metadataHash: String
   active: Boolean!
   createdAt: BigInt!
   updatedAt: BigInt!

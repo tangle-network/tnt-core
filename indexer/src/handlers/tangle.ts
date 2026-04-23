@@ -60,9 +60,9 @@ import {
 // The tuple syntax ((uint8,address),uint16,uint16)[] represents SecurityRequirement structs
 // but must use positional (unnamed) fields for viem's parseAbi to work correctly.
 const SERVICE_REQUEST_ABI = parseAbi([
-  "function requestService(uint64 blueprintId, address[] operators, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount)",
-  "function requestServiceWithExposure(uint64 blueprintId, address[] operators, uint16[] exposures, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount)",
-  "function requestServiceWithSecurity(uint64 blueprintId, address[] operators, ((uint8,address),uint16,uint16)[] securityRequirements, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount)",
+  "function requestService(uint64 blueprintId, address[] operators, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount, uint8 confidentiality)",
+  "function requestServiceWithExposure(uint64 blueprintId, address[] operators, uint16[] exposures, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount, uint8 confidentiality)",
+  "function requestServiceWithSecurity(uint64 blueprintId, address[] operators, ((uint8,address),uint16,uint16)[] securityRequirements, bytes config, address[] permittedCallers, uint64 ttl, address paymentToken, uint256 paymentAmount, uint8 confidentiality)",
 ]);
 
 type ServiceRequestInputMetadata = {
@@ -326,6 +326,7 @@ export function registerTangleHandlers() {
       owner: normalizeAddress(event.params.owner),
       manager: normalizeAddress(event.params.manager),
       metadataUri: event.params.metadataUri || undefined,
+      metadataHash: event.params.metadataHash,
       active: true,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -341,7 +342,12 @@ export function registerTangleHandlers() {
     const id = toBigInt(event.params.blueprintId).toString();
     const existing = await context.Blueprint.get(id);
     if (!existing) return;
-    context.Blueprint.set({ ...existing, metadataUri: event.params.metadataUri, updatedAt: timestamp });
+    context.Blueprint.set({
+      ...existing,
+      metadataUri: event.params.metadataUri,
+      metadataHash: event.params.metadataHash,
+      updatedAt: timestamp,
+    });
   });
 
   Tangle.BlueprintTransferred.handler(async ({ event, context }) => {
@@ -551,6 +557,25 @@ export function registerTangleHandlers() {
     context.Service.set(service);
     if (request) {
       context.ServiceRequest.set({ ...request, status: "ACTIVATED", updatedAt: timestamp });
+
+      // The primary activation path assigns operators in storage without emitting
+      // OperatorJoinedService, so derive the active membership set from approvals.
+      for (const approvedOperator of request.approvedOperators ?? []) {
+        const operator = await ensureOperator(context, approvedOperator, timestamp);
+        const membershipId = `${service.id}-${operator.id}`;
+        const existingMembership = await context.ServiceOperator.get(membershipId);
+        if (existingMembership?.active) continue;
+
+        context.ServiceOperator.set({
+          id: membershipId,
+          service_id: service.id,
+          operator_id: operator.id,
+          exposureBps: existingMembership?.exposureBps ?? 0n,
+          joinedAt: existingMembership?.joinedAt ?? timestamp,
+          leftAt: undefined,
+          active: true,
+        } as ServiceOperator);
+      }
     }
     await activateParticipation(context, "service-hourly", service.id, "SERVICE", timestamp);
     const points = getPointsManager(pointsContext(context), event);

@@ -13,7 +13,7 @@ library Types {
     struct Blueprint { address owner; address manager; uint64 createdAt; uint32 operatorCount; MembershipModel membership; PricingModel pricing; bool active; }
     struct BlueprintBinary { BlueprintArchitecture arch; BlueprintOperatingSystem os; string name; bytes32 sha256; }
     struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint32 minOperators; uint32 maxOperators; uint256 subscriptionRate; uint64 subscriptionInterval; uint256 eventRate; }
-    struct BlueprintDefinition { string metadataUri; address manager; uint32 masterManagerRevision; bool hasConfig; BlueprintConfig config; BlueprintMetadata metadata; JobDefinition[] jobs; bytes registrationSchema; bytes requestSchema; BlueprintSource[] sources; MembershipModel[] supportedMemberships; }
+    struct BlueprintDefinition { string metadataUri; bytes32 metadataHash; address manager; uint32 masterManagerRevision; bool hasConfig; BlueprintConfig config; BlueprintMetadata metadata; JobDefinition[] jobs; bytes registrationSchema; bytes requestSchema; BlueprintSource[] sources; MembershipModel[] supportedMemberships; }
     struct BlueprintMetadata { string name; string description; string author; string category; string codeRepository; string logo; string website; string license; string profilingData; }
     struct BlueprintSource { BlueprintSourceKind kind; ImageRegistrySource container; WasmSource wasm; NativeSource native; TestingSource testing; BlueprintBinary[] binaries; }
     struct ImageRegistrySource { string registry; string image; string tag; }
@@ -1935,13 +1935,15 @@ struct BlueprintConfig { MembershipModel membership; PricingModel pricing; uint3
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct BlueprintDefinition { string metadataUri; address manager; uint32 masterManagerRevision; bool hasConfig; BlueprintConfig config; BlueprintMetadata metadata; JobDefinition[] jobs; bytes registrationSchema; bytes requestSchema; BlueprintSource[] sources; MembershipModel[] supportedMemberships; }
+struct BlueprintDefinition { string metadataUri; bytes32 metadataHash; address manager; uint32 masterManagerRevision; bool hasConfig; BlueprintConfig config; BlueprintMetadata metadata; JobDefinition[] jobs; bytes registrationSchema; bytes requestSchema; BlueprintSource[] sources; MembershipModel[] supportedMemberships; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct BlueprintDefinition {
         #[allow(missing_docs)]
         pub metadataUri: alloy::sol_types::private::String,
+        #[allow(missing_docs)]
+        pub metadataHash: alloy::sol_types::private::FixedBytes<32>,
         #[allow(missing_docs)]
         pub manager: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
@@ -1981,6 +1983,7 @@ struct BlueprintDefinition { string metadataUri; address manager; uint32 masterM
         #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::String,
+            alloy::sol_types::sol_data::FixedBytes<32>,
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<32>,
             alloy::sol_types::sol_data::Bool,
@@ -1995,6 +1998,7 @@ struct BlueprintDefinition { string metadataUri; address manager; uint32 masterM
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
             alloy::sol_types::private::String,
+            alloy::sol_types::private::FixedBytes<32>,
             alloy::sol_types::private::Address,
             u32,
             bool,
@@ -2029,6 +2033,7 @@ struct BlueprintDefinition { string metadataUri; address manager; uint32 masterM
             fn from(value: BlueprintDefinition) -> Self {
                 (
                     value.metadataUri,
+                    value.metadataHash,
                     value.manager,
                     value.masterManagerRevision,
                     value.hasConfig,
@@ -2048,16 +2053,17 @@ struct BlueprintDefinition { string metadataUri; address manager; uint32 masterM
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
                     metadataUri: tuple.0,
-                    manager: tuple.1,
-                    masterManagerRevision: tuple.2,
-                    hasConfig: tuple.3,
-                    config: tuple.4,
-                    metadata: tuple.5,
-                    jobs: tuple.6,
-                    registrationSchema: tuple.7,
-                    requestSchema: tuple.8,
-                    sources: tuple.9,
-                    supportedMemberships: tuple.10,
+                    metadataHash: tuple.1,
+                    manager: tuple.2,
+                    masterManagerRevision: tuple.3,
+                    hasConfig: tuple.4,
+                    config: tuple.5,
+                    metadata: tuple.6,
+                    jobs: tuple.7,
+                    registrationSchema: tuple.8,
+                    requestSchema: tuple.9,
+                    sources: tuple.10,
+                    supportedMemberships: tuple.11,
                 }
             }
         }
@@ -2073,6 +2079,9 @@ struct BlueprintDefinition { string metadataUri; address manager; uint32 masterM
                     <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
                         &self.metadataUri,
                     ),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.metadataHash),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.manager,
                     ),
@@ -2179,7 +2188,7 @@ struct BlueprintDefinition { string metadataUri; address manager; uint32 masterM
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "BlueprintDefinition(string metadataUri,address manager,uint32 masterManagerRevision,bool hasConfig,BlueprintConfig config,BlueprintMetadata metadata,JobDefinition[] jobs,bytes registrationSchema,bytes requestSchema,BlueprintSource[] sources,uint8[] supportedMemberships)",
+                    "BlueprintDefinition(string metadataUri,bytes32 metadataHash,address manager,uint32 masterManagerRevision,bool hasConfig,BlueprintConfig config,BlueprintMetadata metadata,JobDefinition[] jobs,bytes registrationSchema,bytes requestSchema,BlueprintSource[] sources,uint8[] supportedMemberships)",
                 )
             }
             #[inline]
@@ -2227,6 +2236,10 @@ struct BlueprintDefinition { string metadataUri; address manager; uint32 masterM
                     <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::eip712_data_word(
                             &self.metadataUri,
                         )
+                        .0,
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.metadataHash)
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
                             &self.manager,
@@ -2284,6 +2297,11 @@ struct BlueprintDefinition { string metadataUri; address manager; uint32 masterM
                     + <alloy::sol_types::sol_data::String as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.metadataUri,
                     )
+                    + <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.metadataHash,
+                    )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.manager,
                     )
@@ -2331,6 +2349,12 @@ struct BlueprintDefinition { string metadataUri; address manager; uint32 masterM
                 );
                 <alloy::sol_types::sol_data::String as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.metadataUri,
+                    out,
+                );
+                <alloy::sol_types::sol_data::FixedBytes<
+                    32,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.metadataHash,
                     out,
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -4743,6 +4767,7 @@ library Types {
     }
     struct BlueprintDefinition {
         string metadataUri;
+        bytes32 metadataHash;
         address manager;
         uint32 masterManagerRevision;
         bool hasConfig;
@@ -4808,15 +4833,15 @@ library Types {
 }
 
 interface ITangleBlueprints {
-    event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri);
+    event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri, bytes32 metadataHash);
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event BlueprintResourceRequirementsSet(uint64 indexed blueprintId, uint256 count);
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
-    event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
+    event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri, bytes32 metadataHash);
 
     function blueprintCount() external view returns (uint64);
     function blueprintMasterRevision(uint64 blueprintId) external view returns (uint32);
-    function blueprintMetadata(uint64 blueprintId) external view returns (Types.BlueprintMetadata memory metadata, string memory metadataUri);
+    function blueprintMetadata(uint64 blueprintId) external view returns (Types.BlueprintMetadata memory metadata, string memory metadataUri, bytes32 metadataHash);
     function blueprintOperatorCount(uint64 blueprintId) external view returns (uint256);
     function blueprintSources(uint64 blueprintId) external view returns (Types.BlueprintSource[] memory sources);
     function blueprintSupportedMemberships(uint64 blueprintId) external view returns (Types.MembershipModel[] memory memberships);
@@ -4830,7 +4855,7 @@ interface ITangleBlueprints {
     function setBlueprintResourceRequirements(uint64 blueprintId, Types.ResourceCommitment[] memory requirements) external;
     function setJobEventRates(uint64 blueprintId, uint8[] memory jobIndexes, uint256[] memory rates) external;
     function transferBlueprint(uint64 blueprintId, address newOwner) external;
-    function updateBlueprint(uint64 blueprintId, string memory metadataUri) external;
+    function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 metadataHash) external;
 }
 ```
 
@@ -4936,6 +4961,11 @@ interface ITangleBlueprints {
         "name": "metadataUri",
         "type": "string",
         "internalType": "string"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -5137,6 +5167,11 @@ interface ITangleBlueprints {
             "name": "metadataUri",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "metadataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "manager",
@@ -5585,6 +5620,11 @@ interface ITangleBlueprints {
             "internalType": "string"
           },
           {
+            "name": "metadataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
             "name": "manager",
             "type": "address",
             "internalType": "address"
@@ -6016,6 +6056,11 @@ interface ITangleBlueprints {
         "name": "metadataUri",
         "type": "string",
         "internalType": "string"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "outputs": [],
@@ -6048,6 +6093,12 @@ interface ITangleBlueprints {
         "type": "string",
         "indexed": false,
         "internalType": "string"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
       }
     ],
     "anonymous": false
@@ -6124,6 +6175,12 @@ interface ITangleBlueprints {
         "type": "string",
         "indexed": false,
         "internalType": "string"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
       }
     ],
     "anonymous": false
@@ -6162,9 +6219,9 @@ pub mod ITangleBlueprints {
     );
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `BlueprintCreated(uint64,address,address,string)` and selector `0x333da2452b770d8297cd9630b93a2a9190c82483327a16472f621efc11ace010`.
+    /**Event with signature `BlueprintCreated(uint64,address,address,string,bytes32)` and selector `0x7ccd26bc6775ae4936200d467efc9a0e4e5f2fa8877e86faa1c7a1453a93a7fc`.
 ```solidity
-event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri);
+event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri, bytes32 metadataHash);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -6182,6 +6239,8 @@ event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, addres
         pub manager: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub metadataUri: alloy::sol_types::private::String,
+        #[allow(missing_docs)]
+        pub metadataHash: alloy::sol_types::private::FixedBytes<32>,
     }
     #[allow(
         non_camel_case_types,
@@ -6196,6 +6255,7 @@ event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, addres
             type DataTuple<'a> = (
                 alloy::sol_types::sol_data::Address,
                 alloy::sol_types::sol_data::String,
+                alloy::sol_types::sol_data::FixedBytes<32>,
             );
             type DataToken<'a> = <Self::DataTuple<
                 'a,
@@ -6205,11 +6265,11 @@ event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, addres
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "BlueprintCreated(uint64,address,address,string)";
+            const SIGNATURE: &'static str = "BlueprintCreated(uint64,address,address,string,bytes32)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                51u8, 61u8, 162u8, 69u8, 43u8, 119u8, 13u8, 130u8, 151u8, 205u8, 150u8,
-                48u8, 185u8, 58u8, 42u8, 145u8, 144u8, 200u8, 36u8, 131u8, 50u8, 122u8,
-                22u8, 71u8, 47u8, 98u8, 30u8, 252u8, 17u8, 172u8, 224u8, 16u8,
+                124u8, 205u8, 38u8, 188u8, 103u8, 117u8, 174u8, 73u8, 54u8, 32u8, 13u8,
+                70u8, 126u8, 252u8, 154u8, 14u8, 78u8, 95u8, 47u8, 168u8, 135u8, 126u8,
+                134u8, 250u8, 161u8, 199u8, 161u8, 69u8, 58u8, 147u8, 167u8, 252u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -6223,6 +6283,7 @@ event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, addres
                     owner: topics.2,
                     manager: data.0,
                     metadataUri: data.1,
+                    metadataHash: data.2,
                 }
             }
             #[inline]
@@ -6249,6 +6310,9 @@ event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, addres
                     <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
                         &self.metadataUri,
                     ),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.metadataHash),
                 )
             }
             #[inline]
@@ -6652,9 +6716,9 @@ event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, add
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `BlueprintUpdated(uint64,string)` and selector `0x30fc45e05a33fd9068cf6ae1a8f3db2b9d15372dd6494eccc8cd5d305fdf38b3`.
+    /**Event with signature `BlueprintUpdated(uint64,string,bytes32)` and selector `0x2a63eae57789a34134d3e1e4cb40aa4d154a2c6b35b52a938d6833de9514ad34`.
 ```solidity
-event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
+event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri, bytes32 metadataHash);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -6668,6 +6732,8 @@ event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
         pub blueprintId: u64,
         #[allow(missing_docs)]
         pub metadataUri: alloy::sol_types::private::String,
+        #[allow(missing_docs)]
+        pub metadataHash: alloy::sol_types::private::FixedBytes<32>,
     }
     #[allow(
         non_camel_case_types,
@@ -6679,7 +6745,10 @@ event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for BlueprintUpdated {
-            type DataTuple<'a> = (alloy::sol_types::sol_data::String,);
+            type DataTuple<'a> = (
+                alloy::sol_types::sol_data::String,
+                alloy::sol_types::sol_data::FixedBytes<32>,
+            );
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -6687,11 +6756,11 @@ event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<64>,
             );
-            const SIGNATURE: &'static str = "BlueprintUpdated(uint64,string)";
+            const SIGNATURE: &'static str = "BlueprintUpdated(uint64,string,bytes32)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                48u8, 252u8, 69u8, 224u8, 90u8, 51u8, 253u8, 144u8, 104u8, 207u8, 106u8,
-                225u8, 168u8, 243u8, 219u8, 43u8, 157u8, 21u8, 55u8, 45u8, 214u8, 73u8,
-                78u8, 204u8, 200u8, 205u8, 93u8, 48u8, 95u8, 223u8, 56u8, 179u8,
+                42u8, 99u8, 234u8, 229u8, 119u8, 137u8, 163u8, 65u8, 52u8, 211u8, 225u8,
+                228u8, 203u8, 64u8, 170u8, 77u8, 21u8, 74u8, 44u8, 107u8, 53u8, 181u8,
+                42u8, 147u8, 141u8, 104u8, 51u8, 222u8, 149u8, 20u8, 173u8, 52u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -6703,6 +6772,7 @@ event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
                 Self {
                     blueprintId: topics.1,
                     metadataUri: data.0,
+                    metadataHash: data.1,
                 }
             }
             #[inline]
@@ -6726,6 +6796,9 @@ event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
                     <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
                         &self.metadataUri,
                     ),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.metadataHash),
                 )
             }
             #[inline]
@@ -7073,7 +7146,7 @@ function blueprintMasterRevision(uint64 blueprintId) external view returns (uint
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `blueprintMetadata(uint64)` and selector `0x430ce118`.
 ```solidity
-function blueprintMetadata(uint64 blueprintId) external view returns (Types.BlueprintMetadata memory metadata, string memory metadataUri);
+function blueprintMetadata(uint64 blueprintId) external view returns (Types.BlueprintMetadata memory metadata, string memory metadataUri, bytes32 metadataHash);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -7091,6 +7164,8 @@ function blueprintMetadata(uint64 blueprintId) external view returns (Types.Blue
         pub metadata: <Types::BlueprintMetadata as alloy::sol_types::SolType>::RustType,
         #[allow(missing_docs)]
         pub metadataUri: alloy::sol_types::private::String,
+        #[allow(missing_docs)]
+        pub metadataHash: alloy::sol_types::private::FixedBytes<32>,
     }
     #[allow(
         non_camel_case_types,
@@ -7140,11 +7215,13 @@ function blueprintMetadata(uint64 blueprintId) external view returns (Types.Blue
             type UnderlyingSolTuple<'a> = (
                 Types::BlueprintMetadata,
                 alloy::sol_types::sol_data::String,
+                alloy::sol_types::sol_data::FixedBytes<32>,
             );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
                 <Types::BlueprintMetadata as alloy::sol_types::SolType>::RustType,
                 alloy::sol_types::private::String,
+                alloy::sol_types::private::FixedBytes<32>,
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
@@ -7162,7 +7239,7 @@ function blueprintMetadata(uint64 blueprintId) external view returns (Types.Blue
             impl ::core::convert::From<blueprintMetadataReturn>
             for UnderlyingRustTuple<'_> {
                 fn from(value: blueprintMetadataReturn) -> Self {
-                    (value.metadata, value.metadataUri)
+                    (value.metadata, value.metadataUri, value.metadataHash)
                 }
             }
             #[automatically_derived]
@@ -7173,6 +7250,7 @@ function blueprintMetadata(uint64 blueprintId) external view returns (Types.Blue
                     Self {
                         metadata: tuple.0,
                         metadataUri: tuple.1,
+                        metadataHash: tuple.2,
                     }
                 }
             }
@@ -7188,6 +7266,9 @@ function blueprintMetadata(uint64 blueprintId) external view returns (Types.Blue
                     <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
                         &self.metadataUri,
                     ),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.metadataHash),
                 )
             }
         }
@@ -7201,6 +7282,7 @@ function blueprintMetadata(uint64 blueprintId) external view returns (Types.Blue
             type ReturnTuple<'a> = (
                 Types::BlueprintMetadata,
                 alloy::sol_types::sol_data::String,
+                alloy::sol_types::sol_data::FixedBytes<32>,
             );
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
@@ -7739,7 +7821,7 @@ function blueprintSupportedMemberships(uint64 blueprintId) external view returns
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `createBlueprint((string,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))` and selector `0xf84868db`.
+    /**Function with signature `createBlueprint((string,bytes32,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))` and selector `0x3022f66c`.
 ```solidity
 function createBlueprint(Types.BlueprintDefinition memory definition) external returns (uint64 blueprintId);
 ```*/
@@ -7751,7 +7833,7 @@ function createBlueprint(Types.BlueprintDefinition memory definition) external r
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`createBlueprint((string,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))`](createBlueprintCall) function.
+    ///Container type for the return parameters of the [`createBlueprint((string,bytes32,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))`](createBlueprintCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct createBlueprintReturn {
@@ -7845,8 +7927,8 @@ function createBlueprint(Types.BlueprintDefinition memory definition) external r
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "createBlueprint((string,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))";
-            const SELECTOR: [u8; 4] = [248u8, 72u8, 104u8, 219u8];
+            const SIGNATURE: &'static str = "createBlueprint((string,bytes32,address,uint32,bool,(uint8,uint8,uint32,uint32,uint256,uint64,uint256),(string,string,string,string,string,string,string,string,string),(string,string,string,bytes,bytes)[],bytes,bytes,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[],uint8[]))";
+            const SELECTOR: [u8; 4] = [48u8, 34u8, 246u8, 108u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -9354,9 +9436,9 @@ function transferBlueprint(uint64 blueprintId, address newOwner) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `updateBlueprint(uint64,string)` and selector `0xe538da66`.
+    /**Function with signature `updateBlueprint(uint64,string,bytes32)` and selector `0xc77f959b`.
 ```solidity
-function updateBlueprint(uint64 blueprintId, string memory metadataUri) external;
+function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 metadataHash) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -9365,8 +9447,10 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
         pub blueprintId: u64,
         #[allow(missing_docs)]
         pub metadataUri: alloy::sol_types::private::String,
+        #[allow(missing_docs)]
+        pub metadataHash: alloy::sol_types::private::FixedBytes<32>,
     }
-    ///Container type for the return parameters of the [`updateBlueprint(uint64,string)`](updateBlueprintCall) function.
+    ///Container type for the return parameters of the [`updateBlueprint(uint64,string,bytes32)`](updateBlueprintCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct updateBlueprintReturn {}
@@ -9384,9 +9468,14 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::String,
+                alloy::sol_types::sol_data::FixedBytes<32>,
             );
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u64, alloy::sol_types::private::String);
+            type UnderlyingRustTuple<'a> = (
+                u64,
+                alloy::sol_types::private::String,
+                alloy::sol_types::private::FixedBytes<32>,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -9402,7 +9491,7 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             #[doc(hidden)]
             impl ::core::convert::From<updateBlueprintCall> for UnderlyingRustTuple<'_> {
                 fn from(value: updateBlueprintCall) -> Self {
-                    (value.blueprintId, value.metadataUri)
+                    (value.blueprintId, value.metadataUri, value.metadataHash)
                 }
             }
             #[automatically_derived]
@@ -9412,6 +9501,7 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                     Self {
                         blueprintId: tuple.0,
                         metadataUri: tuple.1,
+                        metadataHash: tuple.2,
                     }
                 }
             }
@@ -9462,6 +9552,7 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             type Parameters<'a> = (
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::String,
+                alloy::sol_types::sol_data::FixedBytes<32>,
             );
             type Token<'a> = <Self::Parameters<
                 'a,
@@ -9471,8 +9562,8 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "updateBlueprint(uint64,string)";
-            const SELECTOR: [u8; 4] = [229u8, 56u8, 218u8, 102u8];
+            const SIGNATURE: &'static str = "updateBlueprint(uint64,string,bytes32)";
+            const SELECTOR: [u8; 4] = [199u8, 127u8, 149u8, 155u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -9488,6 +9579,9 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                     <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
                         &self.metadataUri,
                     ),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.metadataHash),
                 )
             }
             #[inline]
@@ -9560,6 +9654,7 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
         ///
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
+            [48u8, 34u8, 246u8, 108u8],
             [51u8, 94u8, 160u8, 113u8],
             [52u8, 158u8, 150u8, 26u8],
             [67u8, 12u8, 225u8, 24u8],
@@ -9571,15 +9666,15 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             [183u8, 105u8, 109u8, 187u8],
             [193u8, 215u8, 19u8, 4u8],
             [198u8, 2u8, 212u8, 250u8],
+            [199u8, 127u8, 149u8, 155u8],
             [223u8, 87u8, 245u8, 39u8],
-            [229u8, 56u8, 218u8, 102u8],
             [232u8, 48u8, 191u8, 246u8],
-            [248u8, 72u8, 104u8, 219u8],
             [249u8, 51u8, 59u8, 177u8],
             [255u8, 20u8, 169u8, 64u8],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(createBlueprint),
             ::core::stringify!(blueprintSources),
             ::core::stringify!(getBlueprintResourceRequirements),
             ::core::stringify!(blueprintMetadata),
@@ -9591,15 +9686,15 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             ::core::stringify!(getBlueprint),
             ::core::stringify!(setJobEventRates),
             ::core::stringify!(blueprintCount),
-            ::core::stringify!(blueprintSupportedMemberships),
             ::core::stringify!(updateBlueprint),
+            ::core::stringify!(blueprintSupportedMemberships),
             ::core::stringify!(setBlueprintResourceRequirements),
-            ::core::stringify!(createBlueprint),
             ::core::stringify!(getJobEventRate),
             ::core::stringify!(blueprintMasterRevision),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
+            <createBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintSourcesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getBlueprintResourceRequirementsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintMetadataCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -9611,10 +9706,9 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             <getBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setJobEventRatesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintCountCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <blueprintSupportedMembershipsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <updateBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <blueprintSupportedMembershipsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setBlueprintResourceRequirementsCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <createBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getJobEventRateCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintMasterRevisionCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
@@ -9717,6 +9811,17 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             static DECODE_SHIMS: &[fn(
                 &[u8],
             ) -> alloy_sol_types::Result<ITangleBlueprintsCalls>] = &[
+                {
+                    fn createBlueprint(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
+                        <createBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleBlueprintsCalls::createBlueprint)
+                    }
+                    createBlueprint
+                },
                 {
                     fn blueprintSources(
                         data: &[u8],
@@ -9841,17 +9946,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                     blueprintCount
                 },
                 {
-                    fn blueprintSupportedMemberships(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
-                        <blueprintSupportedMembershipsCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleBlueprintsCalls::blueprintSupportedMemberships)
-                    }
-                    blueprintSupportedMemberships
-                },
-                {
                     fn updateBlueprint(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
@@ -9861,6 +9955,17 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                             .map(ITangleBlueprintsCalls::updateBlueprint)
                     }
                     updateBlueprint
+                },
+                {
+                    fn blueprintSupportedMemberships(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
+                        <blueprintSupportedMembershipsCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleBlueprintsCalls::blueprintSupportedMemberships)
+                    }
+                    blueprintSupportedMemberships
                 },
                 {
                     fn setBlueprintResourceRequirements(
@@ -9874,17 +9979,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                             )
                     }
                     setBlueprintResourceRequirements
-                },
-                {
-                    fn createBlueprint(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
-                        <createBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleBlueprintsCalls::createBlueprint)
-                    }
-                    createBlueprint
                 },
                 {
                     fn getJobEventRate(
@@ -9928,6 +10022,17 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
             static DECODE_VALIDATE_SHIMS: &[fn(
                 &[u8],
             ) -> alloy_sol_types::Result<ITangleBlueprintsCalls>] = &[
+                {
+                    fn createBlueprint(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
+                        <createBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleBlueprintsCalls::createBlueprint)
+                    }
+                    createBlueprint
+                },
                 {
                     fn blueprintSources(
                         data: &[u8],
@@ -10052,17 +10157,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                     blueprintCount
                 },
                 {
-                    fn blueprintSupportedMemberships(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
-                        <blueprintSupportedMembershipsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleBlueprintsCalls::blueprintSupportedMemberships)
-                    }
-                    blueprintSupportedMemberships
-                },
-                {
                     fn updateBlueprint(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
@@ -10072,6 +10166,17 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                             .map(ITangleBlueprintsCalls::updateBlueprint)
                     }
                     updateBlueprint
+                },
+                {
+                    fn blueprintSupportedMemberships(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
+                        <blueprintSupportedMembershipsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleBlueprintsCalls::blueprintSupportedMemberships)
+                    }
+                    blueprintSupportedMemberships
                 },
                 {
                     fn setBlueprintResourceRequirements(
@@ -10085,17 +10190,6 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
                             )
                     }
                     setBlueprintResourceRequirements
-                },
-                {
-                    fn createBlueprint(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleBlueprintsCalls> {
-                        <createBlueprintCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleBlueprintsCalls::createBlueprint)
-                    }
-                    createBlueprint
                 },
                 {
                     fn getJobEventRate(
@@ -10353,14 +10447,14 @@ function updateBlueprint(uint64 blueprintId, string memory metadataUri) external
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                48u8, 252u8, 69u8, 224u8, 90u8, 51u8, 253u8, 144u8, 104u8, 207u8, 106u8,
-                225u8, 168u8, 243u8, 219u8, 43u8, 157u8, 21u8, 55u8, 45u8, 214u8, 73u8,
-                78u8, 204u8, 200u8, 205u8, 93u8, 48u8, 95u8, 223u8, 56u8, 179u8,
+                42u8, 99u8, 234u8, 229u8, 119u8, 137u8, 163u8, 65u8, 52u8, 211u8, 225u8,
+                228u8, 203u8, 64u8, 170u8, 77u8, 21u8, 74u8, 44u8, 107u8, 53u8, 181u8,
+                42u8, 147u8, 141u8, 104u8, 51u8, 222u8, 149u8, 20u8, 173u8, 52u8,
             ],
             [
-                51u8, 61u8, 162u8, 69u8, 43u8, 119u8, 13u8, 130u8, 151u8, 205u8, 150u8,
-                48u8, 185u8, 58u8, 42u8, 145u8, 144u8, 200u8, 36u8, 131u8, 50u8, 122u8,
-                22u8, 71u8, 47u8, 98u8, 30u8, 252u8, 17u8, 172u8, 224u8, 16u8,
+                124u8, 205u8, 38u8, 188u8, 103u8, 117u8, 174u8, 73u8, 54u8, 32u8, 13u8,
+                70u8, 126u8, 252u8, 154u8, 14u8, 78u8, 95u8, 47u8, 168u8, 135u8, 126u8,
+                134u8, 250u8, 161u8, 199u8, 161u8, 69u8, 58u8, 147u8, 167u8, 252u8,
             ],
             [
                 136u8, 214u8, 229u8, 28u8, 179u8, 94u8, 182u8, 74u8, 56u8, 39u8, 110u8,
@@ -10867,11 +10961,13 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
             blueprintId: u64,
             metadataUri: alloy::sol_types::private::String,
+            metadataHash: alloy::sol_types::private::FixedBytes<32>,
         ) -> alloy_contract::SolCallBuilder<&P, updateBlueprintCall, N> {
             self.call_builder(
                 &updateBlueprintCall {
                     blueprintId,
                     metadataUri,
+                    metadataHash,
                 },
             )
         }

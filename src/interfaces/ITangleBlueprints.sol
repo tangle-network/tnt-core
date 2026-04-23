@@ -10,9 +10,15 @@ interface ITangleBlueprints {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri);
+    event BlueprintCreated(
+        uint64 indexed blueprintId,
+        address indexed owner,
+        address manager,
+        string metadataUri,
+        bytes32 metadataHash
+    );
 
-    event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
+    event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri, bytes32 metadataHash);
 
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
 
@@ -28,7 +34,7 @@ interface ITangleBlueprints {
     function createBlueprint(Types.BlueprintDefinition calldata definition) external returns (uint64 blueprintId);
 
     /// @notice Update blueprint metadata
-    function updateBlueprint(uint64 blueprintId, string calldata metadataUri) external;
+    function updateBlueprint(uint64 blueprintId, string calldata metadataUri, bytes32 metadataHash) external;
 
     /// @notice Transfer blueprint ownership
     function transferBlueprint(uint64 blueprintId, address newOwner) external;
@@ -62,7 +68,7 @@ interface ITangleBlueprints {
     function blueprintMetadata(uint64 blueprintId)
         external
         view
-        returns (Types.BlueprintMetadata memory metadata, string memory metadataUri);
+        returns (Types.BlueprintMetadata memory metadata, string memory metadataUri, bytes32 metadataHash);
 
     /// @notice Get blueprint sources
     function blueprintSources(uint64 blueprintId) external view returns (Types.BlueprintSource[] memory sources);

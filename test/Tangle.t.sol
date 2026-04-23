@@ -63,11 +63,12 @@ contract TangleTest is BaseTest {
 
     function test_UpdateBlueprint() public {
         uint64 blueprintId = _createBlueprint(developer);
+        bytes32 nextMetadataHash = keccak256(bytes("ipfs://newUri"));
 
         vm.prank(developer);
         vm.expectEmit(true, false, false, true);
-        emit ITangleBlueprints.BlueprintUpdated(blueprintId, "ipfs://newUri");
-        tangle.updateBlueprint(blueprintId, "ipfs://newUri");
+        emit ITangleBlueprints.BlueprintUpdated(blueprintId, "ipfs://newUri", nextMetadataHash);
+        tangle.updateBlueprint(blueprintId, "ipfs://newUri", nextMetadataHash);
     }
 
     function test_UpdateBlueprint_RevertNotOwner() public {
@@ -75,7 +76,19 @@ contract TangleTest is BaseTest {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.NotBlueprintOwner.selector, blueprintId, user1));
-        tangle.updateBlueprint(blueprintId, "ipfs://newUri");
+        tangle.updateBlueprint(blueprintId, "ipfs://newUri", keccak256(bytes("ipfs://newUri")));
+    }
+
+    function test_UpdateBlueprint_RevertMetadataLocked() public {
+        _registerOperator(operator1);
+        uint64 blueprintId = _createBlueprint(developer);
+
+        vm.prank(operator1);
+        tangle.registerOperator(blueprintId, _operatorGossipKey(operator1, 0), "http://localhost:9944", "");
+
+        vm.prank(developer);
+        vm.expectRevert(abi.encodeWithSelector(Errors.BlueprintMetadataLocked.selector, blueprintId));
+        tangle.updateBlueprint(blueprintId, "ipfs://newUri", keccak256(bytes("ipfs://newUri")));
     }
 
     function test_TransferBlueprint() public {
