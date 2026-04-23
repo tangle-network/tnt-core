@@ -12,7 +12,7 @@ abstract contract BlueprintsManage is Base {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri);
+    event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri, bytes32 metadataHash);
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event JobEventRateSet(uint64 indexed blueprintId, uint8 indexed jobIndex, uint256 rate);
@@ -31,10 +31,11 @@ abstract contract BlueprintsManage is Base {
     function blueprintMetadata(uint64 blueprintId)
         external
         view
-        returns (Types.BlueprintMetadata memory metadata, string memory metadataUri)
+        returns (Types.BlueprintMetadata memory metadata, string memory metadataUri, bytes32 metadataHash)
     {
         metadata = _blueprintMetadata[blueprintId];
         metadataUri = _blueprintMetadataUri[blueprintId];
+        metadataHash = _blueprintMetadataHash[blueprintId];
     }
 
     /// @notice Get blueprint sources
@@ -76,13 +77,17 @@ abstract contract BlueprintsManage is Base {
     }
 
     /// @notice Update blueprint metadata
-    function updateBlueprint(uint64 blueprintId, string calldata metadataUri) external {
+    function updateBlueprint(uint64 blueprintId, string calldata metadataUri, bytes32 metadataHash) external {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (bp.owner != msg.sender) {
             revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
         }
+        if (_blueprintMetadataLocked[blueprintId]) revert Errors.BlueprintMetadataLocked(blueprintId);
+        if (bytes(metadataUri).length == 0) revert Errors.BlueprintMetadataRequired();
+        if (metadataHash == bytes32(0)) revert Errors.BlueprintMetadataHashRequired();
         _blueprintMetadataUri[blueprintId] = metadataUri;
-        emit BlueprintUpdated(blueprintId, metadataUri);
+        _blueprintMetadataHash[blueprintId] = metadataHash;
+        emit BlueprintUpdated(blueprintId, metadataUri, metadataHash);
     }
 
     /// @notice Transfer blueprint ownership

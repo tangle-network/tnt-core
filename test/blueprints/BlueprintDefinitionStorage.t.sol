@@ -33,13 +33,13 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         def.supportedMemberships = new Types.MembershipModel[](1);
         def.supportedMemberships[0] = Types.MembershipModel.Dynamic;
 
-        bytes memory encodedDefinition = abi.encode(def);
         vm.prank(developer);
         uint64 blueprintId = tangle.createBlueprint(def);
 
-        (Types.BlueprintMetadata memory storedMetadata, string memory metadataUri) =
+        (Types.BlueprintMetadata memory storedMetadata, string memory metadataUri, bytes32 metadataHash) =
             tangle.blueprintMetadata(blueprintId);
         assertEq(metadataUri, def.metadataUri, "metadata URI mismatch");
+        assertEq(metadataHash, def.metadataHash, "metadata hash mismatch");
         assertEq(storedMetadata.name, def.metadata.name);
         assertEq(storedMetadata.description, def.metadata.description);
         assertEq(storedMetadata.author, def.metadata.author);
@@ -87,9 +87,16 @@ contract BlueprintDefinitionStorageTest is BaseTest {
 
     function test_CreateBlueprintFailsWithoutMetadata() public {
         Types.BlueprintDefinition memory def = _blueprintDefinition("", address(0));
-        bytes memory encoded = abi.encode(def);
         vm.prank(developer);
         vm.expectRevert(Errors.BlueprintMetadataRequired.selector);
+        tangle.createBlueprint(def);
+    }
+
+    function test_CreateBlueprintFailsWithoutMetadataHash() public {
+        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://missing-hash", address(0));
+        def.metadataHash = bytes32(0);
+        vm.prank(developer);
+        vm.expectRevert(Errors.BlueprintMetadataHashRequired.selector);
         tangle.createBlueprint(def);
     }
 

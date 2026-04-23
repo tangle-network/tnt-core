@@ -92,6 +92,9 @@ abstract contract TangleStorage {
     /// @notice Blueprint ID => Metadata URI
     mapping(uint64 => string) internal _blueprintMetadataUri;
 
+    /// @notice Blueprint ID => Pinned metadata digest
+    mapping(uint64 => bytes32) internal _blueprintMetadataHash;
+
     /// @notice Blueprint ID => Rich metadata
     mapping(uint64 => Types.BlueprintMetadata) internal _blueprintMetadata;
 

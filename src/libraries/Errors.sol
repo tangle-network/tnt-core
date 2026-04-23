@@ -168,6 +168,9 @@ library Errors {
     /// @notice Blueprint metadata is locked
     error BlueprintMetadataLocked(uint64 blueprintId);
 
+    /// @notice Blueprint metadata hash is required
+    error BlueprintMetadataHashRequired();
+
     /// @notice Quote timestamp is too old
     error QuoteTimestampTooOld(address operator, uint64 timestamp, uint64 maxAge);
 

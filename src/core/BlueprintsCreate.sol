@@ -14,7 +14,13 @@ abstract contract BlueprintsCreate is Base {
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event BlueprintCreated(uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri);
+    event BlueprintCreated(
+        uint64 indexed blueprintId,
+        address indexed owner,
+        address manager,
+        string metadataUri,
+        bytes32 metadataHash
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT CREATION
@@ -46,14 +52,14 @@ abstract contract BlueprintsCreate is Base {
 
         _blueprintConfigs[blueprintId] = config;
         _storeBlueprintSchemas(blueprintId, def);
-        _storeBlueprintMetadata(blueprintId, def.metadataUri, def.metadata);
+        _storeBlueprintMetadata(blueprintId, def.metadataUri, def.metadataHash, def.metadata);
         _storeBlueprintSources(blueprintId, def.sources);
         _storeSupportedMemberships(blueprintId, def.supportedMemberships);
         _blueprintMasterRevisions[blueprintId] = resolvedRevision;
         bytes memory encodedDefinition = abi.encode(def);
         _blueprintDefinitionBlobs[blueprintId] = encodedDefinition;
 
-        emit BlueprintCreated(blueprintId, msg.sender, def.manager, def.metadataUri);
+        emit BlueprintCreated(blueprintId, msg.sender, def.manager, def.metadataUri, def.metadataHash);
         _recordBlueprintCreated(blueprintId, msg.sender);
 
         if (def.manager != address(0)) {
@@ -80,11 +86,13 @@ abstract contract BlueprintsCreate is Base {
     function _storeBlueprintMetadata(
         uint64 blueprintId,
         string calldata metadataUri,
+        bytes32 metadataHash,
         Types.BlueprintMetadata calldata metadata
     )
         private
     {
         _blueprintMetadataUri[blueprintId] = metadataUri;
+        _blueprintMetadataHash[blueprintId] = metadataHash;
         _blueprintMetadata[blueprintId] = metadata;
     }
 
@@ -116,6 +124,7 @@ abstract contract BlueprintsCreate is Base {
 
     function _validateBlueprintDefinition(Types.BlueprintDefinition calldata def) private pure {
         if (bytes(def.metadataUri).length == 0) revert Errors.BlueprintMetadataRequired();
+        if (def.metadataHash == bytes32(0)) revert Errors.BlueprintMetadataHashRequired();
         if (def.jobs.length == 0) revert Errors.InvalidState();
         if (def.sources.length == 0) revert Errors.BlueprintSourcesRequired();
         if (def.supportedMemberships.length == 0) revert Errors.BlueprintMembershipRequired();

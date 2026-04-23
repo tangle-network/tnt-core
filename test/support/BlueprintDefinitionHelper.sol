@@ -20,6 +20,7 @@ abstract contract BlueprintDefinitionHelper {
     {
         bytes memory emptySchema = _emptySchema();
         def.metadataUri = metadataUri;
+        def.metadataHash = keccak256(bytes(metadataUri));
         def.manager = manager;
         def.masterManagerRevision = 0;
         def.hasConfig = true;

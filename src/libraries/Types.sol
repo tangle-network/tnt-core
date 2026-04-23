@@ -82,6 +82,7 @@ library Types {
     /// @notice Blueprint definition emitted by off-chain tooling and persisted on-chain
     struct BlueprintDefinition {
         string metadataUri; // IPFS/HTTPS pointer to raw blueprint JSON
+        bytes32 metadataHash; // Pinned digest of the canonical metadata JSON payload
         address manager; // Service manager contract for hooks
         uint32 masterManagerRevision; // Revision of the master manager contract
         bool hasConfig; // True when config should be applied
