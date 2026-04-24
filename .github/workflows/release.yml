@@ -31,6 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref }}
           submodules: recursive
 
       - name: Install Foundry
@@ -62,6 +63,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref }}
           submodules: recursive
 
       - name: Install Foundry
@@ -87,7 +89,11 @@ jobs:
         env:
           SOLDEER_API_TOKEN: ${{ secrets.SOLDEER_API_TOKEN }}
         run: |
-          forge soldeer push tnt-core~${{ steps.version.outputs.version }}
+          if [ -z "${SOLDEER_API_TOKEN}" ]; then
+            echo "::error::SOLDEER_API_TOKEN repository secret is not configured"
+            exit 1
+          fi
+          forge soldeer push tnt-core~${{ steps.version.outputs.version }} --skip-warnings
 
   # Publish Rust bindings to crates.io
   publish-bindings:
@@ -100,6 +106,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref }}
           submodules: recursive
 
       - name: Install Foundry
@@ -120,5 +127,9 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
+          if [ -z "${CARGO_REGISTRY_TOKEN}" ]; then
+            echo "::error::CARGO_REGISTRY_TOKEN repository secret is not configured"
+            exit 1
+          fi
           cd bindings
           cargo publish --allow-dirty
