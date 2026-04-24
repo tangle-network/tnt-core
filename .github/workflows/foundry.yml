@@ -50,7 +50,7 @@ jobs:
 
           echo "$CHANGED"
 
-          if echo "$CHANGED" | grep -Eq '^(src|test|script|dependencies|bindings|xtask)/|^(foundry.toml|remappings.txt|soldeer.lock|Cargo.toml|Cargo.lock)$'; then
+          if echo "$CHANGED" | grep -Eq '^(src|test|script|dependencies)/|^(foundry.toml|remappings.txt|soldeer.lock)$'; then
             echo "foundry_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "foundry_changed=false" >> "$GITHUB_OUTPUT"
