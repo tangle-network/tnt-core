@@ -23,26 +23,58 @@ jobs:
 
     name: Foundry project
     runs-on: ubuntu-latest
+    outputs:
+      foundry_changed: ${{ steps.changes.outputs.foundry_changed }}
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
 
+      - name: Detect Foundry-relevant changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            CHANGED="$(git ls-tree -r --name-only "$HEAD")"
+          else
+            CHANGED="$(git diff --name-only "$BASE" "$HEAD")"
+          fi
+
+          echo "$CHANGED"
+
+          if echo "$CHANGED" | grep -Eq '^(src|test|script|dependencies|bindings|xtask)/|^(foundry.toml|remappings.txt|soldeer.lock|Cargo.toml|Cargo.lock)$'; then
+            echo "foundry_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "foundry_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install Foundry
+        if: steps.changes.outputs.foundry_changed == 'true'
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v0.3.0
 
       - name: Install Solidity Dependencies
+        if: steps.changes.outputs.foundry_changed == 'true'
         run: forge soldeer update -d
 
       - name: Run Forge build
+        if: steps.changes.outputs.foundry_changed == 'true'
         run: |
           forge --version
           forge build --sizes --color always
         id: build
 
       - name: Run Forge tests
+        if: steps.changes.outputs.foundry_changed == 'true'
         run: |
           forge test -vvv --color always
         id: test
@@ -50,6 +82,7 @@ jobs:
   coverage_report:
     name: Generate coverage report
     needs: foundry-check
+    if: needs.foundry-check.outputs.foundry_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
