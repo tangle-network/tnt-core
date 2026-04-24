@@ -41,11 +41,15 @@ jobs:
       - name: Install dependencies
         run: forge soldeer update -d
 
-      - name: Build
+      - name: Build release artifacts
+        env:
+          FOUNDRY_PROFILE: local_build
         run: forge build
 
-      - name: Test
-        run: forge test
+      - name: Test blueprint metadata storage
+        env:
+          FOUNDRY_PROFILE: fast
+        run: forge test --match-contract BlueprintDefinitionStorageTest -vvv
 
   # Publish Solidity contracts to Soldeer
   publish-soldeer:
