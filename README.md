@@ -23,13 +23,13 @@ Tangle Network's EVM-native staking and service blueprint protocol. Build decent
 ## Installation
 
 ```bash
-forge soldeer install tnt-core~0.10.8
+forge soldeer install tnt-core~0.10.9
 ```
 
 Or add to `foundry.toml`:
 ```toml
 [dependencies]
-tnt-core = "0.10.8"
+tnt-core = "0.10.9"
 ```
 
 ## Quick Start
@@ -195,7 +195,7 @@ When an operator misbehaves or fails to perform their duties, the **BlueprintSer
 TNT Core supports three payment models: **PayOnce** (one-time payment at service creation), **Subscription** (recurring payments), and **EventBased** (pay per event or job execution). These are configured in the Blueprint's pricing contract.
 
 ### How do I build a custom Blueprint with TNT Core?
-Extend `BlueprintServiceManagerBase` in Solidity and implement the `onRequest` and `onJobResult` hooks. Install TNT Core via `forge soldeer install tnt-core~0.10.8` and import the base contract. See the Quick Start section above for a working example.
+Extend `BlueprintServiceManagerBase` in Solidity and implement the `onRequest` and `onJobResult` hooks. Install TNT Core via `forge soldeer install tnt-core~0.10.9` and import the base contract. See the Quick Start section above for a working example.
 
 ## License
 
