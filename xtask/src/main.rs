@@ -181,15 +181,20 @@ fn gen_bindings() -> Result<()> {
 
     // Step 5: Record version
     print_step(5, 5, "Recording git version...");
-    let git_rev = Command::new("git")
-        .current_dir(&repo_root)
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .context("failed to query git rev")?;
-    if !git_rev.status.success() {
-        return Err(anyhow!("git rev-parse failed with {}", git_rev.status));
-    }
-    let version = String::from_utf8(git_rev.stdout)?.trim().to_string();
+    let version = match env::var("TNT_CORE_VERSION_OVERRIDE") {
+        Ok(value) if !value.trim().is_empty() => value.trim().to_string(),
+        _ => {
+            let git_rev = Command::new("git")
+                .current_dir(&repo_root)
+                .args(["rev-parse", "HEAD"])
+                .output()
+                .context("failed to query git rev")?;
+            if !git_rev.status.success() {
+                return Err(anyhow!("git rev-parse failed with {}", git_rev.status));
+            }
+            String::from_utf8(git_rev.stdout)?.trim().to_string()
+        }
+    };
     fs::write(bindings_crate.join("TNT_CORE_VERSION"), &version)
         .context("failed to write TNT_CORE_VERSION")?;
     print_done();

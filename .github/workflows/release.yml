@@ -106,7 +106,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref }}
           submodules: recursive
 
       - name: Install Foundry
@@ -119,6 +118,20 @@ jobs:
 
       - name: Install dependencies
         run: forge soldeer update -d
+
+      - name: Verify binding source matches release tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ inputs.version }}"
+          TAG="v${VERSION}"
+          git fetch --depth=1 origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          TARGET_SHA="$(git rev-parse "${TAG}")"
+          echo "TNT_CORE_VERSION_OVERRIDE=${TARGET_SHA}" >> "$GITHUB_ENV"
+
+          if ! git diff --quiet "${TAG}" -- src foundry.toml remappings.txt soldeer.lock Cargo.toml Cargo.lock bindings/Cargo.toml bindings/README.md; then
+            echo "::error::Release-relevant source differs from ${TAG}; create a new tag or publish from the tag workflow instead"
+            exit 1
+          fi
 
       - name: Generate bindings
         run: cargo xtask gen-bindings
