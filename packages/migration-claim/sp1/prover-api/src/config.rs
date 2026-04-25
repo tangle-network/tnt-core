@@ -5,7 +5,7 @@ use crate::validation::parse_hex_bytes;
 
 /// Load configuration from environment variables
 pub fn load_config() -> Result<AppConfig, String> {
-    let prover_mode = env::var("SP1_PROVER").unwrap_or_else(|_| "network".to_string());
+    let prover_mode = env::var("SP1_PROVER").unwrap_or_else(|_| "local".to_string());
     let allow_mock = env::var("ALLOW_MOCK")
         .map(|value| value == "true")
         .unwrap_or(false);
@@ -15,8 +15,13 @@ pub fn load_config() -> Result<AppConfig, String> {
         return Err("SP1_PROVER=mock is disabled. Set ALLOW_MOCK=true to enable.".to_string());
     }
 
-    if prover_mode == "network" && env::var("NETWORK_PRIVATE_KEY").is_err() {
-        return Err("NETWORK_PRIVATE_KEY is required when SP1_PROVER=network.".to_string());
+    if prover_mode == "network" {
+        return Err(
+            "SP1_PROVER=network is disabled in this build because the upstream SP1 network stack \
+             still pulls a vulnerable legacy rustls-webpki dependency. Use SP1_PROVER=local or \
+             SP1_PROVER=mock until SP1/AWS removes that dependency path."
+                .to_string(),
+        );
     }
 
     // Parse verify settings
@@ -27,14 +32,6 @@ pub fn load_config() -> Result<AppConfig, String> {
     let verify_onchain = env::var("VERIFY_ONCHAIN")
         .map(|value| value == "true")
         .unwrap_or(false);
-
-    // Enforce verification in production (SP1_PROVER=network)
-    if prover_mode == "network" && !verify_proof {
-        return Err(
-            "VERIFY_PROOF=true is required when SP1_PROVER=network for production safety."
-                .to_string(),
-        );
-    }
 
     // Parse RPC timeout early (needed for verify_onchain_config)
     let rpc_timeout_seconds = env::var("RPC_TIMEOUT_SECONDS")

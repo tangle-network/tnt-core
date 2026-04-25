@@ -12,8 +12,7 @@ Minimal HTTP wrapper around the SP1 prover for SR25519 migration claims.
 
 ```env
 PORT=8080
-SP1_PROVER=network
-NETWORK_PRIVATE_KEY=0x...
+SP1_PROVER=local
 VERIFY_PROOF=false
 VERIFY_ONCHAIN=false
 VERIFY_ONCHAIN_RPC_URL=https://sepolia.base.org
@@ -23,7 +22,7 @@ ALLOW_MOCK=false
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-`SP1_PROVER=network` uses the Succinct Prover Network. `NETWORK_PRIVATE_KEY` is required in that mode.
+`SP1_PROVER=network` is disabled in this build because the upstream SP1 network stack currently pulls a vulnerable legacy `rustls-webpki` dependency path. Use `SP1_PROVER=local` for real local Groth16 proofs or `SP1_PROVER=mock` for local testing with `ALLOW_MOCK=true`.
 `VERIFY_ONCHAIN=true` performs an `eth_call` against the SP1 verifier gateway using the same public values, so no gas or funds are required (it uses `VERIFY_ONCHAIN_RPC_URL` or falls back to `RPC_URL`).
 If `SP1_VERIFIER_ADDRESS` is omitted it defaults to `0x397A5f7f3dBd538f23DE225B51f532c34448dA9B` (Base Sepolia & Base Mainnet gateway). `SP1_PROGRAM_VKEY` is required when `VERIFY_ONCHAIN=true`.
 `CORS_ALLOWED_ORIGINS` restricts which origins can access the API. Accepts comma-separated values (e.g., `https://app.tangle.tools,https://staging.tangle.tools`). If not set, all origins are allowed.
@@ -42,8 +41,7 @@ From repo root:
 ```bash
 docker build -f packages/migration-claim/sp1/prover-api/Dockerfile -t tnt-claim-prover-api .
 docker run --rm -p 8080:8080 \
-  -e SP1_PROVER=network \
-  -e NETWORK_PRIVATE_KEY=0x... \
+  -e SP1_PROVER=local \
   -e SP1_PROGRAM_VKEY=0x... \
   -e VERIFY_ONCHAIN=true \
   -e VERIFY_ONCHAIN_RPC_URL=https://sepolia.base.org \
@@ -55,8 +53,7 @@ Or pull from GHCR (replace `ORG`):
 
 ```bash
 docker run --rm -p 8080:8080 \
-  -e SP1_PROVER=network \
-  -e NETWORK_PRIVATE_KEY=0x... \
+  -e SP1_PROVER=local \
   -e SP1_PROGRAM_VKEY=0x... \
   -e VERIFY_ONCHAIN=true \
   -e VERIFY_ONCHAIN_RPC_URL=https://sepolia.base.org \

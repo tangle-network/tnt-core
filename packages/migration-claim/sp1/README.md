@@ -52,7 +52,7 @@ cargo prove build
 
 This compiles the guest program to RISC-V ELF at `elf/riscv32im-succinct-zkvm-elf`.
 
-> **Note:** You must run `cargo prove build` from the `program/` directory (not the workspace root) because the workspace contains host packages (script, prover-api) with networking dependencies that don't support the zkVM target.
+> **Note:** You must run `cargo prove build` from the `program/` directory (not the workspace root) because the workspace contains host packages (script, prover-api) that don't support the zkVM target.
 
 ### Build the Host Scripts
 
@@ -181,26 +181,15 @@ See next section.
 
 ## Generating Real Proofs
 
-Real Groth16 proofs require the **Succinct Prover Network**.
-
-### Setup Prover Network Access
-
-1. **Create a keypair** (Secp256k1, like Ethereum):
-   ```bash
-   cast wallet new
-   ```
-
-2. **Get PROVE tokens** on Ethereum mainnet (see [Succinct docs](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart))
-
-3. **Deposit PROVE** via [Succinct Explorer](https://explorer.succinct.xyz)
+Real Groth16 proofs are generated with the local SP1 prover in the default build.
+The Succinct Prover Network is intentionally disabled until its upstream dependency
+stack no longer pulls the vulnerable legacy `rustls-webpki` path.
 
 ### Generate Proof
 
 ```bash
 cd packages/migration-claim/sp1
-
-# Set your prover network private key
-export NETWORK_PRIVATE_KEY=<your-secp256k1-private-key>
+export SP1_PROVER=local
 
 # Generate real Groth16 proof
 cargo +succinct run --release -p sr25519-claim-script -- \
@@ -211,7 +200,7 @@ cargo +succinct run --release -p sr25519-claim-script -- \
   --challenge "0x<challenge-hash>"
 ```
 
-This submits the proof request to the Succinct prover network and returns when complete.
+This runs the proof locally and returns when complete.
 
 ### Submit Claim
 
@@ -255,8 +244,7 @@ An attacker cannot use someone else's proof because:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `SP1_PROVER` | Prover mode: `mock`, `local`, or `network` | No (default: `network`) |
-| `NETWORK_PRIVATE_KEY` | Secp256k1 key for prover network | For network mode |
+| `SP1_PROVER` | Prover mode: `mock` or `local`; `network` is disabled in the default build | No (default: `local`) |
 
 ## Troubleshooting
 

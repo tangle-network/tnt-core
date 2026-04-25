@@ -308,7 +308,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            prover_mode: "network".to_string(),
+            prover_mode: "local".to_string(),
             verify_proof: false,
             verify_onchain: None,
             claim_contract: None,

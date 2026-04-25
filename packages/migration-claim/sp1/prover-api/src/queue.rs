@@ -264,7 +264,7 @@ async fn process_job(
             // new jobs until this one completes.
             //
             // Note: spawn_blocking tasks cannot be cancelled. We must wait for completion.
-            // This may take a long time (SP1 network proofs can take 10+ minutes), but
+            // This may take a long time (SP1 proofs can take 10+ minutes), but
             // it's necessary to prevent unbounded cost and resource usage.
             warn!(
                 "Job {} timed out, holding permit while waiting for blocking task to complete (timed_out_still_running={})",
