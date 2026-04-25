@@ -5,12 +5,13 @@
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use sp1_sdk::{HashableKey, ProverClient, SP1Stdin};
+use sp1_sdk::blocking::{ProveRequest, Prover, ProverClient, SP1Stdin};
+use sp1_sdk::{include_elf, HashableKey, ProvingKey};
 use sr25519_claim_lib::ProgramInput;
 use std::time::Instant;
 
-/// The compiled ELF binary of the guest program
-const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
+/// The compiled ELF binary of the guest program.
+const ELF: sp1_sdk::Elf = include_elf!("sr25519-claim-program");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Generate SR25519 verification proofs")]
@@ -80,6 +81,14 @@ async fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
     let args = Args::parse();
+    match std::env::var("SP1_PROVER").as_deref() {
+        _ if args.mock => std::env::set_var("SP1_PROVER", "mock"),
+        Ok("network") => anyhow::bail!(
+            "SP1_PROVER=network is disabled in this build. Use SP1_PROVER=local or --mock."
+        ),
+        Ok("local") | Err(_) => std::env::set_var("SP1_PROVER", "cpu"),
+        _ => {}
+    }
 
     println!("SR25519 Claim Proof Generator");
     println!("=============================");
@@ -117,8 +126,8 @@ async fn main() -> Result<()> {
 
     // Setup the program (get proving and verification keys)
     println!("\nSetting up program...");
-    let (pk, vk) = client.setup(ELF);
-    let vkey_bytes = vk.bytes32();
+    let pk = client.setup(ELF)?;
+    let vkey_bytes = pk.verifying_key().bytes32();
     println!("Verification Key: 0x{}", hex::encode(&vkey_bytes));
 
     // Generate the proof
@@ -127,11 +136,11 @@ async fn main() -> Result<()> {
 
     let proof = if args.mock {
         println!("Using mock prover (no real proof)");
-        client.prove(&pk, &stdin).run()?
+        client.prove(&pk, stdin).run()?
     } else {
         // Use Groth16 for on-chain verification
         println!("Using Groth16 prover (this may take a while)...");
-        client.prove(&pk, &stdin).groth16().run()?
+        client.prove(&pk, stdin).groth16().run()?
     };
 
     let generation_time = start.elapsed();
@@ -143,7 +152,7 @@ async fn main() -> Result<()> {
 
     // Verify the proof
     println!("\nVerifying proof...");
-    client.verify(&proof, &vk)?;
+    client.verify(&proof, pk.verifying_key(), None)?;
     println!("Proof verified successfully!");
 
     // Create output
@@ -277,14 +286,19 @@ mod tests {
         stdin.write(&input);
 
         // Setup program
-        let (pk, vk) = client.setup(ELF);
-        println!("Verification key: 0x{}", hex::encode(vk.bytes32()));
+        let pk = client.setup(ELF).expect("SP1 setup failed");
+        println!(
+            "Verification key: 0x{}",
+            hex::encode(pk.verifying_key().bytes32())
+        );
 
         // Generate mock proof
-        let proof = client.prove(&pk, &stdin).run().expect("Mock proof generation failed");
+        let proof = client.prove(&pk, stdin).run().expect("Mock proof generation failed");
 
         // Verify the proof
-        client.verify(&proof, &vk).expect("Proof verification failed");
+        client
+            .verify(&proof, pk.verifying_key(), None)
+            .expect("Proof verification failed");
         println!("Proof verified successfully!");
 
         // Decode and verify public values
@@ -320,10 +334,10 @@ mod tests {
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
 
-        let (pk, _vk) = client.setup(ELF);
+        let pk = client.setup(ELF).expect("SP1 setup failed");
 
         // This should fail because the signature is invalid
-        let result = client.prove(&pk, &stdin).run();
+        let result = client.prove(&pk, stdin).run();
         assert!(result.is_err(), "Invalid signature should cause proof generation to fail");
 
         println!("Invalid signature correctly rejected");
@@ -345,10 +359,10 @@ mod tests {
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
 
-        let (pk, _vk) = client.setup(ELF);
+        let pk = client.setup(ELF).expect("SP1 setup failed");
 
         // This should fail because the challenge doesn't match what was signed
-        let result = client.prove(&pk, &stdin).run();
+        let result = client.prove(&pk, stdin).run();
         assert!(result.is_err(), "Wrong challenge should cause proof generation to fail");
 
         println!("Wrong challenge correctly rejected");

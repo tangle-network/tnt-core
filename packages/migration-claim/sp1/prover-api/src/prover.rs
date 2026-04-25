@@ -1,6 +1,7 @@
 use alloy_primitives::{Bytes, FixedBytes};
 use alloy_sol_types::{sol, SolCall};
-use sp1_sdk::{network::NetworkMode, Prover, ProverClient, SP1Stdin};
+use sp1_sdk::blocking::{ProveRequest as _, Prover, ProverClient, SP1Stdin};
+use sp1_sdk::{include_elf, ProvingKey};
 use sr25519_claim_lib::{ss58_decode, ProgramInput, PublicValues};
 use std::time::Duration;
 use tracing::info;
@@ -8,7 +9,7 @@ use tracing::info;
 use crate::types::{ClaimContractConfig, ProveRequest, VerifyOnchainConfig};
 use crate::validation::parse_hex_bytes;
 
-const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
+const ELF: sp1_sdk::Elf = include_elf!("sr25519-claim-program");
 
 sol! {
     function verifyProof(bytes32 programVKey, bytes publicValues, bytes proofBytes) external view;
@@ -21,7 +22,7 @@ sol! {
 /// * `request` - The proof request containing signature and claim details
 /// * `verify_proof` - Whether to verify the proof after generation
 /// * `verify_onchain` - Optional on-chain verification config
-/// * `prover_mode` - The prover mode: "mock", "local", or "network"
+/// * `prover_mode` - The prover mode: "mock" or "local"; "network" fails closed in this build
 pub fn generate_proof(
     request: ProveRequest,
     verify_proof: bool,
@@ -45,58 +46,50 @@ pub fn generate_proof(
     let mut stdin = SP1Stdin::new();
     stdin.write(&input);
 
-    // Generate proof based on configured mode
-    // For network mode, we must explicitly use Mainnet - from_env() defaults to Reserved
-    // which has an invalid domain for the mainnet network
     let (proof, _vk) = match prover_mode {
         "mock" => {
             info!("Using SP1 mock prover (test mode)");
             std::env::set_var("SP1_PROVER", "mock");
             let client = ProverClient::from_env();
-            let (pk, vk) = client.setup(ELF);
+            let pk = client.setup(ELF).map_err(err_to_string)?;
             let proof = client
-                .prove(&pk, &stdin)
+                .prove(&pk, stdin)
                 .groth16()
                 .run()
                 .map_err(err_to_string)?;
             if verify_proof {
-                client.verify(&proof, &vk).map_err(err_to_string)?;
+                client
+                    .verify(&proof, pk.verifying_key(), None)
+                    .map_err(err_to_string)?;
             }
-            (proof, vk)
+            (proof, pk)
         }
         "local" => {
             info!("Using SP1 local prover");
-            std::env::set_var("SP1_PROVER", "local");
+            std::env::set_var("SP1_PROVER", "cpu");
             let client = ProverClient::from_env();
-            let (pk, vk) = client.setup(ELF);
+            let pk = client.setup(ELF).map_err(err_to_string)?;
             let proof = client
-                .prove(&pk, &stdin)
+                .prove(&pk, stdin)
                 .groth16()
                 .run()
                 .map_err(err_to_string)?;
             if verify_proof {
-                client.verify(&proof, &vk).map_err(err_to_string)?;
+                client
+                    .verify(&proof, pk.verifying_key(), None)
+                    .map_err(err_to_string)?;
             }
-            (proof, vk)
+            (proof, pk)
         }
-        _ => {
-            info!("Using SP1 network prover (mainnet)");
-            // Explicitly use Mainnet mode - from_env() defaults to Reserved
-            // which has an invalid domain for the mainnet network
-            let client = ProverClient::builder()
-                .network_for(NetworkMode::Mainnet)
-                .build();
-            let (pk, vk) = client.setup(ELF);
-            let proof = client
-                .prove(&pk, &stdin)
-                .groth16()
-                .run()
-                .map_err(err_to_string)?;
-            if verify_proof {
-                client.verify(&proof, &vk).map_err(err_to_string)?;
-            }
-            (proof, vk)
+        "network" => {
+            return Err(
+                "SP1 network proving is disabled in this build because the upstream SP1 network \
+                 feature currently pulls a vulnerable legacy rustls-webpki dependency. Use \
+                 SP1_PROVER=local or SP1_PROVER=mock."
+                    .to_string(),
+            );
         }
+        other => return Err(format!("Unsupported SP1_PROVER mode: {other}")),
     };
 
     // Log the committed public values for debugging

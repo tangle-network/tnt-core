@@ -3,18 +3,19 @@
 //! This is used to get the vkey for deploying the SP1ZKVerifier contract.
 
 use anyhow::Result;
-use sp1_sdk::{HashableKey, ProverClient};
+use sp1_sdk::blocking::{Prover, ProverClient};
+use sp1_sdk::{include_elf, HashableKey, ProvingKey};
 
-const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
+const ELF: sp1_sdk::Elf = include_elf!("sr25519-claim-program");
 
 fn main() -> Result<()> {
     println!("SR25519 Claim Program - Verification Key");
     println!("=========================================");
 
     let client = ProverClient::from_env();
-    let (_pk, vk) = client.setup(ELF);
+    let pk = client.setup(ELF)?;
 
-    let vkey_hex = vk.bytes32();
+    let vkey_hex = pk.verifying_key().bytes32();
 
     println!("\nVerification Key (bytes32):");
     println!("{}", vkey_hex);

@@ -27,3 +27,6 @@ rustls = { version = "0.23", features = ["ring"] }
 
 [dev-dependencies]
 httpmock = "0.7"
+
+[build-dependencies]
+sp1-helper = { workspace = true }
