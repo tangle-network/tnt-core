@@ -980,6 +980,56 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         }
     }
 
+    /// @notice Remove an operator from `trackedOperators` so distributions stop iterating it.
+    /// @dev Pending rewards stay claimable. The address can be re-registered later if it
+    ///      becomes active again. Without this path the iteration cost grows monotonically.
+    function deregisterOperator(address operator) external onlyRole(ADMIN_ROLE) {
+        _removeFromTrackedList(trackedOperators, isTrackedOperator, operator);
+        delete operatorRegistrationEpoch[operator];
+        delete operatorLastScoredEpoch[operator];
+    }
+
+    /// @notice Batch deregister inactive operators.
+    function deregisterOperators(address[] calldata operators) external onlyRole(ADMIN_ROLE) {
+        for (uint256 i = 0; i < operators.length; i++) {
+            _removeFromTrackedList(trackedOperators, isTrackedOperator, operators[i]);
+            delete operatorRegistrationEpoch[operators[i]];
+            delete operatorLastScoredEpoch[operators[i]];
+        }
+    }
+
+    /// @notice Remove a customer from `trackedCustomers`.
+    function deregisterCustomer(address customer) external onlyRole(ADMIN_ROLE) {
+        _removeFromTrackedList(trackedCustomers, isTrackedCustomer, customer);
+        delete customerRegistrationEpoch[customer];
+    }
+
+    /// @notice Remove a developer from `trackedDevelopers`.
+    function deregisterDeveloper(address developer) external onlyRole(ADMIN_ROLE) {
+        _removeFromTrackedList(trackedDevelopers, isTrackedDeveloper, developer);
+        delete developerRegistrationEpoch[developer];
+    }
+
+    /// @dev Swap-and-pop the address out of the tracked list and clear its membership flag.
+    function _removeFromTrackedList(
+        address[] storage list,
+        mapping(address => bool) storage membership,
+        address account
+    ) internal {
+        if (!membership[account]) return;
+        uint256 len = list.length;
+        for (uint256 i = 0; i < len; i++) {
+            if (list[i] == account) {
+                if (i != len - 1) {
+                    list[i] = list[len - 1];
+                }
+                list.pop();
+                break;
+            }
+        }
+        membership[account] = false;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN CONFIGURATION
     // ═══════════════════════════════════════════════════════════════════════════

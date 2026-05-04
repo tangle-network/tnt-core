@@ -223,8 +223,13 @@ contract StreamingPaymentManager is
         return (chunk, durationSeconds);
     }
 
-    /// @notice Drip a specific stream and return chunk info for distribution
-    /// @dev Called by ServiceFeeDistributor to get the drip amount. Transfers dripped tokens to caller.
+    /// @notice Drip a specific stream and return chunk info for distribution.
+    /// @dev `nonReentrant` is load-bearing: without it, a re-entrant call from the
+    ///      transfer hook (or a same-tx call to `dripOperatorStreams`) would observe
+    ///      `lastDripTime == block.timestamp` only after the first call mutated it,
+    ///      but the second call could otherwise re-enter and process additional state
+    ///      before the first frame finishes. Combined with timestamp-granular dripping
+    ///      this also closes the same-block double-drip race.
     function dripAndGetChunk(
         uint64 serviceId,
         address operator
@@ -232,6 +237,7 @@ contract StreamingPaymentManager is
         external
         override
         onlyRole(DISTRIBUTOR_ROLE)
+        nonReentrant
         returns (uint256 amount, uint256 durationSeconds, uint64 blueprintId, address paymentToken)
     {
         StreamingPayment storage p = streamingPayments[serviceId][operator];
@@ -245,12 +251,16 @@ contract StreamingPaymentManager is
         }
     }
 
-    /// @notice Drip all active streams for an operator
-    /// @dev Called by ServiceFeeDistributor before score changes. Transfers dripped tokens to caller.
+    /// @notice Drip all active streams for an operator.
+    /// @dev `nonReentrant` mutex prevents `dripOperatorStreams` and `dripAndGetChunk`
+    ///      from executing in the same transaction. Without it, two distributor calls
+    ///      in the same block would each compute the same `durationSeconds` and pay
+    ///      the chunk twice.
     function dripOperatorStreams(address operator)
         external
         override
         onlyRole(DISTRIBUTOR_ROLE)
+        nonReentrant
         returns (
             uint64[] memory serviceIds,
             uint64[] memory blueprintIds,
