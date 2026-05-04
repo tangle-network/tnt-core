@@ -72,29 +72,33 @@ contract TangleTimelock is Initializable, TimelockControllerUpgradeable, UUPSUpg
     // M-16 FIX: DELAY VALIDATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Update the minimum delay
-    /// @dev M-16 FIX: Validates bounds before allowing delay changes. Only callable by
-    ///      the timelock itself (via a governance proposal).
-    /// @param newDelay The new delay to set
-    function updateDelay(uint256 newDelay) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        // M-16 FIX: Enforce delay bounds to prevent timelock bypass
+    /// @notice ERC-7201 storage location for `TimelockControllerStorage`.
+    ///         keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.TimelockController")) - 1)) & ~bytes32(uint256(0xff))
+    /// @dev Pinned to OpenZeppelin Contracts Upgradeable 5.1.0; verify before bumping.
+    bytes32 private constant TIMELOCK_CONTROLLER_STORAGE_LOCATION =
+        0x9a37c2aa9d186a0969ff8a8267bf4e07e864c2f2768f5040949e28a624fb3600;
+
+    /// @notice Update the minimum delay. Only callable by the timelock itself via a
+    ///         scheduled governance proposal (matches the parent's `onlySelf` policy).
+    /// @param newDelay The new delay to set, bounded by [MIN_DELAY, MAX_DELAY].
+    function updateDelay(uint256 newDelay) external override {
+        if (msg.sender != address(this)) revert TimelockUnauthorizedCaller(msg.sender);
         if (newDelay < MIN_DELAY) revert DelayTooShort(newDelay, MIN_DELAY);
         if (newDelay > MAX_DELAY) revert DelayTooLong(newDelay, MAX_DELAY);
 
-        // Parent implementation handles the actual update and event emission
-        // Note: This calls TimelockControllerUpgradeable.updateDelay which is onlyRole(DEFAULT_ADMIN_ROLE)
         emit MinDelayChange(getMinDelay(), newDelay);
         _setMinDelay(newDelay);
     }
 
-    /// @notice Internal function to set the minimum delay (matching OZ 5.x pattern)
+    /// @dev Writes `newDelay` directly into the OZ ERC-7201 namespaced storage slot for
+    ///      `TimelockControllerStorage._minDelay`. The struct layout is:
+    ///         slot 0: _timestamps mapping
+    ///         slot 1: _minDelay
+    ///      so the absolute slot is `TIMELOCK_CONTROLLER_STORAGE_LOCATION + 1`.
     function _setMinDelay(uint256 newDelay) private {
-        // Storage slot for _minDelay in TimelockControllerUpgradeable
-        // Using direct storage write since OZ 5.x TimelockControllerUpgradeable
-        // doesn't expose a setter function (it's an immutable in the non-upgradeable version)
+        bytes32 slot = bytes32(uint256(TIMELOCK_CONTROLLER_STORAGE_LOCATION) + 1);
         assembly {
-            // _minDelay storage slot (position 0x33 = 51 in TimelockControllerUpgradeable)
-            sstore(0x33, newDelay)
+            sstore(slot, newDelay)
         }
     }
 
