@@ -441,7 +441,7 @@ contract SlashingTest is BaseTest {
 
     function test_SetSlashConfig_UpdatesDisputeWindow() public {
         vm.prank(admin);
-        tangle.setSlashConfig(14 days, false, 10_000);
+        tangle.setSlashConfig(14 days, false, 10_000, 14 days, 0, 32);
 
         // New proposal should use updated window
         vm.prank(user1);
@@ -455,22 +455,22 @@ contract SlashingTest is BaseTest {
         // Too short
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidSlashConfig.selector);
-        tangle.setSlashConfig(30 minutes, false, 10_000);
+        tangle.setSlashConfig(30 minutes, false, 10_000, 14 days, 0, 32);
 
         // Too long
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidSlashConfig.selector);
-        tangle.setSlashConfig(60 days, false, 10_000);
+        tangle.setSlashConfig(60 days, false, 10_000, 14 days, 0, 32);
     }
 
     function test_SetSlashConfig_RevertInvalidMaxSlash() public {
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidSlashConfig.selector);
-        tangle.setSlashConfig(7 days, false, 0);
+        tangle.setSlashConfig(7 days, false, 0, 14 days, 0, 32);
 
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidSlashConfig.selector);
-        tangle.setSlashConfig(7 days, false, 15_000); // > 100%
+        tangle.setSlashConfig(7 days, false, 15_000, 14 days, 0, 32); // > 100%
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -30,8 +30,9 @@ contract GovernanceTest is Test {
 
     uint256 constant INITIAL_SUPPLY = 50_000_000 * 1e18;
     uint256 constant TIMELOCK_DELAY = 1 days;
-    uint48 constant VOTING_DELAY = 100;
-    uint32 constant VOTING_PERIOD = 1000;
+    // Token uses ERC-6372 timestamp clock; voting delay/period are in SECONDS.
+    uint48 constant VOTING_DELAY = 100; // 100 seconds (smaller than 1 day to keep tests fast)
+    uint32 constant VOTING_PERIOD = 1000; // 1000 seconds
     uint256 constant PROPOSAL_THRESHOLD = 1000 * 1e18;
     uint256 constant QUORUM_PERCENT = 4;
 
@@ -75,7 +76,12 @@ contract GovernanceTest is Test {
         vm.prank(proposer);
         token.delegate(proposer);
 
-        // Mine a block to activate voting power
+        // Advance one second so checkpoints from delegate() are strictly in the past.
+        // OZ Governor reads votes at `clock() - 1`, which would otherwise look up the
+        // checkpoint at the same timestamp it was written and revert ERC5805FutureLookup.
+        vm.warp(block.timestamp + 1);
+        vm.warp(block.timestamp + 1);
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
     }
 
@@ -118,6 +124,8 @@ contract GovernanceTest is Test {
         vm.prank(voter1);
         token.delegate(voter2);
 
+        vm.warp(block.timestamp + 1);
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
         assertEq(token.delegates(voter1), voter2);
@@ -134,7 +142,9 @@ contract GovernanceTest is Test {
         token.transfer(voter2, 500_000 * 1e18);
 
         // Mine blocks to create checkpoints and allow historical lookup
-        vm.roll(block.number + 2);
+        vm.warp(block.timestamp + 2);
+        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
 
         // Current votes should reflect transfer
         assertEq(token.getVotes(voter1), 500_000 * 1e18);
@@ -186,6 +196,8 @@ contract GovernanceTest is Test {
 
         vm.prank(lowVoter);
         token.delegate(lowVoter);
+        vm.warp(block.timestamp + 1);
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
         address[] memory targets = new address[](1);
@@ -211,7 +223,8 @@ contract GovernanceTest is Test {
         uint256 proposalId = governor.propose(targets, values, calldatas, "Mint tokens");
 
         // Move past voting delay
-        vm.roll(block.number + VOTING_DELAY + 1);
+        vm.warp(block.timestamp + VOTING_DELAY + 1);
+        vm.roll(block.number + 1);
 
         assertEq(uint8(governor.state(proposalId)), uint8(IGovernor.ProposalState.Active));
 
@@ -239,7 +252,8 @@ contract GovernanceTest is Test {
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, "Test proposal");
 
-        vm.roll(block.number + VOTING_DELAY + 1);
+        vm.warp(block.timestamp + VOTING_DELAY + 1);
+        vm.roll(block.number + 1);
 
         vm.prank(voter1);
         governor.castVoteWithReason(proposalId, 1, "I support this because...");
@@ -260,7 +274,8 @@ contract GovernanceTest is Test {
         uint256 proposalId = governor.propose(targets, values, calldatas, "Grant minter to timelock");
 
         // Move to active
-        vm.roll(block.number + VOTING_DELAY + 1);
+        vm.warp(block.timestamp + VOTING_DELAY + 1);
+        vm.roll(block.number + 1);
 
         // Vote in favor (need quorum: 4% of 50M = 2M tokens)
         vm.prank(voter2); // 2M votes
@@ -270,7 +285,8 @@ contract GovernanceTest is Test {
         governor.castVote(proposalId, 1);
 
         // Move past voting period
-        vm.roll(block.number + VOTING_PERIOD + 1);
+        vm.warp(block.timestamp + VOTING_PERIOD + 1);
+        vm.roll(block.number + 1);
 
         assertEq(uint8(governor.state(proposalId)), uint8(IGovernor.ProposalState.Succeeded));
     }
@@ -284,13 +300,15 @@ contract GovernanceTest is Test {
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, "Low turnout proposal");
 
-        vm.roll(block.number + VOTING_DELAY + 1);
+        vm.warp(block.timestamp + VOTING_DELAY + 1);
+        vm.roll(block.number + 1);
 
         // Only voter1 votes (1M, below 2M quorum)
         vm.prank(voter1);
         governor.castVote(proposalId, 1);
 
-        vm.roll(block.number + VOTING_PERIOD + 1);
+        vm.warp(block.timestamp + VOTING_PERIOD + 1);
+        vm.roll(block.number + 1);
 
         assertEq(uint8(governor.state(proposalId)), uint8(IGovernor.ProposalState.Defeated));
     }
@@ -304,7 +322,8 @@ contract GovernanceTest is Test {
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, "Unpopular proposal");
 
-        vm.roll(block.number + VOTING_DELAY + 1);
+        vm.warp(block.timestamp + VOTING_DELAY + 1);
+        vm.roll(block.number + 1);
 
         // voter3 (3M) votes against, voter2 (2M) votes for
         vm.prank(voter2);
@@ -313,7 +332,8 @@ contract GovernanceTest is Test {
         vm.prank(voter3);
         governor.castVote(proposalId, 0); // Against
 
-        vm.roll(block.number + VOTING_PERIOD + 1);
+        vm.warp(block.timestamp + VOTING_PERIOD + 1);
+        vm.roll(block.number + 1);
 
         assertEq(uint8(governor.state(proposalId)), uint8(IGovernor.ProposalState.Defeated));
     }
@@ -355,7 +375,8 @@ contract GovernanceTest is Test {
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
 
         // 3. Move to active and vote
-        vm.roll(block.number + VOTING_DELAY + 1);
+        vm.warp(block.timestamp + VOTING_DELAY + 1);
+        vm.roll(block.number + 1);
 
         vm.prank(voter2);
         governor.castVote(proposalId, 1);
@@ -363,7 +384,8 @@ contract GovernanceTest is Test {
         governor.castVote(proposalId, 1);
 
         // 4. Move past voting period
-        vm.roll(block.number + VOTING_PERIOD + 1);
+        vm.warp(block.timestamp + VOTING_PERIOD + 1);
+        vm.roll(block.number + 1);
         assertEq(uint8(governor.state(proposalId)), uint8(IGovernor.ProposalState.Succeeded));
 
         // 5. Queue the proposal
@@ -411,13 +433,15 @@ contract GovernanceTest is Test {
         );
         governor.queue(targets, values, calldatas, descriptionHash);
 
-        vm.roll(block.number + VOTING_DELAY + 1);
+        vm.warp(block.timestamp + VOTING_DELAY + 1);
+        vm.roll(block.number + 1);
         vm.prank(voter2);
         governor.castVote(proposalId, 1);
         vm.prank(voter3);
         governor.castVote(proposalId, 1);
 
-        vm.roll(block.number + VOTING_PERIOD + 1);
+        vm.warp(block.timestamp + VOTING_PERIOD + 1);
+        vm.roll(block.number + 1);
         assertEq(uint8(governor.state(proposalId)), uint8(IGovernor.ProposalState.Succeeded));
         assertTrue(governor.proposalNeedsQueuing(proposalId));
 
@@ -498,16 +522,18 @@ contract GovernanceTest is Test {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_DeployerDefaultParams() public view {
+        // Token uses ERC-6372 timestamp clock; voting delay/period are in SECONDS,
+        // chain-agnostic between Ethereum / Base / Arbitrum / etc.
         GovernanceDeployer.DeployParams memory mainnetParams = deployer.getDefaultMainnetParams(admin);
         assertEq(mainnetParams.timelockDelay, 2 days);
-        assertEq(mainnetParams.votingDelay, 7200);
-        assertEq(mainnetParams.votingPeriod, 50_400);
+        assertEq(mainnetParams.votingDelay, 1 days);
+        assertEq(mainnetParams.votingPeriod, 7 days);
         assertEq(mainnetParams.quorumPercent, 4);
 
         GovernanceDeployer.DeployParams memory testnetParams = deployer.getDefaultTestnetParams(admin);
         assertEq(testnetParams.timelockDelay, 1 days);
-        assertEq(testnetParams.votingDelay, 100);
-        assertEq(testnetParams.votingPeriod, 1000);
+        assertEq(testnetParams.votingDelay, 20 minutes);
+        assertEq(testnetParams.votingPeriod, 3 hours);
         assertEq(testnetParams.quorumPercent, 1);
     }
 
@@ -613,6 +639,8 @@ contract GovernanceUpgradeTest is Test {
 
         vm.prank(voter);
         token.delegate(voter);
+        vm.warp(block.timestamp + 1);
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
     }
 
@@ -633,11 +661,15 @@ contract GovernanceUpgradeTest is Test {
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
 
         // Vote and pass
-        vm.roll(block.number + 11);
+        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
         vm.prank(voter);
         governor.castVote(proposalId, 1);
 
-        vm.roll(block.number + 101);
+        vm.warp(block.timestamp + 101);
+        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
 
         // Queue and execute
         bytes32 descHash = keccak256(bytes(description));
@@ -671,11 +703,15 @@ contract GovernanceUpgradeTest is Test {
         vm.prank(voter);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
 
-        vm.roll(block.number + 11);
+        vm.warp(block.timestamp + 11);
+        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
         vm.prank(voter);
         governor.castVote(proposalId, 1);
 
-        vm.roll(block.number + 101);
+        vm.warp(block.timestamp + 101);
+        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
 
         bytes32 descHash = keccak256(bytes(description));
         governor.queue(targets, values, calldatas, descHash);

@@ -232,6 +232,12 @@ abstract contract TangleStorage {
     /// @notice Slash ID => Slash proposal
     mapping(uint64 => SlashingLib.SlashProposal) internal _slashProposals;
 
+    /// @notice Live count of pending (unresolved) slash proposals per operator. Used to
+    ///         enforce `SlashConfig.maxPendingSlashesPerOperator` so a malicious proposer
+    ///         can't grief an operator by spamming pending slashes that all bump the
+    ///         staking-side `_operatorPendingSlashCount`.
+    mapping(address => uint64) internal _operatorActiveSlashProposals;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // RFQ (QUOTE) STORAGE (Slot 81-90)
     // ═══════════════════════════════════════════════════════════════════════════

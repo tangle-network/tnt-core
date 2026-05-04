@@ -58,7 +58,11 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     // ESCROW MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Fund a service's escrow
+    /// @notice Fund a service's escrow.
+    /// @dev Re-checks (a) the service hasn't expired and (b) the blueprint manager still
+    ///      whitelists the escrow's payment token. Without these checks a service could
+    ///      be funded after expiry (escrow stuck) or after a manager policy revoke
+    ///      (ongoing top-ups for a token the protocol now disallows).
     function fundService(uint64 serviceId, uint256 amount) external payable nonReentrant {
         Types.Service storage svc = _getService(serviceId);
         if (svc.status != Types.ServiceStatus.Active) {
@@ -67,9 +71,17 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         if (svc.pricing != Types.PricingModel.Subscription) {
             revert Errors.InvalidState();
         }
+        if (svc.ttl > 0 && block.timestamp > svc.createdAt + svc.ttl) {
+            revert Errors.ServiceExpired(serviceId);
+        }
 
         PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
         address token = escrow.token;
+
+        Types.Blueprint storage bp = _blueprints[svc.blueprintId];
+        if (bp.manager != address(0) && !_isPaymentAssetAllowedByManager(bp.manager, serviceId, token)) {
+            revert Errors.TokenNotAllowed(token);
+        }
 
         PaymentLib.depositToEscrow(escrow, token, amount, msg.value);
 

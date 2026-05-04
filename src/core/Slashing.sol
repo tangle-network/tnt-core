@@ -46,8 +46,9 @@ abstract contract Slashing is Base {
 
         bool authorized = msg.sender == svc.owner || msg.sender == bp.owner;
         if (!authorized && bp.manager != address(0)) {
-            // The slashing origin returned by blueprint manager is trusted.
-            // Operators should audit blueprint manager code before registering.
+            // Blueprint manager declares an additional slashing origin (e.g. a service-
+            // specific oracle / committee). Operators audit the BSM and its upgradeability
+            // before registering — that is the documented trust boundary.
             try IBlueprintServiceManager(bp.manager).querySlashingOrigin(serviceId) returns (address origin) {
                 authorized = msg.sender == origin;
             } catch { }
@@ -78,6 +79,15 @@ abstract contract Slashing is Base {
             evidence,
             false
         );
+
+        // Cap concurrent pending slashes per operator so a malicious proposer can't
+        // grief by spamming.
+        uint64 perOpCap = _slashState.config.maxPendingSlashesPerOperator;
+        if (perOpCap == 0) perOpCap = 32;
+        if (_operatorActiveSlashProposals[operator] >= perOpCap) {
+            revert Errors.InvalidState();
+        }
+        _operatorActiveSlashProposals[operator] += 1;
 
         // M-9 FIX: Increment pending slash count to block delegator withdrawals
         _staking.incrementPendingSlash(operator);
@@ -193,46 +203,54 @@ abstract contract Slashing is Base {
     // DISPUTE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Dispute a pending slash within the dispute window
-    /// @param slashId The slash proposal ID to dispute
-    /// @param reason A human-readable reason for the dispute
-    function disputeSlash(uint64 slashId, string calldata reason) external {
+    /// @notice Dispute a pending slash within the dispute window.
+    /// @dev SLASH_ADMIN can dispute without a bond (it's the official escalation path).
+    ///      The slashed operator must post `_slashState.config.disputeBond` in native
+    ///      asset. Bond is forfeit to treasury if the dispute auto-fails or the slash
+    ///      executes; refunded if SLASH_ADMIN cancels the slash.
+    function disputeSlash(uint64 slashId, string calldata reason) external payable {
         SlashingLib.SlashProposal storage proposal = _slashProposals[slashId];
 
-        if (msg.sender != proposal.operator && !hasRole(SLASH_ADMIN_ROLE, msg.sender)) {
+        bool isAdmin = hasRole(SLASH_ADMIN_ROLE, msg.sender);
+        if (msg.sender != proposal.operator && !isAdmin) {
             revert Errors.NotSlashDisputer(slashId, msg.sender);
         }
 
-        SlashingLib.disputeSlash(_slashProposals, slashId, msg.sender, reason);
+        uint256 requiredBond = isAdmin ? 0 : _slashState.config.disputeBond;
+        if (msg.value != requiredBond) {
+            revert Errors.InvalidMsgValue(requiredBond, msg.value);
+        }
+
+        SlashingLib.disputeSlash(_slashProposals, slashId, msg.sender, reason, msg.value);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EXECUTION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Execute a pending slash after dispute window
-    /// @dev Operators are expected to call this via their node software.
-    ///      Uses blueprint-aware slashing to only affect delegators exposed to this blueprint.
-    /// @param slashId The slash ID to execute
-    /// @return actualSlashed Amount actually slashed (accounting reduction)
+    /// @notice Execute a pending slash after dispute window.
+    /// @dev Routes through `slashForService` when the operator made explicit commitments
+    ///      to this service so we only slash assets they actually backed. Falls back to
+    ///      blueprint-wide slashing when there are no commitments (legacy services).
     function executeSlash(uint64 slashId) external nonReentrant returns (uint256 actualSlashed) {
         SlashingLib.SlashProposal storage proposal = _slashProposals[slashId];
 
-        if (!SlashingLib.isExecutable(proposal)) {
+        if (!SlashingLib.isExecutable(proposal, _slashState.config)) {
             revert Errors.SlashNotExecutable(slashId);
         }
 
         Types.Service storage svc = _services[proposal.serviceId];
 
-        // Use blueprint-aware slashing - only affects delegators exposed to this blueprint
-        actualSlashed = _staking.slashForBlueprint(
-            proposal.operator, svc.blueprintId, proposal.serviceId, proposal.effectiveSlashBps, proposal.evidence
-        );
+        actualSlashed = _executeSlashOnStaking(proposal, svc.blueprintId);
 
-        SlashingLib.markExecuted(_slashProposals, slashId, actualSlashed);
+        SlashingLib.markExecuted(_slashProposals, _slashState.config, slashId, actualSlashed);
+
+        // Forfeit any dispute bond to the treasury — the dispute failed.
+        _settleDisputeBond(proposal, /*refund*/ false);
 
         // M-9 FIX: Decrement pending slash count to allow delegator withdrawals
         _staking.decrementPendingSlash(proposal.operator);
+        _decrementOperatorPendingTracker(proposal.operator);
 
         // Record slash for metrics tracking (affects rewards distribution)
         _recordSlash(proposal.operator, proposal.serviceId, actualSlashed);
@@ -242,7 +260,6 @@ abstract contract Slashing is Base {
             uint16 slashPercentBps = proposal.effectiveSlashBps;
             if (slashPercentBps > BPS_DENOMINATOR) slashPercentBps = BPS_DENOMINATOR;
 
-            // Convert to uint8 for hook (hook uses 0-100 percent, so we convert from bps)
             // forge-lint: disable-next-line(unsafe-typecast)
             uint8 slashPercent = uint8(slashPercentBps / BPS_TO_PERCENT);
             if (slashPercent > MAX_PERCENT) slashPercent = MAX_PERCENT;
@@ -272,19 +289,19 @@ abstract contract Slashing is Base {
             SlashingLib.SlashProposal storage proposal = _slashProposals[slashIds[i]];
 
             // Skip non-executable slashes instead of reverting
-            if (!SlashingLib.isExecutable(proposal)) continue;
+            if (!SlashingLib.isExecutable(proposal, _slashState.config)) continue;
 
             Types.Service storage svc = _services[proposal.serviceId];
 
-            // Use blueprint-aware slashing
-            uint256 actualSlashed = _staking.slashForBlueprint(
-                proposal.operator, svc.blueprintId, proposal.serviceId, proposal.effectiveSlashBps, proposal.evidence
-            );
+            uint256 actualSlashed = _executeSlashOnStaking(proposal, svc.blueprintId);
 
-            SlashingLib.markExecuted(_slashProposals, slashIds[i], actualSlashed);
+            SlashingLib.markExecuted(_slashProposals, _slashState.config, slashIds[i], actualSlashed);
+
+            _settleDisputeBond(proposal, /*refund*/ false);
 
             // M-9 FIX: Decrement pending slash count to allow delegator withdrawals
             _staking.decrementPendingSlash(proposal.operator);
+            _decrementOperatorPendingTracker(proposal.operator);
 
             // Record slash for metrics tracking (affects rewards distribution)
             _recordSlash(proposal.operator, proposal.serviceId, actualSlashed);
@@ -319,7 +336,7 @@ abstract contract Slashing is Base {
         // First pass: count matching
         uint64 count = 0;
         for (uint64 i = fromId; i < toId; i++) {
-            if (SlashingLib.isExecutable(_slashProposals[i])) {
+            if (SlashingLib.isExecutable(_slashProposals[i], _slashState.config)) {
                 count++;
             }
         }
@@ -328,7 +345,7 @@ abstract contract Slashing is Base {
         ids = new uint64[](count);
         uint64 idx = 0;
         for (uint64 i = fromId; i < toId && idx < count; i++) {
-            if (SlashingLib.isExecutable(_slashProposals[i])) {
+            if (SlashingLib.isExecutable(_slashProposals[i], _slashState.config)) {
                 ids[idx++] = i;
             }
         }
@@ -347,32 +364,44 @@ abstract contract Slashing is Base {
             revert Errors.NotSlashCanceller(slashId, msg.sender);
         }
 
-        // M-9 FIX: Get operator before cancelling (proposal may be cleared)
-        address operator = _slashProposals[slashId].operator;
+        SlashingLib.SlashProposal storage proposal = _slashProposals[slashId];
+        address operator = proposal.operator;
+
+        // Refund any dispute bond — admin agrees with the dispute.
+        _settleDisputeBond(proposal, /*refund*/ true);
 
         SlashingLib.cancelSlash(_slashProposals, slashId, msg.sender, reason);
 
         // M-9 FIX: Decrement pending slash count to allow delegator withdrawals
         _staking.decrementPendingSlash(operator);
+        _decrementOperatorPendingTracker(operator);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Update slashing configuration
-    /// @param disputeWindow The dispute window duration in seconds
-    /// @param instantSlashEnabled Whether instant slashing (bypassing dispute) is enabled
-    /// @param maxSlashBps Maximum slash amount in basis points (0-10000)
+    /// @notice Update slashing configuration.
     function setSlashConfig(
         uint64 disputeWindow,
         bool instantSlashEnabled,
-        uint16 maxSlashBps
+        uint16 maxSlashBps,
+        uint64 disputeResolutionDeadline,
+        uint256 disputeBond,
+        uint16 maxPendingSlashesPerOperator
     )
         external
         onlyRole(ADMIN_ROLE)
     {
-        SlashingLib.updateConfig(_slashState, disputeWindow, instantSlashEnabled, maxSlashBps);
+        SlashingLib.updateConfig(
+            _slashState,
+            disputeWindow,
+            instantSlashEnabled,
+            maxSlashBps,
+            disputeResolutionDeadline,
+            disputeBond,
+            maxPendingSlashesPerOperator
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -384,5 +413,66 @@ abstract contract Slashing is Base {
     /// @return The slash proposal struct with all details
     function getSlashProposal(uint64 slashId) external view returns (SlashingLib.SlashProposal memory) {
         return _slashProposals[slashId];
+    }
+
+    /// @dev Internal helper that picks the right slashing API based on whether the
+    ///      operator made explicit per-asset commitments to the offending service.
+    function _executeSlashOnStaking(
+        SlashingLib.SlashProposal storage proposal,
+        uint64 blueprintId
+    ) internal returns (uint256 actualSlashed) {
+        Types.AssetSecurityCommitment[] memory commitments = _loadServiceCommitments(proposal.serviceId, proposal.operator);
+
+        if (commitments.length == 0) {
+            return _staking.slashForBlueprint(
+                proposal.operator, blueprintId, proposal.serviceId, proposal.effectiveSlashBps, proposal.evidence
+            );
+        }
+        return _staking.slashForService(
+            proposal.operator,
+            blueprintId,
+            proposal.serviceId,
+            commitments,
+            proposal.effectiveSlashBps,
+            proposal.evidence
+        );
+    }
+
+    function _loadServiceCommitments(
+        uint64 serviceId,
+        address operator
+    ) internal view returns (Types.AssetSecurityCommitment[] memory copy) {
+        Types.AssetSecurityCommitment[] storage stored = _serviceSecurityCommitments[serviceId][operator];
+        uint256 len = stored.length;
+        copy = new Types.AssetSecurityCommitment[](len);
+        for (uint256 i = 0; i < len; i++) {
+            copy[i] = stored[i];
+        }
+    }
+
+    /// @dev Refund dispute bond to the disputer (cancel) or forward to treasury (execute /
+    ///      auto-fail). No-op when no bond was posted.
+    function _settleDisputeBond(SlashingLib.SlashProposal storage proposal, bool refund) internal {
+        uint256 bond = proposal.disputeBond;
+        if (bond == 0) return;
+        address disputer = proposal.disputer;
+
+        // Clear before transfer (CEI).
+        proposal.disputeBond = 0;
+        proposal.disputer = address(0);
+
+        address payable to = refund && disputer != address(0) ? payable(disputer) : _treasury;
+        if (to == address(0)) return; // Treasury unset — bond stays in contract; observable via storage.
+        (bool ok,) = to.call{ value: bond }("");
+        if (!ok && refund) {
+            // Restore so disputer can retry; do not strand on a failed payable recipient.
+            proposal.disputeBond = bond;
+            proposal.disputer = disputer;
+        }
+    }
+
+    function _decrementOperatorPendingTracker(address operator) internal {
+        uint64 cur = _operatorActiveSlashProposals[operator];
+        if (cur > 0) _operatorActiveSlashProposals[operator] = cur - 1;
     }
 }

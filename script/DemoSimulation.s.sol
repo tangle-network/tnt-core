@@ -653,12 +653,23 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
             vm.startBroadcast(operatorKeys[i]);
 
             bytes memory metrics = abi.encode("cpu", 50 + (tick % 50), "mem", 60 + (tick % 40));
-            bytes32 messageHash = keccak256(abi.encodePacked(serviceId, blueprintId, metrics));
-            bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(operatorKeys[i], ethSignedHash);
+            uint64 timestamp = uint64(block.timestamp);
+            bytes32 structHash = keccak256(
+                abi.encode(
+                    statusRegistry.HEARTBEAT_TYPEHASH(),
+                    vm.addr(operatorKeys[i]),
+                    serviceId,
+                    blueprintId,
+                    uint8(0),
+                    keccak256(metrics),
+                    timestamp
+                )
+            );
+            bytes32 digest = keccak256(abi.encodePacked("\x19\x01", statusRegistry.DOMAIN_SEPARATOR(), structHash));
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(operatorKeys[i], digest);
             bytes memory signature = abi.encodePacked(r, s, v);
 
-            try statusRegistry.submitHeartbeat(serviceId, blueprintId, 0, metrics, signature) {
+            try statusRegistry.submitHeartbeat(serviceId, blueprintId, 0, metrics, timestamp, signature) {
                 totalHeartbeats++;
             } catch { }
 

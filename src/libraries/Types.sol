@@ -378,7 +378,7 @@ library Types {
     ///      Slot 1: createdAt (8) + ttl (8) + operatorCount (4) + approvalCount (4) = 24 bytes
     ///      Slot 2: paymentToken (20) + membership (1) + minOperators (4) = 25 bytes
     ///      Slot 3: paymentAmount (32)
-    ///      Slot 4: maxOperators (4) + rejected (1) + confidentiality (1) = 6 bytes
+    ///      Slot 4: maxOperators (4) + rejected (1) + activated (1) + confidentiality (1) = 7 bytes
     struct ServiceRequest {
         uint64 blueprintId;
         address requester;
@@ -392,6 +392,11 @@ library Types {
         uint32 minOperators; // For dynamic: minimum required
         uint32 maxOperators; // For dynamic: maximum allowed (0 = unlimited)
         bool rejected;
+        // True once `_activateService` has fully spawned the service. Stops
+        // `expireServiceRequest` from refunding escrow that has already been
+        // transferred to the service, and stops late approve/reject paths
+        // from mutating a request whose lifecycle is already complete.
+        bool activated;
         ConfidentialityPolicy confidentiality; // Requested execution confidentiality
     }
 

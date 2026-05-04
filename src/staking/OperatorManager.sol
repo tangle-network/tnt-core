@@ -188,17 +188,26 @@ abstract contract OperatorManager is DelegationStorage {
     // OPERATOR LEAVING
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Schedule leaving as operator
-    /// @dev M-10 FIX: Blocks exit if operator has active service commitments
+    /// @notice Schedule leaving as operator.
+    /// @dev Blocks exit if the operator still has active service commitments OR any
+    ///      pending slashes. Allows transitioning from `Inactive` (e.g. an operator that
+    ///      was forced inactive by being slashed below minimum stake) to `Leaving` so
+    ///      their remaining stake is not stranded.
     function _startLeaving() internal {
         Types.OperatorMetadata storage meta = _operatorMetadata[msg.sender];
-        if (meta.status != Types.OperatorStatus.Active) {
+        if (
+            meta.status != Types.OperatorStatus.Active
+                && meta.status != Types.OperatorStatus.Inactive
+        ) {
             revert DelegationErrors.OperatorNotActive(msg.sender);
+        }
+
+        if (_operatorPendingSlashCount[msg.sender] > 0) {
+            revert DelegationErrors.PendingSlashExists(msg.sender, _operatorPendingSlashCount[msg.sender]);
         }
 
         // M-10 FIX: Check for active services via Tangle core
         if (_tangleCore != address(0)) {
-            // Query Tangle for operator's total active service count
             (bool success, bytes memory data) =
                 _tangleCore.staticcall(abi.encodeWithSignature("getOperatorTotalActiveServices(address)", msg.sender));
             if (success && data.length >= 32) {

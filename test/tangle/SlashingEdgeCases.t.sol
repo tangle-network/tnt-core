@@ -43,7 +43,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         assertEq(stakeBefore, 10 ether);
 
         vm.prank(admin);
-        tangle.setSlashConfig(7 days, false, 5000);
+        tangle.setSlashConfig(7 days, false, 5000, 14 days, 0, 32);
 
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 8000, keccak256("evidence"));
@@ -58,7 +58,7 @@ contract SlashingEdgeCasesTest is BaseTest {
 
     function test_SlashBpsExceedsMax_ProposalStoresCappedBps() public {
         vm.prank(admin);
-        tangle.setSlashConfig(7 days, false, 5000);
+        tangle.setSlashConfig(7 days, false, 5000, 14 days, 0, 32);
 
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 8000, keccak256("evidence"));
@@ -330,7 +330,7 @@ contract SlashingEdgeCasesTest is BaseTest {
     function test_CustomSlashingWindow_ShortWindow() public {
         // Set short dispute window
         vm.prank(admin);
-        tangle.setSlashConfig(1 hours, false, 10_000);
+        tangle.setSlashConfig(1 hours, false, 10_000, 14 days, 0, 32);
 
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
@@ -348,7 +348,7 @@ contract SlashingEdgeCasesTest is BaseTest {
     function test_CustomSlashingWindow_LongWindow() public {
         // Set long dispute window
         vm.prank(admin);
-        tangle.setSlashConfig(30 days, false, 10_000);
+        tangle.setSlashConfig(30 days, false, 10_000, 14 days, 0, 32);
 
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
@@ -414,18 +414,23 @@ contract SlashingEdgeCasesTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_ManyPendingSlashProposals() public {
-        // Create many pending proposals
-        for (uint256 i = 0; i < 50; i++) {
+        // Per-operator pending-slash cap defaults to 32 (`SlashConfig.maxPendingSlashesPerOperator`).
+        // Verify the cap holds and that proposals up to the cap remain Pending.
+        uint256 cap = 32;
+        for (uint256 i = 0; i < cap; i++) {
             vm.prank(user1);
             tangle.proposeSlash(serviceId, operator1, 100, keccak256(abi.encode("evidence", i)));
         }
-
-        // All should be valid proposals
-        for (uint64 i = 0; i < 50; i++) {
+        for (uint64 i = 0; i < uint64(cap); i++) {
             SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(i);
             assertEq(proposal.slashBps, 100);
             assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Pending));
         }
+
+        // The 33rd proposal must revert via the spam-grief guard.
+        vm.prank(user1);
+        vm.expectRevert(Errors.InvalidState.selector);
+        tangle.proposeSlash(serviceId, operator1, 100, keccak256("over-cap"));
     }
 
     function test_SlashAndDisputeRace() public {

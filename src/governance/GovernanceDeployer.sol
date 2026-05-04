@@ -261,29 +261,32 @@ contract GovernanceDeployer {
         roles[1] = keccak256("UPGRADER_ROLE");
     }
 
-    /// @notice Get default governance parameters for mainnet
+    /// @notice Get default governance parameters for mainnet.
+    /// @dev TangleToken uses ERC-6372 timestamp clock, so `votingDelay` and `votingPeriod`
+    ///      are denominated in seconds and are chain-agnostic (same values on Ethereum,
+    ///      Base, Arbitrum, etc.).
     function getDefaultMainnetParams(address admin) external pure returns (DeployParams memory) {
         return DeployParams({
             tokenAdmin: admin,
             initialTokenSupply: 50_000_000 * 1e18, // 50M initial supply
             existingToken: address(0),
             timelockDelay: 2 days,
-            votingDelay: 7200, // ~1 day (assuming 12s blocks)
-            votingPeriod: 50_400, // ~1 week
+            votingDelay: uint48(1 days), // 1 day exit window before voting opens
+            votingPeriod: uint32(7 days), // 1 week voting window
             proposalThreshold: 100_000 * 1e18, // 100k TNT to propose
             quorumPercent: 4 // 4% quorum
         });
     }
 
-    /// @notice Get governance parameters for testnet (faster)
+    /// @notice Get governance parameters for testnet (faster).
     function getDefaultTestnetParams(address admin) external pure returns (DeployParams memory) {
         return DeployParams({
             tokenAdmin: admin,
             initialTokenSupply: 50_000_000 * 1e18,
             existingToken: address(0),
             timelockDelay: 1 days, // Shorter for testing
-            votingDelay: 100, // ~20 minutes
-            votingPeriod: 1000, // ~3 hours
+            votingDelay: uint48(20 minutes),
+            votingPeriod: uint32(3 hours),
             proposalThreshold: 1000 * 1e18, // 1k TNT to propose
             quorumPercent: 1 // 1% quorum for easier testing
         });

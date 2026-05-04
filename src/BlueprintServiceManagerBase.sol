@@ -78,8 +78,11 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IBlueprintServiceManager
+    /// @dev One-shot binder. The BSM is paired with exactly one Tangle core on its first
+    ///      successful call; subsequent calls revert. A frontrunner can only DoS a single
+    ///      BSM deployment, which the deployer detects (the recorded `tangleCore` won't
+    ///      match the intended Tangle) and re-deploys to fix.
     function onBlueprintCreated(uint64 _blueprintId, address owner, address _tangleCore) external virtual {
-        // Can only be set once
         if (tangleCore != address(0)) revert AlreadyInitialized();
 
         blueprintId = _blueprintId;

@@ -276,7 +276,7 @@ contract SlashingFuzzTest is BaseTest {
         disputeWindow = uint64(bound(uint256(disputeWindow), 1 hours, 30 days));
 
         vm.prank(admin);
-        tangle.setSlashConfig(disputeWindow, false, 10_000);
+        tangle.setSlashConfig(disputeWindow, false, 10_000, 14 days, 0, 32);
 
         uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
         uint256 proposalTime = block.timestamp;
@@ -320,7 +320,7 @@ contract SlashingFuzzTest is BaseTest {
         proposedBps = uint16(bound(uint256(proposedBps), 1, 10_000));
 
         vm.prank(admin);
-        tangle.setSlashConfig(7 days, false, 3000);
+        tangle.setSlashConfig(7 days, false, 3000, 14 days, 0, 32);
 
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, proposedBps, keccak256("cap"));
@@ -342,11 +342,11 @@ contract SlashingFuzzTest is BaseTest {
         if (invalidWindow || invalidMax) {
             vm.prank(admin);
             vm.expectRevert(Errors.InvalidSlashConfig.selector);
-            tangle.setSlashConfig(disputeWindow, false, maxSlashBps);
+            tangle.setSlashConfig(disputeWindow, false, maxSlashBps, 14 days, 0, 32);
         } else {
             // Valid config should succeed
             vm.prank(admin);
-            tangle.setSlashConfig(disputeWindow, false, maxSlashBps);
+            tangle.setSlashConfig(disputeWindow, false, maxSlashBps, 14 days, 0, 32);
         }
     }
 
@@ -356,7 +356,7 @@ contract SlashingFuzzTest is BaseTest {
         maxSlashBps = uint16(bound(uint256(maxSlashBps), 1, 10_000));
 
         vm.prank(admin);
-        tangle.setSlashConfig(disputeWindow, false, maxSlashBps);
+        tangle.setSlashConfig(disputeWindow, false, maxSlashBps, 14 days, 0, 32);
 
         // Verify config applied by creating slash with new window
         uint256 proposalTime = block.timestamp;

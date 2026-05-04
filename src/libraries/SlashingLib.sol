@@ -54,6 +54,15 @@ library SlashingLib {
         uint64 executeAfter; // When slash can be executed
         SlashStatus status; // Current status
         string disputeReason; // Reason if disputed
+        // Address that posted the dispute bond. address(0) when undisputed.
+        address disputer;
+        // Native-asset bond locked when the slash was disputed. Refunded on cancel,
+        // forfeit to treasury when the dispute auto-fails or the slash executes.
+        uint256 disputeBond;
+        // Timestamp the dispute was raised (0 when undisputed). After
+        // `disputedAt + config.disputeResolutionDeadline`, `isExecutable` returns
+        // true even though `status == Disputed`, which auto-resolves stale disputes.
+        uint64 disputedAt;
     }
 
     /// @notice Slashing configuration
@@ -61,6 +70,17 @@ library SlashingLib {
         uint64 disputeWindow; // Time before slash can be executed
         bool instantSlashEnabled; // Allow immediate slashing (for emergencies)
         uint16 maxSlashBps; // Maximum slash as % of stake (default 10000 = 100%)
+        // Once a slash is disputed, SLASH_ADMIN has this long to resolve it (cancel
+        // or convert back to pending). After the deadline, the dispute auto-fails and
+        // the slash becomes executable. Prevents permanent delegator lockup.
+        uint64 disputeResolutionDeadline;
+        // Native-asset bond required to dispute a slash. Forfeit to treasury if the
+        // dispute is rejected (slash executes); refunded if the slash is cancelled.
+        // Defeats free-DoS where an operator self-disputes to lock their own delegators.
+        uint256 disputeBond;
+        // Maximum number of pending slashes a single operator can carry simultaneously.
+        // Defends against spam-griefing the pending-slash counter.
+        uint16 maxPendingSlashesPerOperator;
     }
 
     /// @notice Slashing state storage
@@ -104,7 +124,10 @@ library SlashingLib {
         state.config = SlashConfig({
             disputeWindow: DEFAULT_DISPUTE_WINDOW,
             instantSlashEnabled: false,
-            maxSlashBps: BPS_DENOMINATOR // 100%
+            maxSlashBps: BPS_DENOMINATOR, // 100%
+            disputeResolutionDeadline: 14 days,
+            disputeBond: 0, // Defaults to disabled; admin enables via setSlashConfig.
+            maxPendingSlashesPerOperator: 32
         });
     }
 
@@ -117,7 +140,10 @@ library SlashingLib {
         SlashState storage state,
         uint64 disputeWindow,
         bool instantSlashEnabled,
-        uint16 maxSlashBps
+        uint16 maxSlashBps,
+        uint64 disputeResolutionDeadline,
+        uint256 disputeBond,
+        uint16 maxPendingSlashesPerOperator
     )
         internal
     {
@@ -127,9 +153,18 @@ library SlashingLib {
         if (maxSlashBps == 0 || maxSlashBps > BPS_DENOMINATOR) {
             revert Errors.InvalidSlashConfig();
         }
+        if (disputeResolutionDeadline < 1 days || disputeResolutionDeadline > 60 days) {
+            revert Errors.InvalidSlashConfig();
+        }
+        if (maxPendingSlashesPerOperator == 0) revert Errors.InvalidSlashConfig();
 
         state.config = SlashConfig({
-            disputeWindow: disputeWindow, instantSlashEnabled: instantSlashEnabled, maxSlashBps: maxSlashBps
+            disputeWindow: disputeWindow,
+            instantSlashEnabled: instantSlashEnabled,
+            maxSlashBps: maxSlashBps,
+            disputeResolutionDeadline: disputeResolutionDeadline,
+            disputeBond: disputeBond,
+            maxPendingSlashesPerOperator: maxPendingSlashesPerOperator
         });
 
         emit SlashConfigUpdated(disputeWindow, instantSlashEnabled, maxSlashBps);
@@ -214,7 +249,10 @@ library SlashingLib {
             proposedAt: uint64(block.timestamp),
             executeAfter: executeAfter,
             status: SlashStatus.Pending,
-            disputeReason: ""
+            disputeReason: "",
+            disputer: address(0),
+            disputeBond: 0,
+            disputedAt: 0
         });
 
         emit SlashProposed(slashId, serviceId, operator, proposer, slashBps, effectiveSlashBps, evidence, executeAfter);
@@ -224,16 +262,18 @@ library SlashingLib {
     // DISPUTE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Dispute a pending slash proposal
+    /// @notice Dispute a pending slash proposal.
     /// @param proposals Storage mapping for proposals
     /// @param slashId The slash ID to dispute
     /// @param disputer Who is disputing
     /// @param reason Reason for dispute
+    /// @param bondPosted Native-asset bond that the caller posted with the dispute call.
     function disputeSlash(
         mapping(uint64 => SlashProposal) storage proposals,
         uint64 slashId,
         address disputer,
-        string memory reason
+        string memory reason,
+        uint256 bondPosted
     )
         internal
     {
@@ -253,6 +293,9 @@ library SlashingLib {
 
         proposal.status = SlashStatus.Disputed;
         proposal.disputeReason = reason;
+        proposal.disputer = disputer;
+        proposal.disputeBond = bondPosted;
+        proposal.disputedAt = uint64(block.timestamp);
 
         emit SlashDisputed(slashId, disputer, reason);
     }
@@ -261,29 +304,28 @@ library SlashingLib {
     // EXECUTION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Check if a slash is ready to execute
-    /// @dev Only Pending slashes can be executed - Disputed slashes are blocked.
-    ///      Uses TIMESTAMP_BUFFER to protect against block timestamp manipulation.
-    /// @param proposal The slash proposal
-    /// @return True if ready
-    function isExecutable(SlashProposal storage proposal) internal view returns (bool) {
-        // Disputed slashes cannot be executed - they require admin resolution
-        if (proposal.status == SlashStatus.Disputed) {
-            return false;
+    /// @notice Check if a slash is ready to execute.
+    /// @dev A `Pending` slash becomes executable after the dispute window plus a
+    ///      timestamp-manipulation buffer. A `Disputed` slash auto-fails (and becomes
+    ///      executable) once `disputedAt + disputeResolutionDeadline` has elapsed,
+    ///      which prevents permanent delegator lockup if SLASH_ADMIN never acts.
+    function isExecutable(
+        SlashProposal storage proposal,
+        SlashConfig storage config
+    ) internal view returns (bool) {
+        if (proposal.status == SlashStatus.Pending) {
+            return block.timestamp >= proposal.executeAfter + TIMESTAMP_BUFFER;
         }
-        // M-6 FIX: Add buffer to protect against timestamp manipulation
-        // Miners can adjust block.timestamp within ~15 seconds, so we require
-        // the timestamp to exceed executeAfter + buffer
-        return proposal.status == SlashStatus.Pending && block.timestamp >= proposal.executeAfter + TIMESTAMP_BUFFER;
+        if (proposal.status == SlashStatus.Disputed) {
+            return block.timestamp >= uint256(proposal.disputedAt) + config.disputeResolutionDeadline;
+        }
+        return false;
     }
 
-    /// @notice Mark a slash as executed
-    /// @param proposals Storage mapping for proposals
-    /// @param slashId The slash ID
-    /// @param actualSlashed Actual amount that was slashed
-    /// @return proposal The executed proposal
+    /// @notice Mark a slash as executed.
     function markExecuted(
         mapping(uint64 => SlashProposal) storage proposals,
+        SlashConfig storage config,
         uint64 slashId,
         uint256 actualSlashed
     )
@@ -296,7 +338,7 @@ library SlashingLib {
             revert Errors.SlashNotFound(slashId);
         }
 
-        if (!isExecutable(proposal)) {
+        if (!isExecutable(proposal, config)) {
             revert Errors.SlashNotExecutable(slashId);
         }
 

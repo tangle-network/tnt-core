@@ -51,7 +51,17 @@ interface ITangleSlashing {
     function cancelSlash(uint64 slashId, string calldata reason) external;
 
     /// @notice Update slashing configuration
-    function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps) external;
+    /// @param disputeResolutionDeadline How long SLASH_ADMIN has to resolve a dispute
+    /// @param disputeBond Native asset bond required to dispute (0 = disabled)
+    /// @param maxPendingSlashesPerOperator Cap on concurrent pending slashes per operator
+    function setSlashConfig(
+        uint64 disputeWindow,
+        bool instantSlashEnabled,
+        uint16 maxSlashBps,
+        uint64 disputeResolutionDeadline,
+        uint256 disputeBond,
+        uint16 maxPendingSlashesPerOperator
+    ) external;
 
     /// @notice Get slash proposal details
     function getSlashProposal(uint64 slashId) external view returns (SlashingLib.SlashProposal memory);

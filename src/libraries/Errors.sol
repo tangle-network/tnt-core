@@ -115,6 +115,12 @@ library Errors {
     /// @notice Service request already processed
     error ServiceRequestAlreadyProcessed(uint64 requestId);
 
+    /// @notice Service request grace period elapsed; cannot approve.
+    error ServiceRequestExpiredError(uint64 requestId);
+
+    /// @notice Service request grace period not yet elapsed; cannot expire.
+    error ServiceRequestNotExpired(uint64 requestId);
+
     /// @notice Service not found
     error ServiceNotFound(uint64 serviceId);
 

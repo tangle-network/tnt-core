@@ -60,6 +60,12 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     /// @notice Activate a fully approved service (called from Services mixin)
     function _activateService(uint64 requestId) internal override {
         Types.ServiceRequest storage req = _serviceRequests[requestId];
+        // Close the request lifecycle BEFORE any other state writes or external
+        // calls. Once flipped, expireServiceRequest cannot refund this escrow and
+        // late approve/reject paths revert. Set first so a malicious manager hook
+        // re-entering through any of those paths sees the closed state.
+        req.activated = true;
+
         uint64 serviceId = _serviceCount++;
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
 

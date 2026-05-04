@@ -70,9 +70,27 @@ contract OperatorStatusRegistryTest is Test {
     }
 
     function _signHeartbeat(uint8 statusCode, bytes memory metricsData) internal view returns (bytes memory) {
-        bytes32 messageHash = keccak256(abi.encodePacked(SERVICE_ID, BLUEPRINT_ID, statusCode, metricsData));
-        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(operatorKey, ethSignedHash);
+        return _signHeartbeatAt(statusCode, metricsData, uint64(block.timestamp));
+    }
+
+    function _signHeartbeatAt(uint8 statusCode, bytes memory metricsData, uint64 timestamp)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                registry.HEARTBEAT_TYPEHASH(),
+                operatorAddr,
+                SERVICE_ID,
+                BLUEPRINT_ID,
+                statusCode,
+                keccak256(metricsData),
+                timestamp
+            )
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", registry.DOMAIN_SEPARATOR(), structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(operatorKey, digest);
         return abi.encodePacked(r, s, v);
     }
 
@@ -81,7 +99,7 @@ contract OperatorStatusRegistryTest is Test {
         bytes memory signature = _signHeartbeat(0, metricsData);
 
         vm.prank(operatorAddr);
-        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, metricsData, signature);
+        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, metricsData, uint64(block.timestamp), signature);
 
         IOperatorStatusRegistry.StatusCode status = registry.getOperatorStatus(SERVICE_ID, operatorAddr);
         assertEq(uint8(status), uint8(IOperatorStatusRegistry.StatusCode.Healthy));
@@ -93,7 +111,7 @@ contract OperatorStatusRegistryTest is Test {
         bytes memory signature = abi.encodePacked(bytes32(uint256(1)), bytes32(uint256(2)), uint8(27));
         vm.prank(operatorAddr);
         vm.expectRevert("Invalid signature");
-        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, "", signature);
+        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, "", uint64(block.timestamp), signature);
     }
 
     function test_customMetricsStoredWhenEnabled() public {
@@ -167,7 +185,7 @@ contract OperatorStatusRegistryTest is Test {
 
         bytes memory signature = _signHeartbeat(0, "");
         vm.prank(operatorAddr);
-        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, "", signature);
+        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 0, "", uint64(block.timestamp), signature);
 
         assertEq(metrics.heartbeatCount(), 1);
         assertEq(metrics.lastOperator(), operatorAddr);
@@ -703,12 +721,12 @@ contract OperatorStatusRegistryTest is Test {
         bytes memory signature = _signHeartbeat(0, "");
         vm.prank(operatorAddr);
         vm.expectRevert("Invalid signature");
-        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 1, "", signature);
+        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 1, "", uint64(block.timestamp), signature);
 
         // Sign with correct statusCode=1, submit with statusCode=1 => should pass
         bytes memory correctSig = _signHeartbeat(1, "");
         vm.prank(operatorAddr);
-        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 1, "", correctSig);
+        registry.submitHeartbeat(SERVICE_ID, BLUEPRINT_ID, 1, "", uint64(block.timestamp), correctSig);
 
         assertEq(
             uint8(registry.getOperatorStatus(SERVICE_ID, operatorAddr)),

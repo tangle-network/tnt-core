@@ -53,7 +53,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     mapping(uint32 => uint256) private _emergencyDeprecationReadyAt;
 
     /// @notice Storage gap for upgrades
-    uint256[47] private __gap;
+    uint256[50] private __gap;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
