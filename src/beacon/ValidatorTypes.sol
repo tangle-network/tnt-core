@@ -14,8 +14,12 @@ library ValidatorTypes {
     /// @notice Required balance in gwei (32 ETH)
     uint64 constant REQUIRED_BALANCE_GWEI = 32_000_000_000;
 
-    /// @notice Maximum effective balance for a validator (32 ETH in gwei)
+    /// @notice Maximum effective balance for a 0x01 validator (32 ETH in gwei)
     uint64 constant MAX_EFFECTIVE_BALANCE_GWEI = 32_000_000_000;
+
+    /// @notice Maximum effective balance for a 0x02 (Pectra compounding) validator.
+    /// @dev EIP-7251 raises the per-validator cap to 2048 ETH for compounding validators.
+    uint64 constant MAX_EFFECTIVE_BALANCE_GWEI_02 = 2_048_000_000_000;
 
     /// @notice Precision for share calculations
     uint256 constant PRECISION = 1e18;

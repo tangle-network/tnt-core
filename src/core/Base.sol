@@ -211,7 +211,7 @@ abstract contract Base is
 
     /// @notice Set the metrics recorder for incentive tracking
     /// @param recorder The metrics recorder address (set to address(0) to disable)
-    function setMetricsRecorder(address recorder) external onlyRole(ADMIN_ROLE) {
+    function setMetricsRecorder(address recorder) external onlyRole(ADMIN_ROLE) whenNotPaused {
         _metricsRecorder = recorder;
         emit MetricsRecorderUpdated(recorder);
     }
@@ -224,7 +224,7 @@ abstract contract Base is
 
     /// @notice Set the operator status registry for heartbeat tracking
     /// @param registry The operator status registry address (set to address(0) to disable)
-    function setOperatorStatusRegistry(address registry) external onlyRole(ADMIN_ROLE) {
+    function setOperatorStatusRegistry(address registry) external onlyRole(ADMIN_ROLE) whenNotPaused {
         _operatorStatusRegistry = registry;
         emit OperatorStatusRegistryUpdated(registry);
     }
@@ -238,7 +238,7 @@ abstract contract Base is
     /// @notice Configure the service-fee distributor for staker payouts
     /// @dev This contract is expected to be called by `Payments` during fee distribution.
     /// @param distributor The service fee distributor address (set to address(0) to disable)
-    function setServiceFeeDistributor(address distributor) external onlyRole(ADMIN_ROLE) {
+    function setServiceFeeDistributor(address distributor) external onlyRole(ADMIN_ROLE) whenNotPaused {
         _serviceFeeDistributor = distributor;
         emit ServiceFeeDistributorUpdated(distributor);
     }
@@ -251,7 +251,7 @@ abstract contract Base is
 
     /// @notice Configure the price oracle used for USD-normalized scoring (optional)
     /// @param oracle The price oracle address (set to address(0) to disable)
-    function setPriceOracle(address oracle) external onlyRole(ADMIN_ROLE) {
+    function setPriceOracle(address oracle) external onlyRole(ADMIN_ROLE) whenNotPaused {
         _priceOracle = oracle;
         emit PriceOracleUpdated(oracle);
     }
@@ -264,7 +264,7 @@ abstract contract Base is
 
     /// @notice Configure the Master Blueprint Service Manager registry
     /// @param registry The MBSM registry address (cannot be zero)
-    function setMBSMRegistry(address registry) external onlyRole(ADMIN_ROLE) {
+    function setMBSMRegistry(address registry) external onlyRole(ADMIN_ROLE) whenNotPaused {
         if (registry == address(0)) revert Errors.ZeroAddress();
         _mbsmRegistry = IMBSMRegistry(registry);
         emit MBSMRegistryUpdated(registry);
@@ -284,7 +284,7 @@ abstract contract Base is
 
     /// @notice Update maximum blueprints per operator (0 disables the limit)
     /// @param newMax The new maximum number of blueprints per operator
-    function setMaxBlueprintsPerOperator(uint32 newMax) external onlyRole(ADMIN_ROLE) {
+    function setMaxBlueprintsPerOperator(uint32 newMax) external onlyRole(ADMIN_ROLE) whenNotPaused {
         uint32 oldMax = _maxBlueprintsPerOperator;
         _maxBlueprintsPerOperator = newMax;
         emit MaxBlueprintsPerOperatorUpdated(oldMax, newMax);
@@ -298,7 +298,7 @@ abstract contract Base is
 
     /// @notice Configure TNT token address (set to address(0) to disable TNT defaults)
     /// @param token The TNT token address
-    function setTntToken(address token) external onlyRole(ADMIN_ROLE) {
+    function setTntToken(address token) external onlyRole(ADMIN_ROLE) whenNotPaused {
         _tntToken = token;
         emit TntTokenUpdated(token);
     }
@@ -311,7 +311,7 @@ abstract contract Base is
 
     /// @notice Configure RewardVaults address (set to address(0) to disable TNT staker payouts)
     /// @param vaults The reward vaults address
-    function setRewardVaults(address vaults) external onlyRole(ADMIN_ROLE) {
+    function setRewardVaults(address vaults) external onlyRole(ADMIN_ROLE) whenNotPaused {
         _rewardVaults = vaults;
         emit RewardVaultsUpdated(vaults);
     }
@@ -324,7 +324,7 @@ abstract contract Base is
 
     /// @notice Configure default minimum TNT exposure (bps) required for all service requests
     /// @param minExposureBps The minimum TNT exposure in basis points
-    function setDefaultTntMinExposureBps(uint16 minExposureBps) external onlyRole(ADMIN_ROLE) {
+    function setDefaultTntMinExposureBps(uint16 minExposureBps) external onlyRole(ADMIN_ROLE) whenNotPaused {
         if (minExposureBps == 0 || minExposureBps > BPS_DENOMINATOR) revert Errors.InvalidSecurityRequirement();
         uint16 oldBps = _defaultTntMinExposureBps;
         _defaultTntMinExposureBps = minExposureBps;
@@ -339,7 +339,7 @@ abstract contract Base is
 
     /// @notice Configure discount applied to service payments made in TNT (bps of the payment amount; capped to
     /// protocol share) @param discountBps The discount in basis points
-    function setTntPaymentDiscountBps(uint16 discountBps) external onlyRole(ADMIN_ROLE) {
+    function setTntPaymentDiscountBps(uint16 discountBps) external onlyRole(ADMIN_ROLE) whenNotPaused {
         if (discountBps > BPS_DENOMINATOR) revert Errors.InvalidState();
         uint16 oldBps = _tntPaymentDiscountBps;
         _tntPaymentDiscountBps = discountBps;
@@ -352,7 +352,7 @@ abstract contract Base is
 
     /// @notice Configure minimum TTL for service requests (0 = use protocol default)
     /// @param minTtl The new minimum TTL value
-    function setMinServiceTtl(uint64 minTtl) external onlyRole(ADMIN_ROLE) {
+    function setMinServiceTtl(uint64 minTtl) external onlyRole(ADMIN_ROLE) whenNotPaused {
         uint64 oldTtl = _minServiceTtl;
         _minServiceTtl = minTtl;
         emit MinServiceTtlUpdated(oldTtl, minTtl);
@@ -360,7 +360,7 @@ abstract contract Base is
 
     /// @notice Configure maximum TTL for service requests (0 = use protocol default)
     /// @param maxTtl The new maximum TTL value
-    function setMaxServiceTtl(uint64 maxTtl) external onlyRole(ADMIN_ROLE) {
+    function setMaxServiceTtl(uint64 maxTtl) external onlyRole(ADMIN_ROLE) whenNotPaused {
         uint64 oldTtl = _maxServiceTtl;
         _maxServiceTtl = maxTtl;
         emit MaxServiceTtlUpdated(oldTtl, maxTtl);
@@ -368,7 +368,7 @@ abstract contract Base is
 
     /// @notice Configure request expiry grace period (0 = use protocol default)
     /// @param gracePeriod The new grace period value
-    function setRequestExpiryGracePeriod(uint64 gracePeriod) external onlyRole(ADMIN_ROLE) {
+    function setRequestExpiryGracePeriod(uint64 gracePeriod) external onlyRole(ADMIN_ROLE) whenNotPaused {
         uint64 oldPeriod = _requestExpiryGracePeriod;
         _requestExpiryGracePeriod = gracePeriod;
         emit RequestExpiryGracePeriodUpdated(oldPeriod, gracePeriod);
@@ -382,7 +382,7 @@ abstract contract Base is
 
     /// @notice Configure maximum quote age (0 = use protocol default)
     /// @param maxAge The new maximum quote age value
-    function setMaxQuoteAge(uint64 maxAge) external onlyRole(ADMIN_ROLE) {
+    function setMaxQuoteAge(uint64 maxAge) external onlyRole(ADMIN_ROLE) whenNotPaused {
         uint64 oldAge = _maxQuoteAge;
         _maxQuoteAge = maxAge;
         emit MaxQuoteAgeUpdated(oldAge, maxAge);

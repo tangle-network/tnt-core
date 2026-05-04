@@ -310,12 +310,11 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         return 0;
     }
 
-    /// @notice Claim redeemed assets after delay
-    /// @param shares Amount of shares being redeemed (must match request)
-    /// @param receiver Address to receive assets
-    /// @param controller Controller of the request
-    /// @return assets Amount of assets received
+    /// @notice Claim redeemed assets after delay using a specific request id.
+    /// @dev ERC-7540 callers must pass the requestId returned by `requestRedeem`.
+    ///      Two requests with identical share counts are otherwise indistinguishable.
     function redeem(
+        uint256 requestId,
         uint256 shares,
         address receiver,
         address controller
@@ -324,18 +323,15 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         nonReentrant
         returns (uint256 assets)
     {
-        // Verify caller is controller or approved operator
         if (msg.sender != controller && !_operators[controller][msg.sender]) {
             revert NotController();
         }
 
-        // Find matching claimable request
-        // Note: In a production implementation, you'd pass requestId as parameter
-        // For simplicity, we find the first claimable request matching shares
-        uint256 requestId = _findClaimableRequest(controller, shares);
         RedeemRequestData storage req = _redeemRequests[controller][requestId];
 
         if (req.claimed) revert AlreadyClaimed();
+        if (req.shares == 0) revert NotClaimable();
+        if (req.shares != shares) revert NotClaimable();
 
         uint64 currentRound = uint64(staking.currentRound());
         uint64 delay = uint64(staking.delegationBondLessDelay());
@@ -346,32 +342,13 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
             revert NotClaimable();
         }
 
-        // Mark as claimed
         req.claimed = true;
 
-        // Execute the exact bond-less request and withdraw the resulting assets directly to the receiver.
         assets = staking.executeDelegatorUnstakeAndWithdraw(
             operator, address(asset), req.unstakeShares, req.requestedRound, receiver
         );
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
-    }
-
-    /// @notice Find a claimable request matching shares
-    function _findClaimableRequest(address controller, uint256 shares) internal view returns (uint256 requestId) {
-        uint256 nextId = _nextRequestId[controller];
-        uint64 currentRound = uint64(staking.currentRound());
-        uint64 delay = uint64(staking.delegationBondLessDelay());
-        uint64 withdrawDelay = uint64(staking.leaveDelegatorsDelay());
-        if (withdrawDelay > delay) delay = withdrawDelay;
-
-        for (uint256 i = 0; i < nextId; i++) {
-            RedeemRequestData memory req = _redeemRequests[controller][i];
-            if (!req.claimed && req.shares == shares && currentRound >= req.requestedRound + delay) {
-                return i;
-            }
-        }
-        revert NotClaimable();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -16,14 +16,16 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](6);
+        selectorList = new bytes4[](7);
         selectorList[0] = this.approveService.selector;
         selectorList[1] = bytes4(keccak256("approveServiceWithCommitments(uint64,((uint8,address),uint16)[])"));
         selectorList[2] = this.rejectService.selector;
         selectorList[3] = this.approveServiceWithBls.selector;
-        selectorList[4] =
-            bytes4(keccak256("approveServiceWithCommitmentsAndBls(uint64,((uint8,address),uint16)[],uint256[4])"));
+        selectorList[4] = bytes4(
+            keccak256("approveServiceWithCommitmentsAndBls(uint64,((uint8,address),uint16)[],uint256[4],uint256[2])")
+        );
         selectorList[5] = this.getOperatorBlsPubkey.selector;
+        selectorList[6] = this.blsPopMessage.selector;
     }
 
     /// @notice Get operator's BLS public key for a service

@@ -5,11 +5,12 @@ import { IAssetAdapter } from "./IAssetAdapter.sol";
 import { StandardAssetAdapter } from "./StandardAssetAdapter.sol";
 import { RebasingAssetAdapter } from "./RebasingAssetAdapter.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /// @title AssetAdapterFactory
 /// @notice Factory for deploying and registering asset adapters
 /// @dev Deploys adapters for different token types and registers them with MultiAssetDelegation
-contract AssetAdapterFactory is Ownable {
+contract AssetAdapterFactory is Ownable2Step {
     // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
     // ═══════════════════════════════════════════════════════════════════════════

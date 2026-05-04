@@ -366,7 +366,7 @@ contract LiquidDelegationTest is Test {
 
         uint256 balanceBefore = token.balanceOf(user1);
         vm.prank(user1);
-        uint256 assetsOut = vault.redeem(sharesToRedeem, user1, user1);
+        uint256 assetsOut = vault.redeem(requestId, sharesToRedeem, user1, user1);
 
         assertEq(token.balanceOf(user1), balanceBefore + assetsOut, "Assets returned should be transferred");
         assertEq(staking.getDelegation(vaultAddr, operator1), 0, "Vault delegation should be exited");
@@ -492,7 +492,7 @@ contract LiquidDelegationTest is Test {
 
         uint256 tokenBalanceBefore = token.balanceOf(user1);
         vm.startPrank(user1);
-        uint256 assetsOut = vault.redeem(sharesToRedeem, user1, user1);
+        uint256 assetsOut = vault.redeem(requestId, sharesToRedeem, user1, user1);
         vm.stopPrank();
 
         assertEq(token.balanceOf(user1), tokenBalanceBefore + assetsOut, "Return value matches transferred assets");
@@ -502,8 +502,8 @@ contract LiquidDelegationTest is Test {
 
         // Subsequent redeem attempts should fail since request is consumed
         vm.startPrank(user1);
-        vm.expectRevert(LiquidDelegationVault.NotClaimable.selector);
-        vault.redeem(sharesToRedeem, user1, user1);
+        vm.expectRevert(LiquidDelegationVault.AlreadyClaimed.selector);
+        vault.redeem(requestId, sharesToRedeem, user1, user1);
         vm.stopPrank();
     }
 

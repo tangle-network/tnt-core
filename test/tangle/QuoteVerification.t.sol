@@ -136,6 +136,7 @@ contract QuoteVerificationTest is BaseTest {
 
     function test_CreateFromQuote_RevertInvalidSignature() public {
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: 100,
             totalCost: 1 ether,
@@ -163,6 +164,7 @@ contract QuoteVerificationTest is BaseTest {
 
     function test_CreateFromQuote_RevertExpiredQuote() public {
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: 100,
             totalCost: 1 ether,
@@ -185,6 +187,7 @@ contract QuoteVerificationTest is BaseTest {
 
     function test_CreateFromQuote_RevertBlueprintMismatch() public {
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: 999, // Wrong blueprint
             ttlBlocks: 100,
             totalCost: 1 ether,
@@ -207,6 +210,7 @@ contract QuoteVerificationTest is BaseTest {
 
     function test_CreateFromQuote_RevertTTLMismatch() public {
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: 50, // Different TTL
             totalCost: 1 ether,
@@ -439,6 +443,7 @@ contract QuoteVerificationTest is BaseTest {
         uint256 unregisteredPk = 0x999;
 
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: 100,
             totalCost: 1 ether,
@@ -512,6 +517,7 @@ contract QuoteVerificationTest is BaseTest {
         uint64 baseTimestamp = uint64(block.timestamp) + quoteNonce;
         quoteNonce++;
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: bpId,
             ttlBlocks: ttl,
             totalCost: cost,
@@ -541,6 +547,7 @@ contract QuoteVerificationTest is BaseTest {
         uint64 baseTimestamp = uint64(block.timestamp) + quoteNonce;
         quoteNonce++;
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: bpId,
             ttlBlocks: ttl,
             totalCost: cost,

@@ -264,7 +264,7 @@ contract UniswapV3OracleTest is Test {
         quoteFeed.setData(1800e8, block.timestamp);
 
         oracle = new UniswapV3Oracle(address(quoteToken));
-        oracle.configurePool(address(token), address(pool), address(quoteFeed));
+        oracle.configurePool(address(token), address(pool), address(quoteFeed), false);
     }
 
     function test_getPriceData_ReturnsValidResult() public {
@@ -290,23 +290,19 @@ contract UniswapV3OracleTest is Test {
     function test_configurePool_RevertWhenTokenMissing() public {
         MockDecimalsToken other = new MockDecimalsToken(18);
         vm.expectRevert("Token not in pool");
-        oracle.configurePool(address(other), address(pool), address(quoteFeed));
+        oracle.configurePool(address(other), address(pool), address(quoteFeed), false);
     }
 
-    function test_getPrice_UsesFallbackWhenQuoteIsStale() public {
-        uint256 freshPrice = oracle.getPrice(address(token));
+    function test_getPrice_FailsClosedWhenQuoteIsStale() public {
         uint256 staleTimestamp = block.timestamp - oracle.maxPriceAge() - 1;
         quoteFeed.setData(1800e8, staleTimestamp);
-        uint256 fallbackPrice = oracle.getPrice(address(token));
-        assertLt(fallbackPrice, freshPrice);
+        vm.expectRevert();
+        oracle.getPrice(address(token));
     }
 
-    function test_getPrice_IgnoresRevertingQuoteFeed() public {
-        uint256 withFeed = oracle.getPrice(address(token));
+    function test_getPrice_FailsClosedWhenQuoteFeedReverts() public {
         quoteFeed.setShouldRevert(true);
-        uint256 fallbackPrice = oracle.getPrice(address(token));
-
-        assertGt(withFeed, fallbackPrice, "Fallback should drop to 1:1 when quote feed fails");
-        assertGt(fallbackPrice, 0, "Price should remain positive even when quote feed reverts");
+        vm.expectRevert();
+        oracle.getPrice(address(token));
     }
 }

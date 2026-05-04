@@ -256,21 +256,21 @@ contract ValidatorPod is ReentrancyGuard {
             revert ValidatorAlreadyRestaked();
         }
 
-        // Verify withdrawal credentials point to this pod
-        // C-2 FIX: Accept both 0x01 and 0x02 (Pectra) withdrawal credential prefixes.
-        // The podWithdrawalCredentials stores the 0x01 version, but Pectra-era validators
-        // may use 0x02 prefix for compounding validators (EIP-7251).
+        // Verify withdrawal credentials point to this pod. Accept both 0x01 and 0x02
+        // (Pectra compounding) prefixes; the cap below differs between them.
         bytes32 credentials = BeaconChainProofs.getWithdrawalCredentials(proof.validatorFields);
         bytes32 expectedCreds02 = ValidatorTypes.computeWithdrawalCredentials02(address(this));
-        if (credentials != podWithdrawalCredentials && credentials != expectedCreds02) {
+        bool isCompounding = credentials == expectedCreds02;
+        if (credentials != podWithdrawalCredentials && !isCompounding) {
             revert InvalidWithdrawalCredentials();
         }
 
-        // Get effective balance (capped at 32 ETH)
+        // Cap depends on credential type: 0x01 = 32 ETH, 0x02 = 2048 ETH (EIP-7251).
         uint64 effectiveBalance = BeaconChainProofs.getEffectiveBalanceGwei(proof.validatorFields);
-        restakedGwei = effectiveBalance > ValidatorTypes.MAX_EFFECTIVE_BALANCE_GWEI
-            ? ValidatorTypes.MAX_EFFECTIVE_BALANCE_GWEI
-            : effectiveBalance;
+        uint64 maxEffectiveBalance = isCompounding
+            ? ValidatorTypes.MAX_EFFECTIVE_BALANCE_GWEI_02
+            : ValidatorTypes.MAX_EFFECTIVE_BALANCE_GWEI;
+        restakedGwei = effectiveBalance > maxEffectiveBalance ? maxEffectiveBalance : effectiveBalance;
 
         // Store validator info
         validatorInfo[pubkeyHash] = ValidatorTypes.ValidatorInfo({
@@ -282,7 +282,6 @@ contract ValidatorPod is ReentrancyGuard {
 
         activeValidatorCount++;
 
-        // H-1 FIX: Track total restaked balance
         totalRestakedBalanceGwei += restakedGwei;
 
         emit ValidatorRestaked(pubkeyHash, validatorIndex);

@@ -176,6 +176,7 @@ contract ResourceCommitmentsTest is BaseTest {
         returns (Types.SignedQuote[] memory quotes)
     {
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: bpId,
             ttlBlocks: ttl,
             totalCost: cost,
@@ -203,6 +204,7 @@ contract ResourceCommitmentsTest is BaseTest {
         returns (Types.SignedQuote[] memory quotes)
     {
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: bpId,
             ttlBlocks: ttl,
             totalCost: cost,

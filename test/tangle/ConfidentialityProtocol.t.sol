@@ -115,6 +115,7 @@ contract ConfidentialityProtocolTest is BaseTest {
         returns (Types.SignedQuote memory)
     {
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: totalCost,

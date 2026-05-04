@@ -42,8 +42,11 @@ library BeaconChainProofs {
     /// @notice Index of state root in beacon block header (generalized index)
     uint256 internal constant STATE_ROOT_INDEX = 3;
 
-    /// @notice Height of beacon state tree (Deneb fork - 28 fields = 5 levels)
-    uint256 internal constant BEACON_STATE_TREE_HEIGHT = 5;
+    /// @notice Height of beacon state tree.
+    /// @dev Electra/Pectra (live on Ethereum mainnet since May 2025) has 36-37 fields,
+    ///      requiring height 6 (next power of two = 64). Pre-Pectra (Deneb) was 5.
+    ///      Base mainnet launches against post-Pectra L1 only; we hardcode 6.
+    uint256 internal constant BEACON_STATE_TREE_HEIGHT = 6;
 
     /// @notice Index of validators list in beacon state (field index 11)
     /// @dev In SSZ, generalized index = 2^depth + field_index = 32 + 11 = 43
@@ -78,15 +81,13 @@ library BeaconChainProofs {
     /// @notice Maximum proof age in seconds (~1 day = 8192 * 12 = 98304 seconds)
     uint256 internal constant MAX_PROOF_AGE = MAX_PROOF_AGE_SLOTS * SECONDS_PER_SLOT;
 
-    /// @notice Generalized index for validator container root in beacon state
-    /// @dev Formula: (1 << BEACON_STATE_TREE_HEIGHT) | VALIDATOR_LIST_INDEX
-    ///      = (1 << 5) | 11 = 32 | 11 = 43
-    uint256 internal constant VALIDATOR_CONTAINER_GINDEX = 43;
+    /// @notice Generalized index for validator container root in beacon state.
+    /// @dev (1 << BEACON_STATE_TREE_HEIGHT) | VALIDATOR_LIST_INDEX = (1 << 6) | 11 = 75.
+    uint256 internal constant VALIDATOR_CONTAINER_GINDEX = 75;
 
-    /// @notice Generalized index for balance container root in beacon state
-    /// @dev Formula: (1 << BEACON_STATE_TREE_HEIGHT) | BALANCE_LIST_INDEX
-    ///      = (1 << 5) | 12 = 32 | 12 = 44
-    uint256 internal constant BALANCE_CONTAINER_GINDEX = 44;
+    /// @notice Generalized index for balance container root in beacon state.
+    /// @dev (1 << BEACON_STATE_TREE_HEIGHT) | BALANCE_LIST_INDEX = (1 << 6) | 12 = 76.
+    uint256 internal constant BALANCE_CONTAINER_GINDEX = 76;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS

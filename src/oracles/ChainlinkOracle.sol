@@ -14,6 +14,16 @@ interface AggregatorV3Interface {
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
 }
 
+/// @title ISequencerUptimeFeed
+/// @notice L2 sequencer uptime feed (e.g. Base canonical feed). `answer == 0` means the
+///         sequencer is up; `answer == 1` means it is down or has just restarted.
+interface ISequencerUptimeFeed {
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
+}
+
 /// @title IERC20Decimals
 /// @notice Minimal ERC20 interface for decimals
 interface IERC20Decimals {
@@ -50,16 +60,45 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     /// @notice Native token (ETH/MATIC) price feed
     address public nativeFeed;
 
+    /// @notice Optional L2 sequencer uptime feed. When set, prices revert if the sequencer
+    ///         is reported down or has been up for less than `sequencerGracePeriod`.
+    address public sequencerUptimeFeed;
+
+    /// @notice Required time the sequencer must have been up before prices are accepted.
+    uint256 public sequencerGracePeriod;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice Sequencer down or recently restarted (within grace period)
+    error SequencerDown();
+
+    /// @notice Sequencer feed reports a stalled round
+    error StalePrice_Sequencer();
+
+    /// @notice Chainlink round was emitted before its data was finalized
+    error StaleRound(address token, uint80 roundId, uint80 answeredInRound);
+
+    event SequencerUptimeFeedConfigured(address indexed feed, uint256 gracePeriod);
+
     constructor(address _nativeFeed) Ownable(msg.sender) {
         maxAge = DEFAULT_MAX_AGE;
+        sequencerGracePeriod = 1 hours;
         if (_nativeFeed != address(0)) {
             nativeFeed = _nativeFeed;
             emit PriceFeedConfigured(address(0), _nativeFeed);
         }
+    }
+
+    /// @notice Configure the L2 sequencer uptime feed. Set to `address(0)` to disable on L1.
+    /// @param feed Sequencer uptime feed address (Base mainnet: 0xBCF85224fc0756B9Fa45aA7892530B47e10b6433)
+    /// @param gracePeriodSeconds Seconds the sequencer must have been up before prices are valid
+    function setSequencerUptimeFeed(address feed, uint256 gracePeriodSeconds) external onlyOwner {
+        require(gracePeriodSeconds > 0, "Invalid grace period");
+        sequencerUptimeFeed = feed;
+        sequencerGracePeriod = gracePeriodSeconds;
+        emit SequencerUptimeFeedConfigured(feed, gracePeriodSeconds);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -202,6 +241,8 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function _getPriceData(address token) internal view returns (PriceData memory data) {
+        _requireSequencerUp();
+
         address feed = token == address(0) ? nativeFeed : priceFeeds[token];
 
         if (feed == address(0)) {
@@ -210,13 +251,18 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
 
         AggregatorV3Interface aggregator = AggregatorV3Interface(feed);
 
-        try aggregator.latestRoundData() returns (uint80, int256 answer, uint256, uint256 updatedAt, uint80) {
-            // Validate price
+        try aggregator.latestRoundData() returns (
+            uint80 roundId, int256 answer, uint256, uint256 updatedAt, uint80 answeredInRound
+        ) {
             if (answer <= 0) {
                 revert InvalidPrice(token, answer);
             }
 
-            // Check staleness
+            // Reject stalled rounds where the answer was carried over from an older round.
+            if (answeredInRound < roundId) {
+                revert StaleRound(token, roundId, answeredInRound);
+            }
+
             if (block.timestamp - updatedAt > maxAge) {
                 revert StalePrice(token, updatedAt, maxAge);
             }
@@ -250,5 +296,17 @@ contract ChainlinkOracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         } catch {
             data.isValid = false;
         }
+    }
+
+    /// @dev Reverts if the sequencer feed (when configured) reports the L2 sequencer
+    ///      as down or recently restarted within `sequencerGracePeriod`.
+    function _requireSequencerUp() internal view {
+        address feed = sequencerUptimeFeed;
+        if (feed == address(0)) return;
+
+        (, int256 answer, uint256 startedAt,,) = ISequencerUptimeFeed(feed).latestRoundData();
+        if (startedAt == 0) revert StalePrice_Sequencer();
+        if (answer != 0) revert SequencerDown();
+        if (block.timestamp - startedAt < sequencerGracePeriod) revert SequencerDown();
     }
 }

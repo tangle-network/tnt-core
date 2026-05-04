@@ -39,6 +39,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     error SlashingFailed();
     error SenderNotPending();
     error SenderActivationTooEarly(uint256 activationTime);
+    error NonceAlreadyProcessed(uint256 sourceChainId, address sender, uint256 nonce);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -153,9 +154,10 @@ contract L2SlashingReceiver is ICrossChainReceiver {
         (address operator, uint16 slashBps, uint64 slashingFactor, uint256 nonce, address pod) =
             abi.decode(data, (address, uint16, uint64, uint256, address));
 
-        // Check nonce hasn't been processed (replay protection)
+        // Revert (not silent return) so the relayer can distinguish "already processed"
+        // from "still pending" during retry / partition recovery.
         if (processedNonces[sourceChainId][sender][nonce]) {
-            return; // Silently ignore duplicate
+            revert NonceAlreadyProcessed(sourceChainId, sender, nonce);
         }
         processedNonces[sourceChainId][sender][nonce] = true;
 

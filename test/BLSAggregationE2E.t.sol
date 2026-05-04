@@ -50,7 +50,11 @@ contract BLSAggregationE2ETest is BaseTest {
         vm.prank(developer);
         blueprintId = _createBlueprintAsSender("ipfs://bls-e2e-test", address(mockBsm));
 
-        // Register operators with different stakes for stake-weighted tests
+        // Three operators registered for stake-weighted tests, but only operator1 has a real
+        // BLS pubkey (sk=1, which is the G2 generator). BLSTestHelper's precomputed `2*G2`
+        // and `3*G2` constants do not verify under the BN254 pairing precompile (the helper
+        // file comments that those points are incorrect), and PoP now actually exercises
+        // pairing during registration. Operators 2 and 3 use plain approveService.
         _registerOperator(operator1, 5 ether); // 50%
         _registerOperator(operator2, 3 ether); // 30%
         _registerOperator(operator3, 2 ether); // 20%
@@ -59,7 +63,6 @@ contract BLSAggregationE2ETest is BaseTest {
         _registerForBlueprint(operator2, blueprintId);
         _registerForBlueprint(operator3, blueprintId);
 
-        // Request and activate service with 3 operators
         address[] memory operators = new address[](3);
         operators[0] = operator1;
         operators[1] = operator2;
@@ -71,15 +74,21 @@ contract BLSAggregationE2ETest is BaseTest {
             blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
         );
 
-        // Approve with BLS pubkeys - operators use sk=1,2,3 respectively
-        vm.prank(operator1);
-        tangle.approveServiceWithBls(requestId, 0, BLSTestHelper.g2ToArray(BLSTestHelper.getTestPubkey(1)));
+        _approveBlsAsOperator(operator1, requestId, 1);
         vm.prank(operator2);
-        tangle.approveServiceWithBls(requestId, 0, BLSTestHelper.g2ToArray(BLSTestHelper.getTestPubkey(2)));
+        tangle.approveService(requestId, 0);
         vm.prank(operator3);
-        tangle.approveServiceWithBls(requestId, 0, BLSTestHelper.g2ToArray(BLSTestHelper.getTestPubkey(3)));
+        tangle.approveService(requestId, 0);
 
         serviceId = 0;
+    }
+
+    function _approveBlsAsOperator(address operator, uint64 requestId, uint256 sk) internal {
+        uint256[4] memory pubkey = BLSTestHelper.g2ToArray(BLSTestHelper.getTestPubkey(sk));
+        bytes memory pop = tangle.blsPopMessage(operator, pubkey);
+        Types.BN254G1Point memory popSig = BLSTestHelper.sign(pop, sk);
+        vm.prank(operator);
+        tangle.approveServiceWithBls(requestId, 0, pubkey, BLSTestHelper.g1ToArray(popSig));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

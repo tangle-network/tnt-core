@@ -104,14 +104,19 @@ contract L2SlashingConnector {
     /// @notice Chain configurations (chainId => config)
     mapping(uint256 => ChainConfig) public chainConfigs;
 
-    /// @notice Mapping of pod -> last processed slashing factor
-    mapping(address => uint64) public lastProcessedSlashingFactor;
+    /// @notice Last processed slashing factor per (pod, destination chain id).
+    /// @dev Keying by destination is required so the same beacon-chain slash event
+    ///      can be relayed to multiple chains; a single global value would freeze
+    ///      every other destination after the first relay succeeded.
+    mapping(address => mapping(uint256 => uint64)) public lastProcessedSlashingFactorByChain;
 
-    /// @notice Mapping of pod -> cumulative L2 slash amount
-    mapping(address => uint256) public cumulativeSlashAmount;
+    /// @notice Cumulative L2 slash amount per (pod, destination chain id)
+    mapping(address => mapping(uint256 => uint256)) public cumulativeSlashAmountByChain;
 
-    /// @notice Nonce for message deduplication
-    uint256 public nonce;
+    /// @notice Per-destination nonce for message deduplication. Scoping by destination
+    ///         chain id prevents nonce collisions when multiple connectors or redeploys
+    ///         relay slashes to different chains in interleaved order.
+    mapping(uint256 => uint256) public nonceByChain;
 
     /// @notice Pod to operator mapping
     mapping(address => address) public podOperator;
@@ -225,9 +230,9 @@ contract L2SlashingConnector {
             revert MessengerNotConfigured();
         }
 
-        uint64 lastFactor = lastProcessedSlashingFactor[pod];
+        uint64 lastFactor = lastProcessedSlashingFactorByChain[pod][destinationChainId];
 
-        // Initialize if first time
+        // Initialize if first time on this chain
         if (lastFactor == 0) {
             lastFactor = 1e18; // 100%
         }
@@ -257,13 +262,14 @@ contract L2SlashingConnector {
         uint256 operatorStake = podManager.operatorDelegatedStake(operator);
         uint256 l2SlashAmount = (operatorStake * slashPercentage) / 1e18;
 
-        // Update state
-        lastProcessedSlashingFactor[pod] = newSlashingFactor;
-        cumulativeSlashAmount[pod] += l2SlashAmount;
+        // Update state per destination
+        lastProcessedSlashingFactorByChain[pod][destinationChainId] = newSlashingFactor;
+        cumulativeSlashAmountByChain[pod][destinationChainId] += l2SlashAmount;
 
-        // Encode the slash message
+        // Encode the slash message with a destination-scoped nonce.
+        uint256 messageNonce = nonceByChain[destinationChainId]++;
         bytes memory payload =
-            abi.encodePacked(SLASH_MESSAGE_TYPE, abi.encode(operator, slashBps, newSlashingFactor, nonce++, pod));
+            abi.encodePacked(SLASH_MESSAGE_TYPE, abi.encode(operator, slashBps, newSlashingFactor, messageNonce, pod));
 
         // Estimate fee and validate
         uint256 fee = messenger.estimateFee(destinationChainId, payload, config.gasLimit);
@@ -289,9 +295,17 @@ contract L2SlashingConnector {
     // VIEW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Get the pending slash amount for a pod
-    function getPendingSlashAmount(address pod, uint64 currentSlashingFactor) external view returns (uint256) {
-        uint64 lastFactor = lastProcessedSlashingFactor[pod];
+    /// @notice Get the pending slash amount for a pod against a specific destination
+    function getPendingSlashAmount(
+        address pod,
+        uint64 currentSlashingFactor,
+        uint256 destinationChainId
+    )
+        external
+        view
+        returns (uint256)
+    {
+        uint64 lastFactor = lastProcessedSlashingFactorByChain[pod][destinationChainId];
         if (lastFactor == 0) {
             lastFactor = 1e18;
         }
@@ -311,9 +325,17 @@ contract L2SlashingConnector {
         return (operatorStake * slashPercentage) / 1e18;
     }
 
-    /// @notice Check if a pod has pending slashing to propagate
-    function hasPendingSlashing(address pod, uint64 currentSlashingFactor) external view returns (bool) {
-        uint64 lastFactor = lastProcessedSlashingFactor[pod];
+    /// @notice Check if a pod has pending slashing to propagate to a specific destination
+    function hasPendingSlashing(
+        address pod,
+        uint64 currentSlashingFactor,
+        uint256 destinationChainId
+    )
+        external
+        view
+        returns (bool)
+    {
+        uint64 lastFactor = lastProcessedSlashingFactorByChain[pod][destinationChainId];
         if (lastFactor == 0) {
             lastFactor = 1e18;
         }
@@ -336,15 +358,17 @@ contract L2SlashingConnector {
         if (!config.enabled) return 0;
 
         address operator = _getOperatorForPod(pod);
-        uint64 lastFactor = lastProcessedSlashingFactor[pod];
+        uint64 lastFactor = lastProcessedSlashingFactorByChain[pod][destinationChainId];
         if (lastFactor == 0) lastFactor = 1e18;
 
         uint256 slashPercentage = (uint256(lastFactor - newSlashingFactor) * 1e18) / lastFactor;
         uint16 slashBps = uint16((slashPercentage * 10_000) / 1e18);
         if (slashBps > 10_000) slashBps = 10_000;
 
+        // Use the next-nonce-to-be-issued for accurate fee estimation; do not increment.
+        uint256 estimatedNonce = nonceByChain[destinationChainId];
         bytes memory payload =
-            abi.encodePacked(SLASH_MESSAGE_TYPE, abi.encode(operator, slashBps, newSlashingFactor, nonce, pod));
+            abi.encodePacked(SLASH_MESSAGE_TYPE, abi.encode(operator, slashBps, newSlashingFactor, estimatedNonce, pod));
 
         return messenger.estimateFee(destinationChainId, payload, config.gasLimit);
     }

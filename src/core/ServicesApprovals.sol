@@ -8,6 +8,7 @@ import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
+import { BN254 } from "../libraries/BN254.sol";
 
 /// @title ServicesApprovals
 /// @notice Service approval and rejection flows
@@ -86,15 +87,21 @@ abstract contract ServicesApprovals is Base {
     /// @param requestId The service request ID
     /// @param stakingPercent The staking percentage (0-100)
     /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
+    /// @param popSignature G1 proof-of-possession signature over `blsPopMessage(operator, blsPubkey)`.
+    ///        Required to defeat rogue-key attacks: an attacker cannot register `-P` of someone
+    ///        else's key without the secret. Verifying a real signature also implicitly proves
+    ///        subgroup membership of the G2 pubkey.
     function approveServiceWithBls(
         uint64 requestId,
         uint8 stakingPercent,
-        uint256[4] calldata blsPubkey
+        uint256[4] calldata blsPubkey,
+        uint256[2] calldata popSignature
     )
         external
         whenNotPaused
         nonReentrant
     {
+        _requireBlsProofOfPossession(msg.sender, blsPubkey, popSignature);
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
 
@@ -145,15 +152,20 @@ abstract contract ServicesApprovals is Base {
     /// @param requestId The service request ID
     /// @param commitments Security commitments matching the request requirements
     /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
+    /// @param popSignature G1 proof-of-possession signature (see `approveServiceWithBls`)
     function approveServiceWithCommitmentsAndBls(
         uint64 requestId,
         Types.AssetSecurityCommitment[] calldata commitments,
-        uint256[4] calldata blsPubkey
+        uint256[4] calldata blsPubkey,
+        uint256[2] calldata popSignature
     )
         external
         whenNotPaused
         nonReentrant
     {
+        if (_isNonZeroBlsPubkey(blsPubkey)) {
+            _requireBlsProofOfPossession(msg.sender, blsPubkey, popSignature);
+        }
         _approveServiceWithCommitmentsInternal(requestId, commitments, blsPubkey);
     }
 
@@ -224,6 +236,47 @@ abstract contract ServicesApprovals is Base {
     /// @notice Return an empty BLS pubkey
     function _emptyBlsPubkey() private pure returns (uint256[4] memory) {
         return [uint256(0), uint256(0), uint256(0), uint256(0)];
+    }
+
+    /// @notice Domain-separated message every operator must sign with their BLS secret key
+    ///         to register a public key. Bound to chainId + verifying contract + operator
+    ///         address so a PoP from one chain or operator cannot be replayed.
+    function blsPopMessage(address operator, uint256[4] memory blsPubkey) public view returns (bytes memory) {
+        return abi.encode(
+            "TANGLE_BLS_POP_v1",
+            block.chainid,
+            address(this),
+            operator,
+            blsPubkey
+        );
+    }
+
+    /// @dev Reverts unless `popSignature` is a valid BLS G1 signature over `blsPopMessage`
+    ///      under `blsPubkey`. A successful PoP also implies subgroup membership of the G2
+    ///      pubkey since `pk = sk * G2_generator` for any honest signer.
+    function _requireBlsProofOfPossession(
+        address operator,
+        uint256[4] memory blsPubkey,
+        uint256[2] memory popSignature
+    ) internal view {
+        if (!_isNonZeroBlsPubkey(blsPubkey)) revert Errors.InvalidBLSSignature();
+
+        bool ok = BN254.verifyBls(
+            blsPopMessage(operator, blsPubkey),
+            BN254G1Memory(popSignature[0], popSignature[1]),
+            BN254G2Memory(blsPubkey)
+        );
+        if (!ok) revert Errors.InvalidBLSSignature();
+    }
+
+    function BN254G1Memory(uint256 x, uint256 y) private pure returns (Types.BN254G1Point memory p) {
+        p.x = x;
+        p.y = y;
+    }
+
+    function BN254G2Memory(uint256[4] memory k) private pure returns (Types.BN254G2Point memory p) {
+        p.x = [k[0], k[1]];
+        p.y = [k[2], k[3]];
     }
 
     /// @notice Store BLS pubkey for an operator in the request (will be transferred to service on activation)

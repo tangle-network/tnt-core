@@ -140,6 +140,14 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
         if (receiver == address(0)) revert DelegationErrors.ZeroAddress();
         if (shares == 0) revert DelegationErrors.ZeroAmount();
 
+        // Match the protection on `_executeDelegatorUnstake`: an operator with pending
+        // slashes must not have any delegation withdrawn until those slashes resolve.
+        // Without this guard a vault redeem can drain at the pre-slash rate while
+        // loyal delegators absorb the entire slash.
+        if (_operatorPendingSlashCount[operator] > 0) {
+            revert DelegationErrors.PendingSlashExists(operator, _operatorPendingSlashCount[operator]);
+        }
+
         Types.Asset memory asset = token == address(0)
             ? Types.Asset(Types.AssetKind.Native, address(0))
             : Types.Asset(Types.AssetKind.ERC20, token);

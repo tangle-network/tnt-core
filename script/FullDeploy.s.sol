@@ -201,6 +201,8 @@ contract FullDeploy is DeployV2 {
         address timelock = cfg.roles.timelock == address(0) ? admin : cfg.roles.timelock;
         address multisig = cfg.roles.multisig == address(0) ? admin : cfg.roles.multisig;
 
+        _requireProductionRoles(cfg.roles, deployer, admin, treasury, timelock, multisig);
+
         console2.log("=== Full Deploy ===");
         console2.log("Network:", bytes(cfg.network).length == 0 ? "unknown" : cfg.network);
         console2.log("ChainId:", block.chainid);
@@ -1177,6 +1179,45 @@ contract FullDeploy is DeployV2 {
     {
         if (bootstrapAdmin == address(0)) return false;
         return bootstrapAdmin != timelock && bootstrapAdmin != multisig;
+    }
+
+    /// @notice Refuse to deploy to a production chain when the role config is missing or
+    ///         folds every role onto the deployer EOA. Tangle / Base mainnet / Ethereum
+    ///         mainnet must always start with a distinct admin, timelock, and multisig
+    ///         that are *not* the deployer.
+    /// @dev Bypassable on test/local chains via TANGLE_DEPLOY_LOCAL=1 (anvil, hardhat).
+    function _requireProductionRoles(
+        RolesConfig memory roles,
+        address deployer,
+        address admin,
+        address treasury,
+        address timelock,
+        address multisig
+    )
+        internal
+        view
+    {
+        if (!_isProductionChain()) return;
+
+        require(roles.admin != address(0), "config: roles.admin must be set on production");
+        require(roles.treasury != address(0), "config: roles.treasury must be set on production");
+        require(roles.timelock != address(0), "config: roles.timelock must be set on production");
+        require(roles.multisig != address(0), "config: roles.multisig must be set on production");
+        require(roles.revokeBootstrap, "config: roles.revokeBootstrap must be true on production");
+
+        require(admin != deployer, "config: admin must not equal deployer on production");
+        require(timelock != deployer, "config: timelock must not equal deployer on production");
+        require(multisig != deployer, "config: multisig must not equal deployer on production");
+        require(treasury != deployer, "config: treasury must not equal deployer on production");
+        require(timelock != admin, "config: timelock and admin must be distinct addresses");
+        require(multisig != admin, "config: multisig and admin must be distinct addresses");
+    }
+
+    function _isProductionChain() internal view returns (bool) {
+        if (vm.envOr("TANGLE_DEPLOY_LOCAL", uint256(0)) != 0) return false;
+        uint256 id = block.chainid;
+        // Ethereum mainnet, Base mainnet, Tangle mainnet, Arbitrum, Optimism.
+        return id == 1 || id == 8453 || id == 5845 || id == 42_161 || id == 10;
     }
 
     function _grantRole(address target, bytes32 role, address account) internal {

@@ -79,6 +79,9 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         bool isToken0; // True if token is token0 in the pool
         uint8 tokenDecimals; // Token decimals
         uint8 quoteDecimals; // Quote token decimals
+        // Set true when the quote token is itself a USD-denominated stablecoin so the
+        // oracle can return the TWAP price directly without an external feed.
+        bool quoteIsUsd;
     }
 
     /// @notice Token to pool configuration
@@ -200,9 +203,11 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
     /// @notice Configure a Uniswap V3 pool for a token
     /// @param token The token to configure
     /// @param pool The Uniswap V3 pool address
-    /// @param quoteFeed Chainlink feed for quote token USD price
-    function configurePool(address token, address pool, address quoteFeed) external onlyOwner {
+    /// @param quoteFeed Chainlink feed for quote-token USD price (required unless `quoteIsUsd`)
+    /// @param quoteIsUsd True if the quote token is already USD-denominated (e.g. USDC)
+    function configurePool(address token, address pool, address quoteFeed, bool quoteIsUsd) external onlyOwner {
         require(pool != address(0), "Invalid pool");
+        require(quoteIsUsd || quoteFeed != address(0), "Quote feed required for non-USD pool");
 
         IUniswapV3Pool uniPool = IUniswapV3Pool(pool);
         address token0 = uniPool.token0();
@@ -218,7 +223,8 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
             quoteToken: quoteToken,
             isToken0: isToken0,
             tokenDecimals: IERC20Decimals(token).decimals(),
-            quoteDecimals: IERC20Decimals(quoteToken).decimals()
+            quoteDecimals: IERC20Decimals(quoteToken).decimals(),
+            quoteIsUsd: quoteIsUsd
         });
 
         if (quoteFeed != address(0)) {
@@ -281,36 +287,44 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         uint256 priceInQuote =
             _getPriceFromSqrtX96(sqrtPriceX96, config.isToken0, config.tokenDecimals, config.quoteDecimals);
 
-        // Get quote token USD price if configured
+        // Resolve the quote-token USD price. Fail closed: if no feed is configured for a
+        // non-USD quote token, or the feed reverts / returns a stale or non-positive answer,
+        // we cannot price the asset and must surface that to the caller. The previous
+        // implementation defaulted to 1:1 here, which silently mispriced any non-USD pool.
         address quoteFeed = quoteTokenFeeds[config.quoteToken];
-        uint256 quoteUsdPrice = PRICE_PRECISION; // Default 1:1 if no feed
+        uint256 quoteUsdPrice;
+        uint256 quoteUpdatedAt;
 
-        if (quoteFeed != address(0)) {
-            // Assume Chainlink-style feed
-            try AggregatorV3Interface(quoteFeed).latestRoundData() returns (
-                uint80, int256 answer, uint256, uint256 updatedAt, uint80
-            ) {
-                if (answer > 0 && block.timestamp - updatedAt <= maxAge) {
-                    uint8 feedDecimals = AggregatorV3Interface(quoteFeed).decimals();
-                    if (feedDecimals < 18) {
-                        // forge-lint: disable-next-line(unsafe-typecast)
-                        quoteUsdPrice = uint256(answer) * (10 ** (18 - feedDecimals));
-                    } else if (feedDecimals > 18) {
-                        // forge-lint: disable-next-line(unsafe-typecast)
-                        quoteUsdPrice = uint256(answer) / (10 ** (feedDecimals - 18));
-                    } else {
-                        // forge-lint: disable-next-line(unsafe-typecast)
-                        quoteUsdPrice = uint256(answer);
-                    }
-                }
-            } catch {
-                // Use default 1:1 price
+        if (quoteFeed == address(0)) {
+            if (!config.quoteIsUsd) revert PriceNotAvailable(token);
+            quoteUsdPrice = PRICE_PRECISION;
+            quoteUpdatedAt = block.timestamp;
+        } else {
+            (uint80 roundId, int256 answer, , uint256 updatedAt, uint80 answeredInRound) =
+                AggregatorV3Interface(quoteFeed).latestRoundData();
+            if (answer <= 0) revert InvalidPrice(token, answer);
+            if (answeredInRound < roundId) revert StalePrice(token, updatedAt, maxAge);
+            if (block.timestamp - updatedAt > maxAge) revert StalePrice(token, updatedAt, maxAge);
+
+            uint8 feedDecimals = AggregatorV3Interface(quoteFeed).decimals();
+            if (feedDecimals < 18) {
+                // forge-lint: disable-next-line(unsafe-typecast)
+                quoteUsdPrice = uint256(answer) * (10 ** (18 - feedDecimals));
+            } else if (feedDecimals > 18) {
+                // forge-lint: disable-next-line(unsafe-typecast)
+                quoteUsdPrice = uint256(answer) / (10 ** (feedDecimals - 18));
+            } else {
+                // forge-lint: disable-next-line(unsafe-typecast)
+                quoteUsdPrice = uint256(answer);
             }
+            quoteUpdatedAt = updatedAt;
         }
 
         // Final price in USD = priceInQuote * quoteUsdPrice / 10^quoteDecimals
         data.price = (priceInQuote * quoteUsdPrice) / (10 ** config.quoteDecimals);
-        data.updatedAt = block.timestamp; // TWAP is always "fresh"
+        // Tie freshness to the underlying quote feed when applicable so downstream
+        // staleness checks reflect the slowest input, not "now".
+        data.updatedAt = quoteUpdatedAt;
         data.decimals = config.tokenDecimals;
         data.isValid = true;
     }
