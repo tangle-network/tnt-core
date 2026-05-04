@@ -279,6 +279,45 @@ library Types {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // TEE ATTESTATION COMMITMENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Supported TEE backends an operator may attest to.
+    /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
+    /// `Unset` is the zero-value sentinel and is rejected at approval (see
+    /// `Errors.UnsetTeeBackend`) so an integrator forgetting to populate the field
+    /// cannot accidentally commit to the index-0 backend. `DirectTdx` is recognised
+    /// so off-chain pipelines can identify it, but it is rejected at approval time
+    /// (see `Errors.DirectTdxNotPermitted`) — direct TDX without a vendor attestation
+    /// service is not policy-compliant for Tangle services.
+    enum TeeBackend {
+        Unset,
+        Phala,
+        AwsNitro,
+        GcpConfidential,
+        AzureSkr,
+        DirectTdx
+    }
+
+    /// @notice Operator-supplied TEE attestation commitment recorded at approval time.
+    /// @param backend Which TEE backend the operator commits to running.
+    /// @param expectedMeasurement Measurement (MRTD/MRENCLAVE/PCR-equivalent) the
+    ///        operator promises the dispatched workload will report. The off-chain
+    ///        provisioning oracle (or the blueprint's `_handleProvisionResult` hook)
+    ///        cross-checks the live attestation against this value.
+    /// @param nonceBinding Caller-supplied nonce that binds this commitment to a specific
+    ///        challenge (e.g. service request hash) so a stale attestation cannot be
+    ///        replayed against a fresh request.
+    /// @param expiresAt Unix seconds after which this commitment is no longer valid.
+    ///        `0` disables expiry; non-zero values must be in the future at approval.
+    struct TeeAttestationCommitment {
+        TeeBackend backend;
+        bytes32 expectedMeasurement;
+        bytes32 nonceBinding;
+        uint64 expiresAt;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE
     // ═══════════════════════════════════════════════════════════════════════════
 
