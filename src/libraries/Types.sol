@@ -559,7 +559,12 @@ library Types {
     }
 
     /// @notice Quote details from an operator
+    /// @dev `requester` binds the quote to a specific buyer to defeat mempool front-running
+    ///      of `createServiceFromQuotes` / `extendServiceFromQuotes`. Operators sign for a
+    ///      specific recipient; the contract enforces `requester == msg.sender` (or `requester
+    ///      == address(0)` for explicit "anyone" quotes — discouraged).
     struct QuoteDetails {
+        address requester; // Who is allowed to redeem this quote (address(0) = open)
         uint64 blueprintId; // Which blueprint
         uint64 ttlBlocks; // Service duration in blocks
         uint256 totalCost; // Total cost in payment token (wei)

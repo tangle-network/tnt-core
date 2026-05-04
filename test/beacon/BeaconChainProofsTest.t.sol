@@ -62,7 +62,7 @@ contract BeaconProofsHarness {
 contract BeaconChainProofsTest is BeaconTestBase {
     BeaconProofsHarness public harness;
     uint256 private constant BALANCE_TREE_HEIGHT = 38;
-    uint256 private constant BALANCE_CONTAINER_GINDEX = 44;
+    uint256 private constant BALANCE_CONTAINER_GINDEX = 76;
 
     function setUp() public override {
         super.setUp();

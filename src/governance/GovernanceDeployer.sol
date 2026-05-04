@@ -39,6 +39,7 @@ contract GovernanceDeployer {
     event GovernanceDeployed(address indexed token, address indexed timelock, address indexed governor);
 
     event ProtocolRolesConfigured(address indexed timelock, address indexed protocolContract);
+    event RoleRevocationFailed(address indexed protocolContract, address indexed account, bytes32 indexed role, bytes reason);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STRUCTS
@@ -185,11 +186,16 @@ contract GovernanceDeployer {
             protocol.grantRole(roles[i], timelock);
         }
 
-        // Optionally revoke from original admin for full decentralization
+        // Revoke from original admin for full decentralization. Failures are surfaced as
+        // events so the deployer script can detect a broken handover instead of believing
+        // governance was fully transferred when it wasn't.
         if (originalAdmin != address(0)) {
             for (uint256 i = 0; i < roles.length; i++) {
-                // Only revoke if caller has permission (must be original admin or have admin role)
-                try protocol.revokeRole(roles[i], originalAdmin) { } catch { }
+                try protocol.revokeRole(roles[i], originalAdmin) {
+                    // success
+                } catch (bytes memory reason) {
+                    emit RoleRevocationFailed(protocolContract, originalAdmin, roles[i], reason);
+                }
             }
         }
 

@@ -18,11 +18,11 @@ contract ValidatorPodTest is BeaconTestBase {
     // Reproduce BeaconChainProofs constants for deterministic proof building
     uint256 internal constant STATE_ROOT_TREE_HEIGHT = 3;
     uint256 internal constant STATE_ROOT_INDEX = 3;
-    uint256 internal constant BEACON_STATE_TREE_HEIGHT = 5;
+    uint256 internal constant BEACON_STATE_TREE_HEIGHT = 6;
     uint256 internal constant VALIDATOR_TREE_HEIGHT = 40;
     uint256 internal constant BALANCE_TREE_HEIGHT = 38;
-    uint256 internal constant VALIDATOR_CONTAINER_GINDEX = 43;
-    uint256 internal constant BALANCE_CONTAINER_GINDEX = 44;
+    uint256 internal constant VALIDATOR_CONTAINER_GINDEX = 75;
+    uint256 internal constant BALANCE_CONTAINER_GINDEX = 76;
     uint256 internal constant VALIDATORS_PER_BALANCE_LEAF = 4;
 
     struct RestakeProofData {

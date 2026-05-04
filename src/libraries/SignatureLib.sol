@@ -243,13 +243,17 @@ library SignatureLib {
     // BATCH VERIFICATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Verify multiple quotes and compute total cost
+    /// @notice Verify multiple quotes and compute total cost.
+    /// @param expectedRequester The address each quote must be bound to (typically `msg.sender`).
+    ///        Operators may sign with `address(0)` to mean "any requester"; we still accept
+    ///        those, but the protocol layer should refuse them on production paths.
     function verifyQuoteBatch(
         mapping(bytes32 => bool) storage usedQuotes,
         bytes32 domainSeparator,
         Types.SignedQuote[] memory quotes,
         uint64 blueprintId,
-        uint64 ttl
+        uint64 ttl,
+        address expectedRequester
     )
         internal
         returns (uint256 totalCost, address[] memory operators)
@@ -283,6 +287,12 @@ library SignatureLib {
             // Check expiry
             if (block.timestamp > quote.details.expiry) {
                 revert Errors.QuoteExpired(quote.operator, quote.details.expiry);
+            }
+
+            // Bind quote to the intended requester so a third party cannot front-run
+            // `createServiceFromQuotes` with the operator's signature.
+            if (quote.details.requester != address(0) && quote.details.requester != expectedRequester) {
+                revert Errors.InvalidQuoteSignature(quote.operator);
             }
 
             // Verify signature and mark used

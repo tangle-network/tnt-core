@@ -125,18 +125,30 @@ interface ITangleServices {
     /// @param requestId The service request ID
     /// @param stakingPercent The staking percentage (0-100)
     /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
-    function approveServiceWithBls(uint64 requestId, uint8 stakingPercent, uint256[4] calldata blsPubkey) external;
+    /// @param popSignature G1 proof-of-possession signature over `blsPopMessage(operator, blsPubkey)`
+    function approveServiceWithBls(
+        uint64 requestId,
+        uint8 stakingPercent,
+        uint256[4] calldata blsPubkey,
+        uint256[2] calldata popSignature
+    ) external;
 
     /// @notice Approve a service request with both security commitments and BLS public key
     /// @param requestId The service request ID
     /// @param commitments Security commitments matching the request requirements
     /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
+    /// @param popSignature G1 proof-of-possession signature
     function approveServiceWithCommitmentsAndBls(
         uint64 requestId,
         Types.AssetSecurityCommitment[] calldata commitments,
-        uint256[4] calldata blsPubkey
+        uint256[4] calldata blsPubkey,
+        uint256[2] calldata popSignature
     )
         external;
+
+    /// @notice Build the canonical message an operator must sign with their BLS secret key
+    ///         to register a public key. Bound to chainId + verifying contract + operator.
+    function blsPopMessage(address operator, uint256[4] memory blsPubkey) external view returns (bytes memory);
 
     /// @notice Reject a service request (as operator)
     function rejectService(uint64 requestId) external;

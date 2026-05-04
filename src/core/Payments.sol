@@ -189,7 +189,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         // Advance by exactly one interval so missed periods can be caught up over repeated calls.
         svc.lastPaymentAt += interval;
 
-        address[] memory operators = _serviceOperatorSet[serviceId].values();
+        address[] memory operators = _activeServiceOperators(serviceId);
 
         // Calculate effective exposures (with fallback to stored exposureBps)
         (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) =
@@ -225,7 +225,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         // Advance by exactly one interval so missed periods can be caught up over repeated calls.
         svc.lastPaymentAt += bpConfig.subscriptionInterval;
 
-        address[] memory operators = _serviceOperatorSet[serviceId].values();
+        address[] memory operators = _activeServiceOperators(serviceId);
 
         // Calculate effective exposures (with fallback to stored exposureBps)
         (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) =
@@ -544,6 +544,23 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         } else {
             PaymentLib.transferPayment(distributor, token, amount);
             IServiceFeeDistributor(distributor).distributeServiceFee(serviceId, blueprintId, operator, token, amount);
+        }
+    }
+
+    /// @dev Returns only operators currently active in the service. Operators that left
+    ///      remain in the EnumerableSet for historical accounting; we must not pay them.
+    function _activeServiceOperators(uint64 serviceId) internal view returns (address[] memory active) {
+        address[] memory all = _serviceOperatorSet[serviceId].values();
+        uint256 activeCount;
+        for (uint256 i = 0; i < all.length; ++i) {
+            if (_serviceOperators[serviceId][all[i]].active) activeCount++;
+        }
+        active = new address[](activeCount);
+        uint256 j;
+        for (uint256 i = 0; i < all.length; ++i) {
+            if (_serviceOperators[serviceId][all[i]].active) {
+                active[j++] = all[i];
+            }
         }
     }
 

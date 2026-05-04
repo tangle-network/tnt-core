@@ -344,7 +344,7 @@ contract CrossChainSlashingTest is Test {
         assertEq(messenger.messageCount(), 1);
 
         // Check state was updated
-        assertEq(connector.lastProcessedSlashingFactor(pod1), newFactor);
+        assertEq(connector.lastProcessedSlashingFactorByChain(pod1, connector.defaultDestinationChainId()), newFactor);
     }
 
     function test_propagateBeaconSlashing_RevertsForUnknownPod() public {
@@ -367,7 +367,7 @@ contract CrossChainSlashingTest is Test {
 
         MockCrossChainMessenger.Message memory msgAlt = messenger.getLastMessage();
         assertEq(msgAlt.destinationChainId, altChainId);
-        assertEq(connector.lastProcessedSlashingFactor(pod1), 0.95e18);
+        assertEq(connector.lastProcessedSlashingFactorByChain(pod1, altChainId), 0.95e18);
     }
 
     function test_batchPropagateBeaconSlashing_MultiplePods() public {
@@ -402,10 +402,10 @@ contract CrossChainSlashingTest is Test {
         vm.prank(oracle);
         connector.batchPropagateBeaconSlashing(pods, newFactors);
 
-        assertEq(connector.lastProcessedSlashingFactor(pod1), 0.9e18);
-        assertEq(connector.lastProcessedSlashingFactor(pod2), 0.85e18);
-        assertTrue(connector.cumulativeSlashAmount(pod1) > 0);
-        assertTrue(connector.cumulativeSlashAmount(pod2) > 0);
+        assertEq(connector.lastProcessedSlashingFactorByChain(pod1, connector.defaultDestinationChainId()), 0.9e18);
+        assertEq(connector.lastProcessedSlashingFactorByChain(pod2, connector.defaultDestinationChainId()), 0.85e18);
+        assertTrue(connector.cumulativeSlashAmountByChain(pod1, connector.defaultDestinationChainId()) > 0);
+        assertTrue(connector.cumulativeSlashAmountByChain(pod2, connector.defaultDestinationChainId()) > 0);
     }
 
     function test_getPendingSlashAmountAndHasPending() public {
@@ -424,10 +424,11 @@ contract CrossChainSlashingTest is Test {
         uint256 slashPercentage = (delta * 1e18) / 0.9e18;
         uint256 expected = (40 ether * slashPercentage) / 1e18;
 
-        uint256 pending = connector.getPendingSlashAmount(pod1, futureFactor);
+        uint256 defaultChain = connector.defaultDestinationChainId();
+        uint256 pending = connector.getPendingSlashAmount(pod1, futureFactor, defaultChain);
         assertEq(pending, expected);
-        assertTrue(connector.hasPendingSlashing(pod1, futureFactor));
-        assertFalse(connector.hasPendingSlashing(pod1, 0.95e18));
+        assertTrue(connector.hasPendingSlashing(pod1, futureFactor, defaultChain));
+        assertFalse(connector.hasPendingSlashing(pod1, 0.95e18, defaultChain));
     }
 
     function test_estimatePropagationFee_UsesMessengerQuote() public {
@@ -627,14 +628,18 @@ contract CrossChainSlashingTest is Test {
 
         assertEq(staking.lastSlashAmount(), (INITIAL_STAKE * slashBps) / 10_000);
 
-        // Reset to check replay is ignored
+        // Reset to check replay is rejected
         staking.registerOperator(operator1, INITIAL_STAKE);
 
-        // Second delivery with same nonce is silently ignored
+        // Second delivery with same nonce must revert so the relayer can detect the replay
         vm.prank(address(messenger));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                L2SlashingReceiver.NonceAlreadyProcessed.selector, ETH_CHAIN_ID, address(connector), nonce
+            )
+        );
         receiver.receiveMessage(ETH_CHAIN_ID, address(connector), payload);
 
-        // Slash amount should still be from first call (no new slash)
         assertTrue(receiver.isNonceProcessed(ETH_CHAIN_ID, address(connector), nonce));
     }
 

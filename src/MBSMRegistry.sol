@@ -38,16 +38,22 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     /// @notice Mapping from blueprint ID to pinned revision (0 = use latest)
     mapping(uint64 => uint32) private _blueprintPinnedRevision;
 
-    /// @notice M-8 FIX: Grace period before deprecated versions become unusable
-    /// @dev Maps revision => timestamp when deprecation was initiated
+    /// @notice Maps revision => timestamp when deprecation was initiated
     mapping(uint32 => uint256) private _deprecationTimestamp;
 
-    /// @notice M-8 FIX: Grace period duration (default 7 days)
+    /// @notice Grace period duration (default 7 days)
     uint256 public deprecationGracePeriod;
 
+    /// @notice Minimum delay before an emergency deprecation can be executed.
+    /// @dev Off-chain observers indexing `EmergencyDeprecationQueued` need a window to
+    ///      migrate pinned blueprints before the version is nulled.
+    uint256 public constant EMERGENCY_DEPRECATION_DELAY = 24 hours;
+
+    /// @notice Queued emergency deprecations (revision => ready timestamp)
+    mapping(uint32 => uint256) private _emergencyDeprecationReadyAt;
+
     /// @notice Storage gap for upgrades
-    /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -57,6 +63,8 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     event MBSMVersionDeprecated(uint32 indexed revision, address indexed mbsmAddress);
     event BlueprintPinned(uint64 indexed blueprintId, uint32 indexed revision);
     event BlueprintUnpinned(uint64 indexed blueprintId);
+    event EmergencyDeprecationQueued(uint32 indexed revision, address indexed mbsmAddress, uint256 readyAt);
+    event EmergencyDeprecationCancelled(uint32 indexed revision, address indexed mbsmAddress);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -66,12 +74,12 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     error VersionAlreadyRegistered(address mbsmAddress);
     error InvalidRevision(uint32 revision);
     error NoVersionsRegistered();
-    /// @notice M-8 FIX: Version is in grace period but not fully deprecated yet
     error VersionInGracePeriod(uint32 revision, uint256 gracePeriodEnds);
-    /// @notice M-8 FIX: Cannot deprecate version with active services still using it
     error VersionHasActiveServices(uint32 revision);
-    /// @notice M-8 FIX: Invalid grace period value
     error InvalidGracePeriod();
+    error NotAContract(address mbsmAddress);
+    error EmergencyDeprecationNotReady(uint32 revision, uint256 readyAt);
+    error NoEmergencyDeprecationQueued(uint32 revision);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -92,7 +100,6 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
         _grantRole(UPGRADER_ROLE, admin);
         _grantRole(MANAGER_ROLE, admin);
 
-        // M-8 FIX: Set default grace period of 7 days
         deprecationGracePeriod = 7 days;
     }
 
@@ -105,6 +112,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     /// @return revision The revision number assigned to this version
     function addVersion(address mbsmAddress) external onlyRole(MANAGER_ROLE) returns (uint32 revision) {
         if (mbsmAddress == address(0)) revert Errors.ZeroAddress();
+        if (mbsmAddress.code.length == 0) revert NotAContract(mbsmAddress);
         if (_versions.length >= MAX_VERSIONS) revert MaxVersionsExceeded();
         if (_addressToRevision[mbsmAddress] != 0) revert VersionAlreadyRegistered(mbsmAddress);
 
@@ -115,9 +123,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
         emit MBSMVersionAdded(revision, mbsmAddress);
     }
 
-    /// @notice M-8 FIX: Initiate deprecation of an MBSM version (starts grace period)
-    /// @dev During grace period, version still works but emits deprecation warning
-    /// After grace period, version becomes unusable
+    /// @notice Initiate deprecation of an MBSM version (starts grace period)
     /// @param revision The revision to deprecate
     function initiateDeprecation(uint32 revision) external onlyRole(MANAGER_ROLE) {
         if (revision == 0 || revision > _versions.length) revert InvalidRevision(revision);
@@ -130,7 +136,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
         emit MBSMVersionDeprecated(revision, _versions[revision - 1]);
     }
 
-    /// @notice M-8 FIX: Complete deprecation after grace period (sets to zero address)
+    /// @notice Complete deprecation after grace period (sets to zero address)
     /// @dev Blueprints pinned to this version should re-pin before calling this
     /// @param revision The revision to fully deprecate
     function completeDeprecation(uint32 revision) external onlyRole(MANAGER_ROLE) {
@@ -149,22 +155,50 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
         delete _deprecationTimestamp[revision];
     }
 
-    /// @notice Deprecate an MBSM version immediately (for emergencies, sets to zero address)
-    /// @dev Blueprints pinned to this version will get address(0) - they should re-pin
-    /// @param revision The revision to deprecate
-    function deprecateVersion(uint32 revision) external onlyRole(MANAGER_ROLE) {
+    /// @notice Queue an emergency deprecation. Executable after EMERGENCY_DEPRECATION_DELAY.
+    function queueEmergencyDeprecation(uint32 revision) external onlyRole(MANAGER_ROLE) {
+        if (revision == 0 || revision > _versions.length) revert InvalidRevision(revision);
+        if (_versions[revision - 1] == address(0)) revert InvalidRevision(revision);
+
+        uint256 readyAt = block.timestamp + EMERGENCY_DEPRECATION_DELAY;
+        _emergencyDeprecationReadyAt[revision] = readyAt;
+        emit EmergencyDeprecationQueued(revision, _versions[revision - 1], readyAt);
+    }
+
+    /// @notice Execute a queued emergency deprecation after the delay has elapsed.
+    function executeEmergencyDeprecation(uint32 revision) external onlyRole(MANAGER_ROLE) {
         if (revision == 0 || revision > _versions.length) revert InvalidRevision(revision);
 
+        uint256 readyAt = _emergencyDeprecationReadyAt[revision];
+        if (readyAt == 0) revert NoEmergencyDeprecationQueued(revision);
+        if (block.timestamp < readyAt) revert EmergencyDeprecationNotReady(revision, readyAt);
+
         address mbsmAddress = _versions[revision - 1];
+        if (mbsmAddress == address(0)) revert InvalidRevision(revision);
+
         _versions[revision - 1] = address(0);
         delete _addressToRevision[mbsmAddress];
         delete _deprecationTimestamp[revision];
+        delete _emergencyDeprecationReadyAt[revision];
 
         emit MBSMVersionDeprecated(revision, mbsmAddress);
     }
 
-    /// @notice M-8 FIX: Set the grace period for deprecations
-    /// @param newGracePeriod New grace period in seconds (minimum 1 day)
+    /// @notice Cancel a queued emergency deprecation before it executes.
+    function cancelEmergencyDeprecation(uint32 revision) external onlyRole(MANAGER_ROLE) {
+        if (revision == 0 || revision > _versions.length) revert InvalidRevision(revision);
+        if (_emergencyDeprecationReadyAt[revision] == 0) revert NoEmergencyDeprecationQueued(revision);
+
+        delete _emergencyDeprecationReadyAt[revision];
+        emit EmergencyDeprecationCancelled(revision, _versions[revision - 1]);
+    }
+
+    /// @notice View when a queued emergency deprecation becomes executable (0 if none)
+    function emergencyDeprecationReadyAt(uint32 revision) external view returns (uint256) {
+        return _emergencyDeprecationReadyAt[revision];
+    }
+
+    /// @notice Set the grace period for deprecations (minimum 1 day)
     function setDeprecationGracePeriod(uint256 newGracePeriod) external onlyRole(MANAGER_ROLE) {
         if (newGracePeriod < 1 days) revert InvalidGracePeriod();
         deprecationGracePeriod = newGracePeriod;

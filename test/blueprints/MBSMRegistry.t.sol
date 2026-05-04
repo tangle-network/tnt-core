@@ -18,6 +18,21 @@ contract MBSMRegistryTest is Test {
         registry = MBSMRegistry(address(proxy));
     }
 
+    /// @dev `addVersion` rejects EOAs; tests use placeholder addresses with stub bytecode.
+    /// @dev Skip the precompile range (1..0xa) — `vm.etch` refuses to overwrite them.
+    function _stubMBSM(address addr) internal {
+        require(uint160(addr) > 0x10, "MBSMRegistry test: pick address above precompile range");
+        vm.etch(addr, hex"60006000fd"); // any non-empty bytecode
+    }
+
+    function _executeEmergencyDeprecation(uint32 revision) internal {
+        vm.prank(admin);
+        registry.queueEmergencyDeprecation(revision);
+        vm.warp(block.timestamp + registry.EMERGENCY_DEPRECATION_DELAY());
+        vm.prank(admin);
+        registry.executeEmergencyDeprecation(revision);
+    }
+
     function test_Initialize_SetsRoles() public {
         assertTrue(registry.hasRole(registry.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(registry.hasRole(registry.MANAGER_ROLE(), admin));
@@ -25,6 +40,7 @@ contract MBSMRegistryTest is Test {
     }
 
     function test_AddVersionAndGetters() public {
+        _stubMBSM(address(0x1234));
         vm.prank(admin);
         uint32 revision = registry.addVersion(address(0x1234));
         assertEq(revision, 1);
@@ -39,27 +55,42 @@ contract MBSMRegistryTest is Test {
         vm.expectRevert(Errors.ZeroAddress.selector);
         registry.addVersion(address(0));
 
+        // EOA / non-contract address must be rejected so MBSM hooks can never silently no-op.
+        // Use an arbitrary high address that has no bytecode and no precompile.
+        address eoa = address(0xCAFE_AAAA);
         vm.prank(admin);
-        registry.addVersion(address(0x1));
+        vm.expectRevert(abi.encodeWithSelector(MBSMRegistry.NotAContract.selector, eoa));
+        registry.addVersion(eoa);
+
+        address dup = address(0xCAFE_BBBB);
+        _stubMBSM(dup);
+        vm.prank(admin);
+        registry.addVersion(dup);
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(MBSMRegistry.VersionAlreadyRegistered.selector, address(0x1)));
-        registry.addVersion(address(0x1));
+        vm.expectRevert(abi.encodeWithSelector(MBSMRegistry.VersionAlreadyRegistered.selector, dup));
+        registry.addVersion(dup);
     }
 
     function test_AddVersion_MaxLimitEnforced() public {
         uint256 max = registry.MAX_VERSIONS();
         for (uint256 i = 0; i < max; i++) {
+            // Skip the precompile range (1..0xa) by offsetting from 0x100.
+            address mbsm = address(uint160(0x100 + i));
+            _stubMBSM(mbsm);
             vm.prank(admin);
-            registry.addVersion(address(uint160(i + 1)));
+            registry.addVersion(mbsm);
         }
 
+        _stubMBSM(address(0xBEEF));
         vm.prank(admin);
         vm.expectRevert(MBSMRegistry.MaxVersionsExceeded.selector);
         registry.addVersion(address(0xBEEF));
     }
 
-    function test_DeprecateVersion_AndValidityChecks() public {
+    function test_EmergencyDeprecation_RequiresDelayAndBricksTargetedRevision() public {
+        _stubMBSM(address(0xAAA));
+        _stubMBSM(address(0xBBB));
         vm.startPrank(admin);
         registry.addVersion(address(0xAAA));
         registry.addVersion(address(0xBBB));
@@ -68,17 +99,29 @@ contract MBSMRegistryTest is Test {
         assertTrue(registry.isValidRevision(2));
 
         vm.prank(admin);
-        registry.deprecateVersion(2);
+        registry.queueEmergencyDeprecation(2);
+
+        // Cannot execute before the delay elapses
+        vm.prank(admin);
+        vm.expectRevert();
+        registry.executeEmergencyDeprecation(2);
+
+        vm.warp(block.timestamp + registry.EMERGENCY_DEPRECATION_DELAY());
+        vm.prank(admin);
+        registry.executeEmergencyDeprecation(2);
 
         assertFalse(registry.isValidRevision(2));
         assertEq(registry.getRevision(address(0xBBB)), 0);
 
+        // Queueing an unknown revision still reverts
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(MBSMRegistry.InvalidRevision.selector, 5));
-        registry.deprecateVersion(5);
+        registry.queueEmergencyDeprecation(5);
     }
 
     function test_PinAndUnpinBlueprint() public {
+        _stubMBSM(address(0x111));
+        _stubMBSM(address(0x222));
         vm.startPrank(admin);
         registry.addVersion(address(0x111));
         registry.addVersion(address(0x222));
@@ -101,6 +144,7 @@ contract MBSMRegistryTest is Test {
     }
 
     function test_GetMBSMByRevision_RevertsOnInvalid() public {
+        _stubMBSM(address(0x456));
         vm.prank(admin);
         registry.addVersion(address(0x456));
 
@@ -109,12 +153,16 @@ contract MBSMRegistryTest is Test {
     }
 
     function test_GetAllVersions_ReturnsFullHistory() public {
+        _stubMBSM(address(0x111));
+        _stubMBSM(address(0x222));
+        _stubMBSM(address(0x333));
         vm.startPrank(admin);
         registry.addVersion(address(0x111));
         registry.addVersion(address(0x222));
         registry.addVersion(address(0x333));
-        registry.deprecateVersion(2);
         vm.stopPrank();
+
+        _executeEmergencyDeprecation(2);
 
         address[] memory versions = registry.getAllVersions();
         assertEq(versions.length, 3);

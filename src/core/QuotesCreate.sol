@@ -150,7 +150,9 @@ abstract contract QuotesCreate is Base {
         private
         returns (uint256 totalCost)
     {
-        (totalCost,) = SignatureLib.verifyQuoteBatch(_usedQuotes, _domainSeparator, quotes, blueprintId, ttl);
+        (totalCost,) = SignatureLib.verifyQuoteBatch(
+            _usedQuotes, _domainSeparator, quotes, blueprintId, ttl, msg.sender
+        );
         _ensureQuoteConfidentialityConsistent(quotes);
     }
 

@@ -7,6 +7,7 @@ import { Base } from "./Base.sol";
 import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { SignatureLib } from "../libraries/SignatureLib.sol";
+import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
 /// @title QuotesExtend
 /// @notice RFQ service extension flows
@@ -54,6 +55,11 @@ abstract contract QuotesExtend is Base {
             revert Errors.InvalidState();
         }
 
+        // Bound the extension so a malicious operator quote cannot lock escrow for years.
+        if (additionalTtl == 0 || additionalTtl > ProtocolConfig.MAX_SERVICE_TTL) {
+            revert Errors.InvalidState();
+        }
+
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         _requireBlueprintActive(bp, svc.blueprintId);
 
@@ -68,6 +74,10 @@ abstract contract QuotesExtend is Base {
         // Verify quotes and get total cost
         uint256 totalCost = _verifyExtensionQuotes(quotes, svc.blueprintId, additionalTtl);
         _ensureExtensionQuoteConfidentiality(quotes, svc.confidentiality);
+
+        // An extension that costs nothing rewards operators with continued service for free;
+        // require a positive total fee.
+        if (totalCost == 0) revert Errors.InvalidState();
 
         // Collect payment
         _collectQuotePayment(totalCost);
@@ -135,7 +145,9 @@ abstract contract QuotesExtend is Base {
         private
         returns (uint256 totalCost)
     {
-        (totalCost,) = SignatureLib.verifyQuoteBatch(_usedQuotes, _domainSeparator, quotes, blueprintId, ttl);
+        (totalCost,) = SignatureLib.verifyQuoteBatch(
+            _usedQuotes, _domainSeparator, quotes, blueprintId, ttl, msg.sender
+        );
     }
 
     function _ensureExtensionQuoteConfidentiality(

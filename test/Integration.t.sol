@@ -1203,6 +1203,7 @@ contract RFQTest is BaseTest {
         uint64 expiry = uint64(block.timestamp + 1 hours);
 
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: cost,
@@ -1251,6 +1252,7 @@ contract RFQTest is BaseTest {
         uint64 expiry = uint64(block.timestamp + 1 hours);
 
         Types.QuoteDetails memory details1 = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: 0.5 ether,
@@ -1262,6 +1264,7 @@ contract RFQTest is BaseTest {
         });
 
         Types.QuoteDetails memory details2 = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: 0.7 ether,
@@ -1307,6 +1310,7 @@ contract RFQTest is BaseTest {
         uint64 expiry = uint64(block.timestamp + 1 hours);
 
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: cost,
@@ -1345,6 +1349,7 @@ contract RFQTest is BaseTest {
         uint64 expiry = uint64(block.timestamp + 1 hours);
 
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: 1 ether,
@@ -1383,6 +1388,7 @@ contract RFQTest is BaseTest {
         uint64 expiry = uint64(block.timestamp + 1 hours);
 
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: 1 ether,
@@ -1423,6 +1429,7 @@ contract RFQTest is BaseTest {
 
         // Quote for wrong blueprint
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: 999, // Wrong blueprint!
             ttlBlocks: ttl,
             totalCost: 1 ether,
@@ -1458,6 +1465,7 @@ contract RFQTest is BaseTest {
 
         // Quote for different TTL
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: 50, // Quote says 50
             totalCost: 1 ether,
@@ -1493,6 +1501,7 @@ contract RFQTest is BaseTest {
         uint64 expiry = uint64(block.timestamp + 1 hours);
 
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: 1 ether,
@@ -1534,6 +1543,7 @@ contract RFQTest is BaseTest {
         uint64 expiry = uint64(block.timestamp + 1 hours);
 
         Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: address(0),
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: 2 ether, // Costs 2 ETH
