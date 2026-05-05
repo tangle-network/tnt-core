@@ -141,6 +141,13 @@ interface ITangleServices {
     /// @notice Reject a service request (as operator)
     function rejectService(uint64 requestId) external;
 
+    /// @notice Permissionlessly expire a stale service request and refund the requester.
+    /// @dev Anyone may call once `block.timestamp > req.createdAt + grace` (grace is
+    ///      `_requestExpiryGracePeriod` or `ProtocolConfig.REQUEST_EXPIRY_GRACE_PERIOD`).
+    ///      Reverts if the request was already rejected, already activated, or still
+    ///      within its grace window.
+    function expireServiceRequest(uint64 requestId) external;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // RFQ (Request For Quote) - INSTANT SERVICE CREATION
     // ═══════════════════════════════════════════════════════════════════════════
