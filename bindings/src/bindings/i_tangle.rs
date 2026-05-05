@@ -450,7 +450,7 @@ library Types {
     struct ResourceCommitment { uint8 kind; uint64 count; }
     struct Service { uint64 blueprintId; address owner; uint64 createdAt; uint64 ttl; uint64 terminatedAt; uint64 lastPaymentAt; uint32 operatorCount; uint32 minOperators; uint32 maxOperators; MembershipModel membership; PricingModel pricing; ServiceStatus status; ConfidentialityPolicy confidentiality; }
     struct ServiceOperator { uint16 exposureBps; uint64 joinedAt; uint64 leftAt; bool active; }
-    struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; ConfidentialityPolicy confidentiality; }
+    struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; bool activated; ConfidentialityPolicy confidentiality; }
     struct SignedJobQuote { JobQuoteDetails details; bytes signature; address operator; }
     struct SignedQuote { QuoteDetails details; bytes signature; address operator; }
     struct TeeAttestationCommitment { TeeBackend backend; bytes32 expectedMeasurement; bytes32 nonceBinding; uint64 expiresAt; }
@@ -9084,7 +9084,7 @@ struct ServiceOperator { uint16 exposureBps; uint64 joinedAt; uint64 leftAt; boo
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; ConfidentialityPolicy confidentiality; }
+struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; bool activated; ConfidentialityPolicy confidentiality; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -9114,6 +9114,8 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
         #[allow(missing_docs)]
         pub rejected: bool,
         #[allow(missing_docs)]
+        pub activated: bool,
+        #[allow(missing_docs)]
         pub confidentiality: <ConfidentialityPolicy as alloy::sol_types::SolType>::RustType,
     }
     #[allow(
@@ -9139,6 +9141,7 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
             alloy::sol_types::sol_data::Uint<32>,
             alloy::sol_types::sol_data::Uint<32>,
             alloy::sol_types::sol_data::Bool,
+            alloy::sol_types::sol_data::Bool,
             ConfidentialityPolicy,
         );
         #[doc(hidden)]
@@ -9154,6 +9157,7 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
             <MembershipModel as alloy::sol_types::SolType>::RustType,
             u32,
             u32,
+            bool,
             bool,
             <ConfidentialityPolicy as alloy::sol_types::SolType>::RustType,
         );
@@ -9185,6 +9189,7 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     value.minOperators,
                     value.maxOperators,
                     value.rejected,
+                    value.activated,
                     value.confidentiality,
                 )
             }
@@ -9206,7 +9211,8 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     minOperators: tuple.9,
                     maxOperators: tuple.10,
                     rejected: tuple.11,
-                    confidentiality: tuple.12,
+                    activated: tuple.12,
+                    confidentiality: tuple.13,
                 }
             }
         }
@@ -9254,6 +9260,9 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     > as alloy_sol_types::SolType>::tokenize(&self.maxOperators),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.rejected,
+                    ),
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        &self.activated,
                     ),
                     <ConfidentialityPolicy as alloy_sol_types::SolType>::tokenize(
                         &self.confidentiality,
@@ -9332,7 +9341,7 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "ServiceRequest(uint64 blueprintId,address requester,uint64 createdAt,uint64 ttl,uint32 operatorCount,uint32 approvalCount,address paymentToken,uint256 paymentAmount,uint8 membership,uint32 minOperators,uint32 maxOperators,bool rejected,uint8 confidentiality)",
+                    "ServiceRequest(uint64 blueprintId,address requester,uint64 createdAt,uint64 ttl,uint32 operatorCount,uint32 approvalCount,address paymentToken,uint256 paymentAmount,uint8 membership,uint32 minOperators,uint32 maxOperators,bool rejected,bool activated,uint8 confidentiality)",
                 )
             }
             #[inline]
@@ -9394,6 +9403,10 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                         .0,
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
                             &self.rejected,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.activated,
                         )
                         .0,
                     <ConfidentialityPolicy as alloy_sol_types::SolType>::eip712_data_word(
@@ -9458,6 +9471,9 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     )
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.rejected,
+                    )
+                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.activated,
                     )
                     + <ConfidentialityPolicy as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.confidentiality,
@@ -9530,6 +9546,10 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                 );
                 <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.rejected,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.activated,
                     out,
                 );
                 <ConfidentialityPolicy as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -11140,6 +11160,7 @@ library Types {
         uint32 minOperators;
         uint32 maxOperators;
         bool rejected;
+        bool activated;
         ConfidentialityPolicy confidentiality;
     }
     struct SignedJobQuote {
@@ -13632,6 +13653,11 @@ interface ITangle {
           },
           {
             "name": "rejected",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "activated",
             "type": "bool",
             "internalType": "bool"
           },

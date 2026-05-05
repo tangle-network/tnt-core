@@ -92,6 +92,8 @@ abstract contract ServicesApprovals is Base {
         Types.AssetSecurityRequirement[] storage requirements = _requestSecurityRequirements[p.requestId];
         bool hasRequirements = requirements.length > 0;
         bool hasSuppliedCommitments = p.securityCommitments.length > 0;
+        bool hasTeeCommitments = p.teeCommitments.length > 0;
+        bool registeringBls = _isNonZeroBlsPubkey(p.blsPubkey);
 
         if (hasRequirements && hasSuppliedCommitments) {
             _validateSecurityCommitments(requirements, p.securityCommitments);
@@ -105,26 +107,32 @@ abstract contract ServicesApprovals is Base {
         }
 
         bytes32 teeRoot;
-        if (p.teeCommitments.length > 0) {
+        if (hasTeeCommitments) {
             _validateTeeCommitments(p.requestId, p.teeCommitments);
             teeRoot = keccak256(abi.encode(p.teeCommitments));
         }
 
-        bool registeringBls = _isNonZeroBlsPubkey(p.blsPubkey);
         if (registeringBls) {
             _requireBlsProofOfPossession(msg.sender, p.blsPubkey, p.blsPopSignature);
         }
 
-        // Storage writes — every gate above passed.
-        if (hasRequirements && !hasSuppliedCommitments) {
-            _storeDefaultTntCommitment(p.requestId, msg.sender);
-        } else if (hasSuppliedCommitments) {
+        // Storage writes — every gate above passed. The effective per-operator
+        // exposure (in percent) is what the manager hook receives; it must
+        // mirror what was actually committed, including the auto-fill case.
+        uint8 effectiveStakingPercent;
+        if (hasSuppliedCommitments) {
             for (uint256 i = 0; i < p.securityCommitments.length; i++) {
                 _requestSecurityCommitments[p.requestId][msg.sender].push(p.securityCommitments[i]);
             }
+            effectiveStakingPercent = uint8(p.securityCommitments[0].exposureBps / 100);
+        } else if (hasRequirements) {
+            _storeDefaultTntCommitment(p.requestId, msg.sender);
+            effectiveStakingPercent = uint8(requirements[0].minExposureBps / 100);
+        } else {
+            effectiveStakingPercent = 100;
         }
 
-        if (teeRoot != bytes32(0)) {
+        if (hasTeeCommitments) {
             _requestTeeCommitmentRoot[p.requestId][msg.sender] = teeRoot;
             emit TeeCommitmentsRecorded(p.requestId, msg.sender, teeRoot, p.teeCommitments);
         }
@@ -140,11 +148,9 @@ abstract contract ServicesApprovals is Base {
 
         Types.Blueprint storage bp = _blueprints[req.blueprintId];
         if (bp.manager != address(0)) {
-            uint8 stakingPercent =
-                p.securityCommitments.length > 0 ? uint8(p.securityCommitments[0].exposureBps / 100) : 100;
             _tryCallManager(
                 bp.manager,
-                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, p.requestId, stakingPercent))
+                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, p.requestId, effectiveStakingPercent))
             );
         }
 

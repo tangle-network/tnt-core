@@ -46,7 +46,7 @@ interface IOperatorStatusRegistry {
     function removeInactiveOperator(uint64 serviceId, address operator) external;
     function reportForSlashing(uint64 serviceId, address operator, string memory reason) external;
     function setMetricDefinitions(uint64 serviceId, MetricDefinition[] memory definitions) external;
-    function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode, bytes memory metrics, bytes memory signature) external;
+    function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode, bytes memory metrics, uint64 timestamp, bytes memory signature) external;
     function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statusCode, bytes memory metrics) external;
 }
 ```
@@ -661,6 +661,11 @@ interface IOperatorStatusRegistry {
         "name": "metrics",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "internalType": "uint64"
       },
       {
         "name": "signature",
@@ -5543,9 +5548,9 @@ function setMetricDefinitions(uint64 serviceId, MetricDefinition[] memory defini
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `submitHeartbeat(uint64,uint64,uint8,bytes,bytes)` and selector `0xd413a580`.
+    /**Function with signature `submitHeartbeat(uint64,uint64,uint8,bytes,uint64,bytes)` and selector `0x2bf4d6a7`.
 ```solidity
-function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode, bytes memory metrics, bytes memory signature) external;
+function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode, bytes memory metrics, uint64 timestamp, bytes memory signature) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -5559,9 +5564,11 @@ function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode,
         #[allow(missing_docs)]
         pub metrics: alloy::sol_types::private::Bytes,
         #[allow(missing_docs)]
+        pub timestamp: u64,
+        #[allow(missing_docs)]
         pub signature: alloy::sol_types::private::Bytes,
     }
-    ///Container type for the return parameters of the [`submitHeartbeat(uint64,uint64,uint8,bytes,bytes)`](submitHeartbeatCall) function.
+    ///Container type for the return parameters of the [`submitHeartbeat(uint64,uint64,uint8,bytes,uint64,bytes)`](submitHeartbeatCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct submitHeartbeatReturn {}
@@ -5581,6 +5588,7 @@ function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<8>,
                 alloy::sol_types::sol_data::Bytes,
+                alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Bytes,
             );
             #[doc(hidden)]
@@ -5589,6 +5597,7 @@ function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode,
                 u64,
                 u8,
                 alloy::sol_types::private::Bytes,
+                u64,
                 alloy::sol_types::private::Bytes,
             );
             #[cfg(test)]
@@ -5611,6 +5620,7 @@ function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode,
                         value.blueprintId,
                         value.statusCode,
                         value.metrics,
+                        value.timestamp,
                         value.signature,
                     )
                 }
@@ -5624,7 +5634,8 @@ function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode,
                         blueprintId: tuple.1,
                         statusCode: tuple.2,
                         metrics: tuple.3,
-                        signature: tuple.4,
+                        timestamp: tuple.4,
+                        signature: tuple.5,
                     }
                 }
             }
@@ -5677,6 +5688,7 @@ function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode,
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Uint<8>,
                 alloy::sol_types::sol_data::Bytes,
+                alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Bytes,
             );
             type Token<'a> = <Self::Parameters<
@@ -5687,8 +5699,8 @@ function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode,
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "submitHeartbeat(uint64,uint64,uint8,bytes,bytes)";
-            const SELECTOR: [u8; 4] = [212u8, 19u8, 165u8, 128u8];
+            const SIGNATURE: &'static str = "submitHeartbeat(uint64,uint64,uint8,bytes,uint64,bytes)";
+            const SELECTOR: [u8; 4] = [43u8, 244u8, 214u8, 167u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -5710,6 +5722,9 @@ function submitHeartbeat(uint64 serviceId, uint64 blueprintId, uint8 statusCode,
                     <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
                         &self.metrics,
                     ),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.timestamp),
                     <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
                         &self.signature,
                     ),
@@ -5991,6 +6006,7 @@ function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statu
             [12u8, 118u8, 105u8, 122u8],
             [25u8, 28u8, 189u8, 26u8],
             [30u8, 143u8, 94u8, 229u8],
+            [43u8, 244u8, 214u8, 167u8],
             [64u8, 35u8, 90u8, 156u8],
             [86u8, 133u8, 207u8, 104u8],
             [89u8, 220u8, 234u8, 18u8],
@@ -6005,7 +6021,6 @@ function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statu
             [185u8, 159u8, 103u8, 89u8],
             [193u8, 239u8, 157u8, 223u8],
             [197u8, 217u8, 96u8, 187u8],
-            [212u8, 19u8, 165u8, 128u8],
             [213u8, 81u8, 22u8, 44u8],
             [230u8, 92u8, 175u8, 203u8],
             [238u8, 28u8, 3u8, 144u8],
@@ -6019,6 +6034,7 @@ function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statu
             ::core::stringify!(getLastHeartbeat),
             ::core::stringify!(setMetricDefinitions),
             ::core::stringify!(registerOperator),
+            ::core::stringify!(submitHeartbeat),
             ::core::stringify!(getOnlineOperators),
             ::core::stringify!(isOnline),
             ::core::stringify!(getSlashableOperators),
@@ -6033,7 +6049,6 @@ function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statu
             ::core::stringify!(configureHeartbeat),
             ::core::stringify!(getMetricDefinitions),
             ::core::stringify!(goOffline),
-            ::core::stringify!(submitHeartbeat),
             ::core::stringify!(getMetricValue),
             ::core::stringify!(removeInactiveOperator),
             ::core::stringify!(isHeartbeatCurrent),
@@ -6047,6 +6062,7 @@ function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statu
             <getLastHeartbeatCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setMetricDefinitionsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <registerOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <submitHeartbeatCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOnlineOperatorsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isOnlineCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashableOperatorsCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -6061,7 +6077,6 @@ function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statu
             <configureHeartbeatCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getMetricDefinitionsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <goOfflineCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <submitHeartbeatCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getMetricValueCall as alloy_sol_types::SolCall>::SIGNATURE,
             <removeInactiveOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <isHeartbeatCurrentCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -6243,6 +6258,17 @@ function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statu
                     registerOperator
                 },
                 {
+                    fn submitHeartbeat(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IOperatorStatusRegistryCalls> {
+                        <submitHeartbeatCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IOperatorStatusRegistryCalls::submitHeartbeat)
+                    }
+                    submitHeartbeat
+                },
+                {
                     fn getOnlineOperators(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IOperatorStatusRegistryCalls> {
@@ -6393,17 +6419,6 @@ function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statu
                     goOffline
                 },
                 {
-                    fn submitHeartbeat(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IOperatorStatusRegistryCalls> {
-                        <submitHeartbeatCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(IOperatorStatusRegistryCalls::submitHeartbeat)
-                    }
-                    submitHeartbeat
-                },
-                {
                     fn getMetricValue(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IOperatorStatusRegistryCalls> {
@@ -6532,6 +6547,17 @@ function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statu
                             .map(IOperatorStatusRegistryCalls::registerOperator)
                     }
                     registerOperator
+                },
+                {
+                    fn submitHeartbeat(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IOperatorStatusRegistryCalls> {
+                        <submitHeartbeatCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IOperatorStatusRegistryCalls::submitHeartbeat)
+                    }
+                    submitHeartbeat
                 },
                 {
                     fn getOnlineOperators(
@@ -6688,17 +6714,6 @@ function submitHeartbeatDirect(uint64 serviceId, uint64 blueprintId, uint8 statu
                             .map(IOperatorStatusRegistryCalls::goOffline)
                     }
                     goOffline
-                },
-                {
-                    fn submitHeartbeat(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<IOperatorStatusRegistryCalls> {
-                        <submitHeartbeatCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(IOperatorStatusRegistryCalls::submitHeartbeat)
-                    }
-                    submitHeartbeat
                 },
                 {
                     fn getMetricValue(
@@ -7510,6 +7525,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             blueprintId: u64,
             statusCode: u8,
             metrics: alloy::sol_types::private::Bytes,
+            timestamp: u64,
             signature: alloy::sol_types::private::Bytes,
         ) -> alloy_contract::SolCallBuilder<&P, submitHeartbeatCall, N> {
             self.call_builder(
@@ -7518,6 +7534,7 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     blueprintId,
                     statusCode,
                     metrics,
+                    timestamp,
                     signature,
                 },
             )

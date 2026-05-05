@@ -416,7 +416,7 @@ See the [wrapper's documentation](`PaymentLibInstance`) for more details.*/
 ```solidity
 library SlashingLib {
     type SlashStatus is uint8;
-    struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; }
+    struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; address disputer; uint256 disputeBond; uint64 disputedAt; uint64 disputeDeadline; }
 }
 ```*/
 #[allow(
@@ -569,7 +569,7 @@ pub mod SlashingLib {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; }
+struct SlashProposal { uint64 serviceId; address operator; address proposer; uint16 slashBps; uint16 effectiveSlashBps; bytes32 evidence; uint64 proposedAt; uint64 executeAfter; SlashStatus status; string disputeReason; address disputer; uint256 disputeBond; uint64 disputedAt; uint64 disputeDeadline; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -594,6 +594,14 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
         pub status: <SlashStatus as alloy::sol_types::SolType>::RustType,
         #[allow(missing_docs)]
         pub disputeReason: alloy::sol_types::private::String,
+        #[allow(missing_docs)]
+        pub disputer: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub disputeBond: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub disputedAt: u64,
+        #[allow(missing_docs)]
+        pub disputeDeadline: u64,
     }
     #[allow(
         non_camel_case_types,
@@ -616,6 +624,10 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             alloy::sol_types::sol_data::Uint<64>,
             SlashStatus,
             alloy::sol_types::sol_data::String,
+            alloy::sol_types::sol_data::Address,
+            alloy::sol_types::sol_data::Uint<256>,
+            alloy::sol_types::sol_data::Uint<64>,
+            alloy::sol_types::sol_data::Uint<64>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
@@ -629,6 +641,10 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             u64,
             <SlashStatus as alloy::sol_types::SolType>::RustType,
             alloy::sol_types::private::String,
+            alloy::sol_types::private::Address,
+            alloy::sol_types::private::primitives::aliases::U256,
+            u64,
+            u64,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -656,6 +672,10 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     value.executeAfter,
                     value.status,
                     value.disputeReason,
+                    value.disputer,
+                    value.disputeBond,
+                    value.disputedAt,
+                    value.disputeDeadline,
                 )
             }
         }
@@ -674,6 +694,10 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     executeAfter: tuple.7,
                     status: tuple.8,
                     disputeReason: tuple.9,
+                    disputer: tuple.10,
+                    disputeBond: tuple.11,
+                    disputedAt: tuple.12,
+                    disputeDeadline: tuple.13,
                 }
             }
         }
@@ -714,6 +738,18 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
                         &self.disputeReason,
                     ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.disputer,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.disputeBond),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.disputedAt),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.disputeDeadline),
                 )
             }
             #[inline]
@@ -788,7 +824,7 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "SlashProposal(uint64 serviceId,address operator,address proposer,uint16 slashBps,uint16 effectiveSlashBps,bytes32 evidence,uint64 proposedAt,uint64 executeAfter,uint8 status,string disputeReason)",
+                    "SlashProposal(uint64 serviceId,address operator,address proposer,uint16 slashBps,uint16 effectiveSlashBps,bytes32 evidence,uint64 proposedAt,uint64 executeAfter,uint8 status,string disputeReason,address disputer,uint256 disputeBond,uint64 disputedAt,uint64 disputeDeadline)",
                 )
             }
             #[inline]
@@ -846,6 +882,24 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                             &self.disputeReason,
                         )
                         .0,
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.disputer,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.disputeBond)
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.disputedAt)
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.disputeDeadline,
+                        )
+                        .0,
                 ]
                     .concat()
             }
@@ -896,6 +950,24 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                     )
                     + <alloy::sol_types::sol_data::String as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.disputeReason,
+                    )
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.disputer,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.disputeBond,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.disputedAt,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.disputeDeadline,
                     )
             }
             #[inline]
@@ -956,6 +1028,28 @@ struct SlashProposal { uint64 serviceId; address operator; address proposer; uin
                 );
                 <alloy::sol_types::sol_data::String as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.disputeReason,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.disputer,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    256,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.disputeBond,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.disputedAt,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.disputeDeadline,
                     out,
                 );
             }
@@ -1136,7 +1230,7 @@ library Types {
     struct ResourceCommitment { uint8 kind; uint64 count; }
     struct Service { uint64 blueprintId; address owner; uint64 createdAt; uint64 ttl; uint64 terminatedAt; uint64 lastPaymentAt; uint32 operatorCount; uint32 minOperators; uint32 maxOperators; MembershipModel membership; PricingModel pricing; ServiceStatus status; ConfidentialityPolicy confidentiality; }
     struct ServiceOperator { uint16 exposureBps; uint64 joinedAt; uint64 leftAt; bool active; }
-    struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; ConfidentialityPolicy confidentiality; }
+    struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; bool activated; ConfidentialityPolicy confidentiality; }
     struct SignedJobQuote { JobQuoteDetails details; bytes signature; address operator; }
     struct SignedQuote { QuoteDetails details; bytes signature; address operator; }
     struct TeeAttestationCommitment { TeeBackend backend; bytes32 expectedMeasurement; bytes32 nonceBinding; uint64 expiresAt; }
@@ -10045,7 +10139,7 @@ struct ServiceOperator { uint16 exposureBps; uint64 joinedAt; uint64 leftAt; boo
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; ConfidentialityPolicy confidentiality; }
+struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; bool activated; ConfidentialityPolicy confidentiality; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -10075,6 +10169,8 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
         #[allow(missing_docs)]
         pub rejected: bool,
         #[allow(missing_docs)]
+        pub activated: bool,
+        #[allow(missing_docs)]
         pub confidentiality: <ConfidentialityPolicy as alloy::sol_types::SolType>::RustType,
     }
     #[allow(
@@ -10100,6 +10196,7 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
             alloy::sol_types::sol_data::Uint<32>,
             alloy::sol_types::sol_data::Uint<32>,
             alloy::sol_types::sol_data::Bool,
+            alloy::sol_types::sol_data::Bool,
             ConfidentialityPolicy,
         );
         #[doc(hidden)]
@@ -10115,6 +10212,7 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
             <MembershipModel as alloy::sol_types::SolType>::RustType,
             u32,
             u32,
+            bool,
             bool,
             <ConfidentialityPolicy as alloy::sol_types::SolType>::RustType,
         );
@@ -10146,6 +10244,7 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     value.minOperators,
                     value.maxOperators,
                     value.rejected,
+                    value.activated,
                     value.confidentiality,
                 )
             }
@@ -10167,7 +10266,8 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     minOperators: tuple.9,
                     maxOperators: tuple.10,
                     rejected: tuple.11,
-                    confidentiality: tuple.12,
+                    activated: tuple.12,
+                    confidentiality: tuple.13,
                 }
             }
         }
@@ -10215,6 +10315,9 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     > as alloy_sol_types::SolType>::tokenize(&self.maxOperators),
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.rejected,
+                    ),
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        &self.activated,
                     ),
                     <ConfidentialityPolicy as alloy_sol_types::SolType>::tokenize(
                         &self.confidentiality,
@@ -10293,7 +10396,7 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "ServiceRequest(uint64 blueprintId,address requester,uint64 createdAt,uint64 ttl,uint32 operatorCount,uint32 approvalCount,address paymentToken,uint256 paymentAmount,uint8 membership,uint32 minOperators,uint32 maxOperators,bool rejected,uint8 confidentiality)",
+                    "ServiceRequest(uint64 blueprintId,address requester,uint64 createdAt,uint64 ttl,uint32 operatorCount,uint32 approvalCount,address paymentToken,uint256 paymentAmount,uint8 membership,uint32 minOperators,uint32 maxOperators,bool rejected,bool activated,uint8 confidentiality)",
                 )
             }
             #[inline]
@@ -10355,6 +10458,10 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                         .0,
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
                             &self.rejected,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.activated,
                         )
                         .0,
                     <ConfidentialityPolicy as alloy_sol_types::SolType>::eip712_data_word(
@@ -10419,6 +10526,9 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     )
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.rejected,
+                    )
+                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.activated,
                     )
                     + <ConfidentialityPolicy as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.confidentiality,
@@ -10491,6 +10601,10 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                 );
                 <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.rejected,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.activated,
                     out,
                 );
                 <ConfidentialityPolicy as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -11920,6 +12034,10 @@ library SlashingLib {
         uint64 executeAfter;
         SlashStatus status;
         string disputeReason;
+        address disputer;
+        uint256 disputeBond;
+        uint64 disputedAt;
+        uint64 disputeDeadline;
     }
 }
 
@@ -12123,6 +12241,7 @@ library Types {
         uint32 minOperators;
         uint32 maxOperators;
         bool rejected;
+        bool activated;
         ConfidentialityPolicy confidentiality;
     }
     struct SignedJobQuote {
@@ -12205,7 +12324,7 @@ interface ITangleFull {
     function createServiceFromQuotes(uint64 blueprintId, Types.SignedQuote[] memory quotes, bytes memory config, address[] memory permittedCallers, uint64 ttl) external payable returns (uint64 serviceId);
     function deactivateBlueprint(uint64 blueprintId) external;
     function defaultTntMinExposureBps() external view returns (uint16);
-    function disputeSlash(uint64 slashId, string memory reason) external;
+    function disputeSlash(uint64 slashId, string memory reason) external payable;
     function executeExit(uint64 serviceId) external;
     function executeSlash(uint64 slashId) external returns (uint256 actualSlashed);
     function executeSlashBatch(uint64[] memory slashIds) external returns (uint256 totalSlashed, uint256 executedCount);
@@ -12285,7 +12404,7 @@ interface ITangleFull {
     function setPriceOracle(address oracle) external;
     function setRewardVaults(address vaults) external;
     function setServiceFeeDistributor(address distributor) external;
-    function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps) external;
+    function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps, uint64 disputeResolutionDeadline, uint256 disputeBond, uint16 maxPendingSlashesPerOperator) external;
     function setStaking(address staking) external;
     function setTntPaymentDiscountBps(uint16 discountBps) external;
     function setTntToken(address token) external;
@@ -13370,7 +13489,7 @@ interface ITangleFull {
       }
     ],
     "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -14772,6 +14891,11 @@ interface ITangleFull {
             "internalType": "bool"
           },
           {
+            "name": "activated",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
             "name": "confidentiality",
             "type": "uint8",
             "internalType": "enum Types.ConfidentialityPolicy"
@@ -15093,6 +15217,26 @@ interface ITangleFull {
             "name": "disputeReason",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "disputer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "disputeBond",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "disputedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "disputeDeadline",
+            "type": "uint64",
+            "internalType": "uint64"
           }
         ]
       }
@@ -16044,6 +16188,21 @@ interface ITangleFull {
       },
       {
         "name": "maxSlashBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "disputeResolutionDeadline",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "disputeBond",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxPendingSlashesPerOperator",
         "type": "uint16",
         "internalType": "uint16"
       }
@@ -24364,7 +24523,7 @@ function defaultTntMinExposureBps() external view returns (uint16);
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `disputeSlash(uint64,string)` and selector `0x77380c74`.
 ```solidity
-function disputeSlash(uint64 slashId, string memory reason) external;
+function disputeSlash(uint64 slashId, string memory reason) external payable;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -37513,9 +37672,9 @@ function setServiceFeeDistributor(address distributor) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setSlashConfig(uint64,bool,uint16)` and selector `0x78867a16`.
+    /**Function with signature `setSlashConfig(uint64,bool,uint16,uint64,uint256,uint16)` and selector `0x72155d50`.
 ```solidity
-function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps) external;
+function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps, uint64 disputeResolutionDeadline, uint256 disputeBond, uint16 maxPendingSlashesPerOperator) external;
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -37526,8 +37685,14 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
         pub instantSlashEnabled: bool,
         #[allow(missing_docs)]
         pub maxSlashBps: u16,
+        #[allow(missing_docs)]
+        pub disputeResolutionDeadline: u64,
+        #[allow(missing_docs)]
+        pub disputeBond: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub maxPendingSlashesPerOperator: u16,
     }
-    ///Container type for the return parameters of the [`setSlashConfig(uint64,bool,uint16)`](setSlashConfigCall) function.
+    ///Container type for the return parameters of the [`setSlashConfig(uint64,bool,uint16,uint64,uint256,uint16)`](setSlashConfigCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setSlashConfigReturn {}
@@ -37546,9 +37711,19 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Bool,
                 alloy::sol_types::sol_data::Uint<16>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
             );
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u64, bool, u16);
+            type UnderlyingRustTuple<'a> = (
+                u64,
+                bool,
+                u16,
+                u64,
+                alloy::sol_types::private::primitives::aliases::U256,
+                u16,
+            );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -37564,7 +37739,14 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
             #[doc(hidden)]
             impl ::core::convert::From<setSlashConfigCall> for UnderlyingRustTuple<'_> {
                 fn from(value: setSlashConfigCall) -> Self {
-                    (value.disputeWindow, value.instantSlashEnabled, value.maxSlashBps)
+                    (
+                        value.disputeWindow,
+                        value.instantSlashEnabled,
+                        value.maxSlashBps,
+                        value.disputeResolutionDeadline,
+                        value.disputeBond,
+                        value.maxPendingSlashesPerOperator,
+                    )
                 }
             }
             #[automatically_derived]
@@ -37575,6 +37757,9 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                         disputeWindow: tuple.0,
                         instantSlashEnabled: tuple.1,
                         maxSlashBps: tuple.2,
+                        disputeResolutionDeadline: tuple.3,
+                        disputeBond: tuple.4,
+                        maxPendingSlashesPerOperator: tuple.5,
                     }
                 }
             }
@@ -37626,6 +37811,9 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                 alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Bool,
                 alloy::sol_types::sol_data::Uint<16>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
             );
             type Token<'a> = <Self::Parameters<
                 'a,
@@ -37635,8 +37823,8 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setSlashConfig(uint64,bool,uint16)";
-            const SELECTOR: [u8; 4] = [120u8, 134u8, 122u8, 22u8];
+            const SIGNATURE: &'static str = "setSlashConfig(uint64,bool,uint16,uint64,uint256,uint16)";
+            const SELECTOR: [u8; 4] = [114u8, 21u8, 93u8, 80u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -37655,6 +37843,19 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                     <alloy::sol_types::sol_data::Uint<
                         16,
                     > as alloy_sol_types::SolType>::tokenize(&self.maxSlashBps),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(
+                        &self.disputeResolutionDeadline,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.disputeBond),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(
+                        &self.maxPendingSlashesPerOperator,
+                    ),
                 )
             }
             #[inline]
@@ -41344,9 +41545,9 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             [107u8, 218u8, 66u8, 243u8],
             [109u8, 139u8, 136u8, 195u8],
             [110u8, 229u8, 188u8, 255u8],
+            [114u8, 21u8, 93u8, 80u8],
             [115u8, 36u8, 233u8, 22u8],
             [119u8, 56u8, 12u8, 116u8],
-            [120u8, 134u8, 122u8, 22u8],
             [120u8, 214u8, 107u8, 227u8],
             [128u8, 172u8, 130u8, 40u8],
             [129u8, 93u8, 106u8, 38u8],
@@ -41471,9 +41672,9 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             ::core::stringify!(getOperatorRegistration),
             ::core::stringify!(rejectService),
             ::core::stringify!(getOperatorBlsPubkey),
+            ::core::stringify!(setSlashConfig),
             ::core::stringify!(registerOperator_0),
             ::core::stringify!(disputeSlash),
-            ::core::stringify!(setSlashConfig),
             ::core::stringify!(setDefaultTntMinExposureBps),
             ::core::stringify!(pendingRewards_1),
             ::core::stringify!(addPermittedCaller),
@@ -41598,9 +41799,9 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             <getOperatorRegistrationCall as alloy_sol_types::SolCall>::SIGNATURE,
             <rejectServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorBlsPubkeyCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setSlashConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <registerOperator_0Call as alloy_sol_types::SolCall>::SIGNATURE,
             <disputeSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <setSlashConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setDefaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <pendingRewards_1Call as alloy_sol_types::SolCall>::SIGNATURE,
             <addPermittedCallerCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -42710,6 +42911,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                     getOperatorBlsPubkey
                 },
                 {
+                    fn setSlashConfig(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <setSlashConfigCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::setSlashConfig)
+                    }
+                    setSlashConfig
+                },
+                {
                     fn registerOperator_0(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -42730,17 +42942,6 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                             .map(ITangleFullCalls::disputeSlash)
                     }
                     disputeSlash
-                },
-                {
-                    fn setSlashConfig(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <setSlashConfigCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleFullCalls::setSlashConfig)
-                    }
-                    setSlashConfig
                 },
                 {
                     fn setDefaultTntMinExposureBps(
@@ -44086,6 +44287,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                     getOperatorBlsPubkey
                 },
                 {
+                    fn setSlashConfig(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <setSlashConfigCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::setSlashConfig)
+                    }
+                    setSlashConfig
+                },
+                {
                     fn registerOperator_0(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -44106,17 +44318,6 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                             .map(ITangleFullCalls::disputeSlash)
                     }
                     disputeSlash
-                },
-                {
-                    fn setSlashConfig(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
-                        <setSlashConfigCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleFullCalls::setSlashConfig)
-                    }
-                    setSlashConfig
                 },
                 {
                     fn setDefaultTntMinExposureBps(
@@ -48167,12 +48368,18 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             disputeWindow: u64,
             instantSlashEnabled: bool,
             maxSlashBps: u16,
+            disputeResolutionDeadline: u64,
+            disputeBond: alloy::sol_types::private::primitives::aliases::U256,
+            maxPendingSlashesPerOperator: u16,
         ) -> alloy_contract::SolCallBuilder<&P, setSlashConfigCall, N> {
             self.call_builder(
                 &setSlashConfigCall {
                     disputeWindow,
                     instantSlashEnabled,
                     maxSlashBps,
+                    disputeResolutionDeadline,
+                    disputeBond,
+                    maxPendingSlashesPerOperator,
                 },
             )
         }
