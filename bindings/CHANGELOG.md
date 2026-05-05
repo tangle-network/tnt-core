@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-05-05
+
+### Changed (BREAKING)
+
+- Unified `approveService` entrypoint replaces five `approveServiceWith*` variants
+  (tnt-core PR #119). The new ABI takes a single `Types.ApprovalParams` tuple
+  carrying `requestId`, `securityCommitments`, `blsPubkey`, `blsPopSignature`,
+  `teeCommitments`. Empty / zero fields opt out of the corresponding capability.
+- TEE commitment storage moves from `TeeAttestationCommitment[]` arrays to a
+  single keccak256 root per `(serviceId, operator)`. The `getTeeCommitment` view
+  is replaced by `getTeeCommitmentRoot(serviceId, operator) -> bytes32`. Slashers
+  / provisioning oracles supply the original commitment array as a witness and
+  verify keccak match against the on-chain root.
+- New event `TeeCommitmentsRecorded(requestId, operator, root, commitments)`
+  emits the full commitment array for indexer reconstruction.
+- Selector list on `TangleServicesFacet` shrinks from 10 → 6.
+
+### Added
+
+- `Types.ApprovalParams` struct exposed via the generated bindings.
+- `teeNonceFor(uint64 requestId) -> bytes32` view: canonical
+  `keccak256(abi.encode("tangle.tee.nonce", requestId, address(this), block.chainid))`
+  that operators MUST set as `TeeAttestationCommitment.nonceBinding`.
+
 ## [0.10.9] - 2026-04-23
 
 ### Changed
