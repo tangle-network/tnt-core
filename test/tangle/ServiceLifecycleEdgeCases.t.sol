@@ -713,8 +713,14 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
     }
 
     function test_ApproveService_AlreadyApproved_Reverts() public {
-        address[] memory ops = new address[](1);
+        // 2-operator service so the first approve does NOT activate the service.
+        // After activation the request is marked `activated`, and any further approve
+        // call hits `ServiceRequestAlreadyProcessed` (the activation guard) before the
+        // per-caller `AlreadyApproved` check. We need a non-activated state to exercise
+        // the duplicate-approve revert.
+        address[] memory ops = new address[](2);
         ops[0] = operator1;
+        ops[1] = operator2;
         address[] memory callers = new address[](0);
 
         vm.prank(user1);
@@ -723,7 +729,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
 
         _approveService(operator1, requestId);
 
-        // Approve again
+        // operator1 approves again (request is still pending operator2's approval).
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadyApproved.selector, requestId, operator1));
         tangle.approveService(_approve(requestId));

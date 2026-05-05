@@ -322,9 +322,9 @@ abstract contract ServicesApprovals is Base {
     ///      when unset). Without this path stale unapproved requests would linger indefinitely
     ///      with their payment locked; cleanup is now permissionless and incentive-aligned
     ///      (the requester gets refunded, the caller pays the gas).
-    ///      Once a request is fully approved and activated (`req.activated == true`) the
-    ///      escrowed payment has been transferred to the service; refunding from here
-    ///      would double-spend, so activated requests are no longer expirable.
+    ///      Refund is bounded to requests that were never activated AND never rejected.
+    ///      `req.activated` is set inside `_activateService` so an activated request — whose
+    ///      `paymentAmount` has already been routed to operators — cannot be drained again.
     function expireServiceRequest(uint64 requestId) external nonReentrant {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected || req.activated) revert Errors.ServiceRequestAlreadyProcessed(requestId);
@@ -344,7 +344,8 @@ abstract contract ServicesApprovals is Base {
     /// @dev Reverts if the request has lingered past its grace window or has already
     ///      been activated. Activated requests are functionally closed: their escrow
     ///      has been routed to the service record and any further mutation here would
-    ///      contradict that state.
+    ///      contradict that state. Operators that let a request sit too long must wait
+    ///      for someone to call `expireServiceRequest` before requesting again.
     function _requireRequestNotExpired(Types.ServiceRequest storage req, uint64 requestId) private view {
         if (req.activated) revert Errors.ServiceRequestAlreadyProcessed(requestId);
         uint64 grace = _requestExpiryGracePeriod;

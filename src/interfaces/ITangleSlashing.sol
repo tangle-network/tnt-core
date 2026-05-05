@@ -34,7 +34,10 @@ interface ITangleSlashing {
         returns (uint64 slashId);
 
     /// @notice Dispute a slash proposal
-    function disputeSlash(uint64 slashId, string calldata reason) external;
+    /// @dev `payable` because the implementation requires `msg.value == config.disputeBond`
+    ///      when the bond is non-zero (and zero otherwise). Typed callers must use a payable
+    ///      reference so `disputeSlash{value: bond}(...)` compiles.
+    function disputeSlash(uint64 slashId, string calldata reason) external payable;
 
     /// @notice Execute a slash proposal
     function executeSlash(uint64 slashId) external returns (uint256 actualSlashed);

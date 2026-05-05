@@ -240,10 +240,19 @@ abstract contract OperatorManager is DelegationStorage {
         meta.status = Types.OperatorStatus.Inactive;
         _operators.remove(msg.sender);
 
+        // Clear ancillary per-operator state so a fully-exited operator does not leave
+        // stale entries that downstream iteration (rewards, exposure) would still pick up.
+        delete _operatorBondLessRequests[msg.sender];
+        EnumerableSet.UintSet storage operatorBlueprintSet = _operatorBlueprints[msg.sender];
+        uint256 bpCount = operatorBlueprintSet.length();
+        // Iterate in reverse and pop so the EnumerableSet's internal indices stay valid.
+        for (uint256 i = bpCount; i > 0; i--) {
+            operatorBlueprintSet.remove(operatorBlueprintSet.at(i - 1));
+        }
+
         // Cache storage variable to save gas
         address bondToken = _operatorBondToken;
         if (bondToken == address(0)) {
-            // Return stake
             (bool success,) = msg.sender.call{ value: stake }("");
             if (!success) revert DelegationErrors.TransferFailed();
         } else {

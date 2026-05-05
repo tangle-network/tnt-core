@@ -475,4 +475,104 @@ contract SlashingEdgeCasesTest is BaseTest {
         uint256 expectedSlash = (stakeBefore * 1) / 10_000;
         assertEq(stakeAfter, stakeBefore - expectedSlash, "Should slash 1 bps of stake");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DISPUTE BOND COVERAGE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    uint256 constant DISPUTE_BOND = 1 ether;
+
+    function _enableDisputeBond() internal {
+        vm.prank(admin);
+        tangle.setSlashConfig(7 days, false, 10_000, 14 days, DISPUTE_BOND, 32);
+    }
+
+    function test_DisputeSlash_RevertsOnWrongBond() public {
+        _enableDisputeBond();
+
+        vm.prank(user1);
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
+
+        vm.deal(operator1, DISPUTE_BOND);
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidMsgValue.selector, DISPUTE_BOND, 0));
+        tangle.disputeSlash(slashId, "no bond");
+    }
+
+    function test_DisputeSlash_BondRefundedOnCancel() public {
+        _enableDisputeBond();
+
+        vm.prank(user1);
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
+
+        vm.deal(operator1, DISPUTE_BOND);
+        uint256 balBefore = operator1.balance;
+
+        vm.prank(operator1);
+        tangle.disputeSlash{ value: DISPUTE_BOND }(slashId, "valid dispute");
+        assertEq(operator1.balance, balBefore - DISPUTE_BOND, "bond escrowed");
+
+        // Admin agrees with the dispute → cancel refunds the bond.
+        vm.prank(admin);
+        tangle.cancelSlash(slashId, "admin agrees");
+
+        assertEq(operator1.balance, balBefore, "bond refunded on cancel");
+    }
+
+    function test_DisputeSlash_BondForfeitOnExecute() public {
+        _enableDisputeBond();
+
+        vm.prank(user1);
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
+
+        vm.deal(operator1, DISPUTE_BOND);
+        vm.prank(operator1);
+        tangle.disputeSlash{ value: DISPUTE_BOND }(slashId, "spurious dispute");
+
+        uint256 treasuryBefore = treasury.balance;
+
+        // Auto-resolution after the snapshotted disputeResolutionDeadline (14 days).
+        vm.warp(block.timestamp + 14 days + 1);
+        tangle.executeSlash(slashId);
+
+        assertEq(treasury.balance, treasuryBefore + DISPUTE_BOND, "bond forfeit to treasury");
+    }
+
+    function test_DisputeSlash_AdminDoesNotPostBond() public {
+        _enableDisputeBond();
+
+        vm.prank(user1);
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
+
+        // SLASH_ADMIN is the official escalation path and posts no bond.
+        vm.prank(admin);
+        tangle.disputeSlash(slashId, "admin escalation");
+
+        SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
+        assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Disputed));
+        assertEq(proposal.disputeBond, 0);
+    }
+
+    function test_DisputeDeadlineSnapshot_IgnoresAdminShrink() public {
+        // Admin sets a long deadline; operator disputes; admin then shrinks live config.
+        // The disputed slash must still honor the original (snapshotted) deadline.
+        vm.prank(admin);
+        tangle.setSlashConfig(7 days, false, 10_000, 30 days, 0, 32);
+
+        vm.prank(user1);
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
+
+        vm.prank(operator1);
+        tangle.disputeSlash(slashId, "review");
+
+        // Admin tries to shrink the deadline retroactively.
+        vm.prank(admin);
+        tangle.setSlashConfig(7 days, false, 10_000, 1 days, 0, 32);
+
+        // 2 days later the slash must still NOT be executable — the snapshotted
+        // 30-day deadline governs, not the live 1-day config.
+        vm.warp(block.timestamp + 2 days);
+        vm.expectRevert(abi.encodeWithSelector(Errors.SlashNotExecutable.selector, slashId));
+        tangle.executeSlash(slashId);
+    }
 }

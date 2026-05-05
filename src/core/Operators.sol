@@ -207,11 +207,8 @@ abstract contract Operators is Base {
             revert Errors.OperatorHasActiveServices(blueprintId, msg.sender);
         }
 
-        // Call manager hook
-        if (bp.manager != address(0)) {
-            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onUnregister, (msg.sender)));
-        }
-
+        // CEI: clear operator state BEFORE invoking the (untrusted) BSM hook so the
+        // hook observes a fully-finalized unregistration. Mirrors the registration path.
         bytes32 keyHash;
         if (prefs.ecdsaPublicKey.length != 0) {
             keyHash = keccak256(prefs.ecdsaPublicKey);
@@ -229,10 +226,14 @@ abstract contract Operators is Base {
             _operatorBlueprintCounts[msg.sender] -= 1;
         }
 
-        // Remove blueprint from operator's staking profile
         _staking.removeBlueprintForOperator(msg.sender, blueprintId);
 
         emit OperatorUnregistered(blueprintId, msg.sender);
+
+        // Hook fires last (interaction).
+        if (bp.manager != address(0)) {
+            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onUnregister, (msg.sender)));
+        }
     }
 
     /// @notice Update operator preferences for a blueprint

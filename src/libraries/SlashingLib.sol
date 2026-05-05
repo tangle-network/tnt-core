@@ -59,10 +59,12 @@ library SlashingLib {
         // Native-asset bond locked when the slash was disputed. Refunded on cancel,
         // forfeit to treasury when the dispute auto-fails or the slash executes.
         uint256 disputeBond;
-        // Timestamp the dispute was raised (0 when undisputed). After
-        // `disputedAt + config.disputeResolutionDeadline`, `isExecutable` returns
-        // true even though `status == Disputed`, which auto-resolves stale disputes.
+        // Timestamp the dispute was raised (0 when undisputed).
         uint64 disputedAt;
+        // Snapshot of `config.disputeResolutionDeadline` at the moment the dispute was
+        // raised. Stored on the proposal so that admin shrinking the live config later
+        // cannot retroactively shorten an already-disputed slash's review window.
+        uint64 disputeDeadline;
     }
 
     /// @notice Slashing configuration
@@ -112,7 +114,14 @@ library SlashingLib {
 
     event SlashCancelled(uint64 indexed slashId, address indexed canceller, string reason);
 
-    event SlashConfigUpdated(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps);
+    event SlashConfigUpdated(
+        uint64 disputeWindow,
+        bool instantSlashEnabled,
+        uint16 maxSlashBps,
+        uint64 disputeResolutionDeadline,
+        uint256 disputeBond,
+        uint16 maxPendingSlashesPerOperator
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -167,7 +176,14 @@ library SlashingLib {
             maxPendingSlashesPerOperator: maxPendingSlashesPerOperator
         });
 
-        emit SlashConfigUpdated(disputeWindow, instantSlashEnabled, maxSlashBps);
+        emit SlashConfigUpdated(
+            disputeWindow,
+            instantSlashEnabled,
+            maxSlashBps,
+            disputeResolutionDeadline,
+            disputeBond,
+            maxPendingSlashesPerOperator
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -252,7 +268,8 @@ library SlashingLib {
             disputeReason: "",
             disputer: address(0),
             disputeBond: 0,
-            disputedAt: 0
+            disputedAt: 0,
+            disputeDeadline: 0
         });
 
         emit SlashProposed(slashId, serviceId, operator, proposer, slashBps, effectiveSlashBps, evidence, executeAfter);
@@ -263,13 +280,12 @@ library SlashingLib {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Dispute a pending slash proposal.
-    /// @param proposals Storage mapping for proposals
-    /// @param slashId The slash ID to dispute
-    /// @param disputer Who is disputing
-    /// @param reason Reason for dispute
-    /// @param bondPosted Native-asset bond that the caller posted with the dispute call.
+    /// @dev Snapshots `config.disputeResolutionDeadline` onto the proposal so a later
+    ///      admin-driven shrink of the live config cannot retroactively shorten an
+    ///      already-disputed slash's review window.
     function disputeSlash(
         mapping(uint64 => SlashProposal) storage proposals,
+        SlashConfig storage config,
         uint64 slashId,
         address disputer,
         string memory reason,
@@ -296,6 +312,7 @@ library SlashingLib {
         proposal.disputer = disputer;
         proposal.disputeBond = bondPosted;
         proposal.disputedAt = uint64(block.timestamp);
+        proposal.disputeDeadline = uint64(block.timestamp) + config.disputeResolutionDeadline;
 
         emit SlashDisputed(slashId, disputer, reason);
     }
@@ -306,18 +323,16 @@ library SlashingLib {
 
     /// @notice Check if a slash is ready to execute.
     /// @dev A `Pending` slash becomes executable after the dispute window plus a
-    ///      timestamp-manipulation buffer. A `Disputed` slash auto-fails (and becomes
-    ///      executable) once `disputedAt + disputeResolutionDeadline` has elapsed,
-    ///      which prevents permanent delegator lockup if SLASH_ADMIN never acts.
-    function isExecutable(
-        SlashProposal storage proposal,
-        SlashConfig storage config
-    ) internal view returns (bool) {
+    ///      timestamp-manipulation buffer. A `Disputed` slash auto-fails once
+    ///      `proposal.disputeDeadline` (snapshotted from config at dispute time) has
+    ///      elapsed. The deadline is read from the proposal — not live config — so
+    ///      admin cannot retroactively shorten the operator's review window.
+    function isExecutable(SlashProposal storage proposal) internal view returns (bool) {
         if (proposal.status == SlashStatus.Pending) {
             return block.timestamp >= proposal.executeAfter + TIMESTAMP_BUFFER;
         }
         if (proposal.status == SlashStatus.Disputed) {
-            return block.timestamp >= uint256(proposal.disputedAt) + config.disputeResolutionDeadline;
+            return block.timestamp >= uint256(proposal.disputeDeadline);
         }
         return false;
     }
@@ -325,7 +340,6 @@ library SlashingLib {
     /// @notice Mark a slash as executed.
     function markExecuted(
         mapping(uint64 => SlashProposal) storage proposals,
-        SlashConfig storage config,
         uint64 slashId,
         uint256 actualSlashed
     )
@@ -338,7 +352,7 @@ library SlashingLib {
             revert Errors.SlashNotFound(slashId);
         }
 
-        if (!isExecutable(proposal, config)) {
+        if (!isExecutable(proposal)) {
             revert Errors.SlashNotExecutable(slashId);
         }
 

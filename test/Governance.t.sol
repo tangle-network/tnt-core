@@ -134,25 +134,22 @@ contract GovernanceTest is Test {
     }
 
     function test_TokenHistoricalVotes() public {
-        // Store checkpoint before transfer (we're at block 2 after setUp's vm.roll)
-        uint256 checkpointBlock = block.number - 1;
+        // Token uses ERC-6372 timestamp clock — historical lookups take a timestamp,
+        // not a block number. (Coincidentally `block.number == block.timestamp == 1`
+        // in Foundry's default, so prior block-number reads passed by accident.)
+        uint256 checkpointTimestamp = block.timestamp - 1;
 
-        // Transfer some tokens
         vm.prank(voter1);
         token.transfer(voter2, 500_000 * 1e18);
 
-        // Mine blocks to create checkpoints and allow historical lookup
         vm.warp(block.timestamp + 2);
-        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
-        // Current votes should reflect transfer
         assertEq(token.getVotes(voter1), 500_000 * 1e18);
         assertEq(token.getVotes(voter2), 2_500_000 * 1e18);
 
-        // Historical votes at checkpoint should be unchanged
-        assertEq(token.getPastVotes(voter1, checkpointBlock), 1_000_000 * 1e18);
-        assertEq(token.getPastVotes(voter2, checkpointBlock), 2_000_000 * 1e18);
+        assertEq(token.getPastVotes(voter1, checkpointTimestamp), 1_000_000 * 1e18);
+        assertEq(token.getPastVotes(voter2, checkpointTimestamp), 2_000_000 * 1e18);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -166,9 +163,9 @@ contract GovernanceTest is Test {
     }
 
     function test_GovernorQuorum() public view {
-        // Quorum should be 4% of total supply
+        // Quorum is 4% of total supply, queried at a past timestamp (ERC-6372 clock).
         uint256 expectedQuorum = (INITIAL_SUPPLY * QUORUM_PERCENT) / 100;
-        assertEq(governor.quorum(block.number - 1), expectedQuorum);
+        assertEq(governor.quorum(block.timestamp - 1), expectedQuorum);
     }
 
     function test_CreateProposal() public {

@@ -374,7 +374,7 @@ library Types {
 
     /// @notice Service request - pending service awaiting approval
     /// @dev Struct layout for storage optimization:
-    ///      Slot 0: blueprintId (8) + requester (20) = 28 bytes (could be tighter but crossing slot)
+    ///      Slot 0: blueprintId (8) + requester (20) = 28 bytes
     ///      Slot 1: createdAt (8) + ttl (8) + operatorCount (4) + approvalCount (4) = 24 bytes
     ///      Slot 2: paymentToken (20) + membership (1) + minOperators (4) = 25 bytes
     ///      Slot 3: paymentAmount (32)
@@ -391,7 +391,7 @@ library Types {
         MembershipModel membership; // Fixed or Dynamic
         uint32 minOperators; // For dynamic: minimum required
         uint32 maxOperators; // For dynamic: maximum allowed (0 = unlimited)
-        bool rejected;
+        bool rejected; // Set true on operator rejection or permissionless expiry
         // True once `_activateService` has fully spawned the service. Stops
         // `expireServiceRequest` from refunding escrow that has already been
         // transferred to the service, and stops late approve/reject paths
