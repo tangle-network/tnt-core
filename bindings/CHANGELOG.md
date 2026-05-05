@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-05-05
+
+### Fixed
+
+- `approveService` correctness: the TEE root SSTORE is now gated on
+  `p.teeCommitments.length > 0` directly, not on `keccak256(...) != bytes32(0)`.
+  The prior gate relied on cryptographic happenstance (any empty hash being
+  non-zero) instead of input shape, which is the property we actually mean.
+- `approveService` manager-hook fidelity: when an operator approves a request
+  with the protocol-default TNT requirement and supplies no explicit
+  commitments, the contract auto-fills at the requirement's `minExposureBps`.
+  The `IBlueprintServiceManager.onApprove` hook now receives the value that
+  was actually committed (`minExposureBps / 100`), not the prior `100`
+  fallback. New tests in `ServicesApprovalTest` (`test_managerStakingPercent_*`)
+  pin this behavior.
+
+### Notes
+
+- Storage layout: `_serviceTeeCommitments` mapping (legacy
+  `TeeAttestationCommitment[]` value) was retired in 0.11.0 in favor of
+  `_serviceTeeCommitmentRoot` (`bytes32` value). Same head-slot count, different
+  shape at keyed slots — safe for greenfield deploys; live-proxy upgrades would
+  require explicit migration of orphaned data, which is N/A pre-mainnet.
+- Rust API: `TangleClient::approve_service(request_id)` lost its
+  `restaking_percent: u8` parameter at 0.11.0 because the contract derives the
+  effective exposure on-chain. Direct callers of the convenience method on
+  `tangle-tools-clients-tangle` must drop the second argument; the unified
+  builder `approve_service_with_params(ApprovalParams)` is also available.
+
 ## [0.11.0] - 2026-05-05
 
 ### Changed (BREAKING)
@@ -268,7 +297,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Raw ABI JSON exports via `abi` module
 - `TNT_CORE_VERSION` constant for commit tracking
 
-[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.10.9...HEAD
+[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.1...HEAD
+[0.11.1]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.0...bindings-v0.11.1
+[0.11.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.10.9...bindings-v0.11.0
 [0.1.0]: https://github.com/tangle-network/tnt-core/releases/tag/bindings-v0.1.0
 [0.4.1]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.4.0...bindings-v0.4.1
 [0.4.2]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.4.1...bindings-v0.4.2

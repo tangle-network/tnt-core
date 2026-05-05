@@ -4,6 +4,8 @@ pragma solidity ^0.8.26;
 import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
+import { MockBSM_V1 } from "../blueprints/mocks/MockBSM.sol";
+import { MockERC20 } from "../mocks/MockERC20.sol";
 
 /// @title ServicesApprovalTest
 /// @notice End-to-end coverage for the unified `approveService(ApprovalParams)` entrypoint.
@@ -307,6 +309,84 @@ contract ServicesApprovalTest is BaseTest {
         vm.expectRevert();
         vm.prank(operator1);
         tangle.approveService(_approve(requestId));
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Manager hook — stakingPercent reflects what was actually committed
+    // ───────────────────────────────────────────────────────────────────────
+
+    /// @notice When the operator omits `securityCommitments` and the request carries
+    ///         the protocol-default TNT requirement, the contract auto-fills at the
+    ///         requirement's `minExposureBps` and the manager hook receives that
+    ///         value (in percent), NOT the prior `100` fallback. This is the
+    ///         regression the v0.11.1 fix introduces a test for.
+    function test_managerStakingPercent_reflectsAutoFilledDefault() public {
+        // The default-TNT requirement is only stored when `_tntToken` is set.
+        MockERC20 tnt = new MockERC20();
+        vm.prank(admin);
+        tangle.setTntToken(address(tnt));
+
+        MockBSM_V1 bsm = new MockBSM_V1();
+        vm.prank(developer);
+        uint64 bpId = tangle.createBlueprint(_blueprintDefinition("ipfs://bsm", address(bsm)));
+        _registerForBlueprint(operator1, bpId);
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService(
+            bpId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
+
+        vm.prank(operator1);
+        tangle.approveService(_approve(requestId));
+
+        uint16 expectedBps = tangle.defaultTntMinExposureBps();
+        assertEq(
+            bsm.approveStakingPercent(requestId, operator1),
+            uint8(expectedBps / 100),
+            "manager stakingPercent must mirror auto-filled default-TNT minExposureBps"
+        );
+    }
+
+    /// @notice When the operator supplies explicit security commitments, the manager
+    ///         hook receives `commitments[0].exposureBps / 100`.
+    function test_managerStakingPercent_reflectsSuppliedCommitment() public {
+        MockERC20 tnt = new MockERC20();
+        vm.prank(admin);
+        tangle.setTntToken(address(tnt));
+
+        MockBSM_V1 bsm = new MockBSM_V1();
+        vm.prank(developer);
+        uint64 bpId = tangle.createBlueprint(_blueprintDefinition("ipfs://bsm", address(bsm)));
+        _registerForBlueprint(operator1, bpId);
+
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService(
+            bpId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
+
+        // Supply an explicit commitment for the default-TNT requirement at 25% exposure.
+        Types.AssetSecurityCommitment[] memory cm = new Types.AssetSecurityCommitment[](1);
+        cm[0] = Types.AssetSecurityCommitment({
+            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(tnt) }),
+            exposureBps: 2500
+        });
+
+        Types.ApprovalParams memory p;
+        p.requestId = requestId;
+        p.securityCommitments = cm;
+
+        vm.prank(operator1);
+        tangle.approveService(p);
+
+        assertEq(
+            bsm.approveStakingPercent(requestId, operator1),
+            uint8(25),
+            "manager stakingPercent must mirror supplied commitment exposureBps/100"
+        );
     }
 
     // ───────────────────────────────────────────────────────────────────────

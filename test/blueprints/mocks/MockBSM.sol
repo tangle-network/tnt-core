@@ -40,6 +40,10 @@ contract MockBSM_V1 is BlueprintServiceManagerBase {
     mapping(uint64 => mapping(uint64 => bytes)) public jobInputs;
     mapping(uint64 => mapping(uint64 => bytes)) public jobOutputs;
 
+    /// @dev Per-(requestId, operator) stakingPercent recorded by the most recent onApprove
+    ///      call. Tests assert this equals the operator's effective committed exposure.
+    mapping(uint64 => mapping(address => uint8)) public approveStakingPercent;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // VERSION INFO
     // ═══════════════════════════════════════════════════════════════════════════
@@ -100,8 +104,15 @@ contract MockBSM_V1 is BlueprintServiceManagerBase {
         serviceRequestInputs[requestId] = requestInputs;
     }
 
-    function onApprove(address, uint64, uint8) external payable virtual override onlyFromTangle {
+    function onApprove(address operator, uint64 requestId, uint8 stakingPercent)
+        external
+        payable
+        virtual
+        override
+        onlyFromTangle
+    {
         hookCalls.onApprove++;
+        approveStakingPercent[requestId][operator] = stakingPercent;
     }
 
     function onReject(address, uint64) external virtual override onlyFromTangle {
