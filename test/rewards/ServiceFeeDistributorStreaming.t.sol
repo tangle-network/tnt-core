@@ -367,7 +367,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, _nativeCommitments());
+        tangle.approveService(_approveWithCommitments(requestId, _nativeCommitments()));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -584,7 +584,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, _nativeCommitments());
+        tangle.approveService(_approveWithCommitments(requestId, _nativeCommitments()));
 
         serviceId = tangle.serviceCount() - 1;
     }
@@ -609,7 +609,7 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, _nativeCommitments());
+        tangle.approveService(_approveWithCommitments(requestId, _nativeCommitments()));
 
         serviceId = tangle.serviceCount() - 1;
     }
@@ -635,9 +635,9 @@ contract ServiceFeeDistributorStreamingTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, _nativeCommitments());
+        tangle.approveService(_approveWithCommitments(requestId, _nativeCommitments()));
         vm.prank(operator2);
-        tangle.approveServiceWithCommitments(requestId, _nativeCommitments());
+        tangle.approveService(_approveWithCommitments(requestId, _nativeCommitments()));
 
         serviceId = tangle.serviceCount() - 1;
     }

@@ -58,7 +58,7 @@ contract EndToEndSlashingTest is BaseTest {
         // Create service and propose slash
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         uint64 serviceId = 0;
 
         // Slash 10% (1000 bps) of total
@@ -140,9 +140,9 @@ contract EndToEndSlashingTest is BaseTest {
             blueprintId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
         );
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Slash ONLY operator1 for 20% (2000 bps)
         // Op1 pool = 20 ETH (10 self + 10 delegated)
@@ -182,7 +182,7 @@ contract EndToEndSlashingTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         uint64 serviceId = 0;
 
         // Submit job: square(5) should = 25
@@ -234,7 +234,7 @@ contract EndToEndSlashingTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Submit job: square(5) = 25
         vm.prank(user1);
@@ -265,7 +265,7 @@ contract EndToEndSlashingTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint256 baseTime = block.timestamp;
 
@@ -320,7 +320,7 @@ contract EndToEndSlashingTest is BaseTest {
             blueprintId, ops, exposures, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
         );
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Propose 60% slash, but effective = 30% (50% exposure)
         vm.prank(user1);
@@ -352,7 +352,7 @@ contract EndToEndSlashingTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Slash to go below minimum (50%)
         vm.prank(user1);
@@ -382,7 +382,7 @@ contract EndToEndSlashingTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
 
@@ -425,7 +425,7 @@ contract EndToEndSlashingTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         uint64 serviceId = 0;
 
         // Propose and execute slash for 30% (3 ETH)
@@ -460,7 +460,7 @@ contract EndToEndSlashingTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         uint64 serviceId = 0;
 
         // Create 3 slash proposals

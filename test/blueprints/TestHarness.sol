@@ -306,7 +306,7 @@ abstract contract BlueprintTestHarness is Test, BlueprintDefinitionHelper {
         // Approve with all operators
         for (uint256 i = 0; i < operators.length; i++) {
             vm.prank(operators[i]);
-            tangle.approveService(requestId, 0);
+            tangle.approveService(_approve(requestId));
         }
 
         serviceId = tangle.serviceCount() - 1;

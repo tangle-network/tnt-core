@@ -68,9 +68,9 @@ contract JobPricingAndRFQTest is BaseTest {
             tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         serviceId = tangle.serviceCount() - 1;
     }
@@ -591,9 +591,9 @@ contract JobPricingAndRFQTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 confidentialServiceId = tangle.serviceCount() - 1;
 

@@ -11,7 +11,22 @@ import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager
 import { BN254 } from "../libraries/BN254.sol";
 
 /// @title ServicesApprovals
-/// @notice Service approval and rejection flows
+/// @notice Single approval entrypoint for service requests.
+/// @dev One `approveService(ApprovalParams)` replaces the prior matrix of
+///      five `approveServiceWith…` variants. Every optional capability —
+///      security commitments, BLS aggregate-signature key, TEE attestation
+///      commitments — is opt-in via empty-or-zero fields on the param struct.
+///
+///      Anti-DoS architecture: TEE commitments are stored as a single keccak256
+///      root per (request, operator) and emitted in full via event. Activation
+///      copies one bytes32 per operator forward instead of N×3 storage slots.
+///      Slashing and provisioning hooks supply the original commitment array
+///      as a witness and verify keccak match against the on-chain root.
+///
+///      BLS is OPT-IN. Operators that do not register a BLS pubkey can still
+///      approve and run services; they simply cannot participate in aggregated
+///      job-result submissions (`JobsAggregation`). This is by design — the
+///      protocol must accept any operator, not just BLS-enabled ones.
 abstract contract ServicesApprovals is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -22,250 +37,186 @@ abstract contract ServicesApprovals is Base {
     event ServiceApproved(uint64 indexed requestId, address indexed operator);
     event ServiceRejected(uint64 indexed requestId, address indexed operator);
 
-    /// @notice Emitted when an operator's TEE attestation commitment is recorded at approval.
-    /// @param requestId The service request ID being approved.
-    /// @param operator The approving operator (msg.sender).
-    /// @param backend Which TEE backend the operator commits to.
-    /// @param expectedMeasurement Measurement the live attestation must match off-chain.
-    event TeeCommitmentRecorded(
-        uint64 indexed requestId, address indexed operator, Types.TeeBackend backend, bytes32 expectedMeasurement
+    /// @notice Emitted on every approval that carries TEE commitments. The
+    ///         `commitments` payload is the full array exactly as supplied —
+    ///         indexers reconstruct from this; slashing supplies the same
+    ///         array as a witness to verify against `_serviceTeeCommitmentRoot`.
+    /// @param requestId The service request being approved.
+    /// @param operator The approving operator.
+    /// @param root keccak256(abi.encode(commitments)) — what the contract stores.
+    /// @param commitments Full array of operator-supplied TEE commitments.
+    event TeeCommitmentsRecorded(
+        uint64 indexed requestId,
+        address indexed operator,
+        bytes32 indexed root,
+        Types.TeeAttestationCommitment[] commitments
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SERVICE APPROVAL
+    // CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Approve a service request
-    function approveService(uint64 requestId, uint8 stakingPercent) external whenNotPaused nonReentrant {
-        Types.ServiceRequest storage req = _getServiceRequest(requestId);
-        if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
-
-        if (!_staking.isOperatorActive(msg.sender)) {
-            revert Errors.OperatorNotActive(msg.sender);
-        }
-        bool isOperator = false;
-        for (uint256 i = 0; i < _requestOperators[requestId].length; i++) {
-            if (_requestOperators[requestId][i] == msg.sender) {
-                isOperator = true;
-                break;
-            }
-        }
-        if (!isOperator) revert Errors.Unauthorized();
-
-        if (_requestApprovals[requestId][msg.sender]) {
-            revert Errors.AlreadyApproved(requestId, msg.sender);
-        }
-
-        if (_requestSecurityRequirements[requestId].length > 0) {
-            if (!_isOnlyDefaultTntRequirement(requestId)) {
-                revert Errors.SecurityCommitmentsRequired(requestId);
-            }
-            _storeDefaultTntCommitment(requestId, msg.sender);
-        }
-
-        _requestApprovals[requestId][msg.sender] = true;
-        req.approvalCount++;
-
-        emit ServiceApproved(requestId, msg.sender);
-
-        Types.Blueprint storage bp = _blueprints[req.blueprintId];
-        if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager, abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
-            );
-        }
-
-        if (req.approvalCount == req.operatorCount) {
-            _activateService(requestId);
-        }
-    }
-
-    /// @notice Approve with security commitments
-    function approveServiceWithCommitments(
-        uint64 requestId,
-        Types.AssetSecurityCommitment[] calldata commitments
-    )
-        external
-        whenNotPaused
-        nonReentrant
-    {
-        _approveServiceWithCommitmentsInternal(requestId, commitments, _emptyBlsPubkey());
-    }
-
-    /// @notice Approve a service request with BLS public key for aggregated signature verification
-    /// @param requestId The service request ID
-    /// @param stakingPercent The staking percentage (0-100)
-    /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
-    /// @param popSignature G1 proof-of-possession signature over `blsPopMessage(operator, blsPubkey)`.
-    ///        Required to defeat rogue-key attacks: an attacker cannot register `-P` of someone
-    ///        else's key without the secret. Verifying a real signature also implicitly proves
-    ///        subgroup membership of the G2 pubkey.
-    function approveServiceWithBls(
-        uint64 requestId,
-        uint8 stakingPercent,
-        uint256[4] calldata blsPubkey,
-        uint256[2] calldata popSignature
-    )
-        external
-        whenNotPaused
-        nonReentrant
-    {
-        _requireBlsProofOfPossession(msg.sender, blsPubkey, popSignature);
-        Types.ServiceRequest storage req = _getServiceRequest(requestId);
-        if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
-
-        if (!_staking.isOperatorActive(msg.sender)) {
-            revert Errors.OperatorNotActive(msg.sender);
-        }
-        bool isOperator = false;
-        for (uint256 i = 0; i < _requestOperators[requestId].length; i++) {
-            if (_requestOperators[requestId][i] == msg.sender) {
-                isOperator = true;
-                break;
-            }
-        }
-        if (!isOperator) revert Errors.Unauthorized();
-
-        if (_requestApprovals[requestId][msg.sender]) {
-            revert Errors.AlreadyApproved(requestId, msg.sender);
-        }
-
-        if (_requestSecurityRequirements[requestId].length > 0) {
-            if (!_isOnlyDefaultTntRequirement(requestId)) {
-                revert Errors.SecurityCommitmentsRequired(requestId);
-            }
-            _storeDefaultTntCommitment(requestId, msg.sender);
-        }
-
-        // Store BLS pubkey for this operator (to be transferred to service on activation)
-        _storeRequestBlsPubkey(requestId, msg.sender, blsPubkey);
-
-        _requestApprovals[requestId][msg.sender] = true;
-        req.approvalCount++;
-
-        emit ServiceApproved(requestId, msg.sender);
-
-        Types.Blueprint storage bp = _blueprints[req.blueprintId];
-        if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager, abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
-            );
-        }
-
-        if (req.approvalCount == req.operatorCount) {
-            _activateService(requestId);
-        }
-    }
-
-    /// @notice Approve a service request with both security commitments and BLS public key
-    /// @param requestId The service request ID
-    /// @param commitments Security commitments matching the request requirements
-    /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
-    /// @param popSignature G1 proof-of-possession signature (see `approveServiceWithBls`)
-    function approveServiceWithCommitmentsAndBls(
-        uint64 requestId,
-        Types.AssetSecurityCommitment[] calldata commitments,
-        uint256[4] calldata blsPubkey,
-        uint256[2] calldata popSignature
-    )
-        external
-        whenNotPaused
-        nonReentrant
-    {
-        if (_isNonZeroBlsPubkey(blsPubkey)) {
-            _requireBlsProofOfPossession(msg.sender, blsPubkey, popSignature);
-        }
-        _approveServiceWithCommitmentsInternal(requestId, commitments, blsPubkey);
-    }
-
-    /// @notice Approve a service request with both security commitments, BLS public key,
-    ///         and TEE attestation commitments. Each TEE commitment is stored per-operator
-    ///         so blueprints can cross-check it against the live attestation produced when
-    ///         the workload provisions.
-    /// @dev `teeCommitments` may be empty if the request does not require a TEE workload;
-    ///      otherwise every entry MUST set a non-`DirectTdx` backend and (if `expiresAt != 0`)
-    ///      a future expiry. The list is interpreted as the operator's set of acceptable
-    ///      attestation profiles — any one matching at provisioning time satisfies the policy.
-    /// @param requestId The service request ID
-    /// @param commitments Per-asset security commitments (matches `approveServiceWithCommitments`)
-    /// @param blsPubkey BLS G2 pubkey [x0, x1, y0, y1] (zero pubkey allowed if BLS not used)
-    /// @param popSignature G1 proof-of-possession (only validated when blsPubkey is non-zero)
-    /// @param teeCommitments TEE attestation commitments to record for `msg.sender`
-    function approveServiceWithTeeCommitments(
-        uint64 requestId,
-        Types.AssetSecurityCommitment[] calldata commitments,
-        uint256[4] calldata blsPubkey,
-        uint256[2] calldata popSignature,
-        Types.TeeAttestationCommitment[] calldata teeCommitments
-    )
-        external
-        whenNotPaused
-        nonReentrant
-    {
-        // Authorize FIRST so an unauthorized caller never reaches the per-commitment
-        // SSTORE loop. Pure validation (no state change) of the commitment shape and
-        // BLS PoP follows; storage writes happen only after both gates pass.
-        _requireApprovingOperator(requestId);
-        _validateTeeCommitments(requestId, teeCommitments);
-        if (_isNonZeroBlsPubkey(blsPubkey)) {
-            _requireBlsProofOfPossession(msg.sender, blsPubkey, popSignature);
-        }
-        // Store TEE commitments BEFORE the internal approval flow triggers activation.
-        // `_approveServiceWithCommitmentsInternal` will call `_activateService` when this
-        // is the final approval, and the activation hook copies `_requestTeeCommitments`
-        // into `_serviceTeeCommitments`. Order matters: write to the request first.
-        _storeRequestTeeCommitments(requestId, msg.sender, teeCommitments);
-        _approveServiceWithCommitmentsInternal(requestId, commitments, blsPubkey);
-    }
-
     /// @notice Per-operator cap on TEE attestation commitments at approval.
-    /// @dev Cold SSTORE per pushed entry is ~20K gas across 3 slots (~60K gas/entry).
-    ///      Without a cap, a malicious operator can submit a list large enough to
-    ///      gas-brick `_persistTeeCommitments` during the final operator's activation
-    ///      call, permanently stalling the service. 8 is well above any realistic
-    ///      number of acceptable backends an operator would commit to.
+    /// @dev Bounds calldata + validation cost. With root storage, activation
+    ///      gas is operator-linear regardless of this cap; the cap exists to
+    ///      keep the validation loop cheap and the witness array small.
     uint256 internal constant MAX_TEE_COMMITMENTS_PER_OPERATOR = 8;
 
     /// @notice Maximum TTL on an operator's TEE attestation commitment.
-    /// @dev Without an upper bound, a commitment with `expiresAt = type(uint64).max`
-    ///      is effectively never-expiring, which defeats the "expiry forces
-    ///      re-attestation" intent of the field. 90 days is enough headroom for any
-    ///      realistic service lifetime; longer-lived services should re-commit on
-    ///      a renewal cadence rather than pin a single attestation indefinitely.
+    /// @dev `expiresAt = type(uint64).max` would otherwise be effectively
+    ///      never-expiring. 90 days is enough headroom for any realistic
+    ///      service lifetime; longer-lived services should re-commit.
     uint64 internal constant MAX_TEE_COMMITMENT_TTL = 90 days;
 
-    /// @notice Pre-flight authorization for an operator approving a request.
-    /// @dev Mirrors the auth gates inside `_approveServiceWithCommitmentsInternal`
-    ///      (request-not-rejected, operator-active, operator-in-request, not-already-approved).
-    ///      Hoisted up so storage-mutating paths in newer entrypoints can fail fast.
-    function _requireApprovingOperator(uint64 requestId) internal view {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SERVICE APPROVAL — single entrypoint
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Approve a service request. Every optional capability is opt-in.
+    /// @dev Empty / zero fields are no-ops:
+    ///      - `securityCommitments.length == 0`: only allowed when the request has no security
+    ///        requirements OR the only requirement is the protocol-default TNT requirement
+    ///        (auto-filled at min-exposure).
+    ///      - `blsPubkey == [0,0,0,0]`: operator is not registering a BLS pubkey.
+    ///      - `teeCommitments.length == 0`: operator opts out of TEE attestation commitments.
+    ///
+    ///      Order of checks: authorize → validate (no state changes) → write storage → emit
+    ///      → manager hook → activate if threshold met. Failing fast keeps the per-commitment
+    ///      SSTORE path off the critical path for unauthorized callers.
+    function approveService(Types.ApprovalParams calldata p) external whenNotPaused nonReentrant {
+        _requireApprovingOperator(p.requestId);
+
+        // Pure validation — reverts before any SSTORE if anything is malformed.
+        Types.AssetSecurityRequirement[] storage requirements = _requestSecurityRequirements[p.requestId];
+        bool hasRequirements = requirements.length > 0;
+        bool hasSuppliedCommitments = p.securityCommitments.length > 0;
+
+        if (hasRequirements && hasSuppliedCommitments) {
+            _validateSecurityCommitments(requirements, p.securityCommitments);
+        } else if (hasRequirements && !hasSuppliedCommitments) {
+            // Operator omitted commitments — this is only acceptable if the
+            // request's only security requirement is the protocol-default TNT
+            // requirement, which we auto-fill below at the requirement's min.
+            if (!_isOnlyDefaultTntRequirement(p.requestId)) {
+                revert Errors.SecurityCommitmentsRequired(p.requestId);
+            }
+        }
+
+        bytes32 teeRoot;
+        if (p.teeCommitments.length > 0) {
+            _validateTeeCommitments(p.requestId, p.teeCommitments);
+            teeRoot = keccak256(abi.encode(p.teeCommitments));
+        }
+
+        bool registeringBls = _isNonZeroBlsPubkey(p.blsPubkey);
+        if (registeringBls) {
+            _requireBlsProofOfPossession(msg.sender, p.blsPubkey, p.blsPopSignature);
+        }
+
+        // Storage writes — every gate above passed.
+        if (hasRequirements && !hasSuppliedCommitments) {
+            _storeDefaultTntCommitment(p.requestId, msg.sender);
+        } else if (hasSuppliedCommitments) {
+            for (uint256 i = 0; i < p.securityCommitments.length; i++) {
+                _requestSecurityCommitments[p.requestId][msg.sender].push(p.securityCommitments[i]);
+            }
+        }
+
+        if (teeRoot != bytes32(0)) {
+            _requestTeeCommitmentRoot[p.requestId][msg.sender] = teeRoot;
+            emit TeeCommitmentsRecorded(p.requestId, msg.sender, teeRoot, p.teeCommitments);
+        }
+
+        if (registeringBls) {
+            _storeRequestBlsPubkey(p.requestId, msg.sender, p.blsPubkey);
+        }
+
+        Types.ServiceRequest storage req = _getServiceRequest(p.requestId);
+        _requestApprovals[p.requestId][msg.sender] = true;
+        req.approvalCount++;
+        emit ServiceApproved(p.requestId, msg.sender);
+
+        Types.Blueprint storage bp = _blueprints[req.blueprintId];
+        if (bp.manager != address(0)) {
+            uint8 stakingPercent =
+                p.securityCommitments.length > 0 ? uint8(p.securityCommitments[0].exposureBps / 100) : 100;
+            _tryCallManager(
+                bp.manager,
+                abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, p.requestId, stakingPercent))
+            );
+        }
+
+        if (req.approvalCount == req.operatorCount) {
+            _activateService(p.requestId);
+        }
+    }
+
+    /// @notice Reject a service request as one of its operators.
+    /// @dev First rejection wins — short-circuits the request and refunds the requester.
+    function rejectService(uint64 requestId) external nonReentrant {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
         if (!_staking.isOperatorActive(msg.sender)) revert Errors.OperatorNotActive(msg.sender);
 
-        bool isOperator = false;
-        address[] storage ops = _requestOperators[requestId];
-        for (uint256 i = 0; i < ops.length; i++) {
-            if (ops[i] == msg.sender) {
-                isOperator = true;
-                break;
-            }
-        }
-        if (!isOperator) revert Errors.Unauthorized();
+        if (!_isRequestOperator(requestId, msg.sender)) revert Errors.Unauthorized();
 
-        if (_requestApprovals[requestId][msg.sender]) {
-            revert Errors.AlreadyApproved(requestId, msg.sender);
+        req.rejected = true;
+        PaymentLib.refundPayment(req.requester, req.paymentToken, req.paymentAmount);
+
+        emit ServiceRejected(requestId, msg.sender);
+
+        Types.Blueprint storage bp = _blueprints[req.blueprintId];
+        if (bp.manager != address(0)) {
+            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onReject, (msg.sender, requestId)));
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PUBLIC VIEWS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Canonical TEE attestation nonce for `requestId` on this contract on this chain.
+    /// @dev Operators MUST set `TeeAttestationCommitment.nonceBinding` to this exact value.
+    ///      Cross-request attestation replay is structurally impossible: an attestation
+    ///      document binding to nonce N_A cannot satisfy a commitment requiring nonce N_B.
+    function teeNonceFor(uint64 requestId) public view returns (bytes32) {
+        return keccak256(abi.encode("tangle.tee.nonce", requestId, address(this), block.chainid));
+    }
+
+    /// @notice Domain-separated message every operator must sign with their BLS secret key
+    ///         to register a public key. Bound to chainId + verifying contract + operator
+    ///         address so a PoP from one chain or operator cannot be replayed.
+    function blsPopMessage(address operator, uint256[4] memory blsPubkey) public view returns (bytes memory) {
+        return abi.encode("TANGLE_BLS_POP_v1", block.chainid, address(this), operator, blsPubkey);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INTERNAL — auth, validation, helpers
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Pre-flight authorization check shared by all state-mutating paths.
+    /// @dev Reverts unless: request not rejected, caller is an active staking operator,
+    ///      caller is in the request's operator list, caller has not already approved.
+    function _requireApprovingOperator(uint64 requestId) internal view {
+        Types.ServiceRequest storage req = _getServiceRequest(requestId);
+        if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
+        if (!_staking.isOperatorActive(msg.sender)) revert Errors.OperatorNotActive(msg.sender);
+        if (!_isRequestOperator(requestId, msg.sender)) revert Errors.Unauthorized();
+        if (_requestApprovals[requestId][msg.sender]) revert Errors.AlreadyApproved(requestId, msg.sender);
+    }
+
+    function _isRequestOperator(uint64 requestId, address candidate) private view returns (bool) {
+        address[] storage ops = _requestOperators[requestId];
+        for (uint256 i = 0; i < ops.length; i++) {
+            if (ops[i] == candidate) return true;
+        }
+        return false;
+    }
+
     /// @notice Validate operator-supplied TEE attestation commitments.
-    /// @dev Reverts on: list too long; `Unset` or `DirectTdx` backend; wrong
-    ///      `nonceBinding` (not the request-derived value); zero expected-measurement;
-    ///      expiry in the past or further out than `MAX_TEE_COMMITMENT_TTL`. Empty
-    ///      array is allowed (operator opts out of TEE binding for this approval).
-    /// @param requestId The service request being approved — used to derive the
-    ///        canonical nonce that every commitment must carry.
-    /// @param teeCommitments Operator-supplied TEE attestation commitments.
+    /// @dev Reverts on: list too long; `Unset` or `DirectTdx` backend; nonce binding
+    ///      that isn't the request-derived value; zero expected-measurement; expiry
+    ///      in the past or further out than `MAX_TEE_COMMITMENT_TTL`.
     function _validateTeeCommitments(
         uint64 requestId,
         Types.TeeAttestationCommitment[] calldata teeCommitments
@@ -283,19 +234,8 @@ abstract contract ServicesApprovals is Base {
             Types.TeeBackend backend = teeCommitments[i].backend;
             if (backend == Types.TeeBackend.Unset) revert Errors.UnsetTeeBackend();
             if (backend == Types.TeeBackend.DirectTdx) revert Errors.DirectTdxNotPermitted();
-            // The attestation document the operator commits to must contain the
-            // request-derived nonce. The contract has no off-chain verifier so it
-            // enforces the binding directly: any other value (including zero) is
-            // rejected, eliminating cross-request replay at the source.
-            if (teeCommitments[i].nonceBinding != expectedNonce) {
-                revert Errors.InvalidNonceBinding();
-            }
-            // Zero measurement is not a real hash output. Either always-fail or
-            // always-trivially-pass under the off-chain comparator — reject the
-            // ambiguity at approval rather than discover it at provision time.
-            if (teeCommitments[i].expectedMeasurement == bytes32(0)) {
-                revert Errors.InvalidExpectedMeasurement();
-            }
+            if (teeCommitments[i].nonceBinding != expectedNonce) revert Errors.InvalidNonceBinding();
+            if (teeCommitments[i].expectedMeasurement == bytes32(0)) revert Errors.InvalidExpectedMeasurement();
             uint64 expiresAt = teeCommitments[i].expiresAt;
             if (expiresAt != 0) {
                 if (expiresAt <= nowTs) revert Errors.TeeCommitmentExpired(expiresAt, nowTs);
@@ -304,148 +244,7 @@ abstract contract ServicesApprovals is Base {
         }
     }
 
-    /// @notice Canonical TEE nonce binding for `requestId` on this chain/contract.
-    /// @dev Operators must use exactly this value as `nonceBinding` in any
-    ///      `TeeAttestationCommitment` for the request. Anyone (operator, client,
-    ///      verifier, indexer) can derive it deterministically.
-    /// @param requestId The service request ID.
-    /// @return The 32-byte nonce that uniquely binds an attestation to this
-    ///         request on this contract on this chain.
-    function teeNonceFor(uint64 requestId) public view returns (bytes32) {
-        return keccak256(abi.encode("tangle.tee.nonce", requestId, address(this), block.chainid));
-    }
-
-    /// @notice Persist validated TEE commitments and emit recording events.
-    function _storeRequestTeeCommitments(
-        uint64 requestId,
-        address operator,
-        Types.TeeAttestationCommitment[] calldata teeCommitments
-    )
-        internal
-    {
-        for (uint256 i = 0; i < teeCommitments.length; i++) {
-            _requestTeeCommitments[requestId][operator].push(teeCommitments[i]);
-            emit TeeCommitmentRecorded(
-                requestId, operator, teeCommitments[i].backend, teeCommitments[i].expectedMeasurement
-            );
-        }
-    }
-
-    /// @notice Internal implementation for approving with commitments and optional BLS key
-    function _approveServiceWithCommitmentsInternal(
-        uint64 requestId,
-        Types.AssetSecurityCommitment[] calldata commitments,
-        uint256[4] memory blsPubkey
-    )
-        private
-    {
-        Types.ServiceRequest storage req = _getServiceRequest(requestId);
-        if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
-
-        if (!_staking.isOperatorActive(msg.sender)) {
-            revert Errors.OperatorNotActive(msg.sender);
-        }
-        bool isOperator = false;
-        for (uint256 i = 0; i < _requestOperators[requestId].length; i++) {
-            if (_requestOperators[requestId][i] == msg.sender) {
-                isOperator = true;
-                break;
-            }
-        }
-        if (!isOperator) revert Errors.Unauthorized();
-
-        if (_requestApprovals[requestId][msg.sender]) {
-            revert Errors.AlreadyApproved(requestId, msg.sender);
-        }
-
-        Types.AssetSecurityRequirement[] storage requirements = _requestSecurityRequirements[requestId];
-        if (requirements.length > 0) {
-            _validateSecurityCommitments(requirements, commitments);
-        }
-
-        for (uint256 i = 0; i < commitments.length; i++) {
-            _requestSecurityCommitments[requestId][msg.sender].push(commitments[i]);
-        }
-
-        // Store BLS pubkey if provided (non-zero)
-        if (_isNonZeroBlsPubkey(blsPubkey)) {
-            _storeRequestBlsPubkey(requestId, msg.sender, blsPubkey);
-        }
-
-        _requestApprovals[requestId][msg.sender] = true;
-        req.approvalCount++;
-
-        emit ServiceApproved(requestId, msg.sender);
-
-        Types.Blueprint storage bp = _blueprints[req.blueprintId];
-        uint8 stakingPercent = commitments.length > 0 ? uint8(commitments[0].exposureBps / 100) : 100;
-        if (bp.manager != address(0)) {
-            _tryCallManager(
-                bp.manager, abi.encodeCall(IBlueprintServiceManager.onApprove, (msg.sender, requestId, stakingPercent))
-            );
-        }
-
-        if (req.approvalCount == req.operatorCount) {
-            _activateService(requestId);
-        }
-    }
-
-    /// @notice Check if a BLS pubkey is non-zero
-    function _isNonZeroBlsPubkey(uint256[4] memory key) private pure returns (bool) {
-        return key[0] != 0 || key[1] != 0 || key[2] != 0 || key[3] != 0;
-    }
-
-    /// @notice Return an empty BLS pubkey
-    function _emptyBlsPubkey() private pure returns (uint256[4] memory) {
-        return [uint256(0), uint256(0), uint256(0), uint256(0)];
-    }
-
-    /// @notice Domain-separated message every operator must sign with their BLS secret key
-    ///         to register a public key. Bound to chainId + verifying contract + operator
-    ///         address so a PoP from one chain or operator cannot be replayed.
-    function blsPopMessage(address operator, uint256[4] memory blsPubkey) public view returns (bytes memory) {
-        return abi.encode("TANGLE_BLS_POP_v1", block.chainid, address(this), operator, blsPubkey);
-    }
-
-    /// @dev Reverts unless `popSignature` is a valid BLS G1 signature over `blsPopMessage`
-    ///      under `blsPubkey`. A successful PoP also implies subgroup membership of the G2
-    ///      pubkey since `pk = sk * G2_generator` for any honest signer.
-    function _requireBlsProofOfPossession(
-        address operator,
-        uint256[4] memory blsPubkey,
-        uint256[2] memory popSignature
-    )
-        internal
-        view
-    {
-        if (!_isNonZeroBlsPubkey(blsPubkey)) revert Errors.InvalidBLSSignature();
-
-        bool ok = BN254.verifyBls(
-            blsPopMessage(operator, blsPubkey),
-            BN254G1Memory(popSignature[0], popSignature[1]),
-            BN254G2Memory(blsPubkey)
-        );
-        if (!ok) revert Errors.InvalidBLSSignature();
-    }
-
-    function BN254G1Memory(uint256 x, uint256 y) private pure returns (Types.BN254G1Point memory p) {
-        p.x = x;
-        p.y = y;
-    }
-
-    function BN254G2Memory(uint256[4] memory k) private pure returns (Types.BN254G2Point memory p) {
-        p.x = [k[0], k[1]];
-        p.y = [k[2], k[3]];
-    }
-
-    /// @notice Store BLS pubkey for an operator in the request (will be transferred to service on activation)
-    /// @dev This is virtual to allow different storage strategies
-    function _storeRequestBlsPubkey(uint64 requestId, address operator, uint256[4] memory blsPubkey) internal virtual;
-
-    /// @notice Transfer BLS pubkeys from request to service (called during activation)
-    function _transferBlsPubkeysToService(uint64 requestId, uint64 serviceId) internal virtual;
-
-    /// @notice Validate security commitments
+    /// @notice Validate operator security commitments against on-chain requirements.
     function _validateSecurityCommitments(
         Types.AssetSecurityRequirement[] storage requirements,
         Types.AssetSecurityCommitment[] calldata commitments
@@ -485,40 +284,36 @@ abstract contract ServicesApprovals is Base {
                 }
             }
 
-            if (!found) {
-                revert Errors.MissingAssetCommitment(req.asset.token);
-            }
+            if (!found) revert Errors.MissingAssetCommitment(req.asset.token);
         }
     }
 
-    /// @notice Reject a service request
-    function rejectService(uint64 requestId) external nonReentrant {
-        Types.ServiceRequest storage req = _getServiceRequest(requestId);
-        if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
-
-        if (!_staking.isOperatorActive(msg.sender)) {
-            revert Errors.OperatorNotActive(msg.sender);
-        }
-        bool isOperator = false;
-        for (uint256 i = 0; i < _requestOperators[requestId].length; i++) {
-            if (_requestOperators[requestId][i] == msg.sender) {
-                isOperator = true;
-                break;
-            }
-        }
-        if (!isOperator) revert Errors.Unauthorized();
-
-        req.rejected = true;
-        PaymentLib.refundPayment(req.requester, req.paymentToken, req.paymentAmount);
-
-        emit ServiceRejected(requestId, msg.sender);
-
-        Types.Blueprint storage bp = _blueprints[req.blueprintId];
-        if (bp.manager != address(0)) {
-            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onReject, (msg.sender, requestId)));
-        }
+    /// @notice Returns true unless every component of `key` is zero.
+    function _isNonZeroBlsPubkey(uint256[4] memory key) private pure returns (bool) {
+        return key[0] != 0 || key[1] != 0 || key[2] != 0 || key[3] != 0;
     }
 
+    /// @dev Reverts unless `popSignature` is a valid BLS G1 signature over `blsPopMessage`
+    ///      under `blsPubkey`. A successful PoP also implies subgroup membership of the G2
+    ///      pubkey since `pk = sk * G2_generator` for any honest signer.
+    function _requireBlsProofOfPossession(
+        address operator,
+        uint256[4] memory blsPubkey,
+        uint256[2] memory popSignature
+    )
+        internal
+        view
+    {
+        bool ok = BN254.verifyBls(
+            blsPopMessage(operator, blsPubkey),
+            Types.BN254G1Point({ x: popSignature[0], y: popSignature[1] }),
+            Types.BN254G2Point({ x: [blsPubkey[0], blsPubkey[1]], y: [blsPubkey[2], blsPubkey[3]] })
+        );
+        if (!ok) revert Errors.InvalidBLSSignature();
+    }
+
+    /// @notice True iff the request's only security requirement is the protocol-default
+    ///         TNT requirement (so we can auto-fill the operator's commitment at min).
     function _isOnlyDefaultTntRequirement(uint64 requestId) private view returns (bool) {
         if (_tntToken == address(0)) return false;
 
@@ -541,9 +336,15 @@ abstract contract ServicesApprovals is Base {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SERVICE ACTIVATION (internal, implemented by facet)
+    // VIRTUAL — implemented by the facet
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Activate a fully approved service - to be implemented in final contract
+    /// @notice Activate a fully approved service.
     function _activateService(uint64 requestId) internal virtual;
+
+    /// @notice Persist BLS pubkey on the request (transferred to service on activation).
+    function _storeRequestBlsPubkey(uint64 requestId, address operator, uint256[4] memory blsPubkey) internal virtual;
+
+    /// @notice Transfer BLS pubkeys from request to service during activation.
+    function _transferBlsPubkeysToService(uint64 requestId, uint64 serviceId) internal virtual;
 }

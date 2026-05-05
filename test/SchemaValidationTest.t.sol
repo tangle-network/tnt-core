@@ -80,7 +80,7 @@ contract SchemaValidationTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 

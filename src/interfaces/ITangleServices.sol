@@ -110,68 +110,23 @@ interface ITangleServices {
         view
         returns (Types.ResourceCommitment[] memory);
 
-    /// @notice Approve a service request (as operator) - simple version
-    function approveService(uint64 requestId, uint8 stakingPercent) external;
+    /// @notice Approve a service request as one of its operators.
+    /// @dev Single entrypoint covering every approval mode. Pass empty/zero fields on
+    ///      `ApprovalParams` to opt out of the corresponding capability:
+    ///      - `securityCommitments == []`: no per-asset commitment supplied (only valid
+    ///        when the request has no security requirements OR the only requirement is
+    ///        the protocol-default TNT requirement, which is auto-filled at min-exposure).
+    ///      - `blsPubkey == [0,0,0,0]`: operator does NOT register a BLS pubkey for
+    ///        aggregated job-result signing. BLS is opt-in — protocol accepts any operator.
+    ///      - `teeCommitments == []`: operator does NOT bind to a TEE attestation profile.
+    function approveService(Types.ApprovalParams calldata params) external;
 
-    /// @notice Approve a service request with multi-asset security commitments
-    /// @dev Commitments must match the security requirements specified in the request
-    function approveServiceWithCommitments(
-        uint64 requestId,
-        Types.AssetSecurityCommitment[] calldata commitments
-    )
-        external;
-
-    /// @notice Approve a service request with BLS public key for aggregated signature verification
-    /// @param requestId The service request ID
-    /// @param stakingPercent The staking percentage (0-100)
-    /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
-    /// @param popSignature G1 proof-of-possession signature over `blsPopMessage(operator, blsPubkey)`
-    function approveServiceWithBls(
-        uint64 requestId,
-        uint8 stakingPercent,
-        uint256[4] calldata blsPubkey,
-        uint256[2] calldata popSignature
-    )
-        external;
-
-    /// @notice Approve a service request with both security commitments and BLS public key
-    /// @param requestId The service request ID
-    /// @param commitments Security commitments matching the request requirements
-    /// @param blsPubkey The operator's BLS G2 public key [x0, x1, y0, y1]
-    /// @param popSignature G1 proof-of-possession signature
-    function approveServiceWithCommitmentsAndBls(
-        uint64 requestId,
-        Types.AssetSecurityCommitment[] calldata commitments,
-        uint256[4] calldata blsPubkey,
-        uint256[2] calldata popSignature
-    )
-        external;
-
-    /// @notice Approve a service request with security commitments, BLS pubkey, and TEE
-    ///         attestation commitments. Each commitment binds the operator to a specific
-    ///         backend + measurement that must match the live attestation off-chain.
-    /// @param requestId The service request ID
-    /// @param commitments Security commitments matching the request requirements
-    /// @param blsPubkey The operator's BLS G2 public key (zero pubkey allowed if BLS unused)
-    /// @param popSignature G1 proof-of-possession signature (only validated when blsPubkey != 0)
-    /// @param teeCommitments TEE attestation commitments to record for the caller
-    function approveServiceWithTeeCommitments(
-        uint64 requestId,
-        Types.AssetSecurityCommitment[] calldata commitments,
-        uint256[4] calldata blsPubkey,
-        uint256[2] calldata popSignature,
-        Types.TeeAttestationCommitment[] calldata teeCommitments
-    )
-        external;
-
-    /// @notice Read recorded TEE commitments for an operator on an active service.
-    function getTeeCommitment(
-        uint64 serviceId,
-        address operator
-    )
-        external
-        view
-        returns (Types.TeeAttestationCommitment[] memory);
+    /// @notice keccak256 root over an operator's `TeeAttestationCommitment[]` for a service.
+    /// @dev Returns `bytes32(0)` if the operator approved without TEE commitments. The full
+    ///      array was emitted at approval time in `TeeCommitmentsRecorded`; slashing /
+    ///      provisioning oracles supply the array as a witness and verify
+    ///      `keccak256(abi.encode(witness)) == getTeeCommitmentRoot(serviceId, operator)`.
+    function getTeeCommitmentRoot(uint64 serviceId, address operator) external view returns (bytes32);
 
     /// @notice Canonical TEE attestation nonce binding for `requestId` on this
     ///         contract on this chain. Operators MUST submit this exact value as

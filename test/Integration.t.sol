@@ -68,9 +68,9 @@ contract IntegrationTest is BaseTest {
 
         // Step 6: All operators approve (service activates after last approval)
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Verify service is active
         assertTrue(tangle.isServiceActive(0));
@@ -137,9 +137,9 @@ contract IntegrationTest is BaseTest {
 
         // Both approve
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Verify exposure was set correctly
         Types.ServiceOperator memory op1Data = tangle.getServiceOperator(0, operator1);
@@ -196,7 +196,7 @@ contract IntegrationTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
         assertEq(tangle.getService(serviceId).operatorCount, 1);
@@ -281,7 +281,7 @@ contract IntegrationTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -312,7 +312,7 @@ contract IntegrationTest is BaseTest {
         // Create a service first (required for slashing)
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
         assertEq(stakeBefore, 10 ether);
@@ -346,7 +346,7 @@ contract IntegrationTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -388,7 +388,7 @@ contract IntegrationTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -442,7 +442,7 @@ contract IntegrationTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -479,7 +479,7 @@ contract IntegrationTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
         assertTrue(tangle.isServiceActive(serviceId));
@@ -514,7 +514,7 @@ contract IntegrationTest is BaseTest {
     function test_CannotApproveNonExistentRequest() public {
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.ServiceRequestNotFound.selector, 999));
-        tangle.approveService(999, 0);
+        tangle.approveService(_approve(999));
     }
 
     function test_ServiceRejectionRefundsPayment() public {
@@ -559,7 +559,7 @@ contract IntegrationTest is BaseTest {
         staking.setDelegationMode(Types.DelegationMode.Open);
         vm.prank(operator2);
         vm.expectRevert(Errors.Unauthorized.selector);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
     }
 }
 
@@ -599,7 +599,7 @@ contract CustomServiceManagerTest is BaseTest {
 
         // Approve service
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Verify onApprove and onServiceInitialized were called
         assertTrue(serviceManager.serviceApproved());
@@ -876,7 +876,7 @@ contract MultiAssetSecurityTest is BaseTest {
         });
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, commitments);
+        tangle.approveService(_approveWithCommitments(requestId, commitments));
 
         // Service should be active
         assertTrue(tangle.isServiceActive(0));
@@ -916,7 +916,7 @@ contract MultiAssetSecurityTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.CommitmentBelowMinimum.selector, address(0), 3000, 5000));
-        tangle.approveServiceWithCommitments(requestId, commitments);
+        tangle.approveService(_approveWithCommitments(requestId, commitments));
     }
 
     function test_ApproveWithCommitments_RevertAboveMaximum() public {
@@ -953,7 +953,7 @@ contract MultiAssetSecurityTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.CommitmentAboveMaximum.selector, address(0), 8000, 5000));
-        tangle.approveServiceWithCommitments(requestId, commitments);
+        tangle.approveService(_approveWithCommitments(requestId, commitments));
     }
 
     function test_ApproveWithCommitments_RevertMissingAsset() public {
@@ -996,7 +996,7 @@ contract MultiAssetSecurityTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.MissingAssetCommitment.selector, mockToken));
-        tangle.approveServiceWithCommitments(requestId, commitments);
+        tangle.approveService(_approveWithCommitments(requestId, commitments));
     }
 
     function test_ApproveWithCommitments_RevertDuplicateAsset() public {
@@ -1037,7 +1037,7 @@ contract MultiAssetSecurityTest is BaseTest {
         vm.expectRevert(
             abi.encodeWithSelector(Errors.DuplicateAssetCommitment.selector, uint8(Types.AssetKind.Native), address(0))
         );
-        tangle.approveServiceWithCommitments(requestId, commitments);
+        tangle.approveService(_approveWithCommitments(requestId, commitments));
     }
 
     function test_ApproveWithCommitments_MultiOperator() public {
@@ -1087,11 +1087,11 @@ contract MultiAssetSecurityTest is BaseTest {
         });
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, commitments1);
+        tangle.approveService(_approveWithCommitments(requestId, commitments1));
         assertFalse(tangle.isServiceActive(0)); // Not active yet
 
         vm.prank(operator2);
-        tangle.approveServiceWithCommitments(requestId, commitments2);
+        tangle.approveService(_approveWithCommitments(requestId, commitments2));
         assertTrue(tangle.isServiceActive(0)); // Now active
     }
 }

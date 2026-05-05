@@ -5,9 +5,45 @@ import { Types } from "../../src/libraries/Types.sol";
 import { SchemaLib } from "../../src/libraries/SchemaLib.sol";
 
 /// @title BlueprintDefinitionHelper
-/// @notice Shared helper for constructing blueprint definitions across tests and scripts
+/// @notice Shared helper for constructing blueprint definitions and the unified
+///         approval params across tests and scripts.
 abstract contract BlueprintDefinitionHelper {
     uint256 internal constant DEFAULT_JOB_COUNT = 8;
+
+    /// @notice Build a minimal `ApprovalParams` carrying only the request ID.
+    /// @dev Override `securityCommitments`, `blsPubkey`, `blsPopSignature`, or
+    ///      `teeCommitments` on the returned struct to opt into capabilities.
+    function _approve(uint64 requestId) internal pure returns (Types.ApprovalParams memory p) {
+        p.requestId = requestId;
+    }
+
+    /// @notice `ApprovalParams` carrying security commitments only.
+    function _approveWithCommitments(
+        uint64 requestId,
+        Types.AssetSecurityCommitment[] memory commitments
+    )
+        internal
+        pure
+        returns (Types.ApprovalParams memory p)
+    {
+        p.requestId = requestId;
+        p.securityCommitments = commitments;
+    }
+
+    /// @notice `ApprovalParams` carrying BLS pubkey + PoP only.
+    function _approveWithBls(
+        uint64 requestId,
+        uint256[4] memory blsPubkey,
+        uint256[2] memory popSignature
+    )
+        internal
+        pure
+        returns (Types.ApprovalParams memory p)
+    {
+        p.requestId = requestId;
+        p.blsPubkey = blsPubkey;
+        p.blsPopSignature = popSignature;
+    }
 
     /// @notice Build a blueprint definition with sane defaults
     function _blueprintDefinition(

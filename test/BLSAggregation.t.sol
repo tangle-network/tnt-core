@@ -72,11 +72,11 @@ contract BLSAggregationTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator3);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         serviceId = 0;
     }
@@ -358,7 +358,7 @@ contract BLSAggregationTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
 
         uint64 svcId = 1;
 
