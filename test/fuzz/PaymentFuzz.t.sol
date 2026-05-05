@@ -56,7 +56,7 @@ contract PaymentFuzzTest is BaseTest {
         uint256 stakerBefore = distributor == address(0) ? 0 : distributor.balance;
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint256 developerReceived = developer.balance - developerBefore;
         uint256 treasuryReceived = treasury.balance - treasuryBefore;
@@ -93,7 +93,7 @@ contract PaymentFuzzTest is BaseTest {
 
         // Should not overflow during payment distribution
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Verify service was created
         uint64 serviceId = tangle.serviceCount() - 1;
@@ -130,9 +130,9 @@ contract PaymentFuzzTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint256 op1Rewards = tangle.pendingRewards(operator1);
         uint256 op2Rewards = tangle.pendingRewards(operator2);
@@ -186,7 +186,7 @@ contract PaymentFuzzTest is BaseTest {
             subBp, operators, "", new address[](0), 365 days, address(0), initialEscrow, Types.ConfidentialityPolicy.Any
         );
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -216,7 +216,7 @@ contract PaymentFuzzTest is BaseTest {
 
         uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint256 pending = tangle.pendingRewards(operator1);
         assertGt(pending, 0, "Should have pending rewards");

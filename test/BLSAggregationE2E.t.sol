@@ -76,9 +76,9 @@ contract BLSAggregationE2ETest is BaseTest {
 
         _approveBlsAsOperator(operator1, requestId, 1);
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator3);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         serviceId = 0;
     }
@@ -88,7 +88,7 @@ contract BLSAggregationE2ETest is BaseTest {
         bytes memory pop = tangle.blsPopMessage(operator, pubkey);
         Types.BN254G1Point memory popSig = BLSTestHelper.sign(pop, sk);
         vm.prank(operator);
-        tangle.approveServiceWithBls(requestId, 0, pubkey, BLSTestHelper.g1ToArray(popSig));
+        tangle.approveService(_approveWithBls(requestId, pubkey, BLSTestHelper.g1ToArray(popSig)));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -287,11 +287,11 @@ contract BLSAggregationE2ETest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
         vm.prank(operator2);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
         vm.prank(operator3);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
 
         uint64 dynamicSvcId = 1;
 
@@ -358,11 +358,11 @@ contract BLSAggregationE2ETest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
         vm.prank(operator2);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
         vm.prank(operator3);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
 
         uint64 dynamicSvcId = 1;
 

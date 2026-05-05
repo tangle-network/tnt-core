@@ -112,7 +112,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: erc20Bps });
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, commits);
+        tangle.approveService(_approveWithCommitments(requestId, commits));
 
         serviceId = tangle.serviceCount() - 1;
     }
@@ -192,7 +192,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Operator gets operator share + staker share since no stakers exist
         (,, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
@@ -274,7 +274,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10_000 });
 
         vm.prank(operator2);
-        tangle.approveServiceWithCommitments(requestId, commits);
+        tangle.approveService(_approveWithCommitments(requestId, commits));
 
         Types.Asset memory nativeAsset = reqs[0].asset;
         uint256 beforeA = payTokenA.balanceOf(fixedDelA);
@@ -334,7 +334,7 @@ contract ServiceFeeDistributorTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(IPriceOracle.PriceNotAvailable.selector, address(stakeToken)));
-        tangle.approveServiceWithCommitments(requestId, commits);
+        tangle.approveService(_approveWithCommitments(requestId, commits));
     }
 
     function test_EdgeCase_NoDelegators_DistributionDoesNotRevert() public {
@@ -355,7 +355,7 @@ contract ServiceFeeDistributorTest is BaseTest {
 
         // Should not revert even though operator has no delegators
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Treasury should receive the staker share since no delegators
         // (or it stays in distributor - depends on implementation)
@@ -506,7 +506,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.expectRevert(
             abi.encodeWithSelector(Errors.CommitmentBelowMinimum.selector, address(stakeToken), uint16(0), uint16(1))
         );
-        tangle.approveServiceWithCommitments(requestId, commits);
+        tangle.approveService(_approveWithCommitments(requestId, commits));
     }
 
     function test_EdgeCase_VerySmallAmounts_NoDustLoss() public {
@@ -534,7 +534,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         commits[0] = Types.AssetSecurityCommitment({ asset: reqs[0].asset, exposureBps: 10_000 });
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, commits);
+        tangle.approveService(_approveWithCommitments(requestId, commits));
 
         // Staker share = 200 (20% of 1000)
         Types.Asset memory nativeAsset = Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
@@ -646,7 +646,7 @@ contract ServiceFeeDistributorTest is BaseTest {
         commits[2] = Types.AssetSecurityCommitment({ asset: reqs[2].asset, exposureBps: 10_000 });
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, commits);
+        tangle.approveService(_approveWithCommitments(requestId, commits));
 
         // Staker share is 20% = 60 ether
         // Without TNT boost: native $10, stakeToken $10, TNT $1 = $21 total

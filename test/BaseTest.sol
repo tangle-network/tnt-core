@@ -283,7 +283,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
             tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         serviceId = tangle.serviceCount() - 1;
     }
@@ -361,10 +361,10 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         );
     }
 
-    /// @notice Approve a service request
+    /// @notice Approve a service request as `operator`, no commitments / BLS / TEE.
     function _approveService(address operator, uint64 requestId) internal {
         vm.prank(operator);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
     }
 
     /// @notice Create a service with custom exposures and optional manager
@@ -395,7 +395,7 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
 
         for (uint256 i = 0; i < ops.length; i++) {
             vm.prank(ops[i]);
-            tangle.approveService(requestId, 0);
+            tangle.approveService(_approve(requestId));
         }
 
         serviceId = tangle.serviceCount() - 1;

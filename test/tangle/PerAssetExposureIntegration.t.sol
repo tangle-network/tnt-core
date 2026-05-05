@@ -113,7 +113,7 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 1000 });
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, commits);
+        tangle.approveService(_approveWithCommitments(requestId, commits));
 
         // Staker share is 22. With equal stake but 10x lower commitment on ERC20, expected:
         // native receives 20, ERC20 receives 2.
@@ -157,7 +157,7 @@ contract PerAssetExposureIntegrationTest is BaseTest {
         commits[1] = Types.AssetSecurityCommitment({ asset: reqs[1].asset, exposureBps: 1000 });
 
         vm.prank(operator1);
-        tangle.approveServiceWithCommitments(requestId, commits);
+        tangle.approveService(_approveWithCommitments(requestId, commits));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -214,6 +214,6 @@ contract PerAssetExposureIntegrationTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(IPriceOracle.PriceNotAvailable.selector, address(stakeToken)));
-        tangle.approveServiceWithCommitments(requestId, commits);
+        tangle.approveService(_approveWithCommitments(requestId, commits));
     }
 }

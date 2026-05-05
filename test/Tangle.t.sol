@@ -343,7 +343,7 @@ contract TangleTest is BaseTest {
 
         vm.prank(operator2);
         vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotActive.selector, operator2));
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
     }
 
     function test_RejectService() public {
@@ -658,7 +658,7 @@ contract TangleTest is BaseTest {
 
         // Approve to activate service
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
         assertTrue(tangle.isServiceActive(serviceId));
@@ -728,7 +728,7 @@ contract TangleTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         vm.prank(operator2);
         vm.expectRevert(Errors.InvalidState.selector);
@@ -770,9 +770,9 @@ contract TangleTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
         assertEq(tangle.getService(serviceId).operatorCount, 2);
@@ -833,9 +833,9 @@ contract TangleTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Try to leave - should fail as it would go below min
         vm.prank(operator1);
@@ -906,9 +906,9 @@ contract TangleTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
         address[] memory serviceOps = tangle.getServiceOperators(serviceId);
@@ -1002,7 +1002,7 @@ contract TangleTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -1057,7 +1057,7 @@ contract TangleTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Try to bill immediately - should fail
         vm.expectRevert(Errors.DeadlineExpired.selector);

@@ -196,11 +196,11 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         assertEq(bsm.getHookCalls().onApprove, 1);
 
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         assertEq(bsm.getHookCalls().onApprove, 2);
     }
 
@@ -563,7 +563,7 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
 
         // 4. Operator approves
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         assertEq(bsm.getHookCalls().onApprove, 1);
 
         // 5. Service initialized

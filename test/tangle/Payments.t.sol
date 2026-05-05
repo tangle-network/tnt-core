@@ -137,7 +137,7 @@ contract PaymentsTest is BaseTest {
         // Request and approve service with payment
         uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Check distribution
         uint256 developerExpected = (payment * 2000) / 10_000; // 20%
@@ -213,7 +213,7 @@ contract PaymentsTest is BaseTest {
 
         uint64 requestId = _requestServiceWithErc20(user1, blueprintId, operator1, address(token), payment);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Discount is 10% (funded from protocol share), so treasury receives 90%.
         assertEq(token.balanceOf(treasury), treasuryBefore + 90 ether);
@@ -241,7 +241,7 @@ contract PaymentsTest is BaseTest {
 
         uint64 requestId = _requestServiceWithErc20(user1, blueprintId, operator1, address(token), payment);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Treasury should receive 0 because its entire 5% share funds the discount.
         assertEq(token.balanceOf(treasury), treasuryBefore);
@@ -266,9 +266,9 @@ contract PaymentsTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // No security commitments: each operator gets half of (operator + staker) share = 3 ETH each
         uint256 op1Pending = tangle.pendingRewards(operator1);
@@ -295,9 +295,9 @@ contract PaymentsTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // No security commitments: operator pool = operator + staker = 6 ETH total
         // Op1 should get 70% = 4.2 ETH
@@ -312,7 +312,7 @@ contract PaymentsTest is BaseTest {
         // Request with no payment
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // No pending rewards
         assertEq(tangle.pendingRewards(operator1), 0);
@@ -345,7 +345,7 @@ contract PaymentsTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // No security commitments: operator receives operator + staker share.
         assertEq(tangle.pendingRewards(operator1), 6 ether);
@@ -388,7 +388,7 @@ contract PaymentsTest is BaseTest {
         // Setup: create service with payment
         uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, 10 ether);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint256 pending = tangle.pendingRewards(operator1);
         assertGt(pending, 0);
@@ -416,7 +416,7 @@ contract PaymentsTest is BaseTest {
         // First payment
         uint64 requestId1 = _requestServiceWithPayment(user1, blueprintId, operator1, 10 ether);
         vm.prank(operator1);
-        tangle.approveService(requestId1, 0);
+        tangle.approveService(_approve(requestId1));
 
         // Claim first
         vm.prank(operator1);
@@ -429,7 +429,7 @@ contract PaymentsTest is BaseTest {
 
         uint64 requestId2 = _requestServiceWithPayment(user1, bp2, operator1, 5 ether);
         vm.prank(operator1);
-        tangle.approveService(requestId2, 0);
+        tangle.approveService(_approve(requestId2));
 
         // Claim second
         uint256 balanceBefore = operator1.balance;
@@ -444,7 +444,7 @@ contract PaymentsTest is BaseTest {
         uint256 payment = 100 ether;
         uint64 requestId = _requestServiceWithErc20(user1, blueprintId, operator1, address(token), payment);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint256 pending = tangle.pendingRewards(operator1, address(token));
         assertGt(pending, 0);
@@ -490,7 +490,7 @@ contract PaymentsTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Check escrow balance
         PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(0);
@@ -556,7 +556,7 @@ contract PaymentsTest is BaseTest {
     function test_FundService_RevertWhenNotSubscription() public {
         uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, 1 ether);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -594,7 +594,7 @@ contract PaymentsTest is BaseTest {
         vm.stopPrank();
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
         PaymentLib.ServiceEscrow memory escrowBefore = tangle.getServiceEscrow(serviceId);
@@ -638,7 +638,7 @@ contract PaymentsTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
         PaymentLib.ServiceEscrow memory escrowBefore = tangle.getServiceEscrow(serviceId);
@@ -753,7 +753,7 @@ contract PaymentsTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         vm.warp(block.timestamp + 2 days);
 
@@ -808,7 +808,7 @@ contract PaymentsTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         uint64 serviceId = tangle.serviceCount() - 1;
 
         vm.warp(block.timestamp + 2 days);
@@ -881,7 +881,7 @@ contract PaymentsTest is BaseTest {
         uint256 newTreasuryBefore = newTreasury.balance;
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // 20% should go to new treasury
         assertEq(newTreasury.balance, newTreasuryBefore + 2 ether);
@@ -941,7 +941,7 @@ contract PaymentsTest is BaseTest {
 
         uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, payment);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint256 devExpected = (uint256(333) * 2000) / 10_000; // 66
         uint256 protoExpected = (uint256(333) * 2000) / 10_000; // 66
@@ -995,7 +995,7 @@ contract PaymentsTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         return tangle.serviceCount() - 1;
     }

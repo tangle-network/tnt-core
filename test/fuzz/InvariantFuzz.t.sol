@@ -150,7 +150,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         serviceId = 0;
     }
@@ -177,7 +177,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         );
 
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 newServiceId = tangle.serviceCount() - 1;
 
@@ -357,7 +357,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
             );
 
             vm.prank(operator1);
-            tangle.approveService(requestId, 0);
+            tangle.approveService(_approve(requestId));
 
             uint64 currentCount = tangle.serviceCount();
             assertGt(currentCount, previousCount, "INVARIANT VIOLATED: service count didn't increase");
@@ -440,7 +440,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 subServiceId = tangle.serviceCount() - 1;
 
@@ -497,7 +497,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint256 pending = tangle.pendingRewards(operator1);
         if (pending > 0) {

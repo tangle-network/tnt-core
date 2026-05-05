@@ -475,7 +475,15 @@ contract DemoSimulation is Script, BlueprintDefinitionHelper {
             // Operators approve
             for (uint256 j = 0; j < numOps; j++) {
                 vm.startBroadcast(operatorKeys[j % operators.length]);
-                tangle.approveService(requestId, uint8(50 + (j * 10))); // 50-70% exposure
+                tangle.approveService(
+                    Types.ApprovalParams({
+                        requestId: requestId,
+                        securityCommitments: new Types.AssetSecurityCommitment[](0),
+                        blsPubkey: [uint256(0), 0, 0, 0],
+                        blsPopSignature: [uint256(0), 0],
+                        teeCommitments: new Types.TeeAttestationCommitment[](0)
+                    })
+                );
                 vm.stopBroadcast();
             }
 

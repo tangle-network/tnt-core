@@ -218,7 +218,7 @@ contract StakeRequirementTests is BaseTest {
             tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -264,7 +264,7 @@ contract StakeRequirementTests is BaseTest {
             tangle.requestService(blueprintId, ops, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -495,7 +495,7 @@ contract StakeRequirementTests is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -544,7 +544,7 @@ contract StakeRequirementTests is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -593,7 +593,7 @@ contract StakeRequirementTests is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 

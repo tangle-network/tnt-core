@@ -318,6 +318,39 @@ library Types {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // APPROVAL PARAMETERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Parameters for `ServicesApprovals.approveService`.
+    /// @dev Every optional capability is opt-in via empty/zero fields:
+    ///      - `securityCommitments == []`: only acceptable when the request has no
+    ///        security requirements OR has only the protocol-default TNT requirement
+    ///        (auto-filled at min-exposure on the operator's behalf).
+    ///      - `blsPubkey == [0,0,0,0]`: operator does NOT register a BLS pubkey for
+    ///        this service. They will not be eligible for aggregated job-result
+    ///        signing on this service. BLS is opt-in — the protocol accepts any
+    ///        operator, not just BLS-capable ones.
+    ///      - `teeCommitments == []`: operator does NOT bind to any TEE attestation
+    ///        for this approval. Acceptable for non-TEE services or when the operator
+    ///        relies on blueprint-side defaults.
+    /// @param requestId The service request ID being approved.
+    /// @param securityCommitments Per-asset stake exposure commitments matching the
+    ///        request's `AssetSecurityRequirement[]`.
+    /// @param blsPubkey Operator's BLS G2 public key [x0, x1, y0, y1].
+    /// @param blsPopSignature G1 proof-of-possession over `blsPopMessage(operator, blsPubkey)`.
+    ///        Validated only when `blsPubkey` is non-zero. Defeats rogue-key attacks.
+    /// @param teeCommitments Operator's set of acceptable TEE attestation profiles.
+    ///        Stored as a keccak256 root on-chain; full data is emitted in
+    ///        `TeeCommitmentsRecorded` for indexers + slashing witnesses.
+    struct ApprovalParams {
+        uint64 requestId;
+        AssetSecurityCommitment[] securityCommitments;
+        uint256[4] blsPubkey;
+        uint256[2] blsPopSignature;
+        TeeAttestationCommitment[] teeCommitments;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE
     // ═══════════════════════════════════════════════════════════════════════════
 

@@ -46,7 +46,7 @@ contract EndToEndSubscriptionTest is BaseTest {
 
         // Step 5: Operator approves - payment is distributed
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
         assertTrue(tangle.isServiceActive(serviceId), "Service should be active");
@@ -92,7 +92,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -163,7 +163,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
         assertEq(tangle.getService(serviceId).operatorCount, 1, "Should have 1 operator");
@@ -258,7 +258,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -306,7 +306,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -357,7 +357,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -410,7 +410,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -453,7 +453,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 
@@ -502,7 +502,7 @@ contract EndToEndSubscriptionTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = 0;
 

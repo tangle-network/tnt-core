@@ -56,7 +56,7 @@ contract SlashingTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         serviceId = 0;
     }
@@ -240,7 +240,7 @@ contract SlashingTest is BaseTest {
 
         uint64 requestId = _requestService(user1, managedBlueprint, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         svcId = tangle.serviceCount() - 1;
     }
 
@@ -495,7 +495,7 @@ contract SlashingTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
 
         return tangle.serviceCount() - 1;
     }

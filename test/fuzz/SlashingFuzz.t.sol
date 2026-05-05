@@ -23,7 +23,7 @@ contract SlashingFuzzTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         serviceId = tangle.serviceCount() - 1;
     }
@@ -51,7 +51,7 @@ contract SlashingFuzzTest is BaseTest {
         // Create service
         uint64 reqId = _requestService(user1, blueprintId, operator2);
         vm.prank(operator2);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
         uint64 svcId = tangle.serviceCount() - 1;
 
         // Record balances before
@@ -123,7 +123,7 @@ contract SlashingFuzzTest is BaseTest {
 
         uint64 reqId = _requestService(user1, blueprintId, operator3);
         vm.prank(operator3);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
         uint64 svcId = tangle.serviceCount() - 1;
 
         // Record before
@@ -186,7 +186,7 @@ contract SlashingFuzzTest is BaseTest {
             blueprintId, ops, exposures, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
         );
         vm.prank(operator2);
-        tangle.approveService(reqId, 0);
+        tangle.approveService(_approve(reqId));
         uint64 svcId = tangle.serviceCount() - 1;
 
         uint256 stakeBefore = staking.getOperatorSelfStake(operator2);

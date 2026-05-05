@@ -124,7 +124,7 @@ contract OperatorLifecycleTest is BaseTest {
         // Request and approve a service
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Verify service is active
         uint64 serviceId = tangle.serviceCount() - 1;
@@ -157,7 +157,7 @@ contract OperatorLifecycleTest is BaseTest {
         uint64 requestId = _requestService(user1, blueprintId, operator1);
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
         assertTrue(tangle.isServiceActive(serviceId));
@@ -180,7 +180,7 @@ contract OperatorLifecycleTest is BaseTest {
 
         // First operator approves
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Service not active yet
         Types.ServiceRequest memory req = tangle.getServiceRequest(requestId);
@@ -188,7 +188,7 @@ contract OperatorLifecycleTest is BaseTest {
 
         // Second operator approves
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Now service is active
         uint64 serviceId = tangle.serviceCount() - 1;
@@ -206,7 +206,7 @@ contract OperatorLifecycleTest is BaseTest {
         // Operator2 was not in the request
         vm.prank(operator2);
         vm.expectRevert(Errors.Unauthorized.selector);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
     }
 
     function test_ApproveService_RevertAlreadyApproved() public {
@@ -225,12 +225,12 @@ contract OperatorLifecycleTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         // Try to approve again
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadyApproved.selector, requestId, operator1));
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -294,7 +294,7 @@ contract OperatorLifecycleTest is BaseTest {
         );
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
         Types.ServiceOperator memory opInfo = tangle.getServiceOperator(serviceId, operator1);
@@ -308,7 +308,7 @@ contract OperatorLifecycleTest is BaseTest {
         uint64 requestId = _requestService(user1, blueprintId, operator1);
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
         Types.ServiceOperator memory opInfo = tangle.getServiceOperator(serviceId, operator1);
@@ -342,7 +342,7 @@ contract OperatorLifecycleTest is BaseTest {
         uint64 requestId = _requestService(user1, blueprintId, operator1);
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         Types.AssetSecurityCommitment[] memory commits =
             tangle.getServiceRequestSecurityCommitments(requestId, operator1);
@@ -378,7 +378,7 @@ contract OperatorLifecycleTest is BaseTest {
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.SecurityCommitmentsRequired.selector, requestId));
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -412,7 +412,7 @@ contract OperatorLifecycleTest is BaseTest {
         uint64 requestId =
             tangle.requestService(dynamicBp, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -431,7 +431,7 @@ contract OperatorLifecycleTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -469,9 +469,9 @@ contract OperatorLifecycleTest is BaseTest {
         uint64 requestId =
             tangle.requestService(dynamicBp, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
         assertTrue(tangle.isServiceOperator(serviceId, operator2));
@@ -502,7 +502,7 @@ contract OperatorLifecycleTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -521,7 +521,7 @@ contract OperatorLifecycleTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
         assertTrue(tangle.isServiceActive(serviceId));
@@ -539,7 +539,7 @@ contract OperatorLifecycleTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -566,7 +566,7 @@ contract OperatorLifecycleTest is BaseTest {
             blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
         );
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
 
@@ -584,7 +584,7 @@ contract OperatorLifecycleTest is BaseTest {
 
         uint64 requestId = _requestService(user1, blueprintId, operator1);
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
         address newCaller = makeAddr("newCaller");
@@ -610,7 +610,7 @@ contract OperatorLifecycleTest is BaseTest {
             blueprintId, operators, "", callers, 0, address(0), 0, Types.ConfidentialityPolicy.Any
         );
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
         assertTrue(tangle.isPermittedCaller(serviceId, callers[0]));
@@ -665,7 +665,7 @@ contract OperatorLifecycleTest is BaseTest {
             blueprintId, operators, "", callers, validTtl, address(0), 0, Types.ConfidentialityPolicy.Any
         );
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         uint64 serviceId = tangle.serviceCount() - 1;
         assertTrue(tangle.isServiceActive(serviceId));

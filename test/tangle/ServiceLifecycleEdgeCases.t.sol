@@ -726,7 +726,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         // Approve again
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadyApproved.selector, requestId, operator1));
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
     }
 
     function test_ApproveService_AfterRejection_Reverts() public {
@@ -746,7 +746,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         // operator2 tries to approve
         vm.prank(operator2);
         vm.expectRevert(abi.encodeWithSelector(Errors.ServiceRequestAlreadyProcessed.selector, requestId));
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -16,43 +16,22 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](10);
+        selectorList = new bytes4[](6);
         selectorList[0] = this.approveService.selector;
-        selectorList[1] = bytes4(keccak256("approveServiceWithCommitments(uint64,((uint8,address),uint16)[])"));
-        selectorList[2] = this.rejectService.selector;
-        selectorList[3] = this.approveServiceWithBls.selector;
-        selectorList[4] = bytes4(
-            keccak256("approveServiceWithCommitmentsAndBls(uint64,((uint8,address),uint16)[],uint256[4],uint256[2])")
-        );
-        selectorList[5] = this.getOperatorBlsPubkey.selector;
-        selectorList[6] = this.blsPopMessage.selector;
-        selectorList[7] = bytes4(
-            keccak256(
-                "approveServiceWithTeeCommitments(uint64,((uint8,address),uint16)[],uint256[4],uint256[2],(uint8,bytes32,bytes32,uint64)[])"
-            )
-        );
-        selectorList[8] = this.getTeeCommitment.selector;
-        selectorList[9] = this.teeNonceFor.selector;
+        selectorList[1] = this.rejectService.selector;
+        selectorList[2] = this.getOperatorBlsPubkey.selector;
+        selectorList[3] = this.blsPopMessage.selector;
+        selectorList[4] = this.getTeeCommitmentRoot.selector;
+        selectorList[5] = this.teeNonceFor.selector;
     }
 
-    /// @notice Read the operator's TEE attestation commitments for a service.
-    /// @dev Empty array if the operator approved without TEE commitments.
-    /// @param serviceId The active service ID
-    /// @param operator The operator whose commitments to read
-    /// @return commitments Array of recorded TEE commitments (matches storage order)
-    function getTeeCommitment(
-        uint64 serviceId,
-        address operator
-    )
-        external
-        view
-        returns (Types.TeeAttestationCommitment[] memory commitments)
-    {
-        Types.TeeAttestationCommitment[] storage stored = _serviceTeeCommitments[serviceId][operator];
-        commitments = new Types.TeeAttestationCommitment[](stored.length);
-        for (uint256 i = 0; i < stored.length; i++) {
-            commitments[i] = stored[i];
-        }
+    /// @notice keccak256 root over an operator's `TeeAttestationCommitment[]` for a service.
+    /// @dev Slashing / provisioning oracles supply the original array as a witness and verify
+    ///      `keccak256(abi.encode(witness)) == getTeeCommitmentRoot(serviceId, operator)` before
+    ///      treating the witness as authoritative. Returns `bytes32(0)` if the operator
+    ///      approved without TEE commitments.
+    function getTeeCommitmentRoot(uint64 serviceId, address operator) external view returns (bytes32) {
+        return _serviceTeeCommitmentRoot[serviceId][operator];
     }
 
     /// @notice Get operator's BLS public key for a service
@@ -332,18 +311,22 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         }
     }
 
-    /// @notice Copy TEE attestation commitments from request to service for every operator.
-    /// @dev Skips operators that did not record commitments at approval time.
+    /// @notice Copy TEE attestation commitment root from request to service for every operator.
+    /// @dev O(operators) — one bytes32 SSTORE per operator that supplied a non-empty TEE
+    ///      commitment array. Operators that approved without TEE commitments are skipped
+    ///      (their request-side root is `bytes32(0)`). The full commitment array was already
+    ///      emitted in `TeeCommitmentsRecorded` at approval time; nothing else to copy.
     function _persistTeeCommitments(uint64 serviceId, uint64 requestId) private {
         address[] storage requestOperators = _requestOperators[requestId];
         for (uint256 i = 0; i < requestOperators.length; i++) {
             address op = requestOperators[i];
-            Types.TeeAttestationCommitment[] storage src = _requestTeeCommitments[requestId][op];
-            uint256 len = src.length;
-            if (len == 0) continue;
-            for (uint256 j = 0; j < len; j++) {
-                _serviceTeeCommitments[serviceId][op].push(src[j]);
-            }
+            bytes32 root = _requestTeeCommitmentRoot[requestId][op];
+            if (root == bytes32(0)) continue;
+            _serviceTeeCommitmentRoot[serviceId][op] = root;
+            // Don't `delete` the request-side entry — the slashing branch and other facets
+            // may still want to read the request-time commitments before a future cleanup
+            // pass. Refund-via-delete is a follow-up perf optimisation, not a correctness
+            // concern.
         }
     }
 }

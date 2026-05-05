@@ -42,9 +42,9 @@ contract ConfidentialityProtocolTest is BaseTest {
         assertEq(uint8(req.confidentiality), uint8(Types.ConfidentialityPolicy.TeeRequired), "request confidentiality");
 
         vm.prank(operator1);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
         vm.prank(operator2);
-        tangle.approveService(requestId, 0);
+        tangle.approveService(_approve(requestId));
 
         Types.Service memory svc = tangle.getService(0);
         assertEq(uint8(svc.confidentiality), uint8(Types.ConfidentialityPolicy.TeeRequired), "service confidentiality");

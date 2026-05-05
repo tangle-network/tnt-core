@@ -373,14 +373,19 @@ abstract contract TangleStorage {
     // TEE ATTESTATION COMMITMENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Request ID => Operator => TEE attestation commitments captured at approval.
-    /// @dev Transferred to `_serviceTeeCommitments` on activation; not used afterwards.
-    mapping(uint64 => mapping(address => Types.TeeAttestationCommitment[])) internal _requestTeeCommitments;
+    /// @notice Request ID => Operator => keccak256 root over the operator's
+    ///         TeeAttestationCommitment[] supplied at approval. Cleared after
+    ///         activation copies the value forward.
+    /// @dev Full array is emitted in `TeeCommitmentsRecorded` so any indexer or
+    ///      slashing witness can reconstruct it. Storing the root keeps activation
+    ///      gas O(operators) instead of O(operators × commitments × slots).
+    mapping(uint64 => mapping(address => bytes32)) internal _requestTeeCommitmentRoot;
 
-    /// @notice Service ID => Operator => TEE attestation commitments persisted at activation.
-    /// @dev Read by blueprint contracts during their provisioning hooks to cross-check the
-    ///      live TEE attestation against the operator's on-chain commitment.
-    mapping(uint64 => mapping(address => Types.TeeAttestationCommitment[])) internal _serviceTeeCommitments;
+    /// @notice Service ID => Operator => keccak256 root over the operator's
+    ///         TeeAttestationCommitment[]. Read by slashing / blueprint provisioning
+    ///         hooks; the original array is supplied as a witness and verified
+    ///         against this root.
+    mapping(uint64 => mapping(address => bytes32)) internal _serviceTeeCommitmentRoot;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
