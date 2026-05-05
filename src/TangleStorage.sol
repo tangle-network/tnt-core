@@ -370,10 +370,23 @@ abstract contract TangleStorage {
     mapping(uint64 => Types.ResourceCommitment[]) internal _requestResourceRequirements;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // TEE ATTESTATION COMMITMENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Request ID => Operator => TEE attestation commitments captured at approval.
+    /// @dev Transferred to `_serviceTeeCommitments` on activation; not used afterwards.
+    mapping(uint64 => mapping(address => Types.TeeAttestationCommitment[])) internal _requestTeeCommitments;
+
+    /// @notice Service ID => Operator => TEE attestation commitments persisted at activation.
+    /// @dev Read by blueprint contracts during their provisioning hooks to cross-check the
+    ///      live TEE attestation against the operator's on-chain commitment.
+    mapping(uint64 => mapping(address => Types.TeeAttestationCommitment[])) internal _serviceTeeCommitments;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    uint256[44] private __gap;
+    uint256[42] private __gap;
 }

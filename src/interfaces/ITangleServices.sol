@@ -131,7 +131,8 @@ interface ITangleServices {
         uint8 stakingPercent,
         uint256[4] calldata blsPubkey,
         uint256[2] calldata popSignature
-    ) external;
+    )
+        external;
 
     /// @notice Approve a service request with both security commitments and BLS public key
     /// @param requestId The service request ID
@@ -145,6 +146,38 @@ interface ITangleServices {
         uint256[2] calldata popSignature
     )
         external;
+
+    /// @notice Approve a service request with security commitments, BLS pubkey, and TEE
+    ///         attestation commitments. Each commitment binds the operator to a specific
+    ///         backend + measurement that must match the live attestation off-chain.
+    /// @param requestId The service request ID
+    /// @param commitments Security commitments matching the request requirements
+    /// @param blsPubkey The operator's BLS G2 public key (zero pubkey allowed if BLS unused)
+    /// @param popSignature G1 proof-of-possession signature (only validated when blsPubkey != 0)
+    /// @param teeCommitments TEE attestation commitments to record for the caller
+    function approveServiceWithTeeCommitments(
+        uint64 requestId,
+        Types.AssetSecurityCommitment[] calldata commitments,
+        uint256[4] calldata blsPubkey,
+        uint256[2] calldata popSignature,
+        Types.TeeAttestationCommitment[] calldata teeCommitments
+    )
+        external;
+
+    /// @notice Read recorded TEE commitments for an operator on an active service.
+    function getTeeCommitment(
+        uint64 serviceId,
+        address operator
+    )
+        external
+        view
+        returns (Types.TeeAttestationCommitment[] memory);
+
+    /// @notice Canonical TEE attestation nonce binding for `requestId` on this
+    ///         contract on this chain. Operators MUST submit this exact value as
+    ///         `nonceBinding` in any `TeeAttestationCommitment` for the request —
+    ///         it eliminates cross-request attestation replay at approval time.
+    function teeNonceFor(uint64 requestId) external view returns (bytes32);
 
     /// @notice Build the canonical message an operator must sign with their BLS secret key
     ///         to register a public key. Bound to chainId + verifying contract + operator.

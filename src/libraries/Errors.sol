@@ -438,4 +438,47 @@ library Errors {
 
     /// @notice Cross-chain message has already been processed (replay protection)
     error MessageAlreadyProcessed(bytes32 messageId);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TEE ATTESTATION COMMITMENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice DirectTdx backend is not permitted for service approvals.
+    /// @dev Mirrors the policy enforced in
+    ///      ai-agent-sandbox-blueprint #50: only vendor-mediated TEE backends are accepted.
+    error DirectTdxNotPermitted();
+
+    /// @notice TEE commitment expiry is in the past.
+    error TeeCommitmentExpired(uint64 expiresAt, uint64 nowTimestamp);
+
+    /// @notice TEE commitment supplied with a zero or wrong nonce-binding.
+    /// @dev `nonceBinding` MUST equal `keccak256(abi.encode(requestId, address(this), block.chainid))`.
+    ///      That value uniquely identifies a single service request on a single chain
+    ///      and a single contract deployment, so an attestation document carrying it
+    ///      cannot be replayed against any other request. Operators that submit any
+    ///      other value (including zero) are rejected here — no off-chain freshness
+    ///      assumption is required.
+    error InvalidNonceBinding();
+
+    /// @notice TEE commitment expiry is too far in the future.
+    /// @dev Bounded so an operator cannot commit to a stale measurement effectively
+    ///      forever. The cap is `MAX_TEE_COMMITMENT_TTL` (see ServicesApprovals).
+    error TeeCommitmentExpiryTooFar(uint64 expiresAt, uint64 maxAllowed);
+
+    /// @notice TEE commitment supplied with a zero expected-measurement.
+    /// @dev A zero measurement is not a real hash output and matches no real workload;
+    ///      either always-fail or always-trivially-pass depending on the off-chain
+    ///      comparator. Reject at approval to remove the ambiguity.
+    error InvalidExpectedMeasurement();
+
+    /// @notice TEE commitment supplied with the `Unset` sentinel backend.
+    /// @dev `TeeBackend.Unset` (the zero value) catches integrators who forget to
+    ///      set the backend field and would otherwise default to whichever real
+    ///      backend was placed at index 0.
+    error UnsetTeeBackend();
+
+    /// @notice TEE commitment array exceeds the per-operator cap.
+    /// @dev Bounded to prevent a malicious operator from gas-bricking multi-operator
+    ///      service activation by submitting an enormous commitment list.
+    error TooManyTeeCommitments(uint256 supplied, uint256 maximum);
 }

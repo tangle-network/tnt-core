@@ -16,7 +16,7 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](7);
+        selectorList = new bytes4[](10);
         selectorList[0] = this.approveService.selector;
         selectorList[1] = bytes4(keccak256("approveServiceWithCommitments(uint64,((uint8,address),uint16)[])"));
         selectorList[2] = this.rejectService.selector;
@@ -26,6 +26,33 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         );
         selectorList[5] = this.getOperatorBlsPubkey.selector;
         selectorList[6] = this.blsPopMessage.selector;
+        selectorList[7] = bytes4(
+            keccak256(
+                "approveServiceWithTeeCommitments(uint64,((uint8,address),uint16)[],uint256[4],uint256[2],(uint8,bytes32,bytes32,uint64)[])"
+            )
+        );
+        selectorList[8] = this.getTeeCommitment.selector;
+        selectorList[9] = this.teeNonceFor.selector;
+    }
+
+    /// @notice Read the operator's TEE attestation commitments for a service.
+    /// @dev Empty array if the operator approved without TEE commitments.
+    /// @param serviceId The active service ID
+    /// @param operator The operator whose commitments to read
+    /// @return commitments Array of recorded TEE commitments (matches storage order)
+    function getTeeCommitment(
+        uint64 serviceId,
+        address operator
+    )
+        external
+        view
+        returns (Types.TeeAttestationCommitment[] memory commitments)
+    {
+        Types.TeeAttestationCommitment[] storage stored = _serviceTeeCommitments[serviceId][operator];
+        commitments = new Types.TeeAttestationCommitment[](stored.length);
+        for (uint256 i = 0; i < stored.length; i++) {
+            commitments[i] = stored[i];
+        }
     }
 
     /// @notice Get operator's BLS public key for a service
@@ -65,6 +92,9 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
 
         // Persist resource commitments from request to service (hash per operator)
         _persistResourceCommitments(serviceId, requestId);
+
+        // Persist TEE attestation commitments from request to service (per operator).
+        _persistTeeCommitments(serviceId, requestId);
 
         (uint16[] memory exposures, uint256 totalExposure) = _assignOperatorsFromRequest(serviceId, requestId);
 
@@ -298,6 +328,21 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
             // Only transfer if non-zero
             if (reqKey.key[0] != 0 || reqKey.key[1] != 0 || reqKey.key[2] != 0 || reqKey.key[3] != 0) {
                 _serviceOperatorBlsPubkeys[serviceId][op] = reqKey;
+            }
+        }
+    }
+
+    /// @notice Copy TEE attestation commitments from request to service for every operator.
+    /// @dev Skips operators that did not record commitments at approval time.
+    function _persistTeeCommitments(uint64 serviceId, uint64 requestId) private {
+        address[] storage requestOperators = _requestOperators[requestId];
+        for (uint256 i = 0; i < requestOperators.length; i++) {
+            address op = requestOperators[i];
+            Types.TeeAttestationCommitment[] storage src = _requestTeeCommitments[requestId][op];
+            uint256 len = src.length;
+            if (len == 0) continue;
+            for (uint256 j = 0; j < len; j++) {
+                _serviceTeeCommitments[serviceId][op].push(src[j]);
             }
         }
     }
