@@ -51,12 +51,15 @@ interface IOperatorStatusRegistry {
         bytes32 lastMetricsHash;
     }
 
-    /// @notice Submit a heartbeat to prove operator is online
+    /// @notice Submit a heartbeat to prove operator is online (EIP-712 signed).
+    /// @dev `timestamp` must be within `HEARTBEAT_MAX_AGE` of `block.timestamp` to prevent
+    ///      replay of stale "healthy" heartbeats.
     function submitHeartbeat(
         uint64 serviceId,
         uint64 blueprintId,
         uint8 statusCode,
         bytes calldata metrics,
+        uint64 timestamp,
         bytes calldata signature
     )
         external;
@@ -191,12 +194,11 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     /// @notice Domain separator for EIP-712 signatures (kept for backwards compatibility)
     bytes32 public immutable DOMAIN_SEPARATOR;
 
-    /// @notice Heartbeat message typehash (for reference - actual signing uses raw keccak256)
-    /// @dev Signature: keccak256(abi.encodePacked(serviceId, blueprintId, abiEncodedStatus)) with Ethereum prefix
-    ///      HeartbeatStatus = (uint64 blockNumber, uint64 timestamp, uint64 serviceId, uint64 blueprintId, uint32
-    /// statusCode, string statusMessage)
+    /// @notice EIP-712 typehash for `Heartbeat`. Binds operator + service + blueprint +
+    ///         status + metrics + timestamp; the domain separator binds it to chainId +
+    ///         verifying contract. Closes cross-fork / cross-service / replay surface.
     bytes32 public constant HEARTBEAT_TYPEHASH = keccak256(
-        "HeartbeatStatus(uint64 blockNumber,uint64 timestamp,uint64 serviceId,uint64 blueprintId,uint32 statusCode,string statusMessage)"
+        "Heartbeat(address operator,uint64 serviceId,uint64 blueprintId,uint8 statusCode,bytes32 metricsHash,uint64 timestamp)"
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -295,37 +297,50 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
     // HEARTBEAT SUBMISSION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Submit a heartbeat to prove operator is online
-    /// @dev Signature: ECDSA over keccak256(abi.encodePacked(serviceId, blueprintId, statusCode, metrics))
-    ///      NOTE: Uses native EVM big-endian encoding. Blueprint-SDK must use to_be_bytes() not to_le_bytes()
-    /// @param serviceId The service ID
-    /// @param blueprintId The blueprint ID
-    /// @param statusCode Operator-reported status code (0 = healthy)
-    /// @param metrics Encoded metrics data (can be empty)
-    /// @param signature ECDSA signature of the heartbeat message
+    /// @notice Maximum staleness for a heartbeat signature.
+    /// @dev Beyond this, replays of an old "healthy" heartbeat would mask current liveness.
+    uint64 public constant HEARTBEAT_MAX_AGE = 5 minutes;
+
+    error HeartbeatStale(uint64 signed, uint64 now_);
+    error HeartbeatFromFuture(uint64 signed, uint64 now_);
+
+    /// @notice Submit a heartbeat to prove operator is online (EIP-712 signed).
+    /// @dev Signature is over the EIP-712 typed struct `Heartbeat` defined above. The
+    ///      `timestamp` field bounds the freshness so replays of stale "healthy"
+    ///      heartbeats cannot mask an offline operator. The domain separator includes
+    ///      `chainId` and `address(this)` so signatures cannot replay across forks or
+    ///      deployments.
     function submitHeartbeat(
         uint64 serviceId,
         uint64 blueprintId,
         uint8 statusCode,
         bytes calldata metrics,
+        uint64 timestamp,
         bytes calldata signature
     )
         external
         override
         onlyRegisteredOperator(serviceId)
     {
-        // Verify signature using native EVM encoding (big-endian):
-        // message = abi.encodePacked(serviceId, blueprintId, statusCode, metrics)
-        // hash = keccak256(message)
-        // signature = ECDSA.sign(ethSignedMessageHash(hash))
-        // forge-lint: disable-next-line(asm-keccak256)
-        bytes32 messageHash = keccak256(abi.encodePacked(serviceId, blueprintId, statusCode, metrics));
+        if (timestamp > block.timestamp) revert HeartbeatFromFuture(timestamp, uint64(block.timestamp));
+        if (block.timestamp - timestamp > HEARTBEAT_MAX_AGE) {
+            revert HeartbeatStale(timestamp, uint64(block.timestamp));
+        }
 
-        // Recover signer using Ethereum signed message format
-        // forge-lint: disable-next-line(asm-keccak256)
-        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        bytes32 structHash = keccak256(
+            abi.encode(
+                HEARTBEAT_TYPEHASH,
+                msg.sender,
+                serviceId,
+                blueprintId,
+                statusCode,
+                keccak256(metrics),
+                timestamp
+            )
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
 
-        address signer = ethSignedHash.recover(signature);
+        address signer = digest.recover(signature);
         require(signer == msg.sender, "Invalid signature");
 
         _processHeartbeat(serviceId, blueprintId, msg.sender, statusCode, metrics);

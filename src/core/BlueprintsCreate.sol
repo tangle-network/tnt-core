@@ -30,6 +30,7 @@ abstract contract BlueprintsCreate is Base {
     function createBlueprint(Types.BlueprintDefinition calldata def)
         external
         whenNotPaused
+        nonReentrant
         returns (uint64 blueprintId)
     {
         if (address(_mbsmRegistry) == address(0)) revert Errors.MBSMRegistryNotSet();

@@ -13,7 +13,7 @@ contract MockStatusRegistry is IOperatorStatusRegistry {
     uint64 public configuredInterval;
     uint8 public configuredMaxMissed;
 
-    function submitHeartbeat(uint64, uint64, uint8, bytes calldata, bytes calldata) external override { }
+    function submitHeartbeat(uint64, uint64, uint8, bytes calldata, uint64, bytes calldata) external override { }
 
     function isOnline(uint64, address) external pure override returns (bool) {
         return false;

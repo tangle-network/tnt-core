@@ -1393,12 +1393,22 @@ contract TestHeartbeat is Script {
 
         vm.startBroadcast(OPERATOR1_KEY);
 
-        // Create heartbeat signature using Foundry's vm.sign
+        // Build the EIP-712 typed-data digest for the new heartbeat schema.
         bytes memory metrics = "";
-        bytes32 messageHash = keccak256(abi.encodePacked(serviceId, blueprintId, metrics));
-        // Add Ethereum signed message prefix
-        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(OPERATOR1_KEY, ethSignedHash);
+        uint64 timestamp = uint64(block.timestamp);
+        bytes32 structHash = keccak256(
+            abi.encode(
+                registry.HEARTBEAT_TYPEHASH(),
+                vm.addr(OPERATOR1_KEY),
+                serviceId,
+                blueprintId,
+                uint8(0),
+                keccak256(metrics),
+                timestamp
+            )
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", registry.DOMAIN_SEPARATOR(), structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(OPERATOR1_KEY, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         registry.submitHeartbeat(
@@ -1406,6 +1416,7 @@ contract TestHeartbeat is Script {
             blueprintId,
             0, // Healthy
             metrics,
+            timestamp,
             signature
         );
         console2.log("Heartbeat submitted");

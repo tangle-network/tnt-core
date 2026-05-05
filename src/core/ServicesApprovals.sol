@@ -9,6 +9,7 @@ import { Errors } from "../libraries/Errors.sol";
 import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { BN254 } from "../libraries/BN254.sol";
+import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
 /// @title ServicesApprovals
 /// @notice Single approval entrypoint for service requests.
@@ -36,6 +37,7 @@ abstract contract ServicesApprovals is Base {
 
     event ServiceApproved(uint64 indexed requestId, address indexed operator);
     event ServiceRejected(uint64 indexed requestId, address indexed operator);
+    event ServiceRequestExpired(uint64 indexed requestId, address indexed expiredBy);
 
     /// @notice Emitted on every approval that carries TEE commitments. The
     ///         `commitments` payload is the full array exactly as supplied —
@@ -156,6 +158,8 @@ abstract contract ServicesApprovals is Base {
     function rejectService(uint64 requestId) external nonReentrant {
         Types.ServiceRequest storage req = _getServiceRequest(requestId);
         if (req.rejected) revert Errors.ServiceRequestAlreadyProcessed(requestId);
+        if (req.activated) revert Errors.ServiceRequestAlreadyProcessed(requestId);
+        _requireRequestNotExpired(req, requestId);
         if (!_staking.isOperatorActive(msg.sender)) revert Errors.OperatorNotActive(msg.sender);
 
         if (!_isRequestOperator(requestId, msg.sender)) revert Errors.Unauthorized();
@@ -310,6 +314,45 @@ abstract contract ServicesApprovals is Base {
             Types.BN254G2Point({ x: [blsPubkey[0], blsPubkey[1]], y: [blsPubkey[2], blsPubkey[3]] })
         );
         if (!ok) revert Errors.InvalidBLSSignature();
+    }
+
+    /// @notice Permissionlessly expire a stale service request and refund the requester.
+    /// @dev Anyone can call this once `block.timestamp > req.createdAt + grace`. The grace
+    ///      period is `_requestExpiryGracePeriod` (or `ProtocolConfig.REQUEST_EXPIRY_GRACE_PERIOD`
+    ///      when unset). Without this path stale unapproved requests would linger indefinitely
+    ///      with their payment locked; cleanup is now permissionless and incentive-aligned
+    ///      (the requester gets refunded, the caller pays the gas).
+    ///      Refund is bounded to requests that were never activated AND never rejected.
+    ///      `req.activated` is set inside `_activateService` so an activated request — whose
+    ///      `paymentAmount` has already been routed to operators — cannot be drained again.
+    function expireServiceRequest(uint64 requestId) external nonReentrant {
+        Types.ServiceRequest storage req = _getServiceRequest(requestId);
+        if (req.rejected || req.activated) revert Errors.ServiceRequestAlreadyProcessed(requestId);
+
+        uint64 grace = _requestExpiryGracePeriod;
+        if (grace == 0) grace = ProtocolConfig.REQUEST_EXPIRY_GRACE_PERIOD;
+        if (block.timestamp <= uint256(req.createdAt) + grace) {
+            revert Errors.ServiceRequestNotExpired(requestId);
+        }
+
+        req.rejected = true;
+        PaymentLib.refundPayment(req.requester, req.paymentToken, req.paymentAmount);
+
+        emit ServiceRequestExpired(requestId, msg.sender);
+    }
+
+    /// @dev Reverts if the request has lingered past its grace window or has already
+    ///      been activated. Activated requests are functionally closed: their escrow
+    ///      has been routed to the service record and any further mutation here would
+    ///      contradict that state. Operators that let a request sit too long must wait
+    ///      for someone to call `expireServiceRequest` before requesting again.
+    function _requireRequestNotExpired(Types.ServiceRequest storage req, uint64 requestId) private view {
+        if (req.activated) revert Errors.ServiceRequestAlreadyProcessed(requestId);
+        uint64 grace = _requestExpiryGracePeriod;
+        if (grace == 0) grace = ProtocolConfig.REQUEST_EXPIRY_GRACE_PERIOD;
+        if (block.timestamp > uint256(req.createdAt) + grace) {
+            revert Errors.ServiceRequestExpiredError(requestId);
+        }
     }
 
     /// @notice True iff the request's only security requirement is the protocol-default

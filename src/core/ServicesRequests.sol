@@ -427,7 +427,8 @@ abstract contract ServicesRequests is Base {
             minOperators: bounds.minOperators,
             maxOperators: bounds.maxOperators,
             confidentiality: confidentiality,
-            rejected: false
+            rejected: false,
+            activated: false
         });
     }
 

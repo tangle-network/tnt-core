@@ -42,6 +42,7 @@ contract BlueprintServiceManagerBaseTest is Test {
 
     function setUp() public {
         bsm = new BlueprintServiceManagerBaseHarness();
+        vm.prank(tangle);
         bsm.onBlueprintCreated(42, blueprintOwner, tangle);
     }
 
@@ -52,6 +53,7 @@ contract BlueprintServiceManagerBaseTest is Test {
     }
 
     function test_OnBlueprintCreated_CannotBeCalledTwice() public {
+        vm.prank(tangle);
         vm.expectRevert(BlueprintServiceManagerBase.AlreadyInitialized.selector);
         bsm.onBlueprintCreated(1, blueprintOwner, tangle);
     }

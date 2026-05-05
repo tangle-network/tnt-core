@@ -393,10 +393,10 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         if (window < 1 hours || window > 30 days) {
             vm.prank(admin);
             vm.expectRevert(Errors.InvalidSlashConfig.selector);
-            tangle.setSlashConfig(window, false, 10_000);
+            tangle.setSlashConfig(window, false, 10_000, 14 days, 0, 32);
         } else {
             vm.prank(admin);
-            tangle.setSlashConfig(window, false, 10_000);
+            tangle.setSlashConfig(window, false, 10_000, 14 days, 0, 32);
 
             // Verify by creating slash
             vm.prank(user1);

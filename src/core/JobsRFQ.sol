@@ -172,8 +172,9 @@ abstract contract JobsRFQ is Base {
                 revert Errors.PaymentTooSmall(quote.details.price, PaymentLib.MINIMUM_PAYMENT_AMOUNT);
             }
 
-            // Verify EIP-712 signature and mark as used
-            SignatureLib.verifyAndMarkJobQuoteUsed(_usedQuotes, _domainSeparator, quote, maxQuoteAge);
+            // Verify EIP-712 signature and mark as used. Domain separator is recomputed
+            // per-call against current chainid so cross-fork replay is impossible.
+            SignatureLib.verifyAndMarkJobQuoteUsed(_usedQuotes, _domainSeparatorView(), quote, maxQuoteAge);
 
             totalPrice += quote.details.price;
         }

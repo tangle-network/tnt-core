@@ -62,6 +62,11 @@ abstract contract Base is
     /// @param registry The new registry address
     event MBSMRegistryUpdated(address indexed registry);
 
+    /// @notice Emitted when a best-effort blueprint-manager hook reverted or ran out of
+    ///         the capped gas stipend. Observable so off-chain monitors can detect a
+    ///         misbehaving BSM without halting the protocol path.
+    event ManagerHookFailed(address indexed manager, bytes4 indexed selector, bytes returnData);
+
     /// @notice Emitted when the metrics recorder is updated
     /// @param recorder The new recorder address (or zero to disable)
     event MetricsRecorderUpdated(address indexed recorder);
@@ -181,11 +186,21 @@ abstract contract Base is
             stakerBps: DEFAULT_STAKER_BPS
         });
 
-        // Initialize EIP-712 domain separator
+        // Domain separator is computed on-the-fly from `block.chainid` (see
+        // `_domainSeparatorView`) so a post-fork chainid mismatch invalidates quotes
+        // signed under the old chain id automatically. We keep the storage slot
+        // populated as a snapshot for off-chain indexers but never read it on-chain.
         _domainSeparator = SignatureLib.computeDomainSeparator("TangleQuote", "1", address(this));
 
         // Initialize slashing config
         SlashingLib.initializeConfig(_slashState);
+    }
+
+    /// @notice Compute the EIP-712 domain separator at the *current* chainid. Used by all
+    ///         on-chain quote / signature verification so a chain fork or upgrade does not
+    ///         allow replays signed under a different chainid.
+    function _domainSeparatorView() internal view returns (bytes32) {
+        return SignatureLib.computeDomainSeparator("TangleQuote", "1", address(this));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -683,9 +698,17 @@ abstract contract Base is
         }
     }
 
-    /// @notice Call manager with revert on failure
+    /// @notice Maximum gas forwarded to a blueprint manager hook.
+    /// @dev Capped to 500k so a malicious or buggy BSM cannot burn the entire transaction
+    ///      gas, and so that downstream protocol logic always has enough gas left to
+    ///      finalize state changes (CEI). Hooks should be lightweight; bookkeeping work
+    ///      belongs off-chain. The cap is generous enough for typical hook bodies and
+    ///      tightens the worst-case reentrancy / DoS surface significantly.
+    uint256 internal constant MANAGER_HOOK_GAS_LIMIT = 500_000;
+
+    /// @notice Call manager with revert on failure (capped gas).
     function _callManager(address manager, bytes memory data) internal {
-        (bool success, bytes memory returnData) = manager.call(data);
+        (bool success, bytes memory returnData) = manager.call{ gas: MANAGER_HOOK_GAS_LIMIT }(data);
         if (!success) {
             if (returnData.length > 0) {
                 revert Errors.ManagerReverted(manager, returnData);
@@ -694,10 +717,14 @@ abstract contract Base is
         }
     }
 
-    /// @notice Try to call manager, ignore failures
+    /// @notice Try to call manager, ignore failures (capped gas).
+    /// @dev Failure is observable via the `ManagerHookFailed` event so off-chain monitors
+    ///      can detect a misbehaving BSM without halting the protocol path.
     function _tryCallManager(address manager, bytes memory data) internal {
-        (bool success,) = manager.call(data);
-        success; // Silence unused variable warning
+        (bool success, bytes memory returnData) = manager.call{ gas: MANAGER_HOOK_GAS_LIMIT }(data);
+        if (!success) {
+            emit ManagerHookFailed(manager, bytes4(data), returnData);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

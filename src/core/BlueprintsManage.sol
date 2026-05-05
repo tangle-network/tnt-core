@@ -77,7 +77,10 @@ abstract contract BlueprintsManage is Base {
     }
 
     /// @notice Update blueprint metadata
-    function updateBlueprint(uint64 blueprintId, string calldata metadataUri, bytes32 metadataHash) external {
+    function updateBlueprint(uint64 blueprintId, string calldata metadataUri, bytes32 metadataHash)
+        external
+        nonReentrant
+    {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (bp.owner != msg.sender) {
             revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
@@ -91,7 +94,7 @@ abstract contract BlueprintsManage is Base {
     }
 
     /// @notice Transfer blueprint ownership
-    function transferBlueprint(uint64 blueprintId, address newOwner) external {
+    function transferBlueprint(uint64 blueprintId, address newOwner) external nonReentrant {
         if (newOwner == address(0)) revert Errors.ZeroAddress();
 
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
@@ -105,7 +108,7 @@ abstract contract BlueprintsManage is Base {
     }
 
     /// @notice Deactivate a blueprint
-    function deactivateBlueprint(uint64 blueprintId) external {
+    function deactivateBlueprint(uint64 blueprintId) external nonReentrant {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (bp.owner != msg.sender) {
             revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
@@ -123,7 +126,10 @@ abstract contract BlueprintsManage is Base {
     /// @param blueprintId The blueprint ID
     /// @param jobIndexes Array of job indexes
     /// @param rates Array of per-job event rates (0 to clear override and use blueprint default)
-    function setJobEventRates(uint64 blueprintId, uint8[] calldata jobIndexes, uint256[] calldata rates) external {
+    function setJobEventRates(uint64 blueprintId, uint8[] calldata jobIndexes, uint256[] calldata rates)
+        external
+        nonReentrant
+    {
         if (jobIndexes.length != rates.length) revert Errors.LengthMismatch();
 
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
@@ -164,6 +170,7 @@ abstract contract BlueprintsManage is Base {
         Types.ResourceCommitment[] calldata requirements
     )
         external
+        nonReentrant
     {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (bp.owner != msg.sender) {

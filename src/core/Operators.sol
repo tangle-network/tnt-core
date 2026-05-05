@@ -74,6 +74,7 @@ abstract contract Operators is Base {
     )
         external
         whenNotPaused
+        nonReentrant
     {
         _registerOperator(blueprintId, ecdsaPublicKey, rpcAddress, bytes(""));
     }
@@ -87,6 +88,7 @@ abstract contract Operators is Base {
     )
         external
         whenNotPaused
+        nonReentrant
     {
         _registerOperator(blueprintId, ecdsaPublicKey, rpcAddress, registrationInputs);
     }
@@ -150,25 +152,13 @@ abstract contract Operators is Base {
 
         string memory rpcAddressCopy = rpcAddress;
 
-        // Encode preferences for backwards-compatible manager hooks
-        {
-            bytes memory encodedPreferences =
-                abi.encode(Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy }));
+        // CEI: complete every state write before invoking the (untrusted) BSM hook.
+        // The hook can revert to reject the registration; if it does, all the state
+        // writes are reverted along with it. The hook *cannot* observe partially-
+        // written state, so a malicious BSM cannot exploit half-initialized records.
+        _operatorPreferences[blueprintId][msg.sender] =
+            Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy });
 
-            // Call manager hook first (may reject)
-            if (bp.manager != address(0)) {
-                bytes memory managerPayload = registrationInputs.length > 0 ? registrationInputs : encodedPreferences;
-                _callManager(
-                    bp.manager, abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, managerPayload))
-                );
-            }
-
-            // Store preferences (including ECDSA public key for gossip)
-            _operatorPreferences[blueprintId][msg.sender] =
-                Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy });
-        }
-
-        // Register
         _operatorRegistrations[blueprintId][msg.sender] = Types.OperatorRegistration({
             registeredAt: uint64(block.timestamp), updatedAt: uint64(block.timestamp), active: true, online: true
         });
@@ -189,11 +179,21 @@ abstract contract Operators is Base {
 
         _recordBlueprintRegistration(blueprintId, msg.sender);
         emit OperatorRegistered(blueprintId, msg.sender, ecdsaPublicKey, rpcAddressCopy);
+
+        // Hook fires last so the BSM observes the fully-committed registration.
+        if (bp.manager != address(0)) {
+            bytes memory encodedPreferences =
+                abi.encode(Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy }));
+            bytes memory managerPayload = registrationInputs.length > 0 ? registrationInputs : encodedPreferences;
+            _callManager(
+                bp.manager, abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, managerPayload))
+            );
+        }
     }
 
     /// @notice Unregister from a blueprint
     /// @dev Reverts if operator has any active services for this blueprint
-    function unregisterOperator(uint64 blueprintId) external {
+    function unregisterOperator(uint64 blueprintId) external nonReentrant {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         Types.OperatorRegistration storage reg = _operatorRegistrations[blueprintId][msg.sender];
         Types.OperatorPreferences storage prefs = _operatorPreferences[blueprintId][msg.sender];
@@ -207,11 +207,8 @@ abstract contract Operators is Base {
             revert Errors.OperatorHasActiveServices(blueprintId, msg.sender);
         }
 
-        // Call manager hook
-        if (bp.manager != address(0)) {
-            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onUnregister, (msg.sender)));
-        }
-
+        // CEI: clear operator state BEFORE invoking the (untrusted) BSM hook so the
+        // hook observes a fully-finalized unregistration. Mirrors the registration path.
         bytes32 keyHash;
         if (prefs.ecdsaPublicKey.length != 0) {
             keyHash = keccak256(prefs.ecdsaPublicKey);
@@ -229,10 +226,14 @@ abstract contract Operators is Base {
             _operatorBlueprintCounts[msg.sender] -= 1;
         }
 
-        // Remove blueprint from operator's staking profile
         _staking.removeBlueprintForOperator(msg.sender, blueprintId);
 
         emit OperatorUnregistered(blueprintId, msg.sender);
+
+        // Hook fires last (interaction).
+        if (bp.manager != address(0)) {
+            _tryCallManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onUnregister, (msg.sender)));
+        }
     }
 
     /// @notice Update operator preferences for a blueprint

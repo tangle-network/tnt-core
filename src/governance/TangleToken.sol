@@ -112,16 +112,18 @@ contract TangleToken is
     // CLOCK (ERC-6372)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Clock used for voting checkpoints (block number based)
+    /// @notice Clock used for voting checkpoints (timestamp based, ERC-6372).
+    /// @dev Timestamp clock makes voting delay/period chain-agnostic — `1 days` means the
+    ///      same thing on Ethereum (12s blocks), Base (2s blocks), or any other chain.
     function clock() public view override returns (uint48) {
-        return uint48(block.number);
+        return uint48(block.timestamp);
     }
 
-    /// @notice Description of the clock mode
+    /// @notice Description of the clock mode (ERC-6372).
     // solhint-disable-next-line func-name-mixedcase
     // forge-lint: disable-next-line(mixed-case-function)
     function CLOCK_MODE() public pure override returns (string memory) {
-        return "mode=blocknumber&from=default";
+        return "mode=timestamp&from=default";
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
