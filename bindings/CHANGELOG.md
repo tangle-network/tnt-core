@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-05-06
+
+### Changed
+
+- Updated bindings from TNT Core contracts
+
 ## [0.11.2] - 2026-05-05
 
 ### Added
@@ -307,7 +313,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Raw ABI JSON exports via `abi` module
 - `TNT_CORE_VERSION` constant for commit tracking
 
-[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.2...HEAD
+[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.3...HEAD
 [0.11.1]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.0...bindings-v0.11.1
 [0.11.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.10.9...bindings-v0.11.0
 [0.1.0]: https://github.com/tangle-network/tnt-core/releases/tag/bindings-v0.1.0
@@ -345,3 +351,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.10.8]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.10.7...bindings-v0.10.8
 [0.10.9]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.10.8...bindings-v0.10.9
 [0.11.2]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.1...bindings-v0.11.2
+[0.11.3]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.2...bindings-v0.11.3
