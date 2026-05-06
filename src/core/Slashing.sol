@@ -406,6 +406,11 @@ abstract contract Slashing is Base {
         return _slashProposals[slashId];
     }
 
+    /// @notice Get current slashing configuration
+    function getSlashConfig() external view returns (SlashingLib.SlashConfig memory) {
+        return _slashState.config;
+    }
+
     /// @dev Internal helper that picks the right slashing API based on whether the
     ///      operator made explicit per-asset commitments to the offending service.
     function _executeSlashOnStaking(

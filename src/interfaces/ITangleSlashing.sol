@@ -68,4 +68,7 @@ interface ITangleSlashing {
 
     /// @notice Get slash proposal details
     function getSlashProposal(uint64 slashId) external view returns (SlashingLib.SlashProposal memory);
+
+    /// @notice Get current slashing configuration
+    function getSlashConfig() external view returns (SlashingLib.SlashConfig memory);
 }
