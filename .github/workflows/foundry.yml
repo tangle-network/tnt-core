@@ -23,6 +23,7 @@ jobs:
 
     name: Foundry project
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     outputs:
       foundry_changed: ${{ steps.changes.outputs.foundry_changed }}
     steps:
@@ -30,6 +31,17 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+
+      - name: Cache Foundry build artifacts
+        if: steps.changes.outputs.foundry_changed != 'false'
+        uses: actions/cache@v4
+        with:
+          path: |
+            cache
+            out
+          key: foundry-${{ runner.os }}-${{ hashFiles('foundry.toml', 'soldeer.lock', 'remappings.txt', 'src/**', 'test/**', 'script/**', 'dependencies/**') }}
+          restore-keys: |
+            foundry-${{ runner.os }}-
 
       - name: Detect Foundry-relevant changes
         id: changes
