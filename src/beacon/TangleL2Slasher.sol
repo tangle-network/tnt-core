@@ -124,6 +124,18 @@ contract TangleL2Slasher is IL2Slasher, Ownable {
         // Track total slashed
         totalBeaconSlashed[operator] += actualSlashed;
 
+        // Audit Round 2 cross-chain H-5 design note: BSMs that need to react
+        // to beacon slashing (e.g. liquid-staking accounting that marks down
+        // LST share price) must subscribe to `BeaconSlashExecuted` off-chain
+        // and re-mirror state. We deliberately do NOT iterate the operator's
+        // blueprint list here and call `onSlash` per BSM — that path is O(N)
+        // in `_operatorBlueprints[operator]` and gives any single misbehaving
+        // BSM a gas-DoS vector against every beacon slash. The off-chain
+        // event-listener model is the contract for v0.13.0 onward; if a
+        // future requirement demands on-chain BSM notification, add a typed
+        // `IBeaconSlashListener` interface that BSMs explicitly opt into and
+        // a curated allow-list rather than enumerate the operator's full
+        // blueprint membership.
         emit BeaconSlashExecuted(operator, slashBps, actualSlashed, reason);
     }
 

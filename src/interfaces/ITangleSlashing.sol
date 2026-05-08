@@ -100,4 +100,15 @@ interface ITangleSlashing {
 
     /// @notice Get current slashing configuration
     function getSlashConfig() external view returns (SlashingLib.SlashConfig memory);
+
+    /// @notice Claim a dispute bond previously refunded via `cancelSlash`.
+    /// @dev Pull-pattern (Round 3 audit fix for economic F3). The bond is credited
+    ///      into a per-disputer mapping at `cancelSlash` time and remains there
+    ///      until the disputer calls this method. Avoids re-entry into the
+    ///      staking module that would otherwise let the disputer's fallback slip
+    ///      past the pending-slash withdrawal block.
+    function claimDisputeBond() external;
+
+    /// @notice Read pending dispute-bond refund balance for a disputer.
+    function pendingDisputeBondRefund(address disputer) external view returns (uint256);
 }

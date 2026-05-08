@@ -461,32 +461,81 @@ abstract contract Slashing is Base {
         }
     }
 
-    /// @dev Refund dispute bond to the disputer (cancel) or forward to treasury (execute
-    ///      / auto-fail). No-op when no bond was posted. On transfer failure both paths
-    ///      restore the bond so it remains claimable rather than silently stranded.
+    /// @dev Settle the dispute bond. On `refund == true` (cancelSlash) the bond is
+    ///      credited to a per-disputer pull-pattern mapping that the disputer drains
+    ///      via `claimDisputeBond()`. We do NOT push the bond directly back to the
+    ///      disputer here because their fallback could re-enter staking — at this
+    ///      point the protocol has already decremented `_operatorPendingSlashCount`
+    ///      so an unstake call would slip past the slash-blocking gate and exit at
+    ///      the pre-slash exchange rate (Round 2 economic F3).
+    ///      On `refund == false` (executeSlash / auto-fail) the bond is forwarded to
+    ///      the treasury via push, since the treasury is a protocol-controlled
+    ///      address (typically multisig / governance) and a re-entry there cannot
+    ///      bypass operator-side staking guards.
     function _settleDisputeBond(SlashingLib.SlashProposal storage proposal, bool refund) internal {
         uint256 bond = proposal.disputeBond;
         if (bond == 0) return;
         address disputer = proposal.disputer;
 
-        // Clear before transfer (CEI).
+        // Clear before any external interaction (CEI).
         proposal.disputeBond = 0;
         proposal.disputer = address(0);
 
-        address payable to = refund && disputer != address(0) ? payable(disputer) : _treasury;
-        if (to == address(0)) {
-            // Treasury / disputer unset — restore the bond so it can be claimed once
-            // the recipient is configured, rather than silently stranding ETH.
+        if (refund && disputer != address(0)) {
+            // Pull-pattern: credit and emit; disputer claims via claimDisputeBond().
+            _pendingDisputeBondRefunds[disputer] += bond;
+            emit DisputeBondCredited(disputer, bond);
+            return;
+        }
+
+        address payable t = _treasury;
+        if (t == address(0)) {
+            // Treasury unset — restore the bond on the proposal so it can be settled
+            // once a treasury is configured, rather than silently stranding ETH.
             proposal.disputeBond = bond;
             proposal.disputer = disputer;
             return;
         }
-        (bool ok,) = to.call{ value: bond }("");
+        (bool ok,) = t.call{ value: bond }("");
         if (!ok) {
-            // Symmetric restore on either path — the bond is never silently lost.
             proposal.disputeBond = bond;
             proposal.disputer = disputer;
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DISPUTE BOND PULL CLAIM
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    event DisputeBondCredited(address indexed disputer, uint256 amount);
+    event DisputeBondClaimed(address indexed disputer, uint256 amount);
+
+    /// @notice Disputer-initiated claim of any bond credited via `cancelSlash`.
+    /// @dev `nonReentrant` and CEI-ordered; the recipient cannot re-enter the
+    ///      staking module to slip past the pending-slash gate because that gate
+    ///      was decremented in the original `cancelSlash` transaction, which has
+    ///      long since been mined. By the time this claim runs, no slash is in
+    ///      flight for the disputer's affected operator (or a fresh one has been
+    ///      proposed and the operator's withdrawal path is blocked again on its
+    ///      own merit).
+    function claimDisputeBond() external nonReentrant {
+        uint256 amount = _pendingDisputeBondRefunds[msg.sender];
+        if (amount == 0) revert Errors.ZeroAmount();
+        _pendingDisputeBondRefunds[msg.sender] = 0;
+        (bool ok,) = msg.sender.call{ value: amount }("");
+        if (!ok) {
+            // Restore on transfer failure so the disputer can retry. Forge-style
+            // checks-effects-interactions require us to re-credit AFTER the failed
+            // call, never to leave the user without a recourse.
+            _pendingDisputeBondRefunds[msg.sender] = amount;
+            revert Errors.InvalidState();
+        }
+        emit DisputeBondClaimed(msg.sender, amount);
+    }
+
+    /// @notice Read pending dispute-bond refund balance for a disputer.
+    function pendingDisputeBondRefund(address disputer) external view returns (uint256) {
+        return _pendingDisputeBondRefunds[disputer];
     }
 
     function _decrementOperatorPendingTracker(address operator) internal {

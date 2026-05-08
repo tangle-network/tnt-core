@@ -8,7 +8,7 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 /// @notice Facet for slashing flows
 contract TangleSlashingFacet is Slashing, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](8);
+        selectorList = new bytes4[](11);
         selectorList[0] = bytes4(keccak256("proposeSlash(uint64,address,uint16,bytes32)"));
         selectorList[1] = this.disputeSlash.selector;
         selectorList[2] = this.executeSlash.selector;
@@ -17,5 +17,10 @@ contract TangleSlashingFacet is Slashing, IFacetSelectors {
         selectorList[5] = this.cancelSlash.selector;
         selectorList[6] = this.setSlashConfig.selector;
         selectorList[7] = this.getSlashProposal.selector;
+        // Round 3 audit fix for economic F3 — pull-pattern dispute bond refunds
+        // (and the slash-config view that v0.13.0 added but never registered).
+        selectorList[8] = this.getSlashConfig.selector;
+        selectorList[9] = this.claimDisputeBond.selector;
+        selectorList[10] = this.pendingDisputeBondRefund.selector;
     }
 }

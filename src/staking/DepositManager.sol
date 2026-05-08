@@ -78,7 +78,17 @@ abstract contract DepositManager is DelegationStorage {
         } else {
             // Direct deposit - require adapters mode check
             if (requireAdapters) revert DelegationErrors.AssetNotEnabled(token);
+            // Round 2 economic F6: balance-delta check rejects fee-on-transfer /
+            // rebasing tokens at ingress. The 1:1 share accounting below assumes
+            // the contract physically receives `amount`; a non-conforming token
+            // would silently inflate share supply against actual holdings,
+            // eventually bricking withdrawals.
+            uint256 balanceBefore = IERC20(token).balanceOf(address(this));
             IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+            uint256 received = IERC20(token).balanceOf(address(this)) - balanceBefore;
+            if (received != amount) {
+                revert DelegationErrors.FeeOnTransferTokenRejected(token);
+            }
             shares = amount; // 1:1 for direct deposits
         }
     }

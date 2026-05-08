@@ -837,6 +837,15 @@ contract ServiceFeeDistributor is
         }
     }
 
+    /// @dev Slither flags this as `reentrancy-eth` because `_dripOperatorStreams`
+    ///      makes an external call to `streamingManager` (which can transfer ETH)
+    ///      and `_harvestToken` writes `claimable[...]` afterwards inside the loop.
+    ///      The pattern is safe because every entry point that reaches this
+    ///      function (`claimFor`, `claimAll`, `claimAllBatch`) carries the
+    ///      contract's `nonReentrant` guard, blocking re-entry into any other
+    ///      claim/harvest path. The terminal `claimable[account][token] = 0`
+    ///      followed by `_transferPayment` is strict CEI for the top-level
+    ///      transfer. Audit Round 2 Slither finding — verified non-exploitable.
     function _claimAllForToken(address account, address token) internal returns (uint256 totalAmount) {
         EnumerableSet.AddressSet storage operators = _delegatorOperators[account];
         uint256 opLen = operators.length();
@@ -1366,4 +1375,7 @@ contract ServiceFeeDistributor is
 
     /// @notice Receive ETH for native token distributions from StreamingPaymentManager
     receive() external payable { }
+
+    /// @dev Reserved storage slots for future upgrades (Round 2 storage F-3).
+    uint256[50] private __gap;
 }

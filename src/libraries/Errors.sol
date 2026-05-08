@@ -487,4 +487,14 @@ library Errors {
     /// @dev Bounded to prevent a malicious operator from gas-bricking multi-operator
     ///      service activation by submitting an enormous commitment list.
     error TooManyTeeCommitments(uint256 supplied, uint256 maximum);
+
+    /// @notice Fee-on-transfer / rebasing token rejected on payment ingress.
+    /// @dev Audit Round 2 economic F6: a non-1:1 token would silently leave the
+    ///      escrow balance higher than the protocol's actual holdings; downstream
+    ///      transfers would later revert on insufficient balance, bricking the
+    ///      service. Detect via balance-delta and reject at the boundary.
+    error FeeOnTransferTokenRejected(address token);
+
+    /// @notice Generic transfer failure (used by `claimDisputeBond`).
+    error TransferFailed();
 }
