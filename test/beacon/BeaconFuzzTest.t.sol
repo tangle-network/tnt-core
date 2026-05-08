@@ -4,10 +4,11 @@ pragma solidity ^0.8.26;
 import "forge-std/Test.sol";
 import { BeaconChainProofs } from "../../src/beacon/BeaconChainProofs.sol";
 import { ValidatorTypes } from "../../src/beacon/ValidatorTypes.sol";
+import { BeaconTestBase } from "./BeaconTestBase.sol";
 
 /// @title BeaconFuzzTest
 /// @notice Extensive fuzz testing for beacon chain proof verification
-contract BeaconFuzzTest is Test {
+contract BeaconFuzzTest is BeaconTestBase {
     using BeaconChainProofs for *;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -167,17 +168,16 @@ contract BeaconFuzzTest is Test {
     // BALANCE EXTRACTION FUZZ TESTS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Fuzz test: Balance extraction from little-endian bytes
-    function testFuzz_extractBalance_littleEndian(uint64 balance) public pure {
-        // Create balance root (little-endian) - pack 4 balances
-        bytes32 balanceRoot = bytes32(uint256(balance));
-
-        // Use the internal extraction function via test wrapper
+    /// @notice Fuzz test: Balance extraction from SSZ-packed (little-endian) bytes.
+    /// @dev Uses the SSZ-correct fixture helper from BeaconTestBase so a single
+    ///      extraction round-trips through the actual library code path.
+    function testFuzz_extractBalance_littleEndian(uint64 balance) public view {
+        bytes32 balanceRoot = _generateBalanceRoot(balance, 0, 0, 0);
         uint64 extracted = _extractBalance(balanceRoot, 0);
         assertEq(extracted, balance, "Should extract correct balance");
     }
 
-    /// @notice Fuzz test: Multiple balances packed in one root
+    /// @notice Fuzz test: four SSZ-packed balances round-trip through the extractor.
     function testFuzz_extractBalance_packed(
         uint64 balance0,
         uint64 balance1,
@@ -185,23 +185,19 @@ contract BeaconFuzzTest is Test {
         uint64 balance3
     )
         public
-        pure
+        view
     {
-        // Pack 4 balances into bytes32 (little-endian)
-        bytes32 balanceRoot = bytes32(
-            uint256(balance0) | (uint256(balance1) << 64) | (uint256(balance2) << 128) | (uint256(balance3) << 192)
-        );
-
+        bytes32 balanceRoot = _generateBalanceRoot(balance0, balance1, balance2, balance3);
         assertEq(_extractBalance(balanceRoot, 0), balance0);
         assertEq(_extractBalance(balanceRoot, 1), balance1);
         assertEq(_extractBalance(balanceRoot, 2), balance2);
         assertEq(_extractBalance(balanceRoot, 3), balance3);
     }
 
-    // Helper function to extract balance from a leaf
-    function _extractBalance(bytes32 balanceRoot, uint256 indexInLeaf) internal pure returns (uint64) {
-        uint256 bitShift = indexInLeaf * 64;
-        return uint64(uint256(balanceRoot) >> bitShift);
+    // Helper function to extract balance from a leaf — calls the same library
+    // routine the protocol uses, so the test catches any drift on either side.
+    function _extractBalance(bytes32 balanceRoot, uint40 validatorIndex) internal pure returns (uint64) {
+        return BeaconChainProofs._extractBalanceFromLeaf(balanceRoot, validatorIndex);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -218,11 +214,12 @@ contract BeaconFuzzTest is Test {
         assertEq(actual, expected, "Should correctly detect slashed status");
     }
 
-    /// @notice Fuzz test: Validator effective balance extraction
-    function testFuzz_getEffectiveBalance(uint64 balance) public pure {
+    /// @notice Fuzz test: Validator effective balance extraction.
+    /// @dev SSZ-correct packing via _sszUint64; the field is stored at the top of
+    ///      the chunk in little-endian and the library byte-swaps it back.
+    function testFuzz_getEffectiveBalance(uint64 balance) public view {
         bytes32[] memory fields = new bytes32[](8);
-        // Field 2 is effective balance (little-endian)
-        fields[2] = bytes32(uint256(balance));
+        fields[2] = _sszUint64(balance);
 
         uint64 extracted = BeaconChainProofs.getEffectiveBalanceGwei(fields);
         assertEq(extracted, balance, "Should extract correct effective balance");
@@ -246,31 +243,25 @@ contract BeaconFuzzTest is Test {
         assertEq(extracted, pubkeyHash, "Should extract correct pubkey hash");
     }
 
-    /// @notice Fuzz test: Activation epoch extraction
-    function testFuzz_getActivationEpoch(uint64 epoch) public pure {
+    /// @notice Fuzz test: Activation epoch extraction (SSZ uint64 LE encoding)
+    function testFuzz_getActivationEpoch(uint64 epoch) public view {
         bytes32[] memory fields = new bytes32[](8);
-        fields[5] = bytes32(uint256(epoch)); // Field 5 is activation epoch
-
-        uint64 extracted = BeaconChainProofs.getActivationEpoch(fields);
-        assertEq(extracted, epoch, "Should extract correct activation epoch");
+        fields[5] = _sszUint64(epoch);
+        assertEq(BeaconChainProofs.getActivationEpoch(fields), epoch, "Should extract correct activation epoch");
     }
 
-    /// @notice Fuzz test: Exit epoch extraction
-    function testFuzz_getExitEpoch(uint64 epoch) public pure {
+    /// @notice Fuzz test: Exit epoch extraction (SSZ uint64 LE encoding)
+    function testFuzz_getExitEpoch(uint64 epoch) public view {
         bytes32[] memory fields = new bytes32[](8);
-        fields[6] = bytes32(uint256(epoch)); // Field 6 is exit epoch
-
-        uint64 extracted = BeaconChainProofs.getExitEpoch(fields);
-        assertEq(extracted, epoch, "Should extract correct exit epoch");
+        fields[6] = _sszUint64(epoch);
+        assertEq(BeaconChainProofs.getExitEpoch(fields), epoch, "Should extract correct exit epoch");
     }
 
-    /// @notice Fuzz test: Withdrawable epoch extraction
-    function testFuzz_getWithdrawableEpoch(uint64 epoch) public pure {
+    /// @notice Fuzz test: Withdrawable epoch extraction (SSZ uint64 LE encoding)
+    function testFuzz_getWithdrawableEpoch(uint64 epoch) public view {
         bytes32[] memory fields = new bytes32[](8);
-        fields[7] = bytes32(uint256(epoch)); // Field 7 is withdrawable epoch
-
-        uint64 extracted = BeaconChainProofs.getWithdrawableEpoch(fields);
-        assertEq(extracted, epoch, "Should extract correct withdrawable epoch");
+        fields[7] = _sszUint64(epoch);
+        assertEq(BeaconChainProofs.getWithdrawableEpoch(fields), epoch, "Should extract correct withdrawable epoch");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

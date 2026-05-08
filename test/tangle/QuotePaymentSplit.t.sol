@@ -144,7 +144,7 @@ contract QuotePaymentSplitTest is BaseTest {
         returns (Types.SignedQuote[] memory quotes)
     {
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: totalCost,

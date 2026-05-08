@@ -136,7 +136,7 @@ contract QuoteVerificationTest is BaseTest {
 
     function test_CreateFromQuote_RevertInvalidSignature() public {
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: blueprintId,
             ttlBlocks: 100,
             totalCost: 1 ether,
@@ -164,7 +164,7 @@ contract QuoteVerificationTest is BaseTest {
 
     function test_CreateFromQuote_RevertExpiredQuote() public {
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: blueprintId,
             ttlBlocks: 100,
             totalCost: 1 ether,
@@ -187,7 +187,7 @@ contract QuoteVerificationTest is BaseTest {
 
     function test_CreateFromQuote_RevertBlueprintMismatch() public {
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: 999, // Wrong blueprint
             ttlBlocks: 100,
             totalCost: 1 ether,
@@ -210,7 +210,7 @@ contract QuoteVerificationTest is BaseTest {
 
     function test_CreateFromQuote_RevertTTLMismatch() public {
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: blueprintId,
             ttlBlocks: 50, // Different TTL
             totalCost: 1 ether,
@@ -429,8 +429,11 @@ contract QuoteVerificationTest is BaseTest {
         vm.prank(user1);
         tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
 
-        // Replay attack fails
-        vm.prank(user2);
+        // Replay attack from the same authorized requester fails on the
+        // single-use digest gate (`QuoteAlreadyUsed`). A different requester
+        // would fail earlier on the requester-binding check now that
+        // `verifyQuoteBatch` rejects wildcard quotes.
+        vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(Errors.QuoteAlreadyUsed.selector, operator1));
         tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
     }
@@ -443,7 +446,7 @@ contract QuoteVerificationTest is BaseTest {
         uint256 unregisteredPk = 0x999;
 
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: blueprintId,
             ttlBlocks: 100,
             totalCost: 1 ether,
@@ -517,7 +520,7 @@ contract QuoteVerificationTest is BaseTest {
         uint64 baseTimestamp = uint64(block.timestamp) + quoteNonce;
         quoteNonce++;
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: bpId,
             ttlBlocks: ttl,
             totalCost: cost,
@@ -547,7 +550,7 @@ contract QuoteVerificationTest is BaseTest {
         uint64 baseTimestamp = uint64(block.timestamp) + quoteNonce;
         quoteNonce++;
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: bpId,
             ttlBlocks: ttl,
             totalCost: cost,

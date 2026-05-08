@@ -170,8 +170,10 @@ contract SlashingTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
-        // Fast forward past dispute window
-        vm.warp(block.timestamp + 7 days + 1);
+        // Fast forward past the dispute window AND the 15s timestamp buffer that
+        // dispute now respects (mirrors `isExecutable` so there is no dead zone
+        // where dispute fails AND execute fails).
+        vm.warp(block.timestamp + 7 days + 16);
 
         vm.prank(operator1);
         vm.expectRevert(abi.encodeWithSelector(Errors.DisputeWindowPassed.selector, slashId));

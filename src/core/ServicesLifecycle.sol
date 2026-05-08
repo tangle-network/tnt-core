@@ -433,8 +433,24 @@ abstract contract ServicesLifecycle is Base {
             revert Errors.OperatorNotInService(serviceId, operator);
         }
 
-        // Don't check min operators - force removal is an emergency action
-        // Don't check exit queue - this bypasses normal exit process
+        // A blueprint manager can previously have unconditionally evicted any
+        // honest operator from any service (no min-operator check, no exit
+        // queue). With sybil joiners on the same blueprint, that lets an
+        // attacker-controlled BSM bias the operator set toward their sybils
+        // and starve legitimate operators of payment share. The min-operator
+        // floor still applies on force-remove unless the BSM explicitly
+        // self-documents the bypass via `forceRemoveAllowsBelowMin`. The
+        // override path is still try/catch, so a missing implementation
+        // defaults to enforcing the floor.
+        if (svc.operatorCount <= svc.minOperators) {
+            bool allowBelowMin = false;
+            try IBlueprintServiceManager(bp.manager).forceRemoveAllowsBelowMin(serviceId) returns (bool ok) {
+                allowBelowMin = ok;
+            } catch { }
+            if (!allowBelowMin) {
+                revert Errors.InvalidState();
+            }
+        }
 
         // Clear any pending exit request
         delete _exitRequests[serviceId][operator];

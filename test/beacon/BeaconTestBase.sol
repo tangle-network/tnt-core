@@ -150,7 +150,11 @@ abstract contract BeaconTestBase is Test {
         root = current;
     }
 
-    /// @notice Generate mock validator fields
+    /// @notice Generate mock validator fields using SSZ-correct uint64 encoding.
+    /// @dev Each scalar uint64 is serialized as 8 little-endian bytes followed by
+    ///      24 zero bytes (SSZ padding). The bytes32 cast of a Solidity uint256
+    ///      puts the most-significant byte first, so we shift the LE-encoded
+    ///      uint64 into the top 64 bits of the chunk via `_sszUint64`.
     function _generateValidatorFields(
         bytes32 pubkeyHash,
         bytes32 withdrawalCredentials,
@@ -166,12 +170,30 @@ abstract contract BeaconTestBase is Test {
         fields = new bytes32[](8);
         fields[0] = pubkeyHash;
         fields[1] = withdrawalCredentials;
-        fields[2] = bytes32(uint256(effectiveBalance));
-        fields[3] = slashed ? bytes32(uint256(1)) : bytes32(0);
-        fields[4] = bytes32(uint256(activationEpoch)); // activation eligibility
-        fields[5] = bytes32(uint256(activationEpoch));
-        fields[6] = bytes32(uint256(exitEpoch));
-        fields[7] = bytes32(uint256(exitEpoch + 256)); // withdrawable epoch
+        fields[2] = _sszUint64(effectiveBalance);
+        fields[3] = slashed ? _sszUint64(1) : bytes32(0);
+        fields[4] = _sszUint64(activationEpoch); // activation eligibility
+        fields[5] = _sszUint64(activationEpoch);
+        fields[6] = _sszUint64(exitEpoch);
+        fields[7] = _sszUint64(exitEpoch + 256); // withdrawable epoch
+    }
+
+    /// @notice Encode a single uint64 as an SSZ-padded 32-byte chunk.
+    ///         Bytes [0..7] hold the little-endian uint64, bytes [8..31] are zero.
+    function _sszUint64(uint64 value) internal pure returns (bytes32) {
+        return bytes32(uint256(_reverseUint64(value)) << 192);
+    }
+
+    /// @notice Byte-swap a uint64 (mirror of BeaconChainProofs._reverseUint64).
+    function _reverseUint64(uint64 n) internal pure returns (uint64) {
+        return ((n & 0x00000000000000FF) << 56)
+             | ((n & 0x000000000000FF00) << 40)
+             | ((n & 0x0000000000FF0000) << 24)
+             | ((n & 0x00000000FF000000) << 8)
+             | ((n & 0x000000FF00000000) >> 8)
+             | ((n & 0x0000FF0000000000) >> 24)
+             | ((n & 0x00FF000000000000) >> 40)
+             | ((n & 0xFF00000000000000) >> 56);
     }
 
     /// @notice Hash validator fields like the beacon chain does
@@ -187,7 +209,14 @@ abstract contract BeaconTestBase is Test {
         return sha256(abi.encodePacked(h01, h23));
     }
 
-    /// @notice Generate a balance root with 4 packed balances
+    /// @notice Generate a balance root with 4 SSZ-packed balances.
+    /// @dev SSZ packs four uint64 LE bytes into a single chunk:
+    ///        bytes[0..7]   = LE bytes of balance0
+    ///        bytes[8..15]  = LE bytes of balance1
+    ///        bytes[16..23] = LE bytes of balance2
+    ///        bytes[24..31] = LE bytes of balance3
+    ///      bytes32-as-uint256 puts byte[0] in the top, so balance0's
+    ///      LE-then-byte-reversed value goes in the highest 64 bits.
     function _generateBalanceRoot(
         uint64 balance0,
         uint64 balance1,
@@ -198,9 +227,11 @@ abstract contract BeaconTestBase is Test {
         pure
         returns (bytes32)
     {
-        // Pack 4 64-bit balances into 32 bytes (little-endian)
         return bytes32(
-            uint256(balance0) | (uint256(balance1) << 64) | (uint256(balance2) << 128) | (uint256(balance3) << 192)
+            (uint256(_reverseUint64(balance0)) << 192)
+                | (uint256(_reverseUint64(balance1)) << 128)
+                | (uint256(_reverseUint64(balance2)) << 64)
+                | uint256(_reverseUint64(balance3))
         );
     }
 

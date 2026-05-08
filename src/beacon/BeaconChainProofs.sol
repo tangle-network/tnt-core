@@ -287,7 +287,7 @@ library BeaconChainProofs {
 
     /// @notice Get effective balance from validator fields (in gwei)
     function getEffectiveBalanceGwei(bytes32[] memory validatorFields) internal pure returns (uint64) {
-        return uint64(uint256(validatorFields[VALIDATOR_EFFECTIVE_BALANCE_INDEX]));
+        return _fromLittleEndianUint64(validatorFields[VALIDATOR_EFFECTIVE_BALANCE_INDEX]);
     }
 
     /// @notice Check if validator is slashed
@@ -297,17 +297,17 @@ library BeaconChainProofs {
 
     /// @notice Get activation epoch from validator fields
     function getActivationEpoch(bytes32[] memory validatorFields) internal pure returns (uint64) {
-        return uint64(uint256(validatorFields[VALIDATOR_ACTIVATION_EPOCH_INDEX]));
+        return _fromLittleEndianUint64(validatorFields[VALIDATOR_ACTIVATION_EPOCH_INDEX]);
     }
 
     /// @notice Get exit epoch from validator fields
     function getExitEpoch(bytes32[] memory validatorFields) internal pure returns (uint64) {
-        return uint64(uint256(validatorFields[VALIDATOR_EXIT_EPOCH_INDEX]));
+        return _fromLittleEndianUint64(validatorFields[VALIDATOR_EXIT_EPOCH_INDEX]);
     }
 
     /// @notice Get withdrawable epoch from validator fields
     function getWithdrawableEpoch(bytes32[] memory validatorFields) internal pure returns (uint64) {
-        return uint64(uint256(validatorFields[VALIDATOR_WITHDRAWABLE_EPOCH_INDEX]));
+        return _fromLittleEndianUint64(validatorFields[VALIDATOR_WITHDRAWABLE_EPOCH_INDEX]);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -346,14 +346,50 @@ library BeaconChainProofs {
     /// @param balanceRoot The 32-byte leaf containing 4 packed balances
     /// @param validatorIndex The validator's global index
     /// @return The 64-bit balance in gwei
+    /// @dev SSZ packs four uint64 balances into a single 32-byte chunk:
+    ///      bytes[0..7]   = LE bytes of balance0
+    ///      bytes[8..15]  = LE bytes of balance1
+    ///      bytes[16..23] = LE bytes of balance2
+    ///      bytes[24..31] = LE bytes of balance3
+    ///      `bytes32` cast to `uint256` puts byte[0] in the most-significant
+    ///      position, so we must shift the right 8-byte window down to the low
+    ///      64 bits and then byte-swap from little-endian to the EVM's
+    ///      big-endian uint64. The previous implementation read bytes[24..31]
+    ///      for position 0 (wrong byte AND wrong endianness).
     function _extractBalanceFromLeaf(bytes32 balanceRoot, uint40 validatorIndex) internal pure returns (uint64) {
         // Position within the leaf (0-3)
         uint256 position = validatorIndex % VALIDATORS_PER_BALANCE_LEAF;
-        // Each balance is 8 bytes (64 bits), little-endian
-        uint256 bitOffset = position * 64;
-        // Casting down to uint64 is safe because only 64 bits remain after shifting.
+        // Shift target byte window into the low 64 bits.
+        //   position 0 -> shift 192 (bytes[0..7])
+        //   position 1 -> shift 128 (bytes[8..15])
+        //   position 2 -> shift  64 (bytes[16..23])
+        //   position 3 -> shift   0 (bytes[24..31])
+        uint256 shift = 192 - position * 64;
         // forge-lint: disable-next-line(unsafe-typecast)
-        return uint64(uint256(balanceRoot) >> bitOffset);
+        uint64 leBytes = uint64(uint256(balanceRoot) >> shift);
+        return _reverseUint64(leBytes);
+    }
+
+    /// @notice Decode a single SSZ-packed uint64 from the head of a 32-byte chunk.
+    /// @dev SSZ encodes a standalone uint64 as 8 little-endian bytes followed by
+    ///      24 zero bytes. Cast `bytes32 -> uint256` puts the LE bytes in the
+    ///      top 64 bits, so we shift down and byte-swap.
+    function _fromLittleEndianUint64(bytes32 chunk) internal pure returns (uint64) {
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint64 leBytes = uint64(uint256(chunk) >> 192);
+        return _reverseUint64(leBytes);
+    }
+
+    /// @notice Byte-swap a uint64 (little-endian <-> big-endian).
+    function _reverseUint64(uint64 n) internal pure returns (uint64) {
+        return ((n & 0x00000000000000FF) << 56)
+             | ((n & 0x000000000000FF00) << 40)
+             | ((n & 0x0000000000FF0000) << 24)
+             | ((n & 0x00000000FF000000) << 8)
+             | ((n & 0x000000FF00000000) >> 8)
+             | ((n & 0x0000FF0000000000) >> 24)
+             | ((n & 0x00FF000000000000) >> 40)
+             | ((n & 0xFF00000000000000) >> 56);
     }
 
     /// @notice Verify a Merkle proof using SHA256 with simple index

@@ -303,7 +303,13 @@ library SlashingLib {
             revert Errors.SlashNotPending(slashId);
         }
 
-        if (block.timestamp >= proposal.executeAfter) {
+        // Dispute window extends through `executeAfter + TIMESTAMP_BUFFER`. Without
+        // the buffer, a sequencer or proposer with timestamp influence can land an
+        // operator's dispute tx at exactly `executeAfter` (where it reverts) and
+        // then 15 seconds later anyone can call `executeSlash`. The buffer here
+        // mirrors `isExecutable` so the operator's window is symmetric with the
+        // execute side and there is no dead zone.
+        if (block.timestamp >= uint256(proposal.executeAfter) + TIMESTAMP_BUFFER) {
             revert Errors.DisputeWindowPassed(slashId);
         }
 

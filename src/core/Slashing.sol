@@ -214,12 +214,20 @@ abstract contract Slashing is Base {
     ///      The slashed operator must post `_slashState.config.disputeBond` in native
     ///      asset. Bond is forfeit to treasury if the dispute auto-fails or the slash
     ///      executes; refunded if SLASH_ADMIN cancels the slash.
+    ///      A SLASH_ADMIN that is also the original proposer cannot self-dispute their
+    ///      own slash: that path lets them freeze operator stake for the entire
+    ///      `disputeResolutionDeadline` window for free, then capture the operator's
+    ///      bond (when treasury == admin) on auto-execution. Admin escalation must
+    ///      come from a different account.
     function disputeSlash(uint64 slashId, string calldata reason) external payable nonReentrant {
         SlashingLib.SlashProposal storage proposal = _slashProposals[slashId];
 
         bool isAdmin = hasRole(SLASH_ADMIN_ROLE, msg.sender);
         if (msg.sender != proposal.operator && !isAdmin) {
             revert Errors.NotSlashDisputer(slashId, msg.sender);
+        }
+        if (isAdmin && msg.sender == proposal.proposer) {
+            revert Errors.Unauthorized();
         }
 
         uint256 requiredBond = isAdmin ? 0 : _slashState.config.disputeBond;

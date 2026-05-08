@@ -216,6 +216,10 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
     function pinBlueprint(uint64 blueprintId, uint32 revision) external onlyRole(MANAGER_ROLE) {
         if (revision == 0 || revision > _versions.length) revert InvalidRevision(revision);
         if (_versions[revision - 1] == address(0)) revert InvalidRevision(revision); // Deprecated
+        // Reject revisions that are already scheduled for deprecation. Pinning during the
+        // grace window means `getMBSM` returns address(0) the moment `completeDeprecation`
+        // runs, breaking every BSM call for the pinned blueprint.
+        if (_deprecationTimestamp[revision] != 0) revert VersionInGracePeriod(revision, _deprecationTimestamp[revision] + deprecationGracePeriod);
 
         _blueprintPinnedRevision[blueprintId] = revision;
         emit BlueprintPinned(blueprintId, revision);

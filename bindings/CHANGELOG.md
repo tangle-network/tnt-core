@@ -7,6 +7,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-05-08
+
+### Changed (BREAKING)
+
+- `JobQuoteDetails` now includes `address requester` as the first field, mirroring
+  the v0.12.0 fix on `QuoteDetails`. The per-job RFQ quote was previously not
+  bound to a consumer at the EIP-712 typehash level, so any `_permittedCaller`
+  (or anyone watching the mempool) could lift another caller's signed quote
+  digest and consume it for themselves. Off-chain signers MUST add `requester`
+  to the `JobQuoteDetails` typed data; the new typehash string is:
+  `"JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)"`
+- `verifyQuoteBatch` now rejects wildcard `requester == address(0)` quotes
+  outright. Any operator software that previously emitted wildcard quotes will
+  fail and must issue per-caller quotes (or batch them via `permittedCallers`
+  at request time).
+- `Types.ServiceRequest.activated` field moved to the END of the struct so a
+  hypothetical upgrade from a pre-`activated` storage layout cannot
+  accidentally read a non-zero byte from a different field as
+  `activated == true`.
+
+### Fixed (security — Round 2)
+
+- **Beacon SSZ endianness (B-01, mainnet blocker)**:
+  `BeaconChainProofs.getEffectiveBalanceGwei`, `getActivationEpoch`,
+  `getExitEpoch`, `getWithdrawableEpoch`, and `_extractBalanceFromLeaf` now
+  perform the correct little-endian byte-swap on SSZ-packed uint64 fields.
+  Previously they read the LOW 64 bits of a `bytes32` chunk while the
+  consensus layer packs values into the HIGH 8 bytes of the chunk in
+  little-endian. Real EigenPod proofs would silently mis-account every
+  uint64 field — every effective balance, exit epoch, and validator
+  balance would be returned as 0 (or a byte-swapped wrong value). Tests
+  passed because the in-tree fixtures mirrored the same wrong packing;
+  fixtures are now SSZ-correct and there's a regression test pinning the
+  canonical 32-ETH leaf.
+- **Slash dispute dead-zone (Round 2 economic-MEV F4)**: `disputeSlash`'s
+  window now extends through `executeAfter + TIMESTAMP_BUFFER`, mirroring
+  `isExecutable`. The previous asymmetry created a deterministic 15-second
+  window where a sequencer could land an operator's dispute tx (revert,
+  `DisputeWindowPassed`) and then 15s later anyone could call
+  `executeSlash` (now eligible). Operator dispute and execute both now use
+  the same buffer.
+- **SLASH_ADMIN self-dispute (Round 2 governance #4)**: a SLASH_ADMIN that
+  is also the proposer of a slash can no longer self-dispute their own
+  slash. Without this, a single role-holder could propose, immediately
+  self-dispute (no bond), and freeze operator stake for the full
+  `disputeResolutionDeadline` window AND (when treasury == admin) capture
+  the operator's bond on auto-execution.
+- **L2 slash CEI (Round 1 deferred S-1)**: `L2SlashingReceiver` now
+  applies the slash BEFORE consuming the nonce. If `canSlash` returns
+  false (paused, unknown operator, etc.) or `slashBps == 0`, the call
+  reverts so the bridge keeps the message available for retry. Previously
+  the nonce was consumed first and the slash silently dropped on transient
+  failure, locking that slash out forever.
+- **L2 setMessenger / setSlasher timelock (Round 2 cross-chain C-2)**: both
+  swaps now require `SENDER_ACTIVATION_DELAY` (2 days) for non-bootstrap
+  changes. Without this, a compromised owner could hot-swap to a messenger
+  they control and immediately impersonate any previously-authorised
+  sender, undercutting the H-4 timelock on `authorizedSenders`. The first
+  swap (when current is unset) is a bootstrap exemption so deploy scripts
+  can wire the bridge without a 2-day deadlock.
+- **TNTLockFactory delegate-on-init airdrop capture (Round 2 governance
+  #1, CRITICAL)**: `getOrCreateLock` now requires `msg.sender ==
+  beneficiary`. Without this gate, a third party could front-run the
+  victim's first interaction with a lock, supply themselves as
+  `delegatee`, and persistently capture the victim's voting power for
+  every future inbound TNT transfer to the deterministic lock address.
+- **MBSM grace-period pinning (Round 1 deferred gov H-3)**:
+  `MBSMRegistry.pinBlueprint` rejects revisions that are already
+  scheduled for deprecation. Pinning during the grace window meant
+  `getMBSM` returned `address(0)` the moment `completeDeprecation` ran,
+  breaking every BSM call for the pinned blueprint.
+- **forceRemoveOperator min-operators floor (Round 2 operator-collusion
+  #7)**: a blueprint manager can no longer evict honest operators below
+  `minOperators` unless their BSM explicitly opts in via the new
+  `forceRemoveAllowsBelowMin(serviceId)` hook. The previous unconditional
+  bypass let a malicious BSM bias the operator set toward sybils.
+
+### Added
+
+- `IBlueprintServiceManager.forceRemoveAllowsBelowMin(uint64) -> bool`
+  hook. Default implementation in `BlueprintServiceManagerBase` returns
+  `false`, enforcing the protocol-level minimum.
+- `L2SlashingReceiver.activateMessenger()` / `activateSlasher()` for
+  consuming queued swaps after the timelock elapses.
+- `L2SlashingReceiver.SlashingNotPossible(address operator)` error,
+  emitted when a slash arrives for an operator the slasher cannot act on.
+
 ## [0.12.0] - 2026-05-08
 
 ### Changed (BREAKING)

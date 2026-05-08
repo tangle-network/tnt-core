@@ -442,7 +442,7 @@ library Types {
     struct ImageRegistrySource { string registry; string image; string tag; }
     struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; bool isRFQ; }
     struct JobDefinition { string name; string description; string metadataUri; bytes paramsSchema; bytes resultSchema; }
-    struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; }
+    struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; }
     struct NativeSource { BlueprintFetcherKind fetcher; string artifactUri; string entrypoint; }
     struct OperatorPreferences { bytes ecdsaPublicKey; string rpcAddress; }
     struct OperatorRegistration { uint64 registeredAt; uint64 updatedAt; bool active; bool online; }
@@ -450,7 +450,7 @@ library Types {
     struct ResourceCommitment { uint8 kind; uint64 count; }
     struct Service { uint64 blueprintId; address owner; uint64 createdAt; uint64 ttl; uint64 terminatedAt; uint64 lastPaymentAt; uint32 operatorCount; uint32 minOperators; uint32 maxOperators; MembershipModel membership; PricingModel pricing; ServiceStatus status; ConfidentialityPolicy confidentiality; }
     struct ServiceOperator { uint16 exposureBps; uint64 joinedAt; uint64 leftAt; bool active; }
-    struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; bool activated; ConfidentialityPolicy confidentiality; }
+    struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; ConfidentialityPolicy confidentiality; bool activated; }
     struct SignedJobQuote { JobQuoteDetails details; bytes signature; address operator; }
     struct SignedQuote { QuoteDetails details; bytes signature; address operator; }
     struct TeeAttestationCommitment { TeeBackend backend; bytes32 expectedMeasurement; bytes32 nonceBinding; uint64 expiresAt; }
@@ -6661,11 +6661,13 @@ struct JobDefinition { string name; string description; string metadataUri; byte
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; }
+struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct JobQuoteDetails {
+        #[allow(missing_docs)]
+        pub requester: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub serviceId: u64,
         #[allow(missing_docs)]
@@ -6690,6 +6692,7 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
         #[doc(hidden)]
         #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
+            alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<8>,
             alloy::sol_types::sol_data::Uint<256>,
@@ -6699,6 +6702,7 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
+            alloy::sol_types::private::Address,
             u64,
             u8,
             alloy::sol_types::private::primitives::aliases::U256,
@@ -6722,6 +6726,7 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
         impl ::core::convert::From<JobQuoteDetails> for UnderlyingRustTuple<'_> {
             fn from(value: JobQuoteDetails) -> Self {
                 (
+                    value.requester,
                     value.serviceId,
                     value.jobIndex,
                     value.price,
@@ -6736,12 +6741,13 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
         impl ::core::convert::From<UnderlyingRustTuple<'_>> for JobQuoteDetails {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
-                    serviceId: tuple.0,
-                    jobIndex: tuple.1,
-                    price: tuple.2,
-                    timestamp: tuple.3,
-                    expiry: tuple.4,
-                    confidentiality: tuple.5,
+                    requester: tuple.0,
+                    serviceId: tuple.1,
+                    jobIndex: tuple.2,
+                    price: tuple.3,
+                    timestamp: tuple.4,
+                    expiry: tuple.5,
+                    confidentiality: tuple.6,
                 }
             }
         }
@@ -6754,6 +6760,9 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
             #[inline]
             fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
                 (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.requester,
+                    ),
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
@@ -6846,7 +6855,7 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)",
+                    "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)",
                 )
             }
             #[inline]
@@ -6862,6 +6871,10 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
             #[inline]
             fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
                 [
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.requester,
+                        )
+                        .0,
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.serviceId)
@@ -6897,6 +6910,9 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
             #[inline]
             fn topic_preimage_length(rust: &Self::RustType) -> usize {
                 0usize
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.requester,
+                    )
                     + <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
@@ -6933,6 +6949,10 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
             ) {
                 out.reserve(
                     <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
+                );
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.requester,
+                    out,
                 );
                 <alloy::sol_types::sol_data::Uint<
                     64,
@@ -9084,7 +9104,7 @@ struct ServiceOperator { uint16 exposureBps; uint64 joinedAt; uint64 leftAt; boo
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; bool activated; ConfidentialityPolicy confidentiality; }
+struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt; uint64 ttl; uint32 operatorCount; uint32 approvalCount; address paymentToken; uint256 paymentAmount; MembershipModel membership; uint32 minOperators; uint32 maxOperators; bool rejected; ConfidentialityPolicy confidentiality; bool activated; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -9114,9 +9134,9 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
         #[allow(missing_docs)]
         pub rejected: bool,
         #[allow(missing_docs)]
-        pub activated: bool,
-        #[allow(missing_docs)]
         pub confidentiality: <ConfidentialityPolicy as alloy::sol_types::SolType>::RustType,
+        #[allow(missing_docs)]
+        pub activated: bool,
     }
     #[allow(
         non_camel_case_types,
@@ -9141,8 +9161,8 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
             alloy::sol_types::sol_data::Uint<32>,
             alloy::sol_types::sol_data::Uint<32>,
             alloy::sol_types::sol_data::Bool,
-            alloy::sol_types::sol_data::Bool,
             ConfidentialityPolicy,
+            alloy::sol_types::sol_data::Bool,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
@@ -9158,8 +9178,8 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
             u32,
             u32,
             bool,
-            bool,
             <ConfidentialityPolicy as alloy::sol_types::SolType>::RustType,
+            bool,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -9189,8 +9209,8 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     value.minOperators,
                     value.maxOperators,
                     value.rejected,
-                    value.activated,
                     value.confidentiality,
+                    value.activated,
                 )
             }
         }
@@ -9211,8 +9231,8 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     minOperators: tuple.9,
                     maxOperators: tuple.10,
                     rejected: tuple.11,
-                    activated: tuple.12,
-                    confidentiality: tuple.13,
+                    confidentiality: tuple.12,
+                    activated: tuple.13,
                 }
             }
         }
@@ -9261,11 +9281,11 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
                         &self.rejected,
                     ),
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        &self.activated,
-                    ),
                     <ConfidentialityPolicy as alloy_sol_types::SolType>::tokenize(
                         &self.confidentiality,
+                    ),
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        &self.activated,
                     ),
                 )
             }
@@ -9341,7 +9361,7 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "ServiceRequest(uint64 blueprintId,address requester,uint64 createdAt,uint64 ttl,uint32 operatorCount,uint32 approvalCount,address paymentToken,uint256 paymentAmount,uint8 membership,uint32 minOperators,uint32 maxOperators,bool rejected,bool activated,uint8 confidentiality)",
+                    "ServiceRequest(uint64 blueprintId,address requester,uint64 createdAt,uint64 ttl,uint32 operatorCount,uint32 approvalCount,address paymentToken,uint256 paymentAmount,uint8 membership,uint32 minOperators,uint32 maxOperators,bool rejected,uint8 confidentiality,bool activated)",
                 )
             }
             #[inline]
@@ -9405,12 +9425,12 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                             &self.rejected,
                         )
                         .0,
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.activated,
-                        )
-                        .0,
                     <ConfidentialityPolicy as alloy_sol_types::SolType>::eip712_data_word(
                             &self.confidentiality,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.activated,
                         )
                         .0,
                 ]
@@ -9472,11 +9492,11 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.rejected,
                     )
-                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.activated,
-                    )
                     + <ConfidentialityPolicy as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.confidentiality,
+                    )
+                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.activated,
                     )
             }
             #[inline]
@@ -9548,12 +9568,12 @@ struct ServiceRequest { uint64 blueprintId; address requester; uint64 createdAt;
                     &rust.rejected,
                     out,
                 );
-                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.activated,
-                    out,
-                );
                 <ConfidentialityPolicy as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.confidentiality,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.activated,
                     out,
                 );
             }
@@ -11089,6 +11109,7 @@ library Types {
         bytes resultSchema;
     }
     struct JobQuoteDetails {
+        address requester;
         uint64 serviceId;
         uint8 jobIndex;
         uint256 price;
@@ -11160,8 +11181,8 @@ library Types {
         uint32 minOperators;
         uint32 maxOperators;
         bool rejected;
-        bool activated;
         ConfidentialityPolicy confidentiality;
+        bool activated;
     }
     struct SignedJobQuote {
         JobQuoteDetails details;
@@ -13671,14 +13692,14 @@ interface ITangle {
             "internalType": "bool"
           },
           {
-            "name": "activated",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
             "name": "confidentiality",
             "type": "uint8",
             "internalType": "enum Types.ConfidentialityPolicy"
+          },
+          {
+            "name": "activated",
+            "type": "bool",
+            "internalType": "bool"
           }
         ]
       }
@@ -14658,6 +14679,11 @@ interface ITangle {
             "type": "tuple",
             "internalType": "struct Types.JobQuoteDetails",
             "components": [
+              {
+                "name": "requester",
+                "type": "address",
+                "internalType": "address"
+              },
               {
                 "name": "serviceId",
                 "type": "uint64",
@@ -32158,7 +32184,7 @@ function submitJob(uint64 serviceId, uint8 jobIndex, bytes memory inputs) extern
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `submitJobFromQuote(uint64,uint8,bytes,((uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])` and selector `0x58a9e743`.
+    /**Function with signature `submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])` and selector `0x52ada2be`.
 ```solidity
 function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory inputs, Types.SignedJobQuote[] memory quotes) external payable returns (uint64 callId);
 ```*/
@@ -32178,7 +32204,7 @@ function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory input
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`submitJobFromQuote(uint64,uint8,bytes,((uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])`](submitJobFromQuoteCall) function.
+    ///Container type for the return parameters of the [`submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])`](submitJobFromQuoteCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct submitJobFromQuoteReturn {
@@ -32294,8 +32320,8 @@ function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory input
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "submitJobFromQuote(uint64,uint8,bytes,((uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])";
-            const SELECTOR: [u8; 4] = [88u8, 169u8, 231u8, 67u8];
+            const SIGNATURE: &'static str = "submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])";
+            const SELECTOR: [u8; 4] = [82u8, 173u8, 162u8, 190u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -34167,8 +34193,8 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             [68u8, 155u8, 184u8, 73u8],
             [69u8, 138u8, 105u8, 160u8],
             [76u8, 84u8, 14u8, 193u8],
+            [82u8, 173u8, 162u8, 190u8],
             [86u8, 58u8, 137u8, 249u8],
-            [88u8, 169u8, 231u8, 67u8],
             [91u8, 113u8, 201u8, 52u8],
             [95u8, 53u8, 153u8, 36u8],
             [95u8, 155u8, 77u8, 250u8],
@@ -34260,8 +34286,8 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             ::core::stringify!(deactivateBlueprint),
             ::core::stringify!(createServiceFromQuotes),
             ::core::stringify!(requestServiceWithSecurity),
-            ::core::stringify!(getBlueprintConfig),
             ::core::stringify!(submitJobFromQuote),
+            ::core::stringify!(getBlueprintConfig),
             ::core::stringify!(terminateService),
             ::core::stringify!(removePermittedCaller),
             ::core::stringify!(getServiceRequest),
@@ -34353,8 +34379,8 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             <deactivateBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
             <createServiceFromQuotesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <requestServiceWithSecurityCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <getBlueprintConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <submitJobFromQuoteCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getBlueprintConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <terminateServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <removePermittedCallerCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceRequestCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -35035,17 +35061,6 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                     requestServiceWithSecurity
                 },
                 {
-                    fn getBlueprintConfig(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleCalls> {
-                        <getBlueprintConfigCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleCalls::getBlueprintConfig)
-                    }
-                    getBlueprintConfig
-                },
-                {
                     fn submitJobFromQuote(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleCalls> {
@@ -35055,6 +35070,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                             .map(ITangleCalls::submitJobFromQuote)
                     }
                     submitJobFromQuote
+                },
+                {
+                    fn getBlueprintConfig(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleCalls> {
+                        <getBlueprintConfigCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleCalls::getBlueprintConfig)
+                    }
+                    getBlueprintConfig
                 },
                 {
                     fn terminateService(
@@ -36033,17 +36059,6 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                     requestServiceWithSecurity
                 },
                 {
-                    fn getBlueprintConfig(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleCalls> {
-                        <getBlueprintConfigCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleCalls::getBlueprintConfig)
-                    }
-                    getBlueprintConfig
-                },
-                {
                     fn submitJobFromQuote(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleCalls> {
@@ -36053,6 +36068,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                             .map(ITangleCalls::submitJobFromQuote)
                     }
                     submitJobFromQuote
+                },
+                {
+                    fn getBlueprintConfig(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleCalls> {
+                        <getBlueprintConfigCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleCalls::getBlueprintConfig)
+                    }
+                    getBlueprintConfig
                 },
                 {
                     fn terminateService(

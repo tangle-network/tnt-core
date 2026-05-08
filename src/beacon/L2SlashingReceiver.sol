@@ -40,6 +40,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     error SenderNotPending();
     error SenderActivationTooEarly(uint256 activationTime);
     error NonceAlreadyProcessed(uint256 sourceChainId, address sender, uint256 nonce);
+    error SlashingNotPossible(address operator);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -51,7 +52,10 @@ contract L2SlashingReceiver is ICrossChainReceiver {
 
     event AuthorizedSenderUpdated(uint256 indexed chainId, address indexed sender, bool authorized);
     event AuthorizedSenderScheduled(uint256 indexed chainId, address indexed sender, uint256 activationTime);
+    event MessengerScheduled(address indexed newMessenger, uint256 activationTime);
     event MessengerUpdated(address indexed oldMessenger, address indexed newMessenger);
+    event SlasherScheduled(address indexed newSlasher, uint256 activationTime);
+    event SlasherUpdated(address indexed newSlasher);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTANTS
@@ -82,6 +86,15 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     /// @notice H-4 FIX: Pending authorized senders with activation timestamp
     /// @dev chainId => sender => activation timestamp (0 means not pending)
     mapping(uint256 => mapping(address => uint256)) public pendingAuthorizedSenders;
+
+    /// @notice Cross-chain auditor C-2: a compromised owner could otherwise hot-swap
+    ///         the messenger / slasher and impersonate any authorised sender,
+    ///         undercutting the H-4 timelock entirely. Both swaps now require the
+    ///         same SENDER_ACTIVATION_DELAY queue.
+    address public pendingMessenger;
+    uint256 public pendingMessengerAt;
+    address public pendingSlasher;
+    uint256 public pendingSlasherAt;
 
     /// @notice Nonce for deduplication (sourceChain => sender => nonce => processed)
     mapping(uint256 => mapping(address => mapping(uint256 => bool))) public processedNonces;
@@ -149,6 +162,13 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Handle a slash message from L1
+    /// @dev Critical CEI ordering: the slash must apply BEFORE the nonce is consumed.
+    ///      A previous version flipped the nonce to "processed" first, which meant
+    ///      transient failures (`canSlash == false` because the operator just
+    ///      unregistered, slashing paused, etc.) silently dropped the slash with no
+    ///      retry path — the bridge cannot redeliver an already-consumed nonce. The
+    ///      legitimate "applied with zero bps" case (`slashBps == 0`) is also a hard
+    ///      revert here so the L1 connector never wastes a bridge fee on a no-op.
     function _handleSlashMessage(uint256 sourceChainId, address sender, bytes calldata data) internal {
         // Decode: operator, slashBps, slashingFactor, nonce, podAddress
         (address operator, uint16 slashBps, uint64 slashingFactor, uint256 nonce, address pod) =
@@ -159,19 +179,26 @@ contract L2SlashingReceiver is ICrossChainReceiver {
         if (processedNonces[sourceChainId][sender][nonce]) {
             revert NonceAlreadyProcessed(sourceChainId, sender, nonce);
         }
-        processedNonces[sourceChainId][sender][nonce] = true;
 
-        // Create reason bytes for audit trail
-        bytes memory reason = abi.encode("BEACON_CHAIN_SLASH", sourceChainId, pod, slashingFactor, block.timestamp);
-
-        // Execute slashing
-        if (slasher.canSlash(operator) && slashBps > 0) {
-            slasher.slashOperator(operator, slashBps, reason);
-            beaconSlashTotal[operator] += slashBps;
-
-            emit SlashingExecuted(operator, slashBps, slashingFactor);
+        // Refuse to mark the nonce processed unless the slash is going to apply. If the
+        // slasher cannot apply the slash right now (paused, unknown operator, etc.) we
+        // revert so the bridge layer keeps the message available for retry.
+        if (slashBps == 0) {
+            revert InvalidPayload();
+        }
+        if (!slasher.canSlash(operator)) {
+            revert SlashingNotPossible(operator);
         }
 
+        // Apply the slash FIRST (state-changing), then mark the nonce processed.
+        // If `slashOperator` reverts, the whole tx reverts and the nonce stays open.
+        bytes memory reason = abi.encode("BEACON_CHAIN_SLASH", sourceChainId, pod, slashingFactor, block.timestamp);
+        slasher.slashOperator(operator, slashBps, reason);
+        beaconSlashTotal[operator] += slashBps;
+
+        processedNonces[sourceChainId][sender][nonce] = true;
+
+        emit SlashingExecuted(operator, slashBps, slashingFactor);
         emit SlashingReceived(sourceChainId, operator, slashBps, keccak256(abi.encode(sourceChainId, sender, nonce)));
     }
 
@@ -206,16 +233,61 @@ contract L2SlashingReceiver is ICrossChainReceiver {
         emit AuthorizedSenderUpdated(chainId, sender, true);
     }
 
-    /// @notice Update the messenger address
+    /// @notice Schedule a messenger swap; takes effect after `SENDER_ACTIVATION_DELAY`.
+    /// @dev Without the timelock, a compromised owner can hot-swap the messenger to
+    ///      a contract they control and immediately impersonate any previously-
+    ///      authorised sender, undercutting the H-4 timelock entirely. The first
+    ///      messenger set (when `messenger == address(0)`) is allowed without
+    ///      delay so deploy scripts can wire the bridge before any message has
+    ///      been processed; subsequent swaps go through the timelock.
     function setMessenger(address _messenger) external onlyOwner {
-        address old = messenger;
-        messenger = _messenger;
-        emit MessengerUpdated(old, _messenger);
+        if (_messenger == address(0)) revert UnauthorizedMessenger();
+        if (messenger == address(0)) {
+            messenger = _messenger;
+            emit MessengerUpdated(address(0), _messenger);
+            return;
+        }
+        pendingMessenger = _messenger;
+        pendingMessengerAt = block.timestamp + SENDER_ACTIVATION_DELAY;
+        emit MessengerScheduled(_messenger, pendingMessengerAt);
     }
 
-    /// @notice Update the slasher contract
+    /// @notice Activate a previously-scheduled messenger swap.
+    function activateMessenger() external onlyOwner {
+        address next = pendingMessenger;
+        if (next == address(0)) revert SenderNotPending();
+        if (block.timestamp < pendingMessengerAt) revert SenderActivationTooEarly(pendingMessengerAt);
+        address old = messenger;
+        messenger = next;
+        pendingMessenger = address(0);
+        pendingMessengerAt = 0;
+        emit MessengerUpdated(old, next);
+    }
+
+    /// @notice Schedule a slasher swap; takes effect after `SENDER_ACTIVATION_DELAY`.
+    /// @dev First-bootstrap exception mirrors `setMessenger`: when the current
+    ///      slasher is unset, allow immediate write so deploy scripts work.
     function setSlasher(address _slasher) external onlyOwner {
-        slasher = IL2Slasher(_slasher);
+        if (_slasher == address(0)) revert UnauthorizedSender();
+        if (address(slasher) == address(0)) {
+            slasher = IL2Slasher(_slasher);
+            emit SlasherUpdated(_slasher);
+            return;
+        }
+        pendingSlasher = _slasher;
+        pendingSlasherAt = block.timestamp + SENDER_ACTIVATION_DELAY;
+        emit SlasherScheduled(_slasher, pendingSlasherAt);
+    }
+
+    /// @notice Activate a previously-scheduled slasher swap.
+    function activateSlasher() external onlyOwner {
+        address next = pendingSlasher;
+        if (next == address(0)) revert SenderNotPending();
+        if (block.timestamp < pendingSlasherAt) revert SenderActivationTooEarly(pendingSlasherAt);
+        slasher = IL2Slasher(next);
+        pendingSlasher = address(0);
+        pendingSlasherAt = 0;
+        emit SlasherUpdated(next);
     }
 
     /// @notice Transfer ownership

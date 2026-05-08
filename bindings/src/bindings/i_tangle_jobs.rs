@@ -4,7 +4,7 @@
 ```solidity
 library Types {
     struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 resultCount; uint256 payment; bool completed; bool isRFQ; }
-    struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; }
+    struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; }
     struct SignedJobQuote { JobQuoteDetails details; bytes signature; address operator; }
 }
 ```*/
@@ -361,11 +361,13 @@ struct JobCall { uint8 jobIndex; address caller; uint64 createdAt; uint32 result
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; }
+struct JobQuoteDetails { address requester; uint64 serviceId; uint8 jobIndex; uint256 price; uint64 timestamp; uint64 expiry; uint8 confidentiality; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct JobQuoteDetails {
+        #[allow(missing_docs)]
+        pub requester: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub serviceId: u64,
         #[allow(missing_docs)]
@@ -390,6 +392,7 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
         #[doc(hidden)]
         #[allow(dead_code)]
         type UnderlyingSolTuple<'a> = (
+            alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<8>,
             alloy::sol_types::sol_data::Uint<256>,
@@ -399,6 +402,7 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
+            alloy::sol_types::private::Address,
             u64,
             u8,
             alloy::sol_types::private::primitives::aliases::U256,
@@ -422,6 +426,7 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
         impl ::core::convert::From<JobQuoteDetails> for UnderlyingRustTuple<'_> {
             fn from(value: JobQuoteDetails) -> Self {
                 (
+                    value.requester,
                     value.serviceId,
                     value.jobIndex,
                     value.price,
@@ -436,12 +441,13 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
         impl ::core::convert::From<UnderlyingRustTuple<'_>> for JobQuoteDetails {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
-                    serviceId: tuple.0,
-                    jobIndex: tuple.1,
-                    price: tuple.2,
-                    timestamp: tuple.3,
-                    expiry: tuple.4,
-                    confidentiality: tuple.5,
+                    requester: tuple.0,
+                    serviceId: tuple.1,
+                    jobIndex: tuple.2,
+                    price: tuple.3,
+                    timestamp: tuple.4,
+                    expiry: tuple.5,
+                    confidentiality: tuple.6,
                 }
             }
         }
@@ -454,6 +460,9 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
             #[inline]
             fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
                 (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.requester,
+                    ),
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
@@ -546,7 +555,7 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)",
+                    "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)",
                 )
             }
             #[inline]
@@ -562,6 +571,10 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
             #[inline]
             fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
                 [
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.requester,
+                        )
+                        .0,
                     <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.serviceId)
@@ -597,6 +610,9 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
             #[inline]
             fn topic_preimage_length(rust: &Self::RustType) -> usize {
                 0usize
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.requester,
+                    )
                     + <alloy::sol_types::sol_data::Uint<
                         64,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
@@ -633,6 +649,10 @@ struct JobQuoteDetails { uint64 serviceId; uint8 jobIndex; uint256 price; uint64
             ) {
                 out.reserve(
                     <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
+                );
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.requester,
+                    out,
                 );
                 <alloy::sol_types::sol_data::Uint<
                     64,
@@ -1064,6 +1084,7 @@ library Types {
         bool isRFQ;
     }
     struct JobQuoteDetails {
+        address requester;
         uint64 serviceId;
         uint8 jobIndex;
         uint256 price;
@@ -1308,6 +1329,11 @@ interface ITangleJobs {
             "type": "tuple",
             "internalType": "struct Types.JobQuoteDetails",
             "components": [
+              {
+                "name": "requester",
+                "type": "address",
+                "internalType": "address"
+              },
               {
                 "name": "serviceId",
                 "type": "uint64",
@@ -3060,7 +3086,7 @@ function submitJob(uint64 serviceId, uint8 jobIndex, bytes memory inputs) extern
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `submitJobFromQuote(uint64,uint8,bytes,((uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])` and selector `0x58a9e743`.
+    /**Function with signature `submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])` and selector `0x52ada2be`.
 ```solidity
 function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory inputs, Types.SignedJobQuote[] memory quotes) external payable returns (uint64 callId);
 ```*/
@@ -3080,7 +3106,7 @@ function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory input
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`submitJobFromQuote(uint64,uint8,bytes,((uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])`](submitJobFromQuoteCall) function.
+    ///Container type for the return parameters of the [`submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])`](submitJobFromQuoteCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct submitJobFromQuoteReturn {
@@ -3196,8 +3222,8 @@ function submitJobFromQuote(uint64 serviceId, uint8 jobIndex, bytes memory input
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "submitJobFromQuote(uint64,uint8,bytes,((uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])";
-            const SELECTOR: [u8; 4] = [88u8, 169u8, 231u8, 67u8];
+            const SIGNATURE: &'static str = "submitJobFromQuote(uint64,uint8,bytes,((address,uint64,uint8,uint256,uint64,uint64,uint8),bytes,address)[])";
+            const SELECTOR: [u8; 4] = [82u8, 173u8, 162u8, 190u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -3622,7 +3648,7 @@ function submitResults(uint64 serviceId, uint64[] memory callIds, bytes[] memory
             [3u8, 141u8, 218u8, 108u8],
             [45u8, 7u8, 230u8, 85u8],
             [52u8, 19u8, 232u8, 238u8],
-            [88u8, 169u8, 231u8, 67u8],
+            [82u8, 173u8, 162u8, 190u8],
             [166u8, 114u8, 188u8, 10u8],
             [170u8, 205u8, 186u8, 159u8],
             [195u8, 37u8, 174u8, 18u8],
