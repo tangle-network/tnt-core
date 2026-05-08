@@ -1143,8 +1143,11 @@ library SlashingLib {
 }
 
 interface ITangleSlashing {
-    event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 amount);
-    event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 slashBps, bytes32 evidence);
+    event SlashCancelled(uint64 indexed slashId, address indexed canceller, string reason);
+    event SlashConfigUpdated(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps, uint64 disputeResolutionDeadline, uint256 disputeBond, uint16 maxPendingSlashesPerOperator);
+    event SlashDisputed(uint64 indexed slashId, address indexed disputer, string reason);
+    event SlashExecuted(uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, uint256 actualSlashed);
+    event SlashProposed(uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, address proposer, uint16 slashBps, uint16 effectiveSlashBps, bytes32 evidence, uint64 executeAfter);
 
     function cancelSlash(uint64 slashId, string memory reason) external;
     function disputeSlash(uint64 slashId, string memory reason) external payable;
@@ -1474,8 +1477,107 @@ interface ITangleSlashing {
   },
   {
     "type": "event",
+    "name": "SlashCancelled",
+    "inputs": [
+      {
+        "name": "slashId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "canceller",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SlashConfigUpdated",
+    "inputs": [
+      {
+        "name": "disputeWindow",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "instantSlashEnabled",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "maxSlashBps",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "disputeResolutionDeadline",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "disputeBond",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxPendingSlashesPerOperator",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SlashDisputed",
+    "inputs": [
+      {
+        "name": "slashId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "disputer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "SlashExecuted",
     "inputs": [
+      {
+        "name": "slashId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
       {
         "name": "serviceId",
         "type": "uint64",
@@ -1489,7 +1591,7 @@ interface ITangleSlashing {
         "internalType": "address"
       },
       {
-        "name": "amount",
+        "name": "actualSlashed",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1502,6 +1604,12 @@ interface ITangleSlashing {
     "name": "SlashProposed",
     "inputs": [
       {
+        "name": "slashId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
         "name": "serviceId",
         "type": "uint64",
         "indexed": true,
@@ -1514,7 +1622,19 @@ interface ITangleSlashing {
         "internalType": "address"
       },
       {
+        "name": "proposer",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
         "name": "slashBps",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "effectiveSlashBps",
         "type": "uint16",
         "indexed": false,
         "internalType": "uint16"
@@ -1524,6 +1644,12 @@ interface ITangleSlashing {
         "type": "bytes32",
         "indexed": false,
         "internalType": "bytes32"
+      },
+      {
+        "name": "executeAfter",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
       }
     ],
     "anonymous": false
@@ -1562,9 +1688,411 @@ pub mod ITangleSlashing {
     );
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `SlashExecuted(uint64,address,uint256)` and selector `0x26c5c426df452d68e3b3d27c7b069a62cd268ad9e1cd55c9c9f239320890de23`.
+    /**Event with signature `SlashCancelled(uint64,address,string)` and selector `0xe80d1a183af30916f79b15a6c85e82470d0b88065dfdd2505d106adf0e8b7796`.
 ```solidity
-event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 amount);
+event SlashCancelled(uint64 indexed slashId, address indexed canceller, string reason);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct SlashCancelled {
+        #[allow(missing_docs)]
+        pub slashId: u64,
+        #[allow(missing_docs)]
+        pub canceller: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub reason: alloy::sol_types::private::String,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for SlashCancelled {
+            type DataTuple<'a> = (alloy::sol_types::sol_data::String,);
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            const SIGNATURE: &'static str = "SlashCancelled(uint64,address,string)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                232u8, 13u8, 26u8, 24u8, 58u8, 243u8, 9u8, 22u8, 247u8, 155u8, 21u8,
+                166u8, 200u8, 94u8, 130u8, 71u8, 13u8, 11u8, 136u8, 6u8, 93u8, 253u8,
+                210u8, 80u8, 93u8, 16u8, 106u8, 223u8, 14u8, 139u8, 119u8, 150u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    slashId: topics.1,
+                    canceller: topics.2,
+                    reason: data.0,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
+                        &self.reason,
+                    ),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.slashId.clone(),
+                    self.canceller.clone(),
+                )
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.slashId);
+                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.canceller,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for SlashCancelled {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&SlashCancelled> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(this: &SlashCancelled) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `SlashConfigUpdated(uint64,bool,uint16,uint64,uint256,uint16)` and selector `0x384196fec3c27f832a18e6131847b590d155ee4eac26299a7e94026a0416b37b`.
+```solidity
+event SlashConfigUpdated(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps, uint64 disputeResolutionDeadline, uint256 disputeBond, uint16 maxPendingSlashesPerOperator);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct SlashConfigUpdated {
+        #[allow(missing_docs)]
+        pub disputeWindow: u64,
+        #[allow(missing_docs)]
+        pub instantSlashEnabled: bool,
+        #[allow(missing_docs)]
+        pub maxSlashBps: u16,
+        #[allow(missing_docs)]
+        pub disputeResolutionDeadline: u64,
+        #[allow(missing_docs)]
+        pub disputeBond: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub maxPendingSlashesPerOperator: u16,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for SlashConfigUpdated {
+            type DataTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Bool,
+                alloy::sol_types::sol_data::Uint<16>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<16>,
+            );
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (alloy_sol_types::sol_data::FixedBytes<32>,);
+            const SIGNATURE: &'static str = "SlashConfigUpdated(uint64,bool,uint16,uint64,uint256,uint16)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                56u8, 65u8, 150u8, 254u8, 195u8, 194u8, 127u8, 131u8, 42u8, 24u8, 230u8,
+                19u8, 24u8, 71u8, 181u8, 144u8, 209u8, 85u8, 238u8, 78u8, 172u8, 38u8,
+                41u8, 154u8, 126u8, 148u8, 2u8, 106u8, 4u8, 22u8, 179u8, 123u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    disputeWindow: data.0,
+                    instantSlashEnabled: data.1,
+                    maxSlashBps: data.2,
+                    disputeResolutionDeadline: data.3,
+                    disputeBond: data.4,
+                    maxPendingSlashesPerOperator: data.5,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.disputeWindow),
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        &self.instantSlashEnabled,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.maxSlashBps),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(
+                        &self.disputeResolutionDeadline,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.disputeBond),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(
+                        &self.maxPendingSlashesPerOperator,
+                    ),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (Self::SIGNATURE_HASH.into(),)
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for SlashConfigUpdated {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&SlashConfigUpdated> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(this: &SlashConfigUpdated) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `SlashDisputed(uint64,address,string)` and selector `0x0d4418cc07b1c81f56e2d1277f5d11c1b27ebac6cdacafccecd4add6742b4b0f`.
+```solidity
+event SlashDisputed(uint64 indexed slashId, address indexed disputer, string reason);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct SlashDisputed {
+        #[allow(missing_docs)]
+        pub slashId: u64,
+        #[allow(missing_docs)]
+        pub disputer: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub reason: alloy::sol_types::private::String,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for SlashDisputed {
+            type DataTuple<'a> = (alloy::sol_types::sol_data::String,);
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            const SIGNATURE: &'static str = "SlashDisputed(uint64,address,string)";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                13u8, 68u8, 24u8, 204u8, 7u8, 177u8, 200u8, 31u8, 86u8, 226u8, 209u8,
+                39u8, 127u8, 93u8, 17u8, 193u8, 178u8, 126u8, 186u8, 198u8, 205u8, 172u8,
+                175u8, 204u8, 236u8, 212u8, 173u8, 214u8, 116u8, 43u8, 75u8, 15u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    slashId: topics.1,
+                    disputer: topics.2,
+                    reason: data.0,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
+                        &self.reason,
+                    ),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (
+                    Self::SIGNATURE_HASH.into(),
+                    self.slashId.clone(),
+                    self.disputer.clone(),
+                )
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.slashId);
+                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.disputer,
+                );
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for SlashDisputed {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&SlashDisputed> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(this: &SlashDisputed) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Event with signature `SlashExecuted(uint64,uint64,address,uint256)` and selector `0x4a816e132712dbdfe6a363965e5bc68f8e283b999ae11afe294a3162973c3855`.
+```solidity
+event SlashExecuted(uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, uint256 actualSlashed);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -1575,11 +2103,13 @@ event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 
     #[derive(Clone)]
     pub struct SlashExecuted {
         #[allow(missing_docs)]
+        pub slashId: u64,
+        #[allow(missing_docs)]
         pub serviceId: u64,
         #[allow(missing_docs)]
         pub operator: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
-        pub amount: alloy::sol_types::private::primitives::aliases::U256,
+        pub actualSlashed: alloy::sol_types::private::primitives::aliases::U256,
     }
     #[allow(
         non_camel_case_types,
@@ -1598,13 +2128,14 @@ event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "SlashExecuted(uint64,address,uint256)";
+            const SIGNATURE: &'static str = "SlashExecuted(uint64,uint64,address,uint256)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                38u8, 197u8, 196u8, 38u8, 223u8, 69u8, 45u8, 104u8, 227u8, 179u8, 210u8,
-                124u8, 123u8, 6u8, 154u8, 98u8, 205u8, 38u8, 138u8, 217u8, 225u8, 205u8,
-                85u8, 201u8, 201u8, 242u8, 57u8, 50u8, 8u8, 144u8, 222u8, 35u8,
+                74u8, 129u8, 110u8, 19u8, 39u8, 18u8, 219u8, 223u8, 230u8, 163u8, 99u8,
+                150u8, 94u8, 91u8, 198u8, 143u8, 142u8, 40u8, 59u8, 153u8, 154u8, 225u8,
+                26u8, 254u8, 41u8, 74u8, 49u8, 98u8, 151u8, 60u8, 56u8, 85u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -1614,9 +2145,10 @@ event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 
                 data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
             ) -> Self {
                 Self {
-                    serviceId: topics.1,
-                    operator: topics.2,
-                    amount: data.0,
+                    slashId: topics.1,
+                    serviceId: topics.2,
+                    operator: topics.3,
+                    actualSlashed: data.0,
                 }
             }
             #[inline]
@@ -1639,13 +2171,14 @@ event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 
                 (
                     <alloy::sol_types::sol_data::Uint<
                         256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.amount),
+                    > as alloy_sol_types::SolType>::tokenize(&self.actualSlashed),
                 )
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
                 (
                     Self::SIGNATURE_HASH.into(),
+                    self.slashId.clone(),
                     self.serviceId.clone(),
                     self.operator.clone(),
                 )
@@ -1663,8 +2196,11 @@ event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 
                 );
                 out[1usize] = <alloy::sol_types::sol_data::Uint<
                     64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.slashId);
+                out[2usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
-                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                out[3usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
                     &self.operator,
                 );
                 Ok(())
@@ -1689,9 +2225,9 @@ event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `SlashProposed(uint64,address,uint16,bytes32)` and selector `0x0f9eb929e655f6ca1293bbddbade0ebf2c4b209d4454d5399825561892404962`.
+    /**Event with signature `SlashProposed(uint64,uint64,address,address,uint16,uint16,bytes32,uint64)` and selector `0xea15712b428139839309538b7a37df5b88a90b4d776dbf7aa14d95c28304b9fc`.
 ```solidity
-event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 slashBps, bytes32 evidence);
+event SlashProposed(uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, address proposer, uint16 slashBps, uint16 effectiveSlashBps, bytes32 evidence, uint64 executeAfter);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -1702,13 +2238,21 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 s
     #[derive(Clone)]
     pub struct SlashProposed {
         #[allow(missing_docs)]
+        pub slashId: u64,
+        #[allow(missing_docs)]
         pub serviceId: u64,
         #[allow(missing_docs)]
         pub operator: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
+        pub proposer: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
         pub slashBps: u16,
         #[allow(missing_docs)]
+        pub effectiveSlashBps: u16,
+        #[allow(missing_docs)]
         pub evidence: alloy::sol_types::private::FixedBytes<32>,
+        #[allow(missing_docs)]
+        pub executeAfter: u64,
     }
     #[allow(
         non_camel_case_types,
@@ -1721,8 +2265,11 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 s
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for SlashProposed {
             type DataTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<64>,
             );
             type DataToken<'a> = <Self::DataTuple<
                 'a,
@@ -1730,13 +2277,14 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 s
             type TopicList = (
                 alloy_sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "SlashProposed(uint64,address,uint16,bytes32)";
+            const SIGNATURE: &'static str = "SlashProposed(uint64,uint64,address,address,uint16,uint16,bytes32,uint64)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                15u8, 158u8, 185u8, 41u8, 230u8, 85u8, 246u8, 202u8, 18u8, 147u8, 187u8,
-                221u8, 186u8, 222u8, 14u8, 191u8, 44u8, 75u8, 32u8, 157u8, 68u8, 84u8,
-                213u8, 57u8, 152u8, 37u8, 86u8, 24u8, 146u8, 64u8, 73u8, 98u8,
+                234u8, 21u8, 113u8, 43u8, 66u8, 129u8, 57u8, 131u8, 147u8, 9u8, 83u8,
+                139u8, 122u8, 55u8, 223u8, 91u8, 136u8, 169u8, 11u8, 77u8, 119u8, 109u8,
+                191u8, 122u8, 161u8, 77u8, 149u8, 194u8, 131u8, 4u8, 185u8, 252u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -1746,10 +2294,14 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 s
                 data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
             ) -> Self {
                 Self {
-                    serviceId: topics.1,
-                    operator: topics.2,
-                    slashBps: data.0,
-                    evidence: data.1,
+                    slashId: topics.1,
+                    serviceId: topics.2,
+                    operator: topics.3,
+                    proposer: data.0,
+                    slashBps: data.1,
+                    effectiveSlashBps: data.2,
+                    evidence: data.3,
+                    executeAfter: data.4,
                 }
             }
             #[inline]
@@ -1770,18 +2322,28 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 s
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.proposer,
+                    ),
                     <alloy::sol_types::sol_data::Uint<
                         16,
                     > as alloy_sol_types::SolType>::tokenize(&self.slashBps),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.effectiveSlashBps),
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::SolType>::tokenize(&self.evidence),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.executeAfter),
                 )
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
                 (
                     Self::SIGNATURE_HASH.into(),
+                    self.slashId.clone(),
                     self.serviceId.clone(),
                     self.operator.clone(),
                 )
@@ -1799,8 +2361,11 @@ event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 s
                 );
                 out[1usize] = <alloy::sol_types::sol_data::Uint<
                     64,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.slashId);
+                out[2usize] = <alloy::sol_types::sol_data::Uint<
+                    64,
                 > as alloy_sol_types::EventTopic>::encode_topic(&self.serviceId);
-                out[2usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                out[3usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
                     &self.operator,
                 );
                 Ok(())
@@ -3831,6 +4396,12 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum ITangleSlashingEvents {
         #[allow(missing_docs)]
+        SlashCancelled(SlashCancelled),
+        #[allow(missing_docs)]
+        SlashConfigUpdated(SlashConfigUpdated),
+        #[allow(missing_docs)]
+        SlashDisputed(SlashDisputed),
+        #[allow(missing_docs)]
         SlashExecuted(SlashExecuted),
         #[allow(missing_docs)]
         SlashProposed(SlashProposed),
@@ -3844,25 +4415,46 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 32usize]] = &[
             [
-                15u8, 158u8, 185u8, 41u8, 230u8, 85u8, 246u8, 202u8, 18u8, 147u8, 187u8,
-                221u8, 186u8, 222u8, 14u8, 191u8, 44u8, 75u8, 32u8, 157u8, 68u8, 84u8,
-                213u8, 57u8, 152u8, 37u8, 86u8, 24u8, 146u8, 64u8, 73u8, 98u8,
+                13u8, 68u8, 24u8, 204u8, 7u8, 177u8, 200u8, 31u8, 86u8, 226u8, 209u8,
+                39u8, 127u8, 93u8, 17u8, 193u8, 178u8, 126u8, 186u8, 198u8, 205u8, 172u8,
+                175u8, 204u8, 236u8, 212u8, 173u8, 214u8, 116u8, 43u8, 75u8, 15u8,
             ],
             [
-                38u8, 197u8, 196u8, 38u8, 223u8, 69u8, 45u8, 104u8, 227u8, 179u8, 210u8,
-                124u8, 123u8, 6u8, 154u8, 98u8, 205u8, 38u8, 138u8, 217u8, 225u8, 205u8,
-                85u8, 201u8, 201u8, 242u8, 57u8, 50u8, 8u8, 144u8, 222u8, 35u8,
+                56u8, 65u8, 150u8, 254u8, 195u8, 194u8, 127u8, 131u8, 42u8, 24u8, 230u8,
+                19u8, 24u8, 71u8, 181u8, 144u8, 209u8, 85u8, 238u8, 78u8, 172u8, 38u8,
+                41u8, 154u8, 126u8, 148u8, 2u8, 106u8, 4u8, 22u8, 179u8, 123u8,
+            ],
+            [
+                74u8, 129u8, 110u8, 19u8, 39u8, 18u8, 219u8, 223u8, 230u8, 163u8, 99u8,
+                150u8, 94u8, 91u8, 198u8, 143u8, 142u8, 40u8, 59u8, 153u8, 154u8, 225u8,
+                26u8, 254u8, 41u8, 74u8, 49u8, 98u8, 151u8, 60u8, 56u8, 85u8,
+            ],
+            [
+                232u8, 13u8, 26u8, 24u8, 58u8, 243u8, 9u8, 22u8, 247u8, 155u8, 21u8,
+                166u8, 200u8, 94u8, 130u8, 71u8, 13u8, 11u8, 136u8, 6u8, 93u8, 253u8,
+                210u8, 80u8, 93u8, 16u8, 106u8, 223u8, 14u8, 139u8, 119u8, 150u8,
+            ],
+            [
+                234u8, 21u8, 113u8, 43u8, 66u8, 129u8, 57u8, 131u8, 147u8, 9u8, 83u8,
+                139u8, 122u8, 55u8, 223u8, 91u8, 136u8, 169u8, 11u8, 77u8, 119u8, 109u8,
+                191u8, 122u8, 161u8, 77u8, 149u8, 194u8, 131u8, 4u8, 185u8, 252u8,
             ],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
         pub const VARIANT_NAMES: &'static [&'static str] = &[
-            ::core::stringify!(SlashProposed),
+            ::core::stringify!(SlashDisputed),
+            ::core::stringify!(SlashConfigUpdated),
             ::core::stringify!(SlashExecuted),
+            ::core::stringify!(SlashCancelled),
+            ::core::stringify!(SlashProposed),
         ];
         /// The signatures in the same order as `SELECTORS`.
         pub const SIGNATURES: &'static [&'static str] = &[
-            <SlashProposed as alloy_sol_types::SolEvent>::SIGNATURE,
+            <SlashDisputed as alloy_sol_types::SolEvent>::SIGNATURE,
+            <SlashConfigUpdated as alloy_sol_types::SolEvent>::SIGNATURE,
             <SlashExecuted as alloy_sol_types::SolEvent>::SIGNATURE,
+            <SlashCancelled as alloy_sol_types::SolEvent>::SIGNATURE,
+            <SlashProposed as alloy_sol_types::SolEvent>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
         #[inline]
@@ -3888,12 +4480,35 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for ITangleSlashingEvents {
         const NAME: &'static str = "ITangleSlashingEvents";
-        const COUNT: usize = 2usize;
+        const COUNT: usize = 5usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
         ) -> alloy_sol_types::Result<Self> {
             match topics.first().copied() {
+                Some(<SlashCancelled as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
+                    <SlashCancelled as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::SlashCancelled)
+                }
+                Some(
+                    <SlashConfigUpdated as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <SlashConfigUpdated as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::SlashConfigUpdated)
+                }
+                Some(<SlashDisputed as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
+                    <SlashDisputed as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::SlashDisputed)
+                }
                 Some(<SlashExecuted as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <SlashExecuted as alloy_sol_types::SolEvent>::decode_raw_log(
                             topics,
@@ -3926,6 +4541,15 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
     impl alloy_sol_types::private::IntoLogData for ITangleSlashingEvents {
         fn to_log_data(&self) -> alloy_sol_types::private::LogData {
             match self {
+                Self::SlashCancelled(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
+                Self::SlashConfigUpdated(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
+                Self::SlashDisputed(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
                 Self::SlashExecuted(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -3936,6 +4560,15 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
         }
         fn into_log_data(self) -> alloy_sol_types::private::LogData {
             match self {
+                Self::SlashCancelled(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
+                Self::SlashConfigUpdated(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
+                Self::SlashDisputed(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
                 Self::SlashExecuted(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
@@ -4215,6 +4848,24 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::Event<&P, E, N> {
             alloy_contract::Event::new_sol(&self.provider, &self.address)
+        }
+        ///Creates a new event filter for the [`SlashCancelled`] event.
+        pub fn SlashCancelled_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, SlashCancelled, N> {
+            self.event_filter::<SlashCancelled>()
+        }
+        ///Creates a new event filter for the [`SlashConfigUpdated`] event.
+        pub fn SlashConfigUpdated_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, SlashConfigUpdated, N> {
+            self.event_filter::<SlashConfigUpdated>()
+        }
+        ///Creates a new event filter for the [`SlashDisputed`] event.
+        pub fn SlashDisputed_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, SlashDisputed, N> {
+            self.event_filter::<SlashDisputed>()
         }
         ///Creates a new event filter for the [`SlashExecuted`] event.
         pub fn SlashExecuted_filter(

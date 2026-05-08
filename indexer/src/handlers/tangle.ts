@@ -246,6 +246,9 @@ export function registerTangleHandlers() {
       disputeWindow: toBigInt(event.params.disputeWindow),
       instantSlashEnabled: Boolean(event.params.instantSlashEnabled),
       maxSlashBps: toBigInt(event.params.maxSlashBps),
+      disputeResolutionDeadline: toBigInt(event.params.disputeResolutionDeadline),
+      disputeBond: toBigInt(event.params.disputeBond),
+      maxPendingSlashesPerOperator: toBigInt(event.params.maxPendingSlashesPerOperator),
       updatedAt: timestamp,
     } as SlashConfig);
   });

@@ -327,12 +327,14 @@ library SlashingLib {
     ///      `proposal.disputeDeadline` (snapshotted from config at dispute time) has
     ///      elapsed. The deadline is read from the proposal — not live config — so
     ///      admin cannot retroactively shorten the operator's review window.
+    ///      The same `TIMESTAMP_BUFFER` is applied to both branches: a sequencer /
+    ///      proposer with timestamp influence cannot sandwich either deadline tick.
     function isExecutable(SlashProposal storage proposal) internal view returns (bool) {
         if (proposal.status == SlashStatus.Pending) {
             return block.timestamp >= proposal.executeAfter + TIMESTAMP_BUFFER;
         }
         if (proposal.status == SlashStatus.Disputed) {
-            return block.timestamp >= uint256(proposal.disputeDeadline);
+            return block.timestamp >= uint256(proposal.disputeDeadline) + TIMESTAMP_BUFFER;
         }
         return false;
     }

@@ -437,6 +437,9 @@ type SlashConfig {
   disputeWindow: BigInt!
   instantSlashEnabled: Boolean!
   maxSlashBps: BigInt!
+  disputeResolutionDeadline: BigInt!
+  disputeBond: BigInt!
+  maxPendingSlashesPerOperator: BigInt!
   updatedAt: BigInt!
 }
 

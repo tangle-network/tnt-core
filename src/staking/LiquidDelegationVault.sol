@@ -242,6 +242,10 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         returns (uint256 requestId)
     {
         if (shares == 0) revert ZeroShares();
+        // Reject the zero-address controller. Filing a request under controller=0
+        // burns the redeemer's shares (no one can sign as address(0) to claim) so
+        // we fail loudly here instead of silently locking the redemption forever.
+        if (controller == address(0)) revert NotController();
 
         // Verify caller can act on behalf of owner
         if (msg.sender != owner && !_operators[owner][msg.sender]) {
