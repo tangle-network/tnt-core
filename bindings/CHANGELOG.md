@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-08
+
+### Changed (BREAKING)
+
+- `TangleToken.burn(uint256)` and `burnFrom(address,uint256)` now revert. Round 2
+  governance auditor #5: unrestricted ERC20 burn allowed any holder to lower
+  `getPastTotalSupply()` before a governance snapshot, deflating quorum and
+  letting low-stake proposals pass. There is no protocol use case for users
+  burning their TNT (inflation is governance-controlled via InflationPool).
+  Anyone calling `burn` / `burnFrom` will revert with `BurnDisabled()`.
+- `TangleGovernor.MAX_PROPOSAL_ACTIONS` lowered from 50 to 10. `MAX_ACTION_VALUE`
+  lowered from 100k ETH to 10k ETH per action. Round 2 governance #8: 50
+  actions × 100k ETH was a vast surface area that let a malicious proposer
+  bury a privileged call (`grantRole`, etc.) in action #50 of 50 where UI
+  tooling may truncate / skim. Real legitimate proposals touch ≤ 5 targets.
+- Quote payment ingress (`PaymentLib.collectPayment`) and direct ERC20 deposits
+  (`DepositManager._handleErc20Deposit`) now reject fee-on-transfer / rebasing
+  tokens via balance-delta check at the boundary. Round 2 economic auditor F6.
+
+### Added
+
+- `Tangle.claimDisputeBond()` and `Tangle.pendingDisputeBondRefund(address)`.
+  Round 2 economic auditor F3: `cancelSlash` now credits the bond into a
+  pull-pattern mapping rather than pushing back to the disputer's wallet.
+  Closed the re-entrancy window where a contract-disputer could re-enter the
+  staking module on bond refund and exit at the pre-slash exchange rate. The
+  disputer must explicitly call `claimDisputeBond()` to drain their credited
+  bond. Pending balance is queryable via `pendingDisputeBondRefund(disputer)`.
+- `ArbitrumCrossChainMessenger.setL2RefundAddress(address)`. Round 2
+  cross-chain auditor H-1: excess-fee and call-value refunds from
+  `createRetryableTicket` were defaulting to the L1 caller's L2 alias —
+  unrecoverable. Operators can now set a sweep address on L2 (own treasury,
+  receiver itself, etc.) to capture refunds.
+- New `__gap[50]` on five UUPS rewards contracts (`TangleMetrics`,
+  `RewardVaults`, `InflationPool`, `ServiceFeeDistributor`,
+  `StreamingPaymentManager`). Round 2 storage auditor F-3: missing upgrade
+  buffer would have forced future field additions to risk slot collisions
+  with newly-introduced parent classes.
+
+### Fixed (security — Round 3 deferred from Round 2)
+
+- **Slash-and-dispute reentrancy (F3)** — see `claimDisputeBond` above.
+- **JobsAggregation snapshot binding (operator-collusion 2c)** — the BLS
+  message now binds chain id, contract address, and a hash of the operator
+  set in addition to `(serviceId, callId, output)`. A swap-and-pop reorder
+  (operator leaves / forceRemove) now invalidates any in-flight aggregated
+  signature instead of silently mis-crediting a different operator at the
+  same bitmap index. Off-chain aggregators MUST update their message
+  construction to:
+  `abi.encode("TANGLE_BLS_AGG_v1", chainId, address(tangle), serviceId, callId, keccak256(abi.encode(operators)), keccak256(output))`.
+- **First-depositor inflation defense on RebasingAssetAdapter (F2)** —
+  virtual share/asset offset (`VIRTUAL_SHARES = 1e8`, `VIRTUAL_ASSETS = 1`)
+  applied to deposit and withdraw share-price math. Mirrors the staking-pool
+  defense.
+- **Beacon-slash hook design** (cross-chain H-5) — documented intentional
+  decision to NOT iterate the operator's blueprint list on
+  `TangleL2Slasher.slashOperator`. Liquid-staking BSMs that need to react
+  must subscribe to `BeaconSlashExecuted` off-chain. On-chain enumeration
+  would be O(N) gas-DoS.
+- **ServiceFeeDistributor reentrancy review** (Slither finding) —
+  `_claimAllForToken` flagged as state-after-external-call inside loop, but
+  every reaching entry point (`claimFor` / `claimAll` / `claimAllBatch`) is
+  `nonReentrant`. Documented as non-exploitable.
+
+### Tests
+
+- New `test/security/StorageLayoutSnapshotTest.t.sol` pins critical storage
+  slot positions for `Tangle` and verifies the OZ ERC-7201 namespaced slots
+  (`Initializable`, `AccessControl`, `ReentrancyGuard`) match the v5.1.0
+  values. Round 2 storage auditor F-1 / F-2 flagged upgrade-time field-
+  reorder risks; this test catches drift in CI.
+
 ## [0.13.0] - 2026-05-08
 
 ### Changed (BREAKING)

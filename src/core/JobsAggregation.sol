@@ -229,15 +229,67 @@ abstract contract JobsAggregation is Base {
         );
 
         // CRITICAL: Verify that the provided aggregated pubkey matches the expected pubkey
-        // computed from the registered BLS keys of the operators indicated in signerBitmap
-        Types.BN254G2Point memory expectedPubkey = _computeExpectedAggregatedPubkey(serviceId, signerBitmap);
+        // computed from the registered BLS keys of the operators indicated in signerBitmap.
+        // The operator set is also hashed and bound into the BLS message below so that a
+        // swap-and-pop reorder (operator leaves / forceRemove) invalidates any in-flight
+        // signed result instead of mis-crediting a different operator at the same bitmap
+        // index (Round 2 operator-collusion #2c).
+        address[] memory operators = _getServiceOperatorList(serviceId);
+        Types.BN254G2Point memory expectedPubkey =
+            _computeExpectedAggregatedPubkeyFromList(serviceId, signerBitmap, operators);
         if (!BN254.g2Eq(providedPubkey, expectedPubkey)) {
             revert Errors.AggregatedPubkeyMismatch();
         }
 
-        bytes memory message = abi.encodePacked(serviceId, callId, keccak256(output));
+        // Domain-separated message:
+        //   "TANGLE_BLS_AGG_v1" || chainId || address(this) || serviceId || callId
+        //   || keccak256(operators) || keccak256(output)
+        // The chainId+address binds the signature to a specific deployment (Round 1
+        // jobs J-2). The operator-set hash binds it to a specific membership snapshot.
+        bytes memory message = abi.encode(
+            "TANGLE_BLS_AGG_v1",
+            block.chainid,
+            address(this),
+            serviceId,
+            callId,
+            keccak256(abi.encode(operators)),
+            keccak256(output)
+        );
         if (!BN254.verifyAggregatedBls(message, sig, providedPubkey)) {
             revert Errors.InvalidBLSSignature();
+        }
+    }
+
+    /// @notice Compute the aggregated pubkey from a pre-fetched operator list.
+    /// @dev Used by `_verifyAggregatedSignature` so the operator-set snapshot
+    ///      that goes into the BLS message is the same one used to derive the
+    ///      expected pubkey. Avoids a second `_getServiceOperatorList` call
+    ///      and any chance of mismatch under concurrent state changes.
+    function _computeExpectedAggregatedPubkeyFromList(
+        uint64 serviceId,
+        uint256 signerBitmap,
+        address[] memory operators
+    )
+        private
+        view
+        returns (Types.BN254G2Point memory aggregatedPubkey)
+    {
+        bool firstKey = true;
+        for (uint256 i = 0; i < operators.length; i++) {
+            if ((signerBitmap >> i) & 1 == 1) {
+                Types.BLSPubkey storage storedKey = _serviceOperatorBlsPubkeys[serviceId][operators[i]];
+                if (storedKey.key[0] == 0 && storedKey.key[1] == 0 && storedKey.key[2] == 0 && storedKey.key[3] == 0) {
+                    revert Errors.OperatorBlsPubkeyNotRegistered(serviceId, operators[i]);
+                }
+                Types.BN254G2Point memory operatorPubkey =
+                    Types.BN254G2Point([storedKey.key[0], storedKey.key[1]], [storedKey.key[2], storedKey.key[3]]);
+                if (firstKey) {
+                    aggregatedPubkey = operatorPubkey;
+                    firstKey = false;
+                } else {
+                    aggregatedPubkey = BN254.addG2(aggregatedPubkey, operatorPubkey);
+                }
+            }
         }
     }
 

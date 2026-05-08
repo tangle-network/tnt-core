@@ -207,7 +207,20 @@ library PaymentLib {
             if (msgValue != 0) {
                 revert Errors.InvalidMsgValue(0, msgValue);
             }
+            // Round 2 economic F6: reject fee-on-transfer / rebasing tokens at ingress.
+            // Without a balance-delta check, the escrow credits `amount` while the
+            // contract only physically receives `amount - fee`. Eventual `safeTransfer`
+            // to dev / treasury / operators reverts on insufficient balance, bricking
+            // the escrow for that service. Computing the delta and rejecting on
+            // mismatch is cheaper and clearer than book-keeping the actual received
+            // amount, since downstream accounting assumes the credited value matches
+            // the protocol's holdings 1:1.
+            uint256 balanceBefore = IERC20(token).balanceOf(address(this));
             IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+            uint256 balanceAfter = IERC20(token).balanceOf(address(this));
+            if (balanceAfter - balanceBefore != amount) {
+                revert Errors.FeeOnTransferTokenRejected(token);
+            }
         }
     }
 

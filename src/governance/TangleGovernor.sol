@@ -57,10 +57,20 @@ contract TangleGovernor is
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Maximum number of actions per proposal
-    uint256 public constant MAX_PROPOSAL_ACTIONS = 50;
+    /// @dev Audit Round 2 governance #8: 50 actions is enough surface area for a
+    ///      proposer to bury a privileged call (e.g. `grantRole(DEFAULT_ADMIN, attacker)`)
+    ///      in action #50 of 50 where UI tooling may truncate or skim. Lowered to 10
+    ///      to keep the typical multi-step queue legitimate (most real proposals touch
+    ///      ≤ 5 targets) while making "haystack" obfuscation impractical. Multi-action
+    ///      legitimate flows that genuinely need >10 actions can chain proposals.
+    uint256 public constant MAX_PROPOSAL_ACTIONS = 10;
 
-    /// @notice Maximum ETH value per single action (100,000 ETH - safety bound)
-    uint256 public constant MAX_ACTION_VALUE = 100_000 ether;
+    /// @notice Maximum ETH value per single action.
+    /// @dev Lowered from 100k ETH to 10k ETH (audit Round 2 governance #8). 100k × 10
+    ///      actions = 1M ETH outflow per proposal was an over-broad safety bound; 10k
+    ///      keeps any single proposal well below mainnet-scale treasury holdings while
+    ///      remaining permissive for routine grants / refunds.
+    uint256 public constant MAX_ACTION_VALUE = 10_000 ether;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {

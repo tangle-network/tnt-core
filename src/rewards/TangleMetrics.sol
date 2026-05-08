@@ -417,4 +417,9 @@ contract TangleMetrics is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     // ═══════════════════════════════════════════════════════════════════════════
 
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
+
+    /// @dev Reserved storage slots for future upgrades. When adding new storage,
+    ///      decrement this gap accordingly. Round 2 storage auditor F-3 flagged
+    ///      that the rewards/* UUPS implementations had no upgrade buffer.
+    uint256[50] private __gap;
 }

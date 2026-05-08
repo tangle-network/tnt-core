@@ -128,8 +128,44 @@ library BLSTestHelper {
         }
     }
 
-    /// @notice Build the message that operators sign for job results
-    /// @dev Message format matches Jobs.sol: abi.encodePacked(serviceId, callId, keccak256(output))
+    /// @notice Build the message that operators sign for job results.
+    /// @dev Message format MUST match `JobsAggregation._verifyAggregatedSignature`:
+    ///        abi.encode(
+    ///          "TANGLE_BLS_AGG_v1",
+    ///          chainId,
+    ///          tangleAddress,
+    ///          serviceId,
+    ///          callId,
+    ///          keccak256(abi.encode(operators)),  // operator-set snapshot
+    ///          keccak256(output)
+    ///        )
+    ///      Round 3 audit fix for operator-collusion #2c — domain-separated message
+    ///      bound to the operator-set snapshot so a swap-and-pop reorder
+    ///      invalidates in-flight signatures.
+    function buildJobResultMessage(
+        uint64 serviceId,
+        uint64 callId,
+        address tangleAddress,
+        address[] memory operators,
+        bytes memory output
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        return abi.encode(
+            "TANGLE_BLS_AGG_v1",
+            block.chainid,
+            tangleAddress,
+            serviceId,
+            callId,
+            keccak256(abi.encode(operators)),
+            keccak256(output)
+        );
+    }
+
+    /// @notice Legacy two-arg message builder retained for tests that don't go
+    ///         through the actual on-chain aggregation path.
     function buildJobResultMessage(
         uint64 serviceId,
         uint64 callId,
@@ -148,6 +184,23 @@ library BLSTestHelper {
     function createSingleSignerData(
         uint64 serviceId,
         uint64 callId,
+        address tangleAddress,
+        address[] memory operators,
+        bytes memory output
+    )
+        internal
+        view
+        returns (Types.BN254G1Point memory sig, Types.BN254G2Point memory pubkey)
+    {
+        bytes memory message = buildJobResultMessage(serviceId, callId, tangleAddress, operators, output);
+        sig = sign(message, 1);
+        pubkey = getTestPubkey(1);
+    }
+
+    /// @notice Legacy 3-arg overload retained for backwards-compatible tests.
+    function createSingleSignerData(
+        uint64 serviceId,
+        uint64 callId,
         bytes memory output
     )
         internal
@@ -163,13 +216,15 @@ library BLSTestHelper {
     function createThreeSignerData(
         uint64 serviceId,
         uint64 callId,
+        address tangleAddress,
+        address[] memory operators,
         bytes memory output
     )
         internal
         view
         returns (Types.BN254G1Point memory aggSig, Types.BN254G2Point memory aggPubkey)
     {
-        bytes memory message = buildJobResultMessage(serviceId, callId, output);
+        bytes memory message = buildJobResultMessage(serviceId, callId, tangleAddress, operators, output);
 
         uint256[] memory privateKeys = new uint256[](3);
         privateKeys[0] = 1;

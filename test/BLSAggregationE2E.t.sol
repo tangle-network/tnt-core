@@ -91,6 +91,16 @@ contract BLSAggregationE2ETest is BaseTest {
         tangle.approveService(_approveWithBls(requestId, pubkey, BLSTestHelper.g1ToArray(popSig)));
     }
 
+    /// @notice Canonical operator list for the test service (matches the
+    ///         insertion order in `setUp` and therefore the on-chain
+    ///         `_serviceOperatorSet[serviceId].values()` order).
+    function _operators() internal view returns (address[] memory ops) {
+        ops = new address[](3);
+        ops[0] = operator1;
+        ops[1] = operator2;
+        ops[2] = operator3;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // TEST: Valid Single Signer BLS E2E
     // ═══════════════════════════════════════════════════════════════════════════
@@ -108,7 +118,7 @@ contract BLSAggregationE2ETest is BaseTest {
         // Generate valid BLS signature
         bytes memory output = "valid result";
         (Types.BN254G1Point memory sig, Types.BN254G2Point memory pubkey) =
-            BLSTestHelper.createSingleSignerData(serviceId, callId, output);
+            BLSTestHelper.createSingleSignerData(serviceId, callId, address(tangle), _operators(), output);
 
         // Only operator 0 signed (bit 0)
         uint256 signerBitmap = 0x1;
@@ -186,7 +196,8 @@ contract BLSAggregationE2ETest is BaseTest {
         uint64 callId = tangle.submitJob(serviceId, 0, "stake test");
 
         bytes memory output = "stake-weighted result";
-        bytes memory message = BLSTestHelper.buildJobResultMessage(serviceId, callId, output);
+        bytes memory message =
+            BLSTestHelper.buildJobResultMessage(serviceId, callId, address(tangle), _operators(), output);
 
         // Test 1: Only operator 0 (50% stake) - should fail threshold
         {
@@ -232,8 +243,10 @@ contract BLSAggregationE2ETest is BaseTest {
 
         // Single signer (operator 0 with 50% stake)
         uint256 signerBitmap = 0x1;
-        Types.BN254G1Point memory sig =
-            BLSTestHelper.sign(BLSTestHelper.buildJobResultMessage(serviceId, callId0, output), 1);
+        Types.BN254G1Point memory sig = BLSTestHelper.sign(
+            BLSTestHelper.buildJobResultMessage(serviceId, callId0, address(tangle), _operators(), output),
+            1
+        );
 
         // Count-based with 33.33% threshold requires exactly 1 signer.
         tangle.submitAggregatedResult(
@@ -418,7 +431,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
         bytes memory output = "late result";
         (Types.BN254G1Point memory sig, Types.BN254G2Point memory pubkey) =
-            BLSTestHelper.createSingleSignerData(serviceId, callId, output);
+            BLSTestHelper.createSingleSignerData(serviceId, callId, address(tangle), _operators(), output);
 
         vm.expectRevert(abi.encodeWithSelector(Errors.ServiceNotActive.selector, serviceId));
         tangle.submitAggregatedResult(
@@ -445,7 +458,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
         // Sign correct output
         (Types.BN254G1Point memory sig, Types.BN254G2Point memory pubkey) =
-            BLSTestHelper.createSingleSignerData(serviceId, callId, correctOutput);
+            BLSTestHelper.createSingleSignerData(serviceId, callId, address(tangle), _operators(), correctOutput);
 
         // Try to submit with wrong output - BLS verification will fail
         vm.expectRevert(Errors.InvalidBLSSignature.selector);
@@ -472,7 +485,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
         // Sign for callId1
         (Types.BN254G1Point memory sig, Types.BN254G2Point memory pubkey) =
-            BLSTestHelper.createSingleSignerData(serviceId, callId1, output);
+            BLSTestHelper.createSingleSignerData(serviceId, callId1, address(tangle), _operators(), output);
 
         // Try to use it for callId2 - BLS verification will fail
         vm.expectRevert(Errors.InvalidBLSSignature.selector);
@@ -495,7 +508,7 @@ contract BLSAggregationE2ETest is BaseTest {
 
         bytes memory output = "result";
         (Types.BN254G1Point memory sig, Types.BN254G2Point memory pubkey) =
-            BLSTestHelper.createSingleSignerData(serviceId, callId, output);
+            BLSTestHelper.createSingleSignerData(serviceId, callId, address(tangle), _operators(), output);
 
         // First submission - succeeds
         tangle.submitAggregatedResult(

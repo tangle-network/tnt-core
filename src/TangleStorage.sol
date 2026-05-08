@@ -394,10 +394,22 @@ abstract contract TangleStorage {
     mapping(uint64 => mapping(address => bytes32)) internal _serviceTeeCommitmentRoot;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // DISPUTE BOND ESCROW (pull-pattern)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Disputer => pending bond refund (wei). Credited on `cancelSlash`,
+    ///         drained by the disputer's own `claimDisputeBond()` call. The pull
+    ///         pattern closes the re-entry window where a disputer-contract's
+    ///         fallback could re-enter the staking module (whose pending-slash
+    ///         counter is already decremented at this point) and exit at the
+    ///         pre-slash exchange rate (Round 2 economic F3).
+    mapping(address => uint256) internal _pendingDisputeBondRefunds;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    uint256[42] private __gap;
+    uint256[41] private __gap;
 }

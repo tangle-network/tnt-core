@@ -477,4 +477,7 @@ contract StreamingPaymentManager is
 
     /// @notice Receive ETH for native token streams
     receive() external payable { }
+
+    /// @dev Reserved storage slots for future upgrades (Round 2 storage F-3).
+    uint256[50] private __gap;
 }

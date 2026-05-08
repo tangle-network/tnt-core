@@ -512,11 +512,26 @@ contract SlashingEdgeCasesTest is BaseTest {
         tangle.disputeSlash{ value: DISPUTE_BOND }(slashId, "valid dispute");
         assertEq(operator1.balance, balBefore - DISPUTE_BOND, "bond escrowed");
 
-        // Admin agrees with the dispute → cancel refunds the bond.
+        // Admin agrees with the dispute → cancelSlash credits the bond into the
+        // pull-pattern mapping (Round 3 audit fix for economic F3 — disputer
+        // contracts cannot re-enter staking via the refund call now). The bond
+        // is not pushed to the disputer; they claim it explicitly.
         vm.prank(admin);
         tangle.cancelSlash(slashId, "admin agrees");
 
-        assertEq(operator1.balance, balBefore, "bond refunded on cancel");
+        assertEq(operator1.balance, balBefore - DISPUTE_BOND, "bond not yet returned");
+        assertEq(
+            tangle.pendingDisputeBondRefund(operator1),
+            DISPUTE_BOND,
+            "bond credited to pull mapping"
+        );
+
+        // Disputer claims the credited bond.
+        vm.prank(operator1);
+        tangle.claimDisputeBond();
+
+        assertEq(operator1.balance, balBefore, "bond claimed back to wallet");
+        assertEq(tangle.pendingDisputeBondRefund(operator1), 0, "credit drained");
     }
 
     function test_DisputeSlash_BondForfeitOnExecute() public {

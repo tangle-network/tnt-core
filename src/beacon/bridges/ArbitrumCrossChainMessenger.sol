@@ -61,12 +61,24 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     /// @dev Adds safety margin to requested gas limit
     uint256 public gasBufferBps = 1000; // 10% buffer by default
 
+    /// @notice L2 alias of an L1 address that should receive excess-fee refunds.
+    /// @dev Round 2 cross-chain auditor H-1: when `excessFeeRefundAddress` is set
+    ///      to `msg.sender` (the L1 connector), Arbitrum mints the refund at the
+    ///      L2 alias of that L1 contract — which has no receive logic, so the
+    ///      ETH is permanently locked. Callers who care about recovering excess
+    ///      gas / submission fees can configure a sweep address (their own L2
+    ///      treasury, a sweep contract, etc.). Owner-controlled with a default
+    ///      of `address(0)` which means "fall back to msg.sender" for backwards
+    ///      compatibility with deploy scripts that haven't migrated yet.
+    address public l2RefundAddress;
+
     /// @notice Owner for configuration
     address public owner;
 
     /// @notice M-12 FIX: Events for gas configuration changes
     event MinGasLimitUpdated(uint256 oldLimit, uint256 newLimit);
     event GasBufferUpdated(uint256 oldBuffer, uint256 newBuffer);
+    event L2RefundAddressUpdated(address indexed oldAddress, address indexed newAddress);
 
     /// @dev SECURITY: For production, owner should be a timelock or multisig.
     /// Critical parameters (minGasLimit, gasBufferBps) affect cross-chain security.
@@ -111,13 +123,20 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         // Calculate submission cost
         uint256 submissionCost = inbox.calculateRetryableSubmissionFee(l2Calldata.length, block.basefee);
 
+        // Round 2 cross-chain auditor H-1: route excess-fee + call-value refunds to a
+        // sweep address if configured. Falls back to `msg.sender` (the L1 connector)
+        // only when no sweep address is set, which results in funds locked at the L2
+        // alias of the L1 contract — fine for one-shot deployments, lossy for any
+        // ongoing relay traffic.
+        address refundTo = l2RefundAddress != address(0) ? l2RefundAddress : msg.sender;
+
         // Create retryable ticket
         uint256 ticketId = inbox.createRetryableTicket{ value: msg.value }(
             target, // L2 destination
             0, // L2 call value
             submissionCost, // Max submission cost
-            msg.sender, // Excess fee refund
-            msg.sender, // Call value refund
+            refundTo, // Excess fee refund (audit H-1)
+            refundTo, // Call value refund (audit H-1)
             effectiveGasLimit, // L2 gas limit (with buffer)
             l2MaxFeePerGas, // L2 max gas price
             l2Calldata // L2 calldata
@@ -179,6 +198,19 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         uint256 oldBuffer = gasBufferBps;
         gasBufferBps = _gasBufferBps;
         emit GasBufferUpdated(oldBuffer, _gasBufferBps);
+    }
+
+    /// @notice Set the L2 sweep address that will receive excess-fee and call-value
+    ///         refunds from `createRetryableTicket`. Round 2 cross-chain H-1.
+    /// @dev Set to a contract you control on L2 (a treasury sweep, or the
+    ///      `L2SlashingReceiver` itself if you want refunds to compound into the
+    ///      bridge balance). Set to `address(0)` to fall back to the legacy
+    ///      `msg.sender` behavior, which leaks refunds to the L2 alias of the L1
+    ///      connector (typically irrecoverable).
+    function setL2RefundAddress(address newAddress) external onlyOwner {
+        address old = l2RefundAddress;
+        l2RefundAddress = newAddress;
+        emit L2RefundAddressUpdated(old, newAddress);
     }
 
     /// @notice M-12 FIX: Apply minimum gas limit and safety buffer

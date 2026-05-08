@@ -1150,12 +1150,14 @@ interface ITangleSlashing {
     event SlashProposed(uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, address proposer, uint16 slashBps, uint16 effectiveSlashBps, bytes32 evidence, uint64 executeAfter);
 
     function cancelSlash(uint64 slashId, string memory reason) external;
+    function claimDisputeBond() external;
     function disputeSlash(uint64 slashId, string memory reason) external payable;
     function executeSlash(uint64 slashId) external returns (uint256 actualSlashed);
     function executeSlashBatch(uint64[] memory slashIds) external returns (uint256 totalSlashed, uint256 executedCount);
     function getExecutableSlashes(uint64 fromId, uint64 toId) external view returns (uint64[] memory ids);
     function getSlashConfig() external view returns (SlashingLib.SlashConfig memory);
     function getSlashProposal(uint64 slashId) external view returns (SlashingLib.SlashProposal memory);
+    function pendingDisputeBondRefund(address disputer) external view returns (uint256);
     function proposeSlash(uint64 serviceId, address operator, uint16 slashBps, bytes32 evidence) external returns (uint64 slashId);
     function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 maxSlashBps, uint64 disputeResolutionDeadline, uint256 disputeBond, uint16 maxPendingSlashesPerOperator) external;
 }
@@ -1179,6 +1181,13 @@ interface ITangleSlashing {
         "internalType": "string"
       }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimDisputeBond",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -1399,6 +1408,25 @@ interface ITangleSlashing {
             "internalType": "uint64"
           }
         ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pendingDisputeBondRefund",
+    "inputs": [
+      {
+        "name": "disputer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -2548,6 +2576,147 @@ function cancelSlash(uint64 slashId, string memory reason) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `claimDisputeBond()` and selector `0xead1df17`.
+```solidity
+function claimDisputeBond() external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct claimDisputeBondCall;
+    ///Container type for the return parameters of the [`claimDisputeBond()`](claimDisputeBondCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct claimDisputeBondReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<claimDisputeBondCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: claimDisputeBondCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimDisputeBondCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<claimDisputeBondReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: claimDisputeBondReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimDisputeBondReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl claimDisputeBondReturn {
+            fn _tokenize(
+                &self,
+            ) -> <claimDisputeBondCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for claimDisputeBondCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = claimDisputeBondReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "claimDisputeBond()";
+            const SELECTOR: [u8; 4] = [234u8, 209u8, 223u8, 23u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                claimDisputeBondReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `disputeSlash(uint64,string)` and selector `0x77380c74`.
 ```solidity
 function disputeSlash(uint64 slashId, string memory reason) external payable;
@@ -3515,6 +3684,164 @@ function getSlashProposal(uint64 slashId) external view returns (SlashingLib.Sla
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `pendingDisputeBondRefund(address)` and selector `0x8c2f4ee4`.
+```solidity
+function pendingDisputeBondRefund(address disputer) external view returns (uint256);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct pendingDisputeBondRefundCall {
+        #[allow(missing_docs)]
+        pub disputer: alloy::sol_types::private::Address,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`pendingDisputeBondRefund(address)`](pendingDisputeBondRefundCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct pendingDisputeBondRefundReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<pendingDisputeBondRefundCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: pendingDisputeBondRefundCall) -> Self {
+                    (value.disputer,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for pendingDisputeBondRefundCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { disputer: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<pendingDisputeBondRefundReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: pendingDisputeBondRefundReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for pendingDisputeBondRefundReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for pendingDisputeBondRefundCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "pendingDisputeBondRefund(address)";
+            const SELECTOR: [u8; 4] = [140u8, 47u8, 78u8, 228u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.disputer,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: pendingDisputeBondRefundReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: pendingDisputeBondRefundReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `proposeSlash(uint64,address,uint16,bytes32)` and selector `0x0472d2ff`.
 ```solidity
 function proposeSlash(uint64 serviceId, address operator, uint16 slashBps, bytes32 evidence) external returns (uint64 slashId);
@@ -3918,6 +4245,8 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
         #[allow(missing_docs)]
         cancelSlash(cancelSlashCall),
         #[allow(missing_docs)]
+        claimDisputeBond(claimDisputeBondCall),
+        #[allow(missing_docs)]
         disputeSlash(disputeSlashCall),
         #[allow(missing_docs)]
         executeSlash(executeSlashCall),
@@ -3929,6 +4258,8 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
         getSlashConfig(getSlashConfigCall),
         #[allow(missing_docs)]
         getSlashProposal(getSlashProposalCall),
+        #[allow(missing_docs)]
+        pendingDisputeBondRefund(pendingDisputeBondRefundCall),
         #[allow(missing_docs)]
         proposeSlash(proposeSlashCall),
         #[allow(missing_docs)]
@@ -3947,9 +4278,11 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
             [17u8, 15u8, 130u8, 155u8],
             [114u8, 21u8, 93u8, 80u8],
             [119u8, 56u8, 12u8, 116u8],
+            [140u8, 47u8, 78u8, 228u8],
             [143u8, 195u8, 184u8, 179u8],
             [165u8, 191u8, 186u8, 228u8],
             [176u8, 85u8, 68u8, 155u8],
+            [234u8, 209u8, 223u8, 23u8],
             [239u8, 27u8, 66u8, 162u8],
         ];
         /// The names of the variants in the same order as `SELECTORS`.
@@ -3959,9 +4292,11 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
             ::core::stringify!(getExecutableSlashes),
             ::core::stringify!(setSlashConfig),
             ::core::stringify!(disputeSlash),
+            ::core::stringify!(pendingDisputeBondRefund),
             ::core::stringify!(getSlashConfig),
             ::core::stringify!(executeSlash),
             ::core::stringify!(executeSlashBatch),
+            ::core::stringify!(claimDisputeBond),
             ::core::stringify!(getSlashProposal),
         ];
         /// The signatures in the same order as `SELECTORS`.
@@ -3971,9 +4306,11 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
             <getExecutableSlashesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setSlashConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <disputeSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeSlashBatchCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <claimDisputeBondCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashProposalCall as alloy_sol_types::SolCall>::SIGNATURE,
         ];
         /// Returns the signature for the given selector, if known.
@@ -4001,12 +4338,15 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
     impl alloy_sol_types::SolInterface for ITangleSlashingCalls {
         const NAME: &'static str = "ITangleSlashingCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 9usize;
+        const COUNT: usize = 11usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
                 Self::cancelSlash(_) => {
                     <cancelSlashCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::claimDisputeBond(_) => {
+                    <claimDisputeBondCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::disputeSlash(_) => {
                     <disputeSlashCall as alloy_sol_types::SolCall>::SELECTOR
@@ -4025,6 +4365,9 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                 }
                 Self::getSlashProposal(_) => {
                     <getSlashProposalCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::pendingDisputeBondRefund(_) => {
+                    <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::proposeSlash(_) => {
                     <proposeSlashCall as alloy_sol_types::SolCall>::SELECTOR
@@ -4107,6 +4450,17 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                     disputeSlash
                 },
                 {
+                    fn pendingDisputeBondRefund(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                        <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleSlashingCalls::pendingDisputeBondRefund)
+                    }
+                    pendingDisputeBondRefund
+                },
+                {
                     fn getSlashConfig(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
@@ -4138,6 +4492,17 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                             .map(ITangleSlashingCalls::executeSlashBatch)
                     }
                     executeSlashBatch
+                },
+                {
+                    fn claimDisputeBond(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                        <claimDisputeBondCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleSlashingCalls::claimDisputeBond)
+                    }
+                    claimDisputeBond
                 },
                 {
                     fn getSlashProposal(
@@ -4226,6 +4591,17 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                     disputeSlash
                 },
                 {
+                    fn pendingDisputeBondRefund(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                        <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleSlashingCalls::pendingDisputeBondRefund)
+                    }
+                    pendingDisputeBondRefund
+                },
+                {
                     fn getSlashConfig(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
@@ -4259,6 +4635,17 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                     executeSlashBatch
                 },
                 {
+                    fn claimDisputeBond(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
+                        <claimDisputeBondCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleSlashingCalls::claimDisputeBond)
+                    }
+                    claimDisputeBond
+                },
+                {
                     fn getSlashProposal(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleSlashingCalls> {
@@ -4285,6 +4672,11 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
             match self {
                 Self::cancelSlash(inner) => {
                     <cancelSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::claimDisputeBond(inner) => {
+                    <claimDisputeBondCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -4318,6 +4710,11 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                         inner,
                     )
                 }
+                Self::pendingDisputeBondRefund(inner) => {
+                    <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::proposeSlash(inner) => {
                     <proposeSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -4335,6 +4732,12 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
             match self {
                 Self::cancelSlash(inner) => {
                     <cancelSlashCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::claimDisputeBond(inner) => {
+                    <claimDisputeBondCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -4371,6 +4774,12 @@ function setSlashConfig(uint64 disputeWindow, bool instantSlashEnabled, uint16 m
                 }
                 Self::getSlashProposal(inner) => {
                     <getSlashProposalCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::pendingDisputeBondRefund(inner) => {
+                    <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -4743,6 +5152,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, cancelSlashCall, N> {
             self.call_builder(&cancelSlashCall { slashId, reason })
         }
+        ///Creates a new call builder for the [`claimDisputeBond`] function.
+        pub fn claimDisputeBond(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, claimDisputeBondCall, N> {
+            self.call_builder(&claimDisputeBondCall)
+        }
         ///Creates a new call builder for the [`disputeSlash`] function.
         pub fn disputeSlash(
             &self,
@@ -4795,6 +5210,17 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             slashId: u64,
         ) -> alloy_contract::SolCallBuilder<&P, getSlashProposalCall, N> {
             self.call_builder(&getSlashProposalCall { slashId })
+        }
+        ///Creates a new call builder for the [`pendingDisputeBondRefund`] function.
+        pub fn pendingDisputeBondRefund(
+            &self,
+            disputer: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, pendingDisputeBondRefundCall, N> {
+            self.call_builder(
+                &pendingDisputeBondRefundCall {
+                    disputer,
+                },
+            )
         }
         ///Creates a new call builder for the [`proposeSlash`] function.
         pub fn proposeSlash(

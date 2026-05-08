@@ -1217,4 +1217,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     // ═══════════════════════════════════════════════════════════════════════════
 
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
+
+    /// @dev Reserved storage slots for future upgrades (Round 2 storage F-3).
+    uint256[50] private __gap;
 }

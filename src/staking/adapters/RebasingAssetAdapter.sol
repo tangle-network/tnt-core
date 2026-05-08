@@ -32,8 +32,18 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     /// @notice Precision for share calculations (prevents rounding to zero)
     uint256 internal constant PRECISION = 1e18;
 
-    /// @notice Initial shares per asset (used for first deposit)
+    /// @notice Initial shares per asset (legacy; retained for `sharesToAssets`/
+    ///         `getExchangeRate` views that read it during the bootstrap window).
     uint256 internal constant INITIAL_SHARES_PER_ASSET = 1e18;
+
+    /// @notice Virtual share/asset offset for first-depositor inflation defense.
+    /// @dev Mirrors the offsets in `DelegationStorage` (`VIRTUAL_SHARES = 1e8`,
+    ///      `VIRTUAL_ASSETS = 1`). With these values, an attacker who seeds the
+    ///      pool with one wei needs to donate ≥1e8 raw tokens to inflate share
+    ///      price meaningfully — economically infeasible for any 18-decimal
+    ///      rebasing token (~1e-10 ETH per share-wei). Round 2 economic F2.
+    uint256 internal constant VIRTUAL_SHARES = 1e8;
+    uint256 internal constant VIRTUAL_ASSETS = 1;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -89,6 +99,15 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     /// @inheritdoc IAssetAdapter
     /// @dev For rebasing tokens, we measure actual tokens received (not amount sent)
     ///      to handle any transfer fees or rebasing that occurs during transfer.
+    /// @dev Round 2 economic auditor F2 — first-depositor inflation defense.
+    ///      A virtual asset/share offset is added to the share-price computation
+    ///      so a one-wei seed plus a donation of D tokens cannot inflate share
+    ///      price enough to round a victim's later V-token deposit to zero shares.
+    ///      With VIRTUAL_SHARES=1e8 and VIRTUAL_ASSETS=1 (matching the staking-pool
+    ///      offsets in DelegationStorage), an attacker needs to donate ≥1e8 raw
+    ///      tokens to extract any meaningful share-price drift; for an 18-decimal
+    ///      rebasing token like stETH that's ~0.0000000001 ETH worth of donation
+    ///      to inflate by 1 share — i.e. economically infeasible.
     function deposit(address from, uint256 assets) external override onlyDelegationManager returns (uint256 shares) {
         if (assets == 0) revert ZeroAmount();
         if (from == address(0)) revert ZeroAddress();
@@ -104,15 +123,15 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
 
         if (actualReceived == 0) revert ZeroAmount();
 
-        // Calculate shares based on current exchange rate
-        if (totalShares == 0) {
-            // First deposit: establish initial share price
-            shares = actualReceived * INITIAL_SHARES_PER_ASSET;
-        } else {
-            // Subsequent deposits: shares proportional to current pool
-            // shares = (actualReceived * totalShares) / balanceBefore
-            shares = actualReceived.mulDiv(totalShares, balanceBefore, Math.Rounding.Floor);
-        }
+        // Virtual-offset share computation. Both totalShares and the asset-side
+        // balance get a virtual addend, so the very first depositor cannot
+        // unilaterally set the share price by donating just before depositing.
+        // shares = actualReceived * (totalShares + VIRTUAL_SHARES) / (balanceBefore + VIRTUAL_ASSETS)
+        shares = actualReceived.mulDiv(
+            totalShares + VIRTUAL_SHARES,
+            balanceBefore + VIRTUAL_ASSETS,
+            Math.Rounding.Floor
+        );
 
         if (shares == 0) revert ZeroShares();
 
@@ -122,15 +141,21 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     }
 
     /// @inheritdoc IAssetAdapter
-    /// @dev Converts shares to current asset value based on pool ratio
+    /// @dev Converts shares to current asset value based on pool ratio (with the
+    ///      same virtual offset used at deposit time so round-trip math is symmetric).
     function withdraw(address to, uint256 shares) external override onlyDelegationManager returns (uint256 assets) {
         if (shares == 0) revert ZeroShares();
         if (to == address(0)) revert ZeroAddress();
         if (shares > totalShares) revert InsufficientAssets();
 
-        // Calculate assets to withdraw: assets = (shares * totalAssets) / totalShares
+        // Calculate assets to withdraw with the same virtual offset:
+        // assets = (shares * (balance + VIRTUAL_ASSETS)) / (totalShares + VIRTUAL_SHARES)
         uint256 currentBalance = IERC20(asset).balanceOf(address(this));
-        assets = shares.mulDiv(currentBalance, totalShares, Math.Rounding.Floor);
+        assets = shares.mulDiv(
+            currentBalance + VIRTUAL_ASSETS,
+            totalShares + VIRTUAL_SHARES,
+            Math.Rounding.Floor
+        );
 
         if (assets == 0) revert ZeroAmount();
 

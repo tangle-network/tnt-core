@@ -12681,6 +12681,7 @@ interface ITangleFull {
     function canScheduleExit(uint64 serviceId, address operator) external view returns (bool canExit, string memory reason);
     function cancelExit(uint64 serviceId) external;
     function cancelSlash(uint64 slashId, string memory reason) external;
+    function claimDisputeBond() external;
     function claimRewards() external;
     function claimRewards(address token) external;
     function claimRewardsAll() external;
@@ -12743,6 +12744,7 @@ interface ITangleFull {
     function operatorStatusRegistry() external view returns (address);
     function pause() external;
     function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
+    function pendingDisputeBondRefund(address disputer) external view returns (uint256);
     function pendingRewards(address account) external view returns (uint256);
     function pendingRewards(address account, address token) external view returns (uint256);
     function preRegister(uint64 blueprintId) external;
@@ -13313,6 +13315,13 @@ interface ITangleFull {
         "internalType": "string"
       }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimDisputeBond",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -15944,6 +15953,25 @@ interface ITangleFull {
         "name": "stakerBps",
         "type": "uint16",
         "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pendingDisputeBondRefund",
+    "inputs": [
+      {
+        "name": "disputer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -24249,6 +24277,147 @@ function cancelSlash(uint64 slashId, string memory reason) external;
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 cancelSlashReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `claimDisputeBond()` and selector `0xead1df17`.
+```solidity
+function claimDisputeBond() external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct claimDisputeBondCall;
+    ///Container type for the return parameters of the [`claimDisputeBond()`](claimDisputeBondCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct claimDisputeBondReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<claimDisputeBondCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: claimDisputeBondCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimDisputeBondCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<claimDisputeBondReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: claimDisputeBondReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for claimDisputeBondReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl claimDisputeBondReturn {
+            fn _tokenize(
+                &self,
+            ) -> <claimDisputeBondCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for claimDisputeBondCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = claimDisputeBondReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "claimDisputeBond()";
+            const SELECTOR: [u8; 4] = [234u8, 209u8, 223u8, 23u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                claimDisputeBondReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -34312,6 +34481,164 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `pendingDisputeBondRefund(address)` and selector `0x8c2f4ee4`.
+```solidity
+function pendingDisputeBondRefund(address disputer) external view returns (uint256);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct pendingDisputeBondRefundCall {
+        #[allow(missing_docs)]
+        pub disputer: alloy::sol_types::private::Address,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`pendingDisputeBondRefund(address)`](pendingDisputeBondRefundCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct pendingDisputeBondRefundReturn {
+        #[allow(missing_docs)]
+        pub _0: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Address,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (alloy::sol_types::private::Address,);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<pendingDisputeBondRefundCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: pendingDisputeBondRefundCall) -> Self {
+                    (value.disputer,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for pendingDisputeBondRefundCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { disputer: tuple.0 }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<pendingDisputeBondRefundReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: pendingDisputeBondRefundReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for pendingDisputeBondRefundReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for pendingDisputeBondRefundCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address,);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = alloy::sol_types::private::primitives::aliases::U256;
+            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "pendingDisputeBondRefund(address)";
+            const SELECTOR: [u8; 4] = [140u8, 47u8, 78u8, 228u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.disputer,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(ret),
+                )
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: pendingDisputeBondRefundReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: pendingDisputeBondRefundReturn = r.into();
+                        r._0
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `pendingRewards(address)` and selector `0x31d7a262`.
 ```solidity
 function pendingRewards(address account) external view returns (uint256);
@@ -42546,6 +42873,8 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
         #[allow(missing_docs)]
         cancelSlash(cancelSlashCall),
         #[allow(missing_docs)]
+        claimDisputeBond(claimDisputeBondCall),
+        #[allow(missing_docs)]
         claimRewards_0(claimRewards_0Call),
         #[allow(missing_docs)]
         claimRewards_1(claimRewards_1Call),
@@ -42669,6 +42998,8 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
         pause(pauseCall),
         #[allow(missing_docs)]
         paymentSplit(paymentSplitCall),
+        #[allow(missing_docs)]
+        pendingDisputeBondRefund(pendingDisputeBondRefundCall),
         #[allow(missing_docs)]
         pendingRewards_0(pendingRewards_0Call),
         #[allow(missing_docs)]
@@ -42847,6 +43178,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             [134u8, 2u8, 187u8, 160u8],
             [137u8, 58u8, 136u8, 205u8],
             [138u8, 76u8, 247u8, 99u8],
+            [140u8, 47u8, 78u8, 228u8],
             [141u8, 63u8, 101u8, 190u8],
             [142u8, 180u8, 53u8, 165u8],
             [143u8, 195u8, 184u8, 179u8],
@@ -42893,6 +43225,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             [228u8, 192u8, 183u8, 86u8],
             [229u8, 247u8, 151u8, 242u8],
             [232u8, 48u8, 191u8, 246u8],
+            [234u8, 209u8, 223u8, 23u8],
             [235u8, 140u8, 59u8, 205u8],
             [235u8, 183u8, 216u8, 75u8],
             [239u8, 27u8, 66u8, 162u8],
@@ -42976,6 +43309,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             ::core::stringify!(claimRewardsBatch),
             ::core::stringify!(setTntPaymentDiscountBps),
             ::core::stringify!(transferBlueprint),
+            ::core::stringify!(pendingDisputeBondRefund),
             ::core::stringify!(blueprintOperatorCount),
             ::core::stringify!(defaultTntMinExposureBps),
             ::core::stringify!(getSlashConfig),
@@ -43022,6 +43356,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             ::core::stringify!(getServiceResourceCommitmentHash),
             ::core::stringify!(getServiceRequestSecurityRequirements),
             ::core::stringify!(setBlueprintResourceRequirements),
+            ::core::stringify!(claimDisputeBond),
             ::core::stringify!(getServiceEscrow),
             ::core::stringify!(extendServiceFromQuotes),
             ::core::stringify!(getSlashProposal),
@@ -43105,6 +43440,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             <claimRewardsBatchCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <transferBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::SIGNATURE,
             <blueprintOperatorCountCall as alloy_sol_types::SolCall>::SIGNATURE,
             <defaultTntMinExposureBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -43151,6 +43487,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             <getServiceResourceCommitmentHashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceRequestSecurityRequirementsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setBlueprintResourceRequirementsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <claimDisputeBondCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getServiceEscrowCall as alloy_sol_types::SolCall>::SIGNATURE,
             <extendServiceFromQuotesCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashProposalCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -43188,7 +43525,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
     impl alloy_sol_types::SolInterface for ITangleFullCalls {
         const NAME: &'static str = "ITangleFullCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 126usize;
+        const COUNT: usize = 128usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -43233,6 +43570,9 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 }
                 Self::cancelSlash(_) => {
                     <cancelSlashCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::claimDisputeBond(_) => {
+                    <claimDisputeBondCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::claimRewards_0(_) => {
                     <claimRewards_0Call as alloy_sol_types::SolCall>::SELECTOR
@@ -43417,6 +43757,9 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 Self::pause(_) => <pauseCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::paymentSplit(_) => {
                     <paymentSplitCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::pendingDisputeBondRefund(_) => {
+                    <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::pendingRewards_0(_) => {
                     <pendingRewards_0Call as alloy_sol_types::SolCall>::SELECTOR
@@ -44331,6 +44674,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                     transferBlueprint
                 },
                 {
+                    fn pendingDisputeBondRefund(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::pendingDisputeBondRefund)
+                    }
+                    pendingDisputeBondRefund
+                },
+                {
                     fn blueprintOperatorCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -44831,6 +45185,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                             .map(ITangleFullCalls::setBlueprintResourceRequirements)
                     }
                     setBlueprintResourceRequirements
+                },
+                {
+                    fn claimDisputeBond(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <claimDisputeBondCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleFullCalls::claimDisputeBond)
+                    }
+                    claimDisputeBond
                 },
                 {
                     fn getServiceEscrow(
@@ -45731,6 +46096,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                     transferBlueprint
                 },
                 {
+                    fn pendingDisputeBondRefund(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::pendingDisputeBondRefund)
+                    }
+                    pendingDisputeBondRefund
+                },
+                {
                     fn blueprintOperatorCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -46237,6 +46613,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                     setBlueprintResourceRequirements
                 },
                 {
+                    fn claimDisputeBond(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleFullCalls> {
+                        <claimDisputeBondCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleFullCalls::claimDisputeBond)
+                    }
+                    claimDisputeBond
+                },
+                {
                     fn getServiceEscrow(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleFullCalls> {
@@ -46436,6 +46823,11 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 }
                 Self::cancelSlash(inner) => {
                     <cancelSlashCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::claimDisputeBond(inner) => {
+                    <claimDisputeBondCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -46738,6 +47130,11 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 }
                 Self::paymentSplit(inner) => {
                     <paymentSplitCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::pendingDisputeBondRefund(inner) => {
+                    <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -47066,6 +47463,12 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 }
                 Self::cancelSlash(inner) => {
                     <cancelSlashCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::claimDisputeBond(inner) => {
+                    <claimDisputeBondCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -47435,6 +47838,12 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 }
                 Self::paymentSplit(inner) => {
                     <paymentSplitCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::pendingDisputeBondRefund(inner) => {
+                    <pendingDisputeBondRefundCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -48806,6 +49215,12 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         ) -> alloy_contract::SolCallBuilder<&P, cancelSlashCall, N> {
             self.call_builder(&cancelSlashCall { slashId, reason })
         }
+        ///Creates a new call builder for the [`claimDisputeBond`] function.
+        pub fn claimDisputeBond(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, claimDisputeBondCall, N> {
+            self.call_builder(&claimDisputeBondCall)
+        }
         ///Creates a new call builder for the [`claimRewards_0`] function.
         pub fn claimRewards_0(
             &self,
@@ -49473,6 +49888,17 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             &self,
         ) -> alloy_contract::SolCallBuilder<&P, paymentSplitCall, N> {
             self.call_builder(&paymentSplitCall)
+        }
+        ///Creates a new call builder for the [`pendingDisputeBondRefund`] function.
+        pub fn pendingDisputeBondRefund(
+            &self,
+            disputer: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, pendingDisputeBondRefundCall, N> {
+            self.call_builder(
+                &pendingDisputeBondRefundCall {
+                    disputer,
+                },
+            )
         }
         ///Creates a new call builder for the [`pendingRewards_0`] function.
         pub fn pendingRewards_0(

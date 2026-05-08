@@ -146,4 +146,31 @@ contract TangleToken is
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BURN OVERRIDES (governance hardening — Round 2 #5)
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    // Disable the public ERC20Burnable surface. Quorum on `TangleGovernor` is a
+    // fraction of `getPastTotalSupply()` at the proposal snapshot, so any
+    // unrestricted burn lets a faction lower the quorum bar before a vote and
+    // pass low-stake proposals. There is no protocol use case for users
+    // burning their TNT — inflation is governance-controlled via the InflationPool,
+    // never holder-driven. We retain the inherited `_burn` internal helper (still
+    // reachable through future upgradeable code paths) but lock down the external
+    // entry points.
+
+    /// @notice Burning is disabled; reverts on every call.
+    /// @dev Round 2 governance auditor #5. If a real burn use case appears later, add
+    ///      a BURNER_ROLE-gated entry point rather than re-enabling unrestricted burn.
+    function burn(uint256) public pure override {
+        revert BurnDisabled();
+    }
+
+    /// @notice Burning from another account (allowance-based) is disabled.
+    function burnFrom(address, uint256) public pure override {
+        revert BurnDisabled();
+    }
+
+    error BurnDisabled();
 }
