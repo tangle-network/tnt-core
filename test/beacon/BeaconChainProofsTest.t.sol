@@ -54,6 +54,16 @@ contract BeaconProofsHarness {
     {
         return BeaconChainProofs.verifyValidatorBalance(balanceContainerRoot, validatorIndex, proof);
     }
+
+    /// @notice Expose the internal balance extractor so tests can hit the
+    ///         actual library code path instead of inlining the math.
+    function extractBalance(bytes32 balanceRoot, uint40 validatorIndex) external pure returns (uint64) {
+        return BeaconChainProofs._extractBalanceFromLeaf(balanceRoot, validatorIndex);
+    }
+
+    function fromLittleEndianUint64(bytes32 chunk) external pure returns (uint64) {
+        return BeaconChainProofs._fromLittleEndianUint64(chunk);
+    }
 }
 
 /// @title BeaconChainProofsTest
@@ -289,19 +299,19 @@ contract BeaconChainProofsTest is BeaconTestBase {
         assertEq(result, credentials, "Withdrawal credentials should match");
     }
 
-    function test_getEffectiveBalanceGwei() public pure {
+    function test_getEffectiveBalanceGwei() public view {
         uint64 balance = 32_000_000_000; // 32 ETH in gwei
         bytes32[] memory fields = new bytes32[](8);
-        fields[2] = bytes32(uint256(balance));
+        fields[2] = _sszUint64(balance);
 
         uint64 result = BeaconChainProofs.getEffectiveBalanceGwei(fields);
         assertEq(result, balance, "Effective balance should match");
     }
 
-    function test_getEffectiveBalanceGwei_MaxValue() public pure {
+    function test_getEffectiveBalanceGwei_MaxValue() public view {
         uint64 maxBalance = type(uint64).max;
         bytes32[] memory fields = new bytes32[](8);
-        fields[2] = bytes32(uint256(maxBalance));
+        fields[2] = _sszUint64(maxBalance);
 
         uint64 result = BeaconChainProofs.getEffectiveBalanceGwei(fields);
         assertEq(result, maxBalance, "Max effective balance should match");
@@ -323,28 +333,28 @@ contract BeaconChainProofsTest is BeaconTestBase {
         assertFalse(result, "Validator should not be marked as slashed");
     }
 
-    function test_getActivationEpoch() public pure {
+    function test_getActivationEpoch() public view {
         uint64 epoch = 12_345;
         bytes32[] memory fields = new bytes32[](8);
-        fields[5] = bytes32(uint256(epoch));
+        fields[5] = _sszUint64(epoch);
 
         uint64 result = BeaconChainProofs.getActivationEpoch(fields);
         assertEq(result, epoch, "Activation epoch should match");
     }
 
-    function test_getExitEpoch() public pure {
+    function test_getExitEpoch() public view {
         uint64 epoch = type(uint64).max; // FAR_FUTURE_EPOCH
         bytes32[] memory fields = new bytes32[](8);
-        fields[6] = bytes32(uint256(epoch));
+        fields[6] = _sszUint64(epoch);
 
         uint64 result = BeaconChainProofs.getExitEpoch(fields);
         assertEq(result, epoch, "Exit epoch should match");
     }
 
-    function test_getWithdrawableEpoch() public pure {
+    function test_getWithdrawableEpoch() public view {
         uint64 epoch = 99_999;
         bytes32[] memory fields = new bytes32[](8);
-        fields[7] = bytes32(uint256(epoch));
+        fields[7] = _sszUint64(epoch);
 
         uint64 result = BeaconChainProofs.getWithdrawableEpoch(fields);
         assertEq(result, epoch, "Withdrawable epoch should match");
@@ -364,10 +374,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
 
         // Validator index 0 -> position 0 in leaf
         // This would be extracted by verifyValidatorBalance
-        uint256 position = 0 % 4;
-        uint256 bitOffset = position * 64;
-        uint64 extracted = uint64(uint256(balanceRoot) >> bitOffset);
-
+        uint64 extracted = harness.extractBalance(balanceRoot, 0);
         assertEq(extracted, balance0, "Balance at position 0 should match");
     }
 
@@ -378,12 +385,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
         uint64 balance3 = 29_000_000_000;
 
         bytes32 balanceRoot = _generateBalanceRoot(balance0, balance1, balance2, balance3);
-
-        // Validator index 1 -> position 1 in leaf
-        uint256 position = 1 % 4;
-        uint256 bitOffset = position * 64;
-        uint64 extracted = uint64(uint256(balanceRoot) >> bitOffset);
-
+        uint64 extracted = harness.extractBalance(balanceRoot, 1);
         assertEq(extracted, balance1, "Balance at position 1 should match");
     }
 
@@ -394,11 +396,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
         uint64 balance3 = 29_000_000_000;
 
         bytes32 balanceRoot = _generateBalanceRoot(balance0, balance1, balance2, balance3);
-
-        uint256 position = 2 % 4;
-        uint256 bitOffset = position * 64;
-        uint64 extracted = uint64(uint256(balanceRoot) >> bitOffset);
-
+        uint64 extracted = harness.extractBalance(balanceRoot, 2);
         assertEq(extracted, balance2, "Balance at position 2 should match");
     }
 
@@ -409,27 +407,38 @@ contract BeaconChainProofsTest is BeaconTestBase {
         uint64 balance3 = 29_000_000_000;
 
         bytes32 balanceRoot = _generateBalanceRoot(balance0, balance1, balance2, balance3);
-
-        uint256 position = 3 % 4;
-        uint256 bitOffset = position * 64;
-        uint64 extracted = uint64(uint256(balanceRoot) >> bitOffset);
-
+        uint64 extracted = harness.extractBalance(balanceRoot, 3);
         assertEq(extracted, balance3, "Balance at position 3 should match");
     }
 
     function test_extractBalance_Fuzz(uint64 b0, uint64 b1, uint64 b2, uint64 b3) public view {
         bytes32 balanceRoot = _generateBalanceRoot(b0, b1, b2, b3);
 
-        // Extract all positions
-        uint64 e0 = uint64(uint256(balanceRoot) >> 0);
-        uint64 e1 = uint64(uint256(balanceRoot) >> 64);
-        uint64 e2 = uint64(uint256(balanceRoot) >> 128);
-        uint64 e3 = uint64(uint256(balanceRoot) >> 192);
+        assertEq(harness.extractBalance(balanceRoot, 0), b0, "Balance 0 mismatch");
+        assertEq(harness.extractBalance(balanceRoot, 1), b1, "Balance 1 mismatch");
+        assertEq(harness.extractBalance(balanceRoot, 2), b2, "Balance 2 mismatch");
+        assertEq(harness.extractBalance(balanceRoot, 3), b3, "Balance 3 mismatch");
+    }
 
-        assertEq(e0, b0, "Balance 0 mismatch");
-        assertEq(e1, b1, "Balance 1 mismatch");
-        assertEq(e2, b2, "Balance 2 mismatch");
-        assertEq(e3, b3, "Balance 3 mismatch");
+    /// @notice Pin SSZ uint64 decoding against a hand-constructed leaf with the
+    ///         canonical 32-ETH effective-balance encoding. Without this test
+    ///         the broken "high-byte" reading would silently pass since the old
+    ///         fixture mirrored the same wrong packing.
+    function test_extractBalance_RealSszLeaf_32ETH() public view {
+        // 32 * 1e9 gwei = 0x773594000.
+        // As a uint64 padded to 8 bytes (BE): [0x00, 0x00, 0x00, 0x07, 0x73, 0x59, 0x40, 0x00]
+        // SSZ LE-encoding (reverse the bytes): [0x00, 0x40, 0x59, 0x73, 0x07, 0x00, 0x00, 0x00]
+        // Packed at the top of the chunk as balance0; balance1..3 zero.
+        bytes32 leaf = bytes32(uint256(0x0040597307000000) << 192);
+
+        assertEq(harness.extractBalance(leaf, 0), 32_000_000_000, "32 ETH at position 0");
+        assertEq(harness.extractBalance(leaf, 1), 0, "position 1 must be zero");
+        assertEq(harness.extractBalance(leaf, 2), 0, "position 2 must be zero");
+        assertEq(harness.extractBalance(leaf, 3), 0, "position 3 must be zero");
+
+        // Cross-check the standalone uint64 decoder.
+        bytes32 effBalanceField = bytes32(uint256(0x0040597307000000) << 192);
+        assertEq(harness.fromLittleEndianUint64(effBalanceField), 32_000_000_000, "effective balance");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

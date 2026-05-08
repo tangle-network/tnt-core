@@ -306,6 +306,7 @@ contract JobPricingAndRFQTest is BaseTest {
 
     function test_SubmitJobFromQuote_RevertExpiredQuote() public {
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
+            requester: user1,
             serviceId: serviceId,
             jobIndex: 0,
             price: 1 ether,
@@ -325,6 +326,7 @@ contract JobPricingAndRFQTest is BaseTest {
 
     function test_SubmitJobFromQuote_RevertInvalidSignature() public {
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
+            requester: user1,
             serviceId: serviceId,
             jobIndex: 0,
             price: 1 ether,
@@ -506,6 +508,7 @@ contract JobPricingAndRFQTest is BaseTest {
     function test_SubmitJobFromQuote_QuoteExpiresAtExactBlockTimestamp() public {
         // Quote with expiry == block.timestamp is still valid (check is >)
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
+            requester: user1,
             serviceId: serviceId,
             jobIndex: 0,
             price: 1 ether,
@@ -530,6 +533,7 @@ contract JobPricingAndRFQTest is BaseTest {
     function test_SubmitJobFromQuote_QuoteExpiredByOneSecond() public {
         // Quote with expiry 1 second before block.timestamp IS expired
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
+            requester: user1,
             serviceId: serviceId,
             jobIndex: 0,
             price: 1 ether,
@@ -681,6 +685,7 @@ contract JobPricingAndRFQTest is BaseTest {
         quoteNonce++;
 
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
+            requester: user1,
             serviceId: _serviceId,
             jobIndex: jobIndex,
             price: price,
@@ -703,7 +708,7 @@ contract JobPricingAndRFQTest is BaseTest {
         returns (bytes memory)
     {
         bytes32 JOB_QUOTE_TYPEHASH_LOCAL = keccak256(
-            "JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)"
+            "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)"
         );
 
         bytes32 domainSeparator = keccak256(
@@ -719,6 +724,7 @@ contract JobPricingAndRFQTest is BaseTest {
         bytes32 structHash = keccak256(
             abi.encode(
                 JOB_QUOTE_TYPEHASH_LOCAL,
+                details.requester,
                 details.serviceId,
                 details.jobIndex,
                 details.price,

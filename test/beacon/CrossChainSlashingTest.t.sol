@@ -643,18 +643,19 @@ contract CrossChainSlashingTest is Test {
         assertTrue(receiver.isNonceProcessed(ETH_CHAIN_ID, address(connector), nonce));
     }
 
-    function test_receiveMessage_SkipsWhenSlashingPaused() public {
+    function test_receiveMessage_RevertsWhenSlashingPaused() public {
         vm.prank(admin);
         slasher.setPaused(true);
 
         bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
         bytes memory payload = abi.encodePacked(messageType, abi.encode(operator1, uint16(1000), 0.9e18, 0, pod1));
 
-        uint256 previousSlash = staking.lastSlashAmount();
+        // After the S-1 CEI fix the receiver no longer silently consumes the nonce
+        // when `canSlash` returns false. It reverts so the bridge keeps the
+        // message available for retry once the cause (paused, etc.) is resolved.
+        vm.expectRevert();
         vm.prank(address(messenger));
         receiver.receiveMessage(ETH_CHAIN_ID, address(connector), payload);
-
-        assertEq(staking.lastSlashAmount(), previousSlash, "Slashing should be skipped while paused");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

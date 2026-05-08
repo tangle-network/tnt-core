@@ -614,6 +614,7 @@ contract RFQPaymentDistributionTest is BaseTest {
         quoteNonce++;
 
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
+            requester: user1,
             serviceId: _serviceId,
             jobIndex: jobIndex,
             price: price,
@@ -636,7 +637,7 @@ contract RFQPaymentDistributionTest is BaseTest {
         returns (bytes memory)
     {
         bytes32 JOB_QUOTE_TYPEHASH_LOCAL = keccak256(
-            "JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)"
+            "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)"
         );
 
         bytes32 domainSeparator = keccak256(
@@ -652,6 +653,7 @@ contract RFQPaymentDistributionTest is BaseTest {
         bytes32 structHash = keccak256(
             abi.encode(
                 JOB_QUOTE_TYPEHASH_LOCAL,
+                details.requester,
                 details.serviceId,
                 details.jobIndex,
                 details.price,

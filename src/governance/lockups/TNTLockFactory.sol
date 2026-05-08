@@ -31,6 +31,15 @@ contract TNTLockFactory {
         return Clones.predictDeterministicAddress(implementation, salt, address(this));
     }
 
+    /// @notice Create or fetch the deterministic lock for `(token, beneficiary, unlockTimestamp)`.
+    /// @dev Only the beneficiary can pick the delegatee. Without this restriction,
+    ///      any third party could call `getOrCreateLock(..., attacker)` BEFORE the
+    ///      beneficiary touches the contract — the clone's `initialize` calls
+    ///      `IVotes.delegate(attacker)` from the lock address, persistently writing
+    ///      `_delegates[lock] = attacker`. When the airdrop / vesting transfer
+    ///      later sends TNT to the predictable lock address, ERC20Votes silently
+    ///      credits the attacker with all of the beneficiary's voting power until
+    ///      the beneficiary themselves calls `lock.delegate(...)`.
     function getOrCreateLock(
         address token,
         address beneficiary,
@@ -40,6 +49,7 @@ contract TNTLockFactory {
         external
         returns (address lock)
     {
+        if (msg.sender != beneficiary) revert NotBeneficiary(msg.sender, beneficiary);
         bytes32 salt = keccak256(abi.encode(token, beneficiary, unlockTimestamp));
         lock = Clones.predictDeterministicAddress(implementation, salt, address(this));
         if (lock.code.length == 0) {
@@ -48,5 +58,7 @@ contract TNTLockFactory {
             emit LockCreated(token, beneficiary, lock, unlockTimestamp, delegatee);
         }
     }
+
+    error NotBeneficiary(address caller, address beneficiary);
 }
 

@@ -152,6 +152,14 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         return (true, 0); // Use protocol default grace intervals
     }
 
+    /// @inheritdoc IBlueprintServiceManager
+    function forceRemoveAllowsBelowMin(uint64) external view virtual returns (bool) {
+        // Default: enforce the protocol-level minimum operator floor on emergency
+        // eviction. Override and return true on blueprints that legitimately need
+        // emergency-eviction-below-min (the override self-documents the bypass).
+        return false;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════════

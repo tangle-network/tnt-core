@@ -96,7 +96,7 @@ contract QuoteEdgeCasesTest is BaseTest {
 
         // Create quote with wrong signer
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: blueprintId,
             ttlBlocks: ttl,
             totalCost: 1 ether,
@@ -146,7 +146,7 @@ contract QuoteEdgeCasesTest is BaseTest {
         uint64 ttl = 30 days;
         // Create quote for different blueprint
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: blueprintId + 1, // Wrong blueprint
             ttlBlocks: ttl,
             totalCost: 1 ether,
@@ -282,7 +282,7 @@ contract QuoteEdgeCasesTest is BaseTest {
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
 
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: blueprintId,
             ttlBlocks: ttl, // Must match TTL passed to createServiceFromQuotes
             totalCost: 1 ether,
@@ -319,7 +319,7 @@ contract QuoteEdgeCasesTest is BaseTest {
         });
 
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: blueprintId,
             ttlBlocks: ttl, // Must match TTL passed to createServiceFromQuotes
             totalCost: 1 ether,
@@ -436,7 +436,7 @@ contract QuoteEdgeCasesTest is BaseTest {
         returns (Types.SignedQuote memory)
     {
         Types.QuoteDetails memory details = Types.QuoteDetails({
-            requester: address(0),
+            requester: user1,
             blueprintId: blueprintId,
             ttlBlocks: ttl, // Must match the TTL passed to createServiceFromQuotes
             totalCost: totalCost,

@@ -214,7 +214,13 @@ contract DeployL2Slashing is EnvUtils {
         slasher = address(slasherContract);
         console2.log("TangleL2Slasher:", slasher);
 
-        address initialMessenger = messengerOverride != address(0) ? messengerOverride : deployer;
+        // Pass `address(0)` as the constructor's initial messenger so the
+        // first `setMessenger` call below takes the bootstrap path (immediate
+        // write). Subsequent swaps go through the 2-day timelock; without the
+        // bootstrap exemption the deploy flow would deadlock for two days.
+        address initialMessenger = address(0);
+        // Deployer placeholder retained for None-bridge path below.
+        address fallbackMessenger = messengerOverride != address(0) ? messengerOverride : deployer;
         L2SlashingReceiver receiverContract = new L2SlashingReceiver(slasher, initialMessenger);
         receiver = address(receiverContract);
         console2.log("L2SlashingReceiver:", receiver);
@@ -232,7 +238,7 @@ contract DeployL2Slashing is EnvUtils {
             receiverContract.setMessenger(bridgeReceiver);
         } else {
             bridgeReceiver = address(0);
-            receiverContract.setMessenger(initialMessenger);
+            receiverContract.setMessenger(fallbackMessenger);
         }
 
         if (l1Connector != address(0)) {

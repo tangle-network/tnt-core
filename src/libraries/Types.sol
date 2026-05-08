@@ -379,6 +379,11 @@ library Types {
     ///      Slot 2: paymentToken (20) + membership (1) + minOperators (4) = 25 bytes
     ///      Slot 3: paymentAmount (32)
     ///      Slot 4: maxOperators (4) + rejected (1) + activated (1) + confidentiality (1) = 7 bytes
+    /// @dev Field ordering note: `activated` is appended at the END of the struct
+    ///      so that an upgrade from a pre-activated layout cannot accidentally
+    ///      read a non-zero byte from a different field as `activated == true`.
+    ///      If you add a new field, append it AFTER `activated` (and update any
+    ///      surrounding storage gap accordingly).
     struct ServiceRequest {
         uint64 blueprintId;
         address requester;
@@ -392,12 +397,12 @@ library Types {
         uint32 minOperators; // For dynamic: minimum required
         uint32 maxOperators; // For dynamic: maximum allowed (0 = unlimited)
         bool rejected; // Set true on operator rejection or permissionless expiry
+        ConfidentialityPolicy confidentiality; // Requested execution confidentiality
         // True once `_activateService` has fully spawned the service. Stops
         // `expireServiceRequest` from refunding escrow that has already been
         // transferred to the service, and stops late approve/reject paths
         // from mutating a request whose lifecycle is already complete.
         bool activated;
-        ConfidentialityPolicy confidentiality; // Requested execution confidentiality
     }
 
     /// @notice Service - an active instance of a blueprint
@@ -669,7 +674,13 @@ library Types {
     }
 
     /// @notice Per-job quote details from an operator
+    /// @dev `requester` is part of the typed data so the operator's signature commits
+    ///      to who is allowed to redeem the quote. Mirrors the same field on the
+    ///      service-creation `QuoteDetails` and prevents another permitted caller
+    ///      (or any mempool observer) from front-running and consuming a signed
+    ///      single-use job-quote digest before the intended caller's tx lands.
     struct JobQuoteDetails {
+        address requester; // Caller authorized to consume this quote
         uint64 serviceId; // Which service instance
         uint8 jobIndex; // Which job type
         uint256 price; // Operator's price in native token (wei)

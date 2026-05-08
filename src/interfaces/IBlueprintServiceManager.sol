@@ -97,6 +97,15 @@ interface IBlueprintServiceManager {
         view
         returns (bool useDefault, uint64 graceIntervals);
 
+    /// @notice Whether `forceRemoveOperator` may drop the service below `minOperators`.
+    /// @dev By default the protocol enforces `operatorCount > minOperators` even when
+    ///      a blueprint manager calls `forceRemoveOperator`. A blueprint that genuinely
+    ///      needs emergency-eviction-below-min must self-document by returning true.
+    ///      Reverts / unimplemented => protocol enforces the floor (fail-closed).
+    /// @param serviceId The service ID
+    /// @return ok True to allow eviction below the minimum operator count
+    function forceRemoveAllowsBelowMin(uint64 serviceId) external view returns (bool ok);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════════

@@ -36,9 +36,11 @@ library SignatureLib {
         "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
     );
 
-    /// @dev EIP-712 TypeHash for JobQuoteDetails (per-job RFQ)
+    /// @dev EIP-712 TypeHash for JobQuoteDetails (per-job RFQ).
+    /// @dev Includes `requester` so the operator's signature binds the consumer of
+    ///      the quote, mirroring the QuoteDetails fix.
     bytes32 internal constant JOB_QUOTE_TYPEHASH =
-        keccak256("JobQuoteDetails(uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)");
+        keccak256("JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)");
 
     /// @dev EIP-712 TypeHash for domain separator
     bytes32 internal constant DOMAIN_TYPEHASH =
@@ -184,6 +186,7 @@ library SignatureLib {
         return keccak256(
             abi.encode(
                 JOB_QUOTE_TYPEHASH,
+                details.requester,
                 details.serviceId,
                 details.jobIndex,
                 details.price,
@@ -250,8 +253,12 @@ library SignatureLib {
 
     /// @notice Verify multiple quotes and compute total cost.
     /// @param expectedRequester The address each quote must be bound to (typically `msg.sender`).
-    ///        Operators may sign with `address(0)` to mean "any requester"; we still accept
-    ///        those, but the protocol layer should refuse them on production paths.
+    /// @dev Wildcard `requester == address(0)` is rejected. Operators that sign a wildcard
+    ///      quote and post it publicly are vulnerable to a front-runner consuming the
+    ///      single-use digest before the intended caller's tx lands. Wildcard support has
+    ///      no good production use case; if a workflow needs "any of N callers may consume
+    ///      this," the operator should issue per-caller quotes or have the caller batch
+    ///      them as a permittedCaller list at request time.
     function verifyQuoteBatch(
         mapping(bytes32 => bool) storage usedQuotes,
         bytes32 domainSeparator,
@@ -295,8 +302,9 @@ library SignatureLib {
             }
 
             // Bind quote to the intended requester so a third party cannot front-run
-            // `createServiceFromQuotes` with the operator's signature.
-            if (quote.details.requester != address(0) && quote.details.requester != expectedRequester) {
+            // `createServiceFromQuotes` with the operator's signature. Wildcard
+            // `requester == address(0)` is rejected outright — see the docstring.
+            if (quote.details.requester == address(0) || quote.details.requester != expectedRequester) {
                 revert Errors.InvalidQuoteSignature(quote.operator);
             }
 

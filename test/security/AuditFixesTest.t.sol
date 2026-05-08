@@ -140,4 +140,65 @@ contract AuditFixesTest is BaseTest {
         vm.prank(user1);
         ITangleSlashing(address(tangle)).proposeSlash(serviceId, operator1, 100, bytes32(0));
     }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Round 2 — gov #4: SLASH_ADMIN cannot self-dispute their own slash.
+    // Without this gate, an admin who is also the proposer can propose, then
+    // immediately self-dispute for free, freezing operator stake for the full
+    // disputeResolutionDeadline window and (when treasury == admin) capturing
+    // the operator's bond on auto-execution.
+    // ───────────────────────────────────────────────────────────────────────
+    function test_disputeSlash_adminCannotSelfDisputeOwnProposal() public {
+        // Build an active service.
+        address[] memory ops = new address[](1);
+        ops[0] = operator1;
+        vm.prank(user1);
+        uint64 requestId = tangle.requestService(
+            blueprintId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
+        vm.prank(operator1);
+        tangle.approveService(_approve(requestId));
+        uint64 serviceId = tangle.serviceCount() - 1;
+
+        // Admin already holds SLASH_ADMIN_ROLE via Base.sol bootstrap.
+
+        // Admin proposes the slash (also being SLASH_ADMIN, this passes the
+        // existing authorization since admin is also the service owner of
+        // their own services — but here we make admin the slasher via the
+        // blueprint owner override path. Simplest: admin proposes as themselves
+        // through any authorized origin; for this test we make admin both
+        // proposer and disputer by routing via the blueprint owner role too.)
+        vm.prank(developer); // blueprint owner == developer
+        uint64 slashId = ITangleSlashing(address(tangle)).proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
+
+        // Admin is NOT the proposer here, so they CAN dispute as escalation.
+        vm.prank(admin);
+        ITangleSlashing(address(tangle)).disputeSlash(slashId, "admin escalation");
+
+        // Now show the inverse: when admin IS the proposer, dispute reverts.
+        // Make admin the blueprint owner of a fresh blueprint so they can both
+        // propose and try to self-dispute.
+        vm.prank(admin);
+        uint64 adminBp = tangle.createBlueprint(_blueprintDefinition("ipfs://admin-owned", address(0)));
+        _registerOperator(operator3, 5 ether);
+        _registerForBlueprint(operator3, adminBp);
+        address[] memory ops2 = new address[](1);
+        ops2[0] = operator3;
+        vm.prank(user1);
+        uint64 reqId2 = tangle.requestService(
+            adminBp, ops2, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
+        );
+        vm.prank(operator3);
+        tangle.approveService(_approve(reqId2));
+        uint64 svcId2 = tangle.serviceCount() - 1;
+
+        vm.prank(admin);
+        uint64 selfSlashId =
+            ITangleSlashing(address(tangle)).proposeSlash(svcId2, operator3, 1000, keccak256("admin-evidence"));
+
+        // Admin is the proposer; self-dispute must revert.
+        vm.expectRevert();
+        vm.prank(admin);
+        ITangleSlashing(address(tangle)).disputeSlash(selfSlashId, "self-dispute");
+    }
 }
