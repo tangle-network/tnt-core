@@ -8,11 +8,40 @@ import { SlashingLib } from "../libraries/SlashingLib.sol";
 interface ITangleSlashing {
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
+    //
+    // These mirror the events emitted from `SlashingLib`. The interface used to
+    // declare smaller, legacy shapes that no longer matched what the protocol
+    // actually emits, so off-chain consumers (Rust bindings, indexers) wired to
+    // `ITangleSlashing` could not decode any slash event. Aligning here.
     // ═══════════════════════════════════════════════════════════════════════════
 
-    event SlashProposed(uint64 indexed serviceId, address indexed operator, uint16 slashBps, bytes32 evidence);
+    event SlashProposed(
+        uint64 indexed slashId,
+        uint64 indexed serviceId,
+        address indexed operator,
+        address proposer,
+        uint16 slashBps,
+        uint16 effectiveSlashBps,
+        bytes32 evidence,
+        uint64 executeAfter
+    );
 
-    event SlashExecuted(uint64 indexed serviceId, address indexed operator, uint256 amount);
+    event SlashDisputed(uint64 indexed slashId, address indexed disputer, string reason);
+
+    event SlashExecuted(
+        uint64 indexed slashId, uint64 indexed serviceId, address indexed operator, uint256 actualSlashed
+    );
+
+    event SlashCancelled(uint64 indexed slashId, address indexed canceller, string reason);
+
+    event SlashConfigUpdated(
+        uint64 disputeWindow,
+        bool instantSlashEnabled,
+        uint16 maxSlashBps,
+        uint64 disputeResolutionDeadline,
+        uint256 disputeBond,
+        uint16 maxPendingSlashesPerOperator
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FUNCTIONS

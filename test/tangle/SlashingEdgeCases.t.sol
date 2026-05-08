@@ -532,7 +532,9 @@ contract SlashingEdgeCasesTest is BaseTest {
         uint256 treasuryBefore = treasury.balance;
 
         // Auto-resolution after the snapshotted disputeResolutionDeadline (14 days).
-        vm.warp(block.timestamp + 14 days + 1);
+        // The Disputed branch of `isExecutable` now also applies the 15-second
+        // TIMESTAMP_BUFFER for symmetry with Pending; warp past it.
+        vm.warp(block.timestamp + 14 days + 16);
         tangle.executeSlash(slashId);
 
         assertEq(treasury.balance, treasuryBefore + DISPUTE_BOND, "bond forfeit to treasury");

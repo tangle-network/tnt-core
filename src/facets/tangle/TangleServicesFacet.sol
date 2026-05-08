@@ -16,13 +16,17 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](6);
+        selectorList = new bytes4[](7);
         selectorList[0] = this.approveService.selector;
         selectorList[1] = this.rejectService.selector;
         selectorList[2] = this.getOperatorBlsPubkey.selector;
         selectorList[3] = this.blsPopMessage.selector;
         selectorList[4] = this.getTeeCommitmentRoot.selector;
         selectorList[5] = this.teeNonceFor.selector;
+        // The aa511c2 release added `expireServiceRequest` to ITangleServices but
+        // forgot to register it here, so the permissionless cleanup path was
+        // unreachable on the proxy.
+        selectorList[6] = this.expireServiceRequest.selector;
     }
 
     /// @notice keccak256 root over an operator's `TeeAttestationCommitment[]` for a service.

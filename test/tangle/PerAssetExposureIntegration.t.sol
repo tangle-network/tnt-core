@@ -6,7 +6,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
-import { MockPriceOracle } from "../exposure/MockPriceOracle.sol";
+import { MockPriceOracle } from "../mocks/MockPriceOracle.sol";
 import { ServiceFeeDistributor } from "../../src/rewards/ServiceFeeDistributor.sol";
 import { SlashingLib } from "../../src/libraries/SlashingLib.sol";
 import { IPriceOracle } from "../../src/oracles/interfaces/IPriceOracle.sol";

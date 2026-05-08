@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-05-08
+
+### Changed (BREAKING)
+
+- `QuoteDetails` EIP-712 typehash now includes `address requester` as the first
+  field. Previously `requester` lived on the struct but was excluded from the
+  typehash, so an attacker who observed a signed quote in the mempool could
+  flip `details.requester` to themselves and the operator's signature still
+  recovered correctly — the binding check at the protocol layer was therefore
+  cosmetic. Off-chain signers MUST now hash `requester` as the first member of
+  `QuoteDetails`. Existing pre-fix signatures are invalid against the new
+  typehash. The full updated string is:
+  `"QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)"`
+- `ITangleSlashing` event declarations realigned with what the protocol
+  actually emits from `SlashingLib`: `SlashProposed` is now 8 fields (was 4),
+  `SlashExecuted` is now 4 fields (was 3), and the previously-missing
+  `SlashDisputed`, `SlashCancelled`, `SlashConfigUpdated` events are now
+  declared. Rust consumers wired to `ITangleSlashing` could not decode any
+  emitted slash event before this fix; they can now.
+
+### Added
+
+- Permissionless `expireServiceRequest(uint64)` is wired to the proxy. The
+  declaration shipped in 0.11.2 but the corresponding selector was never
+  registered on `TangleServicesFacet.selectors()`, so calls routed through the
+  unknown-selector fallback. Off-chain callers can now reach the function via
+  the canonical `ITangleServices` ABI.
+
+### Fixed (security)
+
+- `proposeSlash` and `disputeSlash` now carry `nonReentrant`; only `executeSlash`,
+  `executeSlashBatch`, and `cancelSlash` were guarded before. `proposeSlash`
+  also rejects `bytes32(0)` evidence so off-chain monitors keying off non-zero
+  evidence don't see silently-zero entries.
+- Disputed slashes now apply the same 15-second `TIMESTAMP_BUFFER` as Pending
+  slashes. Previously a sequencer / proposer with timestamp influence could
+  sandwich the dispute deadline tick; the operator had no symmetric protection.
+- `approveService` now rejects requests past the expiry grace window — operators
+  could otherwise race `expireServiceRequest` and quietly activate a stale
+  request the requester thought they could clean up.
+- `requestService*` now rejects duplicate operator entries. With duplicates,
+  `req.operatorCount` exceeds the unique approver count, so
+  `approvalCount == operatorCount` was unreachable and the request could only
+  be cleaned up via `expireServiceRequest`.
+- `terminateService` and `terminateServiceForNonPayment` now carry
+  `nonReentrant`. State writes already preceded external calls (CEI), but
+  defense-in-depth aligns these entrypoints with the rest of the lifecycle.
+- All operator-exit entrypoints (`scheduleExit`, `executeExit`, `forceExit`,
+  `leaveService`, `forceRemoveOperator`) now reject when the service is no
+  longer Active. Previously a stale operator could continue to fire exit paths
+  on a Terminated service, double-decrementing counts and emitting
+  `OperatorLeftService` for a dead service.
+- `_distributePaymentWithEffectiveExposure` now reverts (instead of silently
+  retaining funds) when there are zero active operators at billing time. The
+  developer/treasury split would still pay out while the operator+staker pool
+  (default 60%) remained stuck in the contract with no path back. Service
+  owners who lose all operators can recover escrow via `terminateService` →
+  `withdrawRemainingEscrow`.
+- `fundService`, `billSubscription`, and `billSubscriptionBatch` now respect
+  the global pause. Reward / refund claim paths remain unguarded so users can
+  always exit.
+- `OperatorStatusRegistry.registerOperator` now resets all per-(serviceId,
+  operator) heartbeat / metrics state on (re-)register. Without this, an
+  operator who deregistered carried stale heartbeat data forward — and
+  `isHeartbeatCurrent` could return true before any new heartbeat landed.
+- `LiquidDelegationVault.requestRedeem` rejects `controller == address(0)` so
+  filing a request under that controller no longer permanently locks the
+  redeemer's burned shares.
+
+### Removed
+
+- Deleted unused `src/exposure/` module (`ExposureManager`, `ExposureCalculator`,
+  `ExposureTypes`, `IExposureManager`) and its self-contained `test/exposure/`
+  suite. The actual exposure logic lives in `src/core/PaymentsEffectiveExposure.sol`
+  and is exercised by `test/payments/`. The orphan module was an audit-burden
+  divergence risk for the same bps math.
+- Deleted `src/interfaces/IStreamingPaymentAdapter.sol` (also defining
+  `ISuperfluidAdapter`, `ISablierAdapter`, `IPaymentAdapterRegistry`). None of
+  these interfaces are implemented or referenced anywhere; only
+  `IStreamingPaymentManager` is wired in.
+
 ## [0.11.3] - 2026-05-06
 
 ### Changed

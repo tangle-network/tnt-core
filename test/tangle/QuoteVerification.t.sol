@@ -578,7 +578,7 @@ contract QuoteVerificationTest is BaseTest {
         returns (bytes memory)
     {
         bytes32 QUOTE_TYPEHASH = keccak256(
-            "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+            "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
         );
         bytes32 commitmentsHash = _hashSecurityCommitments(details.securityCommitments);
         bytes32 resourcesHash = _hashResourceCommitments(details.resourceCommitments);
@@ -596,6 +596,7 @@ contract QuoteVerificationTest is BaseTest {
         bytes32 structHash = keccak256(
             abi.encode(
                 QUOTE_TYPEHASH,
+                details.requester,
                 details.blueprintId,
                 details.ttlBlocks,
                 details.totalCost,

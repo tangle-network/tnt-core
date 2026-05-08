@@ -252,7 +252,8 @@ abstract contract ServicesRequests is Base {
         private
         view
     {
-        for (uint256 i = 0; i < operators.length; i++) {
+        uint256 len = operators.length;
+        for (uint256 i = 0; i < len; i++) {
             if (_operatorRegistrations[blueprintId][operators[i]].registeredAt == 0) {
                 revert Errors.OperatorNotRegistered(blueprintId, operators[i]);
             }
@@ -261,6 +262,16 @@ abstract contract ServicesRequests is Base {
             }
             if (exposures[i] > BPS_DENOMINATOR) {
                 revert Errors.InvalidState();
+            }
+            // Reject duplicate operator entries: with duplicates, `req.operatorCount`
+            // exceeds the unique approver count, so `approvalCount == operatorCount`
+            // is unreachable and the request can only be cleaned up via
+            // `expireServiceRequest`. Operator counts are bounded by
+            // `bpConfig.maxOperators`, so the O(N²) check is fine in practice.
+            for (uint256 j = i + 1; j < len; j++) {
+                if (operators[i] == operators[j]) {
+                    revert Errors.InvalidState();
+                }
             }
         }
     }

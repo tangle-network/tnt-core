@@ -120,6 +120,9 @@ export const ensureSlashConfig = async (
       disputeWindow: 0n,
       instantSlashEnabled: false,
       maxSlashBps: 0n,
+      disputeResolutionDeadline: 0n,
+      disputeBond: 0n,
+      maxPendingSlashesPerOperator: 0n,
       updatedAt: timestamp,
     } as SlashConfig;
     context.SlashConfig.set(config);

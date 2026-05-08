@@ -176,3 +176,11 @@ scripts/local-env/start-local-env.sh
 - O(1) share-based accounting for delegations
 - Events over storage for gas optimization
 - Fuzz testing required for financial logic
+
+## Commit Messages
+
+- No `Co-Authored-By` lines ever — not in any commit, in any repo
+
+## Pull Requests
+
+- Before opening any PR, always resolve merge conflicts locally first: create a merge branch, run `git merge <target>`, fix all conflicts, verify lint/tests/build pass, push the resolved branch, THEN open the PR. Never open a PR that has conflicts.

@@ -27,9 +27,13 @@ library SignatureLib {
     bytes32 internal constant RESOURCE_COMMITMENT_TYPEHASH = keccak256("ResourceCommitment(uint8 kind,uint64 count)");
 
     /// @dev EIP-712 TypeHash for QuoteDetails
-    /// @dev Replay protection is handled by marking digests as used
+    /// @dev Replay protection is handled by marking digests as used.
+    /// @dev `requester` is part of the typed data so the operator's signature commits
+    ///      to who is allowed to redeem the quote. Without it, a third party can copy
+    ///      the signature, flip `details.requester`, and pass the binding check in
+    ///      `verifyQuoteBatch` while the original signature still recovers correctly.
     bytes32 internal constant QUOTE_TYPEHASH = keccak256(
-        "QuoteDetails(uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+        "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
     );
 
     /// @dev EIP-712 TypeHash for JobQuoteDetails (per-job RFQ)
@@ -80,6 +84,7 @@ library SignatureLib {
         return keccak256(
             abi.encode(
                 QUOTE_TYPEHASH,
+                details.requester,
                 details.blueprintId,
                 details.ttlBlocks,
                 details.totalCost,

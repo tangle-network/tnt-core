@@ -34,11 +34,18 @@ abstract contract Slashing is Base {
         bytes32 evidence
     )
         external
+        nonReentrant
         returns (uint64 slashId)
     {
         // M-6 FIX: Validate slashBps does not exceed 100% (10000 bps)
         if (slashBps > BPS_DENOMINATOR) {
             revert Errors.SlashBpsExceedsMax(slashBps, BPS_DENOMINATOR);
+        }
+        // Reject zero evidence: the field is the off-chain identifier (e.g. an IPFS
+        // CID hash) that monitors index by, and a 0x00…00 entry is indistinguishable
+        // from "missing." Operators should always supply a real reference.
+        if (evidence == bytes32(0)) {
+            revert Errors.InvalidState();
         }
 
         Types.Service storage svc = _getService(serviceId);
@@ -207,7 +214,7 @@ abstract contract Slashing is Base {
     ///      The slashed operator must post `_slashState.config.disputeBond` in native
     ///      asset. Bond is forfeit to treasury if the dispute auto-fails or the slash
     ///      executes; refunded if SLASH_ADMIN cancels the slash.
-    function disputeSlash(uint64 slashId, string calldata reason) external payable {
+    function disputeSlash(uint64 slashId, string calldata reason) external payable nonReentrant {
         SlashingLib.SlashProposal storage proposal = _slashProposals[slashId];
 
         bool isAdmin = hasRole(SLASH_ADMIN_ROLE, msg.sender);

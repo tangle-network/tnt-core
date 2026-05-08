@@ -87,6 +87,11 @@ abstract contract ServicesApprovals is Base {
     ///      SSTORE path off the critical path for unauthorized callers.
     function approveService(Types.ApprovalParams calldata p) external whenNotPaused nonReentrant {
         _requireApprovingOperator(p.requestId);
+        // Reject late approvals after the request has crossed its expiry grace.
+        // Without this, an operator can race `expireServiceRequest` and quietly
+        // activate a stale request the requester thought they could clean up.
+        // Mirrors the symmetric check that `rejectService` already performs.
+        _requireRequestNotExpired(_getServiceRequest(p.requestId), p.requestId);
 
         // Pure validation — reverts before any SSTORE if anything is malformed.
         Types.AssetSecurityRequirement[] storage requirements = _requestSecurityRequirements[p.requestId];

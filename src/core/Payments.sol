@@ -63,7 +63,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     ///      whitelists the escrow's payment token. Without these checks a service could
     ///      be funded after expiry (escrow stuck) or after a manager policy revoke
     ///      (ongoing top-ups for a token the protocol now disallows).
-    function fundService(uint64 serviceId, uint256 amount) external payable nonReentrant {
+    function fundService(uint64 serviceId, uint256 amount) external payable whenNotPaused nonReentrant {
         Types.Service storage svc = _getService(serviceId);
         if (svc.status != Types.ServiceStatus.Active) {
             revert Errors.ServiceNotActive(serviceId);
@@ -113,7 +113,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
 
     /// @notice Bill a subscription service
     /// @dev Anyone can call this to trigger billing; no incentive for single billing
-    function billSubscription(uint64 serviceId) external nonReentrant {
+    function billSubscription(uint64 serviceId) external whenNotPaused nonReentrant {
         _billSubscriptionInternal(serviceId);
     }
 
@@ -124,6 +124,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     /// @return billedCount Number of services successfully billed
     function billSubscriptionBatch(uint64[] calldata serviceIds)
         external
+        whenNotPaused
         nonReentrant
         returns (uint256 totalBilled, uint256 billedCount)
     {
@@ -421,6 +422,13 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         if (amount == 0) return;
 
         uint256 operatorsLength = operators.length;
+        // Refuse to distribute when no operators are running the service: dev and
+        // treasury were getting paid while the operator+staker pool (default 60%)
+        // was retained by the contract with no path back. Service owners recover
+        // escrow via terminate -> withdrawRemainingEscrow once operators leave.
+        if (operatorsLength == 0) {
+            revert Errors.NoOperators();
+        }
 
         // M-5 FIX: Validate payment amount is sufficient to prevent rounding to zero
         PaymentLib.validatePaymentAmount(amount, _paymentSplit, operatorsLength);

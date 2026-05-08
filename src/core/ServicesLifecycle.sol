@@ -48,7 +48,7 @@ abstract contract ServicesLifecycle is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Terminate a service
-    function terminateService(uint64 serviceId) external {
+    function terminateService(uint64 serviceId) external nonReentrant {
         Types.Service storage svc = _getService(serviceId);
         if (svc.owner != msg.sender) {
             revert Errors.NotServiceOwner(serviceId, msg.sender);
@@ -60,7 +60,7 @@ abstract contract ServicesLifecycle is Base {
     /// @notice Permissionlessly terminate an unpaid subscription after grace period
     /// @dev Eligibility: service is active subscription, escrow cannot cover one period,
     ///      and manager-resolved grace windows have elapsed past the billing due time.
-    function terminateServiceForNonPayment(uint64 serviceId) external {
+    function terminateServiceForNonPayment(uint64 serviceId) external nonReentrant {
         Types.Service storage svc = _getService(serviceId);
         if (svc.status != Types.ServiceStatus.Active) {
             revert Errors.ServiceNotActive(serviceId);
@@ -227,6 +227,9 @@ abstract contract ServicesLifecycle is Base {
     /// @dev Operator must wait for exit queue duration before executing
     function scheduleExit(uint64 serviceId) external nonReentrant {
         Types.Service storage svc = _getService(serviceId);
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
         if (svc.membership != Types.MembershipModel.Dynamic) {
             revert Errors.InvalidState();
         }
@@ -315,6 +318,9 @@ abstract contract ServicesLifecycle is Base {
     /// @dev Requires forceExitAllowed in exit config
     function forceExit(uint64 serviceId, address operator) external nonReentrant {
         Types.Service storage svc = _getService(serviceId);
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
         if (svc.owner != msg.sender) {
             revert Errors.NotServiceOwner(serviceId, msg.sender);
         }
@@ -341,6 +347,9 @@ abstract contract ServicesLifecycle is Base {
     /// @dev For backwards compatibility. Will fail if exit queue duration > 0
     function leaveService(uint64 serviceId) external nonReentrant {
         Types.Service storage svc = _getService(serviceId);
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
         if (svc.membership != Types.MembershipModel.Dynamic) {
             revert Errors.InvalidState();
         }
@@ -371,6 +380,13 @@ abstract contract ServicesLifecycle is Base {
     /// @notice Internal function to execute operator leave
     function _executeLeave(uint64 serviceId, address operator) internal {
         Types.Service storage svc = _getService(serviceId);
+        // Cover the executeExit -> _executeLeave path so leaving a Terminated service
+        // can't double-decrement counts, double-emit OperatorLeftService, or fire
+        // onOperatorLeft for a dead service. The other entrypoints already gate on
+        // status before calling here; this is the catch-all.
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
 
         if (svc.operatorCount <= svc.minOperators) {
             revert Errors.InvalidState();
@@ -402,6 +418,9 @@ abstract contract ServicesLifecycle is Base {
     /// @param operator The operator to remove
     function forceRemoveOperator(uint64 serviceId, address operator) external nonReentrant {
         Types.Service storage svc = _getService(serviceId);
+        if (svc.status != Types.ServiceStatus.Active) {
+            revert Errors.ServiceNotActive(serviceId);
+        }
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
 
         // Only blueprint manager can force remove

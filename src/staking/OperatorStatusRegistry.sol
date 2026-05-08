@@ -691,6 +691,12 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
         require(msg.sender == tangleCore, "Only Tangle core");
         require(operator != address(0), "Zero address");
         require(_registeredOperators[serviceId].add(operator), "Already registered");
+        // Reset all per-(serviceId, operator) heartbeat / metrics state on (re-)register.
+        // Without this, an operator who deregistered and re-registers carries stale
+        // `lastHeartbeat`, `consecutiveBeats`, `missedBeats`, `lastMetricsHash` from
+        // the previous incarnation, and `isHeartbeatCurrent` may return true before
+        // any new heartbeat lands.
+        delete operatorStates[serviceId][operator];
         // Initialize to Offline so isOnline() returns false until first heartbeat,
         // and so _onlineOperators is correctly populated on first Offline→Healthy transition.
         operatorStates[serviceId][operator].status = StatusCode.Offline;
