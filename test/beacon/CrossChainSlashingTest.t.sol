@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { Test, console2 } from "forge-std/Test.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { L2SlashingConnector } from "../../src/beacon/L2SlashingConnector.sol";
 import { L2SlashingReceiver, IL2Slasher } from "../../src/beacon/L2SlashingReceiver.sol";
 import { TangleL2Slasher } from "../../src/beacon/TangleL2Slasher.sol";
@@ -312,8 +313,15 @@ contract CrossChainSlashingTest is Test {
         vm.prank(admin);
         slasher = new TangleL2Slasher(address(staking), admin);
 
-        // Deploy L2 receiver
-        receiver = new L2SlashingReceiver(address(slasher), address(messenger));
+        // Deploy L2 receiver behind ERC1967 proxy (UUPS, C-3).
+        // The test contract is the initial owner so the configuration calls
+        // (`setAuthorizedSender`) below succeed.
+        L2SlashingReceiver receiverImpl = new L2SlashingReceiver();
+        ERC1967Proxy receiverProxy = new ERC1967Proxy(
+            address(receiverImpl),
+            abi.encodeCall(L2SlashingReceiver.initialize, (address(slasher), address(messenger), address(this)))
+        );
+        receiver = L2SlashingReceiver(address(receiverProxy));
 
         // Configure L2 contracts
         vm.prank(admin);

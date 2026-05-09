@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-05-08
+
+### Changed (BREAKING)
+
+- Round 4 audit C-3: `L2SlashingReceiver` and the four bridge-adapter receivers
+  (`ArbitrumL2Receiver`, `BaseL2Receiver`, `HyperlaneReceiver`,
+  `LayerZeroReceiver`) are now UUPS upgradeable. The deploy interface is changed
+  from a plain `new Contract(...)` to a proxy + `initialize(...)` pair, and the
+  initializer now requires an explicit `_owner` argument (previously implicit
+  `msg.sender`). Mutable state has been moved to ERC-7201 namespaced slots
+  under `tangle.beacon.L2SlashingReceiver` and
+  `tangle.beacon.bridges.{Arbitrum,Base,Hyperlane,LayerZero}*Receiver`. Owner-
+  gated functions revert with `OwnableUnauthorizedAccount(account)` instead of
+  `"Only owner"`. The `transferOwnership` selector now reverts on
+  `address(0)` with `OwnableInvalidOwner` instead of `"Zero address"`. There is
+  no in-place storage migration path; existing deployments must be redeployed
+  behind a fresh proxy and re-authorised.
+
 ## [0.14.0] - 2026-05-08
 
 ### Changed (BREAKING)

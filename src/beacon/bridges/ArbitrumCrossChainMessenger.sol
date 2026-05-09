@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
 import { ICrossChainMessenger, ICrossChainReceiver } from "../interfaces/ICrossChainMessenger.sol";
 
 /// @title ArbitrumCrossChainMessenger
@@ -235,35 +239,84 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
 /// @notice Adapter for receiving messages on Arbitrum L2 from L1
 /// @dev Validates sender is the aliased L1 contract
 ///      M-12 FIX: Added message replay protection
-contract ArbitrumL2Receiver {
+///      C-3 (Round 4): Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
+///      and call `initialize(...)`.
+contract ArbitrumL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     /// @notice Address offset for L1→L2 aliasing
     uint160 internal constant OFFSET = uint160(0x1111000000000000000000000000000000001111);
 
-    /// @notice Expected L1 sender (before aliasing)
-    // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    address public immutable l1Sender;
+    /// @custom:storage-location erc7201:tangle.beacon.bridges.ArbitrumL2Receiver
+    struct ArbitrumL2ReceiverStorage {
+        address l1Sender;
+        ICrossChainReceiver receiver;
+        uint256 sourceChainId;
+        mapping(bytes32 => bool) processedMessages;
+        uint256 messageNonce;
+        uint256[50] __gap;
+    }
 
-    /// @notice The actual receiver contract
-    // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    ICrossChainReceiver public immutable receiver;
-    uint256 public immutable sourceChainId;
+    /// @notice ERC-7201 slot:
+    ///         keccak256(abi.encode(uint256(keccak256("tangle.beacon.bridges.ArbitrumL2Receiver")) - 1))
+    ///         & ~bytes32(uint256(0xff))
+    bytes32 private constant ARBITRUM_L2_RECEIVER_SLOT =
+        0x64131b06865fa0d4879dd69e294c6861ab67818eafcdf6223a3d88a0ee88d500;
 
-    /// @notice M-12 FIX: Track processed message IDs to prevent replay attacks
-    mapping(bytes32 => bool) public processedMessages;
-
-    /// @notice M-12 FIX: Nonce for generating unique message IDs
-    uint256 public messageNonce;
+    function _getStorage() private pure returns (ArbitrumL2ReceiverStorage storage $) {
+        bytes32 s = ARBITRUM_L2_RECEIVER_SLOT;
+        assembly {
+            $.slot := s
+        }
+    }
 
     /// @notice M-12 FIX: Event emitted when a message is processed
     event MessageProcessed(bytes32 indexed messageId, address indexed sender, uint256 nonce);
 
     /// @notice M-12 FIX: Error for replayed messages
     error MessageAlreadyProcessed(bytes32 messageId);
+    error ZeroAddress();
 
-    constructor(address _l1Sender, address _receiver, uint256 _sourceChainId) {
-        l1Sender = _l1Sender;
-        receiver = ICrossChainReceiver(_receiver);
-        sourceChainId = _sourceChainId;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initialize the receiver behind a proxy.
+    /// @dev Init order matters: ownership must be set before any state changes
+    ///      so that `_authorizeUpgrade` is enforceable from block one.
+    function initialize(
+        address _l1Sender,
+        address _receiver,
+        uint256 _sourceChainId,
+        address _owner
+    ) external initializer {
+        if (_owner == address(0)) revert ZeroAddress();
+        __UUPSUpgradeable_init();
+        __Ownable_init(_owner);
+
+        ArbitrumL2ReceiverStorage storage $ = _getStorage();
+        $.l1Sender = _l1Sender;
+        $.receiver = ICrossChainReceiver(_receiver);
+        $.sourceChainId = _sourceChainId;
+    }
+
+    function l1Sender() external view returns (address) {
+        return _getStorage().l1Sender;
+    }
+
+    function receiver() external view returns (ICrossChainReceiver) {
+        return _getStorage().receiver;
+    }
+
+    function sourceChainId() external view returns (uint256) {
+        return _getStorage().sourceChainId;
+    }
+
+    function processedMessages(bytes32 messageId) external view returns (bool) {
+        return _getStorage().processedMessages[messageId];
+    }
+
+    function messageNonce() external view returns (uint256) {
+        return _getStorage().messageNonce;
     }
 
     /// @notice Compute L1 aliased address
@@ -276,30 +329,37 @@ contract ArbitrumL2Receiver {
     /// @notice Relay message from L1 (called via retryable ticket)
     /// @dev M-12 FIX: Added message ID validation to prevent replay attacks
     function relayMessage(bytes calldata payload) external {
+        ArbitrumL2ReceiverStorage storage $ = _getStorage();
+        address sender_ = $.l1Sender;
+
         // Verify msg.sender is the aliased L1 sender
-        require(msg.sender == applyL1ToL2Alias(l1Sender), "Invalid sender");
+        require(msg.sender == applyL1ToL2Alias(sender_), "Invalid sender");
 
         // Deduplicate identical bridged payload deliveries from the same L1 sender.
-        bytes32 messageId = keccak256(abi.encode(block.chainid, l1Sender, payload));
+        bytes32 messageId = keccak256(abi.encode(block.chainid, sender_, payload));
 
         // M-12 FIX: Check for replay attack
-        if (processedMessages[messageId]) {
+        if ($.processedMessages[messageId]) {
             revert MessageAlreadyProcessed(messageId);
         }
 
         // M-12 FIX: Mark message as processed before external call (CEI pattern)
-        processedMessages[messageId] = true;
-        uint256 currentNonce = messageNonce++;
+        $.processedMessages[messageId] = true;
+        uint256 currentNonce = $.messageNonce++;
 
-        emit MessageProcessed(messageId, l1Sender, currentNonce);
+        emit MessageProcessed(messageId, sender_, currentNonce);
 
-        receiver.receiveMessage(sourceChainId, l1Sender, payload);
+        $.receiver.receiveMessage($.sourceChainId, sender_, payload);
     }
 
     /// @notice M-12 FIX: Check if a message ID has been processed
     /// @param messageId The message ID to check
     /// @return True if the message has been processed
     function isMessageProcessed(bytes32 messageId) external view returns (bool) {
-        return processedMessages[messageId];
+        return _getStorage().processedMessages[messageId];
     }
+
+    /// @inheritdoc UUPSUpgradeable
+    /// @dev Owner-gated. Production owner should be a multisig / timelock.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 }

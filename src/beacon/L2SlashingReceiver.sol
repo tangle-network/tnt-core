@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
 import { ICrossChainReceiver } from "./interfaces/ICrossChainMessenger.sol";
 
 /// @title IL2Slasher
@@ -26,8 +30,12 @@ interface IL2Slasher {
 
 /// @title L2SlashingReceiver
 /// @notice Receives cross-chain slashing messages and executes them on L2
-/// @dev Deploy this on Tangle L2 (or any destination chain)
-contract L2SlashingReceiver is ICrossChainReceiver {
+/// @dev Deploy this on Tangle L2 (or any destination chain) behind an ERC1967 proxy.
+///      C-3 (Round 4): converted to UUPS upgradeable so post-mainnet bug remediation
+///      does not require re-deploying every bridge endpoint and re-authorising senders.
+///      Storage is namespaced under the ERC-7201 slot
+///      `tangle.beacon.L2SlashingReceiver` to keep upgrade-safe layout invariants.
+contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable, ICrossChainReceiver {
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -41,6 +49,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     error SenderActivationTooEarly(uint256 activationTime);
     error NonceAlreadyProcessed(uint256 sourceChainId, address sender, uint256 nonce);
     error SlashingNotPossible(address operator);
+    error ZeroAddress();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -68,48 +77,117 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     uint256 public constant SENDER_ACTIVATION_DELAY = 2 days;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STATE
+    // ERC-7201 NAMESPACED STORAGE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice The L2 slasher contract
-    IL2Slasher public slasher;
+    /// @custom:storage-location erc7201:tangle.beacon.L2SlashingReceiver
+    /// @dev All mutable state lives in this struct so the implementation contract
+    ///      has zero state at fixed slots, and an upgrade simply re-points the
+    ///      proxy at a new logic contract that reads from the same namespaced slot.
+    struct ReceiverStorage {
+        // Core wired contracts
+        IL2Slasher slasher;
+        address messenger;
+        // Authorized senders per source chain
+        mapping(uint256 => mapping(address => bool)) authorizedSenders;
+        // H-4 FIX: pending authorizations (chainId => sender => activation timestamp)
+        mapping(uint256 => mapping(address => uint256)) pendingAuthorizedSenders;
+        // C-2: timelocked admin swaps for messenger / slasher
+        address pendingMessenger;
+        uint256 pendingMessengerAt;
+        address pendingSlasher;
+        uint256 pendingSlasherAt;
+        // Replay protection (sourceChain => sender => nonce => processed)
+        mapping(uint256 => mapping(address => mapping(uint256 => bool))) processedNonces;
+        // Cumulative slash bps per operator from beacon chain
+        mapping(address => uint256) beaconSlashTotal;
+        // Reserved storage for future upgrades. Keep this LAST.
+        uint256[50] __gap;
+    }
 
-    /// @notice The cross-chain messenger that can call receiveMessage
-    address public messenger;
+    /// @notice ERC-7201 slot:
+    ///         keccak256(abi.encode(uint256(keccak256("tangle.beacon.L2SlashingReceiver")) - 1))
+    ///         & ~bytes32(uint256(0xff))
+    bytes32 private constant RECEIVER_STORAGE_SLOT =
+        0x82055dbb59125fee25966888e9f62ec781a4d1c7ca467f7e3e2e55d698dfc400;
 
-    /// @notice Owner address
-    address public owner;
-
-    /// @notice Authorized senders per source chain (chainId => sender => authorized)
-    mapping(uint256 => mapping(address => bool)) public authorizedSenders;
-
-    /// @notice H-4 FIX: Pending authorized senders with activation timestamp
-    /// @dev chainId => sender => activation timestamp (0 means not pending)
-    mapping(uint256 => mapping(address => uint256)) public pendingAuthorizedSenders;
-
-    /// @notice Cross-chain auditor C-2: a compromised owner could otherwise hot-swap
-    ///         the messenger / slasher and impersonate any authorised sender,
-    ///         undercutting the H-4 timelock entirely. Both swaps now require the
-    ///         same SENDER_ACTIVATION_DELAY queue.
-    address public pendingMessenger;
-    uint256 public pendingMessengerAt;
-    address public pendingSlasher;
-    uint256 public pendingSlasherAt;
-
-    /// @notice Nonce for deduplication (sourceChain => sender => nonce => processed)
-    mapping(uint256 => mapping(address => mapping(uint256 => bool))) public processedNonces;
-
-    /// @notice Cumulative slash bps per operator from beacon chain
-    mapping(address => uint256) public beaconSlashTotal;
+    function _getStorage() private pure returns (ReceiverStorage storage $) {
+        bytes32 slot = RECEIVER_STORAGE_SLOT;
+        assembly {
+            $.slot := slot
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CONSTRUCTOR
+    // CONSTRUCTOR / INITIALIZER
     // ═══════════════════════════════════════════════════════════════════════════
 
-    constructor(address _slasher, address _messenger) {
-        slasher = IL2Slasher(_slasher);
-        messenger = _messenger;
-        owner = msg.sender;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initialize the receiver behind a proxy.
+    /// @param _slasher    The L2 slasher contract that applies stake reductions.
+    /// @param _messenger  Trusted bridge adapter that may invoke `receiveMessage`.
+    ///                    Pass `address(0)` so the deploy script can wire the
+    ///                    bridge adapter via `setMessenger` (bootstrap path).
+    /// @param _owner      Initial admin/owner. Should be a multisig or timelock.
+    /// @dev Init order matters: ownership must be granted before any sender is
+    ///      authorised, since `setAuthorizedSender` is `onlyOwner`.
+    function initialize(address _slasher, address _messenger, address _owner) external initializer {
+        if (_owner == address(0)) revert ZeroAddress();
+
+        __UUPSUpgradeable_init();
+        __Ownable_init(_owner);
+
+        ReceiverStorage storage $ = _getStorage();
+        $.slasher = IL2Slasher(_slasher);
+        $.messenger = _messenger;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VIEW HELPERS (preserve original public-state surface for off-chain readers)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function slasher() external view returns (IL2Slasher) {
+        return _getStorage().slasher;
+    }
+
+    function messenger() external view returns (address) {
+        return _getStorage().messenger;
+    }
+
+    function authorizedSenders(uint256 chainId, address sender) external view returns (bool) {
+        return _getStorage().authorizedSenders[chainId][sender];
+    }
+
+    function pendingAuthorizedSenders(uint256 chainId, address sender) external view returns (uint256) {
+        return _getStorage().pendingAuthorizedSenders[chainId][sender];
+    }
+
+    function pendingMessenger() external view returns (address) {
+        return _getStorage().pendingMessenger;
+    }
+
+    function pendingMessengerAt() external view returns (uint256) {
+        return _getStorage().pendingMessengerAt;
+    }
+
+    function pendingSlasher() external view returns (address) {
+        return _getStorage().pendingSlasher;
+    }
+
+    function pendingSlasherAt() external view returns (uint256) {
+        return _getStorage().pendingSlasherAt;
+    }
+
+    function processedNonces(uint256 sourceChainId, address sender, uint256 nonce) external view returns (bool) {
+        return _getStorage().processedNonces[sourceChainId][sender][nonce];
+    }
+
+    function beaconSlashTotal(address operator) external view returns (uint256) {
+        return _getStorage().beaconSlashTotal[operator];
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -122,16 +200,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     }
 
     function _onlyMessenger() internal view {
-        if (msg.sender != messenger) revert UnauthorizedMessenger();
-    }
-
-    modifier onlyOwner() {
-        _onlyOwner();
-        _;
-    }
-
-    function _onlyOwner() internal view {
-        require(msg.sender == owner, "Only owner");
+        if (msg.sender != _getStorage().messenger) revert UnauthorizedMessenger();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -140,8 +209,10 @@ contract L2SlashingReceiver is ICrossChainReceiver {
 
     /// @inheritdoc ICrossChainReceiver
     function receiveMessage(uint256 sourceChainId, address sender, bytes calldata payload) external onlyMessenger {
+        ReceiverStorage storage $ = _getStorage();
+
         // Verify sender is authorized for this source chain
-        if (!authorizedSenders[sourceChainId][sender]) {
+        if (!$.authorizedSenders[sourceChainId][sender]) {
             revert UnauthorizedSender();
         }
 
@@ -151,7 +222,7 @@ contract L2SlashingReceiver is ICrossChainReceiver {
         bytes4 messageType = bytes4(payload[:4]);
 
         if (messageType == SLASH_MESSAGE_TYPE) {
-            _handleSlashMessage(sourceChainId, sender, payload[4:]);
+            _handleSlashMessage($, sourceChainId, sender, payload[4:]);
         } else {
             revert InvalidPayload();
         }
@@ -169,14 +240,19 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     ///      retry path — the bridge cannot redeliver an already-consumed nonce. The
     ///      legitimate "applied with zero bps" case (`slashBps == 0`) is also a hard
     ///      revert here so the L1 connector never wastes a bridge fee on a no-op.
-    function _handleSlashMessage(uint256 sourceChainId, address sender, bytes calldata data) internal {
+    function _handleSlashMessage(
+        ReceiverStorage storage $,
+        uint256 sourceChainId,
+        address sender,
+        bytes calldata data
+    ) internal {
         // Decode: operator, slashBps, slashingFactor, nonce, podAddress
         (address operator, uint16 slashBps, uint64 slashingFactor, uint256 nonce, address pod) =
             abi.decode(data, (address, uint16, uint64, uint256, address));
 
         // Revert (not silent return) so the relayer can distinguish "already processed"
         // from "still pending" during retry / partition recovery.
-        if (processedNonces[sourceChainId][sender][nonce]) {
+        if ($.processedNonces[sourceChainId][sender][nonce]) {
             revert NonceAlreadyProcessed(sourceChainId, sender, nonce);
         }
 
@@ -186,17 +262,17 @@ contract L2SlashingReceiver is ICrossChainReceiver {
         if (slashBps == 0) {
             revert InvalidPayload();
         }
-        if (!slasher.canSlash(operator)) {
+        if (!$.slasher.canSlash(operator)) {
             revert SlashingNotPossible(operator);
         }
 
         // Apply the slash FIRST (state-changing), then mark the nonce processed.
         // If `slashOperator` reverts, the whole tx reverts and the nonce stays open.
         bytes memory reason = abi.encode("BEACON_CHAIN_SLASH", sourceChainId, pod, slashingFactor, block.timestamp);
-        slasher.slashOperator(operator, slashBps, reason);
-        beaconSlashTotal[operator] += slashBps;
+        $.slasher.slashOperator(operator, slashBps, reason);
+        $.beaconSlashTotal[operator] += slashBps;
 
-        processedNonces[sourceChainId][sender][nonce] = true;
+        $.processedNonces[sourceChainId][sender][nonce] = true;
 
         emit SlashingExecuted(operator, slashBps, slashingFactor);
         emit SlashingReceived(sourceChainId, operator, slashBps, keccak256(abi.encode(sourceChainId, sender, nonce)));
@@ -209,27 +285,29 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     /// @notice H-4 FIX: Schedule authorization of a sender (subject to timelock)
     /// @dev For revoking authorization, takes effect immediately
     function setAuthorizedSender(uint256 chainId, address sender, bool authorized) external onlyOwner {
+        ReceiverStorage storage $ = _getStorage();
         if (!authorized) {
             // Revocation is immediate
-            authorizedSenders[chainId][sender] = false;
-            pendingAuthorizedSenders[chainId][sender] = 0;
+            $.authorizedSenders[chainId][sender] = false;
+            $.pendingAuthorizedSenders[chainId][sender] = 0;
             emit AuthorizedSenderUpdated(chainId, sender, false);
         } else {
             // Authorization is timelocked
             uint256 activationTime = block.timestamp + SENDER_ACTIVATION_DELAY;
-            pendingAuthorizedSenders[chainId][sender] = activationTime;
+            $.pendingAuthorizedSenders[chainId][sender] = activationTime;
             emit AuthorizedSenderScheduled(chainId, sender, activationTime);
         }
     }
 
     /// @notice H-4 FIX: Activate a pending authorized sender after delay
     function activateAuthorizedSender(uint256 chainId, address sender) external onlyOwner {
-        uint256 activationTime = pendingAuthorizedSenders[chainId][sender];
+        ReceiverStorage storage $ = _getStorage();
+        uint256 activationTime = $.pendingAuthorizedSenders[chainId][sender];
         if (activationTime == 0) revert SenderNotPending();
         if (block.timestamp < activationTime) revert SenderActivationTooEarly(activationTime);
 
-        authorizedSenders[chainId][sender] = true;
-        pendingAuthorizedSenders[chainId][sender] = 0;
+        $.authorizedSenders[chainId][sender] = true;
+        $.pendingAuthorizedSenders[chainId][sender] = 0;
         emit AuthorizedSenderUpdated(chainId, sender, true);
     }
 
@@ -242,25 +320,27 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     ///      been processed; subsequent swaps go through the timelock.
     function setMessenger(address _messenger) external onlyOwner {
         if (_messenger == address(0)) revert UnauthorizedMessenger();
-        if (messenger == address(0)) {
-            messenger = _messenger;
+        ReceiverStorage storage $ = _getStorage();
+        if ($.messenger == address(0)) {
+            $.messenger = _messenger;
             emit MessengerUpdated(address(0), _messenger);
             return;
         }
-        pendingMessenger = _messenger;
-        pendingMessengerAt = block.timestamp + SENDER_ACTIVATION_DELAY;
-        emit MessengerScheduled(_messenger, pendingMessengerAt);
+        $.pendingMessenger = _messenger;
+        $.pendingMessengerAt = block.timestamp + SENDER_ACTIVATION_DELAY;
+        emit MessengerScheduled(_messenger, $.pendingMessengerAt);
     }
 
     /// @notice Activate a previously-scheduled messenger swap.
     function activateMessenger() external onlyOwner {
-        address next = pendingMessenger;
+        ReceiverStorage storage $ = _getStorage();
+        address next = $.pendingMessenger;
         if (next == address(0)) revert SenderNotPending();
-        if (block.timestamp < pendingMessengerAt) revert SenderActivationTooEarly(pendingMessengerAt);
-        address old = messenger;
-        messenger = next;
-        pendingMessenger = address(0);
-        pendingMessengerAt = 0;
+        if (block.timestamp < $.pendingMessengerAt) revert SenderActivationTooEarly($.pendingMessengerAt);
+        address old = $.messenger;
+        $.messenger = next;
+        $.pendingMessenger = address(0);
+        $.pendingMessengerAt = 0;
         emit MessengerUpdated(old, next);
     }
 
@@ -269,31 +349,27 @@ contract L2SlashingReceiver is ICrossChainReceiver {
     ///      slasher is unset, allow immediate write so deploy scripts work.
     function setSlasher(address _slasher) external onlyOwner {
         if (_slasher == address(0)) revert UnauthorizedSender();
-        if (address(slasher) == address(0)) {
-            slasher = IL2Slasher(_slasher);
+        ReceiverStorage storage $ = _getStorage();
+        if (address($.slasher) == address(0)) {
+            $.slasher = IL2Slasher(_slasher);
             emit SlasherUpdated(_slasher);
             return;
         }
-        pendingSlasher = _slasher;
-        pendingSlasherAt = block.timestamp + SENDER_ACTIVATION_DELAY;
-        emit SlasherScheduled(_slasher, pendingSlasherAt);
+        $.pendingSlasher = _slasher;
+        $.pendingSlasherAt = block.timestamp + SENDER_ACTIVATION_DELAY;
+        emit SlasherScheduled(_slasher, $.pendingSlasherAt);
     }
 
     /// @notice Activate a previously-scheduled slasher swap.
     function activateSlasher() external onlyOwner {
-        address next = pendingSlasher;
+        ReceiverStorage storage $ = _getStorage();
+        address next = $.pendingSlasher;
         if (next == address(0)) revert SenderNotPending();
-        if (block.timestamp < pendingSlasherAt) revert SenderActivationTooEarly(pendingSlasherAt);
-        slasher = IL2Slasher(next);
-        pendingSlasher = address(0);
-        pendingSlasherAt = 0;
+        if (block.timestamp < $.pendingSlasherAt) revert SenderActivationTooEarly($.pendingSlasherAt);
+        $.slasher = IL2Slasher(next);
+        $.pendingSlasher = address(0);
+        $.pendingSlasherAt = 0;
         emit SlasherUpdated(next);
-    }
-
-    /// @notice Transfer ownership
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "Zero address");
-        owner = newOwner;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -302,6 +378,17 @@ contract L2SlashingReceiver is ICrossChainReceiver {
 
     /// @notice Check if a nonce has been processed
     function isNonceProcessed(uint256 sourceChainId, address sender, uint256 nonce) external view returns (bool) {
-        return processedNonces[sourceChainId][sender][nonce];
+        return _getStorage().processedNonces[sourceChainId][sender][nonce];
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // UPGRADE AUTHORIZATION (UUPS / C-3)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc UUPSUpgradeable
+    /// @dev Only the owner (a multisig or timelock in production) may upgrade the
+    ///      implementation. The owner is the same role gating sender / messenger /
+    ///      slasher mutations, so upgrade authority is no broader than existing
+    ///      admin authority — but concentrated logic still warrants a timelock owner.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 }
