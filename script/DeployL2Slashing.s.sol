@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { Script, console2 } from "forge-std/Script.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { L2SlashingReceiver } from "../src/beacon/L2SlashingReceiver.sol";
 import { TangleL2Slasher } from "../src/beacon/TangleL2Slasher.sol";
@@ -214,27 +215,39 @@ contract DeployL2Slashing is EnvUtils {
         slasher = address(slasherContract);
         console2.log("TangleL2Slasher:", slasher);
 
-        // Pass `address(0)` as the constructor's initial messenger so the
+        // Pass `address(0)` as the initializer's initial messenger so the
         // first `setMessenger` call below takes the bootstrap path (immediate
         // write). Subsequent swaps go through the 2-day timelock; without the
         // bootstrap exemption the deploy flow would deadlock for two days.
         address initialMessenger = address(0);
         // Deployer placeholder retained for None-bridge path below.
         address fallbackMessenger = messengerOverride != address(0) ? messengerOverride : deployer;
-        L2SlashingReceiver receiverContract = new L2SlashingReceiver(slasher, initialMessenger);
+        // C-3 (Round 4): deploy L2SlashingReceiver behind ERC1967 proxy. The
+        // deployer is wired in as the initial owner so post-deploy configuration
+        // (`setMessenger`, `setAuthorizedSender`) succeeds; ownership is then
+        // transferred to `admin` at the bottom of this function.
+        L2SlashingReceiver receiverImpl = new L2SlashingReceiver();
+        ERC1967Proxy receiverProxy = new ERC1967Proxy(
+            address(receiverImpl),
+            abi.encodeCall(L2SlashingReceiver.initialize, (slasher, initialMessenger, deployer))
+        );
+        L2SlashingReceiver receiverContract = L2SlashingReceiver(address(receiverProxy));
         receiver = address(receiverContract);
-        console2.log("L2SlashingReceiver:", receiver);
+        console2.log("L2SlashingReceiver impl:", address(receiverImpl));
+        console2.log("L2SlashingReceiver proxy:", receiver);
 
         slasherContract.setAuthorizedCaller(receiver, true);
         console2.log("Authorized receiver as slasher caller");
 
         if (bridge == BridgeProtocol.Hyperlane) {
             if (l1Messenger == address(0)) revert MissingEnv("L1_MESSENGER");
-            bridgeReceiver = _deployAndConfigureHyperlaneReceiver(receiverContract, admin, sourceChainId, l1Messenger);
+            bridgeReceiver =
+                _deployAndConfigureHyperlaneReceiver(receiverContract, deployer, admin, sourceChainId, l1Messenger);
             receiverContract.setMessenger(bridgeReceiver);
         } else if (bridge == BridgeProtocol.LayerZero) {
             if (l1Messenger == address(0)) revert MissingEnv("L1_MESSENGER");
-            bridgeReceiver = _deployAndConfigureLayerZeroReceiver(receiverContract, admin, sourceChainId, l1Messenger);
+            bridgeReceiver =
+                _deployAndConfigureLayerZeroReceiver(receiverContract, deployer, admin, sourceChainId, l1Messenger);
             receiverContract.setMessenger(bridgeReceiver);
         } else {
             bridgeReceiver = address(0);
@@ -260,6 +273,7 @@ contract DeployL2Slashing is EnvUtils {
 
     function _deployAndConfigureHyperlaneReceiver(
         L2SlashingReceiver receiverContract,
+        address deployer,
         address admin,
         uint256 sourceChainId,
         address l1Messenger
@@ -273,7 +287,16 @@ contract DeployL2Slashing is EnvUtils {
         // Verify bridge contract exists before deployment
         _verifyBridgeContract("Hyperlane Mailbox", mailbox);
 
-        HyperlaneReceiver hyperlaneReceiver = new HyperlaneReceiver(mailbox, address(receiverContract));
+        // C-3 (Round 4): deploy HyperlaneReceiver behind ERC1967 proxy.
+        // `deployer` is the broadcaster (or the active pranker in dry-run); we
+        // wire it as the initial owner so the `setTrustedSender` call below
+        // succeeds, then transfer ownership to `admin`.
+        address hyperlaneImpl = address(new HyperlaneReceiver());
+        ERC1967Proxy hyperlaneProxy = new ERC1967Proxy(
+            hyperlaneImpl,
+            abi.encodeCall(HyperlaneReceiver.initialize, (mailbox, address(receiverContract), deployer))
+        );
+        HyperlaneReceiver hyperlaneReceiver = HyperlaneReceiver(address(hyperlaneProxy));
 
         // HyperlaneReceiver expects the "sender" to be the origin contract that dispatched the message (the messenger).
         hyperlaneReceiver.setTrustedSender(uint32(sourceChainId), l1Messenger, true);
@@ -281,7 +304,8 @@ contract DeployL2Slashing is EnvUtils {
             hyperlaneReceiver.transferOwnership(admin);
         }
 
-        console2.log("HyperlaneReceiver:", address(hyperlaneReceiver));
+        console2.log("HyperlaneReceiver impl:", hyperlaneImpl);
+        console2.log("HyperlaneReceiver proxy:", address(hyperlaneReceiver));
         console2.log("Hyperlane mailbox:", mailbox);
         console2.log("Trusted L1 messenger:", l1Messenger);
         return address(hyperlaneReceiver);
@@ -289,6 +313,7 @@ contract DeployL2Slashing is EnvUtils {
 
     function _deployAndConfigureLayerZeroReceiver(
         L2SlashingReceiver receiverContract,
+        address deployer,
         address admin,
         uint256 sourceChainId,
         address l1Messenger
@@ -302,7 +327,12 @@ contract DeployL2Slashing is EnvUtils {
         // Verify bridge contract exists before deployment
         _verifyBridgeContract("LayerZero Endpoint", endpoint);
 
-        LayerZeroReceiver lzReceiver = new LayerZeroReceiver(endpoint, address(receiverContract));
+        // C-3 (Round 4): deploy LayerZeroReceiver behind ERC1967 proxy.
+        address lzImpl = address(new LayerZeroReceiver());
+        ERC1967Proxy lzProxy = new ERC1967Proxy(
+            lzImpl, abi.encodeCall(LayerZeroReceiver.initialize, (endpoint, address(receiverContract), deployer))
+        );
+        LayerZeroReceiver lzReceiver = LayerZeroReceiver(address(lzProxy));
 
         uint32 sourceEid = uint32(vm.envOr("LAYERZERO_SOURCE_EID", uint256(_defaultLayerZeroEid(sourceChainId))));
         if (sourceEid == 0) revert MissingEnv("LAYERZERO_SOURCE_EID");
@@ -313,7 +343,8 @@ contract DeployL2Slashing is EnvUtils {
             lzReceiver.transferOwnership(admin);
         }
 
-        console2.log("LayerZeroReceiver:", address(lzReceiver));
+        console2.log("LayerZeroReceiver impl:", lzImpl);
+        console2.log("LayerZeroReceiver proxy:", address(lzReceiver));
         console2.log("LayerZero endpoint:", endpoint);
         console2.log("Source EID:", sourceEid);
         console2.log("Trusted L1 messenger:", l1Messenger);

@@ -2,6 +2,8 @@
 pragma solidity ^0.8.26;
 
 import { Test, stdError } from "forge-std/Test.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import {
     ArbitrumCrossChainMessenger,
@@ -26,6 +28,61 @@ import {
     Origin
 } from "../../../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 import { ICrossChainReceiver } from "../../../src/beacon/interfaces/ICrossChainMessenger.sol";
+
+/// @notice Helpers to deploy the now-UUPS bridge receivers behind an
+///         ERC1967 proxy with the test contract as the initial owner. C-3.
+library BridgeReceiverDeploy {
+    function deployArbitrumL2Receiver(
+        address l1Sender,
+        address receiver,
+        uint256 sourceChainId
+    ) internal returns (ArbitrumL2Receiver) {
+        ArbitrumL2Receiver impl = new ArbitrumL2Receiver();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(ArbitrumL2Receiver.initialize, (l1Sender, receiver, sourceChainId, address(this)))
+        );
+        return ArbitrumL2Receiver(address(proxy));
+    }
+
+    function deployBaseL2Receiver(
+        address l2Messenger,
+        address l1Sender,
+        address receiver,
+        uint256 sourceChainId
+    ) internal returns (BaseL2Receiver) {
+        BaseL2Receiver impl = new BaseL2Receiver();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(
+                BaseL2Receiver.initialize, (l2Messenger, l1Sender, receiver, sourceChainId, address(this))
+            )
+        );
+        return BaseL2Receiver(address(proxy));
+    }
+
+    function deployHyperlaneReceiver(
+        address mailbox,
+        address receiver
+    ) internal returns (HyperlaneReceiver) {
+        HyperlaneReceiver impl = new HyperlaneReceiver();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl), abi.encodeCall(HyperlaneReceiver.initialize, (mailbox, receiver, address(this)))
+        );
+        return HyperlaneReceiver(address(proxy));
+    }
+
+    function deployLayerZeroReceiver(
+        address endpoint,
+        address receiver
+    ) internal returns (LayerZeroReceiver) {
+        LayerZeroReceiver impl = new LayerZeroReceiver();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl), abi.encodeCall(LayerZeroReceiver.initialize, (endpoint, receiver, address(this)))
+        );
+        return LayerZeroReceiver(address(proxy));
+    }
+}
 
 contract MockCrossChainReceiver is ICrossChainReceiver {
     uint256 public lastSourceChainId;
@@ -325,7 +382,8 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
         function test_arbitrumL2Receiver_RelaysFromAliasedSender() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
             address l1Sender = makeAddr("l1Sender");
-            ArbitrumL2Receiver l2Receiver = new ArbitrumL2Receiver(l1Sender, address(receiver), SOURCE_CHAIN_ID);
+            ArbitrumL2Receiver l2Receiver =
+                BridgeReceiverDeploy.deployArbitrumL2Receiver(l1Sender, address(receiver), SOURCE_CHAIN_ID);
 
             bytes memory data = abi.encode("hello");
             address aliased = l2Receiver.applyL1ToL2Alias(l1Sender);
@@ -341,7 +399,8 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
         function test_arbitrumL2Receiver_RevertWhenSenderIsNotAliased() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
             address l1Sender = makeAddr("l1Sender");
-            ArbitrumL2Receiver l2Receiver = new ArbitrumL2Receiver(l1Sender, address(receiver), SOURCE_CHAIN_ID);
+            ArbitrumL2Receiver l2Receiver =
+                BridgeReceiverDeploy.deployArbitrumL2Receiver(l1Sender, address(receiver), SOURCE_CHAIN_ID);
 
             vm.expectRevert("Invalid sender");
             l2Receiver.relayMessage("bad");
@@ -350,7 +409,8 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
         function test_arbitrumL2Receiver_RevertOnDuplicatePayload() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
             address l1Sender = makeAddr("l1Sender");
-            ArbitrumL2Receiver l2Receiver = new ArbitrumL2Receiver(l1Sender, address(receiver), SOURCE_CHAIN_ID);
+            ArbitrumL2Receiver l2Receiver =
+                BridgeReceiverDeploy.deployArbitrumL2Receiver(l1Sender, address(receiver), SOURCE_CHAIN_ID);
 
             bytes memory data = abi.encode("hello");
             address aliased = l2Receiver.applyL1ToL2Alias(l1Sender);
@@ -401,8 +461,9 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function test_relayMessage_ValidatesMessengerAndSender() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
-            BaseL2Receiver l2Receiver =
-                new BaseL2Receiver(address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID);
+            BaseL2Receiver l2Receiver = BridgeReceiverDeploy.deployBaseL2Receiver(
+                address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID
+            );
             bytes memory message = abi.encode("data");
 
             baseMessenger.setXDomainMessageSender(address(this));
@@ -416,8 +477,9 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function test_relayMessage_RevertWhenMessengerMismatch() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
-            BaseL2Receiver l2Receiver =
-                new BaseL2Receiver(address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID);
+            BaseL2Receiver l2Receiver = BridgeReceiverDeploy.deployBaseL2Receiver(
+                address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID
+            );
             bytes memory message = abi.encode("data");
 
             vm.expectRevert("Only messenger");
@@ -426,8 +488,9 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function test_relayMessage_RevertWhenSenderMismatch() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
-            BaseL2Receiver l2Receiver =
-                new BaseL2Receiver(address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID);
+            BaseL2Receiver l2Receiver = BridgeReceiverDeploy.deployBaseL2Receiver(
+                address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID
+            );
             bytes memory message = abi.encode("data");
 
             baseMessenger.setXDomainMessageSender(makeAddr("other"));
@@ -438,8 +501,9 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function test_relayMessage_RevertOnDuplicatePayload() public {
             MockCrossChainReceiver receiver = new MockCrossChainReceiver();
-            BaseL2Receiver l2Receiver =
-                new BaseL2Receiver(address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID);
+            BaseL2Receiver l2Receiver = BridgeReceiverDeploy.deployBaseL2Receiver(
+                address(baseMessenger), address(this), address(receiver), SOURCE_CHAIN_ID
+            );
             bytes memory message = abi.encode("data");
 
             baseMessenger.setXDomainMessageSender(address(this));
@@ -688,7 +752,7 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function setUp() public {
             receiver = new MockCrossChainReceiver();
-            lzReceiver = new LayerZeroReceiver(endpoint, address(receiver));
+            lzReceiver = BridgeReceiverDeploy.deployLayerZeroReceiver(endpoint, address(receiver));
         }
 
         function test_lzReceive_ForwardsMessagesFromTrustedPeer() public {
@@ -721,8 +785,9 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
         }
 
         function test_setPeerRequiresOwner() public {
-            vm.prank(makeAddr("intruder"));
-            vm.expectRevert("Only owner");
+            address intruder = makeAddr("intruder");
+            vm.prank(intruder);
+            vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, intruder));
             lzReceiver.setPeer(1, bytes32(uint256(1)));
         }
 
@@ -730,7 +795,9 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
             address newOwner = makeAddr("newOwner");
             lzReceiver.transferOwnership(newOwner);
 
-            vm.expectRevert("Only owner");
+            vm.expectRevert(
+                abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, address(this))
+            );
             lzReceiver.setPeer(1, bytes32(uint256(1)));
 
             vm.prank(newOwner);
@@ -746,7 +813,7 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function setUp() public {
             receiver = new MockCrossChainReceiver();
-            hyperlaneReceiver = new HyperlaneReceiver(mailbox, address(receiver));
+            hyperlaneReceiver = BridgeReceiverDeploy.deployHyperlaneReceiver(mailbox, address(receiver));
         }
 
         function test_handle_ForwardsTrustedMessage() public {
@@ -807,14 +874,16 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
         }
 
         function test_setTrustedSender_OnlyOwner() public {
-            vm.prank(makeAddr("intruder"));
-            vm.expectRevert("Only owner");
+            address intruder = makeAddr("intruder");
+            vm.prank(intruder);
+            vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, intruder));
             hyperlaneReceiver.setTrustedSender(1, trustedSender, true);
         }
 
         function test_setDomainMapping_OnlyOwner() public {
-            vm.prank(makeAddr("intruder"));
-            vm.expectRevert("Only owner");
+            address intruder = makeAddr("intruder");
+            vm.prank(intruder);
+            vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, intruder));
             hyperlaneReceiver.setDomainMapping(777, 888);
         }
 
@@ -822,7 +891,9 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
             address newOwner = makeAddr("newOwner");
             hyperlaneReceiver.transferOwnership(newOwner);
 
-            vm.expectRevert("Only owner");
+            vm.expectRevert(
+                abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, address(this))
+            );
             hyperlaneReceiver.setTrustedSender(1, trustedSender, true);
 
             vm.prank(newOwner);
