@@ -608,20 +608,26 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         assertEq(podManager.totalShares(), 32 ether, "Total shares should be updated");
     }
 
+    /// @notice G-02: Share-pool semantics replace raw amount accounting.
+    /// @dev Negative deltas (slashes) reduce `totalAssets` only. The owner's `shares`
+    ///      balance is invariant on rebases.
     function test_recordBeaconChainEthBalanceUpdate_NegativeDelta() public {
         vm.prank(podOwner1);
         address podAddr = podManager.createPod();
 
-        // Initial positive update
+        // Initial positive update mints shares 1:1.
         vm.prank(podAddr);
         podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
 
-        // Negative delta (slashing)
+        // Negative delta (slashing) is a rebase-down: assets fall, shares unchanged.
         vm.prank(podAddr);
         podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -5 ether);
 
-        assertEq(podManager.getShares(podOwner1), 27 ether, "Shares should be reduced");
-        assertEq(podManager.totalShares(), 27 ether, "Total shares should be reduced");
+        assertEq(podManager.getShares(podOwner1), 32 ether, "Shares unchanged on rebase");
+        assertEq(podManager.totalShares(), 32 ether, "Aggregate shares unchanged");
+        assertEq(podManager.totalAssetsOf(podOwner1), 27 ether, "Pool assets reduced");
+        // Asset-equivalent has tiny dust due to virtual offset (1e3 wei). Tolerate it.
+        assertApproxEqAbs(podManager.getRestakedAssets(podOwner1), 27 ether, 1000, "Owner asset-equivalent reduced");
     }
 
     function test_recordBeaconChainEthBalanceUpdate_MultiplePods() public {
@@ -672,12 +678,13 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         assertTrue(withdrawalRoot != bytes32(0), "Withdrawal root should be generated");
         assertEq(podManager.queuedShares(podOwner1), 10 ether, "Queued shares should be tracked");
 
-        // Check withdrawal info
-        (address staker, uint256 shares, uint32 startBlock, bool completed, bool canComplete) =
+        // Check withdrawal info (G-02: tuple now includes asset snapshot).
+        (address staker, uint256 shares, uint256 assets, uint32 startBlock, bool completed, bool canComplete) =
             podManager.getWithdrawalInfo(withdrawalRoot);
 
         assertEq(staker, podOwner1, "Staker should match");
         assertEq(shares, 10 ether, "Shares should match");
+        assertEq(assets, 10 ether, "Asset snapshot should equal queued amount at 1:1 rate");
         assertEq(startBlock, block.number, "Start block should match");
         assertFalse(completed, "Should not be completed");
         assertFalse(canComplete, "Should not be able to complete yet");
@@ -765,8 +772,8 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         // Advance past delay
         vm.roll(block.number + podManager.withdrawalDelayBlocks() + 1);
 
-        // Check can complete
-        (,,,, bool canComplete) = podManager.getWithdrawalInfo(withdrawalRoot);
+        // Check can complete (G-02: tuple now includes asset snapshot at index 2).
+        (,,,,, bool canComplete) = podManager.getWithdrawalInfo(withdrawalRoot);
         assertTrue(canComplete, "Should be able to complete now");
 
         uint256 balanceBefore = podOwner1.balance;
@@ -775,8 +782,8 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         vm.prank(podOwner1);
         podManager.completeWithdrawal(withdrawalRoot);
 
-        // Verify completion
-        (,,, bool completed,) = podManager.getWithdrawalInfo(withdrawalRoot);
+        // Verify completion (G-02: tuple now includes asset snapshot at index 2).
+        (,,,, bool completed,) = podManager.getWithdrawalInfo(withdrawalRoot);
         assertTrue(completed, "Should be completed");
 
         assertEq(podOwner1.balance, balanceBefore + 10 ether, "ETH should be transferred");

@@ -161,30 +161,49 @@ contract BeaconIntegrationTest is BeaconTestBase {
     // SHARE ACCOUNTING TESTS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice G-02: Share-pool semantics replace raw amount accounting.
+    /// @dev With share-pool, positive deltas via the legacy entrypoint mint shares (deposits),
+    ///      and negative deltas are interpreted as rebases that lower `totalAssets` only
+    ///      (`totalShares` is unchanged). Therefore `getShares` does not track the raw asset
+    ///      amount after a slash -- `getRestakedAssets` does. Pool assets saturate at zero on
+    ///      slashes that exceed the current balance instead of going negative.
     function test_shareAccounting_PositiveAndNegative() public {
         ValidatorPod pod = _createPod(podOwner1);
 
-        // Initial positive update (validator restaking)
+        // Initial positive update (validator restaking) -- mints shares 1:1.
         vm.prank(address(pod));
         podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
-        assertEq(podManager.getShares(podOwner1), 32 ether, "Initial shares");
+        assertEq(podManager.getShares(podOwner1), 32 ether, "Initial shares minted 1:1");
+        assertEq(podManager.getRestakedAssets(podOwner1), 32 ether, "Initial assets");
 
-        // Positive update (balance increase)
+        // Second positive update (legacy path treats as additional principal deposit).
+        // Shares minted = 1e18 * (32e18 + 1e3) / (32e18 + 1e3) = 1e18 (within precision).
         vm.prank(address(pod));
         podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 1 ether);
-        assertEq(podManager.getShares(podOwner1), 33 ether, "After increase");
+        // Tolerate sub-1000 wei dust from the virtual offset arithmetic.
+        assertApproxEqAbs(podManager.getShares(podOwner1), 33 ether, 1000, "After 2nd deposit shares");
+        assertApproxEqAbs(podManager.getRestakedAssets(podOwner1), 33 ether, 1000, "After 2nd deposit assets");
 
-        // Negative update (slashing on beacon chain)
+        // Negative update (slashing on beacon chain): totalAssets decreases, shares unchanged.
+        uint256 sharesBefore = podManager.getShares(podOwner1);
         vm.prank(address(pod));
         podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -5 ether);
-        assertEq(podManager.getShares(podOwner1), 28 ether, "After slashing");
+        assertEq(podManager.getShares(podOwner1), sharesBefore, "Shares unchanged on slash");
+        // Virtual offset (1e3) introduces sub-1000 wei rounding dust between totalAssets
+        // and convertToAssets(totalShares). Tolerate it here.
+        assertApproxEqAbs(podManager.getRestakedAssets(podOwner1), 28 ether, 1000, "Assets reduced by slash");
 
-        // Large negative (can go negative if slashed more than deposited)
+        // Large negative: pool totalAssets saturates at zero (cannot go below zero).
         vm.prank(address(pod));
         podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -30 ether);
-        assertEq(podManager.getShares(podOwner1), -2 ether, "Shares can be negative");
+        assertEq(podManager.totalAssetsOf(podOwner1), 0, "totalAssets saturates at zero");
+        // With totalAssets at zero, convertToAssets(shares) returns
+        //   shares * VIRTUAL_ASSETS / (totalShares + VIRTUAL_SHARES) = up to VIRTUAL_ASSETS-1 wei.
+        // This is the documented "phantom assets" residue from the virtual offset (sub-1000 wei).
+        assertLt(podManager.getRestakedAssets(podOwner1), 1000, "Assets <= virtual offset on full slash");
     }
 
+    /// @notice G-02: aggregate shares sums per-pool shares; a rebase down does not change shares.
     function test_shareAccounting_TotalSharesTracking() public {
         ValidatorPod pod1 = _createPod(podOwner1);
         ValidatorPod pod2 = _createPod(podOwner2);
@@ -195,13 +214,15 @@ contract BeaconIntegrationTest is BeaconTestBase {
         vm.prank(address(pod2));
         podManager.recordBeaconChainEthBalanceUpdate(podOwner2, 64 ether);
 
-        assertEq(podManager.totalShares(), 96 ether, "Total should be sum");
+        assertEq(podManager.totalShares(), 96 ether, "Aggregate shares = sum of mints");
 
-        // Negative update
+        // Negative update: rebases pool1 down (10 ETH lost), but shares unchanged.
         vm.prank(address(pod1));
         podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -10 ether);
 
-        assertEq(podManager.totalShares(), 86 ether, "Total should decrease");
+        assertEq(podManager.totalShares(), 96 ether, "Aggregate shares unchanged on rebase");
+        assertEq(podManager.totalAssetsOf(podOwner1), 22 ether, "pod1 assets reduced by 10");
+        assertEq(podManager.totalAssetsOf(podOwner2), 64 ether, "pod2 assets unaffected");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

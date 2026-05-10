@@ -7,12 +7,39 @@ import { IStaking } from "../interfaces/IStaking.sol";
 import { Types } from "../libraries/Types.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title ValidatorPodManager
-/// @notice Factory and manager for ValidatorPods, implements IStaking for Tangle integration
-/// @dev Creates pods for users, tracks shares, handles delegation to operators
+/// @notice Factory and manager for ValidatorPods, implements IStaking for Tangle integration.
+/// @dev G-02 (Round 4): Refactored to use O(1) share-pool accounting consistent with the rest of
+///      the staking surface (`MultiAssetDelegation`, `LiquidDelegationVault`, `RewardsManager`).
+///
+///      Per-pod accounting model:
+///        Each pod owner has an isolated share-pool tracked by `BeaconPool { totalAssets, totalShares }`
+///        and a per-owner `shares[owner]` balance. Beacon chain rebases (rewards / slashes) move
+///        `totalAssets` only -- share balances are unaffected. Deposits (validator credential proofs)
+///        mint shares against the pool at the current exchange rate. Withdrawals burn shares and
+///        transfer the asset-equivalent ETH out of the pod.
+///
+///      Slashing semantics divergence from a Lido-style global pool:
+///        We deliberately keep the slash isolated to the affected pod (existing semantics).
+///        With one shareholder per pod, "totalAssets -= slashed; shares unchanged" reduces the
+///        owner's claimable assets without spreading the loss across other pod owners. This matches
+///        the per-pod-isolation invariant the existing contract maintained, while still using
+///        share-pool math (virtual offset, mulDiv) so behavior is bit-exact with the rest of Tangle.
+///
+///      Virtual offsets (`VIRTUAL_SHARES = VIRTUAL_ASSETS = 1e3`) defend against first-depositor
+///      inflation attacks; they match `LiquidDelegationVault` exactly.
 contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
+    using Math for uint256;
+
     uint256 public constant BPS_DENOMINATOR = 10_000;
+
+    /// @notice G-02: Virtual shares/assets offset to prevent first-depositor inflation attack.
+    /// @dev Following OpenZeppelin ERC4626 pattern, consistent with `LiquidDelegationVault`.
+    uint256 internal constant VIRTUAL_SHARES = 1e3;
+    uint256 internal constant VIRTUAL_ASSETS = 1e3;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE - CORE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -37,15 +64,23 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     uint256 public podCount;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STATE - SHARES
+    // STATE - SHARES (G-02: SHARE-POOL ACCOUNTING)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Shares by pod owner (can be negative if slashed below initial)
-    /// @dev Represents restaked beacon chain ETH in wei
-    mapping(address owner => int256) public podOwnerShares;
+    /// @notice Per-pod share-pool state. One pool per pod owner.
+    struct BeaconPool {
+        uint256 totalAssets; // Beacon-chain ETH (in wei) attributable to this pod
+        uint256 totalShares; // Outstanding shares for this pod
+    }
 
-    /// @notice Total shares across all pod owners
-    int256 public totalShares;
+    /// @notice Pool state by pod owner
+    mapping(address owner => BeaconPool) internal _pools;
+
+    /// @notice Per-owner share balance
+    mapping(address owner => uint256) internal _shares;
+
+    /// @notice Aggregate shares across all pools (informational, not used for accounting)
+    uint256 internal _aggregateShares;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE - OPERATORS & DELEGATION
@@ -57,13 +92,13 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @notice Operator self-stake
     mapping(address operator => uint256) public operatorStake;
 
-    /// @notice Delegation from pod owner to operator
+    /// @notice Delegation from pod owner to operator (in asset units)
     mapping(address delegator => mapping(address operator => uint256)) public delegations;
 
-    /// @notice Total delegated to an operator
+    /// @notice Total delegated to an operator (in asset units)
     mapping(address operator => uint256) public operatorDelegatedStake;
 
-    /// @notice H-3 FIX: Total amount delegated by a delegator
+    /// @notice H-3 FIX: Total amount delegated by a delegator (in asset units)
     mapping(address delegator => uint256) public delegatorTotalDelegated;
 
     /// @notice H-4 FIX: Track delegators per operator for proportional slashing
@@ -80,9 +115,16 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Withdrawal request structure
+    /// @dev `shares` is denominated in pool shares (G-02). `assets` is the asset value
+    ///      locked in at queue time (snapshot of `convertToAssets(shares)`), to ensure
+    ///      the staker receives no more than they had at request time even if the pool
+    ///      rebases up before completion. The actual transferred amount is the minimum
+    ///      of the snapshot and the live value at completion (so beacon slashes between
+    ///      queue and complete still take effect).
     struct Withdrawal {
         address staker;
         uint256 shares;
+        uint256 assets;
         uint32 startBlock;
         bool completed;
     }
@@ -133,7 +175,18 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════════════
 
     event PodCreated(address indexed owner, address indexed pod);
-    event SharesUpdated(address indexed owner, int256 sharesDelta, int256 newShares);
+
+    /// @notice G-02: Emitted when shares are minted/burned for an owner.
+    event SharesUpdated(
+        address indexed owner, int256 sharesDelta, uint256 newShares, uint256 totalAssets, uint256 totalSharesPool
+    );
+
+    /// @notice G-02: Emitted when the pool's totalAssets is updated by a beacon chain rebase
+    ///         (rewards/slash). Shares are unchanged; only the share price moves.
+    event BeaconRebase(
+        address indexed owner, int256 assetsDelta, uint256 newTotalAssets, uint256 totalSharesPool
+    );
+
     event OperatorRegistered(address indexed operator);
     event OperatorDeregistered(address indexed operator);
     event Delegated(address indexed delegator, address indexed operator, uint256 amount);
@@ -146,8 +199,12 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     );
     event SlasherUpdated(address indexed slasher, bool authorized);
     event DelegatorSlashed(address indexed delegator, address indexed operator, uint256 amount);
-    event WithdrawalQueued(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares);
-    event WithdrawalCompleted(bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares);
+    event WithdrawalQueued(
+        bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares, uint256 assets
+    );
+    event WithdrawalCompleted(
+        bytes32 indexed withdrawalRoot, address indexed staker, uint256 shares, uint256 assets
+    );
     event WithdrawalDelaySet(uint32 oldDelay, uint32 newDelay);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -164,6 +221,7 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     error NotAuthorizedSlasher();
     error ZeroAddress();
     error ZeroAmount();
+    error ZeroShares();
     error WithdrawalNotFound();
     error WithdrawalNotReady();
     error WithdrawalAlreadyCompleted();
@@ -173,6 +231,7 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     error UndelegationNotFound();
     error UndelegationNotReady();
     error UndelegationAlreadyCompleted();
+    error InvalidDelta();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -229,24 +288,150 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SHARE MANAGEMENT (called by pods)
+    // SHARE-POOL CONVERSION HELPERS (G-02)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Record a balance update from a pod
+    /// @notice Convert assets to shares for a specific pool, rounding shares DOWN.
+    /// @dev Matches OpenZeppelin ERC4626 deposit semantics: depositor cannot mint
+    ///      more shares than the asset contribution warrants.
+    function _convertToShares(BeaconPool storage pool, uint256 assets) internal view returns (uint256) {
+        return assets.mulDiv(pool.totalShares + VIRTUAL_SHARES, pool.totalAssets + VIRTUAL_ASSETS, Math.Rounding.Floor);
+    }
+
+    /// @notice Convert shares to assets for a specific pool, rounding assets DOWN.
+    /// @dev Matches OpenZeppelin ERC4626 redeem semantics: redeemer cannot withdraw
+    ///      more assets than the shares warrant.
+    function _convertToAssets(BeaconPool storage pool, uint256 shares) internal view returns (uint256) {
+        return shares.mulDiv(pool.totalAssets + VIRTUAL_ASSETS, pool.totalShares + VIRTUAL_SHARES, Math.Rounding.Floor);
+    }
+
+    /// @notice Public view: convert assets to shares for `owner`'s pool.
+    function convertToShares(address owner, uint256 assets) external view returns (uint256) {
+        return _convertToShares(_pools[owner], assets);
+    }
+
+    /// @notice Public view: convert shares to assets for `owner`'s pool.
+    function convertToAssets(address owner, uint256 shares) external view returns (uint256) {
+        return _convertToAssets(_pools[owner], shares);
+    }
+
+    /// @notice Public view: total assets in `owner`'s pool (live beacon-chain ETH).
+    function totalAssetsOf(address owner) external view returns (uint256) {
+        return _pools[owner].totalAssets;
+    }
+
+    /// @notice Public view: total shares outstanding in `owner`'s pool.
+    function totalSharesOf(address owner) external view returns (uint256) {
+        return _pools[owner].totalShares;
+    }
+
+    /// @notice Public view: aggregate shares across all pools (informational).
+    function totalShares() external view returns (uint256) {
+        return _aggregateShares;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SHARE MANAGEMENT (called by pods)  -- G-02 SHARE-POOL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Record a beacon-chain principal deposit (validator credential proof).
+    /// @dev Mints pool shares for `podOwner` against the current pool exchange rate.
+    ///      Called by `ValidatorPod.verifyWithdrawalCredentials` when new principal
+    ///      becomes attributable to this pod. Only callable by the owner's pod.
     /// @param podOwner The pod owner
-    /// @param sharesDelta Change in shares (can be negative)
-    /// @dev Only callable by a valid pod
+    /// @param assets Principal added to the pod (in wei, must be > 0)
+    /// @return mintedShares Number of shares minted to `podOwner`
+    function recordBeaconChainDeposit(address podOwner, uint256 assets)
+        external
+        returns (uint256 mintedShares)
+    {
+        address pod = ownerToPod[podOwner];
+        if (msg.sender != pod) revert OnlyPod();
+        if (assets == 0) revert ZeroAmount();
+
+        BeaconPool storage pool = _pools[podOwner];
+
+        mintedShares = _convertToShares(pool, assets);
+        if (mintedShares == 0) revert ZeroShares();
+
+        pool.totalAssets += assets;
+        pool.totalShares += mintedShares;
+        _shares[podOwner] += mintedShares;
+        _aggregateShares += mintedShares;
+
+        // assets fits in int256 because uint256 -> int256 cast guarded by reasonable bounds
+        // forge-lint: disable-next-line(unsafe-typecast)
+        emit SharesUpdated(podOwner, int256(mintedShares), _shares[podOwner], pool.totalAssets, pool.totalShares);
+    }
+
+    /// @notice Record a beacon-chain rebase (rewards or slash).
+    /// @dev Updates `totalAssets` only -- shares are unchanged, share price moves.
+    ///      Called by `ValidatorPod._finalizeCheckpoint`. Only callable by the owner's pod.
+    ///      A negative `assetsDelta` representing more than the current pool balance
+    ///      saturates `totalAssets` to zero (full slash) instead of reverting.
+    /// @param podOwner The pod owner
+    /// @param assetsDelta Signed change in beacon-chain assets (can be negative)
+    function recordBeaconChainRebase(address podOwner, int256 assetsDelta) external {
+        address pod = ownerToPod[podOwner];
+        if (msg.sender != pod) revert OnlyPod();
+
+        BeaconPool storage pool = _pools[podOwner];
+        uint256 newTotal;
+        if (assetsDelta >= 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            newTotal = pool.totalAssets + uint256(assetsDelta);
+        } else {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint256 absDelta = uint256(-assetsDelta);
+            newTotal = absDelta >= pool.totalAssets ? 0 : pool.totalAssets - absDelta;
+        }
+        pool.totalAssets = newTotal;
+
+        emit BeaconRebase(podOwner, assetsDelta, newTotal, pool.totalShares);
+    }
+
+    /// @notice Backward-compatible balance update entry point.
+    /// @dev Translates the legacy `(owner, int256 delta)` signature into share-pool ops:
+    ///      - If `delta > 0` AND the owner has no shares yet: treat as a fresh deposit.
+    ///      - If `delta > 0` AND the owner already has shares: caller must use the explicit
+    ///        `recordBeaconChainDeposit` / `recordBeaconChainRebase` methods. We default to
+    ///        `recordBeaconChainDeposit` here for back-compat with the original semantics
+    ///        ("positive delta == principal added"); rebases up should not have used this
+    ///        legacy path historically.
+    ///      - If `delta < 0`: treat as a rebase down (slash).
+    ///      Prefer the explicit methods in new code.
     function recordBeaconChainEthBalanceUpdate(address podOwner, int256 sharesDelta) external {
         address pod = ownerToPod[podOwner];
         if (msg.sender != pod) revert OnlyPod();
 
-        int256 currentShares = podOwnerShares[podOwner];
-        int256 newShares = currentShares + sharesDelta;
+        if (sharesDelta == 0) revert InvalidDelta();
 
-        podOwnerShares[podOwner] = newShares;
-        totalShares += sharesDelta;
+        BeaconPool storage pool = _pools[podOwner];
 
-        emit SharesUpdated(podOwner, sharesDelta, newShares);
+        if (sharesDelta > 0) {
+            // Treat positive delta as principal deposit (mints shares).
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint256 assets = uint256(sharesDelta);
+            uint256 mintedShares = _convertToShares(pool, assets);
+            if (mintedShares == 0) revert ZeroShares();
+
+            pool.totalAssets += assets;
+            pool.totalShares += mintedShares;
+            _shares[podOwner] += mintedShares;
+            _aggregateShares += mintedShares;
+
+            // forge-lint: disable-next-line(unsafe-typecast)
+            emit SharesUpdated(
+                podOwner, int256(mintedShares), _shares[podOwner], pool.totalAssets, pool.totalShares
+            );
+        } else {
+            // Negative delta: rebase down (beacon chain slash).
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint256 absDelta = uint256(-sharesDelta);
+            uint256 newTotal = absDelta >= pool.totalAssets ? 0 : pool.totalAssets - absDelta;
+            pool.totalAssets = newTotal;
+            emit BeaconRebase(podOwner, sharesDelta, newTotal, pool.totalShares);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -299,19 +484,20 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     // DELEGATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Delegate beacon chain ETH shares to an operator
+    /// @notice Delegate beacon chain ETH to an operator (in asset units).
+    /// @dev G-02: availability is checked against `convertToAssets(shares[owner])` rather
+    ///      than the legacy raw `podOwnerShares[owner]`. The delegation amount is denominated
+    ///      in assets so an upstream rebase up before undelegation does not reduce headroom.
     /// @param operator The operator to delegate to
     /// @param amount Amount to delegate (in wei)
     function delegateTo(address operator, uint256 amount) external nonReentrant {
         if (!_operators[operator]) revert NotOperator();
         if (amount == 0) revert ZeroAmount();
 
-        int256 availableShares = podOwnerShares[msg.sender];
-        uint256 currentDelegated = delegatorTotalDelegated[msg.sender]; // H-3 FIX
+        uint256 availableAssets = _convertToAssets(_pools[msg.sender], _shares[msg.sender]);
+        uint256 currentDelegated = delegatorTotalDelegated[msg.sender];
 
-        // availableShares fits in uint256 because negative case handled.
-        // forge-lint: disable-next-line(unsafe-typecast)
-        if (availableShares < 0 || uint256(availableShares) < currentDelegated + amount) {
+        if (availableAssets < currentDelegated + amount) {
             revert InsufficientShares();
         }
 
@@ -323,7 +509,7 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
 
         delegations[msg.sender][operator] += amount;
         operatorDelegatedStake[operator] += amount;
-        delegatorTotalDelegated[msg.sender] += amount; // H-3 FIX
+        delegatorTotalDelegated[msg.sender] += amount;
 
         emit Delegated(msg.sender, operator, amount);
     }
@@ -468,47 +654,51 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // WITHDRAWAL QUEUE
+    // WITHDRAWAL QUEUE  (G-02: SHARE-DENOMINATED)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Queue a withdrawal of beacon chain ETH shares
-    /// @param shares Amount of shares to withdraw (in wei)
+    /// @notice Queue a withdrawal denominated in pool shares.
+    /// @dev G-02: This is the canonical share-pool withdrawal API. The asset value
+    ///      transferred at completion is the live `convertToAssets(shares)`, capped at
+    ///      the queue-time snapshot to prevent the staker capturing post-queue rebases up.
+    /// @param shares Amount of shares to redeem
     /// @return withdrawalRoot Unique identifier for this withdrawal
-    /// @dev Must have no pending delegations to withdraw
     function queueWithdrawal(uint256 shares) external nonReentrant returns (bytes32 withdrawalRoot) {
         if (shares == 0) revert ZeroAmount();
 
-        // Check staker has sufficient available shares
-        int256 currentShares = podOwnerShares[msg.sender];
-        uint256 delegated = delegatorTotalDelegated[msg.sender];
-        uint256 queued = queuedShares[msg.sender];
+        BeaconPool storage pool = _pools[msg.sender];
 
         // Must undelegate before withdrawing
-        if (delegated > 0) revert HasPendingDelegations();
+        if (delegatorTotalDelegated[msg.sender] > 0) revert HasPendingDelegations();
 
-        // Available = total shares - already queued
-        // forge-lint: disable-next-line(unsafe-typecast)
-        if (currentShares < 0 || uint256(currentShares) < queued + shares) {
-            revert InsufficientShares();
-        }
+        uint256 ownerShares = _shares[msg.sender];
+        uint256 alreadyQueued = queuedShares[msg.sender];
+        if (ownerShares < alreadyQueued + shares) revert InsufficientShares();
+
+        // Snapshot the asset equivalent at queue time. Even if the pool rebases up before
+        // completion, the staker only receives this snapshot (rebase-up profit is socialized
+        // back to the pool). Rebase-down (slash) takes effect via the live convertToAssets.
+        uint256 assetSnapshot = _convertToAssets(pool, shares);
 
         // Generate unique withdrawal root
         uint256 nonce = withdrawalNonce[msg.sender]++;
-        withdrawalRoot = keccak256(abi.encodePacked(msg.sender, shares, block.number, nonce));
+        withdrawalRoot = keccak256(abi.encodePacked(msg.sender, shares, assetSnapshot, block.number, nonce));
 
         // Store pending withdrawal
-        pendingWithdrawals[withdrawalRoot] =
-            Withdrawal({ staker: msg.sender, shares: shares, startBlock: uint32(block.number), completed: false });
+        pendingWithdrawals[withdrawalRoot] = Withdrawal({
+            staker: msg.sender, shares: shares, assets: assetSnapshot, startBlock: uint32(block.number), completed: false
+        });
 
         // Track queued shares
         queuedShares[msg.sender] += shares;
 
-        emit WithdrawalQueued(withdrawalRoot, msg.sender, shares);
+        emit WithdrawalQueued(withdrawalRoot, msg.sender, shares, assetSnapshot);
     }
 
-    /// @notice Complete a pending withdrawal after delay period
+    /// @notice Complete a pending withdrawal after delay period.
+    /// @dev G-02: Burns the queued shares against the pool, transfers ETH = min(snapshot, live).
+    ///      Reduces both `pool.totalAssets` and `pool.totalShares` accordingly.
     /// @param withdrawalRoot The withdrawal identifier
-    /// @dev Transfers ETH from the pod to the staker
     function completeWithdrawal(bytes32 withdrawalRoot) external nonReentrant {
         Withdrawal storage withdrawal = pendingWithdrawals[withdrawalRoot];
 
@@ -524,39 +714,60 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
         // Mark as completed
         withdrawal.completed = true;
 
-        // Reduce shares and queued amount
-        uint256 shares = withdrawal.shares;
-        // forge-lint: disable-next-line(unsafe-typecast)
-        podOwnerShares[msg.sender] -= int256(shares);
-        // forge-lint: disable-next-line(unsafe-typecast)
-        totalShares -= int256(shares);
-        queuedShares[msg.sender] -= shares;
+        uint256 sharesToBurn = withdrawal.shares;
+        uint256 snapshotAssets = withdrawal.assets;
+
+        BeaconPool storage pool = _pools[msg.sender];
+
+        // Live valuation at completion. If pool slashed in the interim, this will be
+        // smaller than the snapshot -- staker absorbs the slash. If pool gained, the
+        // snapshot caps payout (rebase-up profit stays with remaining shareholders, if any).
+        uint256 liveAssets = _convertToAssets(pool, sharesToBurn);
+        uint256 payout = liveAssets < snapshotAssets ? liveAssets : snapshotAssets;
+
+        // Burn shares against the pool. We never burn more than outstanding.
+        uint256 burnableShares = sharesToBurn > pool.totalShares ? pool.totalShares : sharesToBurn;
+        pool.totalShares -= burnableShares;
+        // payout will not exceed pool.totalAssets because liveAssets <= totalAssets always.
+        pool.totalAssets = payout >= pool.totalAssets ? 0 : pool.totalAssets - payout;
+
+        _shares[msg.sender] -= sharesToBurn;
+        _aggregateShares -= burnableShares;
+        queuedShares[msg.sender] -= sharesToBurn;
 
         // Transfer ETH from pod to staker
         address pod = ownerToPod[msg.sender];
-        if (pod != address(0)) {
-            // Request pod to send ETH to staker
-            ValidatorPod(payable(pod)).withdrawToStaker(msg.sender, shares);
+        if (pod != address(0) && payout > 0) {
+            ValidatorPod(payable(pod)).withdrawToStaker(msg.sender, payout);
         }
 
-        emit WithdrawalCompleted(withdrawalRoot, msg.sender, shares);
+        emit WithdrawalCompleted(withdrawalRoot, msg.sender, sharesToBurn, payout);
     }
 
     /// @notice Get withdrawal info
     /// @param withdrawalRoot The withdrawal identifier
     /// @return staker The staker address
-    /// @return shares Amount of shares
+    /// @return shares Amount of shares queued
+    /// @return assets Snapshot of asset value at queue time
     /// @return startBlock Block when queued
     /// @return completed Whether completed
     /// @return canComplete Whether can be completed now
     function getWithdrawalInfo(bytes32 withdrawalRoot)
         external
         view
-        returns (address staker, uint256 shares, uint32 startBlock, bool completed, bool canComplete)
+        returns (
+            address staker,
+            uint256 shares,
+            uint256 assets,
+            uint32 startBlock,
+            bool completed,
+            bool canComplete
+        )
     {
         Withdrawal storage w = pendingWithdrawals[withdrawalRoot];
         staker = w.staker;
         shares = w.shares;
+        assets = w.assets;
         startBlock = w.startBlock;
         completed = w.completed;
         canComplete = !completed && block.number >= startBlock + withdrawalDelayBlocks;
@@ -566,16 +777,19 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @param staker The staker address
     /// @return available Shares available to queue for withdrawal
     function getAvailableToWithdraw(address staker) external view returns (uint256 available) {
-        int256 shares = podOwnerShares[staker];
-        if (shares <= 0) return 0;
+        // G-02: "Available to withdraw" is now expressed in shares. Delegation reduces the
+        // assets the staker can claim, so we subtract the share-equivalent of the delegated
+        // assets from their share balance.
+        uint256 ownerShares = _shares[staker];
+        if (ownerShares == 0) return 0;
 
-        uint256 delegated = delegatorTotalDelegated[staker];
         uint256 queued = queuedShares[staker];
-        uint256 used = delegated + queued;
+        uint256 delegatedAssets = delegatorTotalDelegated[staker];
+        uint256 delegatedShares = delegatedAssets == 0 ? 0 : _convertToShares(_pools[staker], delegatedAssets);
 
-        if (uint256(shares) > used) {
-            // forge-lint: disable-next-line(unsafe-typecast)
-            available = uint256(shares) - used;
+        uint256 used = queued + delegatedShares;
+        if (ownerShares > used) {
+            available = ownerShares - used;
         }
     }
 
@@ -643,10 +857,8 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
 
     /// @inheritdoc IStaking
     function getTotalDelegation(address delegator) external view override returns (uint256) {
-        // Simplified - in production would need to track this
-        int256 shares = podOwnerShares[delegator];
-        // forge-lint: disable-next-line(unsafe-typecast)
-        return shares > 0 ? uint256(shares) : 0;
+        // G-02: return the asset-equivalent of the delegator's pod shares.
+        return _convertToAssets(_pools[delegator], _shares[delegator]);
     }
 
     /// @inheritdoc IStaking
@@ -720,7 +932,9 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     }
 
     /// @notice Internal slash implementation
-    /// @dev H-4 FIX: Now proportionally slashes delegators
+    /// @dev H-4 FIX: Proportionally slashes delegators. Slashing only operates on the
+    ///      operator's self-stake and delegated asset claims, not the underlying pool
+    ///      shares -- beacon-chain-induced slashes flow through `recordBeaconChainRebase`.
     function _slash(address operator, uint16 slashBps) internal returns (uint256 actualSlashed) {
         uint256 totalStake = operatorStake[operator] + operatorDelegatedStake[operator];
 
@@ -849,14 +1063,22 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // VIEW FUNCTIONS
+    // VIEW FUNCTIONS  (G-02: SHARE-POOL)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Get pod owner's shares
+    /// @notice Get pod owner's pool share balance.
     /// @param owner The owner address
-    /// @return Current shares (can be negative)
-    function getShares(address owner) external view returns (int256) {
-        return podOwnerShares[owner];
+    /// @return Current pool shares (uint256, share-pool semantics).
+    function getShares(address owner) external view returns (uint256) {
+        return _shares[owner];
+    }
+
+    /// @notice Get pod owner's asset-equivalent restaked balance.
+    /// @dev Live valuation: `convertToAssets(shares[owner])`. Reflects rebases.
+    /// @param owner The owner address
+    /// @return Asset balance in wei
+    function getRestakedAssets(address owner) external view returns (uint256) {
+        return _convertToAssets(_pools[owner], _shares[owner]);
     }
 
     /// @notice Check if address has a pod
