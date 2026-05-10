@@ -249,6 +249,11 @@ interface IMultiAssetDelegation {
     function getAssetConfig(address token) external view returns (Types.AssetConfig memory);
     function registerAdapter(address token, address adapter) external;
     function removeAdapter(address token) external;
+
+    /// @notice Round 4 audit S-2: raw register/remove of an adapter is rejected
+    ///         while the asset has live deposits. Use the M-8 migration path
+    ///         (`startAdapterMigration` → `completeAdapterMigration`) instead.
+    error AdapterChangeWhileDepositsExist(address token, uint256 currentDeposits);
     function setRequireAdapters(bool required) external;
     function enableAssetWithAdapter(
         address token,

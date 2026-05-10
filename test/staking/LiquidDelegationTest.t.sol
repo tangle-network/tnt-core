@@ -547,4 +547,55 @@ contract LiquidDelegationTest is Test {
         vm.expectRevert(LiquidDelegationVault.NotController.selector);
         vault.requestRedeem(5 ether, user1, user1);
     }
+
+    /// @notice Round 4 audit S-1: an authorized operator MUST file with
+    ///         `controller == owner`. Without this gate, the operator can pick
+    ///         any controller (including themselves) and later drive `redeem`
+    ///         to route assets to any receiver.
+    function test_Vault_OperatorCannotPickArbitraryController_S1() public {
+        address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
+        LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
+
+        vm.startPrank(user1);
+        token.approve(address(vault), 10 ether);
+        vault.deposit(10 ether, user1);
+        vault.setOperator(user2, true); // user1 trusts user2 to drive redemptions
+        vm.stopPrank();
+
+        // user2 is an authorized operator. Per S-1, they must pass controller == owner.
+        // Picking themselves (user2) as controller would let them sign `redeem` and
+        // direct the assets anywhere — must revert.
+        vm.prank(user2);
+        vm.expectRevert(LiquidDelegationVault.NotController.selector);
+        vault.requestRedeem(5 ether, user2, user1);
+
+        // Picking an unrelated address as controller is also rejected.
+        vm.prank(user2);
+        vm.expectRevert(LiquidDelegationVault.NotController.selector);
+        vault.requestRedeem(5 ether, address(0xC0FFEE), user1);
+
+        // Setting controller == owner (user1) is the only allowed shape.
+        vm.prank(user2);
+        uint256 requestId = vault.requestRedeem(5 ether, user1, user1);
+        assertEq(requestId, 0, "operator with controller==owner should succeed");
+    }
+
+    /// @notice Round 4 audit S-1: the owner driving their own request is still
+    ///         free to delegate redemption to a separate controller (legit
+    ///         ERC-7540 use case — e.g. an aggregator vault). The gate only
+    ///         clamps third-party operators.
+    function test_Vault_OwnerMayPickArbitraryController_S1() public {
+        address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
+        LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
+
+        vm.startPrank(user1);
+        token.approve(address(vault), 10 ether);
+        vault.deposit(10 ether, user1);
+        // user1 delegates redemption to user2 (the controller). Allowed, since
+        // user1 is choosing for themselves — no third-party operator hijack.
+        uint256 requestId = vault.requestRedeem(5 ether, user2, user1);
+        vm.stopPrank();
+        assertEq(requestId, 0, "owner-driven delegation should still work");
+        assertEq(vault.pendingRedeemRequest(requestId, user2), 5 ether);
+    }
 }

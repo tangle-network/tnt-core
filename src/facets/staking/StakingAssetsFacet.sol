@@ -91,12 +91,19 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
     /// @param token The token address
     /// @param adapter The adapter address
     /// @dev Adapter must support the token (checked via supportsAsset)
+    /// @dev Round 4 audit S-2: rejects when the asset has active deposits.
+    ///      Switching adapters under live balances either strands assets in the
+    ///      old adapter or double-counts them in the new one — `currentDeposits`
+    ///      is the protocol's accounting source of truth, so refuse the swap and
+    ///      route admins through `startAdapterMigration` (M-8) instead.
     function registerAdapter(address token, address adapter) external onlyRole(ASSET_MANAGER_ROLE) {
         require(token != address(0), "Cannot set adapter for native");
         require(adapter != address(0), "Invalid adapter");
-
-        // Verify adapter supports the token
         require(IAssetAdapter(adapter).supportsAsset(token), "Adapter doesn't support token");
+
+        bytes32 assetHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
+        uint256 deposits = _assetConfigs[assetHash].currentDeposits;
+        if (deposits != 0) revert AdapterChangeWhileDepositsExist(token, deposits);
 
         _assetAdapters[token] = adapter;
         emit AdapterRegistered(token, adapter);
@@ -104,11 +111,24 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
 
     /// @notice Remove adapter for a token (falls back to direct transfers)
     /// @param token The token address
+    /// @dev Round 4 audit S-2: same `currentDeposits == 0` gate as
+    ///      `registerAdapter`. Removing an adapter while balances are held there
+    ///      would silently strand them — admins should use
+    ///      `startAdapterMigration(token, address(0))` to drain first.
     function removeAdapter(address token) external onlyRole(ASSET_MANAGER_ROLE) {
         require(_assetAdapters[token] != address(0), "No adapter registered");
+
+        bytes32 assetHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
+        uint256 deposits = _assetConfigs[assetHash].currentDeposits;
+        if (deposits != 0) revert AdapterChangeWhileDepositsExist(token, deposits);
+
         delete _assetAdapters[token];
         emit AdapterRemoved(token);
     }
+
+    /// @notice Adapter changes are forbidden while the asset has live deposits.
+    /// @dev Use `startAdapterMigration` (M-8) for the controlled drain path.
+    error AdapterChangeWhileDepositsExist(address token, uint256 currentDeposits);
 
     /// @notice Set whether adapters are required for ERC20 deposits
     /// @param required If true, deposits revert when no adapter is registered
