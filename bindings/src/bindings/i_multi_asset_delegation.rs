@@ -4077,6 +4077,7 @@ interface IMultiAssetDelegation {
     function executeOperatorUnstake() external;
     function executeWithdraw() external;
     function getAssetConfig(address token) external view returns (Types.AssetConfig memory);
+    function getCumStakeSeconds(address operator, Types.Asset memory asset) external view returns (uint256 cum, uint64 lastUpdate, uint256 currentStake);
     function getDelegation(address delegator, address operator) external view returns (uint256);
     function getDelegationBlueprints(address delegator, uint256 idx) external view returns (uint64[] memory);
     function getDelegationMode(address operator) external view returns (Types.DelegationMode);
@@ -4747,6 +4748,52 @@ interface IMultiAssetDelegation {
             "internalType": "uint16"
           }
         ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCumStakeSeconds",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "asset",
+        "type": "tuple",
+        "internalType": "struct Types.Asset",
+        "components": [
+          {
+            "name": "kind",
+            "type": "uint8",
+            "internalType": "enum Types.AssetKind"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "cum",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "lastUpdate",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "currentStake",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -15832,6 +15879,201 @@ function getAssetConfig(address token) external view returns (Types.AssetConfig 
                         let r: getAssetConfigReturn = r.into();
                         r._0
                     })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
+    /**Function with signature `getCumStakeSeconds(address,(uint8,address))` and selector `0xc1f1d6fb`.
+```solidity
+function getCumStakeSeconds(address operator, Types.Asset memory asset) external view returns (uint256 cum, uint64 lastUpdate, uint256 currentStake);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getCumStakeSecondsCall {
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub asset: <Types::Asset as alloy::sol_types::SolType>::RustType,
+    }
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getCumStakeSeconds(address,(uint8,address))`](getCumStakeSecondsCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getCumStakeSecondsReturn {
+        #[allow(missing_docs)]
+        pub cum: alloy::sol_types::private::primitives::aliases::U256,
+        #[allow(missing_docs)]
+        pub lastUpdate: u64,
+        #[allow(missing_docs)]
+        pub currentStake: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Address,
+                Types::Asset,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::Address,
+                <Types::Asset as alloy::sol_types::SolType>::RustType,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getCumStakeSecondsCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getCumStakeSecondsCall) -> Self {
+                    (value.operator, value.asset)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getCumStakeSecondsCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        operator: tuple.0,
+                        asset: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                alloy::sol_types::private::primitives::aliases::U256,
+                u64,
+                alloy::sol_types::private::primitives::aliases::U256,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getCumStakeSecondsReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: getCumStakeSecondsReturn) -> Self {
+                    (value.cum, value.lastUpdate, value.currentStake)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for getCumStakeSecondsReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        cum: tuple.0,
+                        lastUpdate: tuple.1,
+                        currentStake: tuple.2,
+                    }
+                }
+            }
+        }
+        impl getCumStakeSecondsReturn {
+            fn _tokenize(
+                &self,
+            ) -> <getCumStakeSecondsCall as alloy_sol_types::SolCall>::ReturnToken<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.cum),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.lastUpdate),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.currentStake),
+                )
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getCumStakeSecondsCall {
+            type Parameters<'a> = (alloy::sol_types::sol_data::Address, Types::Asset);
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = getCumStakeSecondsReturn;
+            type ReturnTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<256>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<256>,
+            );
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getCumStakeSeconds(address,(uint8,address))";
+            const SELECTOR: [u8; 4] = [193u8, 241u8, 214u8, 251u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                    <Types::Asset as alloy_sol_types::SolType>::tokenize(&self.asset),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                getCumStakeSecondsReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
             }
         }
     };
@@ -27291,6 +27533,8 @@ function unpause() external;
         #[allow(missing_docs)]
         getAssetConfig(getAssetConfigCall),
         #[allow(missing_docs)]
+        getCumStakeSeconds(getCumStakeSecondsCall),
+        #[allow(missing_docs)]
         getDelegation(getDelegationCall),
         #[allow(missing_docs)]
         getDelegationBlueprints(getDelegationBlueprintsCall),
@@ -27509,6 +27753,7 @@ function unpause() external;
             [186u8, 5u8, 187u8, 245u8],
             [191u8, 82u8, 116u8, 167u8],
             [191u8, 105u8, 2u8, 6u8],
+            [193u8, 241u8, 214u8, 251u8],
             [195u8, 80u8, 130u8, 169u8],
             [195u8, 83u8, 193u8, 246u8],
             [197u8, 80u8, 217u8, 56u8],
@@ -27618,6 +27863,7 @@ function unpause() external;
             ::core::stringify!(delegationBondLessDelay),
             ::core::stringify!(setTangle),
             ::core::stringify!(executeDelegatorUnstakeAndWithdraw),
+            ::core::stringify!(getCumStakeSeconds),
             ::core::stringify!(getDeposit),
             ::core::stringify!(setDelegationWhitelist),
             ::core::stringify!(getSlashCountForBlueprint),
@@ -27727,6 +27973,7 @@ function unpause() external;
             <delegationBondLessDelayCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTangleCall as alloy_sol_types::SolCall>::SIGNATURE,
             <executeDelegatorUnstakeAndWithdrawCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <getCumStakeSecondsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getDepositCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setDelegationWhitelistCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getSlashCountForBlueprintCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -27791,7 +28038,7 @@ function unpause() external;
     impl alloy_sol_types::SolInterface for IMultiAssetDelegationCalls {
         const NAME: &'static str = "IMultiAssetDelegationCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 106usize;
+        const COUNT: usize = 107usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -27895,6 +28142,9 @@ function unpause() external;
                 }
                 Self::getAssetConfig(_) => {
                     <getAssetConfigCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getCumStakeSeconds(_) => {
+                    <getCumStakeSecondsCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::getDelegation(_) => {
                     <getDelegationCall as alloy_sol_types::SolCall>::SELECTOR
@@ -28861,6 +29111,17 @@ function unpause() external;
                             )
                     }
                     executeDelegatorUnstakeAndWithdraw
+                },
+                {
+                    fn getCumStakeSeconds(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <getCumStakeSecondsCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::getCumStakeSeconds)
+                    }
+                    getCumStakeSeconds
                 },
                 {
                     fn getDeposit(
@@ -30055,6 +30316,17 @@ function unpause() external;
                     executeDelegatorUnstakeAndWithdraw
                 },
                 {
+                    fn getCumStakeSeconds(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
+                        <getCumStakeSecondsCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IMultiAssetDelegationCalls::getCumStakeSeconds)
+                    }
+                    getCumStakeSeconds
+                },
+                {
                     fn getDeposit(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IMultiAssetDelegationCalls> {
@@ -30657,6 +30929,11 @@ function unpause() external;
                         inner,
                     )
                 }
+                Self::getCumStakeSeconds(inner) => {
+                    <getCumStakeSecondsCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::getDelegation(inner) => {
                     <getDelegationCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -31198,6 +31475,12 @@ function unpause() external;
                 }
                 Self::getAssetConfig(inner) => {
                     <getAssetConfigCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::getCumStakeSeconds(inner) => {
+                    <getCumStakeSecondsCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -32777,6 +33060,19 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             token: alloy::sol_types::private::Address,
         ) -> alloy_contract::SolCallBuilder<&P, getAssetConfigCall, N> {
             self.call_builder(&getAssetConfigCall { token })
+        }
+        ///Creates a new call builder for the [`getCumStakeSeconds`] function.
+        pub fn getCumStakeSeconds(
+            &self,
+            operator: alloy::sol_types::private::Address,
+            asset: <Types::Asset as alloy::sol_types::SolType>::RustType,
+        ) -> alloy_contract::SolCallBuilder<&P, getCumStakeSecondsCall, N> {
+            self.call_builder(
+                &getCumStakeSecondsCall {
+                    operator,
+                    asset,
+                },
+            )
         }
         ///Creates a new call builder for the [`getDelegation`] function.
         pub fn getDelegation(
