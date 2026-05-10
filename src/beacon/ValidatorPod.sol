@@ -9,9 +9,13 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title IValidatorPodManager
-/// @notice Interface for the pod manager (forward declaration)
+/// @notice Interface for the pod manager (forward declaration). G-02 follow-up:
+///         splits the legacy signed-delta entry point into explicit
+///         deposit-mints-shares and rebase-moves-assets methods so the call
+///         site's intent is unambiguous in the ABI.
 interface IValidatorPodManager {
-    function recordBeaconChainEthBalanceUpdate(address podOwner, int256 sharesDelta) external;
+    function recordBeaconChainDeposit(address podOwner, uint256 assets) external returns (uint256);
+    function recordBeaconChainRebase(address podOwner, int256 assetsDelta) external;
 }
 
 /// @title ValidatorPod
@@ -223,14 +227,13 @@ contract ValidatorPod is ReentrancyGuard {
             hasRestaked = true;
         }
 
-        // Update shares in the pod manager
+        // Mint pod-pool shares for the newly verified principal. Distinct from
+        // the rebase path below — credential verification adds principal, so we
+        // call the explicit deposit entry point instead of the legacy signed
+        // delta. (G-02 follow-up: dropped the silent-semantics back-compat
+        // shim; ValidatorPod now invokes the two explicit entry points.)
         if (totalRestakedGwei > 0) {
-            podManager.recordBeaconChainEthBalanceUpdate(
-                podOwner,
-                // totalRestakedGwei fits within int256 when scaled to wei
-                // forge-lint: disable-next-line(unsafe-typecast)
-                int256(uint256(totalRestakedGwei)) * 1 gwei
-            );
+            podManager.recordBeaconChainDeposit(podOwner, uint256(totalRestakedGwei) * 1 gwei);
         }
     }
 
@@ -448,8 +451,9 @@ contract ValidatorPod is ReentrancyGuard {
             }
         }
 
-        // Record the balance update with the pod manager
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner, totalDeltaWei);
+        // Record the checkpoint balance delta as a rebase — totalAssets-only.
+        // Shares are unchanged on rewards/slashes; only the share price moves.
+        podManager.recordBeaconChainRebase(podOwner, totalDeltaWei);
 
         lastCompletedCheckpointTimestamp = currentCheckpointTimestamp;
 

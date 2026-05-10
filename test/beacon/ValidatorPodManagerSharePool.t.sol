@@ -32,7 +32,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
         vm.prank(address(pod));
         podManager.recordBeaconChainDeposit(podOwner1, 10 ether);
 
-        uint256 sharesAfterFirst = podManager.getShares(podOwner1);
+        uint256 sharesAfterFirst = podManager.getSharesUint(podOwner1);
         // First mint is 1:1 due to virtual offset symmetry on empty pool.
         assertEq(sharesAfterFirst, 10 ether, "first deposit mints 1:1");
 
@@ -40,7 +40,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
         vm.prank(address(pod));
         podManager.recordBeaconChainDeposit(podOwner1, 5 ether);
 
-        uint256 sharesAfterSecond = podManager.getShares(podOwner1);
+        uint256 sharesAfterSecond = podManager.getSharesUint(podOwner1);
         // Should mint approximately +5 ether shares (within virtual-offset dust).
         assertApproxEqAbs(
             sharesAfterSecond, 15 ether, VIRTUAL_OFFSET_DUST, "second deposit proportional shares"
@@ -55,7 +55,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
         vm.prank(address(pod));
         podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
-        uint256 sharesBefore = podManager.getShares(podOwner1);
+        uint256 sharesBefore = podManager.getSharesUint(podOwner1);
         assertEq(podManager.getRestakedAssets(podOwner1), 32 ether, "pre-rebase assets");
 
         // Beacon-chain rewards: +1 ETH.
@@ -63,7 +63,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
         podManager.recordBeaconChainRebase(podOwner1, int256(1 ether));
 
         // Shares unchanged; assets up by 1 ETH (modulo virtual-offset dust).
-        assertEq(podManager.getShares(podOwner1), sharesBefore, "shares unchanged on rebase up");
+        assertEq(podManager.getSharesUint(podOwner1), sharesBefore, "shares unchanged on rebase up");
         assertApproxEqAbs(
             podManager.getRestakedAssets(podOwner1), 33 ether, VIRTUAL_OFFSET_DUST, "assets up by reward"
         );
@@ -76,13 +76,13 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
         vm.prank(address(pod));
         podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
-        uint256 sharesBefore = podManager.getShares(podOwner1);
+        uint256 sharesBefore = podManager.getSharesUint(podOwner1);
 
         // Beacon-chain slash: -8 ETH (-25%).
         vm.prank(address(pod));
         podManager.recordBeaconChainRebase(podOwner1, -int256(8 ether));
 
-        assertEq(podManager.getShares(podOwner1), sharesBefore, "shares unchanged on slash");
+        assertEq(podManager.getSharesUint(podOwner1), sharesBefore, "shares unchanged on slash");
         assertApproxEqAbs(
             podManager.getRestakedAssets(podOwner1), 24 ether, VIRTUAL_OFFSET_DUST, "assets reduced by slash"
         );
@@ -102,7 +102,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
 
         assertEq(podManager.totalAssetsOf(podOwner1), 0, "totalAssets clamped to zero");
         // shares still positive (32 ether), but each share now claims only the virtual-offset dust.
-        assertEq(podManager.getShares(podOwner1), 32 ether, "shares still outstanding");
+        assertEq(podManager.getSharesUint(podOwner1), 32 ether, "shares still outstanding");
         assertLt(
             podManager.getRestakedAssets(podOwner1), VIRTUAL_OFFSET_DUST, "assets <= virtual offset on full slash"
         );
@@ -125,7 +125,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
         vm.prank(address(pod));
         podManager.recordBeaconChainDeposit(podOwner1, 1);
 
-        uint256 sharesAfterSeed = podManager.getShares(podOwner1);
+        uint256 sharesAfterSeed = podManager.getSharesUint(podOwner1);
         // Virtual-offset math: shares = 1 * (0 + 1e3) / (0 + 1e3) = 1.
         assertEq(sharesAfterSeed, 1, "seed deposit mints 1 share");
 
@@ -174,7 +174,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
 
         assertEq(podManager.totalAssetsOf(podOwner1), 16 ether, "podA assets reduced");
         assertEq(podManager.totalAssetsOf(podOwner2), 32 ether, "podB assets unaffected");
-        assertEq(podManager.getShares(podOwner2), 32 ether, "podB shares unaffected");
+        assertEq(podManager.getSharesUint(podOwner2), 32 ether, "podB shares unaffected");
         assertEq(
             podManager.getRestakedAssets(podOwner2), 32 ether, "podB asset-equivalent unchanged"
         );
@@ -242,7 +242,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
 
         // Payout is exactly 10 ETH (snapshot == live, no rebase happened).
         assertEq(podOwner1.balance, balBefore + 10 ether, "exact payout at unchanged rate");
-        assertEq(podManager.getShares(podOwner1), 22 ether, "remaining shares decreased");
+        assertEq(podManager.getSharesUint(podOwner1), 22 ether, "remaining shares decreased");
         assertEq(podManager.totalAssetsOf(podOwner1), 22 ether, "pool totalAssets reduced");
         assertEq(podManager.totalSharesOf(podOwner1), 22 ether, "pool totalShares reduced");
     }

@@ -299,85 +299,105 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     {
         PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
 
-        (uint256 currentCum, uint256 currentStake) = _aggregateBondStakeSnapshot(operators);
-
-        // Forward-project cum to the end of the period being billed. `_billSubscriptionInternal`
-        // advances `svc.lastPaymentAt += interval` exactly once per call, so the bill window
-        // is always `[svc.lastPaymentAt, svc.lastPaymentAt + interval]`. When the caller is
-        // late (block.timestamp > periodEnd) we subtract `currentStake × tail` to estimate cum
-        // at the period boundary — exact when stake has been stable since `periodEnd`, and
-        // applied symmetrically to lazy-init below so the cursor never double-counts.
+        // Bill window: `[svc.lastPaymentAt, svc.lastPaymentAt + interval]`. When the
+        // caller is late (`block.timestamp > periodEnd`) we forward-project each
+        // operator's cum to `periodEnd` using their current stake, then update the
+        // operator's cursor to that projected value so the next bill picks up
+        // cleanly from `periodEnd` (no double-counting across the late tail).
         uint64 periodEnd = _services[serviceId].lastPaymentAt + interval;
-        uint256 cumAtPeriodEnd = currentCum;
-        if (block.timestamp > periodEnd) {
-            uint256 tail = currentStake * (block.timestamp - uint256(periodEnd));
-            cumAtPeriodEnd = currentCum > tail ? currentCum - tail : 0;
-        }
+        bool isLate = block.timestamp > periodEnd;
+        uint256 tailSeconds = isLate ? block.timestamp - uint256(periodEnd) : 0;
 
-        // Lazy-init: single sentinel `subscriptionBaselineStake == 0` covers both
-        // pre-upgrade subscriptions AND newly-activated ones. We choose lazy init over
-        // a one-shot upgrade function so live subscriptions don't require a coordinated
-        // migration; the first post-upgrade `billSubscription` call seeds both cursors
-        // from live state and bills the standard `nominalRate` for the first window.
-        // From the next call onward, billing is TWAP-correct.
+        // Lazy-init the per-service baseline on the FIRST call against live state.
+        // Subsequent per-operator cursors are seeded by `_seedTwapCursorForOp`
+        // (called from `ServicesLifecycle._finalizeJoin`) so a mid-life join
+        // does NOT retroactively bill for that operator's pre-join cum activity.
+        // For the lazy-init bill itself we also seed every currently-active op's
+        // cursor inline, so the very next bill measures from `periodEnd`.
+        Types.Asset memory bondAsset = _bondAssetForBilling();
+        IStaking staking = _getStaking();
+        uint256 operatorsLength = operators.length;
+
         if (escrow.subscriptionBaselineStake == 0) {
-            // Park the cursor at `cumAtPeriodEnd` — exactly where the NEXT bill expects
-            // to start. Earlier history (before lazy-init) is intentionally discarded
-            // since we cannot retro-attribute it to any particular billing window.
-            escrow.lastBilledCumStake = cumAtPeriodEnd;
-            // Pin the baseline. If everyone has zero stake at this moment we fall back
-            // to nominal billing (no fair-pricing signal); the bill remains `nominalRate`
-            // until stakes become observable. In practice a service activation requires
-            // staked operators, so this branch is unreachable outside artificial tests.
+            uint256 currentStake;
+            for (uint256 i = 0; i < operatorsLength;) {
+                (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(operators[i], bondAsset);
+                uint256 projected = _projectToPeriodEnd(cumOp, stakeOp, tailSeconds);
+                _twapCursorByOp[serviceId][operators[i]] = projected;
+                currentStake += stakeOp;
+                unchecked {
+                    ++i;
+                }
+            }
+            // Pin baseline. Pathological zero-stake case yields nominal billing;
+            // in practice service activation requires staked operators.
             escrow.subscriptionBaselineStake = currentStake == 0 ? 1 : currentStake;
             return nominalRate;
         }
 
-        uint256 cumDelta = cumAtPeriodEnd > escrow.lastBilledCumStake
-            ? cumAtPeriodEnd - escrow.lastBilledCumStake
-            : 0;
-        escrow.lastBilledCumStake = cumAtPeriodEnd;
-
-        uint256 denom = escrow.subscriptionBaselineStake * uint256(interval);
-        if (denom == 0) {
-            // Defensive: should not occur after lazy-init, but if it ever did we degrade
-            // gracefully to nominal billing rather than reverting.
-            return nominalRate;
-        }
-        amount = (nominalRate * cumDelta) / denom;
-    }
-
-    /// @notice Sum each operator's bond-asset cumulative stake-seconds and current stake.
-    /// @dev Aggregates only the active operators passed in (consistent with payout selection),
-    ///      so an exited operator no longer contributes to billing weight even though their
-    ///      historical cum is preserved on the staking side.
-    function _aggregateBondStakeSnapshot(address[] memory operators)
-        internal
-        view
-        returns (uint256 currentCum, uint256 currentStake)
-    {
-        IStaking staking = _getStaking();
-        Types.Asset memory bondAsset = _bondAssetForBilling();
-        uint256 operatorsLength = operators.length;
+        // Per-operator delta accumulation. Each operator contributes only the
+        // cum gained against THIS service's cursor, so:
+        //   - new joiners contribute from their join-time cursor (no retro bill),
+        //   - leavers contribute zero (they are absent from `operators`),
+        //   - rejoiners contribute only post-rejoin cum (join hook re-seeds the
+        //     cursor at their current cum, defeating off-service-time inflation).
+        uint256 cumDeltaPeriod;
         for (uint256 i = 0; i < operatorsLength;) {
-            (uint256 cum,, uint256 stake) = staking.getCumStakeSeconds(operators[i], bondAsset);
-            currentCum += cum;
-            currentStake += stake;
+            (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(operators[i], bondAsset);
+            uint256 projected = _projectToPeriodEnd(cumOp, stakeOp, tailSeconds);
+            uint256 cursor = _twapCursorByOp[serviceId][operators[i]];
+            if (cursor == 0) {
+                // Cursor unset: operator joined before the F5 join-hook wiring
+                // landed, or some external state inserted them. Seed at projected
+                // without billing — same lazy-init semantics applied per-operator.
+                _twapCursorByOp[serviceId][operators[i]] = projected;
+            } else if (projected > cursor) {
+                cumDeltaPeriod += projected - cursor;
+                _twapCursorByOp[serviceId][operators[i]] = projected;
+            } else {
+                // Cum cannot decrease in the staking index. A non-monotonic read
+                // here implies clock skew or test fixtures — fail soft, no bill.
+                _twapCursorByOp[serviceId][operators[i]] = projected;
+            }
             unchecked {
                 ++i;
             }
         }
+
+        amount = PaymentLib.twapBillAmount(
+            nominalRate, cumDeltaPeriod, escrow.subscriptionBaselineStake, uint256(interval)
+        );
     }
 
-    /// @notice Resolve the asset used for TWAP billing.
-    /// @dev Bond asset (TNT) when configured, otherwise native. Matches the asset that
-    ///      `IStaking.getOperatorStake` aggregates over.
-    function _bondAssetForBilling() internal view returns (Types.Asset memory asset) {
-        address bond = _tntToken;
-        if (bond == address(0)) {
-            return Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
-        }
-        return Types.Asset({ kind: Types.AssetKind.ERC20, token: bond });
+    /// @notice Forward-project an operator's cum stake-seconds to the period boundary.
+    /// @dev `tailSeconds` is `block.timestamp - periodEnd` when the bill is late, or
+    ///      zero when on-time. Exact when stake has been stable since `periodEnd`;
+    ///      conservatively under-attributes when stake ramped down in the tail.
+    function _projectToPeriodEnd(uint256 cumNow, uint256 stakeNow, uint256 tailSeconds)
+        internal
+        pure
+        returns (uint256)
+    {
+        if (tailSeconds == 0) return cumNow;
+        uint256 tail = stakeNow * tailSeconds;
+        return cumNow > tail ? cumNow - tail : 0;
+    }
+
+    /// @notice Seed an operator's TWAP cursor for a service at the current block.
+    /// @dev Called from `ServicesLifecycle._finalizeJoin`. Idempotent for the active
+    ///      service-operator pair: if the operator already has a non-zero cursor
+    ///      (i.e. has been billed against this service before) we leave it
+    ///      untouched so a join via a separate code path cannot overwrite cleanly
+    ///      accumulated state.
+    function _seedTwapCursorForOp(uint64 serviceId, address operator) internal {
+        if (_twapCursorByOp[serviceId][operator] != 0) return;
+        IStaking staking = _getStaking();
+        (uint256 cumOp,,) = staking.getCumStakeSeconds(operator, _bondAssetForBilling());
+        // Sentinel 0 means "never seen" elsewhere. If the operator's cum is
+        // genuinely zero at join (no stake ever held), substitute 1 so the
+        // cursor is "set" — staking-side cum monotonically grows, so any
+        // subsequent bill computes a correct (non-zero) delta from 1.
+        _twapCursorByOp[serviceId][operator] = cumOp == 0 ? 1 : cumOp;
     }
 
     /// @notice Check if a service is billable

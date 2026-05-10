@@ -34,8 +34,16 @@ contract F5TWAPBillingTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────
 
     function _setUpSubscription() internal {
+        _setUpSubscriptionImpl(Types.MembershipModel.Fixed);
+    }
+
+    function _setUpDynamicSubscription() internal {
+        _setUpSubscriptionImpl(Types.MembershipModel.Dynamic);
+    }
+
+    function _setUpSubscriptionImpl(Types.MembershipModel membership) internal {
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
-            membership: Types.MembershipModel.Fixed,
+            membership: membership,
             pricing: Types.PricingModel.Subscription,
             minOperators: 1,
             maxOperators: 5,
@@ -222,15 +230,173 @@ contract F5TWAPBillingTest is BaseTest {
         uint256 charged1 = _billOnceAndMeasure();
         assertEq(charged1, SUB_RATE, "first post-upgrade bill is nominal");
 
-        // After lazy-init, escrow.subscriptionBaselineStake and lastBilledCumStake
-        // are populated; subsequent bills are TWAP-correct against that baseline.
+        // After lazy-init, escrow.subscriptionBaselineStake is populated;
+        // per-operator cursors live in `TangleStorage._twapCursorByOp` and are
+        // exercised by the constant-stake check below. The struct-level reserved
+        // slot is always zero (aggregate cursor was retired in the F5 followup).
         PaymentLib.ServiceEscrow memory esc = _escrow();
         assertGt(esc.subscriptionBaselineStake, 0, "baseline seeded");
-        assertGt(esc.lastBilledCumStake, 0, "cum cursor seeded");
 
         // Advance one more interval at constant stake → TWAP ratio == 1 → bill == nominal.
         vm.warp(block.timestamp + SUB_INTERVAL);
         uint256 charged2 = _billOnceAndMeasure();
         assertApproxEqAbs(charged2, SUB_RATE, 1, "post-init constant-stake bill == nominal");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // OPERATOR-SET CHANGE: mid-life join must not retroactively bill for the
+    // joiner's pre-join cum activity. Without the F5 per-operator cursor +
+    // join hook in `ServicesLifecycle._finalizeJoin`, a fresh joiner's full
+    // historical cum would land in cumDelta and produce a massive over-bill
+    // on the following period.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_F5_MidPeriodJoiner_NoRetroactiveBill() public {
+        uint256 t0 = 1_000_000;
+        vm.warp(t0);
+
+        // Dynamic-membership service so operator2 can `joinService` mid-life.
+        _setUpDynamicSubscription();
+
+        // Bill once (lazy-init) and bill again at constant single-operator stake
+        // to confirm baseline is settled before the second operator joins.
+        vm.warp(t0 + SUB_INTERVAL);
+        uint256 charged1 = _billOnceAndMeasure();
+        assertEq(charged1, SUB_RATE, "first bill (lazy-init) is nominal");
+
+        // Register operator2 with substantial stake well BEFORE they join. The
+        // staking-side cum-stake counter will accrue for operator2 over the
+        // pre-join interval; without the join hook this would leak into the
+        // first post-join bill.
+        vm.prank(operator2);
+        staking.registerOperator{ value: BASE_OP_STAKE * 4 }();
+        vm.prank(operator2);
+        staking.setDelegationMode(Types.DelegationMode.Open);
+        _directRegisterOperator(operator2, blueprintId, "");
+
+        vm.warp(block.timestamp + SUB_INTERVAL / 2);
+
+        // Joiner enters the service mid-period. The join hook re-seeds
+        // `_twapCursorByOp[serviceId][operator2]` at this instant; pre-join
+        // cum activity is forgotten by the billing layer.
+        vm.prank(operator2);
+        tangle.joinService(serviceId, 5000);
+
+        vm.warp(block.timestamp + SUB_INTERVAL);
+
+        // Now bill the next full period. The cumDelta_op for operator2
+        // should be (currentStake_op2 × interval), exactly the period's
+        // worth — not the much larger value that includes pre-join time.
+        // Combined with operator1's interval-worth of stake-seconds, the
+        // ratio is `(stake1 + stake2_post_join) / baseline_stake1_only`.
+        uint256 charged2 = _billOnceAndMeasure();
+
+        // Sanity floor: the bill MUST charge at least nominal (operator1
+        // alone produced nominal at constant stake) and MUST NOT exceed
+        // ~5× nominal (the realistic upper bound given op2's stake is 4×
+        // op1's). A retroactive bill would explode well past this cap.
+        assertGt(charged2, SUB_RATE - 1, "bill must include op1's continuing stake");
+        assertLt(charged2, SUB_RATE * 6, "no retroactive bill for op2's pre-join cum");
+    }
+
+    function test_F5_OperatorExit_BillUsesRemainingSet() public {
+        uint256 t0 = 1_000_000;
+        vm.warp(t0);
+        _setUpDynamicSubscription();
+
+        // Bring operator2 in alongside operator1 so we can test exit semantics
+        // without bottoming out below `minOperators` (= 1).
+        vm.prank(operator2);
+        staking.registerOperator{ value: BASE_OP_STAKE }();
+        vm.prank(operator2);
+        staking.setDelegationMode(Types.DelegationMode.Open);
+        _directRegisterOperator(operator2, blueprintId, "");
+        vm.prank(operator2);
+        tangle.joinService(serviceId, 5000);
+
+        vm.warp(t0 + SUB_INTERVAL);
+        _billOnceAndMeasure(); // lazy-init across BOTH operators
+
+        // Operator2 schedules + executes an exit. The blueprint's exit queue
+        // duration (default) gates immediate `leaveService`, so we go through
+        // the queue path and advance time past it.
+        vm.prank(operator2);
+        tangle.scheduleExit(serviceId);
+        vm.warp(block.timestamp + 30 days); // > default exitQueueDuration
+        vm.prank(operator2);
+        tangle.executeExit(serviceId);
+
+        // Bill the next full period after op2's exit.
+        vm.warp(block.timestamp + SUB_INTERVAL);
+        uint256 charged = _billOnceAndMeasure();
+
+        // operator1 alone produced the lazy-init baseline. After op2 exits,
+        // operator1 still contributes one full period of stake-seconds —
+        // ratio = stake1 * interval / (stake1+stake2) * interval = stake1 / (stake1+stake2).
+        // With equal stakes this is ~0.5x nominal; we assert the bill is
+        // strictly less than nominal (proving op2 didn't drag the bill back
+        // up) and strictly positive (proving op1 still contributes).
+        assertLt(charged, SUB_RATE, "bill drops after op2 exit");
+        assertGt(charged, 0, "remaining operator still contributes");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FUZZ: pure billing math (PaymentLib.twapBillAmount)
+    // CLAUDE.md requires fuzz tests for financial logic. The TWAP formula is
+    // extracted as a pure function so we can fuzz over the full input space
+    // (rate, cumDelta, baseline, interval) without spinning up the staking
+    // layer per run.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function testFuzz_F5_BillProportionalToCumDelta(
+        uint96 rate,
+        uint96 baseline,
+        uint32 interval,
+        uint64 cumDelta
+    )
+        public
+        pure
+    {
+        // Reject degenerate inputs the on-chain path also short-circuits on.
+        vm.assume(rate > 0);
+        vm.assume(baseline > 0);
+        vm.assume(interval > 0);
+
+        uint256 amount = PaymentLib.twapBillAmount(rate, cumDelta, baseline, interval);
+
+        // Invariant 1: bill scales linearly with cumDelta (mod floor).
+        if (cumDelta == 0) {
+            assertEq(amount, 0, "zero stake-time -> zero bill");
+        } else {
+            // Double cumDelta should roughly double the bill (mod floor).
+            uint256 doubled = PaymentLib.twapBillAmount(rate, uint256(cumDelta) * 2, baseline, interval);
+            // doubled >= amount * 2 - 1 (floor division can shave 1 wei)
+            assertGe(doubled + 1, amount * 2, "monotonicity under cumDelta doubling");
+        }
+    }
+
+    function testFuzz_F5_BillCanonicalAtFullStakeTime(uint96 rate, uint96 baseline, uint32 interval) public pure {
+        vm.assume(rate > 0);
+        vm.assume(baseline > 0);
+        vm.assume(interval > 0);
+        // cumDelta = baseline * interval => time-weighted ratio is 1 => bill == nominal
+        uint256 cumDelta = uint256(baseline) * uint256(interval);
+        uint256 amount = PaymentLib.twapBillAmount(rate, cumDelta, baseline, interval);
+        assertApproxEqAbs(amount, rate, 1, "full-stake-time period -> bill == nominal (mod floor)");
+    }
+
+    function testFuzz_F5_NoOverflowOnRealisticInputs(uint128 rate, uint128 baseline, uint32 interval) public pure {
+        vm.assume(rate > 0);
+        vm.assume(baseline > 0);
+        vm.assume(interval > 0);
+        // cumDelta at baseline-equivalent ratio. Should never revert at uint128 inputs.
+        uint256 cumDelta = uint256(baseline) * uint256(interval);
+        PaymentLib.twapBillAmount(rate, cumDelta, baseline, interval);
+    }
+
+    function testFuzz_F5_PathologicalDenomReturnsNominal(uint96 rate, uint64 cumDelta) public pure {
+        // baseline == 0 OR interval == 0 falls back to nominal (matches on-chain branch).
+        assertEq(PaymentLib.twapBillAmount(rate, cumDelta, 0, 1 days), rate, "zero baseline -> nominal");
+        assertEq(PaymentLib.twapBillAmount(rate, cumDelta, 1 ether, 0), rate, "zero interval -> nominal");
     }
 }

@@ -89,22 +89,65 @@ library PaymentLib {
     /// @dev F5 fields are appended at the end of the struct so existing storage
     ///      slots are preserved across upgrades. Because `_serviceEscrows` is a
     ///      mapping(uint64 => ServiceEscrow) (not nested in another struct), the
-    ///      added fields claim previously-zero slots tied to each serviceId.
+    ///      added field claims a previously-zero slot tied to each serviceId.
+    ///      Per-operator cum cursors live separately in TangleStorage so that
+    ///      operator joins/leaves do not corrupt the aggregate delta.
     struct ServiceEscrow {
         address token; // Payment token (address(0) = native)
         uint256 balance; // Current escrow balance
         uint256 totalDeposited; // Lifetime deposits
         uint256 totalReleased; // Lifetime releases
-        // F5: aggregated cumulative stake-seconds (sum across active operators
-        // for the bond asset) at the moment of the last subscription bill.
-        // Compared against the current aggregate to derive cumDelta for the
-        // window. Zero sentinel means "uninitialized" — the next bill seeds the
-        // cursor and bills the standard subscriptionRate (lazy migration).
-        uint256 lastBilledCumStake;
+        // F5: previously the aggregate cum cursor; superseded in the
+        // F5-followup pass by per-(service, operator) cursors in
+        // `TangleStorage._twapCursorByOp` (the aggregate cursor was unsound
+        // under operator joins/leaves). Slot retained as a reserved
+        // zero-valued field so the in-mapping struct layout stays stable
+        // across the F5 commit pair — pre-existing escrows always read zero
+        // here because the F5 commit landed in the same release window.
+        uint256 __reservedAggregateCursor;
         // F5: nominal aggregate stake used as the per-period denominator in the
         // TWAP bill formula. Captured at the lazy-init bill, then frozen for the
         // life of the subscription. Zero sentinel means "uninitialized".
         uint256 subscriptionBaselineStake;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // F5: TWAP BILL FORMULA (pure)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Compute the TWAP-fair bill amount for one subscription period.
+    /// @dev Pure helper extracted from `Payments._computeTwapBillAmount` so the
+    ///      core arithmetic (`rate * cumDelta / (baseline * interval)`) can be
+    ///      fuzz-tested without spinning up a full staking environment. Returns
+    ///      `nominalRate` on the pathological zero-baseline / zero-interval
+    ///      case to match the on-chain fallback (no revert).
+    /// @param nominalRate The blueprint's flat subscription rate (wei per period)
+    /// @param cumDeltaPeriod Sum of per-operator cum stake-seconds attributed to this period
+    /// @param baselineStake The per-period denominator pinned at lazy-init (wei)
+    /// @param interval Subscription interval (seconds)
+    function twapBillAmount(
+        uint256 nominalRate,
+        uint256 cumDeltaPeriod,
+        uint256 baselineStake,
+        uint256 interval
+    )
+        internal
+        pure
+        returns (uint256)
+    {
+        if (baselineStake == 0 || interval == 0) return nominalRate;
+        // Overflow path: `nominalRate * cumDeltaPeriod` saturates rather than
+        // reverts to keep billing robust against operator-side mis-accounting.
+        // Realistic values (nominalRate ≤ 2^96, cumDelta ≤ 2^160) keep us well
+        // inside 2^256, so this branch is unreachable in practice.
+        unchecked {
+            uint256 product = nominalRate * cumDeltaPeriod;
+            if (cumDeltaPeriod != 0 && product / cumDeltaPeriod != nominalRate) {
+                // Overflow detected — fall back to nominal rather than over/under bill.
+                return nominalRate;
+            }
+            return product / (baselineStake * interval);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

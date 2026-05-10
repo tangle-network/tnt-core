@@ -73,10 +73,10 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         // Simulate beacon balance updates (would normally come from proof verification)
         vm.prank(address(pod1));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 64 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 64 ether);
 
         vm.prank(address(pod2));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner2, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner2, 32 ether);
 
         // Verify total shares
         assertEq(podManager.totalShares(), 96 ether, "Total shares should be 96 ETH");
@@ -101,7 +101,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         // Record some shares
         vm.prank(address(pod));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 64 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 64 ether);
 
         // Delegate to operator
         vm.prank(podOwner1);
@@ -172,30 +172,30 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         // Initial positive update (validator restaking) -- mints shares 1:1.
         vm.prank(address(pod));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
-        assertEq(podManager.getShares(podOwner1), 32 ether, "Initial shares minted 1:1");
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
+        assertEq(podManager.getSharesUint(podOwner1), 32 ether, "Initial shares minted 1:1");
         assertEq(podManager.getRestakedAssets(podOwner1), 32 ether, "Initial assets");
 
         // Second positive update (legacy path treats as additional principal deposit).
         // Shares minted = 1e18 * (32e18 + 1e3) / (32e18 + 1e3) = 1e18 (within precision).
         vm.prank(address(pod));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 1 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 1 ether);
         // Tolerate sub-1000 wei dust from the virtual offset arithmetic.
-        assertApproxEqAbs(podManager.getShares(podOwner1), 33 ether, 1000, "After 2nd deposit shares");
+        assertApproxEqAbs(podManager.getSharesUint(podOwner1), 33 ether, 1000, "After 2nd deposit shares");
         assertApproxEqAbs(podManager.getRestakedAssets(podOwner1), 33 ether, 1000, "After 2nd deposit assets");
 
         // Negative update (slashing on beacon chain): totalAssets decreases, shares unchanged.
-        uint256 sharesBefore = podManager.getShares(podOwner1);
+        uint256 sharesBefore = podManager.getSharesUint(podOwner1);
         vm.prank(address(pod));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -5 ether);
-        assertEq(podManager.getShares(podOwner1), sharesBefore, "Shares unchanged on slash");
+        podManager.recordBeaconChainRebase(podOwner1, -int256(5 ether));
+        assertEq(podManager.getSharesUint(podOwner1), sharesBefore, "Shares unchanged on slash");
         // Virtual offset (1e3) introduces sub-1000 wei rounding dust between totalAssets
         // and convertToAssets(totalShares). Tolerate it here.
         assertApproxEqAbs(podManager.getRestakedAssets(podOwner1), 28 ether, 1000, "Assets reduced by slash");
 
         // Large negative: pool totalAssets saturates at zero (cannot go below zero).
         vm.prank(address(pod));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -30 ether);
+        podManager.recordBeaconChainRebase(podOwner1, -int256(30 ether));
         assertEq(podManager.totalAssetsOf(podOwner1), 0, "totalAssets saturates at zero");
         // With totalAssets at zero, convertToAssets(shares) returns
         //   shares * VIRTUAL_ASSETS / (totalShares + VIRTUAL_SHARES) = up to VIRTUAL_ASSETS-1 wei.
@@ -209,16 +209,16 @@ contract BeaconIntegrationTest is BeaconTestBase {
         ValidatorPod pod2 = _createPod(podOwner2);
 
         vm.prank(address(pod1));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         vm.prank(address(pod2));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner2, 64 ether);
+        podManager.recordBeaconChainDeposit(podOwner2, 64 ether);
 
         assertEq(podManager.totalShares(), 96 ether, "Aggregate shares = sum of mints");
 
         // Negative update: rebases pool1 down (10 ETH lost), but shares unchanged.
         vm.prank(address(pod1));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -10 ether);
+        podManager.recordBeaconChainRebase(podOwner1, -int256(10 ether));
 
         assertEq(podManager.totalShares(), 96 ether, "Aggregate shares unchanged on rebase");
         assertEq(podManager.totalAssetsOf(podOwner1), 22 ether, "pod1 assets reduced by 10");
@@ -239,7 +239,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
         // Create pod and delegate
         ValidatorPod pod = _createPod(podOwner1);
         vm.prank(address(pod));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         vm.prank(podOwner1);
         podManager.delegateTo(operator1, 10 ether);
@@ -269,17 +269,17 @@ contract BeaconIntegrationTest is BeaconTestBase {
         // Attacker tries to update shares
         vm.prank(attacker);
         vm.expectRevert(ValidatorPodManager.OnlyPod.selector);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 1000 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 1000 ether);
 
         // Pod owner tries directly (not through pod)
         vm.prank(podOwner1);
         vm.expectRevert(ValidatorPodManager.OnlyPod.selector);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 1000 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 1000 ether);
 
         // Only the actual pod contract should work
         vm.prank(address(pod));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
-        assertEq(podManager.getShares(podOwner1), 32 ether, "Update from pod should work");
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
+        assertEq(podManager.getSharesUint(podOwner1), 32 ether, "Update from pod should work");
     }
 
     function test_security_CannotOverDelegate() public {
@@ -288,7 +288,7 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         // Record 32 ETH of shares
         vm.prank(address(pod));
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         // Try to delegate more than available
         vm.prank(podOwner1);
@@ -342,10 +342,10 @@ contract BeaconIntegrationTest is BeaconTestBase {
 
         vm.prank(address(pod));
         uint256 gasBefore = gasleft();
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
         uint256 gasUsed = gasBefore - gasleft();
 
-        console2.log("Gas used for recordBeaconChainEthBalanceUpdate:", gasUsed);
+        console2.log("Gas used for recordBeaconChainDeposit:", gasUsed);
         assertTrue(gasUsed < BALANCE_UPDATE_GAS_BUDGET, "Balance update should remain within gas budget");
     }
 

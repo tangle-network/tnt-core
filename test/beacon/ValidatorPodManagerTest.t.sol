@@ -170,9 +170,9 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         address pod = podManager.createPod();
 
         // Simulate shares being added (via beacon chain proof in real scenario)
-        // We need to call recordBeaconChainEthBalanceUpdate from the pod
+        // We need to call recordBeaconChainDeposit / recordBeaconChainRebase from the pod
         vm.prank(pod);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, int256(10 ether));
+        podManager.recordBeaconChainDeposit(podOwner1, 10 ether);
 
         // Delegate to operator
         vm.prank(podOwner1);
@@ -194,7 +194,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         address pod = podManager.createPod();
 
         vm.prank(pod);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, int256(10 ether));
+        podManager.recordBeaconChainDeposit(podOwner1, 10 ether);
 
         // Delegate then undelegate (queue-based)
         vm.prank(podOwner1);
@@ -583,54 +583,54 @@ contract ValidatorPodManagerTest is BeaconTestBase {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_getShares_Initial() public view {
-        assertEq(podManager.getShares(podOwner1), 0, "Initial shares should be zero");
+        assertEq(podManager.getSharesUint(podOwner1), 0, "Initial shares should be zero");
     }
 
-    function test_recordBeaconChainEthBalanceUpdate_OnlyPod() public {
+    function test_recordBeaconChainDeposit_OnlyPod() public {
         vm.prank(podOwner1);
         podManager.createPod();
 
         // Non-pod caller should fail
         vm.prank(attacker);
         vm.expectRevert(ValidatorPodManager.OnlyPod.selector);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 1 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 1 ether);
     }
 
-    function test_recordBeaconChainEthBalanceUpdate_Success() public {
+    function test_recordBeaconChainDeposit_Success() public {
         vm.prank(podOwner1);
         address podAddr = podManager.createPod();
 
         // Pod calls to record balance update
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
-        assertEq(podManager.getShares(podOwner1), 32 ether, "Shares should be updated");
+        assertEq(podManager.getSharesUint(podOwner1), 32 ether, "Shares should be updated");
         assertEq(podManager.totalShares(), 32 ether, "Total shares should be updated");
     }
 
     /// @notice G-02: Share-pool semantics replace raw amount accounting.
     /// @dev Negative deltas (slashes) reduce `totalAssets` only. The owner's `shares`
     ///      balance is invariant on rebases.
-    function test_recordBeaconChainEthBalanceUpdate_NegativeDelta() public {
+    function test_recordBeaconChainRebase_NegativeDelta() public {
         vm.prank(podOwner1);
         address podAddr = podManager.createPod();
 
         // Initial positive update mints shares 1:1.
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         // Negative delta (slashing) is a rebase-down: assets fall, shares unchanged.
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, -5 ether);
+        podManager.recordBeaconChainRebase(podOwner1, -int256(5 ether));
 
-        assertEq(podManager.getShares(podOwner1), 32 ether, "Shares unchanged on rebase");
+        assertEq(podManager.getSharesUint(podOwner1), 32 ether, "Shares unchanged on rebase");
         assertEq(podManager.totalShares(), 32 ether, "Aggregate shares unchanged");
         assertEq(podManager.totalAssetsOf(podOwner1), 27 ether, "Pool assets reduced");
         // Asset-equivalent has tiny dust due to virtual offset (1e3 wei). Tolerate it.
         assertApproxEqAbs(podManager.getRestakedAssets(podOwner1), 27 ether, 1000, "Owner asset-equivalent reduced");
     }
 
-    function test_recordBeaconChainEthBalanceUpdate_MultiplePods() public {
+    function test_recordBeaconChainDeposit_MultiplePods() public {
         // Create two pods
         vm.prank(podOwner1);
         address pod1 = podManager.createPod();
@@ -640,13 +640,13 @@ contract ValidatorPodManagerTest is BeaconTestBase {
 
         // Record updates for both
         vm.prank(pod1);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         vm.prank(pod2);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner2, 64 ether);
+        podManager.recordBeaconChainDeposit(podOwner2, 64 ether);
 
-        assertEq(podManager.getShares(podOwner1), 32 ether, "Pod1 shares correct");
-        assertEq(podManager.getShares(podOwner2), 64 ether, "Pod2 shares correct");
+        assertEq(podManager.getSharesUint(podOwner1), 32 ether, "Pod1 shares correct");
+        assertEq(podManager.getSharesUint(podOwner2), 64 ether, "Pod2 shares correct");
         assertEq(podManager.totalShares(), 96 ether, "Total shares correct");
     }
 
@@ -669,7 +669,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         address podAddr = podManager.createPod();
 
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         // Queue withdrawal
         vm.prank(podOwner1);
@@ -705,7 +705,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
 
         // Only have 10 ETH shares
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 10 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 10 ether);
 
         // Try to queue more than available
         vm.prank(podOwner1);
@@ -720,7 +720,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         address podAddr = podManager.createPod();
 
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         // Delegate some shares
         vm.prank(podOwner1);
@@ -737,7 +737,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         address podAddr = podManager.createPod();
 
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         // Queue multiple withdrawals
         vm.prank(podOwner1);
@@ -760,7 +760,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         address podAddr = podManager.createPod();
 
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         // Fund the pod with actual ETH
         vm.deal(podAddr, 32 ether);
@@ -788,7 +788,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
 
         assertEq(podOwner1.balance, balanceBefore + 10 ether, "ETH should be transferred");
         assertEq(podManager.queuedShares(podOwner1), 0, "Queued shares should be cleared");
-        assertEq(podManager.getShares(podOwner1), 22 ether, "Remaining shares should be reduced");
+        assertEq(podManager.getSharesUint(podOwner1), 22 ether, "Remaining shares should be reduced");
     }
 
     function test_completeWithdrawal_NotFound() public {
@@ -804,7 +804,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         address podAddr = podManager.createPod();
 
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         vm.prank(podOwner1);
         bytes32 withdrawalRoot = podManager.queueWithdrawal(10 ether);
@@ -820,7 +820,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         address podAddr = podManager.createPod();
 
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 32 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 32 ether);
 
         vm.deal(podAddr, 32 ether);
 
@@ -843,7 +843,7 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         address podAddr = podManager.createPod();
 
         vm.prank(podAddr);
-        podManager.recordBeaconChainEthBalanceUpdate(podOwner1, 100 ether);
+        podManager.recordBeaconChainDeposit(podOwner1, 100 ether);
 
         assertEq(podManager.getAvailableToWithdraw(podOwner1), 100 ether, "Initially all available");
 

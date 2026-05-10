@@ -34,40 +34,56 @@ ValidatorPodManager). Single coordinated bindings cut.
   bill instant, which let an operator ramp stake immediately before billing and
   dump it after — overcharging customers when stake ramped down mid-period and
   undercharging when it ramped up. Billing now uses
-  `rate × cumDelta / (baseline × interval)` where `cumDelta` is the change in
-  aggregate cumulative stake-seconds across the service's active operators for
-  the bond asset, and `baseline` is captured at the first bill (lazy init) and
-  frozen for the life of the subscription.
-- Round 4 F5: `IStaking` gained `getCumStakeSeconds(operator, asset)`.
-  Implementations must fold elapsed time × current stake into the running
-  counter on every stake-changing path. The in-tree `MultiAssetDelegation`
-  ships the working implementation; `ValidatorPodManager` ships a zero stub
-  (subscription billing is not currently routed through beacon-only services).
-- Round 4 F5: `PaymentLib.ServiceEscrow` gained `lastBilledCumStake` and
-  `subscriptionBaselineStake` fields appended at the end of the struct.
-  Existing storage slots are preserved; pre-upgrade subscriptions are
-  lazy-initialized on the first post-upgrade `billSubscription` call (no
-  migration required).
+  `rate × cumDelta / (baseline × interval)` where `cumDelta` is summed
+  PER-OPERATOR (not aggregated) across the service's active operators for the
+  bond asset, and `baseline` is captured at the first bill (lazy init) and
+  frozen for the life of the subscription. Per-operator cursors live in
+  `TangleStorage._twapCursorByOp` and are re-seeded by
+  `ServicesLifecycle._finalizeJoin` so a mid-life joiner is not retroactively
+  billed for their pre-join cum activity (rejoin-safe).
+- Round 4 F5: `IStaking` gained `getCumStakeSeconds(operator, asset)`,
+  exposed via `IMultiAssetDelegation` for Rust callers. Implementations must
+  fold elapsed time × current stake into the running counter on every
+  stake-changing path. The in-tree `MultiAssetDelegation` ships the working
+  implementation; `ValidatorPodManager` ships a zero stub (subscription
+  billing is not currently routed through beacon-only services).
+- Round 4 F5: `PaymentLib.ServiceEscrow` gained `subscriptionBaselineStake`
+  appended at the end of the struct. A second slot (now reserved with sentinel
+  zero) was added in the initial F5 commit and retired in the F5 followup; the
+  slot layout is stable for the v0.15.0 release. Existing storage slots are
+  preserved; pre-upgrade subscriptions are lazy-initialized on the first
+  post-upgrade `billSubscription` call (no migration required).
 - Round 4 G-02: `ValidatorPodManager` refactored to per-pod share-pool
   accounting (`BeaconPool { totalAssets, totalShares }`) consistent with
   `MultiAssetDelegation` and `LiquidDelegationVault`. Beacon rebases now move
   `totalAssets` only — `shares` are invariant. Slashes remain isolated to the
-  affected pod. New entry points `recordBeaconChainDeposit` (mints shares) and
-  `recordBeaconChainRebase` (changes assets only) replace the implicit
-  `(int256 sharesDelta)` semantics; the legacy
-  `recordBeaconChainEthBalanceUpdate(address, int256)` is preserved as a
-  back-compat shim (positive delta == deposit, negative delta == rebase down).
-  `getShares` now returns `uint256` (was `int256`); negative-share states are
-  no longer representable. `totalShares()` is now a function returning
-  `uint256` (was a public `int256` state variable). Withdrawal queue snapshots
-  `convertToAssets(shares)` at queue time and pays out `min(snapshot, live)` at
-  completion.
+  affected pod. The legacy
+  `recordBeaconChainEthBalanceUpdate(address, int256)` entry point has been
+  REPLACED by two explicit methods: `recordBeaconChainDeposit(address, uint256)`
+  (mints shares for new principal) and
+  `recordBeaconChainRebase(address, int256)` (moves `totalAssets` only).
+  Call sites must migrate; there is no back-compat shim. `getShares(address)`
+  retains its pre-G-02 `int256` ABI (cast lossless from the new `uint256`
+  storage); a companion `getSharesUint(address)` returns the raw unsigned
+  value for callers that prefer it. `totalShares()` is now a function
+  returning `uint256` (was a public `int256` state variable). Withdrawal
+  queue snapshots `convertToAssets(shares)` at queue time and pays out
+  `min(snapshot, live)` at completion. The contract is not upgradeable;
+  existing deployments must be redeployed fresh (no in-place migration path).
 
 ### Added
 
 - Round 4 G-02: `ValidatorPodManager` views `convertToShares`,
-  `convertToAssets`, `totalAssetsOf`, `totalSharesOf`, `getRestakedAssets` for
-  share-pool introspection.
+  `convertToAssets`, `totalAssetsOf`, `totalSharesOf`, `getRestakedAssets`,
+  `getSharesUint` for share-pool introspection.
+
+### Fixed
+
+- Pre-existing test bug in `LiveBeaconTest.test_validatorFieldsExtraction`
+  where SSZ-encoded uint64 fields were stored big-endian, causing
+  `BeaconChainProofs._fromLittleEndianUint64` to read zero. Test now encodes
+  the leftmost-8-bytes little-endian convention SSZ actually uses. (Tracked
+  in #130; resolved here as part of the consolidation.)
 
 ## [0.14.0] - 2026-05-08
 

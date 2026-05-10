@@ -231,7 +231,6 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     error UndelegationNotFound();
     error UndelegationNotReady();
     error UndelegationAlreadyCompleted();
-    error InvalidDelta();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -390,49 +389,11 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
         emit BeaconRebase(podOwner, assetsDelta, newTotal, pool.totalShares);
     }
 
-    /// @notice Backward-compatible balance update entry point.
-    /// @dev Translates the legacy `(owner, int256 delta)` signature into share-pool ops:
-    ///      - If `delta > 0` AND the owner has no shares yet: treat as a fresh deposit.
-    ///      - If `delta > 0` AND the owner already has shares: caller must use the explicit
-    ///        `recordBeaconChainDeposit` / `recordBeaconChainRebase` methods. We default to
-    ///        `recordBeaconChainDeposit` here for back-compat with the original semantics
-    ///        ("positive delta == principal added"); rebases up should not have used this
-    ///        legacy path historically.
-    ///      - If `delta < 0`: treat as a rebase down (slash).
-    ///      Prefer the explicit methods in new code.
-    function recordBeaconChainEthBalanceUpdate(address podOwner, int256 sharesDelta) external {
-        address pod = ownerToPod[podOwner];
-        if (msg.sender != pod) revert OnlyPod();
-
-        if (sharesDelta == 0) revert InvalidDelta();
-
-        BeaconPool storage pool = _pools[podOwner];
-
-        if (sharesDelta > 0) {
-            // Treat positive delta as principal deposit (mints shares).
-            // forge-lint: disable-next-line(unsafe-typecast)
-            uint256 assets = uint256(sharesDelta);
-            uint256 mintedShares = _convertToShares(pool, assets);
-            if (mintedShares == 0) revert ZeroShares();
-
-            pool.totalAssets += assets;
-            pool.totalShares += mintedShares;
-            _shares[podOwner] += mintedShares;
-            _aggregateShares += mintedShares;
-
-            // forge-lint: disable-next-line(unsafe-typecast)
-            emit SharesUpdated(
-                podOwner, int256(mintedShares), _shares[podOwner], pool.totalAssets, pool.totalShares
-            );
-        } else {
-            // Negative delta: rebase down (beacon chain slash).
-            // forge-lint: disable-next-line(unsafe-typecast)
-            uint256 absDelta = uint256(-sharesDelta);
-            uint256 newTotal = absDelta >= pool.totalAssets ? 0 : pool.totalAssets - absDelta;
-            pool.totalAssets = newTotal;
-            emit BeaconRebase(podOwner, sharesDelta, newTotal, pool.totalShares);
-        }
-    }
+    // G-02 follow-up: the legacy `recordBeaconChainEthBalanceUpdate(int256)`
+    // back-compat shim was removed. The only in-tree caller (`ValidatorPod`)
+    // now invokes the two explicit entry points (`recordBeaconChainDeposit`,
+    // `recordBeaconChainRebase`) so the share-mint vs asset-rebase intent is
+    // visible in the call site rather than inferred from delta sign.
 
     // ═══════════════════════════════════════════════════════════════════════════
     // OPERATOR MANAGEMENT
@@ -1087,9 +1048,26 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get pod owner's pool share balance.
+    /// @dev Returns `int256` to preserve the pre-G-02 ABI signature. The
+    ///      underlying storage is `uint256` (shares cannot be negative under
+    ///      share-pool semantics), so the cast is always lossless — share
+    ///      balances exceeding `int256.max` are not representable in this
+    ///      protocol's value space. Callers that need the raw unsigned value
+    ///      should use `getSharesUint`.
     /// @param owner The owner address
-    /// @return Current pool shares (uint256, share-pool semantics).
-    function getShares(address owner) external view returns (uint256) {
+    /// @return Current pool shares; non-negative under share-pool semantics.
+    function getShares(address owner) external view returns (int256) {
+        uint256 raw = _shares[owner];
+        // Cap at int256.max defensively; in practice unreachable because the
+        // pool's totalAssets is bounded by Ether supply (≪ 2^128 wei).
+        if (raw > uint256(type(int256).max)) raw = uint256(type(int256).max);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        return int256(raw);
+    }
+
+    /// @notice Get pod owner's pool share balance as an unsigned integer.
+    /// @dev Companion to `getShares` for callers that prefer `uint256` directly.
+    function getSharesUint(address owner) external view returns (uint256) {
         return _shares[owner];
     }
 

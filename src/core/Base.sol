@@ -311,6 +311,19 @@ abstract contract Base is
         return _tntToken;
     }
 
+    /// @notice Resolve the asset used for TWAP-fair subscription billing.
+    /// @dev Bond asset (TNT) when configured, otherwise native. Matches the asset
+    ///      `IStaking.getOperatorStake` aggregates over. Defined here so both the
+    ///      service-lifecycle join hook and `Payments._computeTwapBillAmount`
+    ///      converge on the exact same asset.
+    function _bondAssetForBilling() internal view returns (Types.Asset memory asset) {
+        address bond = _tntToken;
+        if (bond == address(0)) {
+            return Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
+        }
+        return Types.Asset({ kind: Types.AssetKind.ERC20, token: bond });
+    }
+
     /// @notice Configure TNT token address (set to address(0) to disable TNT defaults)
     /// @param token The TNT token address
     function setTntToken(address token) external onlyRole(ADMIN_ROLE) whenNotPaused {
