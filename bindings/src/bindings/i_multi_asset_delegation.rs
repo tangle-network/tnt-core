@@ -4015,6 +4015,8 @@ library Types {
 }
 
 interface IMultiAssetDelegation {
+    error AdapterChangeWhileDepositsExist(address token, uint256 currentDeposits);
+
     event AdapterRegistered(address indexed token, address indexed adapter);
     event AdapterRemoved(address indexed token);
     event AssetDisabled(address indexed token);
@@ -7049,6 +7051,22 @@ interface IMultiAssetDelegation {
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AdapterChangeWhileDepositsExist",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "currentDeposits",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   }
 ]
 ```*/
@@ -7082,6 +7100,103 @@ pub mod IMultiAssetDelegation {
     pub static DEPLOYED_BYTECODE: alloy_sol_types::private::Bytes = alloy_sol_types::private::Bytes::from_static(
         b"",
     );
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Custom error with signature `AdapterChangeWhileDepositsExist(address,uint256)` and selector `0x0d136063`.
+```solidity
+error AdapterChangeWhileDepositsExist(address token, uint256 currentDeposits);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct AdapterChangeWhileDepositsExist {
+        #[allow(missing_docs)]
+        pub token: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub currentDeposits: alloy::sol_types::private::primitives::aliases::U256,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        type UnderlyingSolTuple<'a> = (
+            alloy::sol_types::sol_data::Address,
+            alloy::sol_types::sol_data::Uint<256>,
+        );
+        #[doc(hidden)]
+        type UnderlyingRustTuple<'a> = (
+            alloy::sol_types::private::Address,
+            alloy::sol_types::private::primitives::aliases::U256,
+        );
+        #[cfg(test)]
+        #[allow(dead_code, unreachable_patterns)]
+        fn _type_assertion(
+            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+        ) {
+            match _t {
+                alloy_sol_types::private::AssertTypeEq::<
+                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                >(_) => {}
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<AdapterChangeWhileDepositsExist>
+        for UnderlyingRustTuple<'_> {
+            fn from(value: AdapterChangeWhileDepositsExist) -> Self {
+                (value.token, value.currentDeposits)
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<UnderlyingRustTuple<'_>>
+        for AdapterChangeWhileDepositsExist {
+            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                Self {
+                    token: tuple.0,
+                    currentDeposits: tuple.1,
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolError for AdapterChangeWhileDepositsExist {
+            type Parameters<'a> = UnderlyingSolTuple<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "AdapterChangeWhileDepositsExist(address,uint256)";
+            const SELECTOR: [u8; 4] = [13u8, 19u8, 96u8, 99u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.token,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        256,
+                    > as alloy_sol_types::SolType>::tokenize(&self.currentDeposits),
+                )
+            }
+            #[inline]
+            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
+                <Self::Parameters<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Self::new)
+            }
+        }
+    };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `AdapterRegistered(address,address)` and selector `0xc47df14ad9309b59073546f93dbe3115ed09c8b206d940f8441ddb07f745b10b`.
@@ -31901,6 +32016,160 @@ function unpause() external;
                 }
                 Self::unpause(inner) => {
                     <unpauseCall as alloy_sol_types::SolCall>::abi_encode_raw(inner, out)
+                }
+            }
+        }
+    }
+    ///Container for all the [`IMultiAssetDelegation`](self) custom errors.
+    #[derive(Clone)]
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub enum IMultiAssetDelegationErrors {
+        #[allow(missing_docs)]
+        AdapterChangeWhileDepositsExist(AdapterChangeWhileDepositsExist),
+    }
+    impl IMultiAssetDelegationErrors {
+        /// All the selectors of this enum.
+        ///
+        /// Note that the selectors might not be in the same order as the variants.
+        /// No guarantees are made about the order of the selectors.
+        ///
+        /// Prefer using `SolInterface` methods instead.
+        pub const SELECTORS: &'static [[u8; 4usize]] = &[[13u8, 19u8, 96u8, 99u8]];
+        /// The names of the variants in the same order as `SELECTORS`.
+        pub const VARIANT_NAMES: &'static [&'static str] = &[
+            ::core::stringify!(AdapterChangeWhileDepositsExist),
+        ];
+        /// The signatures in the same order as `SELECTORS`.
+        pub const SIGNATURES: &'static [&'static str] = &[
+            <AdapterChangeWhileDepositsExist as alloy_sol_types::SolError>::SIGNATURE,
+        ];
+        /// Returns the signature for the given selector, if known.
+        #[inline]
+        pub fn signature_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            match Self::SELECTORS.binary_search(&selector) {
+                ::core::result::Result::Ok(idx) => {
+                    ::core::option::Option::Some(Self::SIGNATURES[idx])
+                }
+                ::core::result::Result::Err(_) => ::core::option::Option::None,
+            }
+        }
+        /// Returns the enum variant name for the given selector, if known.
+        #[inline]
+        pub fn name_by_selector(
+            selector: [u8; 4usize],
+        ) -> ::core::option::Option<&'static str> {
+            let sig = Self::signature_by_selector(selector)?;
+            sig.split_once('(').map(|(name, _)| name)
+        }
+    }
+    #[automatically_derived]
+    impl alloy_sol_types::SolInterface for IMultiAssetDelegationErrors {
+        const NAME: &'static str = "IMultiAssetDelegationErrors";
+        const MIN_DATA_LENGTH: usize = 64usize;
+        const COUNT: usize = 1usize;
+        #[inline]
+        fn selector(&self) -> [u8; 4] {
+            match self {
+                Self::AdapterChangeWhileDepositsExist(_) => {
+                    <AdapterChangeWhileDepositsExist as alloy_sol_types::SolError>::SELECTOR
+                }
+            }
+        }
+        #[inline]
+        fn selector_at(i: usize) -> ::core::option::Option<[u8; 4]> {
+            Self::SELECTORS.get(i).copied()
+        }
+        #[inline]
+        fn valid_selector(selector: [u8; 4]) -> bool {
+            Self::SELECTORS.binary_search(&selector).is_ok()
+        }
+        #[inline]
+        #[allow(non_snake_case)]
+        fn abi_decode_raw(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<IMultiAssetDelegationErrors>] = &[
+                {
+                    fn AdapterChangeWhileDepositsExist(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationErrors> {
+                        <AdapterChangeWhileDepositsExist as alloy_sol_types::SolError>::abi_decode_raw(
+                                data,
+                            )
+                            .map(
+                                IMultiAssetDelegationErrors::AdapterChangeWhileDepositsExist,
+                            )
+                    }
+                    AdapterChangeWhileDepositsExist
+                },
+            ];
+            let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
+            };
+            DECODE_SHIMS[idx](data)
+        }
+        #[inline]
+        #[allow(non_snake_case)]
+        fn abi_decode_raw_validate(
+            selector: [u8; 4],
+            data: &[u8],
+        ) -> alloy_sol_types::Result<Self> {
+            static DECODE_VALIDATE_SHIMS: &[fn(
+                &[u8],
+            ) -> alloy_sol_types::Result<IMultiAssetDelegationErrors>] = &[
+                {
+                    fn AdapterChangeWhileDepositsExist(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IMultiAssetDelegationErrors> {
+                        <AdapterChangeWhileDepositsExist as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(
+                                IMultiAssetDelegationErrors::AdapterChangeWhileDepositsExist,
+                            )
+                    }
+                    AdapterChangeWhileDepositsExist
+                },
+            ];
+            let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
+                return Err(
+                    alloy_sol_types::Error::unknown_selector(
+                        <Self as alloy_sol_types::SolInterface>::NAME,
+                        selector,
+                    ),
+                );
+            };
+            DECODE_VALIDATE_SHIMS[idx](data)
+        }
+        #[inline]
+        fn abi_encoded_size(&self) -> usize {
+            match self {
+                Self::AdapterChangeWhileDepositsExist(inner) => {
+                    <AdapterChangeWhileDepositsExist as alloy_sol_types::SolError>::abi_encoded_size(
+                        inner,
+                    )
+                }
+            }
+        }
+        #[inline]
+        fn abi_encode_raw(&self, out: &mut alloy_sol_types::private::Vec<u8>) {
+            match self {
+                Self::AdapterChangeWhileDepositsExist(inner) => {
+                    <AdapterChangeWhileDepositsExist as alloy_sol_types::SolError>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
                 }
             }
         }

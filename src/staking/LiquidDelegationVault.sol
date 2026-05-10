@@ -247,10 +247,19 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // we fail loudly here instead of silently locking the redemption forever.
         if (controller == address(0)) revert NotController();
 
-        // Verify caller can act on behalf of owner
+        // Verify caller can act on behalf of owner.
         if (msg.sender != owner && !_operators[owner][msg.sender]) {
             revert NotController();
         }
+
+        // Round 4 audit S-1: when an authorized operator (msg.sender != owner)
+        // files the request, they MUST set controller == owner. ERC-7540 lets an
+        // approved operator file requests on the owner's behalf, but the request
+        // controller drives `redeem` and routes assets to any receiver — so a
+        // free choice of controller would let the operator redirect the owner's
+        // funds. Owners filing on their own behalf may still pick any controller
+        // (e.g. an aggregator vault) since they're choosing for themselves.
+        if (msg.sender != owner && controller != owner) revert NotController();
 
         // Check owner has sufficient shares
         if (balanceOf(owner) < shares) revert InsufficientShares();
