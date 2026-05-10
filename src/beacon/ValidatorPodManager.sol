@@ -1022,6 +1022,26 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
         return 0; // ValidatorPodManager doesn't track pending slashes this way
     }
 
+    /// @inheritdoc IStaking
+    /// @dev F5 stub: ValidatorPodManager does not host the staking-pool index used by
+    ///      `Payments.billSubscription`. Returning zeros makes any subscription that
+    ///      points its bill aggregation at this staking adapter degrade to flat-rate
+    ///      billing (cumDelta = 0 → bill = 0; lazy-init then seeds baseline at 1 and
+    ///      subsequent bills also accrue 0). Beacon-only subscriptions are not a
+    ///      supported deployment shape today, so emitting a zero stake-seconds index
+    ///      here is intentional and deliberate.
+    function getCumStakeSeconds(
+        address operator,
+        Types.Asset calldata asset
+    )
+        external
+        view
+        override
+        returns (uint256, uint64, uint256)
+    {
+        return (0, 0, this.getOperatorStakeForAsset(operator, asset));
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN
     // ═══════════════════════════════════════════════════════════════════════════

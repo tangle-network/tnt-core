@@ -54,6 +54,10 @@ abstract contract OperatorManager is DelegationStorage {
             revert DelegationErrors.InsufficientStake(config.minOperatorStake, msg.value);
         }
 
+        // F5: seed TWAP cursor at registration. Pre-stake is 0, so this only
+        // initializes lastUpdate without any area contribution.
+        _accrueStakeSecondsRaw(msg.sender, nativeHash, 0);
+
         _operators.add(msg.sender);
         _operatorMetadata[msg.sender] = Types.OperatorMetadata({
             stake: msg.value, delegationCount: 0, status: Types.OperatorStatus.Active, leavingRound: 0
@@ -84,6 +88,10 @@ abstract contract OperatorManager is DelegationStorage {
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
+        // F5: seed TWAP cursor at registration. Pre-stake is 0, so this only
+        // initializes lastUpdate without any area contribution.
+        _accrueStakeSecondsRaw(msg.sender, assetHash, 0);
+
         _operators.add(msg.sender);
         _operatorMetadata[msg.sender] = Types.OperatorMetadata({
             stake: amount, delegationCount: 0, status: Types.OperatorStatus.Active, leavingRound: 0
@@ -107,6 +115,10 @@ abstract contract OperatorManager is DelegationStorage {
         }
         if (msg.value == 0) revert DelegationErrors.ZeroAmount();
 
+        // F5: accrue stake-seconds at the pre-change stake before mutating self-stake.
+        bytes32 nativeHash = _assetHash(Types.Asset(Types.AssetKind.Native, address(0)));
+        _accrueOperatorStakeSeconds(msg.sender, nativeHash);
+
         meta.stake += msg.value;
         emit OperatorStakeIncreased(msg.sender, msg.value);
     }
@@ -123,6 +135,11 @@ abstract contract OperatorManager is DelegationStorage {
         if (amount == 0) revert DelegationErrors.ZeroAmount();
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+
+        // F5: accrue stake-seconds before mutating self-stake.
+        bytes32 bondHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
+        _accrueOperatorStakeSeconds(msg.sender, bondHash);
+
         meta.stake += amount;
         emit OperatorStakeIncreased(msg.sender, amount);
     }
@@ -165,6 +182,12 @@ abstract contract OperatorManager is DelegationStorage {
         if (currentRound < request.requestedRound + delegationBondLessDelay) {
             revert DelegationErrors.LeavingTooEarly(currentRound, request.requestedRound + delegationBondLessDelay);
         }
+
+        // F5: accrue stake-seconds at the pre-unstake stake before mutating self-stake.
+        bytes32 bondHashUnstake = _operatorBondToken == address(0)
+            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
+            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        _accrueOperatorStakeSeconds(msg.sender, bondHashUnstake);
 
         unstaked = request.amount;
         _operatorMetadata[msg.sender].stake -= unstaked;
@@ -234,6 +257,12 @@ abstract contract OperatorManager is DelegationStorage {
         if (currentRound < meta.leavingRound + leaveOperatorsDelay) {
             revert DelegationErrors.LeavingTooEarly(currentRound, meta.leavingRound + leaveOperatorsDelay);
         }
+
+        // F5: accrue stake-seconds at the pre-exit stake before zeroing self-stake.
+        bytes32 bondHashExit = _operatorBondToken == address(0)
+            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
+            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        _accrueOperatorStakeSeconds(msg.sender, bondHashExit);
 
         stake = meta.stake;
         meta.stake = 0;

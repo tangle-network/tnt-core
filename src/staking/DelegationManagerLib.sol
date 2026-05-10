@@ -628,24 +628,6 @@ abstract contract DelegationManagerLib is OperatorManager {
         }
     }
 
-    /// @notice Get operator's total delegated stake for a specific asset
-    function _getOperatorDelegatedStakeForAsset(
-        address operator,
-        bytes32 assetHash
-    )
-        internal
-        view
-        returns (uint256 total)
-    {
-        total += _rewardPools[operator][assetHash].totalAssets;
-
-        uint256 bpCount = _operatorBlueprints[operator].length();
-        for (uint256 i = 0; i < bpCount; i++) {
-            uint64 blueprintId = uint64(_operatorBlueprints[operator].at(i));
-            total += _blueprintPools[operator][blueprintId][assetHash].totalAssets;
-        }
-    }
-
     /// @notice Get operator's total stake for the bond asset (self + delegated)
     function _getOperatorTotalStake(address operator) internal view returns (uint256) {
         bytes32 bondHash = _operatorBondToken == address(0)

@@ -232,6 +232,19 @@ contract MockStaking is IStaking {
     function getPendingSlashCount(address) external pure override returns (uint64) {
         return 0;
     }
+
+    // F5: TWAP stake-seconds (mock returns zero — irrelevant to slashing tests)
+    function getCumStakeSeconds(
+        address,
+        Types.Asset calldata
+    )
+        external
+        pure
+        override
+        returns (uint256, uint64, uint256)
+    {
+        return (0, 0, 0);
+    }
 }
 
 contract MockSlashPod {

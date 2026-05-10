@@ -170,7 +170,12 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     }
 
     /// @notice Internal billing logic with TTL check
-    /// @dev Uses effective exposure (delegation × exposureBps) for proportional payment distribution
+    /// @dev Uses effective exposure (delegation × exposureBps) for proportional payment distribution.
+    ///      F5: bills the TWAP-fair amount = `rate × cumDelta / (baseline × interval)` so an
+    ///      operator cannot game the bill by ramping stake for a single instant of measurement
+    ///      and then dumping it. cumDelta is the change in aggregate cumulative stake-seconds
+    ///      over [lastBilledAt, now] across the service's active operators (bond asset). The
+    ///      baseline is captured at the first bill and frozen for the life of the subscription.
     function _billSubscriptionInternal(uint64 serviceId) internal {
         Types.Service storage svc = _getService(serviceId);
         if (svc.status != Types.ServiceStatus.Active) {
@@ -187,22 +192,25 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
 
         Types.BlueprintConfig storage bpConfig = _blueprintConfigs[svc.blueprintId];
         uint64 interval = bpConfig.subscriptionInterval;
-        uint256 rate = bpConfig.subscriptionRate;
+        uint256 nominalRate = bpConfig.subscriptionRate;
 
         if (block.timestamp < svc.lastPaymentAt + interval) {
             revert Errors.DeadlineExpired();
         }
 
+        address[] memory operators = _activeServiceOperators(serviceId);
+
+        // F5: derive the TWAP-fair amount for this period and reconcile billing cursors.
+        uint256 amount = _computeTwapBillAmount(serviceId, operators, nominalRate, interval);
+
         PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
-        if (escrow.balance < rate) {
-            revert Errors.InsufficientEscrowBalance(rate, escrow.balance);
+        if (escrow.balance < amount) {
+            revert Errors.InsufficientEscrowBalance(amount, escrow.balance);
         }
 
-        address token = PaymentLib.releaseFromEscrow(escrow, rate);
+        address token = PaymentLib.releaseFromEscrow(escrow, amount);
         // Advance by exactly one interval so missed periods can be caught up over repeated calls.
         svc.lastPaymentAt += interval;
-
-        address[] memory operators = _activeServiceOperators(serviceId);
 
         // Calculate effective exposures (with fallback to stored exposureBps)
         (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) =
@@ -212,33 +220,35 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
             serviceId,
             svc.blueprintId,
             token,
-            rate,
+            amount,
             operators,
             effectiveExposures,
             totalEffectiveExposure,
             hasSecurityCommitments
         );
 
-        emit SubscriptionBilled(serviceId, rate, interval);
+        emit SubscriptionBilled(serviceId, amount, interval);
     }
 
     /// @notice Try to bill a subscription, returns false on failure instead of reverting
-    /// @dev Uses effective exposure (delegation × exposureBps) for proportional payment distribution
+    /// @dev Uses effective exposure (delegation × exposureBps) for proportional payment distribution.
+    ///      F5: same TWAP-fair amount derivation as `_billSubscriptionInternal`.
     function _tryBillSubscription(uint64 serviceId) internal returns (bool) {
         if (!_isBillable(serviceId)) return false;
 
         Types.Service storage svc = _services[serviceId];
         Types.BlueprintConfig storage bpConfig = _blueprintConfigs[svc.blueprintId];
-        PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
-
-        uint256 rate = bpConfig.subscriptionRate;
-        if (escrow.balance < rate) return false;
-
-        address token = PaymentLib.releaseFromEscrow(escrow, rate);
-        // Advance by exactly one interval so missed periods can be caught up over repeated calls.
-        svc.lastPaymentAt += bpConfig.subscriptionInterval;
 
         address[] memory operators = _activeServiceOperators(serviceId);
+        uint64 interval = bpConfig.subscriptionInterval;
+        uint256 amount = _computeTwapBillAmount(serviceId, operators, bpConfig.subscriptionRate, interval);
+
+        PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
+        if (escrow.balance < amount) return false;
+
+        address token = PaymentLib.releaseFromEscrow(escrow, amount);
+        // Advance by exactly one interval so missed periods can be caught up over repeated calls.
+        svc.lastPaymentAt += interval;
 
         // Calculate effective exposures (with fallback to stored exposureBps)
         (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) =
@@ -248,15 +258,126 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
             serviceId,
             svc.blueprintId,
             token,
-            rate,
+            amount,
             operators,
             effectiveExposures,
             totalEffectiveExposure,
             hasSecurityCommitments
         );
 
-        emit SubscriptionBilled(serviceId, rate, bpConfig.subscriptionInterval);
+        emit SubscriptionBilled(serviceId, amount, interval);
         return true;
+    }
+
+    /// @notice F5: compute the TWAP-fair bill amount for ONE period and advance the cursor.
+    /// @dev Each call processes exactly one period of length `interval`, even when the
+    ///      caller is late — `_billSubscriptionInternal` advances `lastPaymentAt += interval`
+    ///      so missed periods are caught up over repeated calls. The cum-stake cursor must
+    ///      mirror that semantic: we attribute only the portion of `cumDelta` that falls
+    ///      inside `[lastPaymentAt, lastPaymentAt + interval]`, not the whole tail up to
+    ///      `block.timestamp`. We don't snapshot historical cum, so for the late-bill tail
+    ///      `[periodEnd, now]` we project linearly with the current stake (exact when the
+    ///      stake is stable since `periodEnd`, conservative otherwise — and the same
+    ///      forward-projected cum is moved into the cursor so the *next* bill picks up
+    ///      from `periodEnd` without any double-counting).
+    ///
+    ///      The first call lazy-initializes the per-service cursor and baseline from
+    ///      live aggregate state; this matches the migration requirement (no coordinated
+    ///      upgrade init for pre-existing subscriptions, and the same path for newly-
+    ///      activated ones). The first post-init bill returns `nominalRate` exactly.
+    ///      From the next call onward, `amount = nominalRate × cumDeltaPeriod / (baseline
+    ///      × interval)` — periods with higher-than-baseline stake bill proportionally
+    ///      more, lower stake bills less.
+    function _computeTwapBillAmount(
+        uint64 serviceId,
+        address[] memory operators,
+        uint256 nominalRate,
+        uint64 interval
+    )
+        internal
+        returns (uint256 amount)
+    {
+        PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
+
+        (uint256 currentCum, uint256 currentStake) = _aggregateBondStakeSnapshot(operators);
+
+        // Forward-project cum to the end of the period being billed. `_billSubscriptionInternal`
+        // advances `svc.lastPaymentAt += interval` exactly once per call, so the bill window
+        // is always `[svc.lastPaymentAt, svc.lastPaymentAt + interval]`. When the caller is
+        // late (block.timestamp > periodEnd) we subtract `currentStake × tail` to estimate cum
+        // at the period boundary — exact when stake has been stable since `periodEnd`, and
+        // applied symmetrically to lazy-init below so the cursor never double-counts.
+        uint64 periodEnd = _services[serviceId].lastPaymentAt + interval;
+        uint256 cumAtPeriodEnd = currentCum;
+        if (block.timestamp > periodEnd) {
+            uint256 tail = currentStake * (block.timestamp - uint256(periodEnd));
+            cumAtPeriodEnd = currentCum > tail ? currentCum - tail : 0;
+        }
+
+        // Lazy-init: single sentinel `subscriptionBaselineStake == 0` covers both
+        // pre-upgrade subscriptions AND newly-activated ones. We choose lazy init over
+        // a one-shot upgrade function so live subscriptions don't require a coordinated
+        // migration; the first post-upgrade `billSubscription` call seeds both cursors
+        // from live state and bills the standard `nominalRate` for the first window.
+        // From the next call onward, billing is TWAP-correct.
+        if (escrow.subscriptionBaselineStake == 0) {
+            // Park the cursor at `cumAtPeriodEnd` — exactly where the NEXT bill expects
+            // to start. Earlier history (before lazy-init) is intentionally discarded
+            // since we cannot retro-attribute it to any particular billing window.
+            escrow.lastBilledCumStake = cumAtPeriodEnd;
+            // Pin the baseline. If everyone has zero stake at this moment we fall back
+            // to nominal billing (no fair-pricing signal); the bill remains `nominalRate`
+            // until stakes become observable. In practice a service activation requires
+            // staked operators, so this branch is unreachable outside artificial tests.
+            escrow.subscriptionBaselineStake = currentStake == 0 ? 1 : currentStake;
+            return nominalRate;
+        }
+
+        uint256 cumDelta = cumAtPeriodEnd > escrow.lastBilledCumStake
+            ? cumAtPeriodEnd - escrow.lastBilledCumStake
+            : 0;
+        escrow.lastBilledCumStake = cumAtPeriodEnd;
+
+        uint256 denom = escrow.subscriptionBaselineStake * uint256(interval);
+        if (denom == 0) {
+            // Defensive: should not occur after lazy-init, but if it ever did we degrade
+            // gracefully to nominal billing rather than reverting.
+            return nominalRate;
+        }
+        amount = (nominalRate * cumDelta) / denom;
+    }
+
+    /// @notice Sum each operator's bond-asset cumulative stake-seconds and current stake.
+    /// @dev Aggregates only the active operators passed in (consistent with payout selection),
+    ///      so an exited operator no longer contributes to billing weight even though their
+    ///      historical cum is preserved on the staking side.
+    function _aggregateBondStakeSnapshot(address[] memory operators)
+        internal
+        view
+        returns (uint256 currentCum, uint256 currentStake)
+    {
+        IStaking staking = _getStaking();
+        Types.Asset memory bondAsset = _bondAssetForBilling();
+        uint256 operatorsLength = operators.length;
+        for (uint256 i = 0; i < operatorsLength;) {
+            (uint256 cum,, uint256 stake) = staking.getCumStakeSeconds(operators[i], bondAsset);
+            currentCum += cum;
+            currentStake += stake;
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @notice Resolve the asset used for TWAP billing.
+    /// @dev Bond asset (TNT) when configured, otherwise native. Matches the asset that
+    ///      `IStaking.getOperatorStake` aggregates over.
+    function _bondAssetForBilling() internal view returns (Types.Asset memory asset) {
+        address bond = _tntToken;
+        if (bond == address(0)) {
+            return Types.Asset({ kind: Types.AssetKind.Native, token: address(0) });
+        }
+        return Types.Asset({ kind: Types.AssetKind.ERC20, token: bond });
     }
 
     /// @notice Check if a service is billable

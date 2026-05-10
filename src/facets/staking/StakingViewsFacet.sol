@@ -10,7 +10,7 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 /// @notice Facet for staking view functions
 contract StakingViewsFacet is StakingFacetBase, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](29);
+        selectorList = new bytes4[](30);
         selectorList[0] = this.isOperator.selector;
         selectorList[1] = this.isOperatorActive.selector;
         selectorList[2] = this.getOperatorStake.selector;
@@ -40,6 +40,7 @@ contract StakingViewsFacet is StakingFacetBase, IFacetSelectors {
         selectorList[26] = this.serviceFeeDistributor.selector;
         selectorList[27] = this.operatorBondToken.selector;
         selectorList[28] = this.previewDelegatorUnstakeShares.selector;
+        selectorList[29] = this.getCumStakeSeconds.selector;
     }
 
     function isOperator(address operator) external view returns (bool) {
@@ -208,5 +209,21 @@ contract StakingViewsFacet is StakingFacetBase, IFacetSelectors {
     /// @notice Get the operator bond token (TNT)
     function operatorBondToken() external view returns (address) {
         return _operatorBondToken;
+    }
+
+    /// @notice F5: Lazy-realized cumulative stake-seconds for (operator, asset)
+    /// @dev Used by `Payments.billSubscription` for TWAP-fair pricing. Read-only;
+    ///      adds the unrealized tail `currentStake × (now − lastUpdate)` on the fly
+    ///      so the snapshot is consistent at the read timestamp.
+    function getCumStakeSeconds(
+        address operator,
+        Types.Asset calldata asset
+    )
+        external
+        view
+        returns (uint256 cum, uint64 lastUpdate, uint256 currentStake)
+    {
+        bytes32 assetHash = _assetHash(asset);
+        return _getCumStakeSecondsView(operator, assetHash);
     }
 }

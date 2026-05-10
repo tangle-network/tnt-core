@@ -54,6 +54,10 @@ abstract contract RewardsManager is DelegationManagerLib {
         override
     {
         bytes32 assetHash = _assetHash(asset);
+        // F5: fold pre-change stake-seconds into the TWAP index BEFORE any pool
+        // mutation so the elapsed period is priced at the stake that was actually
+        // in effect (not the post-delegate value).
+        _accrueOperatorStakeSeconds(operator, assetHash);
         uint256[] memory blueprintAmounts = new uint256[](0);
         if (selectionMode == Types.BlueprintSelectionMode.All) {
             // All mode: use the operator's main pool (exposed to ALL blueprints)

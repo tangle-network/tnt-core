@@ -306,6 +306,112 @@ abstract contract DelegationStorage {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // F5: TWAP STAKE-SECONDS ACCRUAL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Operator's total delegated stake for a specific asset (sum across
+    ///         All-mode pool and every Fixed-mode blueprint pool the operator owns).
+    /// @dev Defined here (not in DelegationManagerLib) so OperatorManager can also
+    ///      compute total stake-for-asset when its self-stake mutations need to
+    ///      accrue stake-seconds. All inputs live in DelegationStorage.
+    function _getOperatorDelegatedStakeForAsset(
+        address operator,
+        bytes32 assetHash
+    )
+        internal
+        view
+        returns (uint256 total)
+    {
+        total += _rewardPools[operator][assetHash].totalAssets;
+
+        uint256 bpCount = _operatorBlueprints[operator].length();
+        for (uint256 i = 0; i < bpCount; i++) {
+            uint64 blueprintId = uint64(_operatorBlueprints[operator].at(i));
+            total += _blueprintPools[operator][blueprintId][assetHash].totalAssets;
+        }
+    }
+
+    /// @notice Operator's total stake for an asset (self-stake when bond + delegated).
+    /// @dev Single source of truth so the TWAP accrual hook always agrees with the
+    ///      value used for billing, slashing, and view facets. For non-bond assets
+    ///      self-stake contributes zero.
+    function _getOperatorStakeForAssetHash(
+        address operator,
+        bytes32 assetHash
+    )
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 delegated = _getOperatorDelegatedStakeForAsset(operator, assetHash);
+        bytes32 bondHash = _operatorBondToken == address(0)
+            ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
+            : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
+        if (assetHash == bondHash) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            return delegated + _operatorMetadata[operator].stake;
+        }
+        return delegated;
+    }
+
+    /// @notice Fold elapsed time × current stake into the cumulative counter.
+    /// @dev Caller passes the operator's CURRENT stake for the asset (i.e. the value
+    ///      that has been in effect since `_cumStakeSecondsLastUpdate`). Must be
+    ///      called BEFORE the underlying stake actually changes, otherwise the
+    ///      pre-change interval would be priced at the new (post-change) stake.
+    ///      First accrual seeds `lastUpdate` without area contribution, so any
+    ///      pre-existing pool starts TWAP cleanly at upgrade time without
+    ///      back-paying for unobservable history.
+    function _accrueStakeSecondsRaw(address operator, bytes32 assetHash, uint256 currentStake) internal {
+        uint64 last = _cumStakeSecondsLastUpdate[operator][assetHash];
+        uint64 nowTs = uint64(block.timestamp);
+        if (last == 0) {
+            _cumStakeSecondsLastUpdate[operator][assetHash] = nowTs;
+            return;
+        }
+        if (nowTs <= last) return; // same-block or clock skew: no-op
+        unchecked {
+            // safe: (nowTs - last) ≤ 2^64; currentStake ≤ 2^256; product fits
+            // because product ≤ 2^256 by construction of realistic stakes.
+            _cumStakeSeconds[operator][assetHash] += currentStake * (nowTs - last);
+        }
+        _cumStakeSecondsLastUpdate[operator][assetHash] = nowTs;
+    }
+
+    /// @notice Fold pre-change stake-seconds into the cumulative index.
+    /// @dev MUST be invoked BEFORE every state change that mutates the operator's
+    ///      total stake for the given asset. Reads the current stake (the value
+    ///      that was in effect over [lastUpdate, now]) and pushes the area into
+    ///      `_cumStakeSeconds`. Idempotent within a single block.
+    function _accrueOperatorStakeSeconds(address operator, bytes32 assetHash) internal {
+        uint256 currentStake = _getOperatorStakeForAssetHash(operator, assetHash);
+        _accrueStakeSecondsRaw(operator, assetHash, currentStake);
+    }
+
+    /// @notice Lazy-realize cumulative stake-seconds at the current block.
+    /// @dev Does not write storage. Returns the snapshotted counter the caller would
+    ///      see if accrual ran right now, plus the stored `lastUpdate` and live
+    ///      stake for caller-side bookkeeping (e.g. lazy-initializing a
+    ///      subscription's last-billed cursor).
+    function _getCumStakeSecondsView(
+        address operator,
+        bytes32 assetHash
+    )
+        internal
+        view
+        returns (uint256 cum, uint64 lastUpdate, uint256 currentStake)
+    {
+        cum = _cumStakeSeconds[operator][assetHash];
+        lastUpdate = _cumStakeSecondsLastUpdate[operator][assetHash];
+        currentStake = _getOperatorStakeForAssetHash(operator, assetHash);
+        if (lastUpdate != 0 && block.timestamp > lastUpdate) {
+            unchecked {
+                cum += currentStake * (uint64(block.timestamp) - lastUpdate);
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // ROUTER SELECTOR REGISTRY
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -342,7 +448,28 @@ abstract contract DelegationStorage {
     /// @notice Whitelist of approved delegators: operator => delegator => approved
     mapping(address => mapping(address => bool)) internal _operatorDelegationWhitelist;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // F5: TWAP-FAIR STAKE INDEX (cumulative stake-seconds per operator+asset)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Compound-v2 / Aave-v3 style index: every stake-changing path calls
+    // `_accrueOperatorStakeSeconds(op, assetHash)` BEFORE mutating the underlying
+    // amount, which folds `prevStake × (now − lastUpdate)` into the running counter.
+    // Subscription billing then prices a period by `cum_now − cum_lastBilled`,
+    // making TWAP-fair pricing O(1) per change with no looping. Counter is
+    // monotonic and never decreases (slashes still attribute time-weight up to the
+    // slash instant). uint256 stake-seconds cannot overflow at realistic scales
+    // (e.g. 1e30 wei × 100 years ≈ 3.15e39 < 2^256).
+
+    /// @notice Cumulative stake-seconds: operator => assetHash => Σ stake(t)·dt
+    mapping(address => mapping(bytes32 => uint256)) internal _cumStakeSeconds;
+
+    /// @notice Timestamp of the last accrual into _cumStakeSeconds for this pair.
+    /// @dev 0 sentinel means "never accrued"; the first accrual seeds lastUpdate
+    ///      without contributing area, so pre-existing pools begin TWAP at upgrade.
+    mapping(address => mapping(bytes32 => uint64)) internal _cumStakeSecondsLastUpdate;
+
     /// @notice Reserved storage gap for future upgrades
     /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    uint256[46] private __gap;
+    /// @dev F5 added 2 mappings; gap reduced by 2 (46 → 44).
+    uint256[44] private __gap;
 }

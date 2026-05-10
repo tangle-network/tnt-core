@@ -193,6 +193,30 @@ interface IStaking {
     /// @param operator The operator to query
     /// @return count Number of pending slashes
     function getPendingSlashCount(address operator) external view returns (uint64);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // F5: TWAP STAKE-SECONDS ACCUMULATOR
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Lazy-realized cumulative stake-seconds for an (operator, asset).
+    /// @dev Compound-v2 / Aave-v3 style index: every stake-changing path folds
+    ///      `prevStake × (now − lastUpdate)` into the running counter, so callers
+    ///      (notably subscription billing) can price an interval `[t0, t1]` as
+    ///      `cum(t1) − cum(t0)` without iterating delegation events. The view
+    ///      adds the unrealized tail `currentStake × (now − lastUpdate)` on the
+    ///      fly so the read reflects the current block.
+    /// @param operator The operator to query
+    /// @param asset The asset to query
+    /// @return cum Cumulative stake-seconds at `block.timestamp`
+    /// @return lastUpdate Stored timestamp of the last on-chain accrual (0 if never)
+    /// @return currentStake The operator's current total stake for the asset
+    function getCumStakeSeconds(
+        address operator,
+        Types.Asset calldata asset
+    )
+        external
+        view
+        returns (uint256 cum, uint64 lastUpdate, uint256 currentStake);
 }
 
 /// @title IStakingAdmin

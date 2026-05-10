@@ -86,11 +86,25 @@ library PaymentLib {
     }
 
     /// @notice Service escrow account (for subscriptions)
+    /// @dev F5 fields are appended at the end of the struct so existing storage
+    ///      slots are preserved across upgrades. Because `_serviceEscrows` is a
+    ///      mapping(uint64 => ServiceEscrow) (not nested in another struct), the
+    ///      added fields claim previously-zero slots tied to each serviceId.
     struct ServiceEscrow {
         address token; // Payment token (address(0) = native)
         uint256 balance; // Current escrow balance
         uint256 totalDeposited; // Lifetime deposits
         uint256 totalReleased; // Lifetime releases
+        // F5: aggregated cumulative stake-seconds (sum across active operators
+        // for the bond asset) at the moment of the last subscription bill.
+        // Compared against the current aggregate to derive cumDelta for the
+        // window. Zero sentinel means "uninitialized" — the next bill seeds the
+        // cursor and bills the standard subscriptionRate (lazy migration).
+        uint256 lastBilledCumStake;
+        // F5: nominal aggregate stake used as the per-period denominator in the
+        // TWAP bill formula. Captured at the lazy-init bill, then frozen for the
+        // life of the subscription. Zero sentinel means "uninitialized".
+        uint256 subscriptionBaselineStake;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
