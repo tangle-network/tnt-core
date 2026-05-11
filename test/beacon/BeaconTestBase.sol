@@ -95,9 +95,11 @@ abstract contract BeaconTestBase is Test {
     /// @param shares The amount of shares to grant (in wei)
     function _createPodWithShares(address owner, uint256 shares) internal returns (ValidatorPod) {
         ValidatorPod pod = _createPod(owner);
-        // Prank as the pod to record a positive balance update
+        // Prank as the pod to mint shares for the deposited principal
+        // (G-02 follow-up: legacy signed-delta shim was removed; use explicit
+        // deposit entry point for the positive principal case).
         vm.prank(address(pod));
-        podManager.recordBeaconChainEthBalanceUpdate(owner, int256(shares));
+        podManager.recordBeaconChainDeposit(owner, shares);
         return pod;
     }
 

@@ -296,7 +296,7 @@ contract ValidatorPodTest is BeaconTestBase {
         assertTrue(pod.hasRestaked(), "restake flag should be true");
         assertEq(pod.activeValidatorCount(), 1, "one validator should be active");
         assertEq(pod.totalRestakedBalanceGwei(), effectiveBalance, "restaked gwei tracked");
-        assertEq(podManager.getShares(podOwner1), 32 ether, "shares minted for pod owner");
+        assertEq(podManager.getSharesUint(podOwner1), 32 ether, "shares minted for pod owner");
 
         ValidatorTypes.ValidatorInfo memory info = pod.getValidatorInfo(pubkeyHash);
         assertEq(info.validatorIndex, validatorIndex, "validator index stored");
@@ -414,7 +414,7 @@ contract ValidatorPodTest is BeaconTestBase {
             restakeProof.validatorFields
         );
 
-        assertEq(podManager.getShares(podOwner1), 32 ether, "shares minted pre-checkpoint");
+        assertEq(podManager.getSharesUint(podOwner1), 32 ether, "shares minted pre-checkpoint");
 
         uint64 checkpointTimestamp = restakeProof.beaconTimestamp + 12;
         uint64 newBalance = 31_000_000_000;
@@ -436,7 +436,12 @@ contract ValidatorPodTest is BeaconTestBase {
         assertEq(pod.currentCheckpointTimestamp(), 0, "timestamp cleared");
         assertEq(pod.lastCompletedCheckpointTimestamp(), checkpointTimestamp, "last checkpoint recorded");
         assertEq(pod.totalRestakedBalanceGwei(), newBalance, "restaked balance updated");
-        assertEq(podManager.getShares(podOwner1), 31 ether, "shares reflect new balance");
+        // G-02: With share-pool accounting, the rebase-down moves `totalAssets` only.
+        // The pod owner's share balance is unchanged (still 32 ether minted at deposit),
+        // but the asset-equivalent reflects the new beacon balance (~31 ETH; the virtual
+        // offset introduces sub-1000 wei dust).
+        assertEq(podManager.getSharesUint(podOwner1), 32 ether, "shares unchanged on rebase");
+        assertApproxEqAbs(podManager.getRestakedAssets(podOwner1), 31 ether, 1000, "assets reflect new balance");
 
         uint64 expectedFactor = uint64((uint256(1e18) * uint256(newBalance)) / uint256(initialBalance));
         assertEq(pod.beaconChainSlashingFactor(), expectedFactor, "slashing factor applied");

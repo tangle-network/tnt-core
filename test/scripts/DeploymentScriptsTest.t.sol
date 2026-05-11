@@ -121,6 +121,19 @@ contract MockStaking is IStaking {
     function getPendingSlashCount(address) external pure override returns (uint64) {
         return 0;
     }
+
+    // F5: TWAP stake-seconds (deployment-script mock — zeros suffice)
+    function getCumStakeSeconds(
+        address,
+        Types.Asset calldata
+    )
+        external
+        pure
+        override
+        returns (uint256, uint64, uint256)
+    {
+        return (0, 0, 0);
+    }
 }
 
 contract DeployV2Harness is DeployV2 {

@@ -282,6 +282,15 @@ interface IMultiAssetDelegation {
         view
         returns (uint256);
     function getOperatorStakeForAsset(address operator, Types.Asset calldata asset) external view returns (uint256);
+    /// @notice F5: Lazy-realized cumulative stake-seconds for an (operator, asset) at the
+    ///         current block. Used by `Payments.billSubscription` for TWAP-fair pricing.
+    function getCumStakeSeconds(
+        address operator,
+        Types.Asset calldata asset
+    )
+        external
+        view
+        returns (uint256 cum, uint64 lastUpdate, uint256 currentStake);
     function getDelegation(address delegator, address operator) external view returns (uint256);
     function getTotalDelegation(address delegator) external view returns (uint256 total);
     function minOperatorStake() external view returns (uint256);

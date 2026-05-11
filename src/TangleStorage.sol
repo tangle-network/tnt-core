@@ -406,10 +406,28 @@ abstract contract TangleStorage {
     mapping(address => uint256) internal _pendingDisputeBondRefunds;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // F5: TWAP-FAIR SUBSCRIPTION BILLING — PER-OPERATOR CURSORS
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Stores the cumulative stake-seconds value last attributed to each
+    // (service, operator) pair. Replaces the earlier aggregate-only cursor that
+    // produced a bogus `cumDelta` whenever the active-operator set changed
+    // between bills (sum-over-old-set vs sum-over-new-set is not a valid delta).
+    //
+    // Per-operator cursors make the billing window correct under joins, leaves,
+    // and rejoins: each operator is attributed only the stake-seconds they
+    // accrued *while bonded to this service* over the billed period.
+
+    /// @notice Service ID => Operator => cumulative stake-seconds at the
+    ///         operator's most recent attribution event for this service
+    ///         (join, prior bill). Zero sentinel = "never attributed."
+    mapping(uint64 => mapping(address => uint256)) internal _twapCursorByOp;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    uint256[41] private __gap;
+    /// @dev F5 per-op cursor added 1 mapping (slot); gap reduced 41 → 40.
+    uint256[40] private __gap;
 }

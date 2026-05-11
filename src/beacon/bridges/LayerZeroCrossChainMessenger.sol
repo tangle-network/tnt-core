@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
 import { ICrossChainMessenger, ICrossChainReceiver } from "../interfaces/ICrossChainMessenger.sol";
 
 /// @title LayerZeroCrossChainMessenger
@@ -267,27 +271,34 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
 /// @notice OApp-compatible receiver for LayerZero V2 messages
 /// @dev Implements lzReceive to process incoming cross-chain messages
 ///      M-12 FIX: Added message replay protection using GUID
-contract LayerZeroReceiver {
-    /// @notice LayerZero V2 Endpoint
-    // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    address public immutable endpoint;
+///      C-3 (Round 4): Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
+///      and call `initialize(...)`.
+contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+    /// @custom:storage-location erc7201:tangle.beacon.bridges.LayerZeroReceiver
+    struct LayerZeroReceiverStorage {
+        address endpoint;
+        ICrossChainReceiver receiver;
+        // eid => peer as bytes32
+        mapping(uint32 => bytes32) peers;
+        // eid => evm chain id
+        mapping(uint32 => uint256) eidToChainId;
+        // GUID => processed
+        mapping(bytes32 => bool) processedMessages;
+        uint256[50] __gap;
+    }
 
-    /// @notice The actual message receiver
-    // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    ICrossChainReceiver public immutable receiver;
+    /// @notice ERC-7201 slot:
+    ///         keccak256(abi.encode(uint256(keccak256("tangle.beacon.bridges.LayerZeroReceiver")) - 1))
+    ///         & ~bytes32(uint256(0xff))
+    bytes32 private constant LAYERZERO_RECEIVER_SLOT =
+        0xc8d6dbf6ee97b652bc4d9630ab7dd428f73833407c880bfe0821be2f767b3a00;
 
-    /// @notice Trusted peers (eid => peer as bytes32)
-    mapping(uint32 => bytes32) public peers;
-
-    /// @notice Mapping from LayerZero EID to chain ID
-    mapping(uint32 => uint256) public eidToChainId;
-
-    /// @notice Owner
-    address public owner;
-
-    /// @notice M-12 FIX: Track processed message GUIDs to prevent replay attacks
-    /// @dev LayerZero provides unique GUIDs for each message
-    mapping(bytes32 => bool) public processedMessages;
+    function _getStorage() private pure returns (LayerZeroReceiverStorage storage $) {
+        bytes32 s = LAYERZERO_RECEIVER_SLOT;
+        assembly {
+            $.slot := s
+        }
+    }
 
     /// @notice Events
     event MessageReceived(uint32 indexed srcEid, bytes32 sender, uint256 sourceChainId, address originalSender);
@@ -296,28 +307,49 @@ contract LayerZeroReceiver {
 
     /// @notice M-12 FIX: Error for replayed messages
     error MessageAlreadyProcessed(bytes32 guid);
+    error ZeroAddress();
 
-    constructor(address _endpoint, address _receiver) {
-        endpoint = _endpoint;
-        receiver = ICrossChainReceiver(_receiver);
-        owner = msg.sender;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _endpoint, address _receiver, address _owner) external initializer {
+        if (_owner == address(0)) revert ZeroAddress();
+        __UUPSUpgradeable_init();
+        __Ownable_init(_owner);
+
+        LayerZeroReceiverStorage storage $ = _getStorage();
+        $.endpoint = _endpoint;
+        $.receiver = ICrossChainReceiver(_receiver);
 
         // Initialize common mappings
-        eidToChainId[30_101] = 1; // Ethereum
-        eidToChainId[30_110] = 42_161; // Arbitrum
-        eidToChainId[30_184] = 8453; // Base
-        eidToChainId[40_161] = 11_155_111; // Sepolia
-        eidToChainId[40_231] = 421_614; // Arbitrum Sepolia
-        eidToChainId[40_245] = 84_532; // Base Sepolia
+        $.eidToChainId[30_101] = 1; // Ethereum
+        $.eidToChainId[30_110] = 42_161; // Arbitrum
+        $.eidToChainId[30_184] = 8453; // Base
+        $.eidToChainId[40_161] = 11_155_111; // Sepolia
+        $.eidToChainId[40_231] = 421_614; // Arbitrum Sepolia
+        $.eidToChainId[40_245] = 84_532; // Base Sepolia
     }
 
-    modifier onlyOwner() {
-        _receiverOnlyOwner();
-        _;
+    function endpoint() external view returns (address) {
+        return _getStorage().endpoint;
     }
 
-    function _receiverOnlyOwner() internal view {
-        require(msg.sender == owner, "Only owner");
+    function receiver() external view returns (ICrossChainReceiver) {
+        return _getStorage().receiver;
+    }
+
+    function peers(uint32 eid) external view returns (bytes32) {
+        return _getStorage().peers[eid];
+    }
+
+    function eidToChainId(uint32 eid) external view returns (uint256) {
+        return _getStorage().eidToChainId[eid];
+    }
+
+    function processedMessages(bytes32 guid) external view returns (bool) {
+        return _getStorage().processedMessages[guid];
     }
 
     /// @notice LayerZero V2 receive function
@@ -333,55 +365,52 @@ contract LayerZeroReceiver {
         external
         payable
     {
-        require(msg.sender == endpoint, "Only endpoint");
+        LayerZeroReceiverStorage storage $ = _getStorage();
+        require(msg.sender == $.endpoint, "Only endpoint");
 
         // Verify sender is trusted peer
-        require(peers[_origin.srcEid] == _origin.sender, "Untrusted peer");
+        require($.peers[_origin.srcEid] == _origin.sender, "Untrusted peer");
 
         // M-12 FIX: Check for replay attack using LayerZero's unique GUID
-        if (processedMessages[_guid]) {
+        if ($.processedMessages[_guid]) {
             revert MessageAlreadyProcessed(_guid);
         }
 
         // M-12 FIX: Mark message as processed before external call (CEI pattern)
-        processedMessages[_guid] = true;
+        $.processedMessages[_guid] = true;
 
         // Decode message
         (uint256 sourceChainId, address originalSender, bytes memory payload) =
             abi.decode(_message, (uint256, address, bytes));
 
         // Verify chain ID matches
-        require(eidToChainId[_origin.srcEid] == sourceChainId, "Chain mismatch");
+        require($.eidToChainId[_origin.srcEid] == sourceChainId, "Chain mismatch");
 
         emit MessageReceived(_origin.srcEid, _origin.sender, sourceChainId, originalSender);
         emit MessageProcessed(_guid, _origin.srcEid, _origin.sender);
 
         // Forward to receiver
-        receiver.receiveMessage(sourceChainId, originalSender, payload);
+        $.receiver.receiveMessage(sourceChainId, originalSender, payload);
     }
 
     /// @notice Set trusted peer
     function setPeer(uint32 eid, bytes32 peer) external onlyOwner {
-        peers[eid] = peer;
+        _getStorage().peers[eid] = peer;
     }
 
     /// @notice Set chain mapping
     function setChainMapping(uint32 eid, uint256 chainId) external onlyOwner {
-        eidToChainId[eid] = chainId;
-    }
-
-    /// @notice Transfer ownership
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "Zero address");
-        owner = newOwner;
+        _getStorage().eidToChainId[eid] = chainId;
     }
 
     /// @notice M-12 FIX: Check if a message GUID has been processed
-    /// @param guid The LayerZero message GUID to check
-    /// @return True if the message has been processed
     function isMessageProcessed(bytes32 guid) external view returns (bool) {
-        return processedMessages[guid];
+        return _getStorage().processedMessages[guid];
     }
+
+    /// @inheritdoc UUPSUpgradeable
+    /// @dev Owner-gated. Production owner should be a multisig / timelock.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 }
 
 /// @notice LayerZero Origin struct

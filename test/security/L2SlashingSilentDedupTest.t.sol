@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { Test } from "forge-std/Test.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { L2SlashingReceiver, IL2Slasher } from "../../src/beacon/L2SlashingReceiver.sol";
 
 /// @title L2SlashingSilentDedupTest
@@ -20,7 +21,11 @@ contract L2SlashingSilentDedupTest is Test {
 
     function setUp() public {
         slasher = new MockSlasher();
-        receiver = new L2SlashingReceiver(address(slasher), messenger);
+        L2SlashingReceiver impl = new L2SlashingReceiver();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl), abi.encodeCall(L2SlashingReceiver.initialize, (address(slasher), messenger, address(this)))
+        );
+        receiver = L2SlashingReceiver(address(proxy));
         authorizedSender = makeAddr("connector");
 
         receiver.setAuthorizedSender(SOURCE_CHAIN_ID, authorizedSender, true);

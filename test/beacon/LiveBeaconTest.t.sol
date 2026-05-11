@@ -76,34 +76,57 @@ contract LiveBeaconTest is Test {
         );
     }
 
+    /// @notice Encode a uint64 as the leftmost 8 bytes of a bytes32, little-endian.
+    /// @dev SSZ encodes basic types as little-endian and pads to the chunk size on
+    ///      the right. `BeaconChainProofs._fromLittleEndianUint64` extracts the
+    ///      leftmost 8 bytes (`>> 192`) and byte-reverses them, so test fixtures
+    ///      must place the LE-encoded value in that position. Previously the
+    ///      test wrote `bytes32(uint256(N))` which right-aligns the value (BE),
+    ///      causing the helper to read zero — the test was silently broken on
+    ///      `main` (tracked via issue #130) and is fixed here as part of the
+    ///      Round 4 consolidation.
+    function _leUint64Bytes32(uint64 n) internal pure returns (bytes32) {
+        // Reverse bytes (n becomes little-endian)
+        uint64 le = ((n & 0x00000000000000FF) << 56)
+                  | ((n & 0x000000000000FF00) << 40)
+                  | ((n & 0x0000000000FF0000) << 24)
+                  | ((n & 0x00000000FF000000) << 8)
+                  | ((n & 0x000000FF00000000) >> 8)
+                  | ((n & 0x0000FF0000000000) >> 24)
+                  | ((n & 0x00FF000000000000) >> 40)
+                  | ((n & 0xFF00000000000000) >> 56);
+        // Place in leftmost 8 bytes
+        return bytes32(uint256(le) << 192);
+    }
+
     /// @notice Test that validator fields extraction works correctly
     function test_validatorFieldsExtraction() public pure {
-        // Sample validator fields (SSZ encoded)
+        // Sample validator fields (SSZ encoded; basic types LE-packed into leftmost 8 bytes)
         bytes32[] memory fields = new bytes32[](8);
 
-        // Field 0: pubkey hash
+        // Field 0: pubkey hash (bytes32, no endian translation)
         fields[0] = bytes32(0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef);
 
-        // Field 1: withdrawal credentials (0x01 prefix)
+        // Field 1: withdrawal credentials (0x01 prefix; bytes32, no endian translation)
         fields[1] = bytes32(0x0100000000000000000000001234567890123456789012345678901234567890);
 
-        // Field 2: effective balance (32 ETH in gwei, little-endian)
-        fields[2] = bytes32(uint256(32_000_000_000)); // 32e9 gwei
+        // Field 2: effective balance (32 ETH in gwei, little-endian, leftmost 8 bytes)
+        fields[2] = _leUint64Bytes32(32_000_000_000); // 32e9 gwei
 
-        // Field 3: slashed (false)
+        // Field 3: slashed (false) — LE-encoded zero is just zero
         fields[3] = bytes32(uint256(0));
 
         // Field 4: activation eligibility epoch
-        fields[4] = bytes32(uint256(0));
+        fields[4] = _leUint64Bytes32(0);
 
         // Field 5: activation epoch
-        fields[5] = bytes32(uint256(0));
+        fields[5] = _leUint64Bytes32(0);
 
         // Field 6: exit epoch (FAR_FUTURE_EPOCH)
-        fields[6] = bytes32(uint256(type(uint64).max));
+        fields[6] = _leUint64Bytes32(type(uint64).max);
 
         // Field 7: withdrawable epoch (FAR_FUTURE_EPOCH)
-        fields[7] = bytes32(uint256(type(uint64).max));
+        fields[7] = _leUint64Bytes32(type(uint64).max);
 
         // Extract and verify
         assertEq(BeaconChainProofs.getPubkeyHash(fields), fields[0]);

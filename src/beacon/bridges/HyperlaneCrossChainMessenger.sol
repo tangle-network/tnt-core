@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
 import { ICrossChainMessenger, ICrossChainReceiver } from "../interfaces/ICrossChainMessenger.sol";
 
 /// @title HyperlaneCrossChainMessenger
@@ -261,26 +265,34 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
 /// @notice Hyperlane MessageRecipient for receiving cross-chain messages
 /// @dev Implements handle() to process incoming messages
 ///      M-12 FIX: Added message replay protection
-contract HyperlaneReceiver {
-    /// @notice Hyperlane Mailbox
-    // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    address public immutable mailbox;
+///      C-3 (Round 4): Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
+///      and call `initialize(...)`.
+contract HyperlaneReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+    /// @custom:storage-location erc7201:tangle.beacon.bridges.HyperlaneReceiver
+    struct HyperlaneReceiverStorage {
+        address mailbox;
+        ICrossChainReceiver receiver;
+        // domain => sender => trusted
+        mapping(uint32 => mapping(bytes32 => bool)) trustedSenders;
+        // domain => evm chain id
+        mapping(uint32 => uint256) domainToChainId;
+        // replay protection
+        mapping(bytes32 => bool) processedMessages;
+        uint256[50] __gap;
+    }
 
-    /// @notice The actual message receiver
-    // forge-lint: disable-next-line(screaming-snake-case-immutable)
-    ICrossChainReceiver public immutable receiver;
+    /// @notice ERC-7201 slot:
+    ///         keccak256(abi.encode(uint256(keccak256("tangle.beacon.bridges.HyperlaneReceiver")) - 1))
+    ///         & ~bytes32(uint256(0xff))
+    bytes32 private constant HYPERLANE_RECEIVER_SLOT =
+        0x705d2cb8451e2eb6cc90102bf0b37cc1990532a8de11ebfaa53c217022f33f00;
 
-    /// @notice Owner
-    address public owner;
-
-    /// @notice Trusted senders per origin domain (domain => sender => trusted)
-    mapping(uint32 => mapping(bytes32 => bool)) public trustedSenders;
-
-    /// @notice Mapping from Hyperlane domain to EVM chain ID
-    mapping(uint32 => uint256) public domainToChainId;
-
-    /// @notice M-12 FIX: Track processed message IDs to prevent replay attacks
-    mapping(bytes32 => bool) public processedMessages;
+    function _getStorage() private pure returns (HyperlaneReceiverStorage storage $) {
+        bytes32 s = HYPERLANE_RECEIVER_SLOT;
+        assembly {
+            $.slot := s
+        }
+    }
 
     /// @notice Events
     event MessageHandled(uint32 indexed origin, bytes32 sender, uint256 sourceChainId);
@@ -290,29 +302,54 @@ contract HyperlaneReceiver {
 
     /// @notice M-12 FIX: Error for replayed messages
     error MessageAlreadyProcessed(bytes32 messageId);
+    error ZeroAddress();
 
-    constructor(address _mailbox, address _receiver) {
-        mailbox = _mailbox;
-        receiver = ICrossChainReceiver(_receiver);
-        owner = msg.sender;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initialize the receiver behind a proxy.
+    /// @dev Init order: ownership granted before any trusted-sender configuration so
+    ///      `setTrustedSender`/`setDomainMapping` cannot be front-run by a stale
+    ///      caller.
+    function initialize(address _mailbox, address _receiver, address _owner) external initializer {
+        if (_owner == address(0)) revert ZeroAddress();
+        __UUPSUpgradeable_init();
+        __Ownable_init(_owner);
+
+        HyperlaneReceiverStorage storage $ = _getStorage();
+        $.mailbox = _mailbox;
+        $.receiver = ICrossChainReceiver(_receiver);
 
         // Initialize domain mappings
-        domainToChainId[1] = 1; // Ethereum
-        domainToChainId[42_161] = 42_161; // Arbitrum
-        domainToChainId[8453] = 8453; // Base
-        domainToChainId[11_155_111] = 11_155_111; // Sepolia
-        domainToChainId[17_000] = 17_000; // Holesky
-        domainToChainId[421_614] = 421_614; // Arbitrum Sepolia
-        domainToChainId[84_532] = 84_532; // Base Sepolia
+        $.domainToChainId[1] = 1; // Ethereum
+        $.domainToChainId[42_161] = 42_161; // Arbitrum
+        $.domainToChainId[8453] = 8453; // Base
+        $.domainToChainId[11_155_111] = 11_155_111; // Sepolia
+        $.domainToChainId[17_000] = 17_000; // Holesky
+        $.domainToChainId[421_614] = 421_614; // Arbitrum Sepolia
+        $.domainToChainId[84_532] = 84_532; // Base Sepolia
     }
 
-    modifier onlyOwner() {
-        _receiverOnlyOwner();
-        _;
+    function mailbox() external view returns (address) {
+        return _getStorage().mailbox;
     }
 
-    function _receiverOnlyOwner() internal view {
-        require(msg.sender == owner, "Only owner");
+    function receiver() external view returns (ICrossChainReceiver) {
+        return _getStorage().receiver;
+    }
+
+    function trustedSenders(uint32 domain, bytes32 sender) external view returns (bool) {
+        return _getStorage().trustedSenders[domain][sender];
+    }
+
+    function domainToChainId(uint32 domain) external view returns (uint256) {
+        return _getStorage().domainToChainId[domain];
+    }
+
+    function processedMessages(bytes32 messageId) external view returns (bool) {
+        return _getStorage().processedMessages[messageId];
     }
 
     modifier onlyMailbox() {
@@ -321,7 +358,7 @@ contract HyperlaneReceiver {
     }
 
     function _onlyMailbox() internal view {
-        require(msg.sender == mailbox, "Only mailbox");
+        require(msg.sender == _getStorage().mailbox, "Only mailbox");
     }
 
     /// @notice Handle incoming Hyperlane message
@@ -330,56 +367,54 @@ contract HyperlaneReceiver {
     /// @param _message Message body
     /// @dev M-12 FIX: Added message ID validation to prevent replay attacks
     function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable onlyMailbox {
+        HyperlaneReceiverStorage storage $ = _getStorage();
+
         // Verify trusted sender
-        require(trustedSenders[_origin][_sender], "Untrusted sender");
+        require($.trustedSenders[_origin][_sender], "Untrusted sender");
 
         // M-12 FIX: Generate unique message ID from origin, sender, and message content
         bytes32 messageId = keccak256(abi.encode(_origin, _sender, keccak256(_message)));
 
         // M-12 FIX: Check for replay attack
-        if (processedMessages[messageId]) {
+        if ($.processedMessages[messageId]) {
             revert MessageAlreadyProcessed(messageId);
         }
 
         // M-12 FIX: Mark message as processed before external call (CEI pattern)
-        processedMessages[messageId] = true;
+        $.processedMessages[messageId] = true;
 
         // Decode message
         (uint256 sourceChainId, address originalSender, bytes memory payload) =
             abi.decode(_message, (uint256, address, bytes));
 
         // Verify chain ID matches domain
-        require(domainToChainId[_origin] == sourceChainId, "Chain mismatch");
+        require($.domainToChainId[_origin] == sourceChainId, "Chain mismatch");
 
         emit MessageHandled(_origin, _sender, sourceChainId);
         emit MessageProcessed(messageId, _origin, _sender);
 
         // Forward to receiver
-        receiver.receiveMessage(sourceChainId, originalSender, payload);
+        $.receiver.receiveMessage(sourceChainId, originalSender, payload);
     }
 
     /// @notice Set trusted sender
     function setTrustedSender(uint32 domain, address sender, bool trusted) external onlyOwner {
         bytes32 senderBytes = bytes32(uint256(uint160(sender)));
-        trustedSenders[domain][senderBytes] = trusted;
+        _getStorage().trustedSenders[domain][senderBytes] = trusted;
         emit TrustedSenderSet(domain, senderBytes, trusted);
     }
 
     /// @notice Set domain to chain ID mapping
     function setDomainMapping(uint32 domain, uint256 chainId) external onlyOwner {
-        domainToChainId[domain] = chainId;
-    }
-
-    /// @notice Transfer ownership
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "Zero address");
-        owner = newOwner;
+        _getStorage().domainToChainId[domain] = chainId;
     }
 
     /// @notice M-12 FIX: Check if a message ID has been processed
-    /// @param messageId The message ID to check
-    /// @return True if the message has been processed
     function isMessageProcessed(bytes32 messageId) external view returns (bool) {
-        return processedMessages[messageId];
+        return _getStorage().processedMessages[messageId];
     }
+
+    /// @inheritdoc UUPSUpgradeable
+    /// @dev Owner-gated. Production owner should be a multisig / timelock.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 }

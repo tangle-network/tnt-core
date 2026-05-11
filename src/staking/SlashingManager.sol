@@ -333,6 +333,8 @@ abstract contract SlashingManager is RewardsManager {
         Types.Asset memory asset = Types.Asset(Types.AssetKind.Native, address(0));
         bytes32 assetHash = _assetHash(asset);
 
+        // F5: accrue stake-seconds at the pre-slash stake before mutating pools/self-stake.
+        _accrueOperatorStakeSeconds(operator, assetHash);
         uint256 exchangeRateBefore = _getExchangeRate(operator, assetHash);
         (NativeSlashOutcome memory outcome, uint64[] memory callbackBlueprintIds) =
             _applyNativeSlash(operator, assetHash, slashBps);
@@ -546,6 +548,10 @@ abstract contract SlashingManager is RewardsManager {
         returns (uint256 assetSlashed)
     {
         bytes32 assetHash = _assetHash(asset);
+        // F5: accrue stake-seconds at the pre-slash stake. Until this instant, the
+        // higher pre-slash stake was actually backing the service, and billing
+        // must price the elapsed window at that stake (not the post-slash one).
+        _accrueOperatorStakeSeconds(operator, assetHash);
         uint256 exchangeRateBefore = _getExchangeRate(operator, assetHash);
         AssetSlashOutcome memory outcome = _applyAssetSlash(operator, blueprintId, assetHash, slashBps);
         assetSlashed = outcome.operatorSlashed + outcome.allModeSlashed + outcome.fixedModeSlashed;
