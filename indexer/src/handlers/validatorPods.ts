@@ -3,6 +3,7 @@ import type {
   Operator,
   ValidatorPod,
   ValidatorPodShareEvent,
+  ValidatorPodBeaconRebase,
   ValidatorPodWithdrawal,
   ValidatorPodSlash,
   NativeOperator,
@@ -77,10 +78,29 @@ export function registerValidatorPodHandlers() {
       owner: normalizeAddress(event.params.owner),
       sharesDelta: toBigInt(event.params.sharesDelta),
       newShares: toBigInt(event.params.newShares),
+      totalAssets: toBigInt(event.params.totalAssets),
+      totalSharesPool: toBigInt(event.params.totalSharesPool),
       timestamp,
       txHash: getTxHash(event),
     } as ValidatorPodShareEvent;
     context.ValidatorPodShareEvent.set(entity);
+  });
+
+  // Beacon rebases (rewards / slashes) move totalAssets only; shares are invariant.
+  // Tracked separately from SharesUpdated so analytics can distinguish principal
+  // mints from pool-price moves.
+  ValidatorPodManager.BeaconRebase.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const entity: ValidatorPodBeaconRebase = {
+      id: `rebase-${getTxHash(event)}-${event.logIndex}`,
+      owner: normalizeAddress(event.params.owner),
+      assetsDelta: toBigInt(event.params.assetsDelta),
+      newTotalAssets: toBigInt(event.params.newTotalAssets),
+      totalSharesPool: toBigInt(event.params.totalSharesPool),
+      timestamp,
+      txHash: getTxHash(event),
+    } as ValidatorPodBeaconRebase;
+    context.ValidatorPodBeaconRebase.set(entity);
   });
 
   ValidatorPodManager.OperatorRegistered.handler(async ({ event, context }) => {
@@ -129,6 +149,7 @@ export function registerValidatorPodHandlers() {
       withdrawalRoot: root,
       staker: normalizeAddress(event.params.staker),
       shares: toBigInt(event.params.shares),
+      queuedAssets: toBigInt(event.params.assets),
       status: "PENDING",
       queuedAt: timestamp,
       txHash: getTxHash(event),
@@ -143,6 +164,7 @@ export function registerValidatorPodHandlers() {
     if (!existing) return;
     const updated: ValidatorPodWithdrawal = {
       ...existing,
+      completedAssets: toBigInt(event.params.assets),
       status: "EXECUTED",
       completedAt: timestamp,
       txHash: getTxHash(event),
