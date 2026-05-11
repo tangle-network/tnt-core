@@ -167,6 +167,25 @@ type ValidatorPodShareEvent {
   owner: String!
   sharesDelta: BigInt!
   newShares: BigInt!
+  "Pool totalAssets at the emit instant. Null on legacy events emitted before the share-pool refactor."
+  totalAssets: BigInt
+  "Pool totalShares at the emit instant. Null on legacy events emitted before the share-pool refactor."
+  totalSharesPool: BigInt
+  timestamp: BigInt!
+  txHash: String!
+}
+
+"""
+Beacon-chain rebase. Distinct from ValidatorPodShareEvent — share events fire on
+principal deposits (mint), rebases fire on rewards/slashes (totalAssets-only;
+share balances are invariant).
+"""
+type ValidatorPodBeaconRebase {
+  id: ID!
+  owner: String!
+  assetsDelta: BigInt!
+  newTotalAssets: BigInt!
+  totalSharesPool: BigInt!
   timestamp: BigInt!
   txHash: String!
 }
@@ -176,6 +195,10 @@ type ValidatorPodWithdrawal {
   withdrawalRoot: String!
   staker: String!
   shares: BigInt!
+  "Asset snapshot at queue time. Completion pays out min(snapshot, live)."
+  queuedAssets: BigInt
+  "Asset amount actually transferred on completion (≤ queuedAssets when the pool slashed in-between)."
+  completedAssets: BigInt
   status: RequestStatus!
   queuedAt: BigInt!
   completedAt: BigInt
