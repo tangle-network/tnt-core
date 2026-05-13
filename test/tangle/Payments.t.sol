@@ -70,7 +70,7 @@ contract PaymentsTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_PaymentSplit_DefaultValues() public view {
-        (uint16 dev, uint16 proto, uint16 op, uint16 rest) = tangle.paymentSplit();
+        (uint16 dev, uint16 proto, uint16 op, uint16 rest,) = tangle.paymentSplit();
         assertEq(dev, 2000); // 20%
         assertEq(proto, 2000); // 20%
         assertEq(op, 4000); // 40%
@@ -80,12 +80,12 @@ contract PaymentsTest is BaseTest {
 
     function test_SetPaymentSplit_ValidConfiguration() public {
         Types.PaymentSplit memory newSplit =
-            Types.PaymentSplit({ developerBps: 4000, protocolBps: 2000, operatorBps: 2500, stakerBps: 1500 });
+            Types.PaymentSplit({ developerBps: 4000, protocolBps: 2000, operatorBps: 2500, stakerBps: 1500, keeperBps: 0 });
 
         vm.prank(admin);
         tangle.setPaymentSplit(newSplit);
 
-        (uint16 dev, uint16 proto, uint16 op, uint16 rest) = tangle.paymentSplit();
+        (uint16 dev, uint16 proto, uint16 op, uint16 rest,) = tangle.paymentSplit();
         assertEq(dev, 4000);
         assertEq(proto, 2000);
         assertEq(op, 2500);
@@ -94,7 +94,7 @@ contract PaymentsTest is BaseTest {
 
     function test_SetPaymentSplit_RevertNotAdmin() public {
         Types.PaymentSplit memory newSplit =
-            Types.PaymentSplit({ developerBps: 4000, protocolBps: 2000, operatorBps: 2500, stakerBps: 1500 });
+            Types.PaymentSplit({ developerBps: 4000, protocolBps: 2000, operatorBps: 2500, stakerBps: 1500, keeperBps: 0 });
 
         vm.prank(user1);
         vm.expectRevert();
@@ -103,7 +103,7 @@ contract PaymentsTest is BaseTest {
 
     function test_SetPaymentSplit_RevertTotalNot100Percent() public {
         Types.PaymentSplit memory newSplit =
-            Types.PaymentSplit({ developerBps: 5000, protocolBps: 5000, operatorBps: 5000, stakerBps: 5000 });
+            Types.PaymentSplit({ developerBps: 5000, protocolBps: 5000, operatorBps: 5000, stakerBps: 5000, keeperBps: 0 });
 
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidPaymentSplit.selector);
@@ -112,12 +112,12 @@ contract PaymentsTest is BaseTest {
 
     function test_SetPaymentSplit_AllToDeveloper() public {
         Types.PaymentSplit memory newSplit =
-            Types.PaymentSplit({ developerBps: 10_000, protocolBps: 0, operatorBps: 0, stakerBps: 0 });
+            Types.PaymentSplit({ developerBps: 10_000, protocolBps: 0, operatorBps: 0, stakerBps: 0, keeperBps: 0 });
 
         vm.prank(admin);
         tangle.setPaymentSplit(newSplit);
 
-        (uint16 dev, uint16 proto, uint16 op, uint16 rest) = tangle.paymentSplit();
+        (uint16 dev, uint16 proto, uint16 op, uint16 rest,) = tangle.paymentSplit();
         assertEq(dev, 10_000);
         assertEq(proto, 0);
         assertEq(op, 0);
@@ -202,7 +202,7 @@ contract PaymentsTest is BaseTest {
 
         // Everything goes to treasury, so discount is easy to verify.
         tangle.setPaymentSplit(
-            Types.PaymentSplit({ developerBps: 0, protocolBps: 10_000, operatorBps: 0, stakerBps: 0 })
+            Types.PaymentSplit({ developerBps: 0, protocolBps: 10_000, operatorBps: 0, stakerBps: 0, keeperBps: 0 })
         );
         vm.stopPrank();
 
@@ -229,7 +229,7 @@ contract PaymentsTest is BaseTest {
 
         // Protocol share is only 5%; discount should be capped to 5%.
         tangle.setPaymentSplit(
-            Types.PaymentSplit({ developerBps: 9500, protocolBps: 500, operatorBps: 0, stakerBps: 0 })
+            Types.PaymentSplit({ developerBps: 9500, protocolBps: 500, operatorBps: 0, stakerBps: 0, keeperBps: 0 })
         );
         vm.stopPrank();
 
@@ -318,7 +318,7 @@ contract PaymentsTest is BaseTest {
         assertEq(tangle.pendingRewards(operator1), 0);
     }
 
-    function test_EventDriven_InitialPayment_DistributesOnActivation() public {
+    function test_EventDriven_RejectsUpfrontPaymentAtRequest() public {
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
             membership: Types.MembershipModel.Fixed,
             pricing: Types.PricingModel.EventDriven,
@@ -331,24 +331,20 @@ contract PaymentsTest is BaseTest {
 
         vm.prank(developer);
         uint64 eventBlueprintId =
-            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://event-initial-payment", address(0), config));
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://event-no-upfront", address(0), config));
         _registerForBlueprint(operator1, eventBlueprintId);
 
-        uint256 upfront = 10 ether;
         address[] memory operators = new address[](1);
         operators[0] = operator1;
         address[] memory callers = new address[](0);
 
+        // EventDriven services are funded by per-job `msg.value`; an upfront amount
+        // must revert at request time so the customer's ETH never enters the contract.
         vm.prank(user1);
-        uint64 requestId = tangle.requestService{ value: upfront }(
-            eventBlueprintId, operators, "", callers, 0, address(0), upfront, Types.ConfidentialityPolicy.Any
+        vm.expectRevert(Errors.UpfrontPaymentNotAllowedForEventDriven.selector);
+        tangle.requestService{ value: 10 ether }(
+            eventBlueprintId, operators, "", callers, 0, address(0), 10 ether, Types.ConfidentialityPolicy.Any
         );
-
-        vm.prank(operator1);
-        tangle.approveService(_approve(requestId));
-
-        // No security commitments: operator receives operator + staker share.
-        assertEq(tangle.pendingRewards(operator1), 6 ether);
     }
 
     function test_EventDriven_RequestService_RevertERC20InitialPaymentToken() public {
@@ -371,13 +367,46 @@ contract PaymentsTest is BaseTest {
         operators[0] = operator1;
         address[] memory callers = new address[](0);
 
+        // EventDriven rejects upfront payment with `UpfrontPaymentNotAllowedForEventDriven`
+        // before the token check; the order is intentional because a non-zero `paymentAmount`
+        // implies tooling misuse regardless of the proposed settlement token.
         vm.startPrank(user1);
         token.approve(address(tangle), 1 ether);
-        vm.expectRevert(Errors.InvalidPaymentToken.selector);
+        vm.expectRevert(Errors.UpfrontPaymentNotAllowedForEventDriven.selector);
         tangle.requestService(
             eventBlueprintId, operators, "", callers, 0, address(token), 1 ether, Types.ConfidentialityPolicy.Any
         );
         vm.stopPrank();
+    }
+
+    function test_EventDriven_RequestService_RevertERC20WhenZeroPayment() public {
+        Types.BlueprintConfig memory config = Types.BlueprintConfig({
+            membership: Types.MembershipModel.Fixed,
+            pricing: Types.PricingModel.EventDriven,
+            minOperators: 1,
+            maxOperators: 10,
+            subscriptionRate: 0,
+            subscriptionInterval: 0,
+            eventRate: 0.1 ether
+        });
+
+        vm.prank(developer);
+        uint64 bp = tangle.createBlueprint(
+            _blueprintDefinitionWithConfig("ipfs://event-native-only-zero", address(0), config)
+        );
+        _registerForBlueprint(operator1, bp);
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        // Zero `paymentAmount` clears the `UpfrontPaymentNotAllowedForEventDriven` check;
+        // a non-native `paymentToken` then fails the EventDriven native-only constraint.
+        vm.prank(user1);
+        vm.expectRevert(Errors.InvalidPaymentToken.selector);
+        tangle.requestService(
+            bp, operators, "", callers, 0, address(token), 0, Types.ConfidentialityPolicy.Any
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -721,9 +750,10 @@ contract PaymentsTest is BaseTest {
         vm.warp(block.timestamp + 31 days);
         tangle.billSubscription(subServiceId);
 
+        // TWAP floor division can leave up to 1 wei short of the nominal rate.
         PaymentLib.ServiceEscrow memory escrowAfter = tangle.getServiceEscrow(subServiceId);
-        assertEq(escrowAfter.balance, balanceBefore - 0.1 ether); // subscriptionRate
-        assertEq(escrowAfter.totalReleased, 0.1 ether);
+        assertApproxEqAbs(escrowAfter.balance, balanceBefore - 0.1 ether, 1);
+        assertApproxEqAbs(escrowAfter.totalReleased, 0.1 ether, 1);
     }
 
     function test_Subscription_RevertInsufficientEscrow() public {
@@ -757,7 +787,9 @@ contract PaymentsTest is BaseTest {
 
         vm.warp(block.timestamp + 2 days);
 
-        vm.expectRevert(abi.encodeWithSelector(Errors.InsufficientEscrowBalance.selector, 1 ether, 0.5 ether));
+        // Bill amount is in (rate - 1, rate] due to TWAP floor division; the precise
+        // requested-amount value isn't important here, only that the bill reverts.
+        vm.expectRevert();
         tangle.billSubscription(0);
     }
 
@@ -777,9 +809,10 @@ contract PaymentsTest is BaseTest {
         }
 
         PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(subServiceId);
-        // Started with 1 ETH + 1 ETH = 2 ETH, 5 bills of 0.1 ETH = 0.5 ETH used
-        assertEq(escrow.balance, 1.5 ether);
-        assertEq(escrow.totalReleased, 0.5 ether);
+        // Started with 1 ETH + 1 ETH = 2 ETH, 5 bills of 0.1 ETH ≈ 0.5 ETH used.
+        // TWAP floor division can leave up to 1 wei short per period.
+        assertApproxEqAbs(escrow.balance, 1.5 ether, 5);
+        assertApproxEqAbs(escrow.totalReleased, 0.5 ether, 5);
     }
 
     function test_Subscription_BillRevertWhenExpired() public {
@@ -834,11 +867,11 @@ contract PaymentsTest is BaseTest {
         ids[1] = underfundedService;
 
         (uint256 totalBilled, uint256 billedCount) = tangle.billSubscriptionBatch(ids);
-        assertEq(totalBilled, 0.1 ether);
+        assertApproxEqAbs(totalBilled, 0.1 ether, 1);
         assertEq(billedCount, 1);
 
         PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(healthyService);
-        assertEq(escrow.totalReleased, 0.1 ether);
+        assertApproxEqAbs(escrow.totalReleased, 0.1 ether, 1);
 
         PaymentLib.ServiceEscrow memory underfundedEscrow = tangle.getServiceEscrow(underfundedService);
         assertEq(underfundedEscrow.totalReleased, 0);

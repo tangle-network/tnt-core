@@ -138,16 +138,21 @@ contract SubscriptionEscrowInvariantTest is StdInvariant, BaseTest {
     function invariant_subscriptionEscrowConservesNativeValue() external view {
         PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(serviceId);
         uint256 pendingOperator = tangle.pendingRewards(operator1);
+        // Keeper rebate accrues to the bill caller (the handler contract) via the
+        // pending-rewards mapping. Track it so the conservation invariant holds.
+        uint256 pendingKeeper = tangle.pendingRewards(address(handler));
 
         uint256 developerOut = developer.balance - initialDeveloperBalance;
         uint256 treasuryOut = treasury.balance - initialTreasuryBalance;
         uint256 stakerOut = address(distributor).balance - initialDistributorBalance;
 
         uint256 lhs = 1 ether + handler.totalFunded();
-        uint256 rhs = escrow.balance + pendingOperator + handler.totalClaimedByOperator() + handler.totalRefundedToOwner()
-            + developerOut + treasuryOut + stakerOut;
+        uint256 rhs = escrow.balance + pendingOperator + pendingKeeper + handler.totalClaimedByOperator()
+            + handler.totalRefundedToOwner() + developerOut + treasuryOut + stakerOut;
 
         assertEq(lhs, rhs, "subscription native value not conserved");
-        assertEq(address(tangle).balance, escrow.balance + pendingOperator, "tangle balance mismatch");
+        assertEq(
+            address(tangle).balance, escrow.balance + pendingOperator + pendingKeeper, "tangle balance mismatch"
+        );
     }
 }

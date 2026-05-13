@@ -10,7 +10,7 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 /// @dev Implements effective exposure payment distribution for accurate security-weighted payments
 contract TanglePaymentsFacet is Payments, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](19);
+        selectorList = new bytes4[](20);
         selectorList[0] = this.fundService.selector;
         selectorList[1] = this.withdrawRemainingEscrow.selector;
         selectorList[2] = this.billSubscription.selector;
@@ -30,6 +30,7 @@ contract TanglePaymentsFacet is Payments, IFacetSelectors {
         selectorList[16] = this.getServiceEscrow.selector;
         selectorList[17] = this.distributePayment.selector;
         selectorList[18] = this.depositToEscrow.selector;
+        selectorList[19] = this.initSubscriptionBaseline.selector;
     }
 
     /// @notice Distribute payment using effective exposures (delegation × exposureBps)
@@ -65,5 +66,13 @@ contract TanglePaymentsFacet is Payments, IFacetSelectors {
     function depositToEscrow(uint64 serviceId, address token, uint256 amount) external {
         if (msg.sender != address(this)) revert Errors.Unauthorized();
         _depositToEscrow(serviceId, token, amount);
+    }
+
+    /// @notice Seed per-operator TWAP cursors and pin the subscription baseline at activation.
+    /// @dev Self-call gated by `msg.sender == address(this)`. Operators flow through as
+    ///      calldata — no memory copy needed.
+    function initSubscriptionBaseline(uint64 serviceId, address[] calldata operators) external {
+        if (msg.sender != address(this)) revert Errors.Unauthorized();
+        _initSubscriptionBaseline(serviceId, operators);
     }
 }

@@ -467,12 +467,17 @@ library Types {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Payment split configuration
-    /// @dev Percentages in basis points (10000 = 100%)
+    /// @dev Percentages in basis points. The five shares must sum to exactly 10_000.
+    ///      `keeperBps` is paid to the caller of permissionless bill triggers
+    ///      (`billSubscription` / `billSubscriptionBatch`) so anyone with a node can
+    ///      profitably keep the subscription schedule running; without it the
+    ///      schedule depends on altruistic gas.
     struct PaymentSplit {
         uint16 developerBps; // To blueprint owner
         uint16 protocolBps; // To protocol treasury
-        uint16 operatorBps; // To service operators (weighted by exposure)
-        uint16 stakerBps; // To delegators/stakers
+        uint16 operatorBps; // To service operators (weighted by stake-time × exposure)
+        uint16 stakerBps; // To delegators/stakers (via fee distributor)
+        uint16 keeperBps; // To the bill caller; zero when bills are not caller-triggered
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

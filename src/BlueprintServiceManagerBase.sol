@@ -160,6 +160,22 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
         return false;
     }
 
+    /// @inheritdoc IBlueprintServiceManager
+    function computeBillAdjustmentBps(
+        uint64,
+        uint64,
+        uint64
+    )
+        external
+        view
+        virtual
+        returns (uint16)
+    {
+        // Default: full bill (10_000 bps). Override to implement uptime-based
+        // discounts, missed-result penalties, or any quality-of-service feedback.
+        return 10_000;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════════

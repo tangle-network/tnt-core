@@ -3,7 +3,7 @@
 
 ```solidity
 library PaymentLib {
-    struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; uint256 totalReleased; uint256 __reservedAggregateCursor; uint256 subscriptionBaselineStake; }
+    struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; uint256 totalReleased; uint256 __reserved0; uint256 subscriptionBaselineStake; }
 }
 ```*/
 #[allow(
@@ -19,7 +19,7 @@ pub mod PaymentLib {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; uint256 totalReleased; uint256 __reservedAggregateCursor; uint256 subscriptionBaselineStake; }
+struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; uint256 totalReleased; uint256 __reserved0; uint256 subscriptionBaselineStake; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -33,7 +33,7 @@ struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; u
         #[allow(missing_docs)]
         pub totalReleased: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
-        pub __reservedAggregateCursor: alloy::sol_types::private::primitives::aliases::U256,
+        pub __reserved0: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
         pub subscriptionBaselineStake: alloy::sol_types::private::primitives::aliases::U256,
     }
@@ -84,7 +84,7 @@ struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; u
                     value.balance,
                     value.totalDeposited,
                     value.totalReleased,
-                    value.__reservedAggregateCursor,
+                    value.__reserved0,
                     value.subscriptionBaselineStake,
                 )
             }
@@ -98,7 +98,7 @@ struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; u
                     balance: tuple.1,
                     totalDeposited: tuple.2,
                     totalReleased: tuple.3,
-                    __reservedAggregateCursor: tuple.4,
+                    __reserved0: tuple.4,
                     subscriptionBaselineStake: tuple.5,
                 }
             }
@@ -126,9 +126,7 @@ struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; u
                     > as alloy_sol_types::SolType>::tokenize(&self.totalReleased),
                     <alloy::sol_types::sol_data::Uint<
                         256,
-                    > as alloy_sol_types::SolType>::tokenize(
-                        &self.__reservedAggregateCursor,
-                    ),
+                    > as alloy_sol_types::SolType>::tokenize(&self.__reserved0),
                     <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::SolType>::tokenize(
@@ -208,7 +206,7 @@ struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; u
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "ServiceEscrow(address token,uint256 balance,uint256 totalDeposited,uint256 totalReleased,uint256 __reservedAggregateCursor,uint256 subscriptionBaselineStake)",
+                    "ServiceEscrow(address token,uint256 balance,uint256 totalDeposited,uint256 totalReleased,uint256 __reserved0,uint256 subscriptionBaselineStake)",
                 )
             }
             #[inline]
@@ -244,9 +242,7 @@ struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; u
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.__reservedAggregateCursor,
-                        )
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.__reserved0)
                         .0,
                     <alloy::sol_types::sol_data::Uint<
                         256,
@@ -284,7 +280,7 @@ struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; u
                     + <alloy::sol_types::sol_data::Uint<
                         256,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.__reservedAggregateCursor,
+                        &rust.__reserved0,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         256,
@@ -325,7 +321,7 @@ struct ServiceEscrow { address token; uint256 balance; uint256 totalDeposited; u
                 <alloy::sol_types::sol_data::Uint<
                     256,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.__reservedAggregateCursor,
+                    &rust.__reserved0,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
@@ -5526,7 +5522,7 @@ library PaymentLib {
         uint256 balance;
         uint256 totalDeposited;
         uint256 totalReleased;
-        uint256 __reservedAggregateCursor;
+        uint256 __reserved0;
         uint256 subscriptionBaselineStake;
     }
 }
@@ -6522,7 +6518,7 @@ interface ITangleServices {
             "internalType": "uint256"
           },
           {
-            "name": "__reservedAggregateCursor",
+            "name": "__reserved0",
             "type": "uint256",
             "internalType": "uint256"
           },

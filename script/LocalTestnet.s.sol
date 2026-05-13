@@ -1145,9 +1145,15 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         else vm.startPrank(deployer);
 
         tangle.setPaymentSplit(
-            Types.PaymentSplit({ developerBps: 2000, protocolBps: 500, operatorBps: 6500, stakerBps: 1000 })
+            Types.PaymentSplit({
+                developerBps: 2000,
+                protocolBps: 500,
+                operatorBps: 6450,
+                stakerBps: 1000,
+                keeperBps: 50
+            })
         );
-        console2.log("Payment split set: 20% dev, 5% protocol, 65% operator, 10% staker");
+        console2.log("Payment split: 20% dev / 5% protocol / 64.5% operator / 10% staker / 0.5% keeper");
 
         // 2. Create rewards QA blueprint (PayOnce, single operator minimum)
         Types.BlueprintDefinition memory def = _blueprintDefinition("http://localhost:3334/rewards-qa", address(0));

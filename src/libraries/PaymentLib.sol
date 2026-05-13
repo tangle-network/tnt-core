@@ -26,27 +26,8 @@ library PaymentLib {
     uint256 internal constant MINIMUM_PAYMENT_AMOUNT = 100;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ROUNDING HELPERS (M-5 FIX)
+    // ROUNDING HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
-
-    /// @notice M-5 FIX: Round up division to capture dust for final recipient
-    /// @dev Uses ceiling division: (a + b - 1) / b
-    /// @param numerator The numerator
-    /// @param denominator The denominator (must be > 0)
-    /// @return result The ceiling of numerator / denominator
-    function divUp(uint256 numerator, uint256 denominator) internal pure returns (uint256 result) {
-        // Note: denominator > 0 is assumed (validated by caller)
-        result = (numerator + denominator - 1) / denominator;
-    }
-
-    /// @notice M-5 FIX: Calculate basis points share with rounding up
-    /// @dev Used for final recipient to capture dust
-    /// @param amount Total amount to split
-    /// @param bps Basis points (out of 10000)
-    /// @return share The rounded-up share
-    function bpsShareRoundUp(uint256 amount, uint16 bps) internal pure returns (uint256 share) {
-        share = divUp(amount * bps, BPS_DENOMINATOR);
-    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -76,6 +57,7 @@ library PaymentLib {
         uint256 protocolAmount;
         uint256 operatorAmount;
         uint256 stakerAmount;
+        uint256 keeperAmount;
     }
 
     /// @notice Per-operator payment allocation
@@ -85,34 +67,21 @@ library PaymentLib {
         uint256 stakerShare; // Payment to delegators via staking
     }
 
-    /// @notice Service escrow account (for subscriptions)
-    /// @dev F5 fields are appended at the end of the struct so existing storage
-    ///      slots are preserved across upgrades. Because `_serviceEscrows` is a
-    ///      mapping(uint64 => ServiceEscrow) (not nested in another struct), the
-    ///      added field claims a previously-zero slot tied to each serviceId.
-    ///      Per-operator cum cursors live separately in TangleStorage so that
-    ///      operator joins/leaves do not corrupt the aggregate delta.
+    /// @notice Service escrow account (for subscriptions).
+    /// @dev `subscriptionBaselineStake` is pinned at activation so the price the
+    ///      customer agreed to is the price they pay; per-operator TWAP cursors
+    ///      live separately in `TangleStorage._twapCursorByOp`.
     struct ServiceEscrow {
-        address token; // Payment token (address(0) = native)
-        uint256 balance; // Current escrow balance
-        uint256 totalDeposited; // Lifetime deposits
-        uint256 totalReleased; // Lifetime releases
-        // F5: previously the aggregate cum cursor; superseded in the
-        // F5-followup pass by per-(service, operator) cursors in
-        // `TangleStorage._twapCursorByOp` (the aggregate cursor was unsound
-        // under operator joins/leaves). Slot retained as a reserved
-        // zero-valued field so the in-mapping struct layout stays stable
-        // across the F5 commit pair — pre-existing escrows always read zero
-        // here because the F5 commit landed in the same release window.
-        uint256 __reservedAggregateCursor;
-        // F5: nominal aggregate stake used as the per-period denominator in the
-        // TWAP bill formula. Captured at the lazy-init bill, then frozen for the
-        // life of the subscription. Zero sentinel means "uninitialized".
+        address token;
+        uint256 balance;
+        uint256 totalDeposited;
+        uint256 totalReleased;
+        uint256 __reserved0; // Reserved slot; always zero.
         uint256 subscriptionBaselineStake;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // F5: TWAP BILL FORMULA (pure)
+    // TWAP BILL FORMULA (pure)
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Compute the TWAP-fair bill amount for one subscription period.
@@ -136,18 +105,56 @@ library PaymentLib {
         returns (uint256)
     {
         if (baselineStake == 0 || interval == 0) return nominalRate;
-        // Overflow path: `nominalRate * cumDeltaPeriod` saturates rather than
-        // reverts to keep billing robust against operator-side mis-accounting.
-        // Realistic values (nominalRate ≤ 2^96, cumDelta ≤ 2^160) keep us well
-        // inside 2^256, so this branch is unreachable in practice.
+        // `nominalRate * cumDeltaPeriod` is bounded under realistic inputs but
+        // checked-math would panic with 0x11 on the rare overflow paths instead
+        // of surfacing the protocol error. Compute the product unchecked, then
+        // detect overflow via the divide-back identity and revert with a typed
+        // error so consumers can distinguish "misconfigured upstream state"
+        // from generic arithmetic failures.
         unchecked {
             uint256 product = nominalRate * cumDeltaPeriod;
             if (cumDeltaPeriod != 0 && product / cumDeltaPeriod != nominalRate) {
-                // Overflow detected — fall back to nominal rather than over/under bill.
-                return nominalRate;
+                revert Errors.BillingArithmeticOverflow();
             }
             return product / (baselineStake * interval);
         }
+    }
+
+    /// @notice Scale a bill amount by a QoS adjustment expressed in basis points.
+    /// @dev Clamped to [0, 10_000]. A manager's misbehaving hook cannot inflate
+    ///      the bill beyond the nominal value, only discount it.
+    function applyQosAdjustment(uint256 amount, uint16 qosBps) internal pure returns (uint256) {
+        if (qosBps >= BPS_DENOMINATOR) return amount;
+        return (amount * qosBps) / BPS_DENOMINATOR;
+    }
+
+    /// @notice Smallest bill amount that can be cleanly split N ways under the configured split.
+    /// @dev Used by the subscription billing path to skip rather than revert when a
+    ///      QoS-discounted (or per-op TWAP-discounted) bill rounds to less than 1 wei
+    ///      per recipient. Returns `MINIMUM_PAYMENT_AMOUNT` floor or the dust threshold
+    ///      implied by the split, whichever is greater. Reverting on dust would let a
+    ///      manager hook brick a service by returning a small but non-zero `qosBps`.
+    function minBillAmount(Types.PaymentSplit memory split, uint256 operatorCount) internal pure returns (uint256) {
+        uint256 floor = MINIMUM_PAYMENT_AMOUNT;
+        // Each non-zero share-recipient class needs at least 1 wei to round non-zero.
+        if (split.developerBps > 0) {
+            uint256 needed = (BPS_DENOMINATOR + split.developerBps - 1) / split.developerBps;
+            if (needed > floor) floor = needed;
+        }
+        if (split.protocolBps > 0) {
+            uint256 needed = (BPS_DENOMINATOR + split.protocolBps - 1) / split.protocolBps;
+            if (needed > floor) floor = needed;
+        }
+        if (split.keeperBps > 0) {
+            uint256 needed = (BPS_DENOMINATOR + split.keeperBps - 1) / split.keeperBps;
+            if (needed > floor) floor = needed;
+        }
+        if (operatorCount > 0 && split.operatorBps > 0) {
+            // Each operator must receive at least 1 wei after the operator-pool split.
+            uint256 needed = (BPS_DENOMINATOR * operatorCount + split.operatorBps - 1) / split.operatorBps;
+            if (needed > floor) floor = needed;
+        }
+        return floor;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -155,81 +162,41 @@ library PaymentLib {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Calculate payment split amounts
-    /// @dev M-5 FIX: Uses floor division for first N-1 recipients, then gives remainder
+    /// @dev Uses floor division for first N-1 recipients, then gives remainder
     ///      to final recipient (staker) to capture all dust from rounding.
     /// @param amount Total payment amount
     /// @param split Payment split configuration
     /// @return amounts Calculated amounts for each recipient type
+    /// @notice Split an amount across (developer, protocol, operator pool, staker pool, keeper).
+    /// @dev Floor-divides the first four shares and gives any rounding dust to the staker pool
+    ///      so the sum is exactly `amount`. When the caller does not pay a keeper rebate
+    ///      (`includeKeeper == false`), the keeper share is folded into the operator pool
+    ///      and the keeper amount returns zero. This is the right default for distributions
+    ///      that aren't triggered by a permissionless bill (one-shot pays, RFQ, per-job).
     function calculateSplit(
         uint256 amount,
-        Types.PaymentSplit memory split
+        Types.PaymentSplit memory split,
+        bool includeKeeper
     )
         internal
         pure
         returns (PaymentAmounts memory amounts)
     {
-        // M-5 FIX: Floor division for first three recipients
         amounts.developerAmount = (amount * split.developerBps) / BPS_DENOMINATOR;
         amounts.protocolAmount = (amount * split.protocolBps) / BPS_DENOMINATOR;
-        amounts.operatorAmount = (amount * split.operatorBps) / BPS_DENOMINATOR;
-        // M-5 FIX: Final recipient (staker) gets remainder to capture all rounding dust
-        // This ensures no dust is lost: sum of all amounts == original amount
-        amounts.stakerAmount = amount - amounts.developerAmount - amounts.protocolAmount - amounts.operatorAmount;
-    }
-
-    /// @notice Calculate weighted operator payments based on effective exposure
-    /// @dev M-5 FIX: Uses floor division for first N-1 operators, then gives remainder
-    ///      to final operator to capture all dust from rounding.
-    ///      Effective exposure = delegation × exposureBps for each asset, summed across assets.
-    ///      This ensures operators are paid proportionally to actual security provided.
-    /// @param totalOperatorAmount Total amount for all operators
-    /// @param totalStakerAmount Total amount for all stakers
-    /// @param operators Array of operator addresses
-    /// @param effectiveExposures Array of effective exposure values (parallel to operators)
-    ///        These should be pre-calculated as: Σ(delegation[asset] × exposureBps[asset])
-    /// @param totalEffectiveExposure Sum of all effective exposures
-    /// @return payments Array of per-operator payment allocations
-    function calculateOperatorPayments(
-        uint256 totalOperatorAmount,
-        uint256 totalStakerAmount,
-        address[] memory operators,
-        uint256[] memory effectiveExposures,
-        uint256 totalEffectiveExposure
-    )
-        internal
-        pure
-        returns (OperatorPayment[] memory payments)
-    {
-        if (totalEffectiveExposure == 0) {
-            return new OperatorPayment[](0);
+        uint256 operatorPiece = (amount * split.operatorBps) / BPS_DENOMINATOR;
+        amounts.keeperAmount = includeKeeper ? (amount * split.keeperBps) / BPS_DENOMINATOR : 0;
+        if (!includeKeeper) {
+            // Roll the keeper allocation into the operator pool so total bps still sums to 10_000.
+            operatorPiece += (amount * split.keeperBps) / BPS_DENOMINATOR;
         }
-
-        payments = new OperatorPayment[](operators.length);
-
-        uint256 operatorDistributed = 0;
-        uint256 stakerDistributed = 0;
-
-        for (uint256 i = 0; i < operators.length; i++) {
-            uint256 effectiveExposure = effectiveExposures[i];
-
-            // M-5 FIX: Last operator gets remainder to capture all rounding dust
-            if (i == operators.length - 1) {
-                payments[i] = OperatorPayment({
-                    operator: operators[i],
-                    operatorShare: totalOperatorAmount - operatorDistributed,
-                    stakerShare: totalStakerAmount - stakerDistributed
-                });
-            } else {
-                uint256 opShare = (totalOperatorAmount * effectiveExposure) / totalEffectiveExposure;
-                uint256 stakeShare = (totalStakerAmount * effectiveExposure) / totalEffectiveExposure;
-
-                payments[i] =
-                    OperatorPayment({ operator: operators[i], operatorShare: opShare, stakerShare: stakeShare });
-
-                operatorDistributed += opShare;
-                stakerDistributed += stakeShare;
-            }
-        }
+        amounts.operatorAmount = operatorPiece;
+        // Staker absorbs all rounding dust so Σshares == amount exactly.
+        amounts.stakerAmount = amount
+            - amounts.developerAmount
+            - amounts.protocolAmount
+            - amounts.operatorAmount
+            - amounts.keeperAmount;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -237,7 +204,7 @@ library PaymentLib {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Collect payment from sender
-    /// @dev M-5 FIX: Validates minimum payment to prevent dust-only payments
+    /// @dev Validates minimum payment to prevent dust-only payments
     /// @param token Payment token (address(0) for native)
     /// @param amount Amount to collect
     /// @param msgValue msg.value for native payments
@@ -249,7 +216,7 @@ library PaymentLib {
             return;
         }
 
-        // M-5 FIX: Reject dust-only payments that would be too small to distribute meaningfully
+        // Reject dust-only payments that would be too small to distribute meaningfully
         if (amount < MINIMUM_PAYMENT_AMOUNT) {
             revert Errors.PaymentTooSmall(amount, MINIMUM_PAYMENT_AMOUNT);
         }
@@ -264,7 +231,7 @@ library PaymentLib {
             if (msgValue != 0) {
                 revert Errors.InvalidMsgValue(0, msgValue);
             }
-            // Round 2 economic F6: reject fee-on-transfer / rebasing tokens at ingress.
+            // reject fee-on-transfer / rebasing tokens at ingress.
             // Without a balance-delta check, the escrow credits `amount` while the
             // contract only physically receives `amount - fee`. Eventual `safeTransfer`
             // to dev / treasury / operators reverts on insufficient balance, bricking
@@ -400,52 +367,18 @@ library PaymentLib {
     // VALIDATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Validate payment split sums to 100%
-    /// @param split The split to validate
+    /// @notice Validate payment split sums to exactly 100%, including the keeper share.
+    /// @dev The keeper share is rolled into the operator pool on distributions that don't
+    ///      pay a keeper (one-shot pays, RFQ, per-job), so it counts toward the 10_000 bps
+    ///      total regardless of whether any specific distribution emits to a keeper.
     function validateSplit(Types.PaymentSplit memory split) internal pure {
-        uint256 total = uint256(split.developerBps) + uint256(split.protocolBps) + uint256(split.operatorBps)
-            + uint256(split.stakerBps);
+        uint256 total = uint256(split.developerBps)
+            + uint256(split.protocolBps)
+            + uint256(split.operatorBps)
+            + uint256(split.stakerBps)
+            + uint256(split.keeperBps);
         if (total != BPS_DENOMINATOR) {
             revert Errors.InvalidPaymentSplit();
-        }
-    }
-
-    /// @notice Validate payment amount is sufficient for distribution
-    /// @dev Reverts if amount would result in zero payments to any recipient
-    /// @param amount The payment amount to validate
-    /// @param split The payment split configuration
-    /// @param operatorCount Number of operators to distribute to
-    function validatePaymentAmount(
-        uint256 amount,
-        Types.PaymentSplit memory split,
-        uint256 operatorCount
-    )
-        internal
-        pure
-    {
-        if (amount == 0) return; // Zero payments are allowed (no-op)
-
-        // Check minimum amount to ensure non-zero payments
-        if (amount < MINIMUM_PAYMENT_AMOUNT) {
-            revert Errors.PaymentTooSmall(amount, MINIMUM_PAYMENT_AMOUNT);
-        }
-
-        // Ensure each non-zero split recipient gets at least 1 wei
-        if (split.developerBps > 0 && (amount * split.developerBps) / BPS_DENOMINATOR == 0) {
-            revert Errors.PaymentTooSmall(amount, (BPS_DENOMINATOR + split.developerBps - 1) / split.developerBps);
-        }
-        if (split.protocolBps > 0 && (amount * split.protocolBps) / BPS_DENOMINATOR == 0) {
-            revert Errors.PaymentTooSmall(amount, (BPS_DENOMINATOR + split.protocolBps - 1) / split.protocolBps);
-        }
-
-        // For operators, ensure each operator gets at least 1 wei if there are operators
-        if (operatorCount > 0 && split.operatorBps > 0) {
-            uint256 operatorAmount = (amount * split.operatorBps) / BPS_DENOMINATOR;
-            if (operatorAmount / operatorCount == 0) {
-                // Calculate minimum: need operatorCount wei in operator pool
-                uint256 minForOperators = (operatorCount * BPS_DENOMINATOR + split.operatorBps - 1) / split.operatorBps;
-                revert Errors.PaymentTooSmall(amount, minForOperators);
-            }
         }
     }
 

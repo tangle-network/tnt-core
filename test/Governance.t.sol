@@ -657,15 +657,17 @@ contract GovernanceUpgradeTest is Test {
         vm.prank(voter);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
 
-        // Vote and pass
-        vm.warp(block.timestamp + 11);
-        vm.warp(block.timestamp + 1);
+        // Vote and pass.
+        // Single warps only: under via-IR the optimizer may cache `block.timestamp`
+        // across `vm.warp` cheatcode calls (cheatcode is treated as side-effect-free
+        // for purposes of CSE on `block.timestamp` reads), so consecutive
+        // `vm.warp(block.timestamp + N)` calls can silently fail to compound.
+        vm.warp(block.timestamp + 12);
         vm.roll(block.number + 1);
         vm.prank(voter);
         governor.castVote(proposalId, 1);
 
-        vm.warp(block.timestamp + 101);
-        vm.warp(block.timestamp + 1);
+        vm.warp(block.timestamp + 102);
         vm.roll(block.number + 1);
 
         // Queue and execute
@@ -700,14 +702,14 @@ contract GovernanceUpgradeTest is Test {
         vm.prank(voter);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
 
-        vm.warp(block.timestamp + 11);
-        vm.warp(block.timestamp + 1);
+        // Single warps only (see note in test_GovernorSelfUpgrade): via-IR
+        // may cache `block.timestamp` across consecutive `vm.warp` calls.
+        vm.warp(block.timestamp + 12);
         vm.roll(block.number + 1);
         vm.prank(voter);
         governor.castVote(proposalId, 1);
 
-        vm.warp(block.timestamp + 101);
-        vm.warp(block.timestamp + 1);
+        vm.warp(block.timestamp + 102);
         vm.roll(block.number + 1);
 
         bytes32 descHash = keccak256(bytes(description));

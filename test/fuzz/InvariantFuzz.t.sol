@@ -305,14 +305,14 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         uint16 stakerBps = 10_000 - devBps - protoBps - opBps;
 
         Types.PaymentSplit memory split = Types.PaymentSplit({
-            developerBps: devBps, protocolBps: protoBps, operatorBps: opBps, stakerBps: stakerBps
+            developerBps: devBps, protocolBps: protoBps, operatorBps: opBps, stakerBps: stakerBps, keeperBps: 0
         });
 
         // Should always succeed if sum is exactly 10000
         vm.prank(admin);
         tangle.setPaymentSplit(split);
 
-        (uint16 d, uint16 p, uint16 o, uint16 r) = tangle.paymentSplit();
+        (uint16 d, uint16 p, uint16 o, uint16 r,) = tangle.paymentSplit();
         assertEq(d + p + o + r, 10_000, "INVARIANT VIOLATED: split doesn't sum to 100%");
     }
 
@@ -328,7 +328,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         uint256 total = uint256(devBps) + uint256(protoBps) + uint256(opBps) + uint256(stakerBps);
 
         Types.PaymentSplit memory split = Types.PaymentSplit({
-            developerBps: devBps, protocolBps: protoBps, operatorBps: opBps, stakerBps: stakerBps
+            developerBps: devBps, protocolBps: protoBps, operatorBps: opBps, stakerBps: stakerBps, keeperBps: 0
         });
 
         if (total != 10_000) {

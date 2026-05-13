@@ -35,10 +35,14 @@ abstract contract TangleStorage {
     uint16 internal constant DEFAULT_TNT_MIN_EXPOSURE_BPS = 1000;
 
     // Default payment split (can be changed by admin)
-    uint16 internal constant DEFAULT_DEVELOPER_BPS = 2000; // 20%
-    uint16 internal constant DEFAULT_PROTOCOL_BPS = 2000; // 20%
-    uint16 internal constant DEFAULT_OPERATOR_BPS = 4000; // 40%
-    uint16 internal constant DEFAULT_STAKER_BPS = 2000; // 20%
+    // Default split: 20% developer / 20% protocol / 40% operator pool / 20% staker pool.
+    // Keeper rebate defaults to zero — admins can carve up to a few hundred bps for the
+    // permissionless bill caller via `setPaymentSplit` to incentivise keeper bots.
+    uint16 internal constant DEFAULT_DEVELOPER_BPS = 2000;
+    uint16 internal constant DEFAULT_PROTOCOL_BPS = 2000;
+    uint16 internal constant DEFAULT_OPERATOR_BPS = 4000;
+    uint16 internal constant DEFAULT_STAKER_BPS = 2000;
+    uint16 internal constant DEFAULT_KEEPER_BPS = 0;
 
     // Default exit queue configuration
     uint64 internal constant DEFAULT_MIN_COMMITMENT_DURATION = ProtocolConfig.MIN_COMMITMENT_DURATION;
@@ -402,11 +406,11 @@ abstract contract TangleStorage {
     ///         pattern closes the re-entry window where a disputer-contract's
     ///         fallback could re-enter the staking module (whose pending-slash
     ///         counter is already decremented at this point) and exit at the
-    ///         pre-slash exchange rate (Round 2 economic F3).
+    ///         pre-slash exchange rate (pre-slash exchange rate snapshot).
     mapping(address => uint256) internal _pendingDisputeBondRefunds;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // F5: TWAP-FAIR SUBSCRIPTION BILLING — PER-OPERATOR CURSORS
+    // TWAP SUBSCRIPTION BILLING — PER-OPERATOR CURSORS
     // ═══════════════════════════════════════════════════════════════════════════
     // Stores the cumulative stake-seconds value last attributed to each
     // (service, operator) pair. Replaces the earlier aggregate-only cursor that
@@ -428,6 +432,6 @@ abstract contract TangleStorage {
 
     /// @dev Reserved storage slots for future upgrades
     /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    /// @dev F5 per-op cursor added 1 mapping (slot); gap reduced 41 → 40.
+    /// @dev Per-op cursor mapping. Storage gap adjusted accordingly.
     uint256[40] private __gap;
 }

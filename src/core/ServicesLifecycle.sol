@@ -9,6 +9,7 @@ import { Errors } from "../libraries/Errors.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 import { IOperatorStatusRegistry } from "../staking/OperatorStatusRegistry.sol";
+import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
 /// @title ServicesLifecycle
 /// @notice Service lifecycle (join/exit) flows and views
@@ -619,7 +620,12 @@ abstract contract ServicesLifecycle is Base {
         if (svc.membership != Types.MembershipModel.Dynamic) {
             revert Errors.InvalidState();
         }
-        if (svc.maxOperators > 0 && svc.operatorCount >= svc.maxOperators) {
+        // Mirror request-side validation: `maxOperators == 0` means "use protocol ceiling".
+        uint32 effectiveMax =
+            (svc.maxOperators == 0 || svc.maxOperators > ProtocolConfig.MAX_OPERATORS_PER_SERVICE)
+                ? ProtocolConfig.MAX_OPERATORS_PER_SERVICE
+                : svc.maxOperators;
+        if (svc.operatorCount >= effectiveMax) {
             revert Errors.InvalidState();
         }
         if (_operatorRegistrations[svc.blueprintId][msg.sender].registeredAt == 0) {
@@ -669,15 +675,15 @@ abstract contract ServicesLifecycle is Base {
         svc.operatorCount++;
         _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
 
-        // F5: re-seed this (service, operator) pair's TWAP cursor at the join
+        // Re-seed this (service, operator) pair's TWAP cursor at the join
         // instant. A rejoiner whose cursor still held its pre-leave value would
         // otherwise be billed for off-service cum growth on the next bill. We
         // overwrite unconditionally (not via the idempotent helper) because
         // re-join MUST clear any stale cursor. Sentinel 1 substitutes for a
         // genuine-zero cum so the cursor remains "set" — staking cum is
         // monotonic, so the next bill computes a correct delta from this floor.
-        (uint256 _cumOpF5,,) = _staking.getCumStakeSeconds(msg.sender, _bondAssetForBilling());
-        _twapCursorByOp[serviceId][msg.sender] = _cumOpF5 == 0 ? 1 : _cumOpF5;
+        (uint256 cumOpAtJoin,,) = _staking.getCumStakeSeconds(msg.sender, _bondAssetForBilling());
+        _twapCursorByOp[serviceId][msg.sender] = cumOpAtJoin == 0 ? 1 : cumOpAtJoin;
 
         if (_operatorStatusRegistry != address(0)) {
             try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) { } catch { }

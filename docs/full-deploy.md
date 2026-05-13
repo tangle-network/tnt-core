@@ -135,31 +135,31 @@ When reusing an existing TNT deployment, set either `TNT_TOKEN` (environment var
 
 ### Local environment helper
 
-`./scripts/local-env/start-local-env.sh` wraps the script for Anvil-based development. It:
+`./script/sh/local-env/test-full-deploy.sh` wraps the script for Anvil-based deployment-config testing. It:
 
-1. Boots an Anvil instance (chain id 31337, block time 1s) if one is not running.
+1. Boots an Anvil instance (chain id 31337) if one is not running.
 2. Sets `PRIVATE_KEY` to the default Anvil deployer key when not provided.
 3. Executes `FullDeploy` with `deploy/config/local.anvil.json`.
-4. Stores the manifest under `deployments/anvil/manifest.json`.
 
 ```bash
-scripts/local-env/start-local-env.sh
+script/sh/local-env/test-full-deploy.sh
 ```
 
-Override `FULL_DEPLOY_CONFIG` to point at another JSON file for bespoke local setups.
+For full dApp/indexer development (including Docker, Postgres, Envio, mock tokens, seeded delegations) use `script/sh/local-env/start-local-dev.sh` instead. Override `FULL_DEPLOY_CONFIG` to point at another JSON file for bespoke local setups.
 
 ## Post-deploy checklist
 
 The manifest includes:
 
 - Core contract addresses (Tangle, MultiAssetDelegation, OperatorStatusRegistry)
+- Incentive stack addresses (TNT token, RewardVaults, InflationPool, Metrics)
+- Staking asset configs and reward vault specs
+- Guard/delay settings and migration metadata
+
+Commit the manifest and migration files into the runbook repository you use for change management so reproducible deployments stay auditable. The smoke-test assertions in the script (asset registration + reward manager wiring) run automatically at the tail end; extend those as new modules are added.
 
 ## Liveness & event expectations
 
 - Operator liveness is tracked via `OperatorStatusRegistry` heartbeats submitted by the operator runtime/CLI. Integrators should use `submitHeartbeat` and read `isOnline`, `getOperatorStatus`, or `getLastHeartbeat` from the registry.
 - `JobCompleted` emits only `(serviceId, callId)`. Derive `resultCount` via `getJobCall(serviceId, callId)`. Indexers must match the minimal event signatures in `indexer/config.yaml`.
-- Incentive stack addresses (TNT token, RewardVaults, InflationPool, Metrics)
-- Staking asset configs and reward vault specs
-- Guard/delay settings and migration metadata
-
-Commit the manifest and migration files into the runbook repository you use for change management so reproducible deployments stay auditable. The smoke-test assertions in the script (asset registration + reward manager wiring) run automatically at the tail end; extend those as new modules are added. 
+- Subscription bills emit `SubscriptionBilled`, plus `SubscriptionBillSkippedNoOperators` (zero active operators), `SubscriptionBillAdjustedByManager` (manager-applied QoS discount), `KeeperRebateAccrued` (caller payout), `StakerShareRefundedToEscrow` (fee distributor unset/reverted), and `SubscriptionBaselineInitialized` (one-time per service at activation). Indexers tracking subscription revenue should subscribe to all six.

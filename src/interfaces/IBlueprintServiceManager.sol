@@ -106,6 +106,26 @@ interface IBlueprintServiceManager {
     /// @return ok True to allow eviction below the minimum operator count
     function forceRemoveAllowsBelowMin(uint64 serviceId) external view returns (bool ok);
 
+    /// @notice Scale the nominal subscription bill for a period by an SLA / quality factor.
+    /// @dev Called by the protocol's permissionless bill trigger BEFORE drawing the bill
+    ///      from escrow, so a manager can implement uptime-based discounts, missed-result
+    ///      penalties, or any other quality-of-service feedback. The returned value is
+    ///      clamped to `[0, 10_000]` (`10_000` = no discount, `0` = bill is waived). Values
+    ///      above 10_000 cannot inflate the bill — a misbehaving manager cannot overcharge
+    ///      the customer. Reverting or being unimplemented yields the full bill.
+    /// @param serviceId Service being billed
+    /// @param periodStart Inclusive timestamp of the billing window's start (= prior `lastPaymentAt`)
+    /// @param periodEnd Exclusive timestamp of the billing window's end (= `lastPaymentAt + interval`)
+    /// @return adjustmentBps Bill multiplier in basis points (10_000 = full bill)
+    function computeBillAdjustmentBps(
+        uint64 serviceId,
+        uint64 periodStart,
+        uint64 periodEnd
+    )
+        external
+        view
+        returns (uint16 adjustmentBps);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════════

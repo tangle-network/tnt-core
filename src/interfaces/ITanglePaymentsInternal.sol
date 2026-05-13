@@ -20,4 +20,10 @@ interface ITanglePaymentsInternal {
         external;
 
     function depositToEscrow(uint64 serviceId, address token, uint256 amount) external;
+
+    /// @notice Seed per-operator TWAP cursors and pin the subscription baseline at activation.
+    /// @dev Called for Subscription-pricing services from the activation paths so the first
+    ///      bill measures against the activation snapshot (not against state captured at
+    ///      first bill, which would let post-activation stake changes shift the baseline).
+    function initSubscriptionBaseline(uint64 serviceId, address[] calldata operators) external;
 }

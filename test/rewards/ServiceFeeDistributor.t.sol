@@ -194,9 +194,12 @@ contract ServiceFeeDistributorTest is BaseTest {
         vm.prank(operator1);
         tangle.approveService(_approve(requestId));
 
-        // Operator gets operator share + staker share since no stakers exist
-        (,, uint16 opBps, uint16 stakerBps) = tangle.paymentSplit();
-        uint256 expectedOperatorReward = (paymentAmount * (uint256(opBps) + uint256(stakerBps))) / 10_000;
+        // Operator gets operator + staker + keeper shares. On non-subscription paths
+        // the keeper share folds into the operator pool, and the staker share folds in
+        // too when no stakers back the operator.
+        (,, uint16 opBps, uint16 stakerBps, uint16 keeperBps) = tangle.paymentSplit();
+        uint256 expectedOperatorReward =
+            (paymentAmount * (uint256(opBps) + uint256(stakerBps) + uint256(keeperBps))) / 10_000;
         assertEq(tangle.pendingRewards(operator1, address(payTokenA)), expectedOperatorReward);
 
         // Distributor received nothing (no stakers to distribute to)

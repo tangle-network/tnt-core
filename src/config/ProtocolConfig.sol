@@ -40,6 +40,13 @@ library ProtocolConfig {
 
     uint32 internal constant MAX_BLUEPRINTS_PER_OPERATOR = 1024;
 
+    /// @notice Hard ceiling on `maxOperators` per service.
+    /// @dev Bounds every per-operator loop in the billing / distribute / terminate paths.
+    ///      Blueprint configs setting `maxOperators = 0` ("unlimited") are clamped to
+    ///      this value at request validation time so a malicious blueprint cannot
+    ///      unbound the bill loop.
+    uint32 internal constant MAX_OPERATORS_PER_SERVICE = 64;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SERVICE REQUEST TTL
     // ═══════════════════════════════════════════════════════════════════════════

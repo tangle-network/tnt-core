@@ -31,7 +31,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 
 **Local / E2E**
 - `script/LocalTestnet.s.sol:LocalTestnetSetup`: local Anvil full stack (mock tokens, blueprints, pods).
-- `scripts/e2e-local.sh`: spins up Anvil + deploy + indexer.
+- `script/sh/e2e-local.sh`: spins up Anvil + deploy + indexer.
   - Also deploys `Credits` and wires its address into the local indexer config automatically.
 
 **Token distribution**
@@ -39,10 +39,7 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
 - `script/DistributeTNTWithLockup.s.sol:DistributeTNTWithLockup`: batch ERC20 transfers with a configurable unlocked/locked split and a per-recipient cliff lock.
 
 **Substrate → EVM migration (SP1 / ZK)**
-- `packages/migration-claim/`: Foundry subpackage containing `TangleMigration` + `SP1ZKVerifier` and scripts for generating Merkle roots/proofs from real snapshot data.
-
-**Legacy / likely obsolete**
-- `scripts/MBSMDeployer.s.sol`: appears to target a pre-v2 path (`src/MasterBlueprintServiceManager.sol`), and is not used by the v2 deploy orchestrators.
+- `packages/migration-claim/`: Foundry subpackage containing `TangleMigration` + `SP1ZKVerifier` and scripts for generating Merkle roots/proofs from real snapshot data. Integrated into `FullDeploy` via `migration.deploy=true`.
 
 ## Recommended Deploy Order (Base Sepolia + Holesky)
 
@@ -80,12 +77,12 @@ This repo uses Foundry scripts for deployment. The two “production” entrypoi
   - `L2_RECEIVER=<receiver from Base manifest>`
 
 ### One-command helper
-- `scripts/deploy-testnet-base-sepolia-holesky.sh` automates the above (requires `jq`).
-- Migration is part of `FullDeploy` now; set `migration.deploy=true` in the config and provide `migration.programVKey` and `migration.merklePath`.
+- `script/sh/deploy-testnet-base-sepolia-holesky.sh` automates the above (requires `jq`).
+- Migration is part of `FullDeploy`; set `migration.deploy=true` in the config and provide `migration.programVKey` and `migration.merklePath`.
 
 ## Recommended Deploy Order (Base mainnet + Ethereum mainnet)
 
-- Use `scripts/deploy-mainnet-base-ethereum.sh` with:
+- Use `script/sh/deploy-mainnet-base-ethereum.sh` with:
   - `BASE_RPC` (Base mainnet RPC)
   - `MAINNET_RPC` (Ethereum mainnet RPC)
   - `FULL_DEPLOY_CONFIG=deploy/config/base-mainnet.json`
@@ -108,7 +105,7 @@ If you’re targeting a chain not in the hardcoded defaults, set those env vars 
 
 ### One-command helper (generic L1 → destination)
 
-Use `scripts/deploy-l1-to-evm-destination.sh` when you want to treat the destination chain (Base/Arbitrum/Tempo/etc) the same way:
+Use `script/sh/deploy-l1-to-evm-destination.sh` when you want to treat the destination chain (Base/Arbitrum/Tempo/etc) the same way:
 - `L1_RPC` is Ethereum (or other L1) RPC
 - `DEST_RPC` is the destination EVM chain RPC
 - `SOURCE_CHAIN_ID` is the L1 chainId
@@ -150,11 +147,8 @@ Notes:
 
 **Not production-complete yet (gaps)**
 - Mainnet configs (`deploy/config/base-mainnet.json`) still contain placeholder addresses and TODO policy values.
-- “Token genesis” is still policy-dependent (who mints/holds supply, vesting/lockups). The repo has:
-  - `DistributeTNTWithLockup` for direct EVM lists (batched).
-  - `packages/migration-claim` for Substrate→EVM Merkle+ZK claims with the same lock split.
-  But these are not yet orchestrated by `FullDeploy` (they’re run as separate rollout steps).
-- Governance deployment is present as contracts (`src/governance/GovernanceDeployer.sol`) but not integrated into `FullDeploy` (governor/timelock deployment is still separate; `FullDeploy` now supports role handoff to timelock/multisig if you wire them in the config).
+- "Token genesis" is policy-dependent (who mints/holds supply, vesting/lockups). `FullDeploy` orchestrates the Merkle+ZK migration path (`packages/migration-claim`) when `migration.deploy=true`; direct EVM batch airdrops via `DistributeTNTWithLockup` remain a separate post-deploy step.
+- Governance deployment is present as contracts (`src/governance/GovernanceDeployer.sol`) but not integrated into `FullDeploy`; governor/timelock deployment is still separate. `FullDeploy` supports role handoff to a timelock/multisig if you wire them in the config.
 - LayerZero Holesky EID is not hardcoded; you must provide `LAYERZERO_SOURCE_EID`.
 
 ## Rewards / Inflation (current model)
@@ -181,7 +175,7 @@ If enabled in `FULL_DEPLOY_CONFIG` under `"credits": { "deploy": true, "owner": 
 ### Workflow (testnet or local)
 
 1) Deploy `Credits` via `FullDeploy` (or use the local E2E script).
-2) Run the indexer and ensure it includes the `Credits` address in `indexer/config.yaml` (Base Sepolia) or via `scripts/e2e-local.sh` (local).
+2) Run the indexer and ensure it includes the `Credits` address in `indexer/config.yaml` (Base Sepolia) or via `script/sh/e2e-local.sh` (local).
    - To sync `indexer/config.yaml` from a `FullDeploy` manifest: `pnpm -C indexer sync:config-from-manifest --manifest deployments/<network>/latest.json --config indexer/config.yaml`
 3) Compute a TNT-only credits epoch from the indexer and publish a Merkle root:
    - `cd packages/credits/scripts && npm i`
