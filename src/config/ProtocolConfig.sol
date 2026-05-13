@@ -57,6 +57,13 @@ library ProtocolConfig {
     /// @notice Maximum TTL for service requests (365 days)
     uint64 internal constant MAX_SERVICE_TTL = 365 days;
 
+    /// @notice Maximum cumulative TTL a service may accumulate across extensions.
+    /// @dev Per-call validation bounds `additionalTtl` to `MAX_SERVICE_TTL`; without a
+    ///      cumulative cap a long-lived service could grow `svc.ttl` arbitrarily by
+    ///      chaining extensions. Four years is large enough for any realistic
+    ///      production deployment yet small enough to keep escrow exposure bounded.
+    uint64 internal constant MAX_CUMULATIVE_SERVICE_TTL = 4 * MAX_SERVICE_TTL;
+
     /// @notice Default request expiry grace period (1 hour)
     /// @dev Operators have this additional time to approve after expiry
     uint64 internal constant REQUEST_EXPIRY_GRACE_PERIOD = 1 hours;
