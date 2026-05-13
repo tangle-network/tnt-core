@@ -11,6 +11,7 @@ import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 import { IStaking } from "../interfaces/IStaking.sol";
+import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
 
 /// @title Payments
 /// @notice Payment distribution, escrow, and rewards
@@ -316,7 +317,7 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         // From here every exit path commits the cursors and advances `lastPaymentAt`.
         // Cursor SSTOREs land BEFORE any external transfer in `_distributeBill` so a
         // reverting transfer never leaves cursors stale.
-        _commitOperatorCursors(serviceId, operators, w.projectedCursors);
+        _commitOperatorCursors(serviceId, operators, w.projectedByOpAsset);
         svc.lastPaymentAt = periodEnd;
 
         // Skip-on-dust: a bill that rounds to less than 1 wei per recipient is treated
@@ -357,55 +358,111 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     function _commitOperatorCursors(
         uint64 serviceId,
         address[] memory operators,
-        uint256[] memory projectedCursors
+        uint256[][] memory projectedByOpAsset
     )
         internal
     {
+        Types.Asset memory bondAsset = _bondAssetForBilling();
         for (uint256 i = 0; i < operators.length;) {
-            _twapCursorByOp[serviceId][operators[i]] = projectedCursors[i];
+            address op = operators[i];
+            Types.AssetSecurityCommitment[] storage commitments = _serviceSecurityCommitments[serviceId][op];
+            uint256[] memory projected = projectedByOpAsset[i];
+            uint256 m = commitments.length;
+            if (m == 0) {
+                // Fallback path: single bond-asset cursor. `projected` was sized to 1 by
+                // `_accrueOperatorWeights` to mirror this shape.
+                bytes32 assetHash = keccak256(abi.encode(bondAsset.kind, bondAsset.token));
+                _twapCursorByOpAsset[serviceId][op][assetHash] = projected[0];
+            } else {
+                for (uint256 j = 0; j < m;) {
+                    bytes32 assetHash = keccak256(abi.encode(commitments[j].asset.kind, commitments[j].asset.token));
+                    _twapCursorByOpAsset[serviceId][op][assetHash] = projected[j];
+                    unchecked {
+                        ++j;
+                    }
+                }
+            }
             unchecked {
                 ++i;
             }
         }
     }
 
-    /// @notice Initialize per-operator TWAP cursors and pin the baseline at service activation.
-    /// @dev Called from `_activateService` for Subscription-pricing services. After this call,
-    ///      the very next bill — at any point in the future — will measure cumDelta against
-    ///      the activation snapshot, so the price the customer agreed to is the price they pay.
+    /// @notice Initialize per-(operator, asset) TWAP cursors and pin the multi-asset baseline.
+    /// @dev Walks each operator's `AssetSecurityCommitment[]` and seeds cursors for every
+    ///      (op, asset) pair. Baseline is the exposure-weighted aggregate
+    ///      `Σ_op Σ_asset (delegation × commitmentBps)`, USD-normalized when a price oracle
+    ///      is configured. Pinned once at activation; subsequent bills measure against this
+    ///      snapshot so an operator cannot inflate the customer's bill by ramping stake on
+    ///      a single asset post-activation.
     function _initSubscriptionBaseline(uint64 serviceId, address[] calldata operators) internal {
         IStaking staking = _getStaking();
+        address oracleAddr = _getPriceOracle();
+        bool useOracle = oracleAddr != address(0);
+        IPriceOracle oracle = IPriceOracle(oracleAddr);
         Types.Asset memory bondAsset = _bondAssetForBilling();
+
         uint256 baseline;
         uint256 n = operators.length;
         for (uint256 i = 0; i < n;) {
-            (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(operators[i], bondAsset);
-            // Sentinel 1 substitutes for a genuine-zero cum so the cursor stays "set".
-            _twapCursorByOp[serviceId][operators[i]] = cumOp == 0 ? 1 : cumOp;
-            baseline += stakeOp;
+            address op = operators[i];
+            Types.AssetSecurityCommitment[] storage commitments = _serviceSecurityCommitments[serviceId][op];
+            uint256 m = commitments.length;
+            if (m == 0) {
+                // No per-asset commitments specified — fall back to the bond asset at
+                // the operator's `ServiceOperator.exposureBps`. Mirrors the legacy
+                // single-asset semantics for services that don't opt into the
+                // multi-asset commitment system.
+                bytes32 assetHash = keccak256(abi.encode(bondAsset.kind, bondAsset.token));
+                (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(op, bondAsset);
+                _twapCursorByOpAsset[serviceId][op][assetHash] = cumOp == 0 ? 1 : cumOp;
+                uint16 fallbackBps = _serviceOperators[serviceId][op].exposureBps;
+                if (fallbackBps == 0) fallbackBps = uint16(BPS_DENOMINATOR);
+                uint256 exposedAmount = (stakeOp * uint256(fallbackBps)) / BPS_DENOMINATOR;
+                if (useOracle && exposedAmount > 0) {
+                    address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
+                    baseline += oracle.toUSD(token, exposedAmount);
+                } else {
+                    baseline += exposedAmount;
+                }
+            } else {
+                for (uint256 j = 0; j < m;) {
+                    Types.AssetSecurityCommitment storage c = commitments[j];
+                    bytes32 assetHash = keccak256(abi.encode(c.asset.kind, c.asset.token));
+                    (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(op, c.asset);
+                    _twapCursorByOpAsset[serviceId][op][assetHash] = cumOp == 0 ? 1 : cumOp;
+
+                    uint256 exposedAmount = (stakeOp * uint256(c.exposureBps)) / BPS_DENOMINATOR;
+                    if (useOracle && exposedAmount > 0) {
+                        address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
+                        baseline += oracle.toUSD(token, exposedAmount);
+                    } else {
+                        baseline += exposedAmount;
+                    }
+                    unchecked {
+                        ++j;
+                    }
+                }
+            }
             unchecked {
                 ++i;
             }
         }
-        // Pathological zero-stake activation: defensive minimum of 1 wei keeps the
-        // denominator positive. In practice activation requires staked operators.
+        // Pathological zero-stake activation: defensive minimum of 1 keeps the denominator
+        // positive. In practice activation requires staked, committed operators.
         uint256 pinned = baseline == 0 ? 1 : baseline;
         _serviceEscrows[serviceId].subscriptionBaselineStake = pinned;
         emit SubscriptionBaselineInitialized(serviceId, pinned, n);
     }
 
-    /// @notice One-pass: per-operator cum delta, weights for distribution, and exposure metadata.
-    /// @dev Weights = cumDelta_op × exposureBps_op. An operator that staked longer at higher
-    ///      stake AND held more exposure earns proportionally more of the operator pool. This
-    ///      uses the same TWAP cursors that drive the bill amount, so customer-fairness and
-    ///      operator-fairness are linked: an operator who ramped stake just before billing
-    ///      raises both the bill (via cumDelta) AND their share of it (via weight) — neither
-    ///      side is gameable in isolation.
-    /// @notice Bundle of per-bill state computed from per-operator stake-seconds.
+    /// @notice Per-bill state computed from per-(operator, asset) stake-seconds.
+    /// @dev `projectedByOpAsset[i]` is a jagged inner array indexed by the operator's
+    ///      `AssetSecurityCommitment[j]`. Cursors are committed only after the bill passes
+    ///      the escrow-balance check so a failed try-bill cannot advance state.
     struct BillWeights {
         uint256 cumDeltaPeriod;
-        uint256[] weights;
-        uint256[] projectedCursors;
+        uint256[] weights; // per-operator (exposure-weighted across assets)
+        uint256[][] projectedByOpAsset; // per-(operator, asset_in_commitments)
         uint256 totalWeight;
         bool hasSecurityCommitments;
     }
@@ -420,27 +477,78 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         returns (BillWeights memory result)
     {
         IStaking staking = _getStaking();
+        address oracleAddr = _getPriceOracle();
+        bool useOracle = oracleAddr != address(0);
+        IPriceOracle oracle = IPriceOracle(oracleAddr);
         Types.Asset memory bondAsset = _bondAssetForBilling();
         uint256 tailSeconds = block.timestamp > periodEnd ? block.timestamp - uint256(periodEnd) : 0;
 
-        result.weights = new uint256[](operators.length);
-        result.projectedCursors = new uint256[](operators.length);
+        uint256 n = operators.length;
+        result.weights = new uint256[](n);
+        result.projectedByOpAsset = new uint256[][](n);
 
-        for (uint256 i = 0; i < operators.length;) {
-            (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(operators[i], bondAsset);
-            uint256 projected = _projectToPeriodEnd(cumOp, stakeOp, tailSeconds);
-            uint256 cursor = _twapCursorByOp[serviceId][operators[i]];
-            uint256 opDelta;
-            if (cursor != 0 && projected > cursor) {
-                opDelta = projected - cursor;
+        for (uint256 i = 0; i < n;) {
+            address op = operators[i];
+            Types.AssetSecurityCommitment[] storage commitments = _serviceSecurityCommitments[serviceId][op];
+            uint256 m = commitments.length;
+            uint256 opWeight;
+            uint256[] memory projected;
+            if (m == 0) {
+                // Fallback: no per-asset commitments → treat as a single implicit
+                // commitment to the bond asset at the operator's overall
+                // `ServiceOperator.exposureBps`. Mirrors `_initSubscriptionBaseline`.
+                projected = new uint256[](1);
+                bytes32 assetHash = keccak256(abi.encode(bondAsset.kind, bondAsset.token));
+                (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(op, bondAsset);
+                uint256 projectedCum = _projectToPeriodEnd(cumOp, stakeOp, tailSeconds);
+                uint256 cursor = _twapCursorByOpAsset[serviceId][op][assetHash];
+                uint256 opDeltaRaw;
+                if (cursor != 0 && projectedCum > cursor) {
+                    opDeltaRaw = projectedCum - cursor;
+                }
+                projected[0] = projectedCum;
+
+                uint16 fallbackBps = _serviceOperators[serviceId][op].exposureBps;
+                if (fallbackBps == 0) fallbackBps = uint16(BPS_DENOMINATOR);
+                uint256 contribution = (opDeltaRaw * uint256(fallbackBps)) / BPS_DENOMINATOR;
+                if (useOracle && contribution > 0) {
+                    address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
+                    contribution = oracle.toUSD(token, contribution);
+                }
+                opWeight = contribution;
+            } else {
+                projected = new uint256[](m);
+                for (uint256 j = 0; j < m;) {
+                    Types.AssetSecurityCommitment storage c = commitments[j];
+                    bytes32 assetHash = keccak256(abi.encode(c.asset.kind, c.asset.token));
+                    (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(op, c.asset);
+                    uint256 projectedCum = _projectToPeriodEnd(cumOp, stakeOp, tailSeconds);
+                    uint256 cursor = _twapCursorByOpAsset[serviceId][op][assetHash];
+                    uint256 opDeltaRaw;
+                    if (cursor != 0 && projectedCum > cursor) {
+                        opDeltaRaw = projectedCum - cursor;
+                    }
+                    projected[j] = projectedCum;
+
+                    // Exposure-weighted contribution. With oracle: USD-normalized so
+                    // heterogeneous assets aggregate by value. Without oracle: raw
+                    // token-second amounts — comparable only when all committed assets
+                    // share a unit, but proportional within that unit.
+                    uint256 contribution = (opDeltaRaw * uint256(c.exposureBps)) / BPS_DENOMINATOR;
+                    if (useOracle && contribution > 0) {
+                        address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
+                        contribution = oracle.toUSD(token, contribution);
+                    }
+                    opWeight += contribution;
+                    unchecked {
+                        ++j;
+                    }
+                }
             }
-            result.projectedCursors[i] = projected;
-            result.cumDeltaPeriod += opDelta;
-
-            uint16 exposureBps = _serviceOperators[serviceId][operators[i]].exposureBps;
-            uint256 w = opDelta * uint256(exposureBps);
-            result.weights[i] = w;
-            result.totalWeight += w;
+            result.projectedByOpAsset[i] = projected;
+            result.weights[i] = opWeight;
+            result.totalWeight += opWeight;
+            result.cumDeltaPeriod += opWeight;
             unchecked {
                 ++i;
             }

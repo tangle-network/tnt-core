@@ -675,15 +675,29 @@ abstract contract ServicesLifecycle is Base {
         svc.operatorCount++;
         _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
 
-        // Re-seed this (service, operator) pair's TWAP cursor at the join
-        // instant. A rejoiner whose cursor still held its pre-leave value would
-        // otherwise be billed for off-service cum growth on the next bill. We
-        // overwrite unconditionally (not via the idempotent helper) because
-        // re-join MUST clear any stale cursor. Sentinel 1 substitutes for a
-        // genuine-zero cum so the cursor remains "set" — staking cum is
-        // monotonic, so the next bill computes a correct delta from this floor.
-        (uint256 cumOpAtJoin,,) = _staking.getCumStakeSeconds(msg.sender, _bondAssetForBilling());
-        _twapCursorByOp[serviceId][msg.sender] = cumOpAtJoin == 0 ? 1 : cumOpAtJoin;
+        // Re-seed this (service, operator) pair's per-asset TWAP cursors at the
+        // join instant. A rejoiner whose cursors still held pre-leave values would
+        // be billed for off-service cum growth on the next bill. Sentinel 1
+        // substitutes for genuine-zero cum so the cursor stays "set".
+        Types.AssetSecurityCommitment[] storage joinerCommitments = _serviceSecurityCommitments[serviceId][msg.sender];
+        uint256 commitmentCount = joinerCommitments.length;
+        if (commitmentCount == 0) {
+            // Fallback: single bond-asset cursor (matches `_initSubscriptionBaseline`).
+            Types.Asset memory bondAsset = _bondAssetForBilling();
+            bytes32 assetHash = keccak256(abi.encode(bondAsset.kind, bondAsset.token));
+            (uint256 cumOpAtJoin,,) = _staking.getCumStakeSeconds(msg.sender, bondAsset);
+            _twapCursorByOpAsset[serviceId][msg.sender][assetHash] = cumOpAtJoin == 0 ? 1 : cumOpAtJoin;
+        } else {
+            for (uint256 k = 0; k < commitmentCount;) {
+                Types.AssetSecurityCommitment storage c = joinerCommitments[k];
+                bytes32 assetHash = keccak256(abi.encode(c.asset.kind, c.asset.token));
+                (uint256 cumOpAtJoin,,) = _staking.getCumStakeSeconds(msg.sender, c.asset);
+                _twapCursorByOpAsset[serviceId][msg.sender][assetHash] = cumOpAtJoin == 0 ? 1 : cumOpAtJoin;
+                unchecked {
+                    ++k;
+                }
+            }
+        }
 
         if (_operatorStatusRegistry != address(0)) {
             try IOperatorStatusRegistry(_operatorStatusRegistry).registerOperator(serviceId, msg.sender) { } catch { }
