@@ -8,6 +8,7 @@ import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { SignatureLib } from "../libraries/SignatureLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
+import { ITanglePaymentsInternal } from "../interfaces/ITanglePaymentsInternal.sol";
 
 /// @title QuotesCreate
 /// @notice RFQ service creation from signed quotes
@@ -53,6 +54,15 @@ abstract contract QuotesCreate is Base {
 
         uint256 totalCost = _verifyQuotesAndGetCost(quotes, blueprintId, ttl);
 
+        // EventDriven services are funded per-job via `msg.value` at submission time.
+        // A non-zero `totalCost` from the quote path would mean paying operators
+        // upfront for work that hasn't happened — the same failure mode the request-side
+        // `_validatePricingPaymentConsistency` guard prevents. Reject here so the quote
+        // path can't bypass it.
+        if (bp.pricing == Types.PricingModel.EventDriven && totalCost != 0) {
+            revert Errors.UpfrontPaymentNotAllowedForEventDriven();
+        }
+
         _ensureQuotePaymentAsset(bp.manager, _serviceCount, totalCost);
         _collectQuotePayment(totalCost);
         _notifyManagerQuoteRequest(bp.manager, operators, config, ttl, totalCost);
@@ -62,6 +72,13 @@ abstract contract QuotesCreate is Base {
 
         _addInitialQuoteCallers(serviceId, msg.sender, permittedCallers);
         _notifyManagerQuoteInitialization(bp.manager, blueprintId, serviceId, msg.sender, permittedCallers, ttl);
+
+        // Subscription-pricing quote services need the same per-operator TWAP baseline
+        // seed that the non-quote activation path performs, so the first bill measures
+        // against activation state.
+        if (bp.pricing == Types.PricingModel.Subscription) {
+            ITanglePaymentsInternal(address(this)).initSubscriptionBaseline(serviceId, operators);
+        }
 
         _finalizeQuotePayment(serviceId, blueprintId, totalCost, operators);
     }

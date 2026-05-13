@@ -5,6 +5,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 
 import { ServicesApprovals } from "../../core/ServicesApprovals.sol";
 import { Types } from "../../libraries/Types.sol";
+import { Errors } from "../../libraries/Errors.sol";
 import { SignatureLib } from "../../libraries/SignatureLib.sol";
 import { IBlueprintServiceManager } from "../../interfaces/IBlueprintServiceManager.sol";
 import { ITanglePaymentsInternal } from "../../interfaces/ITanglePaymentsInternal.sol";
@@ -197,29 +198,35 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
         private
     {
         if (pricing == Types.PricingModel.Subscription) {
-            // Persist selected settlement token even when initial deposit is zero.
-            // This keeps later top-ups coherent and prevents accidental native locking.
+            // Persist selected settlement token even when initial deposit is zero so
+            // later top-ups land in the same currency.
             if (_serviceEscrows[serviceId].totalDeposited == 0) {
                 _serviceEscrows[serviceId].token = paymentToken;
             }
-
             if (paymentAmount > 0) {
                 ITanglePaymentsInternal(address(this)).depositToEscrow(serviceId, paymentToken, paymentAmount);
             }
-            return;
-        }
-
-        if (paymentAmount == 0) {
-            return;
-        }
-
-        if (pricing == Types.PricingModel.PayOnce || pricing == Types.PricingModel.EventDriven) {
+            // Seed per-operator TWAP cursors and pin the baseline at activation. The
+            // first bill will then measure cumDelta against the activation snapshot
+            // rather than against state captured at first bill (which could let
+            // post-activation stake changes shift the contract the customer signed).
             address[] memory operators = _copyRequestOperators(requestId);
-
-            // Payment distribution computes effective exposures internally
-            ITanglePaymentsInternal(address(this))
-                .distributePayment(serviceId, blueprintId, paymentToken, paymentAmount, operators);
+            ITanglePaymentsInternal(address(this)).initSubscriptionBaseline(serviceId, operators);
+            return;
         }
+
+        if (pricing == Types.PricingModel.EventDriven) {
+            // EventDriven services are funded by per-job `msg.value`, not by an upfront
+            // lump sum. `paymentAmount` is rejected at request-time by
+            // `_validatePricingPaymentConsistency`; nothing to do here.
+            return;
+        }
+
+        // PayOnce: single upfront amount distributed immediately to all stakeholders.
+        if (paymentAmount == 0) return;
+        address[] memory payOnceOperators = _copyRequestOperators(requestId);
+        ITanglePaymentsInternal(address(this))
+            .distributePayment(serviceId, blueprintId, paymentToken, paymentAmount, payOnceOperators);
     }
 
     function _triggerManagerOnActivation(

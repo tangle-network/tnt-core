@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-05-11
+
+Subscription billing rearchitecture. Substantive contract behavior changes for
+any consumer that calls `billSubscription` / `billSubscriptionBatch`, reads the
+subscription billing events, or implements `IBlueprintServiceManager`.
+
+### Changed (BREAKING)
+
+- `Types.PaymentSplit` gained a fifth field `keeperBps`. `setPaymentSplit` now
+  requires the five-field sum equal 10_000. `paymentSplit()` view returns a
+  5-tuple (was 4-tuple). Default split shifts from 20/20/40/20 to
+  19.5/20/40/20/0.5 — the keeper share is paid to the caller of permissionless
+  subscription bills, incentivising any wallet/bot to keep the schedule running.
+  On non-subscription distributions (PayOnce, RFQ, per-job) the keeper share
+  folds back into the operator pool so totals still sum to 10_000.
+- `Tangle.billSubscription(uint64)` semantics:
+  - Bill amount is now bounded above by the blueprint's nominal rate. Operators
+    ramping stake mid-period cannot inflate the customer's bill (kills both
+    customer-overpayment surprise AND the bill-exceeds-rate livelock window).
+  - Operator payout shares are weighted by per-operator cum-stake-seconds delta
+    × exposureBps (same TWAP cursors that drive bill amount). An operator who
+    ramps stake earns a larger slice of the SAME (capped) pool.
+  - Bills that round to dust (after QoS adjustment) skip cleanly rather than
+    reverting in the distribute path. A manager hook returning a tiny `qosBps`
+    cannot brick a service.
+  - Zero active operators advances the cursor with no escrow movement and
+    emits `SubscriptionBillSkippedNoOperators`.
+  - Insufficient escrow rewinds the cursor; `terminateServiceForNonPayment`
+    remains the canonical recovery path.
+- `IBlueprintServiceManager.computeBillAdjustmentBps(serviceId, periodStart,
+  periodEnd) returns (uint16)`: new optional hook called via gas-capped
+  `staticcall` and clamped to `[0, 10_000]` (manager can discount, never
+  inflate). `BlueprintServiceManagerBase` ships a default returning `10_000`.
+- `IBlueprintServiceManager.queryDeveloperPaymentAddress` is also called via
+  gas-capped `staticcall` now — manager hooks cannot drain a keeper's gas.
+- `Tangle.requestService` and the quote-create flow reject EventDriven requests
+  with non-zero `paymentAmount` at request time. Reverts with
+  `UpfrontPaymentNotAllowedForEventDriven` before any ETH is collected.
+- Subscription baseline (`subscriptionBaselineStake`) is seeded at service
+  activation, both for the request/approve flow and the quote-create flow.
+  First-bill lazy-init was removed; bills against an unbaselined service revert
+  with `SubscriptionBaselineNotInitialized`.
+- `_forwardStakerShare`: when the fee distributor is unset OR reverts, the
+  staker share is refunded to the service escrow (native) or surfaced via
+  `StakerShareRefundedToEscrow` with the revert reason (ERC20). Previously
+  silently routed to the treasury.
+- `PaymentLib.twapBillAmount` reverts with `BillingArithmeticOverflow` on
+  product overflow; previously returned `nominalRate` silently.
+- `PaymentSplitUpdated` event signature extended with `keeperBps`.
+
+### Added
+
+- Events: `SubscriptionBillSkippedNoOperators`, `SubscriptionBillAdjustedByManager`,
+  `KeeperRebateAccrued`, `StakerShareRefundedToEscrow`,
+  `SubscriptionBaselineInitialized`.
+- `PaymentLib.twapBillAmount`, `applyQosAdjustment`, `minBillAmount` pure
+  helpers exposed for downstream off-chain consumers and fuzz tests.
+- Errors: `BillingArithmeticOverflow`, `SubscriptionBaselineNotInitialized`,
+  `UpfrontPaymentNotAllowedForEventDriven`.
+
+### Removed
+
+- `PaymentLib.calculateOperatorPayments`, `validatePaymentAmount`,
+  `bpsShareRoundUp`, `divUp` — superseded by inline per-weight distribution.
+
 ## [0.15.0] - 2026-05-09
 
 Round 4 audit consolidation: C-3 (UUPS upgradeable cross-chain slashing
@@ -631,7 +696,7 @@ ValidatorPodManager). Single coordinated bindings cut.
 - Raw ABI JSON exports via `abi` module
 - `TNT_CORE_VERSION` constant for commit tracking
 
-[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.3...HEAD
+[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.16.0...HEAD
 [0.11.1]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.0...bindings-v0.11.1
 [0.11.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.10.9...bindings-v0.11.0
 [0.1.0]: https://github.com/tangle-network/tnt-core/releases/tag/bindings-v0.1.0
@@ -670,3 +735,4 @@ ValidatorPodManager). Single coordinated bindings cut.
 [0.10.9]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.10.8...bindings-v0.10.9
 [0.11.2]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.1...bindings-v0.11.2
 [0.11.3]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.2...bindings-v0.11.3
+[0.16.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.15.0...bindings-v0.16.0

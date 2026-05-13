@@ -557,12 +557,12 @@ contract TangleTest is BaseTest {
 
     function test_SetPaymentSplit() public {
         Types.PaymentSplit memory split =
-            Types.PaymentSplit({ developerBps: 6000, protocolBps: 500, operatorBps: 1750, stakerBps: 1750 });
+            Types.PaymentSplit({ developerBps: 6000, protocolBps: 500, operatorBps: 1750, stakerBps: 1750, keeperBps: 0 });
 
         vm.prank(admin);
         tangle.setPaymentSplit(split);
 
-        (uint16 dev, uint16 proto, uint16 op, uint16 rest) = tangle.paymentSplit();
+        (uint16 dev, uint16 proto, uint16 op, uint16 rest,) = tangle.paymentSplit();
         assertEq(dev, 6000);
         assertEq(proto, 500);
         assertEq(op, 1750);
@@ -571,7 +571,7 @@ contract TangleTest is BaseTest {
 
     function test_SetPaymentSplit_RevertInvalidTotal() public {
         Types.PaymentSplit memory split =
-            Types.PaymentSplit({ developerBps: 5000, protocolBps: 5000, operatorBps: 5000, stakerBps: 5000 });
+            Types.PaymentSplit({ developerBps: 5000, protocolBps: 5000, operatorBps: 5000, stakerBps: 5000, keeperBps: 0 });
 
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidPaymentSplit.selector);

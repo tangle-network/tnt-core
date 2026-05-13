@@ -284,26 +284,30 @@ contract SlashingFuzzTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("timing"));
 
-        // Verify proposal storage
+        // Verify proposal storage. Read `executeAfter` back from storage so subsequent
+        // warp targets are anchored to an on-chain value the IR optimizer cannot fold
+        // into `block.timestamp` after a `vm.warp` (which it does not model).
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(proposal.proposedAt, proposalTime, "Proposal timestamp");
         assertEq(proposal.executeAfter, proposalTime + disputeWindow, "Execute after");
+        uint256 executeAfter = proposal.executeAfter;
 
         // Try execute 1 second before window ends - should fail
-        vm.warp(proposalTime + disputeWindow - 1);
+        vm.warp(executeAfter - 1);
         vm.expectRevert(abi.encodeWithSelector(Errors.SlashNotExecutable.selector, slashId));
         tangle.executeSlash(slashId);
 
         // Balance unchanged
         assertEq(staking.getOperatorSelfStake(operator1), stakeBefore, "Balance unchanged before window");
 
-        // M-6 FIX: execution requires the dispute window plus the timestamp buffer.
-        vm.warp(proposalTime + disputeWindow + timestampBuffer - 1);
+        // Execution requires the dispute window plus the timestamp buffer; the last
+        // second inside the buffer must still revert.
+        vm.warp(executeAfter + timestampBuffer - 1);
         vm.expectRevert(abi.encodeWithSelector(Errors.SlashNotExecutable.selector, slashId));
         tangle.executeSlash(slashId);
 
         // Execute exactly at the buffered boundary - should succeed
-        vm.warp(proposalTime + disputeWindow + timestampBuffer);
+        vm.warp(executeAfter + timestampBuffer);
         tangle.executeSlash(slashId);
 
         // Balance now reduced

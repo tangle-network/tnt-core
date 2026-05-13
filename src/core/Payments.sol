@@ -35,6 +35,30 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     event EscrowFunded(uint64 indexed serviceId, address indexed token, uint256 amount);
     event EscrowRefunded(uint64 indexed serviceId, address indexed owner, address indexed token, uint256 amount);
     event SubscriptionBilled(uint64 indexed serviceId, uint256 amount, uint64 period);
+    /// @notice Emitted when a subscription's bill window elapses but no active operators
+    ///         exist to bill against. The `lastPaymentAt` cursor advances by `period` to
+    ///         keep the schedule on rails; the escrow is not touched.
+    event SubscriptionBillSkippedNoOperators(uint64 indexed serviceId, uint64 period);
+    /// @notice Emitted when the manager hook reduced the bill via `computeBillAdjustmentBps`.
+    /// @dev `preAdjustmentAmount` is the TWAP-and-cap-resolved amount (NOT the blueprint's
+    ///      nominal rate). `adjustedAmount` is what the protocol ultimately drew from escrow.
+    event SubscriptionBillAdjustedByManager(
+        uint64 indexed serviceId, uint256 preAdjustmentAmount, uint256 adjustedAmount, uint16 adjustmentBps
+    );
+    /// @notice Emitted when the bill caller's keeper rebate is added to their pending-rewards
+    ///         mapping. The actual transfer happens on `claimRewards` — naming mirrors
+    ///         `OperatorRewardAccrued` to avoid implying push-transfer at the event.
+    event KeeperRebateAccrued(uint64 indexed serviceId, address indexed keeper, address indexed token, uint256 amount);
+    /// @notice Emitted when the staker pool's share could not be routed (no distributor configured,
+    ///         or the distributor reverted). The amount is refunded to the service escrow so the
+    ///         customer can recover it, rather than being silently captured by the treasury.
+    event StakerShareRefundedToEscrow(
+        uint64 indexed serviceId, address indexed operator, address indexed token, uint256 amount, bytes reason
+    );
+    /// @notice Emitted when a Subscription-pricing service has its per-operator TWAP cursors
+    ///         and `subscriptionBaselineStake` seeded at activation. Indexers / off-chain
+    ///         observers can subscribe here to track when the bill contract is locked in.
+    event SubscriptionBaselineInitialized(uint64 indexed serviceId, uint256 baselineStake, uint256 operatorCount);
     event PaymentDistributed(
         uint64 indexed serviceId,
         uint64 indexed blueprintId,
@@ -117,11 +141,12 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         _billSubscriptionInternal(serviceId);
     }
 
-    /// @notice Batch bill multiple subscription services
-    /// @dev Recipients (operators, developers, stakers) are naturally incentivized to call this
-    /// @param serviceIds Array of service IDs to bill
-    /// @return totalBilled Total amount billed across all services
-    /// @return billedCount Number of services successfully billed
+    /// @notice Batch bill multiple subscription services.
+    /// @dev Each service is billed independently in a try-bill mode that returns false
+    ///      (rather than reverting) for any ineligible service. The caller earns the
+    ///      keeper rebate on every successfully drawn bill — incentivising bots to
+    ///      sweep the schedule. `totalBilled` reflects the actual amounts drawn (after
+    ///      TWAP scaling + QoS adjustment), not the blueprint nominal rate.
     function billSubscriptionBatch(uint64[] calldata serviceIds)
         external
         whenNotPaused
@@ -132,10 +157,10 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         if (serviceIdsLength == 0) revert Errors.ZeroAmount();
 
         for (uint256 i = 0; i < serviceIdsLength;) {
-            if (_tryBillSubscription(serviceIds[i])) {
-                Types.BlueprintConfig storage bpConfig = _blueprintConfigs[_services[serviceIds[i]].blueprintId];
-                totalBilled += bpConfig.subscriptionRate;
-                billedCount++;
+            (bool billed, uint256 amount) = _tryBillSubscriptionMeasured(serviceIds[i]);
+            if (billed) {
+                totalBilled += amount;
+                if (amount > 0) billedCount++;
             }
             unchecked {
                 ++i;
@@ -169,204 +194,326 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         }
     }
 
-    /// @notice Internal billing logic with TTL check
-    /// @dev Uses effective exposure (delegation × exposureBps) for proportional payment distribution.
-    ///      F5: bills the TWAP-fair amount = `rate × cumDelta / (baseline × interval)` so an
-    ///      operator cannot game the bill by ramping stake for a single instant of measurement
-    ///      and then dumping it. cumDelta is the change in aggregate cumulative stake-seconds
-    ///      over [lastBilledAt, now] across the service's active operators (bond asset). The
-    ///      baseline is captured at the first bill and frozen for the life of the subscription.
+    /// @notice Permissionless subscription bill (reverts on failure).
     function _billSubscriptionInternal(uint64 serviceId) internal {
-        Types.Service storage svc = _getService(serviceId);
+        (bool billed,) = _billSubscriptionImpl(serviceId, true, msg.sender);
+        if (!billed) revert Errors.InvalidState(); // unreachable under revertOnFail=true
+    }
+
+    /// @notice Permissionless subscription bill (returns false on failure instead of reverting).
+    function _tryBillSubscription(uint64 serviceId) internal returns (bool) {
+        (bool billed,) = _billSubscriptionImpl(serviceId, false, msg.sender);
+        return billed;
+    }
+
+    /// @notice Try-bill variant that also returns the actual drawn amount so callers
+    ///         (notably `billSubscriptionBatch`) can report a true revenue figure.
+    function _tryBillSubscriptionMeasured(uint64 serviceId) internal returns (bool, uint256) {
+        return _billSubscriptionImpl(serviceId, false, msg.sender);
+    }
+
+    /// @notice Core subscription billing implementation, shared between strict and try-bill paths.
+    /// @dev One call processes exactly one period of length `interval`, advancing `lastPaymentAt`
+    ///      by `interval` (not to `block.timestamp`), so missed periods catch up over repeated calls.
+    ///      Behavior:
+    ///        1. Pre-checks: service active, subscription pricing, not TTL-expired, period due.
+    ///        2. Active-operator snapshot. If empty: advance cursor without billing — escrow
+    ///           untouched, customer keeps funds, schedule stays on rails.
+    ///        3. Compute per-operator cum-stake-second deltas. Forward-project to `periodEnd`
+    ///           on late bills so the next bill picks up cleanly from the period boundary.
+    ///        4. Apply manager QoS adjustment (best-effort; clamped to [0, 10_000]).
+    ///        5. Release `amount` from escrow.
+    ///        6. Distribute by per-operator TWAP weight (cumDelta × exposureBps). Pay keeper
+    ///           rebate to the caller from the operator pool's keeper slice.
+    /// @param serviceId Service to bill
+    /// @param revertOnFail When true, eligibility checks revert; when false, return false silently.
+    /// @param keeper Caller of the public bill entry point — receives the keeper rebate.
+    /// @return billed True if a bill was drawn (or the period was skipped due to zero operators).
+    function _billSubscriptionImpl(uint64 serviceId, bool revertOnFail, address keeper)
+        internal
+        returns (bool billed, uint256 amountDrawn)
+    {
+        Types.Service storage svc = _services[serviceId];
+
+        // Eligibility checks.
         if (svc.status != Types.ServiceStatus.Active) {
-            revert Errors.ServiceNotActive(serviceId);
+            if (revertOnFail) revert Errors.ServiceNotActive(serviceId);
+            return (false, 0);
         }
         if (svc.pricing != Types.PricingModel.Subscription) {
-            revert Errors.InvalidState();
+            if (revertOnFail) revert Errors.InvalidState();
+            return (false, 0);
         }
-
-        // TTL check - cannot bill expired services
         if (svc.ttl > 0 && block.timestamp > svc.createdAt + svc.ttl) {
-            revert Errors.ServiceExpired(serviceId);
+            if (revertOnFail) revert Errors.ServiceExpired(serviceId);
+            return (false, 0);
         }
 
         Types.BlueprintConfig storage bpConfig = _blueprintConfigs[svc.blueprintId];
         uint64 interval = bpConfig.subscriptionInterval;
         uint256 nominalRate = bpConfig.subscriptionRate;
+        uint64 periodStart = svc.lastPaymentAt;
+        uint64 periodEnd = periodStart + interval;
 
-        if (block.timestamp < svc.lastPaymentAt + interval) {
-            revert Errors.DeadlineExpired();
+        if (block.timestamp < periodEnd) {
+            if (revertOnFail) revert Errors.DeadlineExpired();
+            return (false, 0);
         }
 
         address[] memory operators = _activeServiceOperators(serviceId);
 
-        // F5: derive the TWAP-fair amount for this period and reconcile billing cursors.
-        uint256 amount = _computeTwapBillAmount(serviceId, operators, nominalRate, interval);
+        // Zero-operator path: advance the cursor and skip the bill so the schedule does
+        // not livelock. The customer's escrow is untouched; if operators rejoin, the
+        // next bill picks up from `periodEnd` and bills the standard rate.
+        if (operators.length == 0) {
+            svc.lastPaymentAt = periodEnd;
+            emit SubscriptionBillSkippedNoOperators(serviceId, interval);
+            return (true, 0);
+        }
+
+        // Same weights drive bill amount AND payout split. `_accrueOperatorWeights` is
+        // a VIEW that computes projected cursors without writing them; cursors are
+        // committed only on a successful bill or period skip, so a failed try-bill
+        // does not advance state and cannot be used to consume periods for free.
+        BillWeights memory w = _accrueOperatorWeights(serviceId, operators, periodEnd);
 
         PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
-        if (escrow.balance < amount) {
-            revert Errors.InsufficientEscrowBalance(amount, escrow.balance);
+
+        // Baseline must have been pinned at activation; a zero here means a service was
+        // activated via a non-canonical path that skipped baseline seeding. Reverting
+        // loudly prevents a stake-ramp attacker from front-running baseline at first bill.
+        if (escrow.subscriptionBaselineStake == 0) {
+            revert Errors.SubscriptionBaselineNotInitialized(serviceId);
+        }
+        uint256 amount = PaymentLib.twapBillAmount(
+            nominalRate, w.cumDeltaPeriod, escrow.subscriptionBaselineStake, uint256(interval)
+        );
+
+        // Bound the bill at the nominal rate: operators ramping stake cannot inflate
+        // the customer's bill, but ramping-down still reduces it. Per-op weights stay
+        // uncapped so ramping operators earn a larger slice of the same (capped) pool.
+        // Cap also keeps `terminateServiceForNonPayment`'s `balance < rate` eligibility
+        // consistent with the bill's `balance >= amount` requirement.
+        if (amount > nominalRate) amount = nominalRate;
+
+        // Manager QoS hook can discount (never inflate) the bill. Hook failures /
+        // out-of-range returns fall back to the cap-resolved amount.
+        uint16 qosBps = _resolveBillAdjustmentBps(svc.blueprintId, serviceId, periodStart, periodEnd);
+        if (qosBps < BPS_DENOMINATOR) {
+            uint256 adjusted = PaymentLib.applyQosAdjustment(amount, qosBps);
+            emit SubscriptionBillAdjustedByManager(serviceId, amount, adjusted, qosBps);
+            amount = adjusted;
+        }
+
+        // Insufficient escrow: do NOT commit cursors and do NOT advance `lastPaymentAt`.
+        // The period stays due so `terminateServiceForNonPayment` remains the canonical
+        // recovery path and a future top-up + retry processes the same window.
+        if (amount > 0 && escrow.balance < amount) {
+            if (revertOnFail) revert Errors.InsufficientEscrowBalance(amount, escrow.balance);
+            return (false, 0);
+        }
+
+        // From here every exit path commits the cursors and advances `lastPaymentAt`.
+        // Cursor SSTOREs land BEFORE any external transfer in `_distributeBill` so a
+        // reverting transfer never leaves cursors stale.
+        _commitOperatorCursors(serviceId, operators, w.projectedCursors);
+        svc.lastPaymentAt = periodEnd;
+
+        // Skip-on-dust: a bill that rounds to less than 1 wei per recipient is treated
+        // as a zero-cost processed period rather than reverting in `_distributeBill`.
+        if (amount > 0 && amount < PaymentLib.minBillAmount(_paymentSplit, operators.length)) {
+            emit SubscriptionBilled(serviceId, 0, interval);
+            return (true, 0);
+        }
+
+        if (amount == 0) {
+            emit SubscriptionBilled(serviceId, 0, interval);
+            return (true, 0);
         }
 
         address token = PaymentLib.releaseFromEscrow(escrow, amount);
-        // Advance by exactly one interval so missed periods can be caught up over repeated calls.
-        svc.lastPaymentAt += interval;
-
-        // Calculate effective exposures (with fallback to stored exposureBps)
-        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) =
-            _calculateEffectiveExposuresWithFallback(serviceId, operators);
-
-        _distributePaymentWithEffectiveExposure(
-            serviceId,
-            svc.blueprintId,
-            token,
-            amount,
-            operators,
-            effectiveExposures,
-            totalEffectiveExposure,
-            hasSecurityCommitments
+        _distributeBill(
+            BillDistribution({
+                serviceId: serviceId,
+                blueprintId: svc.blueprintId,
+                token: token,
+                amount: amount,
+                operators: operators,
+                weights: w.weights,
+                totalWeight: w.totalWeight,
+                hasSecurityCommitments: w.hasSecurityCommitments,
+                keeper: keeper
+            })
         );
 
         emit SubscriptionBilled(serviceId, amount, interval);
+        return (true, amount);
     }
 
-    /// @notice Try to bill a subscription, returns false on failure instead of reverting
-    /// @dev Uses effective exposure (delegation × exposureBps) for proportional payment distribution.
-    ///      F5: same TWAP-fair amount derivation as `_billSubscriptionInternal`.
-    function _tryBillSubscription(uint64 serviceId) internal returns (bool) {
-        if (!_isBillable(serviceId)) return false;
-
-        Types.Service storage svc = _services[serviceId];
-        Types.BlueprintConfig storage bpConfig = _blueprintConfigs[svc.blueprintId];
-
-        address[] memory operators = _activeServiceOperators(serviceId);
-        uint64 interval = bpConfig.subscriptionInterval;
-        uint256 amount = _computeTwapBillAmount(serviceId, operators, bpConfig.subscriptionRate, interval);
-
-        PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
-        if (escrow.balance < amount) return false;
-
-        address token = PaymentLib.releaseFromEscrow(escrow, amount);
-        // Advance by exactly one interval so missed periods can be caught up over repeated calls.
-        svc.lastPaymentAt += interval;
-
-        // Calculate effective exposures (with fallback to stored exposureBps)
-        (uint256[] memory effectiveExposures, uint256 totalEffectiveExposure, bool hasSecurityCommitments) =
-            _calculateEffectiveExposuresWithFallback(serviceId, operators);
-
-        _distributePaymentWithEffectiveExposure(
-            serviceId,
-            svc.blueprintId,
-            token,
-            amount,
-            operators,
-            effectiveExposures,
-            totalEffectiveExposure,
-            hasSecurityCommitments
-        );
-
-        emit SubscriptionBilled(serviceId, amount, interval);
-        return true;
-    }
-
-    /// @notice F5: compute the TWAP-fair bill amount for ONE period and advance the cursor.
-    /// @dev Each call processes exactly one period of length `interval`, even when the
-    ///      caller is late — `_billSubscriptionInternal` advances `lastPaymentAt += interval`
-    ///      so missed periods are caught up over repeated calls. The cum-stake cursor must
-    ///      mirror that semantic: we attribute only the portion of `cumDelta` that falls
-    ///      inside `[lastPaymentAt, lastPaymentAt + interval]`, not the whole tail up to
-    ///      `block.timestamp`. We don't snapshot historical cum, so for the late-bill tail
-    ///      `[periodEnd, now]` we project linearly with the current stake (exact when the
-    ///      stake is stable since `periodEnd`, conservative otherwise — and the same
-    ///      forward-projected cum is moved into the cursor so the *next* bill picks up
-    ///      from `periodEnd` without any double-counting).
-    ///
-    ///      The first call lazy-initializes the per-service cursor and baseline from
-    ///      live aggregate state; this matches the migration requirement (no coordinated
-    ///      upgrade init for pre-existing subscriptions, and the same path for newly-
-    ///      activated ones). The first post-init bill returns `nominalRate` exactly.
-    ///      From the next call onward, `amount = nominalRate × cumDeltaPeriod / (baseline
-    ///      × interval)` — periods with higher-than-baseline stake bill proportionally
-    ///      more, lower stake bills less.
-    function _computeTwapBillAmount(
+    /// @notice Persist the projected TWAP cursors after a bill has passed all guard checks.
+    /// @dev Split out from `_accrueOperatorWeights` so a failed try-bill (insufficient escrow)
+    ///      cannot advance cursors, which would let a service owner consume the period for
+    ///      free on a subsequent retry by zeroing out cumDelta.
+    function _commitOperatorCursors(
         uint64 serviceId,
         address[] memory operators,
-        uint256 nominalRate,
-        uint64 interval
+        uint256[] memory projectedCursors
     )
         internal
-        returns (uint256 amount)
     {
-        PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
-
-        // Bill window: `[svc.lastPaymentAt, svc.lastPaymentAt + interval]`. When the
-        // caller is late (`block.timestamp > periodEnd`) we forward-project each
-        // operator's cum to `periodEnd` using their current stake, then update the
-        // operator's cursor to that projected value so the next bill picks up
-        // cleanly from `periodEnd` (no double-counting across the late tail).
-        uint64 periodEnd = _services[serviceId].lastPaymentAt + interval;
-        bool isLate = block.timestamp > periodEnd;
-        uint256 tailSeconds = isLate ? block.timestamp - uint256(periodEnd) : 0;
-
-        // Lazy-init the per-service baseline on the FIRST call against live state.
-        // Subsequent per-operator cursors are seeded by `_seedTwapCursorForOp`
-        // (called from `ServicesLifecycle._finalizeJoin`) so a mid-life join
-        // does NOT retroactively bill for that operator's pre-join cum activity.
-        // For the lazy-init bill itself we also seed every currently-active op's
-        // cursor inline, so the very next bill measures from `periodEnd`.
-        Types.Asset memory bondAsset = _bondAssetForBilling();
-        IStaking staking = _getStaking();
-        uint256 operatorsLength = operators.length;
-
-        if (escrow.subscriptionBaselineStake == 0) {
-            uint256 currentStake;
-            for (uint256 i = 0; i < operatorsLength;) {
-                (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(operators[i], bondAsset);
-                uint256 projected = _projectToPeriodEnd(cumOp, stakeOp, tailSeconds);
-                _twapCursorByOp[serviceId][operators[i]] = projected;
-                currentStake += stakeOp;
-                unchecked {
-                    ++i;
-                }
+        for (uint256 i = 0; i < operators.length;) {
+            _twapCursorByOp[serviceId][operators[i]] = projectedCursors[i];
+            unchecked {
+                ++i;
             }
-            // Pin baseline. Pathological zero-stake case yields nominal billing;
-            // in practice service activation requires staked operators.
-            escrow.subscriptionBaselineStake = currentStake == 0 ? 1 : currentStake;
-            return nominalRate;
         }
+    }
 
-        // Per-operator delta accumulation. Each operator contributes only the
-        // cum gained against THIS service's cursor, so:
-        //   - new joiners contribute from their join-time cursor (no retro bill),
-        //   - leavers contribute zero (they are absent from `operators`),
-        //   - rejoiners contribute only post-rejoin cum (join hook re-seeds the
-        //     cursor at their current cum, defeating off-service-time inflation).
+    /// @notice Initialize per-operator TWAP cursors and pin the baseline at service activation.
+    /// @dev Called from `_activateService` for Subscription-pricing services. After this call,
+    ///      the very next bill — at any point in the future — will measure cumDelta against
+    ///      the activation snapshot, so the price the customer agreed to is the price they pay.
+    function _initSubscriptionBaseline(uint64 serviceId, address[] calldata operators) internal {
+        IStaking staking = _getStaking();
+        Types.Asset memory bondAsset = _bondAssetForBilling();
+        uint256 baseline;
+        uint256 n = operators.length;
+        for (uint256 i = 0; i < n;) {
+            (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(operators[i], bondAsset);
+            // Sentinel 1 substitutes for a genuine-zero cum so the cursor stays "set".
+            _twapCursorByOp[serviceId][operators[i]] = cumOp == 0 ? 1 : cumOp;
+            baseline += stakeOp;
+            unchecked {
+                ++i;
+            }
+        }
+        // Pathological zero-stake activation: defensive minimum of 1 wei keeps the
+        // denominator positive. In practice activation requires staked operators.
+        uint256 pinned = baseline == 0 ? 1 : baseline;
+        _serviceEscrows[serviceId].subscriptionBaselineStake = pinned;
+        emit SubscriptionBaselineInitialized(serviceId, pinned, n);
+    }
+
+    /// @notice One-pass: per-operator cum delta, weights for distribution, and exposure metadata.
+    /// @dev Weights = cumDelta_op × exposureBps_op. An operator that staked longer at higher
+    ///      stake AND held more exposure earns proportionally more of the operator pool. This
+    ///      uses the same TWAP cursors that drive the bill amount, so customer-fairness and
+    ///      operator-fairness are linked: an operator who ramped stake just before billing
+    ///      raises both the bill (via cumDelta) AND their share of it (via weight) — neither
+    ///      side is gameable in isolation.
+    /// @notice Bundle of per-bill state computed from per-operator stake-seconds.
+    struct BillWeights {
         uint256 cumDeltaPeriod;
-        for (uint256 i = 0; i < operatorsLength;) {
+        uint256[] weights;
+        uint256[] projectedCursors;
+        uint256 totalWeight;
+        bool hasSecurityCommitments;
+    }
+
+    function _accrueOperatorWeights(
+        uint64 serviceId,
+        address[] memory operators,
+        uint64 periodEnd
+    )
+        internal
+        view
+        returns (BillWeights memory result)
+    {
+        IStaking staking = _getStaking();
+        Types.Asset memory bondAsset = _bondAssetForBilling();
+        uint256 tailSeconds = block.timestamp > periodEnd ? block.timestamp - uint256(periodEnd) : 0;
+
+        result.weights = new uint256[](operators.length);
+        result.projectedCursors = new uint256[](operators.length);
+
+        for (uint256 i = 0; i < operators.length;) {
             (uint256 cumOp,, uint256 stakeOp) = staking.getCumStakeSeconds(operators[i], bondAsset);
             uint256 projected = _projectToPeriodEnd(cumOp, stakeOp, tailSeconds);
             uint256 cursor = _twapCursorByOp[serviceId][operators[i]];
-            if (cursor == 0) {
-                // Cursor unset: operator joined before the F5 join-hook wiring
-                // landed, or some external state inserted them. Seed at projected
-                // without billing — same lazy-init semantics applied per-operator.
-                _twapCursorByOp[serviceId][operators[i]] = projected;
-            } else if (projected > cursor) {
-                cumDeltaPeriod += projected - cursor;
-                _twapCursorByOp[serviceId][operators[i]] = projected;
-            } else {
-                // Cum cannot decrease in the staking index. A non-monotonic read
-                // here implies clock skew or test fixtures — fail soft, no bill.
-                _twapCursorByOp[serviceId][operators[i]] = projected;
+            uint256 opDelta;
+            if (cursor != 0 && projected > cursor) {
+                opDelta = projected - cursor;
             }
+            result.projectedCursors[i] = projected;
+            result.cumDeltaPeriod += opDelta;
+
+            uint16 exposureBps = _serviceOperators[serviceId][operators[i]].exposureBps;
+            uint256 w = opDelta * uint256(exposureBps);
+            result.weights[i] = w;
+            result.totalWeight += w;
             unchecked {
                 ++i;
             }
         }
 
-        amount = PaymentLib.twapBillAmount(
-            nominalRate, cumDeltaPeriod, escrow.subscriptionBaselineStake, uint256(interval)
+        // Fallback weighting: when cumDelta is zero across the board (e.g. genuine zero-stake
+        // edge cases) OR every operator has zero exposureBps, distribute the operator pool
+        // equally across active operators so the bill — if any — still reaches them.
+        if (result.totalWeight == 0 && operators.length > 0) {
+            for (uint256 i = 0; i < operators.length;) {
+                result.weights[i] = 1;
+                unchecked {
+                    ++i;
+                }
+            }
+            result.totalWeight = operators.length;
+        }
+
+        // `hasSecurityCommitments` controls whether the staker pool is routed to the
+        // ServiceFeeDistributor or folded into the operator pool — real delegated stake.
+        (, uint256 totalExposure) = _calculateEffectiveExposures(serviceId, operators);
+        result.hasSecurityCommitments = totalExposure > 0;
+    }
+
+    /// @notice Resolve the developer payment recipient via a gas-capped manager hook.
+    /// @dev Same defense-in-depth as `_resolveBillAdjustmentBps`: bounded gas, raw
+    ///      staticcall, fall back to `blueprintOwner` on revert / empty / zero. Without
+    ///      this cap a malicious manager could grief subscription bills (and any other
+    ///      distribution path that pays a developer).
+    function _resolveDeveloperPaymentAddress(
+        address manager,
+        address blueprintOwner,
+        uint64 serviceId
+    )
+        internal
+        view
+        returns (address)
+    {
+        if (manager == address(0)) return blueprintOwner;
+        (bool ok, bytes memory ret) = manager.staticcall{ gas: MANAGER_HOOK_GAS_LIMIT }(
+            abi.encodeWithSelector(IBlueprintServiceManager.queryDeveloperPaymentAddress.selector, serviceId)
         );
+        if (!ok || ret.length < 32) return blueprintOwner;
+        address dev = abi.decode(ret, (address));
+        return dev == address(0) ? blueprintOwner : dev;
+    }
+
+    /// @notice Resolve the per-period bill adjustment from the blueprint's manager hook.
+    /// @dev Best-effort with a hard gas cap (`MANAGER_HOOK_GAS_LIMIT`). Any revert /
+    ///      out-of-range return / zero manager yields a full-bill (10_000 bps) result.
+    ///      Values above 10_000 are clamped — a misbehaving manager cannot inflate a
+    ///      customer's bill, only discount it. The gas cap prevents a malicious
+    ///      manager from looping out the keeper's gas budget to make permissionless
+    ///      bill triggers unprofitable.
+    function _resolveBillAdjustmentBps(
+        uint64 blueprintId,
+        uint64 serviceId,
+        uint64 periodStart,
+        uint64 periodEnd
+    )
+        internal
+        view
+        returns (uint16)
+    {
+        address manager = _blueprints[blueprintId].manager;
+        if (manager == address(0)) return uint16(BPS_DENOMINATOR);
+        (bool ok, bytes memory ret) = manager.staticcall{ gas: MANAGER_HOOK_GAS_LIMIT }(
+            abi.encodeWithSelector(IBlueprintServiceManager.computeBillAdjustmentBps.selector, serviceId, periodStart, periodEnd)
+        );
+        if (!ok || ret.length < 32) return uint16(BPS_DENOMINATOR);
+        uint256 bps = abi.decode(ret, (uint256));
+        if (bps >= BPS_DENOMINATOR) return uint16(BPS_DENOMINATOR);
+        return uint16(bps);
     }
 
     /// @notice Forward-project an operator's cum stake-seconds to the period boundary.
@@ -383,38 +530,26 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         return cumNow > tail ? cumNow - tail : 0;
     }
 
-    /// @notice Seed an operator's TWAP cursor for a service at the current block.
-    /// @dev Called from `ServicesLifecycle._finalizeJoin`. Idempotent for the active
-    ///      service-operator pair: if the operator already has a non-zero cursor
-    ///      (i.e. has been billed against this service before) we leave it
-    ///      untouched so a join via a separate code path cannot overwrite cleanly
-    ///      accumulated state.
-    function _seedTwapCursorForOp(uint64 serviceId, address operator) internal {
-        if (_twapCursorByOp[serviceId][operator] != 0) return;
-        IStaking staking = _getStaking();
-        (uint256 cumOp,,) = staking.getCumStakeSeconds(operator, _bondAssetForBilling());
-        // Sentinel 0 means "never seen" elsewhere. If the operator's cum is
-        // genuinely zero at join (no stake ever held), substitute 1 so the
-        // cursor is "set" — staking-side cum monotonically grows, so any
-        // subsequent bill computes a correct (non-zero) delta from 1.
-        _twapCursorByOp[serviceId][operator] = cumOp == 0 ? 1 : cumOp;
-    }
-
-    /// @notice Check if a service is billable
+    /// @notice Predicate for `getBillableServices` — mirrors `_billSubscriptionImpl`'s
+    ///         pre-conditions so off-chain keepers don't burn gas attempting bills the
+    ///         impl will reject.
+    /// @dev Returns true when the service is active, subscription-priced, baseline-seeded,
+    ///      past its TTL guard, past its billing interval, AND the escrow can cover at
+    ///      least the nominal rate (the cap-at-nominal guarantee means a bill never
+    ///      exceeds `subscriptionRate`, so `balance >= rate` is sufficient).
     function _isBillable(uint64 serviceId) internal view returns (bool) {
         Types.Service storage svc = _services[serviceId];
-
-        // Must be active subscription
         if (svc.status != Types.ServiceStatus.Active) return false;
         if (svc.pricing != Types.PricingModel.Subscription) return false;
-
-        // Must not be expired (TTL check)
         if (svc.ttl > 0 && block.timestamp > svc.createdAt + svc.ttl) return false;
 
-        // Must be past billing interval
         Types.BlueprintConfig storage bpConfig = _blueprintConfigs[svc.blueprintId];
         if (block.timestamp < svc.lastPaymentAt + bpConfig.subscriptionInterval) return false;
-        if (_serviceEscrows[serviceId].balance < bpConfig.subscriptionRate) return false;
+
+        PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
+        if (escrow.subscriptionBaselineStake == 0) return false;
+        // Cap-at-nominal means a successful bill never exceeds `subscriptionRate`.
+        if (escrow.balance < bpConfig.subscriptionRate) return false;
 
         return true;
     }
@@ -495,7 +630,9 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     function setPaymentSplit(Types.PaymentSplit calldata split) external onlyRole(ADMIN_ROLE) {
         PaymentLib.validateSplit(split);
         _paymentSplit = split;
-        emit PaymentSplitUpdated(split.developerBps, split.protocolBps, split.operatorBps, split.stakerBps);
+        emit PaymentSplitUpdated(
+            split.developerBps, split.protocolBps, split.operatorBps, split.stakerBps, split.keeperBps
+        );
     }
 
     /// @notice Set treasury
@@ -510,9 +647,14 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     // VIEW
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function paymentSplit() external view returns (uint16, uint16, uint16, uint16) {
-        return
-            (_paymentSplit.developerBps, _paymentSplit.protocolBps, _paymentSplit.operatorBps, _paymentSplit.stakerBps);
+    function paymentSplit() external view returns (uint16, uint16, uint16, uint16, uint16) {
+        return (
+            _paymentSplit.developerBps,
+            _paymentSplit.protocolBps,
+            _paymentSplit.operatorBps,
+            _paymentSplit.stakerBps,
+            _paymentSplit.keeperBps
+        );
     }
 
     function treasury() external view returns (address payable) {
@@ -536,18 +678,128 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
         emit EscrowFunded(serviceId, token, amount);
     }
 
-    /// @notice Distribute payment to all stakeholders using effective exposures
-    /// @dev Operators ALWAYS get paid for providing compute. When no stakers exist
-    ///      (hasSecurityCommitments == false), the staker share is merged into the
-    ///      operator pool. Customers set minimum exposureBps to prevent gaming.
-    /// @param serviceId The service ID
-    /// @param blueprintId The blueprint ID
-    /// @param token Payment token
-    /// @param amount Total payment amount
-    /// @param operators Array of operator addresses
-    /// @param effectiveExposures Array of effective exposure values (delegation × exposureBps)
-    /// @param totalEffectiveExposure Sum of all effective exposures
-    /// @param hasSecurityCommitments True when real delegated stake backs operators
+    /// @notice Distribution parameters bundle. Keeps the wide signature manageable.
+    struct BillDistribution {
+        uint64 serviceId;
+        uint64 blueprintId;
+        address token;
+        uint256 amount;
+        address[] operators;
+        uint256[] weights;
+        uint256 totalWeight;
+        bool hasSecurityCommitments;
+        address keeper; // address(0) → no keeper rebate; share folds into operator pool
+    }
+
+    /// @notice Distribute a bill to (developer, protocol, operator pool, staker pool, keeper).
+    /// @dev Single distribution path shared between subscription bills (keeper present, TWAP
+    ///      weights) and non-subscription payments (no keeper, exposure-based weights). The
+    ///      caller is responsible for computing weights — this function does not assume any
+    ///      particular fairness model for the operator pool.
+    function _distributeBill(BillDistribution memory d) internal {
+        if (d.amount == 0) return;
+        if (d.operators.length == 0) revert Errors.NoOperators();
+
+        bool includeKeeper = d.keeper != address(0);
+        if (d.totalWeight == 0) revert Errors.InvalidState();
+        PaymentLib.PaymentAmounts memory amounts = PaymentLib.calculateSplit(d.amount, _paymentSplit, includeKeeper);
+
+        // Developer payment (manager can override the destination).
+        Types.Blueprint storage bp = _blueprints[d.blueprintId];
+        Types.Service storage svc = _services[d.serviceId];
+        address developerAddr = _resolveDeveloperPaymentAddress(bp.manager, bp.owner, d.serviceId);
+        PaymentLib.transferPayment(developerAddr, d.token, amounts.developerAmount);
+
+        // TNT payment discount: funded from the protocol share, paid to the service owner.
+        if (
+            d.token != address(0) && d.token == _tntToken && _tntPaymentDiscountBps > 0 && amounts.protocolAmount > 0
+                && svc.owner != address(0)
+        ) {
+            uint256 desired = (d.amount * _tntPaymentDiscountBps) / BPS_DENOMINATOR;
+            uint256 discount = desired > amounts.protocolAmount ? amounts.protocolAmount : desired;
+            if (discount > 0) {
+                amounts.protocolAmount -= discount;
+                PaymentLib.transferPayment(svc.owner, d.token, discount);
+                emit TntPaymentDiscountApplied(d.serviceId, svc.owner, d.token, discount);
+            }
+        }
+
+        // Protocol payment.
+        PaymentLib.transferPayment(_treasury, d.token, amounts.protocolAmount);
+
+        // Keeper rebate: pull-pattern via _pendingRewards so the keeper's gas budget for
+        // this transaction stays predictable and contract-keepers don't get force-fed ETH.
+        if (includeKeeper && amounts.keeperAmount > 0) {
+            PaymentLib.addPendingReward(_pendingRewards, d.keeper, d.token, amounts.keeperAmount);
+            _pendingRewardTokens[d.keeper].add(d.token);
+            emit KeeperRebateAccrued(d.serviceId, d.keeper, d.token, amounts.keeperAmount);
+        }
+
+        // When no real delegated stake backs operators, fold the staker share into the
+        // operator pool so the customer still funds compute providers in full.
+        uint256 operatorPool =
+            d.hasSecurityCommitments ? amounts.operatorAmount : amounts.operatorAmount + amounts.stakerAmount;
+        uint256 stakerPool = d.hasSecurityCommitments ? amounts.stakerAmount : 0;
+
+        emit PaymentDistributed(
+            d.serviceId,
+            d.blueprintId,
+            d.token,
+            d.amount,
+            developerAddr,
+            amounts.developerAmount,
+            amounts.protocolAmount,
+            operatorPool,
+            stakerPool
+        );
+
+        _payOperatorPoolByWeight(d, operatorPool, stakerPool);
+    }
+
+    /// @notice Distribute the operator + staker pools across active operators by `weights`.
+    /// @dev `_distributeBill` ensures `weights.length == operators.length`, `totalWeight > 0`,
+    ///      and any rounding dust accumulates on the LAST operator so Σshares == pool exactly.
+    function _payOperatorPoolByWeight(
+        BillDistribution memory d,
+        uint256 operatorPool,
+        uint256 stakerPool
+    )
+        internal
+    {
+        uint256 n = d.operators.length;
+        uint256 operatorDistributed;
+        uint256 stakerDistributed;
+
+        for (uint256 i = 0; i < n;) {
+            uint256 opShare;
+            uint256 stakerShare;
+            if (i == n - 1) {
+                opShare = operatorPool - operatorDistributed;
+                stakerShare = stakerPool - stakerDistributed;
+            } else {
+                opShare = (operatorPool * d.weights[i]) / d.totalWeight;
+                stakerShare = (stakerPool * d.weights[i]) / d.totalWeight;
+                operatorDistributed += opShare;
+                stakerDistributed += stakerShare;
+            }
+
+            if (opShare > 0) {
+                PaymentLib.addPendingReward(_pendingRewards, d.operators[i], d.token, opShare);
+                _pendingRewardTokens[d.operators[i]].add(d.token);
+                emit OperatorRewardAccrued(d.serviceId, d.operators[i], d.token, d.blueprintId, opShare);
+            }
+            if (stakerShare > 0) {
+                _forwardStakerShare(d.serviceId, d.blueprintId, d.operators[i], d.token, stakerShare);
+            }
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @notice Backwards-compatible entry point for non-subscription distributions
+    ///         (one-shot, RFQ, per-job). Computes exposure-based weights internally and
+    ///         routes through the shared `_distributeBill` core with no keeper rebate.
     function _distributePaymentWithEffectiveExposure(
         uint64 serviceId,
         uint64 blueprintId,
@@ -560,129 +812,43 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     )
         internal
     {
-        if (amount == 0) return;
-
-        uint256 operatorsLength = operators.length;
-        // Refuse to distribute when no operators are running the service: dev and
-        // treasury were getting paid while the operator+staker pool (default 60%)
-        // was retained by the contract with no path back. Service owners recover
-        // escrow via terminate -> withdrawRemainingEscrow once operators leave.
-        if (operatorsLength == 0) {
-            revert Errors.NoOperators();
-        }
-
-        // M-5 FIX: Validate payment amount is sufficient to prevent rounding to zero
-        PaymentLib.validatePaymentAmount(amount, _paymentSplit, operatorsLength);
-
-        Types.Blueprint storage bp = _blueprints[blueprintId];
-        Types.Service storage svc = _services[serviceId];
-
-        PaymentLib.PaymentAmounts memory amounts = PaymentLib.calculateSplit(amount, _paymentSplit);
-
-        // Developer payment
-        address developerAddr = bp.owner;
-        if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).queryDeveloperPaymentAddress(serviceId) returns (
-                address payable devAddr
-            ) {
-                if (devAddr != address(0)) developerAddr = devAddr;
-            } catch { }
-        }
-        PaymentLib.transferPayment(developerAddr, token, amounts.developerAmount);
-
-        // TNT payment discount (funded from protocol share; sent to service owner)
-        if (
-            token != address(0) && token == _tntToken && _tntPaymentDiscountBps > 0 && amounts.protocolAmount > 0
-                && svc.owner != address(0)
-        ) {
-            uint256 desiredDiscount = (amount * _tntPaymentDiscountBps) / BPS_DENOMINATOR;
-            uint256 discount = desiredDiscount > amounts.protocolAmount ? amounts.protocolAmount : desiredDiscount;
-            if (discount > 0) {
-                amounts.protocolAmount -= discount;
-                PaymentLib.transferPayment(svc.owner, token, discount);
-                emit TntPaymentDiscountApplied(serviceId, svc.owner, token, discount);
+        // Fallback weighting: when nobody has effective exposure, distribute the operator
+        // pool equally. Materializing this as a uniform `weights` array keeps the shared
+        // core simple at a marginal gas cost.
+        uint256[] memory weights = effectiveExposures;
+        uint256 totalWeight = totalEffectiveExposure;
+        if (totalWeight == 0 && operators.length > 0) {
+            weights = new uint256[](operators.length);
+            for (uint256 i = 0; i < operators.length;) {
+                weights[i] = 1;
+                unchecked {
+                    ++i;
+                }
             }
+            totalWeight = operators.length;
         }
 
-        // Protocol payment
-        PaymentLib.transferPayment(_treasury, token, amounts.protocolAmount);
-
-        uint256 operatorPoolAmount =
-            operatorsLength == 0 ? 0 : amounts.operatorAmount + (hasSecurityCommitments ? 0 : amounts.stakerAmount);
-        uint256 stakerPoolAmount = operatorsLength == 0 ? 0 : (hasSecurityCommitments ? amounts.stakerAmount : 0);
-
-        emit PaymentDistributed(
-            serviceId,
-            blueprintId,
-            token,
-            amount,
-            developerAddr,
-            amounts.developerAmount,
-            amounts.protocolAmount,
-            operatorPoolAmount,
-            stakerPoolAmount
+        _distributeBill(
+            BillDistribution({
+                serviceId: serviceId,
+                blueprintId: blueprintId,
+                token: token,
+                amount: amount,
+                operators: operators,
+                weights: weights,
+                totalWeight: totalWeight,
+                hasSecurityCommitments: hasSecurityCommitments,
+                keeper: address(0)
+            })
         );
-
-        // Operator payments — operators always get paid for providing compute.
-        // When no stakers back operators, staker share merges into operator pool.
-        if (operatorsLength == 0) return;
-
-        if (totalEffectiveExposure > 0) {
-            // Proportional distribution based on exposure weights.
-            // If real stakers exist, keep staker share separate for the fee distributor.
-            // If no stakers, merge staker share into operator pool.
-            uint256 operatorPool =
-                hasSecurityCommitments ? amounts.operatorAmount : amounts.operatorAmount + amounts.stakerAmount;
-            uint256 stakerPool = hasSecurityCommitments ? amounts.stakerAmount : 0;
-
-            PaymentLib.OperatorPayment[] memory opPayments = PaymentLib.calculateOperatorPayments(
-                operatorPool, stakerPool, operators, effectiveExposures, totalEffectiveExposure
-            );
-
-            uint256 opPaymentsLength = opPayments.length;
-            for (uint256 i = 0; i < opPaymentsLength;) {
-                PaymentLib.addPendingReward(_pendingRewards, opPayments[i].operator, token, opPayments[i].operatorShare);
-                if (opPayments[i].operatorShare > 0) {
-                    _pendingRewardTokens[opPayments[i].operator].add(token);
-                    emit OperatorRewardAccrued(
-                        serviceId, opPayments[i].operator, token, blueprintId, opPayments[i].operatorShare
-                    );
-                }
-
-                if (opPayments[i].stakerShare > 0) {
-                    _forwardStakerShare(
-                        serviceId, blueprintId, opPayments[i].operator, token, opPayments[i].stakerShare
-                    );
-                }
-                unchecked {
-                    ++i;
-                }
-            }
-        } else {
-            // No exposure basis at all (all operators have 0% exposureBps).
-            // Equal distribution of (operator + staker) pool among all operators.
-            uint256 totalPool = amounts.operatorAmount + amounts.stakerAmount;
-            uint256 perOperator = totalPool / operatorsLength;
-            uint256 distributed = 0;
-
-            for (uint256 i = 0; i < operatorsLength;) {
-                uint256 share = (i == operatorsLength - 1)
-                    ? totalPool - distributed  // last operator gets rounding dust
-                    : perOperator;
-
-                PaymentLib.addPendingReward(_pendingRewards, operators[i], token, share);
-                if (share > 0) {
-                    _pendingRewardTokens[operators[i]].add(token);
-                    emit OperatorRewardAccrued(serviceId, operators[i], token, blueprintId, share);
-                }
-                distributed += share;
-                unchecked {
-                    ++i;
-                }
-            }
-        }
     }
 
+    /// @notice Route the staker pool's per-operator share through the fee distributor.
+    /// @dev When the distributor is unset OR reverts, the share is refunded to the service
+    ///      escrow rather than silently captured by the treasury. That way:
+    ///        - the customer recovers funds for unstaked / unrouted operator shares,
+    ///        - a misbehaving distributor cannot brick all subscription bills, and
+    ///        - off-chain observers can see exactly why the share didn't reach stakers.
     function _forwardStakerShare(
         uint64 serviceId,
         uint64 blueprintId,
@@ -692,20 +858,64 @@ abstract contract Payments is Base, PaymentsEffectiveExposure {
     )
         private
     {
+        if (amount == 0) return;
         address distributor = _serviceFeeDistributor;
+
         if (distributor == address(0)) {
-            PaymentLib.transferPayment(_treasury, token, amount);
+            _refundStakerShareToEscrow(serviceId, operator, token, amount, bytes("no-distributor"));
             return;
         }
 
+        // ERC20: transfer to the distributor first so the callee can pull state-free.
+        // Native: pass `value` directly. Either failure path refunds the customer.
         if (token == address(0)) {
-            IServiceFeeDistributor(distributor).distributeServiceFee{ value: amount }(
+            try IServiceFeeDistributor(distributor).distributeServiceFee{ value: amount }(
                 serviceId, blueprintId, operator, token, amount
-            );
-        } else {
-            PaymentLib.transferPayment(distributor, token, amount);
-            IServiceFeeDistributor(distributor).distributeServiceFee(serviceId, blueprintId, operator, token, amount);
+            ) {
+                return;
+            } catch (bytes memory reason) {
+                _refundStakerShareToEscrow(serviceId, operator, token, amount, reason);
+                return;
+            }
         }
+
+        PaymentLib.transferPayment(distributor, token, amount);
+        try IServiceFeeDistributor(distributor).distributeServiceFee(serviceId, blueprintId, operator, token, amount) {
+            return;
+        } catch (bytes memory reason) {
+            // The ERC20 has already left this contract — fee distributor holds it. We cannot
+            // unilaterally claw the tokens back, so we emit a clear marker for the customer
+            // and protocol to handle off-chain. The escrow is NOT credited because the funds
+            // are not in escrow's accounting bucket. This is rare (distributor is owned by
+            // the protocol) and explicitly surfaced so it never goes unnoticed.
+            emit StakerShareRefundedToEscrow(serviceId, operator, token, amount, reason);
+        }
+    }
+
+    function _refundStakerShareToEscrow(
+        uint64 serviceId,
+        address operator,
+        address token,
+        uint256 amount,
+        bytes memory reason
+    )
+        private
+    {
+        PaymentLib.ServiceEscrow storage escrow = _serviceEscrows[serviceId];
+        // Defensive: only refund into an escrow that holds the same token.
+        if (escrow.token != token) {
+            PaymentLib.transferPayment(_treasury, token, amount);
+            return;
+        }
+        escrow.balance += amount;
+        // The release back to escrow is a counter-release: lower lifetime-released so the
+        // accounting invariant `totalDeposited >= totalReleased + balance` holds.
+        if (escrow.totalReleased >= amount) {
+            escrow.totalReleased -= amount;
+        } else {
+            escrow.totalReleased = 0;
+        }
+        emit StakerShareRefundedToEscrow(serviceId, operator, token, amount, reason);
     }
 
     /// @dev Returns only operators currently active in the service. Operators that left

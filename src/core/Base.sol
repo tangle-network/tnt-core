@@ -111,7 +111,13 @@ abstract contract Base is
     /// @param protocolBps Protocol share in basis points
     /// @param operatorBps Operator share in basis points
     /// @param stakerBps Staker share in basis points
-    event PaymentSplitUpdated(uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
+    event PaymentSplitUpdated(
+        uint16 developerBps,
+        uint16 protocolBps,
+        uint16 operatorBps,
+        uint16 stakerBps,
+        uint16 keeperBps
+    );
 
     /// @notice Emitted when the protocol treasury address is updated
     /// @param treasury The new treasury address
@@ -183,7 +189,8 @@ abstract contract Base is
             developerBps: DEFAULT_DEVELOPER_BPS,
             protocolBps: DEFAULT_PROTOCOL_BPS,
             operatorBps: DEFAULT_OPERATOR_BPS,
-            stakerBps: DEFAULT_STAKER_BPS
+            stakerBps: DEFAULT_STAKER_BPS,
+            keeperBps: DEFAULT_KEEPER_BPS
         });
 
         // Domain separator is computed on-the-fly from `block.chainid` (see

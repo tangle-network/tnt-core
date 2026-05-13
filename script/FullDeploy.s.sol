@@ -991,7 +991,7 @@ contract FullDeploy is DeployV2 {
     {
         if (distributor == address(0)) {
             if (tangleAddr != address(0)) {
-                (,,, uint16 stakerBps) = ITangleAdmin(tangleAddr).paymentSplit();
+                (,,, uint16 stakerBps,) = ITangleAdmin(tangleAddr).paymentSplit();
                 require(stakerBps == 0, "ServiceFeeDistributor required when stakerBps > 0");
             }
             return;
@@ -1013,7 +1013,7 @@ contract FullDeploy is DeployV2 {
 
     function _serviceFeeDistributorRequired(address tangleAddr) internal view returns (bool) {
         if (tangleAddr == address(0)) return false;
-        (,,, uint16 stakerBps) = ITangleAdmin(tangleAddr).paymentSplit();
+        (,,, uint16 stakerBps,) = ITangleAdmin(tangleAddr).paymentSplit();
         return stakerBps > 0;
     }
 

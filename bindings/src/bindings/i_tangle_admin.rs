@@ -3,7 +3,7 @@
 
 ```solidity
 library Types {
-    struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; }
+    struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; uint16 keeperBps; }
 }
 ```*/
 #[allow(
@@ -19,7 +19,7 @@ pub mod Types {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; }
+struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBps; uint16 stakerBps; uint16 keeperBps; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -32,6 +32,8 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
         pub operatorBps: u16,
         #[allow(missing_docs)]
         pub stakerBps: u16,
+        #[allow(missing_docs)]
+        pub keeperBps: u16,
     }
     #[allow(
         non_camel_case_types,
@@ -48,9 +50,10 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
             alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::Uint<16>,
+            alloy::sol_types::sol_data::Uint<16>,
         );
         #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = (u16, u16, u16, u16);
+        type UnderlyingRustTuple<'a> = (u16, u16, u16, u16, u16);
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
         fn _type_assertion(
@@ -71,6 +74,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     value.protocolBps,
                     value.operatorBps,
                     value.stakerBps,
+                    value.keeperBps,
                 )
             }
         }
@@ -83,6 +87,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     protocolBps: tuple.1,
                     operatorBps: tuple.2,
                     stakerBps: tuple.3,
+                    keeperBps: tuple.4,
                 }
             }
         }
@@ -107,6 +112,9 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     <alloy::sol_types::sol_data::Uint<
                         16,
                     > as alloy_sol_types::SolType>::tokenize(&self.stakerBps),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.keeperBps),
                 )
             }
             #[inline]
@@ -181,7 +189,7 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "PaymentSplit(uint16 developerBps,uint16 protocolBps,uint16 operatorBps,uint16 stakerBps)",
+                    "PaymentSplit(uint16 developerBps,uint16 protocolBps,uint16 operatorBps,uint16 stakerBps,uint16 keeperBps)",
                 )
             }
             #[inline]
@@ -213,6 +221,10 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                         16,
                     > as alloy_sol_types::SolType>::eip712_data_word(&self.stakerBps)
                         .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.keeperBps)
+                        .0,
                 ]
                     .concat()
             }
@@ -241,6 +253,11 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                         16,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.stakerBps,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.keeperBps,
                     )
             }
             #[inline]
@@ -273,6 +290,12 @@ struct PaymentSplit { uint16 developerBps; uint16 protocolBps; uint16 operatorBp
                     16,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.stakerBps,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    16,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.keeperBps,
                     out,
                 );
             }
@@ -419,6 +442,7 @@ library Types {
         uint16 protocolBps;
         uint16 operatorBps;
         uint16 stakerBps;
+        uint16 keeperBps;
     }
 }
 
@@ -429,7 +453,7 @@ interface ITangleAdmin {
     function metricsRecorder() external view returns (address);
     function operatorStatusRegistry() external view returns (address);
     function pause() external;
-    function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
+    function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps, uint16 keeperBps);
     function priceOracle() external view returns (address);
     function rewardVaults() external view returns (address);
     function serviceFeeDistributor() external view returns (address);
@@ -550,6 +574,11 @@ interface ITangleAdmin {
       },
       {
         "name": "stakerBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "keeperBps",
         "type": "uint16",
         "internalType": "uint16"
       }
@@ -686,6 +715,11 @@ interface ITangleAdmin {
           },
           {
             "name": "stakerBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "keeperBps",
             "type": "uint16",
             "internalType": "uint16"
           }
@@ -1744,7 +1778,7 @@ function pause() external;
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `paymentSplit()` and selector `0xaac7416b`.
 ```solidity
-function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
+function paymentSplit() external view returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps, uint16 keeperBps);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1763,6 +1797,8 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
         pub operatorBps: u16,
         #[allow(missing_docs)]
         pub stakerBps: u16,
+        #[allow(missing_docs)]
+        pub keeperBps: u16,
     }
     #[allow(
         non_camel_case_types,
@@ -1812,9 +1848,10 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                 alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::Uint<16>,
+                alloy::sol_types::sol_data::Uint<16>,
             );
             #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (u16, u16, u16, u16);
+            type UnderlyingRustTuple<'a> = (u16, u16, u16, u16, u16);
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
             fn _type_assertion(
@@ -1835,6 +1872,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                         value.protocolBps,
                         value.operatorBps,
                         value.stakerBps,
+                        value.keeperBps,
                     )
                 }
             }
@@ -1847,6 +1885,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                         protocolBps: tuple.1,
                         operatorBps: tuple.2,
                         stakerBps: tuple.3,
+                        keeperBps: tuple.4,
                     }
                 }
             }
@@ -1868,6 +1907,9 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
                     <alloy::sol_types::sol_data::Uint<
                         16,
                     > as alloy_sol_types::SolType>::tokenize(&self.stakerBps),
+                    <alloy::sol_types::sol_data::Uint<
+                        16,
+                    > as alloy_sol_types::SolType>::tokenize(&self.keeperBps),
                 )
             }
         }
@@ -1879,6 +1921,7 @@ function paymentSplit() external view returns (uint16 developerBps, uint16 proto
             > as alloy_sol_types::SolType>::Token<'a>;
             type Return = paymentSplitReturn;
             type ReturnTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::Uint<16>,
                 alloy::sol_types::sol_data::Uint<16>,
@@ -3106,7 +3149,7 @@ function setOperatorStatusRegistry(address registry) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `setPaymentSplit((uint16,uint16,uint16,uint16))` and selector `0xb81741ac`.
+    /**Function with signature `setPaymentSplit((uint16,uint16,uint16,uint16,uint16))` and selector `0x45d8a0b3`.
 ```solidity
 function setPaymentSplit(Types.PaymentSplit memory split) external;
 ```*/
@@ -3116,7 +3159,7 @@ function setPaymentSplit(Types.PaymentSplit memory split) external;
         #[allow(missing_docs)]
         pub split: <Types::PaymentSplit as alloy::sol_types::SolType>::RustType,
     }
-    ///Container type for the return parameters of the [`setPaymentSplit((uint16,uint16,uint16,uint16))`](setPaymentSplitCall) function.
+    ///Container type for the return parameters of the [`setPaymentSplit((uint16,uint16,uint16,uint16,uint16))`](setPaymentSplitCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct setPaymentSplitReturn {}
@@ -3214,8 +3257,8 @@ function setPaymentSplit(Types.PaymentSplit memory split) external;
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "setPaymentSplit((uint16,uint16,uint16,uint16))";
-            const SELECTOR: [u8; 4] = [184u8, 23u8, 65u8, 172u8];
+            const SIGNATURE: &'static str = "setPaymentSplit((uint16,uint16,uint16,uint16,uint16))";
+            const SELECTOR: [u8; 4] = [69u8, 216u8, 160u8, 179u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -4928,6 +4971,7 @@ function unpause() external;
             [46u8, 64u8, 247u8, 251u8],
             [63u8, 75u8, 168u8, 58u8],
             [67u8, 166u8, 48u8, 125u8],
+            [69u8, 216u8, 160u8, 179u8],
             [83u8, 14u8, 120u8, 79u8],
             [94u8, 206u8, 36u8, 5u8],
             [95u8, 128u8, 125u8, 10u8],
@@ -4941,7 +4985,6 @@ function unpause() external;
             [158u8, 189u8, 101u8, 173u8],
             [159u8, 180u8, 61u8, 76u8],
             [170u8, 199u8, 65u8, 107u8],
-            [184u8, 23u8, 65u8, 172u8],
             [205u8, 211u8, 213u8, 186u8],
             [211u8, 144u8, 187u8, 187u8],
             [227u8, 150u8, 150u8, 23u8],
@@ -4958,6 +5001,7 @@ function unpause() external;
             ::core::stringify!(serviceFeeDistributor),
             ::core::stringify!(unpause),
             ::core::stringify!(setRewardVaults),
+            ::core::stringify!(setPaymentSplit),
             ::core::stringify!(setPriceOracle),
             ::core::stringify!(maxBlueprintsPerOperator),
             ::core::stringify!(setMBSMRegistry),
@@ -4971,7 +5015,6 @@ function unpause() external;
             ::core::stringify!(rewardVaults),
             ::core::stringify!(setTntToken),
             ::core::stringify!(paymentSplit),
-            ::core::stringify!(setPaymentSplit),
             ::core::stringify!(tntPaymentDiscountBps),
             ::core::stringify!(operatorStatusRegistry),
             ::core::stringify!(tntToken),
@@ -4988,6 +5031,7 @@ function unpause() external;
             <serviceFeeDistributorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <unpauseCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setRewardVaultsCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <setPaymentSplitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setPriceOracleCall as alloy_sol_types::SolCall>::SIGNATURE,
             <maxBlueprintsPerOperatorCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setMBSMRegistryCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -5001,7 +5045,6 @@ function unpause() external;
             <rewardVaultsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <setTntTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
             <paymentSplitCall as alloy_sol_types::SolCall>::SIGNATURE,
-            <setPaymentSplitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <tntPaymentDiscountBpsCall as alloy_sol_types::SolCall>::SIGNATURE,
             <operatorStatusRegistryCall as alloy_sol_types::SolCall>::SIGNATURE,
             <tntTokenCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -5216,6 +5259,17 @@ function unpause() external;
                     setRewardVaults
                 },
                 {
+                    fn setPaymentSplit(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleAdminCalls::setPaymentSplit)
+                    }
+                    setPaymentSplit
+                },
+                {
                     fn setPriceOracle(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
@@ -5351,17 +5405,6 @@ function unpause() external;
                             .map(ITangleAdminCalls::paymentSplit)
                     }
                     paymentSplit
-                },
-                {
-                    fn setPaymentSplit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setPaymentSplit)
-                    }
-                    setPaymentSplit
                 },
                 {
                     fn tntPaymentDiscountBps(
@@ -5525,6 +5568,17 @@ function unpause() external;
                     setRewardVaults
                 },
                 {
+                    fn setPaymentSplit(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
+                        <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleAdminCalls::setPaymentSplit)
+                    }
+                    setPaymentSplit
+                },
+                {
                     fn setPriceOracle(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<ITangleAdminCalls> {
@@ -5664,17 +5718,6 @@ function unpause() external;
                             .map(ITangleAdminCalls::paymentSplit)
                     }
                     paymentSplit
-                },
-                {
-                    fn setPaymentSplit(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<ITangleAdminCalls> {
-                        <setPaymentSplitCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(ITangleAdminCalls::setPaymentSplit)
-                    }
-                    setPaymentSplit
                 },
                 {
                     fn tntPaymentDiscountBps(

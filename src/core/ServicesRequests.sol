@@ -189,7 +189,7 @@ abstract contract ServicesRequests is Base {
         _validateServiceTtl(ttl);
 
         BlueprintRequestData memory blueprintData = _loadBlueprintRequestData(blueprintId);
-        _validatePricingPaymentConsistency(blueprintData.pricing, paymentToken);
+        _validatePricingPaymentConsistency(blueprintData.pricing, paymentToken, paymentAmount);
 
         uint64 requestContextId = _serviceRequestCount;
         _validateRequestPaymentAsset(
@@ -237,10 +237,21 @@ abstract contract ServicesRequests is Base {
         }
     }
 
-    function _validatePricingPaymentConsistency(Types.PricingModel pricing, address paymentToken) private pure {
-        // Event-driven services are currently native-settled for both initial and per-job payments.
-        if (pricing == Types.PricingModel.EventDriven && paymentToken != address(0)) {
-            revert Errors.InvalidPaymentToken();
+    function _validatePricingPaymentConsistency(
+        Types.PricingModel pricing,
+        address paymentToken,
+        uint256 paymentAmount
+    )
+        private
+        pure
+    {
+        // Event-driven services are funded by per-job `msg.value`, not by an upfront
+        // lump sum. Reject non-zero `paymentAmount` AT REQUEST TIME so the customer's
+        // funds aren't collected only to revert at activation — and so a tooling bug
+        // can't silently lock funds in the contract until expiry.
+        if (pricing == Types.PricingModel.EventDriven) {
+            if (paymentAmount != 0) revert Errors.UpfrontPaymentNotAllowedForEventDriven();
+            if (paymentToken != address(0)) revert Errors.InvalidPaymentToken();
         }
     }
 
@@ -284,8 +295,15 @@ abstract contract ServicesRequests is Base {
         if (operatorCount < minOps) {
             revert Errors.InsufficientOperators(minOps, operatorCount);
         }
-        if (maxOperators > 0 && operatorCount > maxOperators) {
-            revert Errors.TooManyOperators(maxOperators, operatorCount);
+        // Hard protocol ceiling: every per-operator loop in the bill / distribute /
+        // terminate paths must be bounded. A blueprint config `maxOperators == 0`
+        // means "use the protocol ceiling" — never "unlimited".
+        uint32 effectiveMax =
+            (maxOperators == 0 || maxOperators > ProtocolConfig.MAX_OPERATORS_PER_SERVICE)
+                ? ProtocolConfig.MAX_OPERATORS_PER_SERVICE
+                : maxOperators;
+        if (operatorCount > effectiveMax) {
+            revert Errors.TooManyOperators(effectiveMax, operatorCount);
         }
     }
 

@@ -246,6 +246,17 @@ library Errors {
     /// @notice Payment transfer failed
     error PaymentFailed();
 
+    /// @notice Subscription bill arithmetic overflowed; indicates misconfigured upstream state.
+    error BillingArithmeticOverflow();
+
+    /// @notice Subscription bill triggered before its baseline was seeded at activation.
+    ///         Indicates a service-creation path that skipped `initSubscriptionBaseline`.
+    error SubscriptionBaselineNotInitialized(uint64 serviceId);
+
+    /// @notice EventDriven services are funded per-job via `msg.value`; upfront paymentAmount
+    ///         at request is rejected so funds aren't collected only to be locked.
+    error UpfrontPaymentNotAllowedForEventDriven();
+
     /// @notice Payment token not allowed
     error TokenNotAllowed(address token);
 
@@ -489,7 +500,7 @@ library Errors {
     error TooManyTeeCommitments(uint256 supplied, uint256 maximum);
 
     /// @notice Fee-on-transfer / rebasing token rejected on payment ingress.
-    /// @dev Audit Round 2 economic F6: a non-1:1 token would silently leave the
+    /// @dev A non-1:1 token would silently leave the
     ///      escrow balance higher than the protocol's actual holdings; downstream
     ///      transfers would later revert on insufficient balance, bricking the
     ///      service. Detect via balance-delta and reject at the boundary.

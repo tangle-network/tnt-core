@@ -45,7 +45,13 @@ interface ITangleAdmin {
     function paymentSplit()
         external
         view
-        returns (uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps);
+        returns (
+            uint16 developerBps,
+            uint16 protocolBps,
+            uint16 operatorBps,
+            uint16 stakerBps,
+            uint16 keeperBps
+        );
 
     /// @notice Pause the protocol
     function pause() external;
