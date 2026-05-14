@@ -410,21 +410,17 @@ abstract contract TangleStorage {
     mapping(address => uint256) internal _pendingDisputeBondRefunds;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // TWAP SUBSCRIPTION BILLING — PER-OPERATOR CURSORS
+    // TWAP SUBSCRIPTION BILLING — PER-(SERVICE, OPERATOR, ASSET) CURSORS
     // ═══════════════════════════════════════════════════════════════════════════
-    // Stores the cumulative stake-seconds value last attributed to each
-    // (service, operator) pair. Replaces the earlier aggregate-only cursor that
-    // produced a bogus `cumDelta` whenever the active-operator set changed
-    // between bills (sum-over-old-set vs sum-over-new-set is not a valid delta).
-    //
-    // Per-operator cursors make the billing window correct under joins, leaves,
-    // and rejoins: each operator is attributed only the stake-seconds they
-    // accrued *while bonded to this service* over the billed period.
+    // The bill weight is the integral of `stake × commitmentBps` over the period,
+    // per (operator, asset) the service requires. Cursors track the cumulative
+    // stake-seconds last attributed for each (service, op, asset) so cumDelta is
+    // correct under joins, leaves, rejoins, and per-asset commitment changes.
 
-    /// @notice Service ID => Operator => cumulative stake-seconds at the
-    ///         operator's most recent attribution event for this service
-    ///         (join, prior bill). Zero sentinel = "never attributed."
-    mapping(uint64 => mapping(address => uint256)) internal _twapCursorByOp;
+    /// @notice Service ID => Operator => keccak256(asset.kind, asset.token) =>
+    ///         cum stake-seconds at the most recent attribution event (activation
+    ///         seed, join hook, prior bill). Zero sentinel = "never attributed."
+    mapping(uint64 => mapping(address => mapping(bytes32 => uint256))) internal _twapCursorByOpAsset;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP

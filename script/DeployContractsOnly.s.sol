@@ -16,6 +16,7 @@ import { TangleBlueprintsManagementFacet } from "../src/facets/tangle/TangleBlue
 import { TangleOperatorsFacet } from "../src/facets/tangle/TangleOperatorsFacet.sol";
 import { TangleServicesRequestsFacet } from "../src/facets/tangle/TangleServicesRequestsFacet.sol";
 import { TangleServicesFacet } from "../src/facets/tangle/TangleServicesFacet.sol";
+import { TangleServicesViewsFacet } from "../src/facets/tangle/TangleServicesViewsFacet.sol";
 import { TangleServicesLifecycleFacet } from "../src/facets/tangle/TangleServicesLifecycleFacet.sol";
 import { TangleJobsFacet } from "../src/facets/tangle/TangleJobsFacet.sol";
 import { TangleJobsAggregationFacet } from "../src/facets/tangle/TangleJobsAggregationFacet.sol";
@@ -23,6 +24,8 @@ import { TangleJobsRFQFacet } from "../src/facets/tangle/TangleJobsRFQFacet.sol"
 import { TangleQuotesFacet } from "../src/facets/tangle/TangleQuotesFacet.sol";
 import { TangleQuotesExtensionFacet } from "../src/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../src/facets/tangle/TanglePaymentsFacet.sol";
+import { TanglePaymentsRewardsFacet } from "../src/facets/tangle/TanglePaymentsRewardsFacet.sol";
+import { TanglePaymentsDistributionFacet } from "../src/facets/tangle/TanglePaymentsDistributionFacet.sol";
 import { TangleSlashingFacet } from "../src/facets/tangle/TangleSlashingFacet.sol";
 import { StakingOperatorsFacet } from "../src/facets/staking/StakingOperatorsFacet.sol";
 import { StakingDepositsFacet } from "../src/facets/staking/StakingDepositsFacet.sol";
@@ -127,6 +130,7 @@ contract DeployContractsOnly is Script {
         tangle.registerFacet(address(new TangleOperatorsFacet()));
         tangle.registerFacet(address(new TangleServicesRequestsFacet()));
         tangle.registerFacet(address(new TangleServicesFacet()));
+        tangle.registerFacet(address(new TangleServicesViewsFacet()));
         tangle.registerFacet(address(new TangleServicesLifecycleFacet()));
         tangle.registerFacet(address(new TangleJobsFacet()));
         tangle.registerFacet(address(new TangleJobsAggregationFacet()));
@@ -134,6 +138,8 @@ contract DeployContractsOnly is Script {
         tangle.registerFacet(address(new TangleQuotesFacet()));
         tangle.registerFacet(address(new TangleQuotesExtensionFacet()));
         tangle.registerFacet(address(new TanglePaymentsFacet()));
+        tangle.registerFacet(address(new TanglePaymentsRewardsFacet()));
+        tangle.registerFacet(address(new TanglePaymentsDistributionFacet()));
         tangle.registerFacet(address(new TangleSlashingFacet()));
     }
 }

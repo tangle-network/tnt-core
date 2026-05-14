@@ -419,6 +419,73 @@ contract QuoteVerificationTest is BaseTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // TIMESTAMP FRESHNESS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Operator signs a long-lived `expiry`; redemption past `maxQuoteAge` must revert.
+    /// @dev Without the freshness check, an operator-signed `expiry = type(uint64).max`
+    ///      would let the customer redeem a stale-priced quote weeks later.
+    function test_CreateFromQuote_RevertStaleTimestampPastMaxAge() public {
+        uint64 maxAge = 1 hours;
+        uint64 baseTimestamp = uint64(block.timestamp);
+
+        Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: user1,
+            blueprintId: blueprintId,
+            ttlBlocks: 100,
+            totalCost: 1 ether,
+            timestamp: baseTimestamp,
+            expiry: type(uint64).max,
+            confidentiality: Types.ConfidentialityPolicy.Any,
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
+        });
+
+        bytes memory signature = _signQuote(details, OPERATOR1_PK);
+
+        Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
+        quotes[0] = Types.SignedQuote({ details: details, signature: signature, operator: operator1 });
+
+        // Warp past `maxAge` after timestamp, but well before the operator's `expiry`.
+        vm.warp(uint256(baseTimestamp) + uint256(maxAge) + 1);
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.QuoteTimestampStale.selector, operator1, baseTimestamp, maxAge));
+        tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
+    }
+
+    /// @notice A quote within `maxQuoteAge` is still redeemable.
+    function test_CreateFromQuote_FreshTimestampAccepted() public {
+        uint64 maxAge = 1 hours;
+        uint64 baseTimestamp = uint64(block.timestamp);
+
+        Types.QuoteDetails memory details = Types.QuoteDetails({
+            requester: user1,
+            blueprintId: blueprintId,
+            ttlBlocks: 100,
+            totalCost: 1 ether,
+            timestamp: baseTimestamp,
+            expiry: type(uint64).max,
+            confidentiality: Types.ConfidentialityPolicy.Any,
+            securityCommitments: new Types.AssetSecurityCommitment[](0),
+            resourceCommitments: new Types.ResourceCommitment[](0)
+        });
+
+        bytes memory signature = _signQuote(details, OPERATOR1_PK);
+
+        Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
+        quotes[0] = Types.SignedQuote({ details: details, signature: signature, operator: operator1 });
+
+        // Warp just under `maxAge` — still fresh.
+        vm.warp(uint256(baseTimestamp) + uint256(maxAge) - 1);
+
+        vm.prank(user1);
+        uint64 serviceId =
+            tangle.createServiceFromQuotes{ value: 1 ether }(blueprintId, quotes, "", new address[](0), 100);
+        assertTrue(tangle.isServiceActive(serviceId));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // REPLAY PROTECTION
     // ═══════════════════════════════════════════════════════════════════════════
 

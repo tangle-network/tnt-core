@@ -327,6 +327,23 @@ library Errors {
     /// @notice Quote already used (replay protection)
     error QuoteAlreadyUsed(address operator);
 
+    /// @notice Per-job quote requester does not match the address consuming it.
+    /// @dev Job-quote digests are single-use; without this check any permitted caller
+    ///      (or mempool observer) could front-run the intended `requester` and consume
+    ///      their digest, redirecting reward credits and the BSM hook context.
+    error JobQuoteRequesterMismatch(address operator, address expected, address actual);
+
+    /// @notice Quote timestamp older than the protocol's maximum allowed age.
+    /// @dev Mirrors `QuoteTimestampTooOld` but emitted from the batch service-creation
+    ///      / extension paths where a stale price would lock the operator into a
+    ///      pre-redemption commitment after market conditions changed.
+    error QuoteTimestampStale(address operator, uint64 timestamp, uint64 maxAge);
+
+    /// @notice Cumulative service TTL would exceed the protocol cap after extension.
+    /// @dev Per-call validation only bounds the additional TTL; this catches the case
+    ///      where successive extensions grow `svc.ttl` past the long-lived ceiling.
+    error CumulativeTtlExceeded(uint64 newTtl, uint64 maximum);
+
     /// @notice Insufficient escrow balance
     error InsufficientEscrowBalance(uint256 required, uint256 available);
 

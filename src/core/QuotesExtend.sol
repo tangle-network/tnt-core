@@ -87,8 +87,17 @@ abstract contract QuotesExtend is Base {
         uint64 extensionStart = currentEndTime > uint64(block.timestamp) ? currentEndTime : uint64(block.timestamp);
         uint64 oldTtl = svc.ttl;
 
+        // Cap the cumulative TTL so chained extensions cannot grow `svc.ttl` past the
+        // protocol ceiling. Per-call validation already bounds `additionalTtl` to
+        // `MAX_SERVICE_TTL`, but without a cumulative cap a long-lived service could
+        // accumulate decades of escrowed runtime one valid extension at a time.
+        uint64 newTtl = (extensionStart - svc.createdAt) + additionalTtl;
+        if (newTtl > ProtocolConfig.MAX_CUMULATIVE_SERVICE_TTL) {
+            revert Errors.CumulativeTtlExceeded(newTtl, ProtocolConfig.MAX_CUMULATIVE_SERVICE_TTL);
+        }
+
         // Extend TTL
-        svc.ttl = (extensionStart - svc.createdAt) + additionalTtl;
+        svc.ttl = newTtl;
 
         emit ServiceExtended(serviceId, oldTtl, svc.ttl, totalCost);
 
@@ -145,8 +154,9 @@ abstract contract QuotesExtend is Base {
         private
         returns (uint256 totalCost)
     {
+        uint64 effectiveMaxQuoteAge = _maxQuoteAge > 0 ? _maxQuoteAge : ProtocolConfig.MAX_QUOTE_AGE;
         (totalCost,) = SignatureLib.verifyQuoteBatch(
-            _usedQuotes, _domainSeparatorView(), quotes, blueprintId, ttl, msg.sender
+            _usedQuotes, _domainSeparatorView(), quotes, blueprintId, ttl, msg.sender, effectiveMaxQuoteAge
         );
     }
 

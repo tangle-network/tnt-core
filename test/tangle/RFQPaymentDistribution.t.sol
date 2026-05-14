@@ -597,6 +597,68 @@ contract RFQPaymentDistributionTest is BaseTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // REQUESTER BINDING (front-run protection)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice A second permitted caller cannot consume a quote signed for user1.
+    /// @dev The operator gossips the quote to user1; user2 observes it in the mempool
+    ///      (or via any out-of-band channel) and tries to land the call first. The
+    ///      verification must reject before the single-use digest is burned.
+    function test_SubmitJobFromQuote_FrontRunByOtherPermittedCallerReverts() public {
+        // Add user2 as a permitted caller on the service.
+        vm.prank(user1);
+        tangle.addPermittedCaller(serviceId, user2);
+        vm.deal(user2, 10 ether);
+
+        uint256 price = 1 ether;
+
+        // Operator signs a quote bound to user1.
+        Types.SignedJobQuote[] memory quotes = new Types.SignedJobQuote[](1);
+        quotes[0] = _createJobQuote(operator1, OPERATOR1_PK, serviceId, 0, price);
+
+        // user2 tries to consume the user1-bound quote — must revert with mismatch.
+        vm.prank(user2);
+        vm.expectRevert(abi.encodeWithSelector(Errors.JobQuoteRequesterMismatch.selector, operator1, user1, user2));
+        tangle.submitJobFromQuote{ value: price }(serviceId, 0, "", quotes);
+
+        // user1 (the intended consumer) can still redeem the same quote — digest
+        // was not burned by the failed front-run attempt.
+        vm.prank(user1);
+        uint64 callId = tangle.submitJobFromQuote{ value: price }(serviceId, 0, "", quotes);
+
+        // Recorded caller is user1, not user2.
+        Types.JobCall memory call = tangle.getJobCall(serviceId, callId);
+        assertEq(call.caller, user1, "caller recorded as user1");
+    }
+
+    /// @notice A wildcard `requester = address(0)` quote is rejected outright.
+    function test_SubmitJobFromQuote_WildcardRequesterReverts() public {
+        uint256 price = 1 ether;
+
+        // Build a quote with requester = address(0) and sign it.
+        uint64 baseTimestamp = uint64(block.timestamp);
+        Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
+            requester: address(0),
+            serviceId: serviceId,
+            jobIndex: 0,
+            price: price,
+            timestamp: baseTimestamp,
+            expiry: baseTimestamp + 1 hours,
+            confidentiality: 0
+        });
+        bytes memory signature = _signJobQuote(details, OPERATOR1_PK);
+
+        Types.SignedJobQuote[] memory quotes = new Types.SignedJobQuote[](1);
+        quotes[0] = Types.SignedJobQuote({ details: details, signature: signature, operator: operator1 });
+
+        vm.prank(user1);
+        vm.expectRevert(
+            abi.encodeWithSelector(Errors.JobQuoteRequesterMismatch.selector, operator1, address(0), user1)
+        );
+        tangle.submitJobFromQuote{ value: price }(serviceId, 0, "", quotes);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 

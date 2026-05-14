@@ -17,45 +17,9 @@ contract TangleServicesFacet is ServicesApprovals, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](7);
+        selectorList = new bytes4[](2);
         selectorList[0] = this.approveService.selector;
         selectorList[1] = this.rejectService.selector;
-        selectorList[2] = this.getOperatorBlsPubkey.selector;
-        selectorList[3] = this.blsPopMessage.selector;
-        selectorList[4] = this.getTeeCommitmentRoot.selector;
-        selectorList[5] = this.teeNonceFor.selector;
-        // The aa511c2 release added `expireServiceRequest` to ITangleServices but
-        // forgot to register it here, so the permissionless cleanup path was
-        // unreachable on the proxy.
-        selectorList[6] = this.expireServiceRequest.selector;
-    }
-
-    /// @notice keccak256 root over an operator's `TeeAttestationCommitment[]` for a service.
-    /// @dev Slashing / provisioning oracles supply the original array as a witness and verify
-    ///      `keccak256(abi.encode(witness)) == getTeeCommitmentRoot(serviceId, operator)` before
-    ///      treating the witness as authoritative. Returns `bytes32(0)` if the operator
-    ///      approved without TEE commitments.
-    function getTeeCommitmentRoot(uint64 serviceId, address operator) external view returns (bytes32) {
-        return _serviceTeeCommitmentRoot[serviceId][operator];
-    }
-
-    /// @notice Get operator's BLS public key for a service
-    /// @param serviceId The service ID
-    /// @param operator The operator address
-    /// @return blsPubkey The BLS G2 public key [x0, x1, y0, y1], all zeros if not registered
-    function getOperatorBlsPubkey(
-        uint64 serviceId,
-        address operator
-    )
-        external
-        view
-        returns (uint256[4] memory blsPubkey)
-    {
-        Types.BLSPubkey storage stored = _serviceOperatorBlsPubkeys[serviceId][operator];
-        blsPubkey[0] = stored.key[0];
-        blsPubkey[1] = stored.key[1];
-        blsPubkey[2] = stored.key[2];
-        blsPubkey[3] = stored.key[3];
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

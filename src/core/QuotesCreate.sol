@@ -9,6 +9,7 @@ import { Errors } from "../libraries/Errors.sol";
 import { SignatureLib } from "../libraries/SignatureLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { ITanglePaymentsInternal } from "../interfaces/ITanglePaymentsInternal.sol";
+import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
 /// @title QuotesCreate
 /// @notice RFQ service creation from signed quotes
@@ -167,8 +168,9 @@ abstract contract QuotesCreate is Base {
         private
         returns (uint256 totalCost)
     {
+        uint64 effectiveMaxQuoteAge = _maxQuoteAge > 0 ? _maxQuoteAge : ProtocolConfig.MAX_QUOTE_AGE;
         (totalCost,) = SignatureLib.verifyQuoteBatch(
-            _usedQuotes, _domainSeparatorView(), quotes, blueprintId, ttl, msg.sender
+            _usedQuotes, _domainSeparatorView(), quotes, blueprintId, ttl, msg.sender, effectiveMaxQuoteAge
         );
         _ensureQuoteConfidentialityConsistent(quotes);
     }

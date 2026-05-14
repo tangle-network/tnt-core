@@ -211,14 +211,26 @@ library SignatureLib {
     }
 
     /// @notice Verify job quote signature and mark as used (replay protection)
+    /// @param expectedRequester The address consuming the quote (typically `msg.sender`).
+    ///        Bound here so a third party that observed the gossiped quote cannot
+    ///        front-run the intended caller and burn the single-use digest. A wildcard
+    ///        `requester == address(0)` on the signed details is rejected outright.
     function verifyAndMarkJobQuoteUsed(
         mapping(bytes32 => bool) storage usedQuotes,
         bytes32 domainSeparator,
         Types.SignedJobQuote memory quote,
-        uint64 maxQuoteAge
+        uint64 maxQuoteAge,
+        address expectedRequester
     )
         internal
     {
+        // Bind the quote to the caller. Wildcard requesters are rejected because a
+        // publicly-posted wildcard quote is a free coupon for whoever lands their tx
+        // first — the operator's signature must commit to a specific consumer.
+        if (quote.details.requester == address(0) || quote.details.requester != expectedRequester) {
+            revert Errors.JobQuoteRequesterMismatch(quote.operator, quote.details.requester, expectedRequester);
+        }
+
         // Check expiry
         if (block.timestamp > quote.details.expiry) {
             revert Errors.QuoteExpired(quote.operator, quote.details.expiry);
@@ -253,6 +265,11 @@ library SignatureLib {
 
     /// @notice Verify multiple quotes and compute total cost.
     /// @param expectedRequester The address each quote must be bound to (typically `msg.sender`).
+    /// @param maxQuoteAge Maximum allowed age (in seconds) of `details.timestamp`. `0` disables
+    ///        the check; non-zero values enforce that the operator-signed timestamp is no older
+    ///        than `maxQuoteAge` at redemption. Without this an operator-signed `expiry` set to
+    ///        `type(uint64).max` would let a customer redeem a stale price long after the
+    ///        market moved.
     /// @dev Wildcard `requester == address(0)` is rejected. Operators that sign a wildcard
     ///      quote and post it publicly are vulnerable to a front-runner consuming the
     ///      single-use digest before the intended caller's tx lands. Wildcard support has
@@ -265,7 +282,8 @@ library SignatureLib {
         Types.SignedQuote[] memory quotes,
         uint64 blueprintId,
         uint64 ttl,
-        address expectedRequester
+        address expectedRequester,
+        uint64 maxQuoteAge
     )
         internal
         returns (uint256 totalCost, address[] memory operators)
@@ -299,6 +317,12 @@ library SignatureLib {
             // Check expiry
             if (block.timestamp > quote.details.expiry) {
                 revert Errors.QuoteExpired(quote.operator, quote.details.expiry);
+            }
+
+            // Check timestamp freshness so an operator-signed long-tail `expiry` cannot
+            // be used to redeem a stale-priced quote weeks later.
+            if (maxQuoteAge > 0 && block.timestamp > quote.details.timestamp + maxQuoteAge) {
+                revert Errors.QuoteTimestampStale(quote.operator, quote.details.timestamp, maxQuoteAge);
             }
 
             // Bind quote to the intended requester so a third party cannot front-run

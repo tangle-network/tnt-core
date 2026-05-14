@@ -18,12 +18,15 @@ import { TangleBlueprintsManagementFacet } from "../src/facets/tangle/TangleBlue
 import { TangleOperatorsFacet } from "../src/facets/tangle/TangleOperatorsFacet.sol";
 import { TangleServicesRequestsFacet } from "../src/facets/tangle/TangleServicesRequestsFacet.sol";
 import { TangleServicesFacet } from "../src/facets/tangle/TangleServicesFacet.sol";
+import { TangleServicesViewsFacet } from "../src/facets/tangle/TangleServicesViewsFacet.sol";
 import { TangleServicesLifecycleFacet } from "../src/facets/tangle/TangleServicesLifecycleFacet.sol";
 import { TangleJobsFacet } from "../src/facets/tangle/TangleJobsFacet.sol";
 import { TangleJobsAggregationFacet } from "../src/facets/tangle/TangleJobsAggregationFacet.sol";
 import { TangleQuotesFacet } from "../src/facets/tangle/TangleQuotesFacet.sol";
 import { TangleQuotesExtensionFacet } from "../src/facets/tangle/TangleQuotesExtensionFacet.sol";
 import { TanglePaymentsFacet } from "../src/facets/tangle/TanglePaymentsFacet.sol";
+import { TanglePaymentsRewardsFacet } from "../src/facets/tangle/TanglePaymentsRewardsFacet.sol";
+import { TanglePaymentsDistributionFacet } from "../src/facets/tangle/TanglePaymentsDistributionFacet.sol";
 import { TangleSlashingFacet } from "../src/facets/tangle/TangleSlashingFacet.sol";
 import { StakingOperatorsFacet } from "../src/facets/staking/StakingOperatorsFacet.sol";
 import { StakingDepositsFacet } from "../src/facets/staking/StakingDepositsFacet.sol";
@@ -181,12 +184,15 @@ abstract contract BaseTest is Test, BlueprintDefinitionHelper {
         router.registerFacet(address(new TangleOperatorsFacet()));
         router.registerFacet(address(new TangleServicesRequestsFacet()));
         router.registerFacet(address(new TangleServicesFacet()));
+        router.registerFacet(address(new TangleServicesViewsFacet()));
         router.registerFacet(address(new TangleServicesLifecycleFacet()));
         router.registerFacet(address(new TangleJobsFacet()));
         router.registerFacet(address(new TangleJobsAggregationFacet()));
         router.registerFacet(address(new TangleQuotesFacet()));
         router.registerFacet(address(new TangleQuotesExtensionFacet()));
         router.registerFacet(address(new TanglePaymentsFacet()));
+        router.registerFacet(address(new TanglePaymentsRewardsFacet()));
+        router.registerFacet(address(new TanglePaymentsDistributionFacet()));
         router.registerFacet(address(new TangleSlashingFacet()));
     }
 

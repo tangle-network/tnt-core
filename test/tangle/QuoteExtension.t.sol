@@ -6,6 +6,7 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
 import { BaseTest } from "../BaseTest.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
+import { ProtocolConfig } from "../../src/config/ProtocolConfig.sol";
 
 /// @title QuoteExtensionTest
 /// @notice Tests for service TTL extension via quotes
@@ -273,6 +274,60 @@ contract QuoteExtensionTest is BaseTest {
 
         // Extension should start from now since we're past expiry
         assertGe(newEnd, block.timestamp + additionalTtl - 1, "Should extend from current time if expired");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CUMULATIVE TTL CAP
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice A sequence of legal-sized extensions still reverts once the cumulative
+    ///         service TTL would exceed `MAX_CUMULATIVE_SERVICE_TTL`.
+    /// @dev Per-call validation already bounds `additionalTtl` to `MAX_SERVICE_TTL` (365d);
+    ///      this test asserts that the cumulative cap (`MAX_CUMULATIVE_SERVICE_TTL`, 4x)
+    ///      stops chained extensions from growing `svc.ttl` past the long-lived ceiling.
+    function test_ExtendService_RevertsOnCumulativeTtlExceeded() public {
+        uint64 maxPerCall = ProtocolConfig.MAX_SERVICE_TTL;
+        uint64 cumulativeCap = ProtocolConfig.MAX_CUMULATIVE_SERVICE_TTL;
+
+        // Each extension must use a fresh quote digest (replay protection burns the
+        // digest at first use), and the per-quote totalCost varies so two operator-
+        // signed quotes never collide in the digest set.
+        Types.Service memory svc = tangle.getService(serviceId);
+        uint256 iter = 0;
+        while (true) {
+            uint64 currentEnd = svc.createdAt + svc.ttl;
+            uint64 extensionStart = currentEnd > uint64(block.timestamp) ? currentEnd : uint64(block.timestamp);
+            uint64 prospectiveTtl = (extensionStart - svc.createdAt) + maxPerCall;
+            if (prospectiveTtl > cumulativeCap) break;
+
+            iter++;
+            uint256 cost = 0.5 ether + iter; // unique per iteration so digests differ
+            Types.SignedQuote[] memory quotes = new Types.SignedQuote[](1);
+            quotes[0] = _createExtensionQuote(operator1Key, operator1, cost, maxPerCall);
+
+            vm.deal(user1, cost);
+            vm.prank(user1);
+            tangle.extendServiceFromQuotes{ value: cost }(serviceId, quotes, maxPerCall);
+
+            svc = tangle.getService(serviceId);
+        }
+
+        // Next legal-sized extension would push svc.ttl over the cumulative cap.
+        uint64 currentEndFinal = svc.createdAt + svc.ttl;
+        uint64 extensionStartFinal =
+            currentEndFinal > uint64(block.timestamp) ? currentEndFinal : uint64(block.timestamp);
+        uint64 expectedNewTtl = (extensionStartFinal - svc.createdAt) + maxPerCall;
+        assertGt(expectedNewTtl, cumulativeCap, "test setup: next extension should exceed cap");
+
+        iter++;
+        uint256 finalCost = 0.5 ether + iter;
+        Types.SignedQuote[] memory finalQuotes = new Types.SignedQuote[](1);
+        finalQuotes[0] = _createExtensionQuote(operator1Key, operator1, finalCost, maxPerCall);
+
+        vm.deal(user1, finalCost);
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.CumulativeTtlExceeded.selector, expectedNewTtl, cumulativeCap));
+        tangle.extendServiceFromQuotes{ value: finalCost }(serviceId, finalQuotes, maxPerCall);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

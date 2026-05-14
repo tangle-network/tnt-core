@@ -82,7 +82,8 @@ abstract contract JobsRFQ is Base {
 
         // Verify quotes and compute total cost
         uint64 effectiveMaxQuoteAge = _maxQuoteAge > 0 ? _maxQuoteAge : ProtocolConfig.MAX_QUOTE_AGE;
-        uint256 totalPrice = _verifyQuotesAndRecordOperators(serviceId, jobIndex, quotes, effectiveMaxQuoteAge);
+        uint256 totalPrice =
+            _verifyQuotesAndRecordOperators(serviceId, jobIndex, quotes, effectiveMaxQuoteAge, msg.sender);
 
         if (totalPrice > 0 && !_isPaymentAssetAllowedByManager(bp.manager, serviceId, address(0))) {
             revert Errors.TokenNotAllowed(address(0));
@@ -132,7 +133,8 @@ abstract contract JobsRFQ is Base {
         uint64 serviceId,
         uint8 jobIndex,
         Types.SignedJobQuote[] calldata quotes,
-        uint64 maxQuoteAge
+        uint64 maxQuoteAge,
+        address expectedRequester
     )
         private
         returns (uint256 totalPrice)
@@ -174,7 +176,9 @@ abstract contract JobsRFQ is Base {
 
             // Verify EIP-712 signature and mark as used. Domain separator is recomputed
             // per-call against current chainid so cross-fork replay is impossible.
-            SignatureLib.verifyAndMarkJobQuoteUsed(_usedQuotes, _domainSeparatorView(), quote, maxQuoteAge);
+            SignatureLib.verifyAndMarkJobQuoteUsed(
+                _usedQuotes, _domainSeparatorView(), quote, maxQuoteAge, expectedRequester
+            );
 
             totalPrice += quote.details.price;
         }
