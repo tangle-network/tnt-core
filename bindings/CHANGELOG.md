@@ -7,6 +7,108 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-05-15
+
+Quote-path security hardening, multi-asset bill weighting, EIP-170 facet split,
+O(1) staking aggregates, share-pool validator slashing, and griefing-resilient
+reward sweep. Diamond ABI from the proxy's perspective is unchanged — every
+external selector still routes to `Tangle`. The only binding-level surface
+addition is one new diamond self-call on `ITanglePaymentsInternal`. Most of
+the behavioral changes are observable to indexers via events that live on the
+facet contracts (`Payments*`, `ValidatorPodManager`); those event ABIs are
+not surfaced through the `ITangle*` interfaces and therefore are not present
+in the generated bindings. Indexer consumers should decode them by topic
+hash against the facet source ABIs (see below).
+
+### Added (binding surface)
+
+- `ITanglePaymentsInternal.distributeBillWithKeeper((uint64,uint64,address,uint256,address[],uint256[],uint256,bool,address))`
+  selector `0x68cdf660`. Diamond self-call used by `billSubscription` to
+  hand the per-operator weights computed during accrual directly to the
+  distribution facet, so the keeper rebate and per-asset stake-time
+  weighting agree across the bill and the distribute steps.
+- `ITanglePaymentsInternal.BillDistribution` struct exposing the
+  self-call payload shape: `serviceId`, `blueprintId`, `token`, `amount`,
+  `operators`, `weights`, `totalWeight`, `hasSecurityCommitments`,
+  `keeper`.
+
+### Behavior changes (no binding ABI delta; same selectors, new semantics)
+
+- RFQ quote redemption is now requester-bound, freshness-checked, and
+  cumulative-TTL-capped. Job RFQ now verifies `msg.sender` against the
+  quote's signed `requester` (reverts `JobQuoteRequesterMismatch`,
+  including for wildcard `address(0)`). Service-creation quotes enforce
+  `block.timestamp <= details.timestamp + maxQuoteAge` and revert
+  `QuoteTimestampStale`. `extendServiceFromQuotes` rejects extensions
+  whose cumulative TTL exceeds `MAX_SERVICE_TTL` with
+  `CumulativeTtlExceeded`.
+- Subscription bills weight by `Σ_op Σ_asset
+  (cumStakeSeconds_delta × commitmentBps × price)` across every asset the
+  service requires, replacing the bond-asset-only TWAP. TWAP cursors are
+  keyed `(serviceId, operator, assetHash)`. Services without per-asset
+  commitments fall back to the bond asset at the operator's overall
+  `exposureBps` (legacy semantics).
+- `claimRewardsAll` is griefing-resilient. A single token whose `transfer`
+  reverts no longer poisons the entire sweep — it is skipped via a
+  self-call try/catch path, `RewardsClaimSkipped(account, token)` is
+  emitted on the facet, the remaining tokens are claimed, and the
+  griefing token stays in the pending set for a future retry. Single-token
+  claim paths (`claimRewards()`, `claimRewards(token)`, `claimRewardsBatch`)
+  are unchanged and still revert on failure so the explicit caller sees
+  the underlying error.
+- `ValidatorPodManager._slash(operator, slashBps)` is now O(1) regardless
+  of delegator count. Each operator owns a `DelegationPool {
+  totalAssets, totalShares }` with virtual-share inflation defenses;
+  delegator balances are derived on read from
+  `shares × totalAssets / totalShares`. The per-delegator `DelegatorSlashed`
+  emission loop is replaced by a single
+  `OperatorPoolSlashed(operator, slashAmount, newTotalAssets, totalShares)`
+  event on the facet; indexers reconstruct per-delegator impact off-chain
+  from share balances + this event.
+- `_getOperatorDelegatedStakeForAsset` is now a single SLOAD. The running
+  sum `_operatorDelegatedAggregate[operator][assetHash]` is updated at
+  every pool-totalAssets mutation. Removes the per-blueprint loop that
+  used to gas-bomb operators participating in many services and was
+  exercised on every TWAP accrual.
+
+### Storage layout (no slot reordering)
+
+- `DelegationStorage.__gap` decreased 44 → 43 to make room for
+  `_operatorDelegatedAggregate`. All pre-existing slots preserved.
+- `ValidatorPodManager` appends `_operatorDelegationPools` and
+  `_delegationShares` after the existing layout. No existing slot
+  reordered.
+
+### Facet split (no diamond-ABI delta)
+
+- `TanglePaymentsFacet`, `TangleServicesFacet`, and
+  `TanglePaymentsDistributionFacet` each fit under the EIP-170 24,576-byte
+  runtime ceiling now (24,160 / 21,741 / 18,144). `Payments` was split into
+  `PaymentsCore` / `PaymentsEscrow` / `PaymentsBilling` /
+  `PaymentsDistribution` / `PaymentsRewards`; pure validation helpers moved
+  to `ServiceValidationLib` (linked at deploy time, ~3.8 KB). Same selectors,
+  routed to different physical facet contracts.
+
+### Facet-only events (decode against source ABIs, not bound here)
+
+Emitted from `Payments*` and `ValidatorPodManager` facets. Not surfaced
+on `ITangle` / `ITangleFull` — indexers should decode by topic hash from
+the facet source ABIs:
+
+- `OperatorPoolSlashed(address operator, uint256 slashAmount, uint256 newTotalAssets, uint256 totalShares)`
+- `RewardsClaimSkipped(address account, address token)`
+- `KeeperRebateAccrued(uint64 serviceId, address keeper, address token, uint256 amount)`
+- `TntPaymentDiscountApplied(uint64 serviceId, address recipient, address token, uint256 amount)`
+- `StakerShareRefundedToEscrow(uint64 serviceId, address operator, address token, uint256 amount, bytes reason)`
+- `SubscriptionBaselineInitialized(uint64 serviceId, uint256 baselineStake, uint256 operatorCount)`
+- `SubscriptionBillSkippedNoOperators(uint64 serviceId, uint64 period)`
+- `SubscriptionBillAdjustedByManager(uint64 serviceId, uint256 preAdjustmentAmount, uint256 adjustedAmount, uint16 adjustmentBps)`
+
+### Errors
+
+- New: `JobQuoteRequesterMismatch`, `QuoteTimestampStale`,
+  `CumulativeTtlExceeded`.
+
 ## [0.16.0] - 2026-05-11
 
 Subscription billing rearchitecture. Substantive contract behavior changes for
@@ -696,7 +798,7 @@ ValidatorPodManager). Single coordinated bindings cut.
 - Raw ABI JSON exports via `abi` module
 - `TNT_CORE_VERSION` constant for commit tracking
 
-[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.16.0...HEAD
+[Unreleased]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.17.0...HEAD
 [0.11.1]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.0...bindings-v0.11.1
 [0.11.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.10.9...bindings-v0.11.0
 [0.1.0]: https://github.com/tangle-network/tnt-core/releases/tag/bindings-v0.1.0
@@ -736,3 +838,4 @@ ValidatorPodManager). Single coordinated bindings cut.
 [0.11.2]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.1...bindings-v0.11.2
 [0.11.3]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.11.2...bindings-v0.11.3
 [0.16.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.15.0...bindings-v0.16.0
+[0.17.0]: https://github.com/tangle-network/tnt-core/compare/bindings-v0.16.0...bindings-v0.17.0
