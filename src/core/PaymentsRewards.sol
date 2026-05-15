@@ -17,6 +17,9 @@ abstract contract PaymentsRewards is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     event RewardsClaimed(address indexed account, address indexed token, uint256 amount);
+    /// @notice Emitted when `claimRewardsAll` skips a token whose transfer reverted, so
+    ///         indexers and the affected operator can see which token is griefing the sweep.
+    event RewardsClaimSkipped(address indexed account, address indexed token);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // REWARDS
@@ -43,13 +46,45 @@ abstract contract PaymentsRewards is Base {
         }
     }
 
-    /// @notice Claim pending rewards for all tokens tracked for the caller
+    /// @notice Claim pending rewards for all tokens tracked for the caller.
+    /// @dev Each token is claimed in an isolated self-call so a single griefing ERC20
+    ///      (transfer reverts, gas bomb, paused, etc.) cannot brick the entire sweep
+    ///      and lock out the operator's other reward claims. Tokens whose self-call
+    ///      reverts remain in the pending-rewards set for a future retry once the
+    ///      issue is resolved off-chain.
     function claimRewardsAll() external nonReentrant {
         EnumerableSet.AddressSet storage set = _pendingRewardTokens[msg.sender];
-        while (set.length() > 0) {
-            address token = set.at(set.length() - 1);
-            _claimRewardsToken(msg.sender, token, true);
+        uint256 len = set.length();
+        // Snapshot first: the inner claim mutates the set on success.
+        address[] memory toClaim = new address[](len);
+        for (uint256 i = 0; i < len;) {
+            toClaim[i] = set.at(i);
+            unchecked {
+                ++i;
+            }
         }
+        for (uint256 i = 0; i < len;) {
+            try this._claimRewardsTokenSafe(msg.sender, toClaim[i]) {
+                // pending zeroed, transfer succeeded, token removed from set inside the self-call
+            } catch {
+                // griefing / paused / reverting token: skip this one, leave it in the set,
+                // and continue sweeping the remaining tokens
+                emit RewardsClaimSkipped(msg.sender, toClaim[i]);
+            }
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @notice Self-call entry point for `claimRewardsAll`'s per-token try/catch.
+    /// @dev External so the parent `claimRewardsAll` can wrap each invocation in
+    ///      `try/catch`; gated by `msg.sender == address(this)` so external callers
+    ///      cannot hit it directly. Not `nonReentrant` because the parent already holds
+    ///      the guard for the whole sweep.
+    function _claimRewardsTokenSafe(address account, address token) external {
+        if (msg.sender != address(this)) revert Errors.Unauthorized();
+        _claimRewardsToken(account, token, true);
     }
 
     /// @notice Get pending rewards
