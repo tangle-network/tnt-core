@@ -55,6 +55,21 @@ contract RevertingToken is ERC20 {
     }
 }
 
+/// @notice Mock token whose `transfer` (outbound) reverts but `transferFrom` (inbound) works.
+/// @dev Lets a test set up a pending-rewards entry whose later claim attempt will revert,
+///      exercising griefing-resistance on `claimRewardsAll`.
+contract OutboundRevertToken is ERC20 {
+    constructor() ERC20("OutboundRevert", "OREV") { }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function transfer(address, uint256) public pure override returns (bool) {
+        revert("Outbound transfer disabled");
+    }
+}
+
 /// @notice Receiver that rejects ETH
 contract ETHRejecter {
     receive() external payable {
@@ -221,6 +236,81 @@ contract PaymentEdgeCasesTest is BaseTest {
             op1Pending + op2Pending + op3Pending <= expectedTotal,
             "Total operator rewards should not exceed operator+staker share"
         );
+    }
+
+    /// @notice `claimRewardsAll` must isolate per-token transfer failures so a single griefing
+    ///         ERC20 in an operator's pending-rewards set cannot lock out every other claim.
+    /// @dev Pays the operator in two tokens: a normal `MockERC20` and an `OutboundRevertToken`
+    ///      whose `transfer` reverts. After `claimRewardsAll`:
+    ///        - the normal token's reward is delivered
+    ///        - the griefing token's pending balance is preserved
+    ///        - the griefing token remains in `rewardTokens(operator)` for a future retry
+    ///        - `RewardsClaimSkipped` is emitted for the griefing token
+    function test_ClaimRewardsAll_SkipsGriefingTokenAndCompletesRest() public {
+        // Use a uniform 100% operator split so the math is direct.
+        vm.prank(admin);
+        tangle.setPaymentSplit(
+            Types.PaymentSplit({ developerBps: 0, protocolBps: 0, operatorBps: 10_000, stakerBps: 0, keeperBps: 0 })
+        );
+
+        OutboundRevertToken griefToken = new OutboundRevertToken();
+
+        uint256 normalPay = 7 ether;
+        uint256 griefPay = 5 ether;
+
+        // Mint + approve the grief token so the user can pay with it via transferFrom.
+        // OutboundRevertToken inherits ERC20.transferFrom, so request-time inbound works.
+        griefToken.mint(user1, griefPay);
+        vm.prank(user1);
+        griefToken.approve(address(tangle), griefPay);
+
+        // Pay 1: normal MockERC20 (also requires transferFrom path).
+        token.mint(user1, normalPay);
+        vm.prank(user1);
+        token.approve(address(tangle), normalPay);
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        address[] memory callers = new address[](0);
+
+        vm.prank(user1);
+        uint64 normalReq = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(token), normalPay, Types.ConfidentialityPolicy.Any
+        );
+        _approveService(operator1, normalReq);
+
+        vm.prank(user1);
+        uint64 griefReq = tangle.requestService(
+            blueprintId, operators, "", callers, 0, address(griefToken), griefPay, Types.ConfidentialityPolicy.Any
+        );
+        _approveService(operator1, griefReq);
+
+        // Both tokens now sit in the operator's pending-rewards set; no transfer has fired yet.
+        assertEq(tangle.pendingRewards(operator1, address(token)), normalPay, "normal token pending pre-claim");
+        assertEq(tangle.pendingRewards(operator1, address(griefToken)), griefPay, "grief token pending pre-claim");
+        assertEq(tangle.rewardTokens(operator1).length, 2, "both tokens tracked");
+
+        // The sweep: the grief token's transfer reverts, the try/catch wrapper swallows the
+        // failure, the skip event is emitted, and the normal token is paid out.
+        vm.recordLogs();
+        vm.prank(operator1);
+        tangle.claimRewardsAll();
+
+        // Normal token paid.
+        assertEq(token.balanceOf(operator1), normalPay, "normal token paid out");
+        assertEq(tangle.pendingRewards(operator1, address(token)), 0, "normal token cleared from pending");
+
+        // Grief token preserved for retry.
+        assertEq(tangle.pendingRewards(operator1, address(griefToken)), griefPay, "grief token pending preserved");
+        address[] memory remaining = tangle.rewardTokens(operator1);
+        assertEq(remaining.length, 1, "only grief token remains in set");
+        assertEq(remaining[0], address(griefToken), "grief token retained for retry");
+
+        // A subsequent direct claim of the grief token should still revert (semantics preserved
+        // for single-token claims — the user is choosing that specific failure path).
+        vm.prank(operator1);
+        vm.expectRevert();
+        tangle.claimRewards(address(griefToken));
     }
 
     function test_Payment_RequestServiceWithRevertingTokenReverts() public {
