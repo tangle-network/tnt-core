@@ -205,15 +205,6 @@ type ValidatorPodWithdrawal {
   txHash: String!
 }
 
-type ValidatorPodSlash {
-  id: ID!
-  delegator: String!
-  operator: String!
-  amount: BigInt!
-  timestamp: BigInt!
-  txHash: String!
-}
-
 type Operator {
   id: ID!
   ecdsaPublicKey: String
@@ -392,8 +383,100 @@ type PaymentDistribution {
   developerAmount: BigInt!
   protocolAmount: BigInt!
   operatorPoolAmount: BigInt!
-  stakingPoolAmount: BigInt!
+  stakerPoolAmount: BigInt!
   distributedAt: BigInt!
+  txHash: String!
+}
+
+type KeeperRebate {
+  id: ID!
+  serviceId: BigInt!
+  keeper: String!
+  token: String!
+  amount: BigInt!
+  accruedAt: BigInt!
+  txHash: String!
+}
+
+type TntPaymentDiscount {
+  id: ID!
+  serviceId: BigInt!
+  recipient: String!
+  token: String!
+  amount: BigInt!
+  appliedAt: BigInt!
+  txHash: String!
+}
+
+"""
+Staker-pool share that could not be routed to the fee distributor and was
+refunded back into the service escrow. `reason` is the raw revert bytes from
+the failed external call.
+"""
+type StakerShareEscrowRefund {
+  id: ID!
+  serviceId: BigInt!
+  operator: String!
+  token: String!
+  amount: BigInt!
+  reason: String!
+  refundedAt: BigInt!
+  txHash: String!
+}
+
+"""
+Per-service subscription baseline captured at activation. Keyed by service id.
+"""
+type SubscriptionBaseline {
+  id: ID!
+  service: Service!
+  baselineStake: BigInt!
+  operatorCount: BigInt!
+  initializedAt: BigInt!
+  txHash: String!
+}
+
+type SubscriptionBillSkipped {
+  id: ID!
+  service: Service!
+  period: BigInt!
+  skippedAt: BigInt!
+  txHash: String!
+}
+
+type SubscriptionBillAdjustment {
+  id: ID!
+  service: Service!
+  preAdjustmentAmount: BigInt!
+  adjustedAmount: BigInt!
+  adjustmentBps: Int!
+  adjustedAt: BigInt!
+  txHash: String!
+}
+
+"""
+O(1) pool slash emitted by ValidatorPodManager. Per-delegator loss is derived
+off-chain from cached share balances against `newTotalAssets`/`totalShares`.
+"""
+type OperatorPoolSlash {
+  id: ID!
+  operator: String!
+  slashedAssets: BigInt!
+  newTotalAssets: BigInt!
+  totalShares: BigInt!
+  slashedAt: BigInt!
+  txHash: String!
+}
+
+"""
+Per-token reward sweep skip from `claimRewardsAll`. Recorded so operators can
+identify which token griefed their sweep.
+"""
+type RewardsClaimSkip {
+  id: ID!
+  account: String!
+  token: String!
+  skippedAt: BigInt!
   txHash: String!
 }
 

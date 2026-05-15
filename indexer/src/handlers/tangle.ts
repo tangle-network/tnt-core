@@ -7,6 +7,7 @@ import type {
   JobCall,
   JobEventRate,
   JobResult,
+  KeeperRebate,
   OperatorRewardAccrual,
   Operator,
   OperatorIntent,
@@ -15,6 +16,7 @@ import type {
   ProtocolState,
   QuoteUsage,
   RewardClaim,
+  RewardsClaimSkip,
   Role,
   RoleAssignment,
   Service,
@@ -22,7 +24,12 @@ import type {
   ServiceRequest,
   SlashConfig,
   SlashProposal,
+  StakerShareEscrowRefund,
+  SubscriptionBaseline,
   SubscriptionBilling,
+  SubscriptionBillAdjustment,
+  SubscriptionBillSkipped,
+  TntPaymentDiscount,
   Upgrade,
 } from "generated/src/Types.gen";
 import {
@@ -850,7 +857,7 @@ export function registerTangleHandlers() {
       developerAmount: toBigInt(event.params.developerAmount),
       protocolAmount: toBigInt(event.params.protocolAmount),
       operatorPoolAmount: toBigInt(event.params.operatorPoolAmount),
-      stakingPoolAmount: toBigInt(event.params.stakingPoolAmount),
+      stakerPoolAmount: toBigInt(event.params.stakerPoolAmount),
       distributedAt: timestamp,
       txHash: getTxHash(event),
     } as PaymentDistribution;
@@ -906,6 +913,101 @@ export function registerTangleHandlers() {
       txHash: getTxHash(event),
     } as RewardClaim;
     context.RewardClaim.set(claim);
+  });
+
+  Tangle.KeeperRebateAccrued.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const rebate: KeeperRebate = {
+      id: getEventId(event),
+      serviceId: toBigInt(event.params.serviceId),
+      keeper: normalizeAddress(event.params.keeper),
+      token: normalizeAddress(event.params.token),
+      amount: toBigInt(event.params.amount),
+      accruedAt: timestamp,
+      txHash: getTxHash(event),
+    } as KeeperRebate;
+    context.KeeperRebate.set(rebate);
+  });
+
+  Tangle.TntPaymentDiscountApplied.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const discount: TntPaymentDiscount = {
+      id: getEventId(event),
+      serviceId: toBigInt(event.params.serviceId),
+      recipient: normalizeAddress(event.params.recipient),
+      token: normalizeAddress(event.params.token),
+      amount: toBigInt(event.params.amount),
+      appliedAt: timestamp,
+      txHash: getTxHash(event),
+    } as TntPaymentDiscount;
+    context.TntPaymentDiscount.set(discount);
+  });
+
+  Tangle.StakerShareRefundedToEscrow.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const refund: StakerShareEscrowRefund = {
+      id: getEventId(event),
+      serviceId: toBigInt(event.params.serviceId),
+      operator: normalizeAddress(event.params.operator),
+      token: normalizeAddress(event.params.token),
+      amount: toBigInt(event.params.amount),
+      reason: toHexString(event.params.reason),
+      refundedAt: timestamp,
+      txHash: getTxHash(event),
+    } as StakerShareEscrowRefund;
+    context.StakerShareEscrowRefund.set(refund);
+  });
+
+  Tangle.SubscriptionBaselineInitialized.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const serviceId = toBigInt(event.params.serviceId).toString();
+    const baseline: SubscriptionBaseline = {
+      id: serviceId,
+      service_id: serviceId,
+      baselineStake: toBigInt(event.params.baselineStake),
+      operatorCount: toBigInt(event.params.operatorCount),
+      initializedAt: timestamp,
+      txHash: getTxHash(event),
+    } as SubscriptionBaseline;
+    context.SubscriptionBaseline.set(baseline);
+  });
+
+  Tangle.SubscriptionBillSkippedNoOperators.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const skip: SubscriptionBillSkipped = {
+      id: getEventId(event),
+      service_id: toBigInt(event.params.serviceId).toString(),
+      period: toBigInt(event.params.period),
+      skippedAt: timestamp,
+      txHash: getTxHash(event),
+    } as SubscriptionBillSkipped;
+    context.SubscriptionBillSkipped.set(skip);
+  });
+
+  Tangle.SubscriptionBillAdjustedByManager.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const adjustment: SubscriptionBillAdjustment = {
+      id: getEventId(event),
+      service_id: toBigInt(event.params.serviceId).toString(),
+      preAdjustmentAmount: toBigInt(event.params.preAdjustmentAmount),
+      adjustedAmount: toBigInt(event.params.adjustedAmount),
+      adjustmentBps: toNumber(event.params.adjustmentBps),
+      adjustedAt: timestamp,
+      txHash: getTxHash(event),
+    } as SubscriptionBillAdjustment;
+    context.SubscriptionBillAdjustment.set(adjustment);
+  });
+
+  Tangle.RewardsClaimSkipped.handler(async ({ event, context }) => {
+    const timestamp = getTimestamp(event);
+    const skip: RewardsClaimSkip = {
+      id: getEventId(event),
+      account: normalizeAddress(event.params.account),
+      token: normalizeAddress(event.params.token),
+      skippedAt: timestamp,
+      txHash: getTxHash(event),
+    } as RewardsClaimSkip;
+    context.RewardsClaimSkip.set(skip);
   });
 
   Tangle.RoleAdminChanged.handler(async ({ event, context }) => {
