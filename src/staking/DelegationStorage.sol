@@ -311,24 +311,37 @@ abstract contract DelegationStorage {
 
     /// @notice Operator's total delegated stake for a specific asset (sum across
     ///         All-mode pool and every Fixed-mode blueprint pool the operator owns).
-    /// @dev Defined here (not in DelegationManagerLib) so OperatorManager can also
-    ///      compute total stake-for-asset when its self-stake mutations need to
-    ///      accrue stake-seconds. All inputs live in DelegationStorage.
+    /// @dev Reads the incrementally-maintained `_operatorDelegatedAggregate` so cost
+    ///      is a single SLOAD rather than O(blueprints). Every callsite that mutates
+    ///      `_rewardPools[op][h].totalAssets` or `_blueprintPools[op][bp][h].totalAssets`
+    ///      MUST keep the aggregate in sync via `_increaseDelegatedStake` /
+    ///      `_decreaseDelegatedStake`; otherwise the invariant
+    ///      `aggregate == rewardPool.totalAssets + Σ blueprintPool.totalAssets` breaks.
     function _getOperatorDelegatedStakeForAsset(
         address operator,
         bytes32 assetHash
     )
         internal
         view
-        returns (uint256 total)
+        returns (uint256)
     {
-        total += _rewardPools[operator][assetHash].totalAssets;
+        return _operatorDelegatedAggregate[operator][assetHash];
+    }
 
-        uint256 bpCount = _operatorBlueprints[operator].length();
-        for (uint256 i = 0; i < bpCount; i++) {
-            uint64 blueprintId = uint64(_operatorBlueprints[operator].at(i));
-            total += _blueprintPools[operator][blueprintId][assetHash].totalAssets;
-        }
+    /// @notice Apply a positive delta to the operator's delegated-stake aggregate.
+    function _increaseDelegatedStake(address operator, bytes32 assetHash, uint256 amount) internal {
+        if (amount == 0) return;
+        _operatorDelegatedAggregate[operator][assetHash] += amount;
+    }
+
+    /// @notice Apply a negative delta to the operator's delegated-stake aggregate.
+    /// @dev Saturating subtraction guards against rounding edges in share-pool conversions
+    ///      where the per-pool `totalAssets -= amount` already saturates to zero. Without a
+    ///      floor here, the aggregate could underflow while the pool stayed at zero.
+    function _decreaseDelegatedStake(address operator, bytes32 assetHash, uint256 amount) internal {
+        if (amount == 0) return;
+        uint256 current = _operatorDelegatedAggregate[operator][assetHash];
+        _operatorDelegatedAggregate[operator][assetHash] = current > amount ? current - amount : 0;
     }
 
     /// @notice Operator's total stake for an asset (self-stake when bond + delegated).
@@ -468,8 +481,16 @@ abstract contract DelegationStorage {
     ///      without contributing area, so pre-existing pools begin TWAP at upgrade.
     mapping(address => mapping(bytes32 => uint64)) internal _cumStakeSecondsLastUpdate;
 
+    /// @notice O(1) running total of an operator's delegated stake per asset.
+    /// @dev Invariant: equals `_rewardPools[op][h].totalAssets +
+    ///      Σ_bp _blueprintPools[op][bp][h].totalAssets` after every state-modifying call.
+    ///      Maintained incrementally by `_increaseDelegatedStake` / `_decreaseDelegatedStake`
+    ///      at every pool mutation site (delegate, undelegate, slash). Lets the TWAP
+    ///      accrual hook and billing read total delegated stake in a single SLOAD instead
+    ///      of iterating the operator's blueprint set.
+    mapping(address operator => mapping(bytes32 assetHash => uint256)) internal _operatorDelegatedAggregate;
+
     /// @notice Reserved storage gap for future upgrades
     /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    /// @dev F5 added 2 mappings; gap reduced by 2 (46 → 44).
-    uint256[44] private __gap;
+    uint256[43] private __gap;
 }

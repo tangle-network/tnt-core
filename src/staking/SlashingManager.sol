@@ -498,6 +498,8 @@ abstract contract SlashingManager is RewardsManager {
             pool.totalAssets = 0;
         }
 
+        _decreaseDelegatedStake(operator, assetHash, slashed);
+
         // That's it! No iteration needed.
         // All mode delegator balances are now effectively reduced because
         // their shares are worth less at the new exchange rate.
@@ -531,6 +533,8 @@ abstract contract SlashingManager is RewardsManager {
             slashed = pool.totalAssets;
             pool.totalAssets = 0;
         }
+
+        _decreaseDelegatedStake(operator, assetHash, slashed);
 
         // Fixed mode delegators for this blueprint now have reduced balance
         // because their shares in this pool are worth less.

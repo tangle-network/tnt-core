@@ -883,4 +883,139 @@ contract ValidatorPodManagerTest is BeaconTestBase {
         assertEq(podManager.MAX_WITHDRAWAL_DELAY(), 1_296_000, "Max delay ~30 days");
         assertEq(podManager.withdrawalDelayBlocks(), 302_400, "Initial delay is default");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DELEGATION SHARE-POOL SEMANTICS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice After a slash, every delegator's effective claim drops proportionally
+    ///         even though no per-delegator storage was written. This is the central
+    ///         correctness property of the O(1) share-pool slash.
+    function test_slashAffectsAllDelegatorsProportionally() public {
+        _registerOperator(operator1, 1 ether);
+
+        address[5] memory delegators = [makeAddr("d0"), makeAddr("d1"), makeAddr("d2"), makeAddr("d3"), makeAddr("d4")];
+        uint256[5] memory amounts = [uint256(10 ether), 20 ether, 5 ether, 15 ether, 50 ether];
+
+        uint256 totalDelegated;
+        for (uint256 i = 0; i < delegators.length; i++) {
+            address pod = address(_createPodWithShares(delegators[i], amounts[i]));
+            assertTrue(pod != address(0));
+            vm.prank(delegators[i]);
+            podManager.delegateTo(operator1, amounts[i]);
+            totalDelegated += amounts[i];
+        }
+
+        assertEq(
+            podManager.getOperatorDelegatedStake(operator1),
+            totalDelegated,
+            "pool totalAssets equals sum of delegate inputs (initial 1:1 rate)"
+        );
+
+        // Snapshot pre-slash live valuations
+        uint256[5] memory before_;
+        for (uint256 i = 0; i < delegators.length; i++) {
+            before_[i] = podManager.getDelegation(delegators[i], operator1);
+            assertEq(before_[i], amounts[i], "pre-slash live value equals input");
+        }
+
+        // 25% slash applied to the operator
+        vm.prank(slasher);
+        podManager.slash(operator1, 1, 2500, keccak256("evidence"));
+
+        // Slash math: amount = (selfStake + delegated) * bps / 10_000.
+        // Self-stake (1 ether) absorbs first; the remainder hits the pool.
+        uint256 totalAmount = (1 ether + totalDelegated) * 2500 / 10_000;
+        uint256 selfSlash = totalAmount > 1 ether ? 1 ether : totalAmount;
+        uint256 poolSlash = totalAmount - selfSlash;
+        uint256 expectedPoolAfter = totalDelegated - poolSlash;
+        assertEq(
+            podManager.getOperatorDelegatedStake(operator1),
+            expectedPoolAfter,
+            "pool totalAssets drops by the delegated portion of the slash"
+        );
+
+        // Each delegator's live value should be ~ totalAssetsAfter/totalAssetsBefore * before.
+        // The virtual offset biases convertToAssets upward by at most ~VIRTUAL_ASSETS
+        // distributed across shareholders; with our amounts that's well under 1e6 wei.
+        uint256 totalAssetsBefore = totalDelegated;
+        uint256 totalAssetsAfter = expectedPoolAfter;
+        for (uint256 i = 0; i < delegators.length; i++) {
+            uint256 live = podManager.getDelegation(delegators[i], operator1);
+            uint256 expected = (before_[i] * totalAssetsAfter) / totalAssetsBefore;
+            uint256 diff = live > expected ? live - expected : expected - live;
+            assertLe(diff, 1e6, "per-delegator slash within virtual-offset dust");
+        }
+    }
+
+    /// @notice Gas used by `_slash` must be bounded -- not grow with the number of delegators.
+    function test_slashGas_BoundedRegardlessOfDelegatorCount() public {
+        _registerOperator(operator1, 1 ether);
+        _registerOperator(operator2, 1 ether);
+
+        // Operator 1 gets 1 delegator
+        address d = makeAddr("solo");
+        _createPodWithShares(d, 5 ether);
+        vm.prank(d);
+        podManager.delegateTo(operator1, 5 ether);
+
+        // Operator 2 gets 50 delegators
+        for (uint256 i = 0; i < 50; i++) {
+            address di = makeAddr(string(abi.encodePacked("crowd-", vm.toString(i))));
+            _createPodWithShares(di, 5 ether);
+            vm.prank(di);
+            podManager.delegateTo(operator2, 5 ether);
+        }
+
+        vm.prank(slasher);
+        uint256 gasA0 = gasleft();
+        podManager.slash(operator1, 1, 1000, bytes32("a"));
+        uint256 gasA = gasA0 - gasleft();
+
+        vm.prank(slasher);
+        uint256 gasB0 = gasleft();
+        podManager.slash(operator2, 2, 1000, bytes32("b"));
+        uint256 gasB = gasB0 - gasleft();
+
+        // The 50-delegator slash must not cost meaningfully more than the 1-delegator slash.
+        // 5x is a generous ceiling for warm-vs-cold storage variance; a legacy O(D) loop
+        // would scale ~30-40x at this size.
+        emit log_named_uint("gas slash op1 (1 delegator)", gasA);
+        emit log_named_uint("gas slash op2 (50 delegators)", gasB);
+        assertLt(gasB, gasA * 5, "slash gas does not scale with delegator count");
+    }
+
+    /// @notice Invariant: for every operator, the operator delegation pool's totalAssets
+    ///         equals the live sum of per-delegator asset valuations (within rounding dust
+    ///         introduced by virtual offsets and Floor rounding).
+    function test_invariant_poolTotalAssetsMatchesSumOfDelegations() public {
+        _registerOperator(operator1, 1 ether);
+
+        address[3] memory dels = [makeAddr("ia"), makeAddr("ib"), makeAddr("ic")];
+        uint256[3] memory ams = [uint256(7 ether), 13 ether, 21 ether];
+
+        for (uint256 i = 0; i < dels.length; i++) {
+            _createPodWithShares(dels[i], ams[i]);
+            vm.prank(dels[i]);
+            podManager.delegateTo(operator1, ams[i]);
+        }
+
+        // Apply a 33% slash
+        vm.prank(slasher);
+        podManager.slash(operator1, 1, 3333, bytes32("inv"));
+
+        uint256 sumLive;
+        for (uint256 i = 0; i < dels.length; i++) {
+            sumLive += podManager.getDelegation(dels[i], operator1);
+        }
+
+        uint256 totalAssets = podManager.getOperatorDelegatedStake(operator1);
+
+        // sumLive may exceed or undershoot totalAssets within bounded dust set by the
+        // virtual offset (VIRTUAL_ASSETS) plus per-delegator Floor rounding (~1 wei each).
+        // The point of the invariant is that the bound is constant in delegator count,
+        // not that the sum equals totalAssets exactly.
+        uint256 diff = sumLive > totalAssets ? sumLive - totalAssets : totalAssets - sumLive;
+        assertLt(diff, 1e6, "sum vs pool totalAssets is bounded dust (not delegator-count scaled)");
+    }
 }

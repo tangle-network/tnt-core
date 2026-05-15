@@ -332,10 +332,14 @@ abstract contract DelegationManagerLib is OperatorManager {
         }
 
         if (newAmount > currentAmount) {
-            pool.totalAssets += newAmount - currentAmount;
+            uint256 delta = newAmount - currentAmount;
+            pool.totalAssets += delta;
+            _increaseDelegatedStake(operator, assetHash, delta);
         } else if (currentAmount > newAmount) {
             uint256 deltaAmount = currentAmount - newAmount;
-            pool.totalAssets = deltaAmount > pool.totalAssets ? 0 : pool.totalAssets - deltaAmount;
+            uint256 applied = deltaAmount > pool.totalAssets ? pool.totalAssets : deltaAmount;
+            pool.totalAssets -= applied;
+            _decreaseDelegatedStake(operator, assetHash, applied);
         }
 
         _delegatorBlueprintShares[delegator][operator][assetHash][blueprintId] = newShares;
