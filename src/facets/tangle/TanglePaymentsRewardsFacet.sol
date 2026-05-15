@@ -10,7 +10,7 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 ///      escrow funding, and distribution selectors live on `TanglePaymentsFacet`.
 contract TanglePaymentsRewardsFacet is PaymentsRewards, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](13);
+        selectorList = new bytes4[](14);
         selectorList[0] = bytes4(keccak256("claimRewards()"));
         selectorList[1] = bytes4(keccak256("claimRewards(address)"));
         selectorList[2] = bytes4(keccak256("claimRewardsBatch(address[])"));
@@ -24,5 +24,6 @@ contract TanglePaymentsRewardsFacet is PaymentsRewards, IFacetSelectors {
         selectorList[10] = this.treasury.selector;
         selectorList[11] = this.getServiceEscrow.selector;
         selectorList[12] = this.getBillableServices.selector;
+        selectorList[13] = this._claimRewardsTokenSafe.selector;
     }
 }
