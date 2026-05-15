@@ -129,9 +129,12 @@ abstract contract RewardsManager is DelegationManagerLib {
         if (isIncrease) {
             pool.totalShares += shares;
             pool.totalAssets += amount;
+            _increaseDelegatedStake(operator, assetHash, amount);
         } else {
             pool.totalShares = shares > pool.totalShares ? 0 : pool.totalShares - shares;
-            pool.totalAssets = amount > pool.totalAssets ? 0 : pool.totalAssets - amount;
+            uint256 applied = amount > pool.totalAssets ? pool.totalAssets : amount;
+            pool.totalAssets -= applied;
+            _decreaseDelegatedStake(operator, assetHash, applied);
         }
     }
 
@@ -176,9 +179,12 @@ abstract contract RewardsManager is DelegationManagerLib {
             if (isIncrease) {
                 pool.totalShares += sharesForBlueprint;
                 pool.totalAssets += amountForBlueprint;
+                _increaseDelegatedStake(operator, assetHash, amountForBlueprint);
             } else {
                 pool.totalShares = sharesForBlueprint > pool.totalShares ? 0 : pool.totalShares - sharesForBlueprint;
-                pool.totalAssets = amountForBlueprint > pool.totalAssets ? 0 : pool.totalAssets - amountForBlueprint;
+                uint256 applied = amountForBlueprint > pool.totalAssets ? pool.totalAssets : amountForBlueprint;
+                pool.totalAssets -= applied;
+                _decreaseDelegatedStake(operator, assetHash, applied);
             }
         }
     }

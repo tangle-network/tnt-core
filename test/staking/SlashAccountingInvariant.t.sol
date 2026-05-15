@@ -20,10 +20,11 @@ import { StakingAdminFacet } from "../../src/facets/staking/StakingAdminFacet.so
 
 contract MultiAssetDelegationInvariantExposed is StakingFacetBase, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](3);
+        selectorList = new bytes4[](4);
         selectorList[0] = this.rewardPoolTotals.selector;
         selectorList[1] = this.blueprintPoolTotals.selector;
         selectorList[2] = this.operatorStake.selector;
+        selectorList[3] = this.delegatedAggregate.selector;
     }
 
     function rewardPoolTotals(address operator) external view returns (uint256) {
@@ -38,6 +39,11 @@ contract MultiAssetDelegationInvariantExposed is StakingFacetBase, IFacetSelecto
 
     function operatorStake(address operator) external view returns (uint256) {
         return _operatorMetadata[operator].stake;
+    }
+
+    function delegatedAggregate(address operator) external view returns (uint256) {
+        bytes32 assetHash = keccak256(abi.encode(Types.AssetKind.Native, address(0)));
+        return _operatorDelegatedAggregate[operator][assetHash];
     }
 }
 
@@ -189,6 +195,15 @@ contract SlashAccountingInvariantTest is StdInvariant, Test {
             exposed.operatorStake(operator) + exposed.rewardPoolTotals(operator) + exposed.blueprintPoolTotals(operator, BLUEPRINT_ID);
 
         assertEq(actualTotal, handler.expectedTotal(), "slashable accounting drifted from modeled total");
+    }
+
+    /// @notice O(1) delegated-stake aggregate must equal the manual sum across the All-mode
+    ///         pool and every Fixed-mode blueprint pool. Verifies that delegate, undelegate,
+    ///         and slash paths all keep `_operatorDelegatedAggregate` in sync with the
+    ///         underlying pool totals it summarizes.
+    function invariant_operatorDelegatedAggregateMatchesPools() public view {
+        uint256 manual = exposed.rewardPoolTotals(operator) + exposed.blueprintPoolTotals(operator, BLUEPRINT_ID);
+        assertEq(exposed.delegatedAggregate(operator), manual, "delegated aggregate diverged from pool sum");
     }
 
     function invariant_cumulativeSlashedNeverExceedsInitialPlusDeposits() public view {
