@@ -130,8 +130,9 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
                 uint16 fallbackBps = _serviceOperators[serviceId][op].exposureBps;
                 if (fallbackBps == 0) fallbackBps = uint16(BPS_DENOMINATOR);
                 uint256 exposedAmount = (stakeOp * uint256(fallbackBps)) / BPS_DENOMINATOR;
+                address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
+                _snapshotBaselinePrice(serviceId, op, assetHash, oracleAddr, token);
                 if (useOracle && exposedAmount > 0) {
-                    address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
                     baseline += _safeToUSD(oracleAddr, token, exposedAmount);
                 } else {
                     baseline += exposedAmount;
@@ -144,8 +145,9 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
                     _twapCursorByOpAsset[serviceId][op][assetHash] = cumOp == 0 ? 1 : cumOp;
 
                     uint256 exposedAmount = (stakeOp * uint256(c.exposureBps)) / BPS_DENOMINATOR;
+                    address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
+                    _snapshotBaselinePrice(serviceId, op, assetHash, oracleAddr, token);
                     if (useOracle && exposedAmount > 0) {
-                        address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
                         baseline += _safeToUSD(oracleAddr, token, exposedAmount);
                     } else {
                         baseline += exposedAmount;
@@ -164,6 +166,33 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
         uint256 pinned = baseline == 0 ? 1 : baseline;
         _serviceEscrows[serviceId].subscriptionBaselineStake = pinned;
         emit SubscriptionBaselineInitialized(serviceId, pinned, n);
+    }
+
+    /// @notice Record the activation-time USD-per-1e18-token snapshot for (serviceId, op, asset).
+    /// @dev Skip if no oracle is configured. Skip if a snapshot already exists for this
+    ///      triple (operators rejoining after a leave reuse their original activation
+    ///      snapshot so a price ramp during the absence cannot game the rejoin). The
+    ///      stored value is `_safeToUSDView(oracle, token, 1e18)` — see
+    ///      `_baselinePriceByOpAsset` storage docs for the conversion formula at bill
+    ///      time. A failed oracle query stores `1e18` (identity scale) so the bill path
+    ///      degrades to raw token-second weighting for that (op, asset).
+    function _snapshotBaselinePrice(
+        uint64 serviceId,
+        address op,
+        bytes32 assetHash,
+        address oracleAddr,
+        address token
+    )
+        internal
+    {
+        if (oracleAddr == address(0)) return;
+        if (_baselinePriceByOpAsset[serviceId][op][assetHash] != 0) return;
+        uint256 priceUsd = _safeToUSDView(oracleAddr, token, 1 ether);
+        // Identity (== 1 ether) means the oracle either reverted or is disabled for
+        // this token. Treat as raw-weighting fallback by storing a sentinel that the
+        // bill-time conversion (contribution * snapshot / 1 ether) recognizes as
+        // identity. Storing 1 ether is exactly the identity scale.
+        _baselinePriceByOpAsset[serviceId][op][assetHash] = priceUsd == 0 ? 1 ether : priceUsd;
     }
 
     /// @notice Calculate effective exposures with fallback to stored exposureBps

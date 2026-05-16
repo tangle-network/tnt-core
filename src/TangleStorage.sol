@@ -422,12 +422,29 @@ abstract contract TangleStorage {
     ///         seed, join hook, prior bill). Zero sentinel = "never attributed."
     mapping(uint64 => mapping(address => mapping(bytes32 => uint256))) internal _twapCursorByOpAsset;
 
+    /// @notice Service ID => Operator => keccak256(asset.kind, asset.token) =>
+    ///         activation-time USD-per-1e18-token conversion snapshot. Captured
+    ///         once when the (op, asset) cursor is first seeded — either at
+    ///         service activation (`_initSubscriptionBaseline`) or when an
+    ///         operator joins post-activation (`_finalizeJoin`) — and reused on
+    ///         every subsequent bill. Pins the per-(op, asset) leg of the bill
+    ///         weight to the activation price so post-activation oracle drift
+    ///         cannot inflate one operator's share of the (capped-at-nominal)
+    ///         bill at the expense of honest co-operators.
+    ///
+    ///         The value stored is `oracle.toUSD(token, 1e18)` — i.e. how many
+    ///         18-decimal-USD units one 1e18-unit of `token` was worth at
+    ///         activation. Token decimals are absorbed by the oracle adapter
+    ///         (see `IPriceOracle`), so the conversion at bill time is
+    ///         `usd = (contribution * snapshot) / 1e18`. Zero sentinel = no
+    ///         snapshot (oracle disabled at activation, or fallback fired).
+    mapping(uint64 => mapping(address => mapping(bytes32 => uint256))) internal _baselinePriceByOpAsset;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev Reserved storage slots for future upgrades
-    /// @dev Standard gap size is 50 slots. When adding new storage, decrease this gap accordingly.
-    /// @dev Per-op cursor mapping. Storage gap adjusted accordingly.
-    uint256[40] private __gap;
+    /// @dev Reserved storage slots for future upgrades. Standard gap size is 50.
+    ///      Slots already consumed: 10 (see history above this gap).
+    uint256[39] private __gap;
 }
