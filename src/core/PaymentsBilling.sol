@@ -289,8 +289,21 @@ abstract contract PaymentsBilling is PaymentsCore {
                 if (fallbackBps == 0) fallbackBps = uint16(BPS_DENOMINATOR);
                 uint256 contribution = (opDeltaRaw * uint256(fallbackBps)) / BPS_DENOMINATOR;
                 if (useOracle && contribution > 0) {
-                    address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
-                    contribution = _safeToUSD(oracleAddr, token, contribution);
+                    uint256 snapshot = _baselinePriceByOpAsset[serviceId][op][assetHash];
+                    if (snapshot != 0) {
+                        // Activation-time price snapshot: pins this operator's
+                        // weight contribution to the price captured when the
+                        // (op, asset) cursor was first seeded. Immune to oracle
+                        // drift post-activation.
+                        contribution = (contribution * snapshot) / 1 ether;
+                    } else {
+                        // Cursor exists without a snapshot (legacy activation
+                        // path or operator joined before this fix shipped) —
+                        // fall back to the live oracle. Still gas-capped and
+                        // revert-isolated by _safeToUSD.
+                        address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
+                        contribution = _safeToUSD(oracleAddr, token, contribution);
+                    }
                 }
                 opWeight = contribution;
                 if (!result.hasSecurityCommitments && stakeOp > 0 && fallbackBps > 0) {
@@ -316,8 +329,13 @@ abstract contract PaymentsBilling is PaymentsCore {
                     // share a unit, but proportional within that unit.
                     uint256 contribution = (opDeltaRaw * uint256(c.exposureBps)) / BPS_DENOMINATOR;
                     if (useOracle && contribution > 0) {
-                        address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
-                        contribution = _safeToUSD(oracleAddr, token, contribution);
+                        uint256 snapshot = _baselinePriceByOpAsset[serviceId][op][assetHash];
+                        if (snapshot != 0) {
+                            contribution = (contribution * snapshot) / 1 ether;
+                        } else {
+                            address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
+                            contribution = _safeToUSD(oracleAddr, token, contribution);
+                        }
                     }
                     opWeight += contribution;
                     if (!result.hasSecurityCommitments && stakeOp > 0 && c.exposureBps > 0) {
