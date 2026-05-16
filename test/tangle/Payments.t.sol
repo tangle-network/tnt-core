@@ -991,6 +991,52 @@ contract PaymentsTest is BaseTest {
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    function test_Subscription_WithdrawRemainingEscrowTo_RoutesToAlternateRecipient() public {
+        // M-2 remediation: a service owner blocklisted by the escrow token (or
+        // operating from a smart-account that cannot receive directly) must be
+        // able to route the refund to a fresh address. withdrawRemainingEscrowTo
+        // takes the recipient as a parameter; caller must still be the owner.
+        uint64 subServiceId = _setupSubscriptionService();
+
+        // Terminate so the withdrawal path is reachable.
+        vm.prank(user1);
+        tangle.terminateService(subServiceId);
+
+        PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(subServiceId);
+        uint256 remaining = escrow.balance;
+        assertGt(remaining, 0, "test setup: escrow should hold remainder after termination");
+
+        address payable fresh = payable(makeAddr("fresh-recipient"));
+        uint256 freshBefore = fresh.balance;
+
+        vm.prank(user1);
+        tangle.withdrawRemainingEscrowTo(subServiceId, fresh);
+
+        assertEq(fresh.balance - freshBefore, remaining, "fresh recipient should receive full remainder");
+        assertEq(tangle.getServiceEscrow(subServiceId).balance, 0, "escrow drained");
+    }
+
+    function test_Subscription_WithdrawRemainingEscrowTo_RejectsZeroAddress() public {
+        uint64 subServiceId = _setupSubscriptionService();
+        vm.prank(user1);
+        tangle.terminateService(subServiceId);
+
+        vm.prank(user1);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        tangle.withdrawRemainingEscrowTo(subServiceId, payable(address(0)));
+    }
+
+    function test_Subscription_WithdrawRemainingEscrowTo_OnlyServiceOwner() public {
+        uint64 subServiceId = _setupSubscriptionService();
+        vm.prank(user1);
+        tangle.terminateService(subServiceId);
+
+        address payable fresh = payable(makeAddr("fresh-recipient"));
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotServiceOwner.selector, subServiceId, operator1));
+        tangle.withdrawRemainingEscrowTo(subServiceId, fresh);
+    }
+
     function _setupSubscriptionService() internal returns (uint64) {
         return _setupSubscriptionServiceWithDepositAndTTL(1 ether, 365 days);
     }

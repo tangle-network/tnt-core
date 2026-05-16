@@ -15,10 +15,11 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 ///      contribute bytecode to this facet.
 contract TanglePaymentsFacet is PaymentsEscrow, PaymentsBilling, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](4);
+        selectorList = new bytes4[](5);
         selectorList[0] = this.fundService.selector;
         selectorList[1] = this.withdrawRemainingEscrow.selector;
-        selectorList[2] = this.billSubscription.selector;
-        selectorList[3] = this.billSubscriptionBatch.selector;
+        selectorList[2] = this.withdrawRemainingEscrowTo.selector;
+        selectorList[3] = this.billSubscription.selector;
+        selectorList[4] = this.billSubscriptionBatch.selector;
     }
 }
