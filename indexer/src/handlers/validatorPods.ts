@@ -1,11 +1,11 @@
 import { ValidatorPodManager } from "generated";
 import type {
   Operator,
+  OperatorPoolSlash,
   ValidatorPod,
   ValidatorPodShareEvent,
   ValidatorPodBeaconRebase,
   ValidatorPodWithdrawal,
-  ValidatorPodSlash,
   NativeOperator,
 } from "generated/src/Types.gen";
 import {
@@ -128,17 +128,18 @@ export function registerValidatorPodHandlers() {
     context.NativeOperator.set(updated);
   });
 
-  ValidatorPodManager.DelegatorSlashed.handler(async ({ event, context }) => {
+  ValidatorPodManager.OperatorPoolSlashed.handler(async ({ event, context }) => {
     const timestamp = getTimestamp(event);
-    const slash: ValidatorPodSlash = {
-      id: `slash-${getTxHash(event)}-${event.logIndex}`,
-      delegator: normalizeAddress(event.params.delegator),
+    const slash: OperatorPoolSlash = {
+      id: `pool-slash-${getTxHash(event)}-${event.logIndex}`,
       operator: normalizeAddress(event.params.operator),
-      amount: toBigInt(event.params.amount),
-      timestamp,
+      slashedAssets: toBigInt(event.params.slashedAssets),
+      newTotalAssets: toBigInt(event.params.newTotalAssets),
+      totalShares: toBigInt(event.params.totalShares),
+      slashedAt: timestamp,
       txHash: getTxHash(event),
-    } as ValidatorPodSlash;
-    context.ValidatorPodSlash.set(slash);
+    } as OperatorPoolSlash;
+    context.OperatorPoolSlash.set(slash);
   });
 
   ValidatorPodManager.WithdrawalQueued.handler(async ({ event, context }) => {
