@@ -176,7 +176,7 @@ interface IStaking {
     function removeBlueprintForOperator(address operator, uint64 blueprintId) external;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-9 FIX: PENDING SLASH TRACKING
+    // PENDING SLASH TRACKING
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Increment pending slash count for an operator
@@ -195,7 +195,7 @@ interface IStaking {
     function getPendingSlashCount(address operator) external view returns (uint64);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // F5: TWAP STAKE-SECONDS ACCUMULATOR
+    // TWAP STAKE-SECONDS ACCUMULATOR
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Lazy-realized cumulative stake-seconds for an (operator, asset).

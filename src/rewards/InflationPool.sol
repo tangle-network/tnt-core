@@ -49,7 +49,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant PRECISION = 1e18;
 
-    /// @notice M-16 FIX: Minimum stake duration before rewards can be claimed (default 1 epoch)
+    /// @notice Minimum stake duration before rewards can be claimed (default 1 epoch)
     /// @dev Prevents flash stake attacks where someone stakes just before distribution
     uint256 public constant MIN_STAKE_DURATION_DEFAULT = 1;
 
@@ -163,16 +163,16 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     /// @notice Total ever funded to this pool
     uint256 public totalFunded;
 
-    /// @notice M-16 FIX: Epoch when operator was registered (for minimum stake duration)
+    /// @notice Epoch when operator was registered (for minimum stake duration)
     mapping(address => uint256) public operatorRegistrationEpoch;
 
-    /// @notice M-16 FIX: Epoch when customer was registered (for minimum stake duration)
+    /// @notice Epoch when customer was registered (for minimum stake duration)
     mapping(address => uint256) public customerRegistrationEpoch;
 
-    /// @notice M-16 FIX: Epoch when developer was registered (for minimum stake duration)
+    /// @notice Epoch when developer was registered (for minimum stake duration)
     mapping(address => uint256) public developerRegistrationEpoch;
 
-    /// @notice M-16 FIX: Minimum epochs of participation before rewards can be earned
+    /// @notice Minimum epochs of participation before rewards can be earned
     uint256 public minStakeEpochs;
 
     /// @notice Total ever distributed from this pool
@@ -229,9 +229,9 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     error InvalidEpochLength();
     error ZeroAmount();
     error ZeroAddress();
-    /// @notice M-16 FIX: Participant hasn't met minimum stake duration
+    /// @notice Participant hasn't met minimum stake duration
     error MinStakeDurationNotMet(address participant, uint256 registeredEpoch, uint256 currentEpoch, uint256 minEpochs);
-    /// @notice M-6 FIX: minStakeEpochs must be at least 1
+    /// @notice minStakeEpochs must be at least 1
     error MinStakeEpochsTooLow();
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -292,7 +292,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         fundingPeriodSeconds = SECONDS_PER_YEAR;
         blocksPerYear = BLOCKS_PER_YEAR; // reserved
 
-        // M-16 FIX: Set default minimum stake duration
+        // Set default minimum stake duration
         minStakeEpochs = MIN_STAKE_DURATION_DEFAULT;
 
         uint256 firstEpochEnd = block.timestamp + _epochLength;
@@ -570,7 +570,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256[] memory scores = new uint256[](trackedOperators.length);
 
         for (uint256 i = 0; i < trackedOperators.length; i++) {
-            // M-16 FIX: Only include operators who have met minimum stake duration
+            // Only include operators who have met minimum stake duration
             uint256 regEpoch = operatorRegistrationEpoch[trackedOperators[i]];
             if (regEpoch == 0 || currentEpoch < regEpoch + minStakeEpochs) {
                 scores[i] = 0;
@@ -631,7 +631,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256[] memory fees = new uint256[](trackedCustomers.length);
 
         for (uint256 i = 0; i < trackedCustomers.length; i++) {
-            // M-16 FIX: Only include customers who have met minimum stake duration
+            // Only include customers who have met minimum stake duration
             uint256 regEpoch = customerRegistrationEpoch[trackedCustomers[i]];
             if (regEpoch == 0 || currentEpoch < regEpoch + minStakeEpochs) {
                 fees[i] = 0;
@@ -672,7 +672,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256[] memory scores = new uint256[](trackedDevelopers.length);
 
         for (uint256 i = 0; i < trackedDevelopers.length; i++) {
-            // M-16 FIX: Only include developers who have met minimum stake duration
+            // Only include developers who have met minimum stake duration
             uint256 regEpoch = developerRegistrationEpoch[trackedDevelopers[i]];
             if (regEpoch == 0 || currentEpoch < regEpoch + minStakeEpochs) {
                 scores[i] = 0;
@@ -919,7 +919,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         if (!isTrackedOperator[operator]) {
             trackedOperators.push(operator);
             isTrackedOperator[operator] = true;
-            // M-16 FIX: Record registration epoch for minimum stake duration
+            // Record registration epoch for minimum stake duration
             operatorRegistrationEpoch[operator] = currentEpoch;
         }
     }
@@ -929,7 +929,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         if (!isTrackedCustomer[customer]) {
             trackedCustomers.push(customer);
             isTrackedCustomer[customer] = true;
-            // M-16 FIX: Record registration epoch for minimum stake duration
+            // Record registration epoch for minimum stake duration
             customerRegistrationEpoch[customer] = currentEpoch;
         }
     }
@@ -940,7 +940,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
             if (!isTrackedOperator[operators[i]]) {
                 trackedOperators.push(operators[i]);
                 isTrackedOperator[operators[i]] = true;
-                // M-16 FIX: Record registration epoch for minimum stake duration
+                // Record registration epoch for minimum stake duration
                 operatorRegistrationEpoch[operators[i]] = currentEpoch;
             }
         }
@@ -952,7 +952,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
             if (!isTrackedCustomer[customers[i]]) {
                 trackedCustomers.push(customers[i]);
                 isTrackedCustomer[customers[i]] = true;
-                // M-16 FIX: Record registration epoch for minimum stake duration
+                // Record registration epoch for minimum stake duration
                 customerRegistrationEpoch[customers[i]] = currentEpoch;
             }
         }
@@ -963,7 +963,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         if (!isTrackedDeveloper[developer]) {
             trackedDevelopers.push(developer);
             isTrackedDeveloper[developer] = true;
-            // M-16 FIX: Record registration epoch for minimum stake duration
+            // Record registration epoch for minimum stake duration
             developerRegistrationEpoch[developer] = currentEpoch;
         }
     }
@@ -974,7 +974,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
             if (!isTrackedDeveloper[developers[i]]) {
                 trackedDevelopers.push(developers[i]);
                 isTrackedDeveloper[developers[i]] = true;
-                // M-16 FIX: Record registration epoch for minimum stake duration
+                // Record registration epoch for minimum stake duration
                 developerRegistrationEpoch[developers[i]] = currentEpoch;
             }
         }
@@ -1068,10 +1068,10 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         emit EpochLengthUpdated(newLength);
     }
 
-    /// @notice M-16 FIX: Set minimum stake epochs before rewards can be earned
+    /// @notice Set minimum stake epochs before rewards can be earned
     /// @param newMinEpochs Minimum number of epochs (1-52, ~1 week to ~1 year with weekly epochs)
     function setMinStakeEpochs(uint256 newMinEpochs) external onlyRole(ADMIN_ROLE) {
-        // M-6 FIX: Enforce minimum of 1 epoch to prevent flash stake attacks
+        // Enforce minimum of 1 epoch to prevent flash stake attacks
         if (newMinEpochs < 1) revert MinStakeEpochsTooLow();
         // Cap at reasonable maximum to prevent admin abuse
         if (newMinEpochs > 52) revert InvalidEpochLength();

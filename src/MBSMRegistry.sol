@@ -304,7 +304,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
         return _versions[revision - 1] != address(0);
     }
 
-    /// @notice M-8 FIX: Check if a revision is in the deprecation grace period
+    /// @notice Check if a revision is in the deprecation grace period
     /// @param revision The revision to check
     /// @return inGracePeriod True if revision is deprecated but still in grace period
     /// @return gracePeriodEnds Timestamp when grace period ends (0 if not in grace period)
@@ -317,7 +317,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
         inGracePeriod = block.timestamp < gracePeriodEnds && _versions[revision - 1] != address(0);
     }
 
-    /// @notice M-8 FIX: Get deprecation timestamp for a revision
+    /// @notice Get deprecation timestamp for a revision
     /// @param revision The revision to check
     /// @return timestamp When deprecation was initiated (0 if not deprecated)
     function getDeprecationTimestamp(uint32 revision) external view returns (uint256 timestamp) {
@@ -326,12 +326,12 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
 
     /// @notice Get all registered MBSM addresses
     /// @return addresses Array of all MBSM addresses (may include address(0) for deprecated)
-    /// @dev M-13 FIX: For large registries, prefer using getVersionsPaginated to avoid gas issues
+    /// @dev For large registries, prefer using getVersionsPaginated to avoid gas issues
     function getAllVersions() external view returns (address[] memory addresses) {
         return _versions;
     }
 
-    /// @notice M-13 FIX: Get registered MBSM addresses with pagination
+    /// @notice Get registered MBSM addresses with pagination
     /// @param offset Starting index (0-based)
     /// @param limit Maximum number of versions to return
     /// @return addresses Array of MBSM addresses in the requested range
@@ -359,7 +359,7 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
         }
     }
 
-    /// @notice M-13 FIX: Get only active (non-deprecated) versions with pagination
+    /// @notice Get only active (non-deprecated) versions with pagination
     /// @param offset Starting index in the active versions (0-based)
     /// @param limit Maximum number of versions to return
     /// @return addresses Array of active MBSM addresses

@@ -211,7 +211,7 @@ contract StakingViewsFacet is StakingFacetBase, IFacetSelectors {
         return _operatorBondToken;
     }
 
-    /// @notice F5: Lazy-realized cumulative stake-seconds for (operator, asset)
+    /// @notice Lazy-realized cumulative stake-seconds for (operator, asset)
     /// @dev Used by `Payments.billSubscription` for TWAP-fair pricing. Read-only;
     ///      adds the unrealized tail `currentStake × (now − lastUpdate)` on the fly
     ///      so the snapshot is consistent at the read timestamp.

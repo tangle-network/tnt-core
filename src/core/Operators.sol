@@ -30,7 +30,7 @@ abstract contract Operators is Base {
 
     event OperatorUnregistered(uint64 indexed blueprintId, address indexed operator);
 
-    /// @notice Emitted when blueprint metadata is locked (M-2 fix)
+    /// @notice Emitted when blueprint metadata is locked
     event BlueprintMetadataLocked(uint64 indexed blueprintId);
 
     /// @notice Emitted when an operator updates their preferences
@@ -134,13 +134,13 @@ abstract contract Operators is Base {
         // Validate minimum stake requirement
         uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (
-                bool useDefault, uint256 customMin
-            ) {
-                if (!useDefault && customMin > 0) {
-                    minStake = customMin;
-                }
-            } catch { }
+            (bool ok, bytes memory ret) = _tryStaticcallManager(
+                bp.manager, abi.encodeWithSelector(IBlueprintServiceManager.getMinOperatorStake.selector), 64
+            );
+            if (ok) {
+                (bool useDefault, uint256 customMin) = abi.decode(ret, (bool, uint256));
+                if (!useDefault && customMin > 0) minStake = customMin;
+            }
         }
         if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {
             revert Errors.InsufficientStake(msg.sender, minStake, _staking.getOperatorStake(msg.sender));
@@ -168,7 +168,7 @@ abstract contract Operators is Base {
         _blueprintOperators[blueprintId].add(msg.sender);
         bp.operatorCount++;
 
-        // M-2 fix: Lock metadata on first operator registration
+        // Lock metadata on first operator registration
         if (bp.operatorCount == 1 && !_blueprintMetadataLocked[blueprintId]) {
             _blueprintMetadataLocked[blueprintId] = true;
             emit BlueprintMetadataLocked(blueprintId);
@@ -295,7 +295,7 @@ abstract contract Operators is Base {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-10 FIX: ACTIVE SERVICE QUERIES
+    // ACTIVE SERVICE QUERIES
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get total count of active services for an operator across all blueprints

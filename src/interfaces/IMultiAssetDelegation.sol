@@ -250,8 +250,8 @@ interface IMultiAssetDelegation {
     function registerAdapter(address token, address adapter) external;
     function removeAdapter(address token) external;
 
-    /// @notice Round 4 audit S-2: raw register/remove of an adapter is rejected
-    ///         while the asset has live deposits. Use the M-8 migration path
+    /// @notice Raw register/remove of an adapter is rejected while the asset has
+    ///         live deposits; admins must drain through the migration path
     ///         (`startAdapterMigration` → `completeAdapterMigration`) instead.
     error AdapterChangeWhileDepositsExist(address token, uint256 currentDeposits);
     function setRequireAdapters(bool required) external;
@@ -282,7 +282,7 @@ interface IMultiAssetDelegation {
         view
         returns (uint256);
     function getOperatorStakeForAsset(address operator, Types.Asset calldata asset) external view returns (uint256);
-    /// @notice F5: Lazy-realized cumulative stake-seconds for an (operator, asset) at the
+    /// @notice Lazy-realized cumulative stake-seconds for an (operator, asset) at the
     ///         current block. Used by `Payments.billSubscription` for TWAP-fair pricing.
     function getCumStakeSeconds(
         address operator,
@@ -358,7 +358,7 @@ interface IMultiAssetDelegation {
     function removeSlasher(address slasher) external;
     function setTangle(address tangle) external;
     function setOperatorCommission(uint16 bps) external;
-    // M-10 FIX: Commission change timelock functions
+    // Commission change timelock functions
     function executeCommissionChange() external;
     function cancelCommissionChange() external;
     function getPendingCommissionChange() external view returns (uint16 pendingBps, uint64 executeAfter);

@@ -17,7 +17,7 @@ contract StakingSlashingFacet is StakingFacetBase, IFacetSelectors {
         selectorList[2] = this.slash.selector;
         selectorList[3] = this.advanceRound.selector;
         selectorList[4] = this.snapshotOperator.selector;
-        // M-9 FIX: Pending slash tracking functions
+        // Pending slash tracking functions
         selectorList[5] = this.incrementPendingSlash.selector;
         selectorList[6] = this.decrementPendingSlash.selector;
         selectorList[7] = this.getPendingSlashCount.selector;
@@ -82,7 +82,7 @@ contract StakingSlashingFacet is StakingFacetBase, IFacetSelectors {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-9 FIX: PENDING SLASH TRACKING
+    // PENDING SLASH TRACKING
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Increment pending slash count for an operator

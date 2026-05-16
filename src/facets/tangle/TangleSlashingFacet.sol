@@ -17,7 +17,7 @@ contract TangleSlashingFacet is Slashing, IFacetSelectors {
         selectorList[5] = this.cancelSlash.selector;
         selectorList[6] = this.setSlashConfig.selector;
         selectorList[7] = this.getSlashProposal.selector;
-        // Round 3 audit fix for economic F3 — pull-pattern dispute bond refunds
+        // Pull-pattern dispute bond refunds: settled via _pendingDisputeBondRefunds.
         // (and the slash-config view that v0.13.0 added but never registered).
         selectorList[8] = this.getSlashConfig.selector;
         selectorList[9] = this.claimDisputeBond.selector;

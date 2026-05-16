@@ -66,7 +66,7 @@ library BeaconChainProofs {
     uint256 internal constant VALIDATORS_PER_BALANCE_LEAF = 4;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CONSTANTS - PROOF AGE LIMITS (M-11 FIX)
+    // CONSTANTS - PROOF AGE LIMITS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Maximum age for beacon chain proofs (8192 slots = ~1 day)
@@ -98,15 +98,15 @@ library BeaconChainProofs {
     error ProofVerificationFailed();
     error InvalidWithdrawalCredentials();
     error EmptyProof();
-    /// @notice M-11 FIX: Beacon block root is zero (invalid or genesis block)
+    /// @notice Beacon block root is zero (invalid or genesis block)
     error InvalidBeaconBlockRoot();
-    /// @notice M-11 FIX: State root is zero (invalid proof data)
+    /// @notice State root is zero (invalid proof data)
     error InvalidStateRoot();
-    /// @notice M-11 FIX: Proof timestamp is too old (exceeds MAX_PROOF_AGE)
+    /// @notice Proof timestamp is too old (exceeds MAX_PROOF_AGE)
     error ProofTooOld(uint64 proofTimestamp, uint64 currentTimestamp);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PROOF AGE VALIDATION (M-11 FIX)
+    // PROOF AGE VALIDATION
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Validate that a proof timestamp is not too old
@@ -135,7 +135,7 @@ library BeaconChainProofs {
     /// @param beaconBlockRoot The beacon block root to verify against
     /// @param stateRootProof The proof containing state root and merkle proof
     /// @return True if verification succeeds
-    /// @dev M-11 FIX: Added validation for zero beacon block root (genesis block edge case)
+    /// @dev Added validation for zero beacon block root (genesis block edge case)
     ///      and zero state root to prevent invalid proof acceptance
     function verifyStateRoot(
         bytes32 beaconBlockRoot,
@@ -145,13 +145,13 @@ library BeaconChainProofs {
         pure
         returns (bool)
     {
-        // M-11 FIX: Reject zero beacon block root (could be genesis block or invalid root)
+        // Reject zero beacon block root (could be genesis block or invalid root)
         // EIP-4788 returns 0 for timestamps before the fork or invalid timestamps
         if (beaconBlockRoot == bytes32(0)) {
             revert InvalidBeaconBlockRoot();
         }
 
-        // M-11 FIX: Reject zero state root as it indicates invalid proof data
+        // Reject zero state root as it indicates invalid proof data
         if (stateRootProof.beaconStateRoot == bytes32(0)) {
             revert InvalidStateRoot();
         }
@@ -216,7 +216,7 @@ library BeaconChainProofs {
     /// @param beaconStateRoot The beacon state root (must be verified separately against block root)
     /// @param proof The balance container proof
     /// @return True if verification succeeds
-    /// @dev C-3 FIX: Now correctly verifies against state root, not block root
+    /// @dev Now correctly verifies against state root, not block root
     function verifyBalanceContainer(
         bytes32 beaconStateRoot,
         ValidatorTypes.BalanceContainerProof calldata proof

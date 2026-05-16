@@ -65,7 +65,6 @@ abstract contract DepositManager is DelegationStorage {
     /// @param amount Amount to deposit
     /// @return shares Amount of shares (equals amount for direct deposits)
     function _handleErc20Deposit(address token, uint256 amount) internal returns (uint256 shares) {
-        // M-8 FIX: Check if adapter migration is in progress
         if (_adapterMigrationInProgress[token]) {
             revert DelegationErrors.AdapterMigrationInProgress(token);
         }
@@ -116,7 +115,7 @@ abstract contract DepositManager is DelegationStorage {
         // Handle lock if specified
         if (lockMultiplier != Types.LockMultiplier.None) {
             _validateLockMultiplier(lockMultiplier);
-            // M-9 FIX: Enforce minimum lock amount to prevent multiplier bypass via small deposits
+            // Enforce minimum lock amount to prevent multiplier bypass via small deposits
             if (amount < MIN_LOCK_AMOUNT) {
                 revert DelegationErrors.BelowMinimumLockAmount(MIN_LOCK_AMOUNT, amount);
             }
@@ -222,15 +221,8 @@ abstract contract DepositManager is DelegationStorage {
             _harvestExpiredLocks(msg.sender, readyAssets[i]);
 
             _transferAsset(readyAssets[i], msg.sender, readyAmounts[i]);
-            // Update deposit cap accounting on actual transfer (TVL decreases here).
             bytes32 assetHash = _assetHash(readyAssets[i]);
-            Types.AssetConfig storage config = _assetConfigs[assetHash];
-            if (config.currentDeposits >= readyAmounts[i]) {
-                config.currentDeposits -= readyAmounts[i];
-            } else {
-                // Clamp for upgrade safety (in case currentDeposits was previously incorrect).
-                config.currentDeposits = 0;
-            }
+            _assetConfigs[assetHash].currentDeposits -= readyAmounts[i];
             emit Withdrawn(msg.sender, readyAssets[i].token, readyAmounts[i]);
             unchecked {
                 ++i;

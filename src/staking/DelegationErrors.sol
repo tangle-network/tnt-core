@@ -20,10 +20,10 @@ library DelegationErrors {
     // ═══════════════════════════════════════════════════════════════════════════
 
     error InsufficientStake(uint256 required, uint256 provided);
-    /// @dev L-18 FIX: Zero amount provided - kept parameterless for backward compatibility
+    /// @dev Zero amount provided - kept parameterless for backward compatibility
     ///      Context is typically clear from the function that reverts
     error ZeroAmount();
-    /// @dev L-18 FIX: Zero address provided - kept parameterless for backward compatibility
+    /// @dev Zero address provided - kept parameterless for backward compatibility
     ///      Context is typically clear from the function that reverts
     error ZeroAddress();
 
@@ -90,11 +90,12 @@ library DelegationErrors {
     // ═══════════════════════════════════════════════════════════════════════════
 
     error InvalidLockMultiplier(uint8 value);
-    /// @dev M-9 FIX: Prevents lock multiplier bypass via small deposits
+    /// @dev Rejects deposits below the minimum lock amount so the lock-multiplier
+    ///      reward path cannot be gamed by a stream of dust deposits.
     error BelowMinimumLockAmount(uint256 minimum, uint256 provided);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ADAPTER MIGRATION ERRORS (M-8 FIX)
+    // ADAPTER MIGRATION ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
 
     error AdapterMigrationInProgress(address token);
@@ -102,7 +103,7 @@ library DelegationErrors {
     error AdapterMigrationAlreadyPending(address token);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // COMMISSION CHANGE ERRORS (M-10 FIX)
+    // COMMISSION CHANGE ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
 
     error NoCommissionChangePending();
@@ -110,24 +111,24 @@ library DelegationErrors {
     error CommissionChangeAlreadyPending();
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PENDING SLASH ERRORS (M-9 FIX)
+    // PENDING SLASH ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev M-9 FIX: Prevents delegator withdrawals when operator has pending slashes
+    /// @dev Blocks delegator withdrawals while the operator has un-finalized
+    ///      slash proposals against them.
     error PendingSlashExists(address operator, uint64 pendingSlashCount);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // OPERATOR EXIT ERRORS (M-10 FIX)
+    // OPERATOR EXIT ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev M-10 FIX: Prevents operator exit when they have active service commitments
+    /// @dev Blocks operator exit while they have active service commitments.
     error OperatorHasActiveServices(address operator);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ACCESS CONTROL ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev H-1 FIX: Generic unauthorized access error
     error Unauthorized();
 
     // ═══════════════════════════════════════════════════════════════════════════

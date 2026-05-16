@@ -183,6 +183,9 @@ library Errors {
     /// @notice No security requirements provided
     error NoSecurityRequirements();
 
+    /// @notice More security requirements supplied than the protocol per-request cap.
+    error TooManySecurityRequirements(uint256 supplied, uint256 maximum);
+
     /// @notice Invalid security requirement (min > max, zero exposure, etc.)
     error InvalidSecurityRequirement();
 
@@ -276,7 +279,7 @@ library Errors {
     /// @notice Slash amount exceeds stake
     error SlashExceedsStake(address operator, uint256 slashAmount, uint256 stake);
 
-    /// @notice M-6 FIX: Slash percentage exceeds maximum (100%)
+    /// @notice Slash percentage exceeds maximum (100%)
     error SlashBpsExceedsMax(uint16 slashBps, uint16 maxBps);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -460,14 +463,14 @@ library Errors {
     error SelectorAlreadyRegistered(bytes4 selector, address existingFacet);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // BEACON CHAIN PROOFS (M-11)
+    // BEACON CHAIN PROOFS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Beacon chain proof is too old (exceeds MAX_PROOF_AGE)
     error ProofTooOld(uint64 proofTimestamp, uint64 currentTimestamp, uint256 maxAge);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CROSS-CHAIN MESSAGING (M-12)
+    // CROSS-CHAIN MESSAGING
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Cross-chain message has already been processed (replay protection)

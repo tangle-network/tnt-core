@@ -62,16 +62,23 @@ abstract contract JobsAggregation is Base {
         uint16 thresholdBps = DEFAULT_AGGREGATION_THRESHOLD_BPS;
         uint8 thresholdType = 0;
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).requiresAggregation(serviceId, job.jobIndex) returns (bool aggReq) {
-                aggregationRequired = aggReq;
-            } catch { }
+            (bool okReq, bytes memory retReq) = _tryStaticcallManager(
+                bp.manager,
+                abi.encodeWithSelector(IBlueprintServiceManager.requiresAggregation.selector, serviceId, job.jobIndex),
+                32
+            );
+            if (okReq) aggregationRequired = abi.decode(retReq, (bool));
 
-            try IBlueprintServiceManager(bp.manager).getAggregationThreshold(serviceId, job.jobIndex) returns (
-                uint16 customThresholdBps, uint8 customThresholdType
-            ) {
-                thresholdBps = customThresholdBps;
-                thresholdType = customThresholdType;
-            } catch { }
+            (bool okThr, bytes memory retThr) = _tryStaticcallManager(
+                bp.manager,
+                abi.encodeWithSelector(
+                    IBlueprintServiceManager.getAggregationThreshold.selector, serviceId, job.jobIndex
+                ),
+                64
+            );
+            if (okThr) {
+                (thresholdBps, thresholdType) = abi.decode(retThr, (uint16, uint8));
+            }
         }
         if (!aggregationRequired) {
             revert Errors.AggregationNotRequired(serviceId, job.jobIndex);
@@ -122,10 +129,19 @@ abstract contract JobsAggregation is Base {
         }
 
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).onAggregatedResult(
-                serviceId, job.jobIndex, callId, output, signerBitmap, aggregatedSignature, aggregatedPubkey
-            ) { }
-            catch { }
+            _tryCallManager(
+                bp.manager,
+                abi.encodeWithSelector(
+                    IBlueprintServiceManager.onAggregatedResult.selector,
+                    serviceId,
+                    job.jobIndex,
+                    callId,
+                    output,
+                    signerBitmap,
+                    aggregatedSignature,
+                    aggregatedPubkey
+                )
+            );
         }
     }
 

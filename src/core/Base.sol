@@ -18,6 +18,7 @@ import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager
 import { IMetricsRecorder } from "../interfaces/IMetricsRecorder.sol";
 import { IMBSMRegistry } from "../interfaces/IMBSMRegistry.sol";
 import { IOperatorStatusRegistry } from "../staking/OperatorStatusRegistry.sol";
+import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
 import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
 /// @title Base
@@ -66,6 +67,11 @@ abstract contract Base is
     ///         the capped gas stipend. Observable so off-chain monitors can detect a
     ///         misbehaving BSM without halting the protocol path.
     event ManagerHookFailed(address indexed manager, bytes4 indexed selector, bytes returnData);
+
+    /// @notice Emitted when a price-oracle query reverted on the billing hot path and
+    ///         the protocol fell back to raw token-second weighting. The bill still
+    ///         completes; off-chain monitors should investigate the oracle health.
+    event PriceOracleFallback(address indexed oracle, address indexed token, bytes returnData);
 
     /// @notice Emitted when the metrics recorder is updated
     /// @param recorder The new recorder address (or zero to disable)
@@ -382,7 +388,7 @@ abstract contract Base is
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SERVICE REQUEST TTL CONFIGURATION (M-1 fix)
+    // SERVICE REQUEST TTL CONFIGURATION
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Configure minimum TTL for service requests (0 = use protocol default)
@@ -609,26 +615,25 @@ abstract contract Base is
         uint8 maxMissed = 0; // 0 means use registry default
 
         if (manager != address(0)) {
-            // Try to get custom heartbeat interval
-            try IBlueprintServiceManager(manager).getHeartbeatInterval(serviceId) returns (
-                bool useDefault, uint64 customInterval
-            ) {
-                if (!useDefault && customInterval > 0) {
-                    interval = customInterval;
-                }
-            } catch { }
+            (bool okInt, bytes memory retInt) = _tryStaticcallManager(
+                manager, abi.encodeWithSelector(IBlueprintServiceManager.getHeartbeatInterval.selector, serviceId), 64
+            );
+            if (okInt) {
+                (bool useDefault, uint64 customInterval) = abi.decode(retInt, (bool, uint64));
+                if (!useDefault && customInterval > 0) interval = customInterval;
+            }
 
-            // Try to get custom heartbeat threshold (max missed before offline)
-            try IBlueprintServiceManager(manager).getHeartbeatThreshold(serviceId) returns (
-                bool useDefault, uint8 threshold
-            ) {
+            (bool okThr, bytes memory retThr) = _tryStaticcallManager(
+                manager, abi.encodeWithSelector(IBlueprintServiceManager.getHeartbeatThreshold.selector, serviceId), 64
+            );
+            if (okThr) {
+                (bool useDefault, uint8 threshold) = abi.decode(retThr, (bool, uint8));
                 if (!useDefault && threshold > 0) {
-                    // threshold is percentage, we interpret high values as max missed beats
-                    // Lower threshold = stricter = fewer missed allowed
-                    // e.g., 90% threshold ≈ allow 1 missed, 50% ≈ allow 3 missed
+                    // threshold is a percentage; mapped to max-missed beats inversely
+                    // (90% ≈ 1 missed, 50% ≈ 3 missed).
                     maxMissed = threshold > 80 ? 1 : (threshold > 50 ? 2 : 3);
                 }
-            } catch { }
+            }
         }
 
         // Register service owner and configure heartbeat
@@ -711,11 +716,13 @@ abstract contract Base is
         view
         returns (bool hasResult, bool allowed)
     {
-        try IBlueprintServiceManager(manager).queryIsPaymentAssetAllowed(contextId, asset) returns (bool isAllowed) {
-            return (true, isAllowed);
-        } catch {
-            return (false, false);
-        }
+        (bool ok, bytes memory ret) = _tryStaticcallManager(
+            manager,
+            abi.encodeWithSelector(IBlueprintServiceManager.queryIsPaymentAssetAllowed.selector, contextId, asset),
+            32
+        );
+        if (!ok) return (false, false);
+        return (true, abi.decode(ret, (bool)));
     }
 
     /// @notice Maximum gas forwarded to a blueprint manager hook.
@@ -745,6 +752,63 @@ abstract contract Base is
         if (!success) {
             emit ManagerHookFailed(manager, bytes4(data), returnData);
         }
+    }
+
+    /// @notice Best-effort gas-capped staticcall to a manager view hook.
+    /// @dev Returns `(false, "")` on revert, on a manager set to `address(0)`, on calls
+    ///      that consumed more than `MANAGER_HOOK_GAS_LIMIT` gas, or on returndata
+    ///      shorter than `minReturnLen`. Callers MUST treat the failure case as
+    ///      "no answer" and fall back to a safe default; never trust an `ok=false`
+    ///      branch to surface a structured error.
+    function _tryStaticcallManager(
+        address manager,
+        bytes memory data,
+        uint256 minReturnLen
+    )
+        internal
+        view
+        returns (bool ok, bytes memory ret)
+    {
+        if (manager == address(0)) return (false, "");
+        (ok, ret) = manager.staticcall{ gas: MANAGER_HOOK_GAS_LIMIT }(data);
+        if (!ok || ret.length < minReturnLen) return (false, "");
+    }
+
+    /// @notice Maximum gas forwarded to the price-oracle adapter per query.
+    /// @dev Same cap pattern as `MANAGER_HOOK_GAS_LIMIT`: bounds the cost of a buggy
+    ///      or adversarial oracle adapter on the billing hot path so the keeper's
+    ///      gas budget cannot be drained.
+    uint256 internal constant ORACLE_QUERY_GAS_LIMIT = 250_000;
+
+    /// @notice Best-effort `toUSD` query with a gas cap and revert isolation.
+    /// @dev Returns the raw `amount` on revert / oracle disabled / wrong return shape,
+    ///      and surfaces failure via `PriceOracleFallback`. This is the shared
+    ///      degraded-fairness path used by `PaymentsBilling._accrueOperatorWeights`
+    ///      and `PaymentsDistribution._initSubscriptionBaseline`: an oracle outage
+    ///      degrades to raw token-second weighting rather than freezing the bill.
+    function _safeToUSD(address oracleAddr, address token, uint256 amount) internal returns (uint256) {
+        if (oracleAddr == address(0) || amount == 0) return amount;
+        (bool ok, bytes memory ret) = oracleAddr.staticcall{ gas: ORACLE_QUERY_GAS_LIMIT }(
+            abi.encodeWithSelector(IPriceOracle.toUSD.selector, token, amount)
+        );
+        if (!ok || ret.length < 32) {
+            emit PriceOracleFallback(oracleAddr, token, ret);
+            return amount;
+        }
+        return abi.decode(ret, (uint256));
+    }
+
+    /// @notice View variant of `_safeToUSD` for the activation-time baseline path.
+    /// @dev Does not emit (events would change the function's view-ness) — callers on
+    ///      activation paths should monitor `PriceOracleFallback` from the bill path
+    ///      for ongoing oracle health.
+    function _safeToUSDView(address oracleAddr, address token, uint256 amount) internal view returns (uint256) {
+        if (oracleAddr == address(0) || amount == 0) return amount;
+        (bool ok, bytes memory ret) = oracleAddr.staticcall{ gas: ORACLE_QUERY_GAS_LIMIT }(
+            abi.encodeWithSelector(IPriceOracle.toUSD.selector, token, amount)
+        );
+        if (!ok || ret.length < 32) return amount;
+        return abi.decode(ret, (uint256));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

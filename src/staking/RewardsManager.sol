@@ -11,7 +11,7 @@ import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol
 
 /// @title RewardsManager
 /// @notice Tracks pool totals for slashing/exchange-rate accounting and forwards delegation updates to external reward
-/// systems. @dev M-7 FIX: Includes dust tracking and sweep functionality to handle rounding in reward distributions.
+/// systems. Includes dust tracking and a sweep entry point to drain rounding residue.
 abstract contract RewardsManager is DelegationManagerLib {
     using SafeERC20 for IERC20;
     // ═══════════════════════════════════════════════════════════════════════════
@@ -54,7 +54,7 @@ abstract contract RewardsManager is DelegationManagerLib {
         override
     {
         bytes32 assetHash = _assetHash(asset);
-        // F5: fold pre-change stake-seconds into the TWAP index BEFORE any pool
+        // fold pre-change stake-seconds into the TWAP index BEFORE any pool
         // mutation so the elapsed period is priced at the stake that was actually
         // in effect (not the post-delegate value).
         _accrueOperatorStakeSeconds(operator, assetHash);
@@ -257,7 +257,7 @@ abstract contract RewardsManager is DelegationManagerLib {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-7 FIX: DUST MANAGEMENT
+    // DUST MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Accumulate dust from rounding in reward calculations
@@ -298,7 +298,7 @@ abstract contract RewardsManager is DelegationManagerLib {
         emit DustSwept(token, recipient, amount);
     }
 
-    /// @notice M-7 FIX: Calculate proportional shares for batch distribution with dust tracking
+    /// @notice Calculate proportional shares for batch distribution with dust tracking
     /// @dev Calculates amount per recipient based on shares, accumulates dust from rounding.
     ///      Uses floor division for N-1 recipients, remainder to final recipient.
     /// @param totalAmount Total amount to distribute
@@ -324,7 +324,7 @@ abstract contract RewardsManager is DelegationManagerLib {
 
         for (uint256 i = 0; i < shares.length; i++) {
             if (i == shares.length - 1) {
-                // M-7 FIX: Final recipient gets remainder to capture all rounding dust
+                // Final recipient gets remainder to capture all rounding dust
                 amounts[i] = totalAmount - distributed;
             } else {
                 // Floor division for all but last recipient
@@ -348,7 +348,7 @@ abstract contract RewardsManager is DelegationManagerLib {
         return amounts;
     }
 
-    /// @notice M-7 FIX: Distribute rewards with explicit dust handling
+    /// @notice Distribute rewards with explicit dust handling
     /// @dev For cases where dust should accumulate in protocol rather than going to last recipient
     /// @param totalAmount Total amount to distribute
     /// @param shares Array of shares for each recipient
@@ -378,7 +378,7 @@ abstract contract RewardsManager is DelegationManagerLib {
             distributed += amounts[i];
         }
 
-        // M-7 FIX: Accumulate dust from rounding
+        // Accumulate dust from rounding
         dustAmount = totalAmount - distributed;
         if (dustAmount > 0) {
             _accumulateDust(token, dustAmount);

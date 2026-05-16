@@ -31,7 +31,7 @@ contract TangleTimelock is Initializable, TimelockControllerUpgradeable, UUPSUpg
     /// @notice Maximum delay that can be set (30 days)
     uint256 public constant MAX_DELAY = 30 days;
 
-    // M-16 FIX: Custom errors for better gas efficiency
+    // Custom errors for better gas efficiency
     error DelayTooShort(uint256 delay, uint256 minimum);
     error DelayTooLong(uint256 delay, uint256 maximum);
     error OnlySelfUpgrade();
@@ -60,7 +60,7 @@ contract TangleTimelock is Initializable, TimelockControllerUpgradeable, UUPSUpg
         override
         initializer
     {
-        // M-16 FIX: Use custom errors for gas efficiency
+        // Use custom errors for gas efficiency
         if (minDelay < MIN_DELAY) revert DelayTooShort(minDelay, MIN_DELAY);
         if (minDelay > MAX_DELAY) revert DelayTooLong(minDelay, MAX_DELAY);
 
@@ -69,7 +69,7 @@ contract TangleTimelock is Initializable, TimelockControllerUpgradeable, UUPSUpg
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-16 FIX: DELAY VALIDATION
+    // DELAY VALIDATION
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice ERC-7201 storage location for `TimelockControllerStorage`.
@@ -108,7 +108,7 @@ contract TangleTimelock is Initializable, TimelockControllerUpgradeable, UUPSUpg
 
     /// @notice Only the timelock itself (via governance) can upgrade
     function _authorizeUpgrade(address) internal view override {
-        // M-16 FIX: Use custom error for gas efficiency
+        // Use custom error for gas efficiency
         if (msg.sender != address(this)) revert OnlySelfUpgrade();
     }
 

@@ -114,7 +114,7 @@ abstract contract SlashingManager is RewardsManager {
     mapping(uint64 => mapping(address => uint64)) public blueprintSlashCount;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-9 FIX: PENDING SLASH TRACKING
+    // PENDING SLASH TRACKING
     // ═══════════════════════════════════════════════════════════════════════════
     // These functions are called by Tangle core to track pending slashes.
     // When an operator has pending slashes, delegators cannot withdraw.
@@ -149,15 +149,11 @@ abstract contract SlashingManager is RewardsManager {
         return _operatorPendingSlashCount[operator];
     }
 
-    /// @notice H-1 FIX: Reset pending slash count when it drifts from actual pending slashes
-    /// @dev Admin-only recovery function for when count becomes inconsistent.
-    ///      Default implementation reverts - must be overridden with access control.
-    /// @param operator The operator to reset
-    /// @param count The correct pending slash count
-    function resetPendingSlashCount(address operator, uint64 count) external virtual {
-        // Silence unused variable warnings - this default reverts for security
-        operator;
-        count;
+    /// @notice Force `_operatorPendingSlashCount[operator]` to `count`.
+    /// @dev Default implementation reverts; concrete deployments override with
+    ///      access-controlled logic. Provided here so the base contract type
+    ///      carries the selector for proxy / facet wiring.
+    function resetPendingSlashCount(address, uint64) external virtual {
         revert DelegationErrors.Unauthorized();
     }
 
@@ -272,7 +268,7 @@ abstract contract SlashingManager is RewardsManager {
         for (uint256 i = 0; i < commitmentsLength;) {
             Types.AssetSecurityCommitment calldata commitment = commitments[i];
             uint256 effectiveBps = (uint256(slashBps) * commitment.exposureBps) / BPS_DENOMINATOR;
-            // M-19 FIX: Ensure minimum 1 bps if both inputs are non-zero
+            // Ensure minimum 1 bps if both inputs are non-zero
             // This prevents rounding to zero when small percentages are multiplied
             if (slashBps > 0 && commitment.exposureBps > 0 && effectiveBps == 0) {
                 effectiveBps = 1;
@@ -333,7 +329,7 @@ abstract contract SlashingManager is RewardsManager {
         Types.Asset memory asset = Types.Asset(Types.AssetKind.Native, address(0));
         bytes32 assetHash = _assetHash(asset);
 
-        // F5: accrue stake-seconds at the pre-slash stake before mutating pools/self-stake.
+        // accrue stake-seconds at the pre-slash stake before mutating pools/self-stake.
         _accrueOperatorStakeSeconds(operator, assetHash);
         uint256 exchangeRateBefore = _getExchangeRate(operator, assetHash);
         (NativeSlashOutcome memory outcome, uint64[] memory callbackBlueprintIds) =
@@ -552,7 +548,7 @@ abstract contract SlashingManager is RewardsManager {
         returns (uint256 assetSlashed)
     {
         bytes32 assetHash = _assetHash(asset);
-        // F5: accrue stake-seconds at the pre-slash stake. Until this instant, the
+        // accrue stake-seconds at the pre-slash stake. Until this instant, the
         // higher pre-slash stake was actually backing the service, and billing
         // must price the elapsed window at that stake (not the post-slash one).
         _accrueOperatorStakeSeconds(operator, assetHash);
