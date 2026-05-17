@@ -339,7 +339,7 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
             assertEq(ticket.maxSubmissionCost, 0.01 ether, "submission");
             assertEq(ticket.excessFeeRefundAddress, sender, "fee refund");
             assertEq(ticket.callValueRefundAddress, sender, "call refund");
-            // M-12 FIX: Gas limit includes 10% buffer, so 500_000 * 1.1 = 550_000
+            // Gas limit includes 10% buffer, so 500_000 * 1.1 = 550_000
             assertEq(ticket.gasLimit, 550_000, "gasLimit");
             assertEq(ticket.data, expectedData, "payload");
             assertEq(inbox.lastValue(), 0.2 ether, "msg.value");
@@ -354,7 +354,7 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
         function test_estimateFee_UsesSubmissionCostAndGasLimit() public {
             inbox.setSubmissionFee(0.01 ether);
             uint256 fee = messenger.estimateFee(42_161, payload, 100_000);
-            // M-12 FIX: Gas limit includes 10% buffer, so 100_000 * 1.1 = 110_000
+            // Gas limit includes 10% buffer, so 100_000 * 1.1 = 110_000
             assertEq(fee, 0.01 ether + 110_000 * messenger.l2MaxFeePerGas());
         }
 
@@ -448,7 +448,7 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
                 abi.encodeCall(ICrossChainReceiver.receiveMessage, (block.chainid, sender, payload));
             assertEq(baseMessenger.lastTarget(), target);
             assertEq(baseMessenger.lastMessage(), expectedData);
-            // M-12 FIX: Gas limit includes 10% buffer, so 120_000 * 1.1 = 132_000
+            // Gas limit includes 10% buffer, so 120_000 * 1.1 = 132_000
             assertEq(baseMessenger.lastGasLimit(), 132_000);
             assertEq(baseMessenger.lastValue(), 0.5 ether);
             assertTrue(messageId != bytes32(0));
@@ -551,7 +551,7 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
             MockInterchainGasPaymaster.Payment memory payment = igp.getLastPayment();
             assertEq(payment.messageId, messageId);
             assertEq(payment.destinationDomain, 42_161);
-            // M-12 FIX: Gas limit includes 10% buffer, so 150_000 * 1.1 = 165_000
+            // Gas limit includes 10% buffer, so 150_000 * 1.1 = 165_000
             assertEq(payment.gasAmount, 165_000);
             assertEq(payment.refundAddress, sender);
             assertEq(payment.value, 0.01 ether);

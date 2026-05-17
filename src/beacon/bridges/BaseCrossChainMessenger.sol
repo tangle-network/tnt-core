@@ -137,7 +137,7 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
 /// @title BaseL2Receiver
 /// @notice Adapter for receiving messages on Base L2
 /// @dev Added message replay protection
-///      C-3 (Round 4): Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
+///      C-3 : Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
 ///      and call `initialize(...)`.
 contract BaseL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     /// @custom:storage-location erc7201:tangle.beacon.bridges.BaseL2Receiver

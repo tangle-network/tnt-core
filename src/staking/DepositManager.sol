@@ -77,7 +77,7 @@ abstract contract DepositManager is DelegationStorage {
         } else {
             // Direct deposit - require adapters mode check
             if (requireAdapters) revert DelegationErrors.AssetNotEnabled(token);
-            // Round 2 economic F6: balance-delta check rejects fee-on-transfer /
+            // balance-delta check rejects fee-on-transfer /
             // rebasing tokens at ingress. The 1:1 share accounting below assumes
             // the contract physically receives `amount`; a non-conforming token
             // would silently inflate share supply against actual holdings,

@@ -66,7 +66,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     uint256 public gasBufferBps = 1000; // 10% buffer by default
 
     /// @notice L2 alias of an L1 address that should receive excess-fee refunds.
-    /// @dev Round 2 cross-chain auditor H-1: when `excessFeeRefundAddress` is set
+    /// @dev when `excessFeeRefundAddress` is set
     ///      to `msg.sender` (the L1 connector), Arbitrum mints the refund at the
     ///      L2 alias of that L1 contract — which has no receive logic, so the
     ///      ETH is permanently locked. Callers who care about recovering excess
@@ -127,7 +127,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         // Calculate submission cost
         uint256 submissionCost = inbox.calculateRetryableSubmissionFee(l2Calldata.length, block.basefee);
 
-        // Round 2 cross-chain auditor H-1: route excess-fee + call-value refunds to a
+        // route excess-fee + call-value refunds to a
         // sweep address if configured. Falls back to `msg.sender` (the L1 connector)
         // only when no sweep address is set, which results in funds locked at the L2
         // alias of the L1 contract — fine for one-shot deployments, lossy for any
@@ -239,7 +239,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
 /// @notice Adapter for receiving messages on Arbitrum L2 from L1
 /// @dev Validates sender is the aliased L1 contract
 ///      Added message replay protection
-///      C-3 (Round 4): Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
+///      C-3 : Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
 ///      and call `initialize(...)`.
 contract ArbitrumL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     /// @notice Address offset for L1→L2 aliasing

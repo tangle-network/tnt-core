@@ -2,6 +2,8 @@
 pragma solidity ^0.8.26;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { PaymentsCore } from "./PaymentsCore.sol";
 import { PaymentsEffectiveExposure } from "./PaymentsEffectiveExposure.sol";
@@ -21,6 +23,7 @@ import { ITanglePaymentsInternal } from "../interfaces/ITanglePaymentsInternal.s
 ///      diamond (`ITanglePaymentsInternal.distributeBillWithKeeper`).
 abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposure {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using SafeERC20 for IERC20;
 
     /// @notice Emitted on every bill caller's keeper rebate.
     event KeeperRebateAccrued(uint64 indexed serviceId, address indexed keeper, address indexed token, uint256 amount);
@@ -377,35 +380,21 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
             }
         }
 
-        // ERC20 path: route the safeTransfer + distributeServiceFee through a single
-        // diamond self-call. If the distributor reverts, the EVM unwinds the transfer
-        // too — no tokens stranded at the distributor with no recovery path. The
-        // caller of this internal function holds `nonReentrant` so the self-call
-        // does not re-lock; the atomic helper is gated by `msg.sender == address(this)`.
-        ITanglePaymentsInternal target = ITanglePaymentsInternal(address(this));
-        try target.forwardStakerShareAtomic(distributor, serviceId, blueprintId, operator, token, amount) {
+        // ERC20 path: pull-payment. We approve the distributor for `amount`; if its
+        // distributeServiceFee succeeds it `transferFrom`s the tokens itself. If it
+        // reverts the tokens never leave the diamond — no stranding. We unconditionally
+        // revoke the residual allowance after the call so a reverting distributor
+        // cannot drain future shares via a leftover approval.
+        IERC20(token).forceApprove(distributor, amount);
+        try IServiceFeeDistributor(distributor).distributeServiceFee(serviceId, blueprintId, operator, token, amount) {
+            // Defensive: allowance should be zero after a healthy pull, but force-clear
+            // in case the distributor under-pulled.
+            IERC20(token).forceApprove(distributor, 0);
             return;
         } catch (bytes memory reason) {
+            IERC20(token).forceApprove(distributor, 0);
             _refundStakerShareToEscrow(serviceId, operator, token, amount, reason);
         }
-    }
-
-    /// @notice Internal ERC20 transfer + distribute. Reverts roll back both legs.
-    /// @dev Called only via `TanglePaymentsDistributionFacet.forwardStakerShareAtomic`
-    ///      (self-call from `_forwardStakerShare`). The outer caller wraps this in
-    ///      try/catch so a reverting distributor refunds the share to escrow.
-    function _forwardStakerShareAtomic(
-        address distributor,
-        uint64 serviceId,
-        uint64 blueprintId,
-        address operator,
-        address token,
-        uint256 amount
-    )
-        internal
-    {
-        PaymentLib.transferPayment(distributor, token, amount);
-        IServiceFeeDistributor(distributor).distributeServiceFee(serviceId, blueprintId, operator, token, amount);
     }
 
     function _refundStakerShareToEscrow(

@@ -151,7 +151,7 @@ contract CrossVersionCompatibilityTest is BlueprintTestHarness {
         uint64 slashIdV3 = proposeSlash(serviceV3, operator1, 0.4 ether);
 
         // Fast forward and execute all
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
 
         tangle.executeSlash(slashIdV1);
@@ -181,7 +181,7 @@ contract CrossVersionCompatibilityTest is BlueprintTestHarness {
         uint64 slashIdV3 = tangle.proposeSlash(serviceV3, operator2, 3000, keccak256("evidence"));
 
         // Execute both
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashIdV1);
         tangle.executeSlash(slashIdV3);

@@ -321,7 +321,7 @@ contract IntegrationTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(0, operator1, 2000, keccak256("evidence"));
 
-        // Fast forward past dispute window (7 days default + TIMESTAMP_BUFFER for M-6 fix)
+        // Fast forward past dispute window (7 days default + TIMESTAMP_BUFFER)
         vm.warp(block.timestamp + 7 days + 16);
 
         // Execute the slash

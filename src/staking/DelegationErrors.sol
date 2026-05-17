@@ -140,7 +140,7 @@ library DelegationErrors {
     error SelectorAlreadyRegistered(bytes4 selector, address existingFacet);
 
     /// @notice Fee-on-transfer / rebasing token rejected on direct ERC20 deposit.
-    /// @dev Audit Round 2 economic F6: 1:1 share accounting assumes the contract
+    /// @dev 1:1 share accounting assumes the contract
     ///      physically receives `amount`; non-1:1 tokens would inflate share supply
     ///      relative to actual holdings, eventually bricking withdrawals.
     error FeeOnTransferTokenRejected(address token);

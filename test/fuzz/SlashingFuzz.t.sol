@@ -62,7 +62,7 @@ contract SlashingFuzzTest is BaseTest {
         // Propose and execute slash
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(svcId, operator2, slashBps, keccak256("fuzz"));
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
@@ -134,7 +134,7 @@ contract SlashingFuzzTest is BaseTest {
         // Slash
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(svcId, operator3, slashBps, keccak256("multi"));
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
@@ -203,7 +203,7 @@ contract SlashingFuzzTest is BaseTest {
         assertEq(proposal.effectiveSlashBps, expectedEffective, "Effective bps scaled");
 
         // Execute and verify balance
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
@@ -242,7 +242,7 @@ contract SlashingFuzzTest is BaseTest {
         }
 
         // Execute all
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         for (uint8 i = 0; i < slashCount; i++) {
             tangle.executeSlash(slashIds[i]);

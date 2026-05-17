@@ -452,6 +452,10 @@ contract ServiceFeeDistributor is
             require(msg.value == amount, "bad msg.value");
         } else {
             require(msg.value == 0, "unexpected msg.value");
+            // Pull the ERC20 in via the caller's approval. Pull-payment lets the
+            // caller wrap this entry in try/catch and revoke the approval on
+            // revert without stranding tokens at the distributor.
+            IERC20(paymentToken).safeTransferFrom(msg.sender, address(this), amount);
         }
 
         _operatorRewardTokens[operator].add(paymentToken);

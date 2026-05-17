@@ -22,7 +22,7 @@ import {
     LayerZeroReceiver
 } from "../../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 
-/// @notice Round 4 audit C-3 — verifies that the L2 slashing receivers are
+/// @notice 3 — verifies that the L2 slashing receivers are
 ///         all UUPS upgradeable, ownership-gated, namespaced under ERC-7201,
 ///         and reject re-initialisation.
 contract L2SlashingReceiverUUPSTest is Test {
