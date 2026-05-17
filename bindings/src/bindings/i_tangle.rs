@@ -11389,6 +11389,7 @@ interface ITangle {
     function updateBlueprint(uint64 blueprintId, string memory metadataUri, bytes32 metadataHash) external;
     function updateOperatorPreferences(uint64 blueprintId, bytes memory ecdsaPublicKey, string memory rpcAddress) external;
     function withdrawRemainingEscrow(uint64 serviceId) external;
+    function withdrawRemainingEscrowTo(uint64 serviceId, address payable to) external;
 }
 ```
 
@@ -14983,6 +14984,24 @@ interface ITangle {
         "name": "serviceId",
         "type": "uint64",
         "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawRemainingEscrowTo",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address payable"
       }
     ],
     "outputs": [],
@@ -34040,6 +34059,170 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             }
         }
     };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `withdrawRemainingEscrowTo(uint64,address)` and selector `0x25d80f7d`.
+```solidity
+function withdrawRemainingEscrowTo(uint64 serviceId, address to) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct withdrawRemainingEscrowToCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub to: alloy::sol_types::private::Address,
+    }
+    ///Container type for the return parameters of the [`withdrawRemainingEscrowTo(uint64,address)`](withdrawRemainingEscrowToCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct withdrawRemainingEscrowToReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (u64, alloy::sol_types::private::Address);
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<withdrawRemainingEscrowToCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: withdrawRemainingEscrowToCall) -> Self {
+                    (value.serviceId, value.to)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for withdrawRemainingEscrowToCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        serviceId: tuple.0,
+                        to: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<withdrawRemainingEscrowToReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: withdrawRemainingEscrowToReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for withdrawRemainingEscrowToReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl withdrawRemainingEscrowToReturn {
+            fn _tokenize(
+                &self,
+            ) -> <withdrawRemainingEscrowToCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for withdrawRemainingEscrowToCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = withdrawRemainingEscrowToReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "withdrawRemainingEscrowTo(uint64,address)";
+            const SELECTOR: [u8; 4] = [37u8, 216u8, 15u8, 125u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.to,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                withdrawRemainingEscrowToReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
     ///Container for all the [`ITangle`](self) function calls.
     #[derive(Clone)]
     #[derive(serde::Serialize, serde::Deserialize)]
@@ -34225,6 +34408,8 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
         updateOperatorPreferences(updateOperatorPreferencesCall),
         #[allow(missing_docs)]
         withdrawRemainingEscrow(withdrawRemainingEscrowCall),
+        #[allow(missing_docs)]
+        withdrawRemainingEscrowTo(withdrawRemainingEscrowToCall),
     }
     impl ITangleCalls {
         /// All the selectors of this enum.
@@ -34242,6 +34427,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             [19u8, 211u8, 106u8, 102u8],
             [24u8, 12u8, 174u8, 103u8],
             [24u8, 198u8, 128u8, 23u8],
+            [37u8, 216u8, 15u8, 125u8],
             [39u8, 179u8, 117u8, 101u8],
             [43u8, 157u8, 167u8, 26u8],
             [45u8, 7u8, 230u8, 85u8],
@@ -34335,6 +34521,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             ::core::stringify!(terminateServiceForNonPayment),
             ::core::stringify!(getOperatorPublicKey),
             ::core::stringify!(preRegister),
+            ::core::stringify!(withdrawRemainingEscrowTo),
             ::core::stringify!(canScheduleExit),
             ::core::stringify!(joinService),
             ::core::stringify!(submitResult),
@@ -34428,6 +34615,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
             <terminateServiceForNonPaymentCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getOperatorPublicKeyCall as alloy_sol_types::SolCall>::SIGNATURE,
             <preRegisterCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <withdrawRemainingEscrowToCall as alloy_sol_types::SolCall>::SIGNATURE,
             <canScheduleExitCall as alloy_sol_types::SolCall>::SIGNATURE,
             <joinServiceCall as alloy_sol_types::SolCall>::SIGNATURE,
             <submitResultCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -34536,7 +34724,7 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
     impl alloy_sol_types::SolInterface for ITangleCalls {
         const NAME: &'static str = "ITangleCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 90usize;
+        const COUNT: usize = 91usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -34810,6 +34998,9 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 Self::withdrawRemainingEscrow(_) => {
                     <withdrawRemainingEscrowCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::withdrawRemainingEscrowTo(_) => {
+                    <withdrawRemainingEscrowToCall as alloy_sol_types::SolCall>::SELECTOR
+                }
             }
         }
         #[inline]
@@ -34914,6 +35105,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                             .map(ITangleCalls::preRegister)
                     }
                     preRegister
+                },
+                {
+                    fn withdrawRemainingEscrowTo(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleCalls> {
+                        <withdrawRemainingEscrowToCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(ITangleCalls::withdrawRemainingEscrowTo)
+                    }
+                    withdrawRemainingEscrowTo
                 },
                 {
                     fn canScheduleExit(
@@ -35910,6 +36112,17 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                             .map(ITangleCalls::preRegister)
                     }
                     preRegister
+                },
+                {
+                    fn withdrawRemainingEscrowTo(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<ITangleCalls> {
+                        <withdrawRemainingEscrowToCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(ITangleCalls::withdrawRemainingEscrowTo)
+                    }
+                    withdrawRemainingEscrowTo
                 },
                 {
                     fn canScheduleExit(
@@ -37257,6 +37470,11 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                         inner,
                     )
                 }
+                Self::withdrawRemainingEscrowTo(inner) => {
+                    <withdrawRemainingEscrowToCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
             }
         }
         #[inline]
@@ -37798,6 +38016,12 @@ function withdrawRemainingEscrow(uint64 serviceId) external;
                 }
                 Self::withdrawRemainingEscrow(inner) => {
                     <withdrawRemainingEscrowCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::withdrawRemainingEscrowTo(inner) => {
+                    <withdrawRemainingEscrowToCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -39727,6 +39951,19 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
             self.call_builder(
                 &withdrawRemainingEscrowCall {
                     serviceId,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`withdrawRemainingEscrowTo`] function.
+        pub fn withdrawRemainingEscrowTo(
+            &self,
+            serviceId: u64,
+            to: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, withdrawRemainingEscrowToCall, N> {
+            self.call_builder(
+                &withdrawRemainingEscrowToCall {
+                    serviceId,
+                    to,
                 },
             )
         }
