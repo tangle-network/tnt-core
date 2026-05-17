@@ -248,8 +248,14 @@ interface ITangleServices {
     /// @notice Fund a service escrow balance
     function fundService(uint64 serviceId, uint256 amount) external payable;
 
-    /// @notice Withdraw remaining escrow after termination
+    /// @notice Withdraw remaining escrow after termination to the service owner.
     function withdrawRemainingEscrow(uint64 serviceId) external;
+
+    /// @notice Withdraw remaining escrow after termination to a service-owner-chosen address.
+    /// @dev Service owner can route around blocklisting tokens / smart-account receive
+    ///      constraints. Caller must equal the service owner; recipient is arbitrary
+    ///      but must be non-zero.
+    function withdrawRemainingEscrowTo(uint64 serviceId, address payable to) external;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // VIEW FUNCTIONS
