@@ -2,15 +2,19 @@
 pragma solidity ^0.8.26;
 
 import { PaymentsRewards } from "../../core/PaymentsRewards.sol";
+import { PaymentsRefund } from "../../core/PaymentsRefund.sol";
 import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 
 /// @title TanglePaymentsRewardsFacet
-/// @notice Rewards claim, payment-split / treasury admin, escrow view.
+/// @notice Rewards claim, payment-split / treasury admin, escrow view, post-
+///         termination escrow refund.
 /// @dev Hosted on its own facet so the bytecode footprint stays small. The billing,
 ///      escrow funding, and distribution selectors live on `TanglePaymentsFacet`.
-contract TanglePaymentsRewardsFacet is PaymentsRewards, IFacetSelectors {
+///      Refund (`withdrawRemainingEscrow{,To}`) was relocated here from
+///      `TanglePaymentsFacet` to keep that facet under EIP-170.
+contract TanglePaymentsRewardsFacet is PaymentsRewards, PaymentsRefund, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](14);
+        selectorList = new bytes4[](16);
         selectorList[0] = bytes4(keccak256("claimRewards()"));
         selectorList[1] = bytes4(keccak256("claimRewards(address)"));
         selectorList[2] = bytes4(keccak256("claimRewardsBatch(address[])"));
@@ -25,5 +29,7 @@ contract TanglePaymentsRewardsFacet is PaymentsRewards, IFacetSelectors {
         selectorList[11] = this.getServiceEscrow.selector;
         selectorList[12] = this.getBillableServices.selector;
         selectorList[13] = this._claimRewardsTokenSafe.selector;
+        selectorList[14] = this.withdrawRemainingEscrow.selector;
+        selectorList[15] = this.withdrawRemainingEscrowTo.selector;
     }
 }
