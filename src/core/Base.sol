@@ -89,6 +89,9 @@ abstract contract Base is
     /// @param oracle The new oracle address (or zero to disable)
     event PriceOracleUpdated(address indexed oracle);
 
+    /// @notice Emitted when the per-service operator ceiling is changed by governance.
+    event MaxOperatorsPerServiceUpdated(uint32 newCap);
+
     /// @notice Emitted when max blueprints per operator limit is changed
     /// @param oldMax Previous maximum value
     /// @param newMax New maximum value (0 means unlimited)
@@ -187,6 +190,7 @@ abstract contract Base is
         _treasury = treasury_;
 
         _maxBlueprintsPerOperator = ProtocolConfig.MAX_BLUEPRINTS_PER_OPERATOR;
+        _maxOperatorsPerService = ProtocolConfig.DEFAULT_MAX_OPERATORS_PER_SERVICE;
         _defaultTntMinExposureBps = DEFAULT_TNT_MIN_EXPOSURE_BPS;
         _tntPaymentDiscountBps = 0;
 
@@ -282,6 +286,21 @@ abstract contract Base is
     function setPriceOracle(address oracle) external onlyRole(ADMIN_ROLE) whenNotPaused {
         _priceOracle = oracle;
         emit PriceOracleUpdated(oracle);
+    }
+
+    /// @notice Raise or lower the per-service operator ceiling.
+    /// @dev Bounds every per-operator loop in the billing / distribute / terminate
+    ///      paths. Zero is rejected; very large values let admins tune the upper
+    ///      bound for high-fanout services but increase worst-case bill gas.
+    function setMaxOperatorsPerService(uint32 cap) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        if (cap == 0) revert Errors.InvalidState();
+        _maxOperatorsPerService = cap;
+        emit MaxOperatorsPerServiceUpdated(cap);
+    }
+
+    /// @notice Get the current per-service operator ceiling.
+    function maxOperatorsPerService() external view returns (uint32) {
+        return _maxOperatorsPerService;
     }
 
     /// @notice Get configured price oracle

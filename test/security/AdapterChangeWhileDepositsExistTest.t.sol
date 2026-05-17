@@ -6,7 +6,7 @@ import { StakingAssetsFacet } from "../../src/facets/staking/StakingAssetsFacet.
 import { StandardAssetAdapter } from "../../src/staking/adapters/StandardAssetAdapter.sol";
 
 /// @title AdapterChangeWhileDepositsExistTest
-/// @notice Round 4 audit S-2: `registerAdapter` and `removeAdapter` must reject
+/// @notice 2: `registerAdapter` and `removeAdapter` must reject
 ///         when the asset has live deposits (`currentDeposits != 0`). Switching
 ///         the adapter under load either strands held balances in the old
 ///         adapter or double-counts them in the new one. The protocol exposes

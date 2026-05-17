@@ -592,7 +592,7 @@ contract RFQPaymentDistributionTest is BaseTest {
         uint256 treasuryGot = treasury.balance;
         uint256 opPending = tangle.pendingRewards(operator1);
 
-        // M-5 fix: staker (last recipient) gets rounding dust
+        // staker (last recipient) gets rounding dust
         assertEq(devGot + treasuryGot + opPending, payment, "odd payment: no dust lost");
     }
 

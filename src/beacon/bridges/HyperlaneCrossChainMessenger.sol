@@ -265,7 +265,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
 /// @notice Hyperlane MessageRecipient for receiving cross-chain messages
 /// @dev Implements handle() to process incoming messages
 ///      Added message replay protection
-///      C-3 (Round 4): Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
+///      C-3 : Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
 ///      and call `initialize(...)`.
 contract HyperlaneReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     /// @custom:storage-location erc7201:tangle.beacon.bridges.HyperlaneReceiver

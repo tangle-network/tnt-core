@@ -292,17 +292,16 @@ abstract contract ServicesRequests is Base {
         return bpConfig.minOperators > 0 ? bpConfig.minOperators : 1;
     }
 
-    function _validateOperatorBounds(uint32 maxOperators, uint32 operatorCount, uint32 minOps) private pure {
+    function _validateOperatorBounds(uint32 maxOperators, uint32 operatorCount, uint32 minOps) private view {
         if (operatorCount < minOps) {
             revert Errors.InsufficientOperators(minOps, operatorCount);
         }
-        // Hard protocol ceiling: every per-operator loop in the bill / distribute /
-        // terminate paths must be bounded. A blueprint config `maxOperators == 0`
-        // means "use the protocol ceiling" — never "unlimited".
+        // Every per-operator loop in the bill / distribute / terminate paths must be
+        // bounded; blueprint config `maxOperators == 0` ("unlimited") clamps to the
+        // governance-tunable protocol ceiling.
+        uint32 protocolCeiling = _maxOperatorsPerService;
         uint32 effectiveMax =
-            (maxOperators == 0 || maxOperators > ProtocolConfig.MAX_OPERATORS_PER_SERVICE)
-                ? ProtocolConfig.MAX_OPERATORS_PER_SERVICE
-                : maxOperators;
+            (maxOperators == 0 || maxOperators > protocolCeiling) ? protocolCeiling : maxOperators;
         if (operatorCount > effectiveMax) {
             revert Errors.TooManyOperators(effectiveMax, operatorCount);
         }

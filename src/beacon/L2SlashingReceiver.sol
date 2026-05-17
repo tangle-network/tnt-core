@@ -31,7 +31,7 @@ interface IL2Slasher {
 /// @title L2SlashingReceiver
 /// @notice Receives cross-chain slashing messages and executes them on L2
 /// @dev Deploy this on Tangle L2 (or any destination chain) behind an ERC1967 proxy.
-///      C-3 (Round 4): converted to UUPS upgradeable so post-mainnet bug remediation
+///      C-3 : converted to UUPS upgradeable so post-mainnet bug remediation
 ///      does not require re-deploying every bridge endpoint and re-authorising senders.
 ///      Storage is namespaced under the ERC-7201 slot
 ///      `tangle.beacon.L2SlashingReceiver` to keep upgrade-safe layout invariants.

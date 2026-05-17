@@ -99,7 +99,7 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     /// @inheritdoc IAssetAdapter
     /// @dev For rebasing tokens, we measure actual tokens received (not amount sent)
     ///      to handle any transfer fees or rebasing that occurs during transfer.
-    /// @dev Round 2 economic auditor F2 — first-depositor inflation defense.
+    /// @dev — first-depositor inflation defense.
     ///      A virtual asset/share offset is added to the share-price computation
     ///      so a one-wei seed plus a donation of D tokens cannot inflate share
     ///      price enough to round a victim's later V-token deposit to zero shares.

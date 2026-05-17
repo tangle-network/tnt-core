@@ -271,7 +271,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
 /// @notice OApp-compatible receiver for LayerZero V2 messages
 /// @dev Implements lzReceive to process incoming cross-chain messages
 ///      Added message replay protection using GUID
-///      C-3 (Round 4): Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
+///      C-3 : Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
 ///      and call `initialize(...)`.
 contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     /// @custom:storage-location erc7201:tangle.beacon.bridges.LayerZeroReceiver

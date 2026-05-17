@@ -548,7 +548,7 @@ contract MultiAssetDelegationTest is Test {
 
         Types.BondInfoDelegator[] memory delegations = delegation.getDelegations(delegator1);
         assertEq(delegations.length, 1);
-        // With virtual shares (C-1 fix), shares = amount * VIRTUAL_SHARES / VIRTUAL_ASSETS
+        // With virtual shares, shares = amount * VIRTUAL_SHARES / VIRTUAL_ASSETS
         // VIRTUAL_SHARES = 1e8, VIRTUAL_ASSETS = 1
         // So shares = 0.5e18 * 1e8 / 1 = 5e25
         assertEq(delegations[0].shares, 0.5 ether * 1e8);
@@ -562,7 +562,7 @@ contract MultiAssetDelegationTest is Test {
     function test_SetOperatorCommission() public {
         vm.startPrank(admin);
         delegation.setOperatorCommission(2000); // 20%
-        // M-10 FIX: Commission changes require 7-day timelock
+        // Commission changes require 7-day timelock
         vm.warp(block.timestamp + 7 days + 1);
         delegation.executeCommissionChange();
         vm.stopPrank();

@@ -28,7 +28,7 @@ contract PaymentFuzzTest is BaseTest {
     /// @notice Fuzz test that payment splits always sum to the total payment
     function testFuzz_PaymentSplit_ConservesTotal(uint128 paymentSeed) public {
         // Use uint128 to avoid overflow issues
-        // M-5 FIX: Minimum payment is 100 wei
+        // Minimum payment is 100 wei
         uint256 payment = bound(uint256(paymentSeed), 100, 1000 ether);
 
         // Fund user with enough for this payment

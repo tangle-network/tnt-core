@@ -16,12 +16,11 @@ import { ITanglePaymentsInternal } from "../../interfaces/ITanglePaymentsInterna
 ///      Hosting them on a dedicated facet keeps the billing facet under EIP-170.
 contract TanglePaymentsDistributionFacet is PaymentsDistribution, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](5);
+        selectorList = new bytes4[](4);
         selectorList[0] = this.distributePayment.selector;
         selectorList[1] = this.depositToEscrow.selector;
         selectorList[2] = this.distributeBillWithKeeper.selector;
         selectorList[3] = this.initSubscriptionBaseline.selector;
-        selectorList[4] = this.forwardStakerShareAtomic.selector;
     }
 
     /// @notice Seed per-operator TWAP cursors and pin the subscription baseline at activation.
@@ -84,26 +83,5 @@ contract TanglePaymentsDistributionFacet is PaymentsDistribution, IFacetSelector
             keeper: d.keeper
         });
         _distributeBill(m);
-    }
-
-    /// @notice Atomic ERC20 transfer + distribute to the service-fee distributor.
-    /// @dev Self-call only. Wraps `safeTransfer + distributeServiceFee` in a single
-    ///      EVM call frame so that a reverting distributor cleanly unwinds the
-    ///      transfer too — closes the F-001 stranding window where the previous
-    ///      transfer-before-try pattern left ERC20 at the distributor with no
-    ///      recovery path. The caller (`_forwardStakerShare`) wraps THIS call in
-    ///      try/catch and refunds the share to escrow on revert.
-    function forwardStakerShareAtomic(
-        address distributor,
-        uint64 serviceId,
-        uint64 blueprintId,
-        address operator,
-        address token,
-        uint256 amount
-    )
-        external
-    {
-        if (msg.sender != address(this)) revert Errors.Unauthorized();
-        _forwardStakerShareAtomic(distributor, serviceId, blueprintId, operator, token, amount);
     }
 }
