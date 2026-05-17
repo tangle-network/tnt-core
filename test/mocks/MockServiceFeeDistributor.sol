@@ -24,6 +24,7 @@ contract MockServiceFeeDistributor is IServiceFeeDistributor {
     )
         external
         payable
+        virtual
         override
     {
         if (paymentToken == address(0)) {

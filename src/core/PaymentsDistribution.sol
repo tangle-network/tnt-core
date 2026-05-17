@@ -377,15 +377,35 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
             }
         }
 
-        PaymentLib.transferPayment(distributor, token, amount);
-        try IServiceFeeDistributor(distributor).distributeServiceFee(serviceId, blueprintId, operator, token, amount) {
+        // ERC20 path: route the safeTransfer + distributeServiceFee through a single
+        // diamond self-call. If the distributor reverts, the EVM unwinds the transfer
+        // too — no tokens stranded at the distributor with no recovery path. The
+        // caller of this internal function holds `nonReentrant` so the self-call
+        // does not re-lock; the atomic helper is gated by `msg.sender == address(this)`.
+        ITanglePaymentsInternal target = ITanglePaymentsInternal(address(this));
+        try target.forwardStakerShareAtomic(distributor, serviceId, blueprintId, operator, token, amount) {
             return;
         } catch (bytes memory reason) {
-            // The ERC20 has already left this contract — fee distributor holds it. We cannot
-            // unilaterally claw the tokens back, so we emit a clear marker for the customer
-            // and protocol to handle off-chain.
-            emit StakerShareRefundedToEscrow(serviceId, operator, token, amount, reason);
+            _refundStakerShareToEscrow(serviceId, operator, token, amount, reason);
         }
+    }
+
+    /// @notice Internal ERC20 transfer + distribute. Reverts roll back both legs.
+    /// @dev Called only via `TanglePaymentsDistributionFacet.forwardStakerShareAtomic`
+    ///      (self-call from `_forwardStakerShare`). The outer caller wraps this in
+    ///      try/catch so a reverting distributor refunds the share to escrow.
+    function _forwardStakerShareAtomic(
+        address distributor,
+        uint64 serviceId,
+        uint64 blueprintId,
+        address operator,
+        address token,
+        uint256 amount
+    )
+        internal
+    {
+        PaymentLib.transferPayment(distributor, token, amount);
+        IServiceFeeDistributor(distributor).distributeServiceFee(serviceId, blueprintId, operator, token, amount);
     }
 
     function _refundStakerShareToEscrow(
