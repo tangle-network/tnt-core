@@ -958,7 +958,7 @@ contract PaymentsTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_Payment_SmallAmountRounding_RevertsWithMinimum() public {
-        // M-5 FIX: Payments below MINIMUM_PAYMENT_AMOUNT (100) should revert
+        // Payments below MINIMUM_PAYMENT_AMOUNT (100) should revert
         uint256 payment = 1; // 1 wei - below minimum
 
         vm.expectRevert(abi.encodeWithSelector(Errors.PaymentTooSmall.selector, payment, 100));

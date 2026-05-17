@@ -365,7 +365,7 @@ contract SubscriptionBillingTest is BaseTest {
                 _billOnceAndMeasure();
             }
         }
-        // Try a batch bill on the underfunded service. Per the H-1 fix, no cursor
+        // Try a batch bill on the underfunded service. No cursor
         // SSTOREs should happen.
         vm.warp(block.timestamp + SUB_INTERVAL);
         uint64[] memory ids = new uint64[](1);

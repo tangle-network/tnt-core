@@ -624,11 +624,10 @@ abstract contract ServicesLifecycle is Base {
         if (svc.membership != Types.MembershipModel.Dynamic) {
             revert Errors.InvalidState();
         }
-        // Mirror request-side validation: `maxOperators == 0` means "use protocol ceiling".
+        // Mirror request-side validation: `maxOperators == 0` clamps to the protocol ceiling.
+        uint32 protocolCeiling = _maxOperatorsPerService;
         uint32 effectiveMax =
-            (svc.maxOperators == 0 || svc.maxOperators > ProtocolConfig.MAX_OPERATORS_PER_SERVICE)
-                ? ProtocolConfig.MAX_OPERATORS_PER_SERVICE
-                : svc.maxOperators;
+            (svc.maxOperators == 0 || svc.maxOperators > protocolCeiling) ? protocolCeiling : svc.maxOperators;
         if (svc.operatorCount >= effectiveMax) {
             revert Errors.InvalidState();
         }
@@ -686,7 +685,7 @@ abstract contract ServicesLifecycle is Base {
         // 1 substitutes for genuine-zero cum so the cursor stays "set". The price
         // snapshot pins the operator's per-asset USD conversion to the join-time price
         // — without it, a post-activation oracle drift could inflate the joiner's
-        // share of a future bill (the H-1 economic surface from the 2026-05-16 audit).
+        // share of a future bill
         Types.AssetSecurityCommitment[] storage joinerCommitments = _serviceSecurityCommitments[serviceId][msg.sender];
         uint256 commitmentCount = joinerCommitments.length;
         address oracleAddr = _priceOracle;

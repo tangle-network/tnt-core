@@ -142,7 +142,7 @@ contract AuditFixesTest is BaseTest {
     }
 
     // ───────────────────────────────────────────────────────────────────────
-    // Round 2 — gov #4: SLASH_ADMIN cannot self-dispute their own slash.
+    // — gov #4: SLASH_ADMIN cannot self-dispute their own slash.
     // Without this gate, an admin who is also the proposer can propose, then
     // immediately self-dispute for free, freezing operator stake for the full
     // disputeResolutionDeadline window and (when treasury == admin) capturing

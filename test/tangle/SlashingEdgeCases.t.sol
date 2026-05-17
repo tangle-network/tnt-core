@@ -48,7 +48,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 8000, keccak256("evidence"));
 
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
@@ -84,7 +84,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         assertEq(tangle.getSlashProposal(slashId2).proposedAt, tangle.getSlashProposal(slashId3).proposedAt);
 
         // All can be executed after window
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
 
         uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
@@ -114,7 +114,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         uint64 slashId3 = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("e3"));
 
         // Wait until all are executable
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
 
         uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
@@ -148,7 +148,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 5000, keccak256("evidence"));
 
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
@@ -166,7 +166,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 5000, keccak256("evidence"));
 
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
@@ -197,7 +197,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Warp to one second after window ends
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
 
         vm.prank(operator1);
@@ -209,7 +209,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
-        // M-6 FIX: Warp to exactly when execution becomes possible (executeAfter + TIMESTAMP_BUFFER)
+        // Warp to exactly when execution becomes possible (executeAfter + TIMESTAMP_BUFFER)
         vm.warp(block.timestamp + 7 days + 15);
 
         // Should be executable
@@ -283,7 +283,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         }
 
         // Wait for dispute window to pass
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
 
         // Execute all slashes
@@ -311,7 +311,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         }
 
         // Wait for dispute window to pass
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
 
         // Execute all slashes
@@ -338,7 +338,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         SlashingLib.SlashProposal memory proposal = tangle.getSlashProposal(slashId);
         assertEq(proposal.executeAfter, block.timestamp + 1 hours);
 
-        // M-6 FIX: Can execute after 1 hour + TIMESTAMP_BUFFER (15s)
+        // Can execute after 1 hour + TIMESTAMP_BUFFER (15s)
         vm.warp(block.timestamp + 1 hours + 15);
         tangle.executeSlash(slashId);
 
@@ -361,7 +361,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         vm.expectRevert(abi.encodeWithSelector(Errors.SlashNotExecutable.selector, slashId));
         tangle.executeSlash(slashId);
 
-        // M-6 FIX: Can execute after 30 days + TIMESTAMP_BUFFER (15s)
+        // Can execute after 30 days + TIMESTAMP_BUFFER (15s)
         vm.warp(block.timestamp + 1 days + 16);
         tangle.executeSlash(slashId);
     }
@@ -467,7 +467,7 @@ contract SlashingEdgeCasesTest is BaseTest {
 
         uint256 stakeBefore = staking.getOperatorSelfStake(operator1);
 
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 
@@ -513,7 +513,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         assertEq(operator1.balance, balBefore - DISPUTE_BOND, "bond escrowed");
 
         // Admin agrees with the dispute → cancelSlash credits the bond into the
-        // pull-pattern mapping (Round 3 audit fix for economic F3 — disputer
+        // pull-pattern mapping (disputer
         // contracts cannot re-enter staking via the refund call now). The bond
         // is not pushed to the disputer; they claim it explicitly.
         vm.prank(admin);

@@ -645,7 +645,7 @@ contract ValidatorPodTest is BeaconTestBase {
         });
 
         // Should revert because validator is not active in the pod
-        // M-11 FIX: Now reverts with InvalidStateRoot when beaconStateRoot is zero
+        // Now reverts with InvalidStateRoot when beaconStateRoot is zero
         vm.expectRevert(BeaconChainProofs.InvalidStateRoot.selector);
         pod.verifyStaleBalance(timestamp, stateRootProof, validatorProof);
     }

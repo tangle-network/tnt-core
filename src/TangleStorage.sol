@@ -306,6 +306,13 @@ abstract contract TangleStorage {
     /// @notice Price oracle for USD-normalized scoring (optional, but required for USD-weighted splits)
     address internal _priceOracle;
 
+    /// @notice Governance-tunable ceiling on `maxOperators` per service.
+    /// @dev Read at request validation and at join time; blueprint configs with
+    ///      `maxOperators == 0` ("unlimited") clamp to this value. Seeded from
+    ///      `ProtocolConfig.DEFAULT_MAX_OPERATORS_PER_SERVICE` at init; admin may
+    ///      raise or lower it via `setMaxOperatorsPerService` (zero rejected).
+    uint32 internal _maxOperatorsPerService;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ROUTER SELECTOR REGISTRY
     // ═══════════════════════════════════════════════════════════════════════════
