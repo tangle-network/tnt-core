@@ -77,6 +77,29 @@ contract ETHRejecter {
     }
 }
 
+/// @notice Service-fee distributor that always reverts on distributeServiceFee.
+/// @dev Verifies the atomic transfer-and-distribute path unwinds the ERC20
+///      transfer when the distributor itself reverts (F-001 hardening). Inherits
+///      `MockServiceFeeDistributor` for the interface stubs; overrides only the
+///      distribute path.
+contract RevertingDistributor is MockServiceFeeDistributor {
+    function distributeServiceFee(uint64, uint64, address, address, uint256) external payable override {
+        revert("distributor down");
+    }
+}
+
+interface ITanglePaymentsInternalLike {
+    function forwardStakerShareAtomic(
+        address distributor,
+        uint64 serviceId,
+        uint64 blueprintId,
+        address operator,
+        address token,
+        uint256 amount
+    )
+        external;
+}
+
 /// @title PaymentEdgeCasesTest
 /// @notice Edge cases and stress tests for payment system
 contract PaymentEdgeCasesTest is BaseTest {
@@ -359,6 +382,25 @@ contract PaymentEdgeCasesTest is BaseTest {
 
         vm.prank(admin);
         tangle.setTreasury(payable(treasury));
+    }
+
+    function test_ForwardStakerShareAtomic_RejectsExternalCallers() public {
+        // F-001 hardening: the atomic transfer-and-distribute helper is a self-call
+        // entry point gated by `msg.sender == address(this)`. Any external caller
+        // (including admin) must revert with Unauthorized — otherwise an external
+        // actor could drain the diamond's ERC20 balance to an arbitrary distributor.
+        ITanglePaymentsInternalLike target = ITanglePaymentsInternalLike(address(tangle));
+        vm.expectRevert(Errors.Unauthorized.selector);
+        target.forwardStakerShareAtomic(
+            address(serviceFeeDistributor), 1, 1, operator1, address(token), 1 ether
+        );
+
+        // Admin should not bypass either.
+        vm.prank(admin);
+        vm.expectRevert(Errors.Unauthorized.selector);
+        target.forwardStakerShareAtomic(
+            address(serviceFeeDistributor), 1, 1, operator1, address(token), 1 ether
+        );
     }
 
     function test_Payment_ZeroExposure_OperatorStillGetsPaid() public {

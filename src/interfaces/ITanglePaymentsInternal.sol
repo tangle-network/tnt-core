@@ -37,4 +37,17 @@ interface ITanglePaymentsInternal {
     /// @dev Self-call only. The caller is responsible for releasing `amount` from escrow
     ///      BEFORE invoking — this entry point is pure distribution.
     function distributeBillWithKeeper(BillDistribution calldata d) external;
+
+    /// @notice Atomic ERC20 transfer + distributeServiceFee in a single call frame.
+    /// @dev Self-call only. Bundles the safeTransfer and the distributor call so a
+    ///      revert in either rolls back both — no ERC20 stranding at the distributor.
+    function forwardStakerShareAtomic(
+        address distributor,
+        uint64 serviceId,
+        uint64 blueprintId,
+        address operator,
+        address token,
+        uint256 amount
+    )
+        external;
 }
