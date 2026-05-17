@@ -23,7 +23,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     // CONSTANTS & IMMUTABLES
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice M-20 FIX: Virtual shares/assets offset to prevent first-depositor inflation attack
+    /// @notice Virtual shares/assets offset to prevent first-depositor inflation attack
     /// @dev Following OpenZeppelin ERC4626 pattern, consistent with DelegationManagerLib
     uint256 internal constant VIRTUAL_SHARES = 1e3;
     uint256 internal constant VIRTUAL_ASSETS = 1e3;
@@ -139,20 +139,20 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     }
 
     /// @notice Convert assets to shares
-    /// @dev M-20 FIX: Uses virtual offset to prevent first-depositor inflation attack
+    /// @dev Uses virtual offset to prevent first-depositor inflation attack
     /// @param assets Amount of assets
     /// @return shares Number of shares
     function convertToShares(uint256 assets) public view returns (uint256 shares) {
-        // M-20 FIX: Virtual offset prevents inflation attack by ensuring well-defined exchange rate
+        // Virtual offset prevents inflation attack by ensuring well-defined exchange rate
         return assets.mulDiv(totalSupply() + VIRTUAL_SHARES, totalAssets() + VIRTUAL_ASSETS, Math.Rounding.Floor);
     }
 
     /// @notice Convert shares to assets
-    /// @dev M-20 FIX: Uses virtual offset to prevent first-depositor inflation attack
+    /// @dev Uses virtual offset to prevent first-depositor inflation attack
     /// @param shares Number of shares
     /// @return assets Amount of assets
     function convertToAssets(uint256 shares) public view returns (uint256 assets) {
-        // M-20 FIX: Virtual offset prevents inflation attack by ensuring well-defined exchange rate
+        // Virtual offset prevents inflation attack by ensuring well-defined exchange rate
         return shares.mulDiv(totalAssets() + VIRTUAL_ASSETS, totalSupply() + VIRTUAL_SHARES, Math.Rounding.Floor);
     }
 
@@ -252,13 +252,12 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
             revert NotController();
         }
 
-        // Round 4 audit S-1: when an authorized operator (msg.sender != owner)
-        // files the request, they MUST set controller == owner. ERC-7540 lets an
-        // approved operator file requests on the owner's behalf, but the request
-        // controller drives `redeem` and routes assets to any receiver — so a
-        // free choice of controller would let the operator redirect the owner's
-        // funds. Owners filing on their own behalf may still pick any controller
-        // (e.g. an aggregator vault) since they're choosing for themselves.
+        // When an authorized operator (msg.sender != owner) files the request,
+        // controller must equal owner. ERC-7540 permits an approved operator to
+        // file on the owner's behalf, but the request controller drives `redeem`
+        // and routes assets to an arbitrary receiver — letting an operator pick
+        // controller != owner would let them redirect the owner's funds. Owners
+        // filing for themselves may pick any controller.
         if (msg.sender != owner && controller != owner) revert NotController();
 
         // Check owner has sufficient shares

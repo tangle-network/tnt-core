@@ -62,3 +62,7 @@ script/tanglepod-cli/tanglepod-cli
 *.log
 *.out
 *.toc
+
+# Per-machine marker: opts this repo into the ~/bin/forge task-spooler queue
+# (one forge build/test at a time even under parallel CC agents).
+.forge-queue

@@ -37,7 +37,7 @@ abstract contract Slashing is Base {
         nonReentrant
         returns (uint64 slashId)
     {
-        // M-6 FIX: Validate slashBps does not exceed 100% (10000 bps)
+        // Validate slashBps does not exceed 100% (10000 bps)
         if (slashBps > BPS_DENOMINATOR) {
             revert Errors.SlashBpsExceedsMax(slashBps, BPS_DENOMINATOR);
         }
@@ -53,12 +53,15 @@ abstract contract Slashing is Base {
 
         bool authorized = msg.sender == svc.owner || msg.sender == bp.owner;
         if (!authorized && bp.manager != address(0)) {
-            // Blueprint manager declares an additional slashing origin (e.g. a service-
-            // specific oracle / committee). Operators audit the BSM and its upgradeability
-            // before registering — that is the documented trust boundary.
-            try IBlueprintServiceManager(bp.manager).querySlashingOrigin(serviceId) returns (address origin) {
-                authorized = msg.sender == origin;
-            } catch { }
+            // Gas-capped staticcall: a malicious manager hook can burn its own 500k
+            // stipend, but cannot consume the caller's full gas budget and brick
+            // proposeSlash for the legitimate svc.owner / bp.owner paths.
+            (bool okOrigin, bytes memory retOrigin) = _tryStaticcallManager(
+                bp.manager, abi.encodeWithSelector(IBlueprintServiceManager.querySlashingOrigin.selector, serviceId), 32
+            );
+            if (okOrigin) {
+                authorized = msg.sender == abi.decode(retOrigin, (address));
+            }
         }
         if (!authorized) revert Errors.Unauthorized();
 
@@ -95,7 +98,7 @@ abstract contract Slashing is Base {
         }
         _operatorActiveSlashProposals[operator] += 1;
 
-        // M-9 FIX: Increment pending slash count to block delegator withdrawals
+        // Increment pending slash count to block delegator withdrawals
         _staking.incrementPendingSlash(operator);
 
         if (bp.manager != address(0)) {
@@ -129,7 +132,7 @@ abstract contract Slashing is Base {
         uint256 reqsLength = reqs.length;
         if (reqsLength == 0) return BPS_DENOMINATOR;
 
-        // L-12 FIX: Cache storage reads
+        // Cache storage reads
         address serviceFeeDistributor = _serviceFeeDistributor;
 
         if (serviceFeeDistributor == address(0)) {
@@ -152,7 +155,7 @@ abstract contract Slashing is Base {
             return exposureBps;
         }
 
-        // L-12 FIX: Cache storage reads
+        // Cache storage reads
         address priceOracleAddr = _priceOracle;
         IPriceOracle oracle = IPriceOracle(priceOracleAddr);
         bool useOracle = priceOracleAddr != address(0);

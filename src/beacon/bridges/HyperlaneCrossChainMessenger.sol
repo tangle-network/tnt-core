@@ -74,10 +74,10 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
     /// @notice Mapping from Hyperlane domain ID to EVM chainId
     mapping(uint32 => uint256) public domainToChainId;
 
-    /// @notice M-12 FIX: Minimum gas limit for destination chain execution
+    /// @notice Minimum gas limit for destination chain execution
     uint256 public minGasLimit = 100_000;
 
-    /// @notice M-12 FIX: Gas buffer percentage (in basis points, 10000 = 100%)
+    /// @notice Gas buffer percentage (in basis points, 10000 = 100%)
     uint256 public gasBufferBps = 1000; // 10% buffer by default
 
     /// @notice Events
@@ -121,7 +121,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
     }
 
     /// @inheritdoc ICrossChainMessenger
-    /// @dev M-12 FIX: Gas limit is now enforced to be at least minGasLimit and includes buffer
+    /// @dev Gas limit is now enforced to be at least minGasLimit and includes buffer
     function sendMessage(
         uint256 destinationChainId,
         address target,
@@ -135,7 +135,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         uint32 destDomain = chainIdToDomain[destinationChainId];
         require(destDomain != 0, "Unsupported chain");
 
-        // M-12 FIX: Apply minimum gas limit and add safety buffer
+        // Apply minimum gas limit and add safety buffer
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
         // Encode message with sender info for the receiver
@@ -168,7 +168,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
     }
 
     /// @inheritdoc ICrossChainMessenger
-    /// @dev M-12 FIX: Fee estimation now includes gas buffer for accurate cost
+    /// @dev Fee estimation now includes gas buffer for accurate cost
     function estimateFee(
         uint256 destinationChainId,
         bytes calldata payload,
@@ -181,7 +181,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         uint32 destDomain = chainIdToDomain[destinationChainId];
         if (destDomain == 0) return 0;
 
-        // M-12 FIX: Apply minimum gas limit and buffer for accurate estimation
+        // Apply minimum gas limit and buffer for accurate estimation
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
         // Encode message
@@ -222,7 +222,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         owner = newOwner;
     }
 
-    /// @notice M-12 FIX: Set minimum gas limit for destination chain execution
+    /// @notice Set minimum gas limit for destination chain execution
     /// @param _minGasLimit New minimum gas limit
     function setMinGasLimit(uint256 _minGasLimit) external onlyOwner {
         uint256 oldLimit = minGasLimit;
@@ -230,7 +230,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         emit MinGasLimitUpdated(oldLimit, _minGasLimit);
     }
 
-    /// @notice M-12 FIX: Set gas buffer percentage
+    /// @notice Set gas buffer percentage
     /// @param _gasBufferBps New buffer in basis points (10000 = 100%)
     function setGasBuffer(uint256 _gasBufferBps) external onlyOwner {
         require(_gasBufferBps <= 10_000, "Buffer too high"); // Max 100% buffer
@@ -239,7 +239,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
         emit GasBufferUpdated(oldBuffer, _gasBufferBps);
     }
 
-    /// @notice M-12 FIX: Apply minimum gas limit and safety buffer
+    /// @notice Apply minimum gas limit and safety buffer
     /// @param gasLimit Requested gas limit
     /// @return Effective gas limit with buffer applied
     function _applyGasLimitWithBuffer(uint256 gasLimit) internal view returns (uint256) {
@@ -264,7 +264,7 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
 /// @title HyperlaneReceiver
 /// @notice Hyperlane MessageRecipient for receiving cross-chain messages
 /// @dev Implements handle() to process incoming messages
-///      M-12 FIX: Added message replay protection
+///      Added message replay protection
 ///      C-3 (Round 4): Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
 ///      and call `initialize(...)`.
 contract HyperlaneReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
@@ -297,10 +297,10 @@ contract HyperlaneReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
     /// @notice Events
     event MessageHandled(uint32 indexed origin, bytes32 sender, uint256 sourceChainId);
     event TrustedSenderSet(uint32 domain, bytes32 sender, bool trusted);
-    /// @notice M-12 FIX: Event emitted when a message is processed
+    /// @notice Event emitted when a message is processed
     event MessageProcessed(bytes32 indexed messageId, uint32 indexed origin, bytes32 sender);
 
-    /// @notice M-12 FIX: Error for replayed messages
+    /// @notice Error for replayed messages
     error MessageAlreadyProcessed(bytes32 messageId);
     error ZeroAddress();
 
@@ -365,22 +365,22 @@ contract HyperlaneReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
     /// @param _origin Origin domain ID
     /// @param _sender Sender address as bytes32
     /// @param _message Message body
-    /// @dev M-12 FIX: Added message ID validation to prevent replay attacks
+    /// @dev Added message ID validation to prevent replay attacks
     function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable onlyMailbox {
         HyperlaneReceiverStorage storage $ = _getStorage();
 
         // Verify trusted sender
         require($.trustedSenders[_origin][_sender], "Untrusted sender");
 
-        // M-12 FIX: Generate unique message ID from origin, sender, and message content
+        // Generate unique message ID from origin, sender, and message content
         bytes32 messageId = keccak256(abi.encode(_origin, _sender, keccak256(_message)));
 
-        // M-12 FIX: Check for replay attack
+        // Check for replay attack
         if ($.processedMessages[messageId]) {
             revert MessageAlreadyProcessed(messageId);
         }
 
-        // M-12 FIX: Mark message as processed before external call (CEI pattern)
+        // Mark message as processed before external call (CEI pattern)
         $.processedMessages[messageId] = true;
 
         // Decode message
@@ -409,7 +409,7 @@ contract HyperlaneReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
         _getStorage().domainToChainId[domain] = chainId;
     }
 
-    /// @notice M-12 FIX: Check if a message ID has been processed
+    /// @notice Check if a message ID has been processed
     function isMessageProcessed(bytes32 messageId) external view returns (bool) {
         return _getStorage().processedMessages[messageId];
     }

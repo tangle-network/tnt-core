@@ -58,10 +58,10 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     /// @notice Default L2 gas price (can be overridden)
     uint256 public l2MaxFeePerGas = 0.1 gwei;
 
-    /// @notice M-12 FIX: Minimum gas limit for L2 execution (prevents insufficient gas)
+    /// @notice Minimum gas limit for L2 execution (prevents insufficient gas)
     uint256 public minGasLimit = 100_000;
 
-    /// @notice M-12 FIX: Gas buffer percentage (in basis points, 10000 = 100%)
+    /// @notice Gas buffer percentage (in basis points, 10000 = 100%)
     /// @dev Adds safety margin to requested gas limit
     uint256 public gasBufferBps = 1000; // 10% buffer by default
 
@@ -79,7 +79,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     /// @notice Owner for configuration
     address public owner;
 
-    /// @notice M-12 FIX: Events for gas configuration changes
+    /// @notice Events for gas configuration changes
     event MinGasLimitUpdated(uint256 oldLimit, uint256 newLimit);
     event GasBufferUpdated(uint256 oldBuffer, uint256 newBuffer);
     event L2RefundAddressUpdated(address indexed oldAddress, address indexed newAddress);
@@ -101,7 +101,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     }
 
     /// @inheritdoc ICrossChainMessenger
-    /// @dev M-12 FIX: Gas limit is now enforced to be at least minGasLimit and includes buffer
+    /// @dev Gas limit is now enforced to be at least minGasLimit and includes buffer
     function sendMessage(
         uint256 destinationChainId,
         address target,
@@ -117,7 +117,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
             "Unsupported chain"
         );
 
-        // M-12 FIX: Apply minimum gas limit and add safety buffer
+        // Apply minimum gas limit and add safety buffer
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
         // Encode the cross-chain call
@@ -151,7 +151,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     }
 
     /// @inheritdoc ICrossChainMessenger
-    /// @dev M-12 FIX: Fee estimation now includes gas buffer for accurate cost
+    /// @dev Fee estimation now includes gas buffer for accurate cost
     function estimateFee(
         uint256, // destinationChainId
         bytes calldata payload,
@@ -161,7 +161,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         view
         returns (uint256 fee)
     {
-        // M-12 FIX: Apply minimum gas limit and buffer for accurate estimation
+        // Apply minimum gas limit and buffer for accurate estimation
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
         // Encode call to estimate size
@@ -187,7 +187,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         l2MaxFeePerGas = _l2MaxFeePerGas;
     }
 
-    /// @notice M-12 FIX: Set minimum gas limit for L2 execution
+    /// @notice Set minimum gas limit for L2 execution
     /// @param _minGasLimit New minimum gas limit
     function setMinGasLimit(uint256 _minGasLimit) external onlyOwner {
         uint256 oldLimit = minGasLimit;
@@ -195,7 +195,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         emit MinGasLimitUpdated(oldLimit, _minGasLimit);
     }
 
-    /// @notice M-12 FIX: Set gas buffer percentage
+    /// @notice Set gas buffer percentage
     /// @param _gasBufferBps New buffer in basis points (10000 = 100%)
     function setGasBuffer(uint256 _gasBufferBps) external onlyOwner {
         require(_gasBufferBps <= 10_000, "Buffer too high"); // Max 100% buffer
@@ -217,7 +217,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         emit L2RefundAddressUpdated(old, newAddress);
     }
 
-    /// @notice M-12 FIX: Apply minimum gas limit and safety buffer
+    /// @notice Apply minimum gas limit and safety buffer
     /// @param gasLimit Requested gas limit
     /// @return Effective gas limit with buffer applied
     function _applyGasLimitWithBuffer(uint256 gasLimit) internal view returns (uint256) {
@@ -238,7 +238,7 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
 /// @title ArbitrumL2Receiver
 /// @notice Adapter for receiving messages on Arbitrum L2 from L1
 /// @dev Validates sender is the aliased L1 contract
-///      M-12 FIX: Added message replay protection
+///      Added message replay protection
 ///      C-3 (Round 4): Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
 ///      and call `initialize(...)`.
 contract ArbitrumL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
@@ -268,10 +268,10 @@ contract ArbitrumL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         }
     }
 
-    /// @notice M-12 FIX: Event emitted when a message is processed
+    /// @notice Event emitted when a message is processed
     event MessageProcessed(bytes32 indexed messageId, address indexed sender, uint256 nonce);
 
-    /// @notice M-12 FIX: Error for replayed messages
+    /// @notice Error for replayed messages
     error MessageAlreadyProcessed(bytes32 messageId);
     error ZeroAddress();
 
@@ -327,7 +327,7 @@ contract ArbitrumL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     }
 
     /// @notice Relay message from L1 (called via retryable ticket)
-    /// @dev M-12 FIX: Added message ID validation to prevent replay attacks
+    /// @dev Added message ID validation to prevent replay attacks
     function relayMessage(bytes calldata payload) external {
         ArbitrumL2ReceiverStorage storage $ = _getStorage();
         address sender_ = $.l1Sender;
@@ -338,12 +338,12 @@ contract ArbitrumL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         // Deduplicate identical bridged payload deliveries from the same L1 sender.
         bytes32 messageId = keccak256(abi.encode(block.chainid, sender_, payload));
 
-        // M-12 FIX: Check for replay attack
+        // Check for replay attack
         if ($.processedMessages[messageId]) {
             revert MessageAlreadyProcessed(messageId);
         }
 
-        // M-12 FIX: Mark message as processed before external call (CEI pattern)
+        // Mark message as processed before external call (CEI pattern)
         $.processedMessages[messageId] = true;
         uint256 currentNonce = $.messageNonce++;
 
@@ -352,7 +352,7 @@ contract ArbitrumL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         $.receiver.receiveMessage($.sourceChainId, sender_, payload);
     }
 
-    /// @notice M-12 FIX: Check if a message ID has been processed
+    /// @notice Check if a message ID has been processed
     /// @param messageId The message ID to check
     /// @return True if the message has been processed
     function isMessageProcessed(bytes32 messageId) external view returns (bool) {

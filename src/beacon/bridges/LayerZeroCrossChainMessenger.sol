@@ -91,10 +91,10 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
     /// @notice Trusted peers on each chain (eid => peer address as bytes32)
     mapping(uint32 => bytes32) public peers;
 
-    /// @notice M-12 FIX: Minimum gas limit for destination chain execution
+    /// @notice Minimum gas limit for destination chain execution
     uint256 public minGasLimit = 100_000;
 
-    /// @notice M-12 FIX: Gas buffer percentage (in basis points, 10000 = 100%)
+    /// @notice Gas buffer percentage (in basis points, 10000 = 100%)
     uint256 public gasBufferBps = 1000; // 10% buffer by default
 
     /// @notice Events
@@ -140,7 +140,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
     }
 
     /// @inheritdoc ICrossChainMessenger
-    /// @dev M-12 FIX: Gas limit is now enforced to be at least minGasLimit and includes buffer
+    /// @dev Gas limit is now enforced to be at least minGasLimit and includes buffer
     function sendMessage(
         uint256 destinationChainId,
         address target,
@@ -154,7 +154,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         uint32 dstEid = chainIdToEid[destinationChainId];
         require(dstEid != 0, "Unsupported chain");
 
-        // M-12 FIX: Apply minimum gas limit and add safety buffer
+        // Apply minimum gas limit and add safety buffer
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
         // Encode full message with sender info
@@ -178,7 +178,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
     }
 
     /// @inheritdoc ICrossChainMessenger
-    /// @dev M-12 FIX: Fee estimation now includes gas buffer for accurate cost
+    /// @dev Fee estimation now includes gas buffer for accurate cost
     function estimateFee(
         uint256 destinationChainId,
         bytes calldata payload,
@@ -191,7 +191,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         uint32 dstEid = chainIdToEid[destinationChainId];
         if (dstEid == 0) return 0;
 
-        // M-12 FIX: Apply minimum gas limit and buffer for accurate estimation
+        // Apply minimum gas limit and buffer for accurate estimation
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
         // Encode message
@@ -234,7 +234,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         owner = newOwner;
     }
 
-    /// @notice M-12 FIX: Set minimum gas limit for destination chain execution
+    /// @notice Set minimum gas limit for destination chain execution
     /// @param _minGasLimit New minimum gas limit
     function setMinGasLimit(uint256 _minGasLimit) external onlyOwner {
         uint256 oldLimit = minGasLimit;
@@ -242,7 +242,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         emit MinGasLimitUpdated(oldLimit, _minGasLimit);
     }
 
-    /// @notice M-12 FIX: Set gas buffer percentage
+    /// @notice Set gas buffer percentage
     /// @param _gasBufferBps New buffer in basis points (10000 = 100%)
     function setGasBuffer(uint256 _gasBufferBps) external onlyOwner {
         require(_gasBufferBps <= 10_000, "Buffer too high"); // Max 100% buffer
@@ -251,7 +251,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
         emit GasBufferUpdated(oldBuffer, _gasBufferBps);
     }
 
-    /// @notice M-12 FIX: Apply minimum gas limit and safety buffer
+    /// @notice Apply minimum gas limit and safety buffer
     /// @param gasLimit Requested gas limit
     /// @return Effective gas limit with buffer applied
     function _applyGasLimitWithBuffer(uint256 gasLimit) internal view returns (uint256) {
@@ -270,7 +270,7 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
 /// @title LayerZeroReceiver
 /// @notice OApp-compatible receiver for LayerZero V2 messages
 /// @dev Implements lzReceive to process incoming cross-chain messages
-///      M-12 FIX: Added message replay protection using GUID
+///      Added message replay protection using GUID
 ///      C-3 (Round 4): Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
 ///      and call `initialize(...)`.
 contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
@@ -302,10 +302,10 @@ contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
 
     /// @notice Events
     event MessageReceived(uint32 indexed srcEid, bytes32 sender, uint256 sourceChainId, address originalSender);
-    /// @notice M-12 FIX: Event emitted when a message is processed
+    /// @notice Event emitted when a message is processed
     event MessageProcessed(bytes32 indexed guid, uint32 indexed srcEid, bytes32 sender);
 
-    /// @notice M-12 FIX: Error for replayed messages
+    /// @notice Error for replayed messages
     error MessageAlreadyProcessed(bytes32 guid);
     error ZeroAddress();
 
@@ -354,7 +354,7 @@ contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
 
     /// @notice LayerZero V2 receive function
     /// @dev Called by the endpoint when a message arrives
-    ///      M-12 FIX: Added GUID validation to prevent replay attacks
+    ///      Added GUID validation to prevent replay attacks
     function lzReceive(
         Origin calldata _origin,
         bytes32 _guid,
@@ -371,12 +371,12 @@ contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
         // Verify sender is trusted peer
         require($.peers[_origin.srcEid] == _origin.sender, "Untrusted peer");
 
-        // M-12 FIX: Check for replay attack using LayerZero's unique GUID
+        // Check for replay attack using LayerZero's unique GUID
         if ($.processedMessages[_guid]) {
             revert MessageAlreadyProcessed(_guid);
         }
 
-        // M-12 FIX: Mark message as processed before external call (CEI pattern)
+        // Mark message as processed before external call (CEI pattern)
         $.processedMessages[_guid] = true;
 
         // Decode message
@@ -403,7 +403,7 @@ contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
         _getStorage().eidToChainId[eid] = chainId;
     }
 
-    /// @notice M-12 FIX: Check if a message GUID has been processed
+    /// @notice Check if a message GUID has been processed
     function isMessageProcessed(bytes32 guid) external view returns (bool) {
         return _getStorage().processedMessages[guid];
     }

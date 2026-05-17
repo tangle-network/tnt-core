@@ -19,7 +19,7 @@ abstract contract DelegationStorage {
     uint256 public constant PRECISION = 1e18;
     uint256 public constant BPS_DENOMINATOR = 10_000;
 
-    // C-1 FIX: Virtual shares/assets offset to prevent first depositor inflation attack.
+    // Virtual shares/assets offset to prevent first depositor inflation attack.
     // Following OpenZeppelin ERC4626 pattern. The offset makes it economically infeasible
     // for an attacker to inflate the exchange rate via donation attacks.
     // With these values, attacker would need to donate VIRTUAL_SHARES tokens to gain
@@ -40,7 +40,7 @@ abstract contract DelegationStorage {
     uint16 public constant MULTIPLIER_THREE_MONTHS = 13_000;
     uint16 public constant MULTIPLIER_SIX_MONTHS = 16_000;
 
-    // M-9 FIX: Minimum lock amount to prevent lock multiplier bypass via small deposits
+    // Minimum lock amount to prevent lock multiplier bypass via small deposits
     // Set to 0.01 ETH (1e16 wei) equivalent to prevent dust attacks while remaining accessible
     uint256 public constant MIN_LOCK_AMOUNT = 1e16;
 
@@ -52,6 +52,7 @@ abstract contract DelegationStorage {
     bytes32 public constant SLASHER_ROLE = keccak256("SLASHER_ROLE");
     bytes32 public constant ASSET_MANAGER_ROLE = keccak256("ASSET_MANAGER_ROLE");
     bytes32 public constant TANGLE_ROLE = keccak256("TANGLE_ROLE");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ROUND MANAGEMENT
@@ -86,7 +87,7 @@ abstract contract DelegationStorage {
     /// @notice Operator commission rate in basis points
     uint16 public operatorCommissionBps;
 
-    // M-10 FIX: Commission change timelock to protect existing delegations
+    // Commission change timelock to protect existing delegations
     /// @notice Timelock delay for commission changes (7 days)
     uint64 public constant COMMISSION_CHANGE_DELAY = 7 days;
 
@@ -121,11 +122,12 @@ abstract contract DelegationStorage {
     /// @dev When true, deposits revert if no adapter is registered
     bool public requireAdapters;
 
-    /// @notice M-8 FIX: Tracks whether an adapter migration is in progress for a token
-    /// @dev When true, new deposits/withdrawals for this token are paused
+    /// @notice True while an adapter migration is in flight for `token`; new
+    ///         deposits and withdrawals for the token revert until the migration
+    ///         completes or is rolled back.
     mapping(address => bool) internal _adapterMigrationInProgress;
 
-    /// @notice M-8 FIX: Pending adapter address during migration
+    /// @notice Pending replacement adapter address staged during a migration.
     mapping(address => address) internal _pendingAdapter;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -202,7 +204,7 @@ abstract contract DelegationStorage {
     /// @dev This is the "All mode" pool - delegators with All mode get rewards/slashes from ALL blueprints
     mapping(address => mapping(bytes32 => Types.OperatorRewardPool)) internal _rewardPools;
 
-    /// @notice M-7 FIX: Accumulated dust from rounding in reward distributions
+    /// @notice Accumulated dust from rounding in reward distributions
     /// @dev token address => accumulated dust amount (address(0) for native token)
     mapping(address => uint256) internal _accumulatedDust;
 
@@ -306,7 +308,7 @@ abstract contract DelegationStorage {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // F5: TWAP STAKE-SECONDS ACCRUAL
+    // TWAP STAKE-SECONDS ACCRUAL
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Operator's total delegated stake for a specific asset (sum across
@@ -435,7 +437,7 @@ abstract contract DelegationStorage {
     address internal _operatorBondToken;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-9 FIX: PENDING SLASH TRACKING
+    // PENDING SLASH TRACKING
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Count of pending slashes per operator (used to block withdrawals during pending slashes)
@@ -443,7 +445,7 @@ abstract contract DelegationStorage {
     mapping(address => uint64) internal _operatorPendingSlashCount;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-10 FIX: TANGLE CORE REFERENCE FOR ACTIVE SERVICE CHECKS
+    // TANGLE CORE REFERENCE FOR ACTIVE SERVICE CHECKS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Reference to Tangle core contract for querying active services
@@ -462,7 +464,7 @@ abstract contract DelegationStorage {
     mapping(address => mapping(address => bool)) internal _operatorDelegationWhitelist;
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // F5: TWAP-FAIR STAKE INDEX (cumulative stake-seconds per operator+asset)
+    // TWAP-FAIR STAKE INDEX (cumulative stake-seconds per operator+asset)
     // ═══════════════════════════════════════════════════════════════════════════
     // Compound-v2 / Aave-v3 style index: every stake-changing path calls
     // `_accrueOperatorStakeSeconds(op, assetHash)` BEFORE mutating the underlying

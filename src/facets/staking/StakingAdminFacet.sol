@@ -16,7 +16,7 @@ contract StakingAdminFacet is StakingFacetBase, IFacetSelectors {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeERC20 for IERC20;
 
-    // M-10 FIX: Events for commission change timelock
+    // Events for commission change timelock
     event CommissionChangeQueued(uint16 newBps, uint64 executeAfter);
     event CommissionChangeExecuted(uint16 oldBps, uint16 newBps);
     event CommissionChangeCancelled(uint16 cancelledBps);
@@ -34,13 +34,11 @@ contract StakingAdminFacet is StakingFacetBase, IFacetSelectors {
         selectorList[8] = this.unpause.selector;
         selectorList[9] = this.rescueTokens.selector;
         selectorList[10] = this.setTangle.selector;
-        // M-10 FIX: New commission change timelock functions
+        // New commission change timelock functions
         selectorList[11] = this.executeCommissionChange.selector;
         selectorList[12] = this.cancelCommissionChange.selector;
         selectorList[13] = this.getPendingCommissionChange.selector;
-        // M-7 FIX: Dust sweep function
         selectorList[14] = this.sweepDust.selector;
-        // H-1 FIX: Pending slash count recovery
         selectorList[15] = this.resetPendingSlashCount.selector;
     }
 
@@ -54,23 +52,23 @@ contract StakingAdminFacet is StakingFacetBase, IFacetSelectors {
         _revokeRole(SLASHER_ROLE, slasher);
     }
 
-    /// @notice Set the Tangle contract for blueprint management
-    /// @dev CRITICAL: Tangle address has broad write access (slashing, blueprint management).
-    /// Only set to the verified Tangle core contract. Consider timelock for changes.
-    /// M-10 FIX: Also stores reference for active service queries
+    /// @notice Set the Tangle contract for blueprint management.
+    /// @dev Tangle holds broad write access (slashing, blueprint management). Only
+    ///      set to the verified Tangle core contract; route changes through a
+    ///      timelock in production deployments.
     /// @param tangle Address of the Tangle contract
     function setTangle(address tangle) external onlyRole(ADMIN_ROLE) {
         _grantRole(TANGLE_ROLE, tangle);
-        // M-10 FIX: Store Tangle reference for operator active service checks
+        // Store Tangle reference for operator active service checks
         _tangleCore = tangle;
     }
 
-    /// @notice Queue a commission rate change (M-10 FIX: uses timelock)
+    /// @notice Queue a commission rate change behind a timelock
     /// @dev The change will take effect after COMMISSION_CHANGE_DELAY (7 days)
     /// @param bps New commission rate in basis points
     function setOperatorCommission(uint16 bps) external onlyRole(ADMIN_ROLE) {
         require(bps <= BPS_DENOMINATOR, "Invalid BPS");
-        // M-10 FIX: Queue the commission change instead of immediate application
+        // Queue the commission change instead of immediate application
         if (_commissionChangeExecuteAfter != 0) {
             revert DelegationErrors.CommissionChangeAlreadyPending();
         }
@@ -181,7 +179,7 @@ contract StakingAdminFacet is StakingFacetBase, IFacetSelectors {
         IERC20(token).safeTransfer(to, amount);
     }
 
-    /// @notice M-7 FIX: Sweep accumulated dust from rounding to a recipient
+    /// @notice Sweep accumulated dust from rounding to a recipient
     /// @dev Only admin can call. Dust accumulates from rounding in reward distributions.
     /// @param token The token to sweep (address(0) for native)
     /// @param recipient The address to receive the dust
@@ -191,10 +189,11 @@ contract StakingAdminFacet is StakingFacetBase, IFacetSelectors {
         return _sweepDust(token, recipient);
     }
 
-    /// @notice H-1 FIX: Reset pending slash count when it drifts from actual pending slashes
-    /// @dev Admin-only recovery function for when count becomes inconsistent
-    /// @param operator The operator to reset
-    /// @param count The correct pending slash count
+    /// @notice Force `_operatorPendingSlashCount[operator]` to `count`.
+    /// @dev Admin recovery for cases where the per-operator pending-slash counter
+    ///      drifts from the true count of un-finalized proposals. Bypasses the
+    ///      normal increment/decrement path, so the correct count must be
+    ///      determined off-chain before calling.
     function resetPendingSlashCount(address operator, uint64 count) external override onlyRole(ADMIN_ROLE) {
         _operatorPendingSlashCount[operator] = count;
         emit PendingSlashCountReset(operator, count);

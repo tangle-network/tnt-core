@@ -53,7 +53,7 @@ contract TangleGovernor is
     UUPSUpgradeable
 {
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-14 FIX: PROPOSAL VALIDATION CONSTANTS
+    // PROPOSAL VALIDATION CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Maximum number of actions per proposal
@@ -157,11 +157,11 @@ contract TangleGovernor is
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-14 FIX: PROPOSAL VALIDATION
+    // PROPOSAL VALIDATION
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Override propose to add validation for targets and values
-    /// @dev M-14 FIX: Validates that:
+    /// @dev Validates that:
     ///      - No zero address targets
     ///      - Values are within bounds
     ///      - Number of actions is reasonable
@@ -175,14 +175,14 @@ contract TangleGovernor is
         override
         returns (uint256)
     {
-        // M-14 FIX: Validate proposal action count
+        // Validate proposal action count
         if (targets.length == 0) revert Errors.InvalidState();
         if (targets.length > MAX_PROPOSAL_ACTIONS) revert Errors.InvalidState();
         if (targets.length != values.length || targets.length != calldatas.length) {
             revert Errors.LengthMismatch();
         }
 
-        // M-14 FIX: Validate each action
+        // Validate each action
         for (uint256 i = 0; i < targets.length; i++) {
             // No zero address targets
             if (targets[i] == address(0)) revert Errors.ZeroAddress();
@@ -218,7 +218,7 @@ contract TangleGovernor is
         internal
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
     {
-        // M-16 FIX: OpenZeppelin's GovernorTimelockControlUpgradeable already validates:
+        // OpenZeppelin's GovernorTimelockControlUpgradeable already validates:
         // - Proposal must be in executable state
         // - Timelock operation must exist and be ready
         // - Arrays must match the original proposal

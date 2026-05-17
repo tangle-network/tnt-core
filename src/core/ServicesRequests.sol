@@ -8,6 +8,7 @@ import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { SchemaLib } from "../libraries/SchemaLib.sol";
+import { ServiceValidationLib } from "../libraries/ServiceValidationLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 
@@ -185,7 +186,7 @@ abstract contract ServicesRequests is Base {
     {
         if (operators.length == 0) revert Errors.NoOperators();
 
-        // Validate TTL bounds (M-1 fix)
+        // Validate TTL bounds
         _validateServiceTtl(ttl);
 
         BlueprintRequestData memory blueprintData = _loadBlueprintRequestData(blueprintId);
@@ -349,8 +350,12 @@ abstract contract ServicesRequests is Base {
     }
 
     function _validateSecurityRequirements(Types.AssetSecurityRequirement[] calldata requirements) private pure {
-        if (requirements.length == 0) revert Errors.NoSecurityRequirements();
-        for (uint256 i = 0; i < requirements.length; i++) {
+        uint256 n = requirements.length;
+        if (n == 0) revert Errors.NoSecurityRequirements();
+        if (n > ServiceValidationLib.MAX_SECURITY_REQUIREMENTS_PER_REQUEST) {
+            revert Errors.TooManySecurityRequirements(n, ServiceValidationLib.MAX_SECURITY_REQUIREMENTS_PER_REQUEST);
+        }
+        for (uint256 i = 0; i < n; i++) {
             Types.AssetSecurityRequirement calldata req = requirements[i];
             if (req.minExposureBps == 0) revert Errors.InvalidSecurityRequirement();
             if (req.minExposureBps > req.maxExposureBps) revert Errors.InvalidSecurityRequirement();
@@ -484,7 +489,7 @@ abstract contract ServicesRequests is Base {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // TTL VALIDATION (M-1 fix)
+    // TTL VALIDATION
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Validate service TTL is within bounds

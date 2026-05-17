@@ -236,12 +236,10 @@ abstract contract JobsSubmission is Base {
 
     function _ensureAggregationBypass(address manager, uint64 serviceId, uint8 jobIndex) private view {
         if (manager == address(0)) return;
-
-        try IBlueprintServiceManager(manager).requiresAggregation(serviceId, jobIndex) returns (bool aggRequired) {
-            if (aggRequired) {
-                revert Errors.AggregationRequired(serviceId, jobIndex);
-            }
-        } catch { }
+        (bool ok, bytes memory ret) = _tryStaticcallManager(
+            manager, abi.encodeWithSelector(IBlueprintServiceManager.requiresAggregation.selector, serviceId, jobIndex), 32
+        );
+        if (ok && abi.decode(ret, (bool))) revert Errors.AggregationRequired(serviceId, jobIndex);
     }
 
     function _validateResultSubmissionState(uint64 serviceId, uint64 callId, Types.JobCall storage job) private view {
@@ -333,10 +331,12 @@ abstract contract JobsSubmission is Base {
         if (manager == address(0)) {
             return required;
         }
-
-        try IBlueprintServiceManager(manager).getRequiredResultCount(serviceId, jobIndex) returns (uint32 r) {
-            required = r;
-        } catch { }
+        (bool ok, bytes memory ret) = _tryStaticcallManager(
+            manager,
+            abi.encodeWithSelector(IBlueprintServiceManager.getRequiredResultCount.selector, serviceId, jobIndex),
+            32
+        );
+        if (ok) required = abi.decode(ret, (uint32));
     }
 
     function _jobSchema(

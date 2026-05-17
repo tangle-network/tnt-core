@@ -41,7 +41,7 @@ abstract contract ServicesLifecycle is Base {
     event ExitScheduled(uint64 indexed serviceId, address indexed operator, uint64 executeAfter);
     event ExitCanceled(uint64 indexed serviceId, address indexed operator);
     event ExitForced(uint64 indexed serviceId, address indexed operator, address indexed forcer);
-    // M-15 FIX: Event for tracking service fee distributor call failures
+    // Event for tracking service fee distributor call failures
     event ServiceFeeDistributorCallFailed(uint64 indexed serviceId, string operation, bytes reason);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -100,17 +100,18 @@ abstract contract ServicesLifecycle is Base {
         Types.Blueprint storage bp = _blueprints[blueprintId];
         if (bp.manager == address(0)) return graceIntervals;
 
-        try IBlueprintServiceManager(bp.manager).getNonPaymentTerminationPolicy(serviceId) returns (
-            bool useDefault, uint64 customGraceIntervals
-        ) {
-            if (useDefault) return graceIntervals;
-            if (customGraceIntervals > MAX_NON_PAYMENT_GRACE_INTERVALS) {
-                return MAX_NON_PAYMENT_GRACE_INTERVALS;
-            }
-            return customGraceIntervals;
-        } catch {
-            return graceIntervals;
+        (bool ok, bytes memory ret) = _tryStaticcallManager(
+            bp.manager,
+            abi.encodeWithSelector(IBlueprintServiceManager.getNonPaymentTerminationPolicy.selector, serviceId),
+            64
+        );
+        if (!ok) return graceIntervals;
+        (bool useDefault, uint64 customGraceIntervals) = abi.decode(ret, (bool, uint64));
+        if (useDefault) return graceIntervals;
+        if (customGraceIntervals > MAX_NON_PAYMENT_GRACE_INTERVALS) {
+            return MAX_NON_PAYMENT_GRACE_INTERVALS;
         }
+        return customGraceIntervals;
     }
 
     function _terminateService(uint64 serviceId) internal {
@@ -139,7 +140,7 @@ abstract contract ServicesLifecycle is Base {
         emit ServiceTerminated(serviceId);
 
         // Refund remaining streamed payments to the service owner
-        // M-15 FIX: Emit event on external call failure
+        // Emit event on external call failure
         if (_serviceFeeDistributor != address(0)) {
             try IServiceFeeDistributor(_serviceFeeDistributor).onServiceTerminated(serviceId, svc.owner) { }
             catch (bytes memory reason) {
@@ -401,11 +402,10 @@ abstract contract ServicesLifecycle is Base {
         // Check if manager allows this operator to leave
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).canLeave(serviceId, operator) returns (bool allowed) {
-                if (!allowed) {
-                    revert Errors.Unauthorized();
-                }
-            } catch { }
+            (bool ok, bytes memory ret) = _tryStaticcallManager(
+                bp.manager, abi.encodeWithSelector(IBlueprintServiceManager.canLeave.selector, serviceId, operator), 32
+            );
+            if (ok && !abi.decode(ret, (bool))) revert Errors.Unauthorized();
         }
 
         _removeOperatorFromService(serviceId, operator, svc, bp);
@@ -444,13 +444,12 @@ abstract contract ServicesLifecycle is Base {
         // override path is still try/catch, so a missing implementation
         // defaults to enforcing the floor.
         if (svc.operatorCount <= svc.minOperators) {
-            bool allowBelowMin = false;
-            try IBlueprintServiceManager(bp.manager).forceRemoveAllowsBelowMin(serviceId) returns (bool ok) {
-                allowBelowMin = ok;
-            } catch { }
-            if (!allowBelowMin) {
-                revert Errors.InvalidState();
-            }
+            (bool ok, bytes memory ret) = _tryStaticcallManager(
+                bp.manager,
+                abi.encodeWithSelector(IBlueprintServiceManager.forceRemoveAllowsBelowMin.selector, serviceId),
+                32
+            );
+            if (!ok || !abi.decode(ret, (bool))) revert Errors.InvalidState();
         }
 
         // Clear any pending exit request
@@ -472,9 +471,14 @@ abstract contract ServicesLifecycle is Base {
 
         // Check if manager provides custom exit config
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getExitConfig(serviceId) returns (
-                bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed
-            ) {
+            (bool ok, bytes memory ret) = _tryStaticcallManager(
+                bp.manager,
+                abi.encodeWithSelector(IBlueprintServiceManager.getExitConfig.selector, serviceId),
+                128
+            );
+            if (ok) {
+                (bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed) =
+                    abi.decode(ret, (bool, uint64, uint64, bool));
                 if (!useDefault) {
                     return Types.ExitConfig({
                         minCommitmentDuration: minCommitmentDuration,
@@ -482,7 +486,7 @@ abstract contract ServicesLifecycle is Base {
                         forceExitAllowed: forceExitAllowed
                     });
                 }
-            } catch { }
+            }
         }
 
         // Use protocol defaults
@@ -640,19 +644,20 @@ abstract contract ServicesLifecycle is Base {
     function _validateJoinRequirements(uint64 serviceId, Types.Blueprint storage bp) private view {
         uint256 minStake = _staking.minOperatorStake();
         if (bp.manager != address(0)) {
-            try IBlueprintServiceManager(bp.manager).getMinOperatorStake() returns (
-                bool useDefault, uint256 customMin
-            ) {
-                if (!useDefault && customMin > 0) {
-                    minStake = customMin;
-                }
-            } catch { }
+            (bool okMin, bytes memory retMin) = _tryStaticcallManager(
+                bp.manager, abi.encodeWithSelector(IBlueprintServiceManager.getMinOperatorStake.selector), 64
+            );
+            if (okMin) {
+                (bool useDefault, uint256 customMin) = abi.decode(retMin, (bool, uint256));
+                if (!useDefault && customMin > 0) minStake = customMin;
+            }
 
-            try IBlueprintServiceManager(bp.manager).canJoin(serviceId, msg.sender) returns (bool allowed) {
-                if (!allowed) {
-                    revert Errors.Unauthorized();
-                }
-            } catch { }
+            (bool okCan, bytes memory retCan) = _tryStaticcallManager(
+                bp.manager,
+                abi.encodeWithSelector(IBlueprintServiceManager.canJoin.selector, serviceId, msg.sender),
+                32
+            );
+            if (okCan && !abi.decode(retCan, (bool))) revert Errors.Unauthorized();
         }
 
         if (!_staking.meetsStakeRequirement(msg.sender, minStake)) {

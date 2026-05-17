@@ -54,7 +54,7 @@ abstract contract OperatorManager is DelegationStorage {
             revert DelegationErrors.InsufficientStake(config.minOperatorStake, msg.value);
         }
 
-        // F5: seed TWAP cursor at registration. Pre-stake is 0, so this only
+        // seed TWAP cursor at registration. Pre-stake is 0, so this only
         // initializes lastUpdate without any area contribution.
         _accrueStakeSecondsRaw(msg.sender, nativeHash, 0);
 
@@ -88,7 +88,7 @@ abstract contract OperatorManager is DelegationStorage {
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
-        // F5: seed TWAP cursor at registration. Pre-stake is 0, so this only
+        // seed TWAP cursor at registration. Pre-stake is 0, so this only
         // initializes lastUpdate without any area contribution.
         _accrueStakeSecondsRaw(msg.sender, assetHash, 0);
 
@@ -115,7 +115,7 @@ abstract contract OperatorManager is DelegationStorage {
         }
         if (msg.value == 0) revert DelegationErrors.ZeroAmount();
 
-        // F5: accrue stake-seconds at the pre-change stake before mutating self-stake.
+        // accrue stake-seconds at the pre-change stake before mutating self-stake.
         bytes32 nativeHash = _assetHash(Types.Asset(Types.AssetKind.Native, address(0)));
         _accrueOperatorStakeSeconds(msg.sender, nativeHash);
 
@@ -136,7 +136,7 @@ abstract contract OperatorManager is DelegationStorage {
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
-        // F5: accrue stake-seconds before mutating self-stake.
+        // accrue stake-seconds before mutating self-stake.
         bytes32 bondHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
         _accrueOperatorStakeSeconds(msg.sender, bondHash);
 
@@ -183,7 +183,7 @@ abstract contract OperatorManager is DelegationStorage {
             revert DelegationErrors.LeavingTooEarly(currentRound, request.requestedRound + delegationBondLessDelay);
         }
 
-        // F5: accrue stake-seconds at the pre-unstake stake before mutating self-stake.
+        // accrue stake-seconds at the pre-unstake stake before mutating self-stake.
         bytes32 bondHashUnstake = _operatorBondToken == address(0)
             ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
             : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));
@@ -229,7 +229,7 @@ abstract contract OperatorManager is DelegationStorage {
             revert DelegationErrors.PendingSlashExists(msg.sender, _operatorPendingSlashCount[msg.sender]);
         }
 
-        // M-10 FIX: Check for active services via Tangle core
+        // Check for active services via Tangle core
         if (_tangleCore != address(0)) {
             (bool success, bytes memory data) =
                 _tangleCore.staticcall(abi.encodeWithSignature("getOperatorTotalActiveServices(address)", msg.sender));
@@ -258,7 +258,7 @@ abstract contract OperatorManager is DelegationStorage {
             revert DelegationErrors.LeavingTooEarly(currentRound, meta.leavingRound + leaveOperatorsDelay);
         }
 
-        // F5: accrue stake-seconds at the pre-exit stake before zeroing self-stake.
+        // accrue stake-seconds at the pre-exit stake before zeroing self-stake.
         bytes32 bondHashExit = _operatorBondToken == address(0)
             ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))
             : _assetHash(Types.Asset(Types.AssetKind.ERC20, _operatorBondToken));

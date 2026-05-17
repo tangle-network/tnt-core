@@ -9,7 +9,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title IValidatorPodManager
-/// @notice Interface for the pod manager (forward declaration). G-02 follow-up:
+/// @notice Interface for the pod manager (forward declaration).
 ///         splits the legacy signed-delta entry point into explicit
 ///         deposit-mints-shares and rebase-moves-assets methods so the call
 ///         site's intent is unambiguous in the ABI.
@@ -70,11 +70,11 @@ contract ValidatorPod is ReentrancyGuard {
     /// @notice ETH balance that has been withdrawn but not yet claimed
     uint256 public withdrawableRestakedExecutionLayerGwei;
 
-    /// @notice H-1 FIX: Total restaked balance across all active validators (in gwei)
+    /// @notice Total restaked balance across all active validators (in gwei)
     /// @dev Maintained as running total for gas efficiency
     uint64 public totalRestakedBalanceGwei;
 
-    /// @notice H-5 FIX: Maximum age for beacon roots (27 hours like EigenLayer)
+    /// @notice Maximum age for beacon roots (27 hours like EigenLayer)
     /// @dev EIP-4788 stores roots for 8191 slots (~27 hours)
     uint256 public constant MAX_BEACON_ROOT_AGE = 27 hours;
 
@@ -197,7 +197,7 @@ contract ValidatorPod is ReentrancyGuard {
         onlyPodOwner
         nonReentrant
     {
-        // H-5 FIX: Check beacon root is not stale
+        // Check beacon root is not stale
         if (block.timestamp > beaconTimestamp + MAX_BEACON_ROOT_AGE) {
             revert StaleProof();
         }
@@ -230,7 +230,7 @@ contract ValidatorPod is ReentrancyGuard {
         // Mint pod-pool shares for the newly verified principal. Distinct from
         // the rebase path below — credential verification adds principal, so we
         // call the explicit deposit entry point instead of the legacy signed
-        // delta. (G-02 follow-up: dropped the silent-semantics back-compat
+        // delta. (dropped the silent-semantics back-compat
         // shim; ValidatorPod now invokes the two explicit entry points.)
         if (totalRestakedGwei > 0) {
             podManager.recordBeaconChainDeposit(podOwner, uint256(totalRestakedGwei) * 1 gwei);
@@ -350,7 +350,7 @@ contract ValidatorPod is ReentrancyGuard {
 
         ValidatorTypes.Checkpoint memory checkpoint = currentCheckpoint;
 
-        // C-3 FIX: Two-step verification - first verify state root against block root
+        // Two-step verification - first verify state root against block root
         if (!BeaconChainProofs.verifyStateRoot(checkpoint.beaconBlockRoot, stateRootProof)) {
             revert ProofVerificationFailed();
         }
@@ -410,7 +410,7 @@ contract ValidatorPod is ReentrancyGuard {
         info.restakedBalanceGwei = currentBalance;
         info.lastCheckpointedAt = currentCheckpointTimestamp;
 
-        // H-1 FIX: Update total restaked balance tracking
+        // Update total restaked balance tracking
         if (currentBalance > previousBalance) {
             totalRestakedBalanceGwei += (currentBalance - previousBalance);
         } else if (previousBalance > currentBalance) {
@@ -604,7 +604,7 @@ contract ValidatorPod is ReentrancyGuard {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get total restaked gwei across all active validators
-    /// @dev H-1 FIX: Now returns the tracked running total instead of 0
+    /// @dev Now returns the tracked running total instead of 0
     function _getTotalRestakedGwei() internal view returns (uint64) {
         return totalRestakedBalanceGwei;
     }

@@ -53,6 +53,7 @@ contract MultiAssetDelegation is
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(ASSET_MANAGER_ROLE, admin);
+        _grantRole(UPGRADER_ROLE, admin);
 
         // Configure native asset
         bytes32 nativeHash = _assetHash(Types.Asset(Types.AssetKind.Native, address(0)));
@@ -113,12 +114,13 @@ contract MultiAssetDelegation is
         revert DelegationErrors.UnknownSelector(selector);
     }
 
-    function _authorizeUpgrade(address) internal override onlyRole(ADMIN_ROLE) { }
+    function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
 
-    /// @notice H-1 FIX: Reset pending slash count when it drifts from actual pending slashes
-    /// @dev Admin-only recovery function for when count becomes inconsistent
-    /// @param operator The operator to reset
-    /// @param count The correct pending slash count
+    /// @notice Force `_operatorPendingSlashCount[operator]` to `count`.
+    /// @dev Admin recovery for cases where the per-operator pending-slash counter
+    ///      drifts from the true count of un-finalized proposals targeting the
+    ///      operator. Bypasses the normal increment/decrement path so it must
+    ///      only be called after verifying the correct count off-chain.
     function resetPendingSlashCount(address operator, uint64 count) external override onlyRole(ADMIN_ROLE) {
         _operatorPendingSlashCount[operator] = count;
         emit PendingSlashCountReset(operator, count);

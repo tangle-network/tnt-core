@@ -73,7 +73,7 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     /// @notice Message type for beacon chain slashing
     bytes4 public constant SLASH_MESSAGE_TYPE = bytes4(keccak256("BEACON_SLASH"));
 
-    /// @notice H-4 FIX: Delay before new authorized senders become active
+    /// @notice Delay before new authorized senders become active
     uint256 public constant SENDER_ACTIVATION_DELAY = 2 days;
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -90,9 +90,9 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         address messenger;
         // Authorized senders per source chain
         mapping(uint256 => mapping(address => bool)) authorizedSenders;
-        // H-4 FIX: pending authorizations (chainId => sender => activation timestamp)
+        // pending authorizations (chainId => sender => activation timestamp)
         mapping(uint256 => mapping(address => uint256)) pendingAuthorizedSenders;
-        // C-2: timelocked admin swaps for messenger / slasher
+        // timelocked admin swaps for messenger / slasher
         address pendingMessenger;
         uint256 pendingMessengerAt;
         address pendingSlasher;
@@ -282,7 +282,7 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     // ADMIN
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice H-4 FIX: Schedule authorization of a sender (subject to timelock)
+    /// @notice Schedule authorization of a sender (subject to timelock)
     /// @dev For revoking authorization, takes effect immediately
     function setAuthorizedSender(uint256 chainId, address sender, bool authorized) external onlyOwner {
         ReceiverStorage storage $ = _getStorage();
@@ -299,7 +299,7 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         }
     }
 
-    /// @notice H-4 FIX: Activate a pending authorized sender after delay
+    /// @notice Activate a pending authorized sender after delay
     function activateAuthorizedSender(uint256 chainId, address sender) external onlyOwner {
         ReceiverStorage storage $ = _getStorage();
         uint256 activationTime = $.pendingAuthorizedSenders[chainId][sender];

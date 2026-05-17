@@ -102,7 +102,7 @@ interface ITangleOperators {
     function isOperatorRegistered(uint64 blueprintId, address operator) external view returns (bool);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-10 FIX: OPERATOR ACTIVE SERVICES CHECK
+    // OPERATOR ACTIVE SERVICES CHECK
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Get total count of active services for an operator across all blueprints

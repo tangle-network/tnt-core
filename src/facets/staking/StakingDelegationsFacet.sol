@@ -203,14 +203,7 @@ contract StakingDelegationsFacet is StakingFacetBase, IFacetSelectors {
         }
 
         dep2.amount -= amountReturned;
-        // Update deposit cap accounting on actual transfer (TVL decreases here).
-        Types.AssetConfig storage config = _assetConfigs[assetHash];
-        if (config.currentDeposits >= amountReturned) {
-            config.currentDeposits -= amountReturned;
-        } else {
-            // Clamp for upgrade safety (in case currentDeposits was previously incorrect).
-            config.currentDeposits = 0;
-        }
+        _assetConfigs[assetHash].currentDeposits -= amountReturned;
         _transferAssetAndEmitWithdraw(asset, receiver, amountReturned);
     }
 

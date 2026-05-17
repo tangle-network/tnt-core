@@ -330,15 +330,32 @@ contract PaymentEdgeCasesTest is BaseTest {
         vm.stopPrank();
     }
 
-    function test_Payment_TreasuryRejectsETH_Reverts() public {
+    function test_Payment_TreasuryRejectsETH_FoldsToOperatorPool() public {
+        // A misconfigured treasury (contract without payable receive) must not brick
+        // distribution. The protocol share folds into the operator pool and a
+        // PushTransferFailed event fires so monitoring picks it up.
         ETHRejecter rejecter = new ETHRejecter();
         vm.prank(admin);
         tangle.setTreasury(payable(address(rejecter)));
 
-        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, 1 ether);
+        uint256 op1Before = tangle.pendingRewards(operator1);
 
-        vm.expectRevert(Errors.PaymentFailed.selector);
+        uint64 requestId = _requestServiceWithPayment(user1, blueprintId, operator1, 1 ether);
         _approveService(operator1, requestId);
+
+        // Approval activates the service AND distributes the activation payment.
+        // Operator's pending rewards must include the un-sent protocol share that
+        // was folded back into the operator pool.
+        uint256 op1After = tangle.pendingRewards(operator1);
+        (, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps,) = tangle.paymentSplit();
+        // Activation pay-once draws the entire 1 ether. With no security commitments
+        // staker share folds into operator pool. With a reverting treasury, the
+        // protocol share also folds in. Operator therefore receives:
+        //   developer share is paid to developer (succeeds, not affected here)
+        //   protocol + operator + staker shares all accrue to operator
+        uint256 expectedFold = (1 ether * (uint256(protocolBps) + uint256(operatorBps) + uint256(stakerBps))) / 10_000;
+        assertEq(op1After - op1Before, expectedFold, "treasury-fold must credit operator");
+        assertEq(address(rejecter).balance, 0, "treasury rejecter must hold nothing");
 
         vm.prank(admin);
         tangle.setTreasury(payable(treasury));

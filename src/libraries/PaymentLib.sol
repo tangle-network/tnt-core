@@ -272,6 +272,31 @@ library PaymentLib {
         }
     }
 
+    /// @notice Best-effort transfer that returns success/failure instead of reverting.
+    /// @dev Used by `_distributeBill` to isolate griefing surfaces (BSM-controlled
+    ///      developer recipient, malicious recipient contracts) so a single bad
+    ///      recipient cannot brick the whole payment for honest parties. Caller is
+    ///      responsible for the recovery path (fold the un-sent amount into a
+    ///      pull-pattern destination, refund to escrow, etc.).
+    function tryTransferPayment(address to, address token, uint256 amount) internal returns (bool success) {
+        if (amount == 0 || to == address(0)) return true;
+
+        if (token == address(0)) {
+            (success,) = payable(to).call{ value: amount }("");
+            return success;
+        }
+
+        // Use low-level call so a reverting recipient (e.g. ERC20 with custom logic
+        // that blocklists the caller) does not propagate to the surrounding context.
+        (bool ok, bytes memory ret) =
+            token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
+        if (!ok) return false;
+        // ERC20 transfer returns bool on success; tokens that return no data are
+        // treated as successful only when the call itself did not revert.
+        if (ret.length == 0) return true;
+        return abi.decode(ret, (bool));
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ESCROW MANAGEMENT (for Subscriptions)
     // ═══════════════════════════════════════════════════════════════════════════

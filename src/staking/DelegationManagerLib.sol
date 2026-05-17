@@ -51,7 +51,7 @@ abstract contract DelegationManagerLib is OperatorManager {
 
     /// @notice Convert an asset amount to shares (for depositing)
     /// @dev Like ERC4626.convertToShares - rounds DOWN to protect the pool
-    ///      C-1 FIX: Uses virtual shares/assets offset to prevent first depositor inflation attack.
+    ///      Uses virtual shares/assets offset to prevent first depositor inflation attack.
     ///      The formula: shares = amount * (totalShares + VIRTUAL_SHARES) / (totalAssets + VIRTUAL_ASSETS)
     ///      ensures that even for empty pools, the exchange rate is well-defined and resistant
     ///      to manipulation via donation attacks.
@@ -69,14 +69,14 @@ abstract contract DelegationManagerLib is OperatorManager {
         returns (uint256 shares)
     {
         Types.OperatorRewardPool storage pool = _rewardPools[operator][assetHash];
-        // C-1 FIX: Use virtual offset to prevent inflation attack
+        // Use virtual offset to prevent inflation attack
         // This works even for empty pools (totalShares=0, totalAssets=0)
         shares = (amount * (pool.totalShares + VIRTUAL_SHARES)) / (pool.totalAssets + VIRTUAL_ASSETS);
     }
 
     /// @notice Convert shares to asset amount (for withdrawing)
     /// @dev Like ERC4626.convertToAssets - rounds DOWN to protect the pool
-    ///      C-1 FIX: Uses virtual shares/assets offset to prevent inflation attack.
+    ///      Uses virtual shares/assets offset to prevent inflation attack.
     /// @param operator The operator's pool
     /// @param assetHash Asset hash for the pool
     /// @param shares The number of shares to convert
@@ -91,19 +91,19 @@ abstract contract DelegationManagerLib is OperatorManager {
         returns (uint256 amount)
     {
         Types.OperatorRewardPool storage pool = _rewardPools[operator][assetHash];
-        // C-1 FIX: Use virtual offset - consistent with _amountToShares
+        // Use virtual offset - consistent with _amountToShares
         // amount = shares * (totalAssets + VIRTUAL_ASSETS) / (totalShares + VIRTUAL_SHARES)
         return (shares * (pool.totalAssets + VIRTUAL_ASSETS)) / (pool.totalShares + VIRTUAL_SHARES);
     }
 
     /// @notice Get the current exchange rate (scaled by PRECISION)
-    /// @dev C-1 FIX: Uses virtual offset for consistent exchange rate
+    /// @dev Uses virtual offset for consistent exchange rate
     /// @param operator The operator's pool
     /// @param assetHash Asset hash for the pool
     /// @return rate Exchange rate: assets per share * PRECISION
     function _getExchangeRate(address operator, bytes32 assetHash) internal view returns (uint256 rate) {
         Types.OperatorRewardPool storage pool = _rewardPools[operator][assetHash];
-        // C-1 FIX: Use virtual offset - rate is well-defined even for empty pools
+        // Use virtual offset - rate is well-defined even for empty pools
         return ((pool.totalAssets + VIRTUAL_ASSETS) * PRECISION) / (pool.totalShares + VIRTUAL_SHARES);
     }
 
@@ -419,7 +419,7 @@ abstract contract DelegationManagerLib is OperatorManager {
     function _scheduleDelegatorUnstake(address operator, address token, uint256 amount) internal {
         if (amount == 0) revert DelegationErrors.ZeroAmount();
 
-        // M-9 FIX: Block withdrawals if operator has pending slashes
+        // Block withdrawals if operator has pending slashes
         // This prevents delegators from front-running slash execution
         uint64 pendingSlashes = _operatorPendingSlashCount[operator];
         if (pendingSlashes > 0) {
@@ -464,7 +464,7 @@ abstract contract DelegationManagerLib is OperatorManager {
         while (i < requests.length) {
             Types.BondLessRequest storage req = requests[i];
 
-            // M-5 FIX: Skip requests for operators with pending slashes
+            // Skip requests for operators with pending slashes
             // This prevents delegators from front-running slash execution at unstake time
             if (_operatorPendingSlashCount[req.operator] > 0) {
                 i++;
@@ -507,7 +507,7 @@ abstract contract DelegationManagerLib is OperatorManager {
                             _getLockMultiplierBps(Types.LockMultiplier.None)
                         );
 
-                        // H-4 FIX: Protect against underflow in case slashing occurred
+                        // Protect against underflow in case slashing occurred
                         // between request time and execution. Cap shares to burn at available.
                         d.shares = req.shares > d.shares ? 0 : d.shares - req.shares;
 
@@ -703,7 +703,7 @@ abstract contract DelegationManagerLib is OperatorManager {
     }
 
     /// @notice Convert shares to amount for a specific blueprint pool
-    /// @dev C-1 FIX: Uses virtual offset to prevent inflation attack on blueprint pools
+    /// @dev Uses virtual offset to prevent inflation attack on blueprint pools
     function _sharesToAmountForBlueprint(
         address operator,
         uint64 blueprintId,
@@ -715,12 +715,12 @@ abstract contract DelegationManagerLib is OperatorManager {
         returns (uint256 amount)
     {
         Types.OperatorRewardPool storage pool = _blueprintPools[operator][blueprintId][assetHash];
-        // C-1 FIX: Use virtual offset - consistent with main pool
+        // Use virtual offset - consistent with main pool
         return (shares * (pool.totalAssets + VIRTUAL_ASSETS)) / (pool.totalShares + VIRTUAL_SHARES);
     }
 
     /// @notice Convert an asset amount to shares for a specific blueprint pool
-    /// @dev C-1 FIX: Uses virtual offset to prevent inflation attack on blueprint pools
+    /// @dev Uses virtual offset to prevent inflation attack on blueprint pools
     function _amountToSharesForBlueprint(
         address operator,
         uint64 blueprintId,
@@ -732,7 +732,7 @@ abstract contract DelegationManagerLib is OperatorManager {
         returns (uint256 shares)
     {
         Types.OperatorRewardPool storage pool = _blueprintPools[operator][blueprintId][assetHash];
-        // C-1 FIX: Use virtual offset - consistent with main pool
+        // Use virtual offset - consistent with main pool
         shares = (amount * (pool.totalShares + VIRTUAL_SHARES)) / (pool.totalAssets + VIRTUAL_ASSETS);
     }
 

@@ -26,10 +26,10 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 ///      Virtual offsets (`VIRTUAL_SHARES = VIRTUAL_ASSETS = 1e3`) defend against
 ///      first-depositor inflation attacks on both pools.
 ///
-///      External ABI is preserved: `delegations(d,o)`, `operatorDelegatedStake(o)` and
-///      `getDelegation/getOperatorDelegatedStake` continue to return asset-denominated
-///      values. Post-slash, those values reflect the slashed amount automatically via
-///      the share-to-asset conversion.
+///      External ABI: `delegations(d,o)` and `operatorDelegatedStake(o)` return
+///      asset-denominated values derived from the per-operator share pool. Post-slash,
+///      those values reflect the slashed amount automatically via share-to-asset
+///      conversion.
 contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     using Math for uint256;
 
@@ -92,31 +92,12 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @notice Operator self-stake
     mapping(address operator => uint256) public operatorStake;
 
-    /// @notice Legacy slot: was `mapping(address => mapping(address => uint256)) public delegations`.
-    /// @dev Retained as internal storage so the contract's storage layout is unchanged.
-    ///      External reads now go through the `delegations(address,address)` view function
-    ///      below which converts the delegator's pool shares back to assets.
-    mapping(address delegator => mapping(address operator => uint256)) internal _legacyDelegations;
-
-    /// @notice Legacy slot: was `mapping(address => uint256) public operatorDelegatedStake`.
-    /// @dev Retained as internal storage; the public view is now the operator pool's
-    ///      `totalAssets`. Storage slot is preserved to avoid relayout.
-    mapping(address operator => uint256) internal _legacyOperatorDelegatedStake;
-
     /// @notice Total amount delegated by a delegator (in asset units, deposit-accounted).
-    /// @dev This is a deposit/withdraw counter used for headroom checks and is NOT
-    ///      slash-adjusted. It overstates committed delegation after slashes, which is
-    ///      conservative -- it can only block new delegations, never permit over-delegation.
-    ///      Live per-(delegator, operator) asset value is available via `getDelegation`.
+    /// @dev Deposit/withdraw counter used for headroom checks; NOT slash-adjusted. It
+    ///      overstates committed delegation after slashes, which is conservative — it
+    ///      can only block new delegations, never permit over-delegation. Live
+    ///      per-(delegator, operator) asset value is available via `getDelegation`.
     mapping(address delegator => uint256) public delegatorTotalDelegated;
-
-    /// @notice Legacy slot: was `mapping(address => address[]) _operatorDelegators`.
-    /// @dev No longer written; kept as a storage placeholder so subsequent slots keep
-    ///      their positions. New deployments will leave this empty.
-    mapping(address operator => address[]) internal _legacyOperatorDelegators;
-
-    /// @notice Legacy slot: was `mapping(address => mapping(address => bool)) _isDelegator`.
-    mapping(address operator => mapping(address delegator => bool)) internal _legacyIsDelegator;
 
     /// @notice Authorized slashers
     mapping(address => bool) internal _slashers;

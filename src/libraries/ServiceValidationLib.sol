@@ -9,6 +9,13 @@ import { Types } from "./Types.sol";
 library ServiceValidationLib {
     uint256 internal constant MAX_TEE_COMMITMENTS_PER_OPERATOR = 8;
     uint64 internal constant MAX_TEE_COMMITMENT_TTL = 90 days;
+    /// @dev Cap on the per-request security-requirement array. The bill and slash
+    ///      paths walk every (operator × requirement) pair on every call, so an
+    ///      unbounded `requirements.length` lets a customer brick subscription
+    ///      billing for their own service by exceeding the block gas limit. 16 is
+    ///      well above any realistic heterogeneous-asset blueprint, and keeps the
+    ///      worst-case `64 × 16 = 1024` inner iterations inside a single block.
+    uint256 internal constant MAX_SECURITY_REQUIREMENTS_PER_REQUEST = 16;
 
     function validateTeeCommitments(
         uint64,

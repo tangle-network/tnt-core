@@ -7,7 +7,6 @@ import { Errors } from "../libraries/Errors.sol";
 import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { IStaking } from "../interfaces/IStaking.sol";
-import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
 import { ITanglePaymentsInternal } from "../interfaces/ITanglePaymentsInternal.sol";
 
 /// @title PaymentsBilling
@@ -253,13 +252,11 @@ abstract contract PaymentsBilling is PaymentsCore {
         uint64 periodEnd
     )
         internal
-        view
         returns (BillWeights memory result)
     {
         IStaking staking = _staking;
         address oracleAddr = _priceOracle;
         bool useOracle = oracleAddr != address(0);
-        IPriceOracle oracle = IPriceOracle(oracleAddr);
         Types.Asset memory bondAsset = _bondAssetForBilling();
         uint256 tailSeconds = block.timestamp > periodEnd ? block.timestamp - uint256(periodEnd) : 0;
 
@@ -293,7 +290,7 @@ abstract contract PaymentsBilling is PaymentsCore {
                 uint256 contribution = (opDeltaRaw * uint256(fallbackBps)) / BPS_DENOMINATOR;
                 if (useOracle && contribution > 0) {
                     address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
-                    contribution = oracle.toUSD(token, contribution);
+                    contribution = _safeToUSD(oracleAddr, token, contribution);
                 }
                 opWeight = contribution;
                 if (!result.hasSecurityCommitments && stakeOp > 0 && fallbackBps > 0) {
@@ -320,7 +317,7 @@ abstract contract PaymentsBilling is PaymentsCore {
                     uint256 contribution = (opDeltaRaw * uint256(c.exposureBps)) / BPS_DENOMINATOR;
                     if (useOracle && contribution > 0) {
                         address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
-                        contribution = oracle.toUSD(token, contribution);
+                        contribution = _safeToUSD(oracleAddr, token, contribution);
                     }
                     opWeight += contribution;
                     if (!result.hasSecurityCommitments && stakeOp > 0 && c.exposureBps > 0) {

@@ -17,7 +17,6 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
     event AdapterRegistered(address indexed token, address indexed adapter);
     event AdapterRemoved(address indexed token);
     event RequireAdaptersUpdated(bool required);
-    // M-8 FIX: Events for adapter migration
     event AdapterMigrationStarted(address indexed token, address indexed oldAdapter, address indexed newAdapter);
     event AdapterMigrationCompleted(address indexed token, address indexed newAdapter);
     event AdapterMigrationCancelled(address indexed token);
@@ -31,7 +30,6 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
         selectorList[4] = this.removeAdapter.selector;
         selectorList[5] = this.setRequireAdapters.selector;
         selectorList[6] = this.enableAssetWithAdapter.selector;
-        // M-8 FIX: Add migration selectors
         selectorList[7] = this.startAdapterMigration.selector;
         selectorList[8] = this.completeAdapterMigration.selector;
         selectorList[9] = this.cancelAdapterMigration.selector;
@@ -87,15 +85,13 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
         return _assetConfigs[_assetHash(asset)];
     }
 
-    /// @notice Register an adapter for a token
+    /// @notice Register an adapter for a token. Reverts if the asset has active deposits.
+    /// @dev Switching adapters under live balances either strands assets in the old
+    ///      adapter or double-counts them in the new one — `currentDeposits` is the
+    ///      protocol's accounting source of truth, so direct swaps are refused and
+    ///      admins must drain via `startAdapterMigration` first.
     /// @param token The token address
     /// @param adapter The adapter address
-    /// @dev Adapter must support the token (checked via supportsAsset)
-    /// @dev Round 4 audit S-2: rejects when the asset has active deposits.
-    ///      Switching adapters under live balances either strands assets in the
-    ///      old adapter or double-counts them in the new one — `currentDeposits`
-    ///      is the protocol's accounting source of truth, so refuse the swap and
-    ///      route admins through `startAdapterMigration` (M-8) instead.
     function registerAdapter(address token, address adapter) external onlyRole(ASSET_MANAGER_ROLE) {
         require(token != address(0), "Cannot set adapter for native");
         require(adapter != address(0), "Invalid adapter");
@@ -109,12 +105,11 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
         emit AdapterRegistered(token, adapter);
     }
 
-    /// @notice Remove adapter for a token (falls back to direct transfers)
+    /// @notice Remove the adapter for a token, falling back to direct transfers.
+    /// @dev Same `currentDeposits == 0` gate as `registerAdapter`. Removing an
+    ///      adapter while balances are held there would silently strand them;
+    ///      admins must drain via `startAdapterMigration(token, address(0))` first.
     /// @param token The token address
-    /// @dev Round 4 audit S-2: same `currentDeposits == 0` gate as
-    ///      `registerAdapter`. Removing an adapter while balances are held there
-    ///      would silently strand them — admins should use
-    ///      `startAdapterMigration(token, address(0))` to drain first.
     function removeAdapter(address token) external onlyRole(ASSET_MANAGER_ROLE) {
         require(_assetAdapters[token] != address(0), "No adapter registered");
 
@@ -127,7 +122,7 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
     }
 
     /// @notice Adapter changes are forbidden while the asset has live deposits.
-    /// @dev Use `startAdapterMigration` (M-8) for the controlled drain path.
+    /// @dev Use `startAdapterMigration` for the controlled drain path.
     error AdapterChangeWhileDepositsExist(address token, uint256 currentDeposits);
 
     /// @notice Set whether adapters are required for ERC20 deposits
@@ -179,7 +174,7 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // M-8 FIX: ADAPTER MIGRATION FUNCTIONS
+    // ADAPTER MIGRATION FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Start an adapter migration for a token

@@ -11,7 +11,6 @@ import { PaymentLib } from "../libraries/PaymentLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
 import { IStaking } from "../interfaces/IStaking.sol";
-import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
 import { ITanglePaymentsInternal } from "../interfaces/ITanglePaymentsInternal.sol";
 
 /// @title PaymentsDistribution
@@ -31,6 +30,12 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
     event StakerShareRefundedToEscrow(
         uint64 indexed serviceId, address indexed operator, address indexed token, uint256 amount, bytes reason
     );
+    /// @notice Emitted when a push transfer to a non-pull recipient (developer, TNT discount,
+    ///         treasury) reverted on-receive. The diverted amount is folded into the operator
+    ///         pool so distribution still completes and no funds are stranded in escrow.
+    event PushTransferFailed(
+        uint64 indexed serviceId, address indexed recipient, address indexed token, uint256 amount, bytes32 destination
+    );
     event PaymentDistributed(
         uint64 indexed serviceId,
         uint64 indexed blueprintId,
@@ -48,6 +53,10 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
     event TntPaymentDiscountApplied(
         uint64 indexed serviceId, address indexed recipient, address indexed token, uint256 amount
     );
+
+    bytes32 private constant PUSH_DEST_DEVELOPER = "developer";
+    bytes32 private constant PUSH_DEST_TREASURY = "treasury";
+    bytes32 private constant PUSH_DEST_TNT_DISCOUNT = "tnt-discount";
 
     /// @notice Backwards-compatible entry point for non-subscription distributions
     ///         (one-shot, RFQ, per-job). Computes exposure-based weights internally and
@@ -106,7 +115,6 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
         IStaking staking = _staking;
         address oracleAddr = _priceOracle;
         bool useOracle = oracleAddr != address(0);
-        IPriceOracle oracle = IPriceOracle(oracleAddr);
         Types.Asset memory bondAsset = _bondAssetForBilling();
 
         uint256 baseline;
@@ -124,7 +132,7 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
                 uint256 exposedAmount = (stakeOp * uint256(fallbackBps)) / BPS_DENOMINATOR;
                 if (useOracle && exposedAmount > 0) {
                     address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
-                    baseline += oracle.toUSD(token, exposedAmount);
+                    baseline += _safeToUSD(oracleAddr, token, exposedAmount);
                 } else {
                     baseline += exposedAmount;
                 }
@@ -138,7 +146,7 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
                     uint256 exposedAmount = (stakeOp * uint256(c.exposureBps)) / BPS_DENOMINATOR;
                     if (useOracle && exposedAmount > 0) {
                         address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
-                        baseline += oracle.toUSD(token, exposedAmount);
+                        baseline += _safeToUSD(oracleAddr, token, exposedAmount);
                     } else {
                         baseline += exposedAmount;
                     }
@@ -202,11 +210,18 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
         if (d.totalWeight == 0) revert Errors.InvalidState();
         PaymentLib.PaymentAmounts memory amounts = PaymentLib.calculateSplit(d.amount, _paymentSplit, includeKeeper);
 
-        // Developer payment (manager can override the destination).
+        // Developer payment (manager can override the destination). Push is best-effort:
+        // a malicious BSM that resolves a reverting recipient cannot brick distribution
+        // for the rest of the pool — the un-sent amount folds into the operator pool.
         Types.Blueprint storage bp = _blueprints[d.blueprintId];
         Types.Service storage svc = _services[d.serviceId];
         address developerAddr = _resolveDeveloperPaymentAddress(bp.manager, bp.owner, d.serviceId);
-        PaymentLib.transferPayment(developerAddr, d.token, amounts.developerAmount);
+        uint256 developerPaid = amounts.developerAmount;
+        if (developerPaid > 0 && !PaymentLib.tryTransferPayment(developerAddr, d.token, developerPaid)) {
+            emit PushTransferFailed(d.serviceId, developerAddr, d.token, developerPaid, PUSH_DEST_DEVELOPER);
+            amounts.developerAmount = 0;
+            amounts.operatorAmount += developerPaid;
+        }
 
         // TNT payment discount: funded from the protocol share, paid to the service owner.
         if (
@@ -217,12 +232,20 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
             uint256 discount = desired > amounts.protocolAmount ? amounts.protocolAmount : desired;
             if (discount > 0) {
                 amounts.protocolAmount -= discount;
-                PaymentLib.transferPayment(svc.owner, d.token, discount);
-                emit TntPaymentDiscountApplied(d.serviceId, svc.owner, d.token, discount);
+                if (PaymentLib.tryTransferPayment(svc.owner, d.token, discount)) {
+                    emit TntPaymentDiscountApplied(d.serviceId, svc.owner, d.token, discount);
+                } else {
+                    emit PushTransferFailed(d.serviceId, svc.owner, d.token, discount, PUSH_DEST_TNT_DISCOUNT);
+                    amounts.operatorAmount += discount;
+                }
             }
         }
 
-        PaymentLib.transferPayment(_treasury, d.token, amounts.protocolAmount);
+        if (amounts.protocolAmount > 0 && !PaymentLib.tryTransferPayment(_treasury, d.token, amounts.protocolAmount)) {
+            emit PushTransferFailed(d.serviceId, _treasury, d.token, amounts.protocolAmount, PUSH_DEST_TREASURY);
+            amounts.operatorAmount += amounts.protocolAmount;
+            amounts.protocolAmount = 0;
+        }
 
         // Keeper rebate: pull-pattern via _pendingRewards so the keeper's gas budget for
         // this transaction stays predictable and contract-keepers don't get force-fed ETH.
