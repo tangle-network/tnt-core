@@ -6,7 +6,7 @@ import { ValidatorPod } from "../../src/beacon/ValidatorPod.sol";
 import { ValidatorPodManager } from "../../src/beacon/ValidatorPodManager.sol";
 
 /// @title ValidatorPodManagerSharePoolTest
-/// @notice G-02 (Round 4): Tests for share-pool accounting in ValidatorPodManager.
+/// @notice G-02 : Tests for share-pool accounting in ValidatorPodManager.
 /// @dev Verifies:
 ///        - Proportional share minting on multiple deposits.
 ///        - Rebase up: shareholders see proportional asset gain.

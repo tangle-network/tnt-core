@@ -657,7 +657,7 @@ contract OperatorLifecycleTest is BaseTest {
         operators[0] = operator1;
         address[] memory callers = new address[](0);
 
-        // M-1 FIX: Use valid TTL (minimum is 1 hour = 3600 seconds)
+        // Use valid TTL (minimum is 1 hour = 3600 seconds)
         uint64 validTtl = 1 hours;
 
         vm.prank(user1);

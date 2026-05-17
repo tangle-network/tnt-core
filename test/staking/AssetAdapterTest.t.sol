@@ -245,7 +245,7 @@ contract AssetAdapterTest is Test {
         vm.prank(delegationManager);
         uint256 shares = rebasingAdapter.deposit(user1, 100 ether);
 
-        // Round 3 economic F2: virtual-offset math.
+        // virtual-offset math.
         //   shares = actualReceived * (totalShares + VIRTUAL_SHARES) / (balanceBefore + VIRTUAL_ASSETS)
         // First deposit: totalShares = 0, balanceBefore = 0, VIRTUAL_SHARES = 1e8, VIRTUAL_ASSETS = 1
         //   shares = 100e18 * 1e8 / 1 = 1e28
@@ -271,7 +271,7 @@ contract AssetAdapterTest is Test {
         // Token rebases by 10%
         rebasingToken.rebase(1000); // 10% = 1000 bps
 
-        // Round 3 economic F2: virtual-offset math leaves a 1-wei dust on the
+        // virtual-offset math leaves a 1-wei dust on the
         // round-trip — that's the price of the first-depositor inflation
         // defense. ApproxEq with 1-wei tolerance pins both `sharesToAssets`
         // and `withdraw` close enough to the rebased value.
@@ -311,7 +311,7 @@ contract AssetAdapterTest is Test {
         vm.prank(delegationManager);
         rebasingAdapter.deposit(user1, 100 ether);
 
-        // Round 3 economic F2: with virtual-offset math, the legacy
+        // with virtual-offset math, the legacy
         // `exchangeRate` view still normalizes by INITIAL_SHARES_PER_ASSET (1e18),
         // which is no longer the live mint denominator (the live denominator
         // uses VIRTUAL_SHARES = 1e8). We don't pin the absolute rate value

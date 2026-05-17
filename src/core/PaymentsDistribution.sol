@@ -2,6 +2,8 @@
 pragma solidity ^0.8.26;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { PaymentsCore } from "./PaymentsCore.sol";
 import { PaymentsEffectiveExposure } from "./PaymentsEffectiveExposure.sol";
@@ -21,6 +23,7 @@ import { ITanglePaymentsInternal } from "../interfaces/ITanglePaymentsInternal.s
 ///      diamond (`ITanglePaymentsInternal.distributeBillWithKeeper`).
 abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposure {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using SafeERC20 for IERC20;
 
     /// @notice Emitted on every bill caller's keeper rebate.
     event KeeperRebateAccrued(uint64 indexed serviceId, address indexed keeper, address indexed token, uint256 amount);
@@ -130,8 +133,9 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
                 uint16 fallbackBps = _serviceOperators[serviceId][op].exposureBps;
                 if (fallbackBps == 0) fallbackBps = uint16(BPS_DENOMINATOR);
                 uint256 exposedAmount = (stakeOp * uint256(fallbackBps)) / BPS_DENOMINATOR;
+                address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
+                _snapshotBaselinePrice(serviceId, op, assetHash, oracleAddr, token);
                 if (useOracle && exposedAmount > 0) {
-                    address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
                     baseline += _safeToUSD(oracleAddr, token, exposedAmount);
                 } else {
                     baseline += exposedAmount;
@@ -144,8 +148,9 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
                     _twapCursorByOpAsset[serviceId][op][assetHash] = cumOp == 0 ? 1 : cumOp;
 
                     uint256 exposedAmount = (stakeOp * uint256(c.exposureBps)) / BPS_DENOMINATOR;
+                    address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
+                    _snapshotBaselinePrice(serviceId, op, assetHash, oracleAddr, token);
                     if (useOracle && exposedAmount > 0) {
-                        address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
                         baseline += _safeToUSD(oracleAddr, token, exposedAmount);
                     } else {
                         baseline += exposedAmount;
@@ -164,6 +169,33 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
         uint256 pinned = baseline == 0 ? 1 : baseline;
         _serviceEscrows[serviceId].subscriptionBaselineStake = pinned;
         emit SubscriptionBaselineInitialized(serviceId, pinned, n);
+    }
+
+    /// @notice Record the activation-time USD-per-1e18-token snapshot for (serviceId, op, asset).
+    /// @dev Skip if no oracle is configured. Skip if a snapshot already exists for this
+    ///      triple (operators rejoining after a leave reuse their original activation
+    ///      snapshot so a price ramp during the absence cannot game the rejoin). The
+    ///      stored value is `_safeToUSDView(oracle, token, 1e18)` — see
+    ///      `_baselinePriceByOpAsset` storage docs for the conversion formula at bill
+    ///      time. A failed oracle query stores `1e18` (identity scale) so the bill path
+    ///      degrades to raw token-second weighting for that (op, asset).
+    function _snapshotBaselinePrice(
+        uint64 serviceId,
+        address op,
+        bytes32 assetHash,
+        address oracleAddr,
+        address token
+    )
+        internal
+    {
+        if (oracleAddr == address(0)) return;
+        if (_baselinePriceByOpAsset[serviceId][op][assetHash] != 0) return;
+        uint256 priceUsd = _safeToUSDView(oracleAddr, token, 1 ether);
+        // Identity (== 1 ether) means the oracle either reverted or is disabled for
+        // this token. Treat as raw-weighting fallback by storing a sentinel that the
+        // bill-time conversion (contribution * snapshot / 1 ether) recognizes as
+        // identity. Storing 1 ether is exactly the identity scale.
+        _baselinePriceByOpAsset[serviceId][op][assetHash] = priceUsd == 0 ? 1 ether : priceUsd;
     }
 
     /// @notice Calculate effective exposures with fallback to stored exposureBps
@@ -348,14 +380,20 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
             }
         }
 
-        PaymentLib.transferPayment(distributor, token, amount);
+        // ERC20 path: pull-payment. We approve the distributor for `amount`; if its
+        // distributeServiceFee succeeds it `transferFrom`s the tokens itself. If it
+        // reverts the tokens never leave the diamond — no stranding. We unconditionally
+        // revoke the residual allowance after the call so a reverting distributor
+        // cannot drain future shares via a leftover approval.
+        IERC20(token).forceApprove(distributor, amount);
         try IServiceFeeDistributor(distributor).distributeServiceFee(serviceId, blueprintId, operator, token, amount) {
+            // Defensive: allowance should be zero after a healthy pull, but force-clear
+            // in case the distributor under-pulled.
+            IERC20(token).forceApprove(distributor, 0);
             return;
         } catch (bytes memory reason) {
-            // The ERC20 has already left this contract — fee distributor holds it. We cannot
-            // unilaterally claw the tokens back, so we emit a clear marker for the customer
-            // and protocol to handle off-chain.
-            emit StakerShareRefundedToEscrow(serviceId, operator, token, amount, reason);
+            IERC20(token).forceApprove(distributor, 0);
+            _refundStakerShareToEscrow(serviceId, operator, token, amount, reason);
         }
     }
 

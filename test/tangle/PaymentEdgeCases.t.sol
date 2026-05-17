@@ -77,6 +77,16 @@ contract ETHRejecter {
     }
 }
 
+/// @notice Service-fee distributor that always reverts on distributeServiceFee.
+/// @dev Used to verify the pull-payment path: when the distributor reverts, no
+///      ERC20 leaves the diamond (allowance is never consumed) and the share
+///      refunds to escrow.
+contract RevertingDistributor is MockServiceFeeDistributor {
+    function distributeServiceFee(uint64, uint64, address, address, uint256) external payable override {
+        revert("distributor down");
+    }
+}
+
 /// @title PaymentEdgeCasesTest
 /// @notice Edge cases and stress tests for payment system
 contract PaymentEdgeCasesTest is BaseTest {
@@ -163,7 +173,7 @@ contract PaymentEdgeCasesTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_Payment_VerySmallAmount_RevertsWithMinimum() public {
-        // M-5 FIX: Payments below MINIMUM_PAYMENT_AMOUNT (100) should revert
+        // Payments below MINIMUM_PAYMENT_AMOUNT (100) should revert
         uint256 payment = 1;
         vm.expectRevert(abi.encodeWithSelector(Errors.PaymentTooSmall.selector, payment, 100));
         _requestServiceWithPayment(user1, blueprintId, operator1, payment);

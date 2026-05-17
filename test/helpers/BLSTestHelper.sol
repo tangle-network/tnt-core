@@ -139,7 +139,7 @@ library BLSTestHelper {
     ///          keccak256(abi.encode(operators)),  // operator-set snapshot
     ///          keccak256(output)
     ///        )
-    ///      Round 3 audit fix for operator-collusion #2c — domain-separated message
+    ///      for operator-collusion #2c — domain-separated message
     ///      bound to the operator-set snapshot so a swap-and-pop reorder
     ///      invalidates in-flight signatures.
     function buildJobResultMessage(

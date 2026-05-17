@@ -209,7 +209,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
         vm.prank(user1);
         uint64 slashId = tangle.proposeSlash(serviceId, operator1, slashBps, keccak256("evidence"));
 
-        // M-6 FIX: Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
+        // Add TIMESTAMP_BUFFER (15s) to account for manipulation protection
         vm.warp(block.timestamp + 7 days + 16);
         tangle.executeSlash(slashId);
 

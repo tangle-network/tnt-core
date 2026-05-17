@@ -84,7 +84,6 @@ contract LiveBeaconTest is Test {
     ///      test wrote `bytes32(uint256(N))` which right-aligns the value (BE),
     ///      causing the helper to read zero — the test was silently broken on
     ///      `main` (tracked via issue #130) and is fixed here as part of the
-    ///      Round 4 consolidation.
     function _leUint64Bytes32(uint64 n) internal pure returns (bytes32) {
         // Reverse bytes (n becomes little-endian)
         uint64 le = ((n & 0x00000000000000FF) << 56)

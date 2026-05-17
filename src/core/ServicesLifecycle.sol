@@ -624,11 +624,10 @@ abstract contract ServicesLifecycle is Base {
         if (svc.membership != Types.MembershipModel.Dynamic) {
             revert Errors.InvalidState();
         }
-        // Mirror request-side validation: `maxOperators == 0` means "use protocol ceiling".
+        // Mirror request-side validation: `maxOperators == 0` clamps to the protocol ceiling.
+        uint32 protocolCeiling = _maxOperatorsPerService;
         uint32 effectiveMax =
-            (svc.maxOperators == 0 || svc.maxOperators > ProtocolConfig.MAX_OPERATORS_PER_SERVICE)
-                ? ProtocolConfig.MAX_OPERATORS_PER_SERVICE
-                : svc.maxOperators;
+            (svc.maxOperators == 0 || svc.maxOperators > protocolCeiling) ? protocolCeiling : svc.maxOperators;
         if (svc.operatorCount >= effectiveMax) {
             revert Errors.InvalidState();
         }
@@ -680,24 +679,32 @@ abstract contract ServicesLifecycle is Base {
         svc.operatorCount++;
         _operatorActiveServiceCount[svc.blueprintId][msg.sender]++;
 
-        // Re-seed this (service, operator) pair's per-asset TWAP cursors at the
-        // join instant. A rejoiner whose cursors still held pre-leave values would
-        // be billed for off-service cum growth on the next bill. Sentinel 1
-        // substitutes for genuine-zero cum so the cursor stays "set".
+        // Re-seed this (service, operator) pair's per-asset TWAP cursors and price
+        // snapshots at the join instant. A rejoiner whose cursors still held pre-leave
+        // values would be billed for off-service cum growth on the next bill; sentinel
+        // 1 substitutes for genuine-zero cum so the cursor stays "set". The price
+        // snapshot pins the operator's per-asset USD conversion to the join-time price
+        // — without it, a post-activation oracle drift could inflate the joiner's
+        // share of a future bill
         Types.AssetSecurityCommitment[] storage joinerCommitments = _serviceSecurityCommitments[serviceId][msg.sender];
         uint256 commitmentCount = joinerCommitments.length;
+        address oracleAddr = _priceOracle;
         if (commitmentCount == 0) {
             // Fallback: single bond-asset cursor (matches `_initSubscriptionBaseline`).
             Types.Asset memory bondAsset = _bondAssetForBilling();
             bytes32 assetHash = keccak256(abi.encode(bondAsset.kind, bondAsset.token));
             (uint256 cumOpAtJoin,,) = _staking.getCumStakeSeconds(msg.sender, bondAsset);
             _twapCursorByOpAsset[serviceId][msg.sender][assetHash] = cumOpAtJoin == 0 ? 1 : cumOpAtJoin;
+            address token = bondAsset.kind == Types.AssetKind.Native ? address(0) : bondAsset.token;
+            _snapshotJoinPrice(serviceId, msg.sender, assetHash, oracleAddr, token);
         } else {
             for (uint256 k = 0; k < commitmentCount;) {
                 Types.AssetSecurityCommitment storage c = joinerCommitments[k];
                 bytes32 assetHash = keccak256(abi.encode(c.asset.kind, c.asset.token));
                 (uint256 cumOpAtJoin,,) = _staking.getCumStakeSeconds(msg.sender, c.asset);
                 _twapCursorByOpAsset[serviceId][msg.sender][assetHash] = cumOpAtJoin == 0 ? 1 : cumOpAtJoin;
+                address token = c.asset.kind == Types.AssetKind.Native ? address(0) : c.asset.token;
+                _snapshotJoinPrice(serviceId, msg.sender, assetHash, oracleAddr, token);
                 unchecked {
                     ++k;
                 }
@@ -716,6 +723,28 @@ abstract contract ServicesLifecycle is Base {
                 abi.encodeCall(IBlueprintServiceManager.onOperatorJoined, (serviceId, msg.sender, exposureBps))
             );
         }
+    }
+
+    /// @notice Capture the join-time USD-per-1e18-token price for (serviceId, op, asset).
+    /// @dev Mirrors `PaymentsDistribution._snapshotBaselinePrice` but reachable from the
+    ///      join path. Skips re-snapshot when one already exists (operator rejoining
+    ///      after a leave reuses the original snapshot so a price ramp during their
+    ///      absence cannot game the rejoin). A reverting / disabled oracle stores the
+    ///      identity scale (1 ether), which the bill-time formula treats as raw
+    ///      token-second weighting for that (op, asset).
+    function _snapshotJoinPrice(
+        uint64 serviceId,
+        address op,
+        bytes32 assetHash,
+        address oracleAddr,
+        address token
+    )
+        internal
+    {
+        if (oracleAddr == address(0)) return;
+        if (_baselinePriceByOpAsset[serviceId][op][assetHash] != 0) return;
+        uint256 priceUsd = _safeToUSDView(oracleAddr, token, 1 ether);
+        _baselinePriceByOpAsset[serviceId][op][assetHash] = priceUsd == 0 ? 1 ether : priceUsd;
     }
 
     function _removeOperatorFromService(

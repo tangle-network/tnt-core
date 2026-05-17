@@ -423,7 +423,7 @@ contract ServiceLifecycleEdgeCasesTest is BaseTest {
         ops[0] = operator1;
         address[] memory callers = new address[](0);
 
-        // M-1 FIX: TTL above MAX_SERVICE_TTL (365 days) should revert
+        // TTL above MAX_SERVICE_TTL (365 days) should revert
         uint64 maxTTL = type(uint64).max;
         uint64 maximum = 365 days;
 

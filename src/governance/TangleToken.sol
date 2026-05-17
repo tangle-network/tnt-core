@@ -161,7 +161,7 @@ contract TangleToken is
     // entry points.
 
     /// @notice Burning is disabled; reverts on every call.
-    /// @dev Round 2 governance auditor #5. If a real burn use case appears later, add
+    /// @dev #5. If a real burn use case appears later, add
     ///      a BURNER_ROLE-gated entry point rather than re-enabling unrestricted burn.
     function burn(uint256) public pure override {
         revert BurnDisabled();

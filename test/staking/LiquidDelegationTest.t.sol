@@ -466,7 +466,7 @@ contract LiquidDelegationTest is Test {
         assertLt(expectedAssets, sharesToRedeem, "Slash should devalue shares");
 
         // Note: After slashing, convertToAssets may return slightly more than actual delegation
-        // due to M-20 FIX virtual offset (1e3). Cap shares to avoid InsufficientDelegation.
+        // due to virtual offset (1e3). Cap shares to avoid InsufficientDelegation.
         // This is a known precision edge case when redeeming 100% after slashing.
         uint256 actualDelegation = staking.getDelegation(address(vault), operator1);
         uint256 maxRedeemableShares = vault.convertToShares(actualDelegation);
@@ -548,7 +548,7 @@ contract LiquidDelegationTest is Test {
         vault.requestRedeem(5 ether, user1, user1);
     }
 
-    /// @notice Round 4 audit S-1: an authorized operator MUST file with
+    /// @notice 1: an authorized operator MUST file with
     ///         `controller == owner`. Without this gate, the operator can pick
     ///         any controller (including themselves) and later drive `redeem`
     ///         to route assets to any receiver.
@@ -580,7 +580,7 @@ contract LiquidDelegationTest is Test {
         assertEq(requestId, 0, "operator with controller==owner should succeed");
     }
 
-    /// @notice Round 4 audit S-1: the owner driving their own request is still
+    /// @notice 1: the owner driving their own request is still
     ///         free to delegate redemption to a separate controller (legit
     ///         ERC-7540 use case — e.g. an aggregator vault). The gate only
     ///         clamps third-party operators.

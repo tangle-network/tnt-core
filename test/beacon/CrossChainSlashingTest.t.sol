@@ -225,7 +225,7 @@ contract MockStaking is IStaking {
     function addBlueprintForOperator(address, uint64) external override { }
     function removeBlueprintForOperator(address, uint64) external override { }
 
-    // M-9 FIX: Pending slash tracking (no-op for mock)
+    // Pending slash tracking (no-op for mock)
     function incrementPendingSlash(address) external override { }
     function decrementPendingSlash(address) external override { }
 
@@ -342,7 +342,7 @@ contract CrossChainSlashingTest is Test {
 
         staking.addSlasher(address(slasher));
 
-        // Authorize connector as sender for receiver (H-4 FIX: requires timelock)
+        // Authorize connector as sender for receiver (requires timelock)
         receiver.setAuthorizedSender(ETH_CHAIN_ID, address(connector), true);
         // Warp past the 2-day activation delay and activate
         vm.warp(block.timestamp + 2 days + 1);
@@ -886,7 +886,7 @@ contract CrossChainSlashingTest is Test {
     function test_receiver_setAuthorizedSender() public {
         address newSender = makeAddr("newSender");
 
-        // H-4 FIX: Authorization now requires timelock
+        // Authorization now requires timelock
         receiver.setAuthorizedSender(ETH_CHAIN_ID, newSender, true);
         // Not authorized yet - only scheduled
         assertFalse(receiver.authorizedSenders(ETH_CHAIN_ID, newSender));
