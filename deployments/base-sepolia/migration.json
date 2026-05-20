@@ -1,7 +1,7 @@
 {
-  "tntToken": "0xc3ac2929598f8b82ec4230abb21828e755608cd6",
-  "tangleMigration": "0x89420e726962a2b3cf0bd177fedb0370b7f83500",
-  "zkVerifier": "0x607703dded80e3cb7b2a8e6fb6b957e741edac2d",
+  "tntToken": "0x541d93d0650f8e4583b7db6545cceee649975831",
+  "tangleMigration": "0x0f24429ff66b3ff61390888ef7c69f07533d4b01",
+  "zkVerifier": "0x609c9fb4b687d3f172719b13c0012530c003449e",
   "sp1VerifierGateway": "0x397a5f7f3dbd538f23de225b51f532c34448da9b",
   "programVKey": "0x000d74444f16d75f72527687a36c1bd4c49e6799816dac4989be3bc175e86fd7",
   "merkleRoot": "0x54ec5497e0a2f43ec721c1ec5392cb224cf710b1210b579dcaefea002bb51adb",

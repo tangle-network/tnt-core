@@ -14,7 +14,7 @@ networks:
     contracts:
       - name: Tangle
         address:
-          - "0x62281eac026f6c6a65708157e47151b964216303"
+          - "0xc9b0716a187072be0f38a5d972392c6479b9cfe3"
         handler: src/EventHandlers.ts
         events:
           - event: AggregatedResultSubmitted(uint64 indexed serviceId, uint64 indexed callId, uint256 signerBitmap, bytes output)
@@ -68,13 +68,14 @@ networks:
           - event: Unpaused(address account)
           - event: Upgraded(address indexed implementation)
       - name: MasterBlueprintServiceManager
-        address: []
+        address:
+          - "0xf259444a865f64bfbbf7ec3e9e4b9af00a819e17"
         handler: src/EventHandlers.ts
         events:
           - event: BlueprintDefinitionRecorded(uint64 indexed blueprintId, address indexed owner, bytes encodedDefinition)
       - name: MultiAssetDelegation
         address:
-          - "0x96e682cc18874ec6cdb1b2a7f0a5f541e1fbaeb3"
+          - "0xfeb417fc6d343e0fc88ec9fdb8294bf84d69f0ca"
         handler: src/EventHandlers.ts
         events:
           - event: OperatorRegistered(address indexed operator, uint256 stake)
@@ -104,7 +105,7 @@ networks:
           - event: OperatorWhitelistUpdated(address indexed operator, address indexed delegator, bool approved)
       - name: OperatorStatusRegistry
         address:
-          - "0x17746107e0b4cfaf4c96140f5e501bf10e740b65"
+          - "0x81443688fce1e4edb822c1d5794c3dac608e9a23"
         handler: src/EventHandlers.ts
         events:
           - event: HeartbeatReceived(uint64 indexed serviceId, uint64 indexed blueprintId, address indexed operator, uint8 statusCode, uint256 timestamp)
@@ -145,7 +146,7 @@ networks:
           - event: Transfer(address indexed from, address indexed to, uint256 value)
       - name: RewardVaults
         address:
-          - "0x37979744708141ec1541b9b70faa7da8d0cf2d23"
+          - "0x8affb8c215679210329ef9129d8427fa4e7bd087"
         handler: src/EventHandlers.ts
         events:
           - event: VaultCreated(address indexed asset, uint256 depositCap)
@@ -161,15 +162,15 @@ networks:
           - event: LockDurationsUpdated(uint256 oneMonth, uint256 twoMonths, uint256 threeMonths, uint256 sixMonths)
       - name: InflationPool
         address:
-          - "0x8152f13c37576e1a2cd74d18213105ecf816d5de"
+          - "0x2c44736aaf0eec7c9b852ee71f0dc05b1606803b"
         handler: src/EventHandlers.ts
         events:
           - event: OperatorRewardClaimed(address indexed operator, uint256 amount)
           - event: CustomerRewardClaimed(address indexed customer, uint256 amount)
           - event: DeveloperRewardClaimed(address indexed developer, uint256 amount)
       - name: Credits
-        # Deploy `packages/credits/src/Credits.sol` and set its address here when credits are enabled.
-        address: []
+        address:
+          - "0xeeba50602c52096091cce56cdb12ca1df049542a"
         handler: src/EventHandlers.ts
         events:
           - event: CreditsClaimed(address indexed account, uint256 amount, bytes32 offchainAccountId)
