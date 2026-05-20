@@ -218,32 +218,42 @@ contract DeployV2 is DeployScriptBase {
             vm.startPrank(deployer);
         }
 
-        (stakingProxy, stakingImpl) = deployMultiAssetDelegation(admin);
+        // Bootstrap admin pattern: the deployer is the initial admin of every
+        // proxy/contract so it can register facets, grant cross-contract roles,
+        // and complete setup from its broadcast context. `_applyRoleHandoff`
+        // (in FullDeploy) transfers permanent roles to timelock/multisig and
+        // revokes the deployer's bootstrap roles when `revokeBootstrap=true`.
+        // The `admin` parameter from config becomes the post-handoff target
+        // (typically equal to timelock on production, single-EOA on testnet).
+        address bootstrapAdmin = deployer;
+
+        (stakingProxy, stakingImpl) = deployMultiAssetDelegation(bootstrapAdmin);
         console2.log("MultiAssetDelegation implementation:", stakingImpl);
         console2.log("MultiAssetDelegation proxy:", stakingProxy);
 
-        (tangleProxy, tangleImpl) = deployTangle(admin, stakingProxy, treasury);
+        (tangleProxy, tangleImpl) = deployTangle(bootstrapAdmin, stakingProxy, treasury);
         console2.log("Tangle implementation:", tangleImpl);
         console2.log("Tangle proxy:", tangleProxy);
 
         _registerStakingFacets(stakingProxy);
         _registerTangleFacets(tangleProxy);
 
-        address registryOwner = statusRegistryOwner == address(0) ? admin : statusRegistryOwner;
+        address registryOwner = statusRegistryOwner == address(0) ? bootstrapAdmin : statusRegistryOwner;
         statusRegistry = deployOperatorStatusRegistry(tangleProxy, registryOwner);
         console2.log("OperatorStatusRegistry:", statusRegistry);
 
-        // Verify proxy deployments
-        _verifyProxy(stakingProxy, admin, "MultiAssetDelegation");
-        _verifyProxy(tangleProxy, admin, "Tangle");
+        // Verify proxy deployments — at this point the deployer holds DEFAULT_ADMIN_ROLE
+        // because it bootstrapped the proxy. The handoff later moves it to the real admin.
+        _verifyProxy(stakingProxy, bootstrapAdmin, "MultiAssetDelegation");
+        _verifyProxy(tangleProxy, bootstrapAdmin, "Tangle");
 
         IMultiAssetDelegation(payable(stakingProxy)).addSlasher(tangleProxy);
         IMultiAssetDelegation(payable(stakingProxy)).setTangle(tangleProxy);
 
-        MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(admin, tangleProxy);
+        MasterBlueprintServiceManager masterManager = new MasterBlueprintServiceManager(bootstrapAdmin, tangleProxy);
         MBSMRegistry registryImpl = new MBSMRegistry();
         ERC1967Proxy registryProxy =
-            new ERC1967Proxy(address(registryImpl), abi.encodeCall(MBSMRegistry.initialize, (admin)));
+            new ERC1967Proxy(address(registryImpl), abi.encodeCall(MBSMRegistry.initialize, (bootstrapAdmin)));
         MBSMRegistry mbsmRegistry = MBSMRegistry(address(registryProxy));
         mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), tangleProxy);
         mbsmRegistry.addVersion(address(masterManager));
@@ -253,9 +263,9 @@ contract DeployV2 is DeployScriptBase {
         Tangle(payable(tangleProxy)).setOperatorStatusRegistry(statusRegistry);
         console2.log("Set OperatorStatusRegistry on Tangle");
 
-        _ensureTntToken(admin);
+        _ensureTntToken(bootstrapAdmin);
         _configureTntDefaults(tangleProxy, stakingProxy);
-        _configureServiceFeeDistributor(admin, stakingProxy, tangleProxy);
+        _configureServiceFeeDistributor(bootstrapAdmin, stakingProxy, tangleProxy);
 
         if (broadcast) {
             vm.stopBroadcast();
