@@ -230,8 +230,15 @@ contract FullDeploy is DeployV2 {
 
         vm.startBroadcast(deployerKey);
 
+        // Bootstrap admin pattern (mirrored from `_deployCore`): every proxy is
+        // initialized with the deployer as DEFAULT_ADMIN_ROLE so post-deploy
+        // role grants (e.g. `grantRole(MANAGER_ROLE, …)`, `enableAsset`) can
+        // succeed from the deployer's broadcast context. `_applyRoleHandoff`
+        // then transfers permanent roles to timelock/multisig and revokes
+        // the deployer's bootstrap. See PR notes for the EIP-170 / governance
+        // separation rationale.
         (address metrics, address rewardVaults, address inflationPool, address tntToken, uint256 epochLength) =
-            _prepareIncentives(cfg.incentives, admin);
+            _prepareIncentives(cfg.incentives, deployer);
 
         address priceOracle = cfg.incentives.priceOracle;
         address serviceFeeDistributor = cfg.incentives.serviceFeeDistributor;
@@ -239,12 +246,12 @@ contract FullDeploy is DeployV2 {
             cfg.incentives.deployServiceFeeDistributor
                 || (serviceFeeDistributor == address(0) && _serviceFeeDistributorRequired(tangle))
         ) {
-            serviceFeeDistributor = _deployServiceFeeDistributorProxy(admin, staking, tangle, priceOracle);
+            serviceFeeDistributor = _deployServiceFeeDistributorProxy(deployer, staking, tangle, priceOracle);
         }
 
         address streamingPaymentManager = cfg.incentives.streamingPaymentManager;
         if (cfg.incentives.deployStreamingPaymentManager) {
-            streamingPaymentManager = _deployStreamingPaymentManagerProxy(admin, tangle, serviceFeeDistributor);
+            streamingPaymentManager = _deployStreamingPaymentManagerProxy(deployer, tangle, serviceFeeDistributor);
         }
 
         _substituteTntSentinel(cfg.stakeAssets, cfg.incentives.vaults, tntToken);
@@ -262,7 +269,7 @@ contract FullDeploy is DeployV2 {
         address credits = _resolveCredits(cfg.credits, admin, timelock);
         _applyRoleHandoff(
             cfg.roles,
-            admin,
+            deployer,
             timelock,
             multisig,
             tangle,
@@ -279,7 +286,7 @@ contract FullDeploy is DeployV2 {
 
         _assertGovernanceConfiguration(
             cfg.roles,
-            admin,
+            deployer,
             timelock,
             multisig,
             tangle,
