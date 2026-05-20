@@ -1,27 +1,27 @@
 {
   "network": "base-sepolia",
   "chainId": 84532,
-  "deployer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  "deployer": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
   "admin": "0x03a763af11dc58b459a469a9895389f5880b45f4",
   "treasury": "0x03a763af11dc58b459a469a9895389f5880b45f4",
   "timelock": "0x03a763af11dc58b459a469a9895389f5880b45f4",
   "multisig": "0x03a763af11dc58b459a469a9895389f5880b45f4",
-  "tangle": "0x04eede3f06443d1ee4632e30f3a8672a993f95bf",
-  "staking": "0x54d4962847bf85ab71a1fc984510dc12d3fea1d8",
-  "restaking": "0x54d4962847bf85ab71a1fc984510dc12d3fea1d8",
-  "statusRegistry": "0xe8fffc29f00a25441b0085756c72e7400bcc2747",
-  "tntToken": "0xc3ac2929598f8b82ec4230abb21828e755608cd6",
-  "metrics": "0x35a983b09309c6ba01a5d88ad8082e6cb9d36dee",
-  "rewardVaults": "0x5c1eaa05b997222f4aba51320506668b58e8c3c7",
-  "inflationPool": "0x25bd506f3cb102503068fb80a917c9f2f30114d6",
-  "serviceFeeDistributor": "0x9597793eebc6c156cce80a318445866a11290967",
+  "tangle": "0xc9b0716a187072be0f38a5d972392c6479b9cfe3",
+  "staking": "0xfeb417fc6d343e0fc88ec9fdb8294bf84d69f0ca",
+  "restaking": "0xfeb417fc6d343e0fc88ec9fdb8294bf84d69f0ca",
+  "statusRegistry": "0x81443688fce1e4edb822c1d5794c3dac608e9a23",
+  "tntToken": "0x541d93d0650f8e4583b7db6545cceee649975831",
+  "metrics": "0xbbc1386b628716241b37e83f99c50a43878c42c2",
+  "rewardVaults": "0x8affb8c215679210329ef9129d8427fa4e7bd087",
+  "inflationPool": "0x2c44736aaf0eec7c9b852ee71f0dc05b1606803b",
+  "serviceFeeDistributor": "0xda134d167a99fcb9bd5bb977f1f886d9401b1098",
   "streamingPaymentManager": "0x0000000000000000000000000000000000000000",
-  "credits": "0x88be0e9673ea364f02ca4607daef41634b33cb43",
+  "credits": "0xeeba50602c52096091cce56cdb12ca1df049542a",
   "epochLength": 604800,
   "stakeAssets": [
     {
       "symbol": "TNT",
-      "token": "0xc3ac2929598f8b82ec4230abb21828e755608cd6",
+      "token": "0x541d93d0650f8e4583b7db6545cceee649975831",
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": "1000000000000000000",
       "minDelegation": "100000000000000000",
@@ -49,7 +49,7 @@
   ],
   "rewardVaultsConfig": [
     {
-      "asset": "0xc3ac2929598f8b82ec4230abb21828e755608cd6",
+      "asset": "0x541d93d0650f8e4583b7db6545cceee649975831",
       "depositCap": "250000000000000000000000",
       "active": true
     },
@@ -95,11 +95,11 @@
     "treasuryAmount": "41844468761091374585756819",
     "foundationRecipient": "0x03a763af11dc58b459a469a9895389f5880b45f4",
     "foundationAmount": "15040809826744825912214026",
-    "claimDeadline": "1810624312",
+    "claimDeadline": "1810821220",
     "unlockedBps": 0,
     "cliffDuration": 0,
     "vestingDuration": 0,
-    "tangleMigration": "0x89420e726962a2b3cf0bd177fedb0370b7f83500",
-    "zkVerifier": "0x607703dded80e3cb7b2a8e6fb6b957e741edac2d"
+    "tangleMigration": "0x0f24429ff66b3ff61390888ef7c69f07533d4b01",
+    "zkVerifier": "0x609c9fb4b687d3f172719b13c0012530c003449e"
   }
 }
