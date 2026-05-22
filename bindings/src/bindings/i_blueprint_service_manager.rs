@@ -1,7 +1,476 @@
+///Module containing a contract's types and functions.
+/**
+
+```solidity
+library Types {
+    struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; string binaryUri; bytes32 attestationHash; uint64 publishedAt; bool deprecated; }
+}
+```*/
+#[allow(
+    non_camel_case_types,
+    non_snake_case,
+    clippy::pub_underscore_fields,
+    clippy::style,
+    clippy::empty_structs_with_brackets
+)]
+pub mod Types {
+    use super::*;
+    use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**```solidity
+struct BinaryVersion { uint64 versionId; bytes32 sha256Hash; string binaryUri; bytes32 attestationHash; uint64 publishedAt; bool deprecated; }
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct BinaryVersion {
+        #[allow(missing_docs)]
+        pub versionId: u64,
+        #[allow(missing_docs)]
+        pub sha256Hash: alloy::sol_types::private::FixedBytes<32>,
+        #[allow(missing_docs)]
+        pub binaryUri: alloy::sol_types::private::String,
+        #[allow(missing_docs)]
+        pub attestationHash: alloy::sol_types::private::FixedBytes<32>,
+        #[allow(missing_docs)]
+        pub publishedAt: u64,
+        #[allow(missing_docs)]
+        pub deprecated: bool,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        type UnderlyingSolTuple<'a> = (
+            alloy::sol_types::sol_data::Uint<64>,
+            alloy::sol_types::sol_data::FixedBytes<32>,
+            alloy::sol_types::sol_data::String,
+            alloy::sol_types::sol_data::FixedBytes<32>,
+            alloy::sol_types::sol_data::Uint<64>,
+            alloy::sol_types::sol_data::Bool,
+        );
+        #[doc(hidden)]
+        type UnderlyingRustTuple<'a> = (
+            u64,
+            alloy::sol_types::private::FixedBytes<32>,
+            alloy::sol_types::private::String,
+            alloy::sol_types::private::FixedBytes<32>,
+            u64,
+            bool,
+        );
+        #[cfg(test)]
+        #[allow(dead_code, unreachable_patterns)]
+        fn _type_assertion(
+            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+        ) {
+            match _t {
+                alloy_sol_types::private::AssertTypeEq::<
+                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                >(_) => {}
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<BinaryVersion> for UnderlyingRustTuple<'_> {
+            fn from(value: BinaryVersion) -> Self {
+                (
+                    value.versionId,
+                    value.sha256Hash,
+                    value.binaryUri,
+                    value.attestationHash,
+                    value.publishedAt,
+                    value.deprecated,
+                )
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for BinaryVersion {
+            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                Self {
+                    versionId: tuple.0,
+                    sha256Hash: tuple.1,
+                    binaryUri: tuple.2,
+                    attestationHash: tuple.3,
+                    publishedAt: tuple.4,
+                    deprecated: tuple.5,
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolValue for BinaryVersion {
+            type SolType = Self;
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::SolTypeValue<Self> for BinaryVersion {
+            #[inline]
+            fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.versionId),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.sha256Hash),
+                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::tokenize(
+                        &self.binaryUri,
+                    ),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.attestationHash),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.publishedAt),
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        &self.deprecated,
+                    ),
+                )
+            }
+            #[inline]
+            fn stv_abi_encoded_size(&self) -> usize {
+                if let Some(size) = <Self as alloy_sol_types::SolType>::ENCODED_SIZE {
+                    return size;
+                }
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
+            }
+            #[inline]
+            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
+                <Self as alloy_sol_types::SolStruct>::eip712_hash_struct(self)
+            }
+            #[inline]
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(&tuple, out)
+            }
+            #[inline]
+            fn stv_abi_packed_encoded_size(&self) -> usize {
+                if let Some(size) = <Self as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE {
+                    return size;
+                }
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_packed_encoded_size(&tuple)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolType for BinaryVersion {
+            type RustType = Self;
+            type Token<'a> = <UnderlyingSolTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SOL_NAME: &'static str = <Self as alloy_sol_types::SolStruct>::NAME;
+            const ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            #[inline]
+            fn valid_token(token: &Self::Token<'_>) -> bool {
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::valid_token(token)
+            }
+            #[inline]
+            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
+                let tuple = <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::detokenize(token);
+                <Self as ::core::convert::From<UnderlyingRustTuple<'_>>>::from(tuple)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolStruct for BinaryVersion {
+            const NAME: &'static str = "BinaryVersion";
+            #[inline]
+            fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
+                alloy_sol_types::private::Cow::Borrowed(
+                    "BinaryVersion(uint64 versionId,bytes32 sha256Hash,string binaryUri,bytes32 attestationHash,uint64 publishedAt,bool deprecated)",
+                )
+            }
+            #[inline]
+            fn eip712_components() -> alloy_sol_types::private::Vec<
+                alloy_sol_types::private::Cow<'static, str>,
+            > {
+                alloy_sol_types::private::Vec::new()
+            }
+            #[inline]
+            fn eip712_encode_type() -> alloy_sol_types::private::Cow<'static, str> {
+                <Self as alloy_sol_types::SolStruct>::eip712_root_type()
+            }
+            #[inline]
+            fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
+                [
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.versionId)
+                        .0,
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.sha256Hash)
+                        .0,
+                    <alloy::sol_types::sol_data::String as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.binaryUri,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.attestationHash,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.publishedAt)
+                        .0,
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.deprecated,
+                        )
+                        .0,
+                ]
+                    .concat()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::EventTopic for BinaryVersion {
+            #[inline]
+            fn topic_preimage_length(rust: &Self::RustType) -> usize {
+                0usize
+                    + <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.versionId,
+                    )
+                    + <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.sha256Hash,
+                    )
+                    + <alloy::sol_types::sol_data::String as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.binaryUri,
+                    )
+                    + <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.attestationHash,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.publishedAt,
+                    )
+                    + <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.deprecated,
+                    )
+            }
+            #[inline]
+            fn encode_topic_preimage(
+                rust: &Self::RustType,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                out.reserve(
+                    <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.versionId,
+                    out,
+                );
+                <alloy::sol_types::sol_data::FixedBytes<
+                    32,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.sha256Hash,
+                    out,
+                );
+                <alloy::sol_types::sol_data::String as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.binaryUri,
+                    out,
+                );
+                <alloy::sol_types::sol_data::FixedBytes<
+                    32,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.attestationHash,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    64,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.publishedAt,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Bool as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.deprecated,
+                    out,
+                );
+            }
+            #[inline]
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                let mut out = alloy_sol_types::private::Vec::new();
+                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    rust,
+                    &mut out,
+                );
+                alloy_sol_types::abi::token::WordToken(
+                    alloy_sol_types::private::keccak256(out),
+                )
+            }
+        }
+    };
+    use alloy::contract as alloy_contract;
+    /**Creates a new wrapper around an on-chain [`Types`](self) contract instance.
+
+See the [wrapper's documentation](`TypesInstance`) for more details.*/
+    #[inline]
+    pub const fn new<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    >(address: alloy_sol_types::private::Address, __provider: P) -> TypesInstance<P, N> {
+        TypesInstance::<P, N>::new(address, __provider)
+    }
+    /**A [`Types`](self) instance.
+
+Contains type-safe methods for interacting with an on-chain instance of the
+[`Types`](self) contract located at a given `address`, using a given
+provider `P`.
+
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
+
+See the [module-level documentation](self) for all the available methods.*/
+    #[derive(Clone)]
+    pub struct TypesInstance<P, N = alloy_contract::private::Ethereum> {
+        address: alloy_sol_types::private::Address,
+        provider: P,
+        _network: ::core::marker::PhantomData<N>,
+    }
+    #[automatically_derived]
+    impl<P, N> ::core::fmt::Debug for TypesInstance<P, N> {
+        #[inline]
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_tuple("TypesInstance").field(&self.address).finish()
+        }
+    }
+    /// Instantiation and getters/setters.
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > TypesInstance<P, N> {
+        /**Creates a new wrapper around an on-chain [`Types`](self) contract instance.
+
+See the [wrapper's documentation](`TypesInstance`) for more details.*/
+        #[inline]
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            __provider: P,
+        ) -> Self {
+            Self {
+                address,
+                provider: __provider,
+                _network: ::core::marker::PhantomData,
+            }
+        }
+        /// Returns a reference to the address.
+        #[inline]
+        pub const fn address(&self) -> &alloy_sol_types::private::Address {
+            &self.address
+        }
+        /// Sets the address.
+        #[inline]
+        pub fn set_address(&mut self, address: alloy_sol_types::private::Address) {
+            self.address = address;
+        }
+        /// Sets the address and returns `self`.
+        pub fn at(mut self, address: alloy_sol_types::private::Address) -> Self {
+            self.set_address(address);
+            self
+        }
+        /// Returns a reference to the provider.
+        #[inline]
+        pub const fn provider(&self) -> &P {
+            &self.provider
+        }
+    }
+    impl<P: ::core::clone::Clone, N> TypesInstance<&P, N> {
+        /// Clones the provider and returns a new instance with the cloned provider.
+        #[inline]
+        pub fn with_cloned_provider(self) -> TypesInstance<P, N> {
+            TypesInstance {
+                address: self.address,
+                provider: ::core::clone::Clone::clone(&self.provider),
+                _network: ::core::marker::PhantomData,
+            }
+        }
+    }
+    /// Function calls.
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > TypesInstance<P, N> {
+        /// Creates a new call builder using this contract instance's provider and address.
+        ///
+        /// Note that the call can be any function call, not just those defined in this
+        /// contract. Prefer using the other methods for building type-safe contract calls.
+        pub fn call_builder<C: alloy_sol_types::SolCall>(
+            &self,
+            call: &C,
+        ) -> alloy_contract::SolCallBuilder<&P, C, N> {
+            alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
+        }
+    }
+    /// Event filters.
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > TypesInstance<P, N> {
+        /// Creates a new event filter using this contract instance's provider and address.
+        ///
+        /// Note that the type can be any event, not just those defined in this contract.
+        /// Prefer using the other methods for building type-safe event filters.
+        pub fn event_filter<E: alloy_sol_types::SolEvent>(
+            &self,
+        ) -> alloy_contract::Event<&P, E, N> {
+            alloy_contract::Event::new_sol(&self.provider, &self.address)
+        }
+    }
+}
 /**
 
 Generated by the following Solidity interface...
 ```solidity
+library Types {
+    struct BinaryVersion {
+        uint64 versionId;
+        bytes32 sha256Hash;
+        string binaryUri;
+        bytes32 attestationHash;
+        uint64 publishedAt;
+        bool deprecated;
+    }
+}
+
 interface IBlueprintServiceManager {
     function canJoin(uint64 serviceId, address operator) external view returns (bool allowed);
     function canLeave(uint64 serviceId, address operator) external view returns (bool allowed);
@@ -17,11 +486,13 @@ interface IBlueprintServiceManager {
     function getSlashingWindow(uint64 serviceId) external view returns (bool useDefault, uint64 window);
     function onAggregatedResult(uint64 serviceId, uint8 job, uint64 jobCallId, bytes memory output, uint256 signerBitmap, uint256[2] memory aggregatedSignature, uint256[4] memory aggregatedPubkey) external;
     function onApprove(address operator, uint64 requestId, uint8 stakingPercent) external payable;
+    function onBinaryVersionPublished(uint64 blueprintId, Types.BinaryVersion memory version) external;
     function onBlueprintCreated(uint64 blueprintId, address owner, address tangleCore) external;
     function onExitCanceled(uint64 serviceId, address operator) external;
     function onExitScheduled(uint64 serviceId, address operator, uint64 executeAfter) external;
     function onJobCall(uint64 serviceId, uint8 job, uint64 jobCallId, bytes memory inputs) external payable;
     function onJobResult(uint64 serviceId, uint8 job, uint64 jobCallId, address operator, bytes memory inputs, bytes memory outputs) external payable;
+    function onOperatorBinaryAcked(uint64 serviceId, uint64 versionId, address operator) external;
     function onOperatorJoined(uint64 serviceId, address operator, uint16 exposureBps) external;
     function onOperatorLeft(uint64 serviceId, address operator) external;
     function onRegister(address operator, bytes memory registrationInputs) external payable;
@@ -409,6 +880,56 @@ interface IBlueprintServiceManager {
   },
   {
     "type": "function",
+    "name": "onBinaryVersionPublished",
+    "inputs": [
+      {
+        "name": "blueprintId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "version",
+        "type": "tuple",
+        "internalType": "struct Types.BinaryVersion",
+        "components": [
+          {
+            "name": "versionId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "sha256Hash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "binaryUri",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "attestationHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "publishedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "deprecated",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "onBlueprintCreated",
     "inputs": [
       {
@@ -536,6 +1057,29 @@ interface IBlueprintServiceManager {
     ],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "onOperatorBinaryAcked",
+    "inputs": [
+      {
+        "name": "serviceId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "versionId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -3397,6 +3941,173 @@ function onApprove(address operator, uint64 requestId, uint8 stakingPercent) ext
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `onBinaryVersionPublished(uint64,(uint64,bytes32,string,bytes32,uint64,bool))` and selector `0x8e7c9d9b`.
+```solidity
+function onBinaryVersionPublished(uint64 blueprintId, Types.BinaryVersion memory version) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct onBinaryVersionPublishedCall {
+        #[allow(missing_docs)]
+        pub blueprintId: u64,
+        #[allow(missing_docs)]
+        pub version: <Types::BinaryVersion as alloy::sol_types::SolType>::RustType,
+    }
+    ///Container type for the return parameters of the [`onBinaryVersionPublished(uint64,(uint64,bytes32,string,bytes32,uint64,bool))`](onBinaryVersionPublishedCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct onBinaryVersionPublishedReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                Types::BinaryVersion,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                u64,
+                <Types::BinaryVersion as alloy::sol_types::SolType>::RustType,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<onBinaryVersionPublishedCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: onBinaryVersionPublishedCall) -> Self {
+                    (value.blueprintId, value.version)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for onBinaryVersionPublishedCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        blueprintId: tuple.0,
+                        version: tuple.1,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<onBinaryVersionPublishedReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: onBinaryVersionPublishedReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for onBinaryVersionPublishedReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl onBinaryVersionPublishedReturn {
+            fn _tokenize(
+                &self,
+            ) -> <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for onBinaryVersionPublishedCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                Types::BinaryVersion,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = onBinaryVersionPublishedReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "onBinaryVersionPublished(uint64,(uint64,bytes32,string,bytes32,uint64,bool))";
+            const SELECTOR: [u8; 4] = [142u8, 124u8, 157u8, 155u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.blueprintId),
+                    <Types::BinaryVersion as alloy_sol_types::SolType>::tokenize(
+                        &self.version,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                onBinaryVersionPublishedReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `onBlueprintCreated(uint64,address,address)` and selector `0x0b6535d7`.
 ```solidity
 function onBlueprintCreated(uint64 blueprintId, address owner, address tangleCore) external;
@@ -4265,6 +4976,182 @@ function onJobResult(uint64 serviceId, uint8 job, uint64 jobCallId, address oper
             #[inline]
             fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
                 onJobResultReturn::_tokenize(ret)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(Into::into)
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Into::into)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `onOperatorBinaryAcked(uint64,uint64,address)` and selector `0xcd81472b`.
+```solidity
+function onOperatorBinaryAcked(uint64 serviceId, uint64 versionId, address operator) external;
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct onOperatorBinaryAckedCall {
+        #[allow(missing_docs)]
+        pub serviceId: u64,
+        #[allow(missing_docs)]
+        pub versionId: u64,
+        #[allow(missing_docs)]
+        pub operator: alloy::sol_types::private::Address,
+    }
+    ///Container type for the return parameters of the [`onOperatorBinaryAcked(uint64,uint64,address)`](onOperatorBinaryAckedCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct onOperatorBinaryAckedReturn {}
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                u64,
+                u64,
+                alloy::sol_types::private::Address,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<onOperatorBinaryAckedCall>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: onOperatorBinaryAckedCall) -> Self {
+                    (value.serviceId, value.versionId, value.operator)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for onOperatorBinaryAckedCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {
+                        serviceId: tuple.0,
+                        versionId: tuple.1,
+                        operator: tuple.2,
+                    }
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<onOperatorBinaryAckedReturn>
+            for UnderlyingRustTuple<'_> {
+                fn from(value: onOperatorBinaryAckedReturn) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>>
+            for onOperatorBinaryAckedReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self {}
+                }
+            }
+        }
+        impl onOperatorBinaryAckedReturn {
+            fn _tokenize(
+                &self,
+            ) -> <onOperatorBinaryAckedCall as alloy_sol_types::SolCall>::ReturnToken<
+                '_,
+            > {
+                ()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for onOperatorBinaryAckedCall {
+            type Parameters<'a> = (
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Uint<64>,
+                alloy::sol_types::sol_data::Address,
+            );
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = onOperatorBinaryAckedReturn;
+            type ReturnTuple<'a> = ();
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "onOperatorBinaryAcked(uint64,uint64,address)";
+            const SELECTOR: [u8; 4] = [205u8, 129u8, 71u8, 43u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.serviceId),
+                    <alloy::sol_types::sol_data::Uint<
+                        64,
+                    > as alloy_sol_types::SolType>::tokenize(&self.versionId),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.operator,
+                    ),
+                )
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                onOperatorBinaryAckedReturn::_tokenize(ret)
             }
             #[inline]
             fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
@@ -7018,6 +7905,8 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
         #[allow(missing_docs)]
         onApprove(onApproveCall),
         #[allow(missing_docs)]
+        onBinaryVersionPublished(onBinaryVersionPublishedCall),
+        #[allow(missing_docs)]
         onBlueprintCreated(onBlueprintCreatedCall),
         #[allow(missing_docs)]
         onExitCanceled(onExitCanceledCall),
@@ -7027,6 +7916,8 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
         onJobCall(onJobCallCall),
         #[allow(missing_docs)]
         onJobResult(onJobResultCall),
+        #[allow(missing_docs)]
+        onOperatorBinaryAcked(onOperatorBinaryAckedCall),
         #[allow(missing_docs)]
         onOperatorJoined(onOperatorJoinedCall),
         #[allow(missing_docs)]
@@ -7086,6 +7977,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             [116u8, 206u8, 235u8, 85u8],
             [126u8, 20u8, 185u8, 25u8],
             [130u8, 161u8, 236u8, 228u8],
+            [142u8, 124u8, 157u8, 155u8],
             [146u8, 203u8, 183u8, 142u8],
             [150u8, 93u8, 35u8, 27u8],
             [152u8, 56u8, 202u8, 163u8],
@@ -7096,6 +7988,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             [194u8, 140u8, 216u8, 18u8],
             [196u8, 12u8, 128u8, 209u8],
             [201u8, 205u8, 74u8, 24u8],
+            [205u8, 129u8, 71u8, 43u8],
             [210u8, 103u8, 46u8, 212u8],
             [224u8, 85u8, 156u8, 99u8],
             [227u8, 144u8, 252u8, 219u8],
@@ -7124,6 +8017,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             ::core::stringify!(querySlashingOrigin),
             ::core::stringify!(onSlash),
             ::core::stringify!(onServiceInitialized),
+            ::core::stringify!(onBinaryVersionPublished),
             ::core::stringify!(getHeartbeatThreshold),
             ::core::stringify!(onOperatorLeft),
             ::core::stringify!(onJobCall),
@@ -7134,6 +8028,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             ::core::stringify!(onRequest),
             ::core::stringify!(onJobResult),
             ::core::stringify!(onReject),
+            ::core::stringify!(onOperatorBinaryAcked),
             ::core::stringify!(getExitConfig),
             ::core::stringify!(onExitScheduled),
             ::core::stringify!(queryIsPaymentAssetAllowed),
@@ -7162,6 +8057,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             <querySlashingOriginCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onSlashCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onServiceInitializedCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getHeartbeatThresholdCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onOperatorLeftCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onJobCallCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -7172,6 +8068,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
             <onRequestCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onJobResultCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onRejectCall as alloy_sol_types::SolCall>::SIGNATURE,
+            <onOperatorBinaryAckedCall as alloy_sol_types::SolCall>::SIGNATURE,
             <getExitConfigCall as alloy_sol_types::SolCall>::SIGNATURE,
             <onExitScheduledCall as alloy_sol_types::SolCall>::SIGNATURE,
             <queryIsPaymentAssetAllowedCall as alloy_sol_types::SolCall>::SIGNATURE,
@@ -7205,7 +8102,7 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
     impl alloy_sol_types::SolInterface for IBlueprintServiceManagerCalls {
         const NAME: &'static str = "IBlueprintServiceManagerCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 35usize;
+        const COUNT: usize = 37usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -7247,6 +8144,9 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                 Self::onApprove(_) => {
                     <onApproveCall as alloy_sol_types::SolCall>::SELECTOR
                 }
+                Self::onBinaryVersionPublished(_) => {
+                    <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::SELECTOR
+                }
                 Self::onBlueprintCreated(_) => {
                     <onBlueprintCreatedCall as alloy_sol_types::SolCall>::SELECTOR
                 }
@@ -7261,6 +8161,9 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                 }
                 Self::onJobResult(_) => {
                     <onJobResultCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::onOperatorBinaryAcked(_) => {
+                    <onOperatorBinaryAckedCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::onOperatorJoined(_) => {
                     <onOperatorJoinedCall as alloy_sol_types::SolCall>::SELECTOR
@@ -7526,6 +8429,17 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                     onServiceInitialized
                 },
                 {
+                    fn onBinaryVersionPublished(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
+                        <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IBlueprintServiceManagerCalls::onBinaryVersionPublished)
+                    }
+                    onBinaryVersionPublished
+                },
+                {
                     fn getHeartbeatThreshold(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
@@ -7624,6 +8538,17 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                             .map(IBlueprintServiceManagerCalls::onReject)
                     }
                     onReject
+                },
+                {
+                    fn onOperatorBinaryAcked(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
+                        <onOperatorBinaryAckedCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(IBlueprintServiceManagerCalls::onOperatorBinaryAcked)
+                    }
+                    onOperatorBinaryAcked
                 },
                 {
                     fn getExitConfig(
@@ -7927,6 +8852,17 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                     onServiceInitialized
                 },
                 {
+                    fn onBinaryVersionPublished(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
+                        <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IBlueprintServiceManagerCalls::onBinaryVersionPublished)
+                    }
+                    onBinaryVersionPublished
+                },
+                {
                     fn getHeartbeatThreshold(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
@@ -8035,6 +8971,17 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                             .map(IBlueprintServiceManagerCalls::onReject)
                     }
                     onReject
+                },
+                {
+                    fn onOperatorBinaryAcked(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<IBlueprintServiceManagerCalls> {
+                        <onOperatorBinaryAckedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(IBlueprintServiceManagerCalls::onOperatorBinaryAcked)
+                    }
+                    onOperatorBinaryAcked
                 },
                 {
                     fn getExitConfig(
@@ -8195,6 +9142,11 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                 Self::onApprove(inner) => {
                     <onApproveCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
                 }
+                Self::onBinaryVersionPublished(inner) => {
+                    <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::onBlueprintCreated(inner) => {
                     <onBlueprintCreatedCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
@@ -8215,6 +9167,11 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                 }
                 Self::onJobResult(inner) => {
                     <onJobResultCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::onOperatorBinaryAcked(inner) => {
+                    <onOperatorBinaryAckedCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -8376,6 +9333,12 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                         out,
                     )
                 }
+                Self::onBinaryVersionPublished(inner) => {
+                    <onBinaryVersionPublishedCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
                 Self::onBlueprintCreated(inner) => {
                     <onBlueprintCreatedCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
@@ -8402,6 +9365,12 @@ function requiresAggregation(uint64 serviceId, uint8 jobIndex) external view ret
                 }
                 Self::onJobResult(inner) => {
                     <onJobResultCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::onOperatorBinaryAcked(inner) => {
+                    <onOperatorBinaryAckedCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -8828,6 +9797,19 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                 },
             )
         }
+        ///Creates a new call builder for the [`onBinaryVersionPublished`] function.
+        pub fn onBinaryVersionPublished(
+            &self,
+            blueprintId: u64,
+            version: <Types::BinaryVersion as alloy::sol_types::SolType>::RustType,
+        ) -> alloy_contract::SolCallBuilder<&P, onBinaryVersionPublishedCall, N> {
+            self.call_builder(
+                &onBinaryVersionPublishedCall {
+                    blueprintId,
+                    version,
+                },
+            )
+        }
         ///Creates a new call builder for the [`onBlueprintCreated`] function.
         pub fn onBlueprintCreated(
             &self,
@@ -8906,6 +9888,21 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
                     operator,
                     inputs,
                     outputs,
+                },
+            )
+        }
+        ///Creates a new call builder for the [`onOperatorBinaryAcked`] function.
+        pub fn onOperatorBinaryAcked(
+            &self,
+            serviceId: u64,
+            versionId: u64,
+            operator: alloy::sol_types::private::Address,
+        ) -> alloy_contract::SolCallBuilder<&P, onOperatorBinaryAckedCall, N> {
+            self.call_builder(
+                &onOperatorBinaryAckedCall {
+                    serviceId,
+                    versionId,
+                    operator,
                 },
             )
         }
