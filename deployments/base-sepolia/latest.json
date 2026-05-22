@@ -101,5 +101,10 @@
     "vestingDuration": 0,
     "tangleMigration": "0x0f24429ff66b3ff61390888ef7c69f07533d4b01",
     "zkVerifier": "0x609c9fb4b687d3f172719b13c0012530c003449e"
+  },
+  "blueprintAuditors": "0x8A49464DC26de279C4B4Bd7eA095387f2E469d22",
+  "facets": {
+    "blueprintsBinaryVersions": "0x57a63ED6DFB7904240122Ae5A4B99F9e048B212f",
+    "blueprintsBinaryAttestations": "0xfd8eAcd0E46Eb45d7CAE6e3F18D73482F5AD1c9a"
   }
 }
