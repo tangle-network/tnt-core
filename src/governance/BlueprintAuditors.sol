@@ -161,12 +161,16 @@ contract BlueprintAuditors is Initializable, AccessControlUpgradeable, UUPSUpgra
     ///      attestation lookups. To "re-admit" an address, call
     ///      `setAuditorActive(true)` + `setAuditorWeight(newWeight)` rather than
     ///      `admitAuditor` (which is permanently blocked once a row exists).
+    ///      Emits both `AuditorWeightSet` and `AuditorActiveSet` so any consumer
+    ///      subscribed to a single event stream sees a complete state transition.
     function removeAuditor(address auditor) external onlyRole(GOVERNANCE_ROLE) {
         Auditor storage row = auditors[auditor];
         if (row.admittedAt == 0) revert Errors.AuditorNotFound();
+        uint16 oldWeight = row.weight;
         row.active = false;
-        emit AuditorWeightSet(auditor, row.weight, 0);
         row.weight = 0;
+        emit AuditorWeightSet(auditor, oldWeight, 0);
+        emit AuditorActiveSet(auditor, false);
         emit AuditorRemoved(auditor);
     }
 
@@ -179,10 +183,14 @@ contract BlueprintAuditors is Initializable, AccessControlUpgradeable, UUPSUpgra
     }
 
     /// @notice Update an auditor's weight. Governance-only.
+    /// @dev Requires the auditor to be `active` so the invariant "removed ⇒
+    ///      weight 0" cannot be silently violated. To set a weight on a previously
+    ///      removed auditor, call `setAuditorActive(true)` first.
     function setAuditorWeight(address auditor, uint16 weight) external onlyRole(GOVERNANCE_ROLE) {
         if (weight > MAX_AUDITOR_WEIGHT) revert Errors.InvalidWeight();
         Auditor storage row = auditors[auditor];
         if (row.admittedAt == 0) revert Errors.AuditorNotFound();
+        if (!row.active) revert Errors.AuditorNotActive();
         uint16 oldWeight = row.weight;
         row.weight = weight;
         emit AuditorWeightSet(auditor, oldWeight, weight);
@@ -225,14 +233,18 @@ contract BlueprintAuditors is Initializable, AccessControlUpgradeable, UUPSUpgra
     // SELF-SERVICE PATH
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Auditor updates their own metadata URI. Self-only.
-    /// @dev Restricted to existing auditors so a non-admitted address cannot
-    ///      pollute the storage map. Updating the on-chain name is intentionally
-    ///      not exposed — the human-readable label is governance-curated to
-    ///      defeat squatting.
+    /// @notice Auditor updates their own metadata URI. Self-only, active-only.
+    /// @dev Restricted to currently-active auditors so a soft-removed address
+    ///      cannot mutate its historical record post-removal (which would let an
+    ///      ex-auditor flip their metadataUri to a phishing target while the
+    ///      registry still resolves attestations from this address through the
+    ///      preserved row). Updating the on-chain name is intentionally not
+    ///      exposed — the human-readable label is governance-curated to defeat
+    ///      squatting.
     function updateAuditorMetadata(string calldata metadataUri) external {
         Auditor storage row = auditors[msg.sender];
         if (row.admittedAt == 0) revert Errors.NotAuditorSelf();
+        if (!row.active) revert Errors.AuditorNotActive();
         row.metadataUri = metadataUri;
         emit AuditorMetadataUpdated(msg.sender, metadataUri);
     }
@@ -258,6 +270,7 @@ contract BlueprintAuditors is Initializable, AccessControlUpgradeable, UUPSUpgra
     }
 
     function auditorAt(uint256 index) external view returns (address) {
+        if (index >= _auditorList.length) revert Errors.IndexOutOfBounds();
         return _auditorList[index];
     }
 
@@ -267,4 +280,16 @@ contract BlueprintAuditors is Initializable, AccessControlUpgradeable, UUPSUpgra
 
     /// @dev Upgrades must clear the governance bar; no other role authorizes them.
     function _authorizeUpgrade(address) internal override onlyRole(GOVERNANCE_ROLE) { }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESERVED STORAGE GAP
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @dev Storage gap for future upgrades. Slots consumed: `auditors` mapping
+    ///      (slot N) + `_auditorList` array (slot N+1) = 2 slots after the
+    ///      AccessControl/UUPS namespaced parents (which use ERC-7201 and do not
+    ///      consume sequential slots). Gap of 48 leaves room for future fields
+    ///      without bumping the storage layout in a way that would conflict with
+    ///      already-deployed proxies.
+    uint256[48] private __gap;
 }

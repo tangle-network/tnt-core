@@ -14,6 +14,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { Tangle } from "../src/Tangle.sol";
 import { Types } from "../src/libraries/Types.sol";
+import { BlueprintAuditors } from "../src/governance/BlueprintAuditors.sol";
 import { ITangleAdmin } from "../src/interfaces/ITangle.sol";
 import { IMultiAssetDelegation } from "../src/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../src/staking/MultiAssetDelegation.sol";
@@ -1173,6 +1174,27 @@ contract FullDeploy is DeployV2 {
                 _revokeRole(streamingPaymentManagerAddr, bytes32(0), bootstrapAdmin);
             }
         }
+
+        // BlueprintAuditors role handoff. `_deployCore` sets `deployedBlueprintAuditors`
+        // when the proxy is created. Without this rotation the deployer EOA
+        // retains `GOVERNANCE_ROLE` (and so the sole upgrade authorization) on
+        // the auditor registry — which is the exact attack surface the security
+        // review flagged. The multisig holds `FIRST_PARTY_ADMIN_ROLE` because
+        // fast-track admit of internal team auditors is a security-council
+        // operation, not a governance vote.
+        address auditorsAddr = deployedBlueprintAuditors;
+        if (auditorsAddr != address(0)) {
+            BlueprintAuditors auditors = BlueprintAuditors(auditorsAddr);
+            _grantRole(auditorsAddr, bytes32(0), timelock);
+            _grantRole(auditorsAddr, auditors.GOVERNANCE_ROLE(), timelock);
+            _grantRole(auditorsAddr, auditors.FIRST_PARTY_ADMIN_ROLE(), multisig);
+
+            if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
+                _revokeRole(auditorsAddr, auditors.FIRST_PARTY_ADMIN_ROLE(), bootstrapAdmin);
+                _revokeRole(auditorsAddr, auditors.GOVERNANCE_ROLE(), bootstrapAdmin);
+                _revokeRole(auditorsAddr, bytes32(0), bootstrapAdmin);
+            }
+        }
     }
 
     function _shouldRevokeBootstrap(
@@ -1272,7 +1294,9 @@ contract FullDeploy is DeployV2 {
 
             if (roles.revokeBootstrap && _shouldRevokeBootstrap(bootstrapAdmin, timelock, multisig)) {
                 _assertMissingRole(tangleAddr, bytes32(0), bootstrapAdmin, "Bootstrap still has Tangle admin");
-                _assertMissingRole(tangleAddr, tangle.ADMIN_ROLE(), bootstrapAdmin, "Bootstrap still has Tangle ADMIN_ROLE");
+                _assertMissingRole(
+                    tangleAddr, tangle.ADMIN_ROLE(), bootstrapAdmin, "Bootstrap still has Tangle ADMIN_ROLE"
+                );
                 _assertMissingRole(
                     tangleAddr, tangle.UPGRADER_ROLE(), bootstrapAdmin, "Bootstrap still has Tangle UPGRADER_ROLE"
                 );
@@ -1280,10 +1304,7 @@ contract FullDeploy is DeployV2 {
                     tangleAddr, tangle.PAUSER_ROLE(), bootstrapAdmin, "Bootstrap still has Tangle PAUSER_ROLE"
                 );
                 _assertMissingRole(
-                    tangleAddr,
-                    tangle.SLASH_ADMIN_ROLE(),
-                    bootstrapAdmin,
-                    "Bootstrap still has Tangle SLASH_ADMIN_ROLE"
+                    tangleAddr, tangle.SLASH_ADMIN_ROLE(), bootstrapAdmin, "Bootstrap still has Tangle SLASH_ADMIN_ROLE"
                 );
             }
         }
@@ -1337,36 +1358,16 @@ contract FullDeploy is DeployV2 {
         }
 
         _assertManagedContractRoles(
-            rewardVaultsAddr,
-            timelock,
-            bootstrapAdmin,
-            roles.revokeBootstrap,
-            "ADMIN_ROLE",
-            "UPGRADER_ROLE"
+            rewardVaultsAddr, timelock, bootstrapAdmin, roles.revokeBootstrap, "ADMIN_ROLE", "UPGRADER_ROLE"
         );
         _assertManagedContractRoles(
-            inflationPoolAddr,
-            timelock,
-            bootstrapAdmin,
-            roles.revokeBootstrap,
-            "ADMIN_ROLE",
-            "UPGRADER_ROLE"
+            inflationPoolAddr, timelock, bootstrapAdmin, roles.revokeBootstrap, "ADMIN_ROLE", "UPGRADER_ROLE"
         );
         _assertManagedContractRoles(
-            serviceFeeDistributorAddr,
-            timelock,
-            bootstrapAdmin,
-            roles.revokeBootstrap,
-            "ADMIN_ROLE",
-            "UPGRADER_ROLE"
+            serviceFeeDistributorAddr, timelock, bootstrapAdmin, roles.revokeBootstrap, "ADMIN_ROLE", "UPGRADER_ROLE"
         );
         _assertManagedContractRoles(
-            streamingPaymentManagerAddr,
-            timelock,
-            bootstrapAdmin,
-            roles.revokeBootstrap,
-            "ADMIN_ROLE",
-            "UPGRADER_ROLE"
+            streamingPaymentManagerAddr, timelock, bootstrapAdmin, roles.revokeBootstrap, "ADMIN_ROLE", "UPGRADER_ROLE"
         );
     }
 
@@ -1384,9 +1385,7 @@ contract FullDeploy is DeployV2 {
         if (target == address(0)) return;
         _assertHasRole(target, bytes32(0), timelock, "Managed contract missing DEFAULT_ADMIN_ROLE");
         _assertHasRole(target, keccak256(bytes(adminRoleName)), timelock, "Managed contract missing ADMIN_ROLE");
-        _assertHasRole(
-            target, keccak256(bytes(upgraderRoleName)), timelock, "Managed contract missing UPGRADER_ROLE"
-        );
+        _assertHasRole(target, keccak256(bytes(upgraderRoleName)), timelock, "Managed contract missing UPGRADER_ROLE");
 
         if (revokeBootstrap && bootstrapAdmin != address(0) && bootstrapAdmin != timelock) {
             _assertMissingRole(target, bytes32(0), bootstrapAdmin, "Bootstrap still has DEFAULT_ADMIN_ROLE");

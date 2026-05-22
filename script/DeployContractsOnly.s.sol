@@ -56,6 +56,15 @@ contract DeployContractsOnly is Script {
     address public blueprintAuditors;
 
     function run() external {
+        // This script is for local Anvil only. It hardcodes a well-known dev
+        // key, grants every role to the deployer, and performs NO role handoff
+        // to a timelock or multisig. Using it on a real chain would leave
+        // `BlueprintAuditors.GOVERNANCE_ROLE` (and so the sole `_authorizeUpgrade`
+        // authority) on the script's broadcast EOA. Production deploys MUST go
+        // through `FullDeploy.s.sol`, which performs the role handoff via
+        // `_applyRoleHandoff`.
+        require(block.chainid == 31_337, "DeployContractsOnly: local Anvil only; use FullDeploy for production");
+
         deployer = vm.addr(DEPLOYER_KEY);
 
         console2.log("=== Deploying Core Contracts Only ===");

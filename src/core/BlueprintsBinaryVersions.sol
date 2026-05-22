@@ -142,7 +142,12 @@ abstract contract BlueprintsBinaryVersions is Base {
     ///      does not retroactively change which version a previously dispatched
     ///      job was scheduled against (off-chain dispatchers resolve at job time).
     function setServiceUpgradePolicy(uint64 serviceId, Types.UpgradePolicy policy) external whenNotPaused nonReentrant {
-        _getService(serviceId);
+        Types.Service storage svc = _getService(serviceId);
+        // Terminated services do not clear `_serviceOperators[id][op].active`,
+        // so an ex-operator could otherwise keep emitting policy events against a
+        // dead service. Gate on `status == Active` to keep state changes scoped
+        // to live services.
+        if (svc.status != Types.ServiceStatus.Active) revert Errors.ServiceNotActive(serviceId);
         if (!_serviceOperators[serviceId][msg.sender].active) revert Errors.NotServiceOperator();
 
         _serviceUpgradePolicy[serviceId] = policy;
@@ -158,6 +163,10 @@ abstract contract BlueprintsBinaryVersions is Base {
     ///      to pin back to genesis.
     function ackBinaryVersion(uint64 serviceId, uint64 versionId) external whenNotPaused nonReentrant {
         Types.Service storage svc = _getService(serviceId);
+        // Same termination-status gate as `setServiceUpgradePolicy`. Acks against
+        // a terminated service have no operational meaning and would only pollute
+        // indexers.
+        if (svc.status != Types.ServiceStatus.Active) revert Errors.ServiceNotActive(serviceId);
         if (!_serviceOperators[serviceId][msg.sender].active) revert Errors.NotServiceOperator();
 
         Types.BinaryVersion[] storage versions = _blueprintBinaryVersions[svc.blueprintId];

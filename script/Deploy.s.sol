@@ -11,6 +11,7 @@ import { OperatorStatusRegistry } from "../src/staking/OperatorStatusRegistry.so
 import { TangleToken } from "../src/governance/TangleToken.sol";
 import { MasterBlueprintServiceManager } from "../src/MasterBlueprintServiceManager.sol";
 import { MBSMRegistry } from "../src/MBSMRegistry.sol";
+import { BlueprintAuditors } from "../src/governance/BlueprintAuditors.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { TangleBlueprintsFacet } from "../src/facets/tangle/TangleBlueprintsFacet.sol";
@@ -140,6 +141,14 @@ contract DeployV2 is DeployScriptBase {
     address public tntToken;
     uint256 public tntInitialSupply;
 
+    /// @notice Address of the most recently deployed `BlueprintAuditors` UUPS proxy.
+    /// @dev Set inside `_deployCore`. Exposed as a public state variable so
+    ///      inheriting scripts (`FullDeploy`) and post-deploy tooling can rotate
+    ///      governance roles + revoke bootstrap admin without re-deriving the
+    ///      proxy address. Off-chain consumers (dapp, blueprint-manager,
+    ///      cargo-tangle) read this from the deploy logs.
+    address public deployedBlueprintAuditors;
+
     function run() external virtual {
         uint256 deployerPrivateKey = _requireEnvUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
@@ -161,6 +170,7 @@ contract DeployV2 is DeployScriptBase {
         console2.log("Tangle:", tangleProxy);
         console2.log("MultiAssetDelegation:", stakingProxy);
         console2.log("OperatorStatusRegistry:", statusRegistry);
+        console2.log("BlueprintAuditors:", deployedBlueprintAuditors);
     }
 
     /// @notice Dry-run deployment for testing/CI without env or broadcast
@@ -262,6 +272,20 @@ contract DeployV2 is DeployScriptBase {
         mbsmRegistry.grantRole(mbsmRegistry.MANAGER_ROLE(), tangleProxy);
         mbsmRegistry.addVersion(address(masterManager));
         Tangle(payable(tangleProxy)).setMBSMRegistry(address(mbsmRegistry));
+
+        // BlueprintAuditors — governance-curated weight map for the
+        // permissionless attestation registry. The deployer holds all three
+        // roles at bootstrap so it can grant/revoke from the broadcast context;
+        // FullDeploy's `_applyRoleHandoff` is responsible for rotating to
+        // timelock + security-council and revoking the deployer post-deploy.
+        BlueprintAuditors auditorsImpl = new BlueprintAuditors();
+        ERC1967Proxy auditorsProxy = new ERC1967Proxy(
+            address(auditorsImpl),
+            abi.encodeCall(BlueprintAuditors.initialize, (bootstrapAdmin, bootstrapAdmin, bootstrapAdmin))
+        );
+        deployedBlueprintAuditors = address(auditorsProxy);
+        console2.log("BlueprintAuditors implementation:", address(auditorsImpl));
+        console2.log("BlueprintAuditors proxy:", deployedBlueprintAuditors);
 
         console2.log("Granted SLASHER_ROLE and TANGLE_ROLE to Tangle");
         Tangle(payable(tangleProxy)).setOperatorStatusRegistry(statusRegistry);

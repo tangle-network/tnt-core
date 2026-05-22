@@ -599,4 +599,12 @@ library Errors {
 
     /// @notice Self-update path requires the caller to be an admitted auditor.
     error NotAuditorSelf();
+
+    /// @notice Mutation requires the auditor row to be `active`; soft-removed
+    ///         auditors cannot have weight or metadata mutated until governance
+    ///         re-activates them via `setAuditorActive(true)`.
+    error AuditorNotActive();
+
+    /// @notice Enumeration index past the end of the auditor list.
+    error IndexOutOfBounds();
 }
