@@ -528,4 +528,83 @@ library Errors {
 
     /// @notice Generic transfer failure (used by `claimDisputeBond`).
     error TransferFailed();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT BINARY VERSIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Note: owner-check reverts reuse the existing `NotBlueprintOwner(uint64, address)`
+    // declared above for consistency with other blueprint-owner-gated paths.
+
+    /// @notice Binary URI must be non-empty.
+    error EmptyBinaryUri();
+
+    /// @notice Binary hash must be a real digest, not the zero sentinel.
+    error ZeroBinaryHash();
+
+    /// @notice Referenced binary version does not exist for the blueprint.
+    error VersionNotFound();
+
+    /// @notice Cannot deprecate a binary version that has already been deprecated;
+    ///         deprecation is a one-way signal.
+    error VersionAlreadyDeprecated();
+
+    /// @notice Caller is not an active operator of the targeted service.
+    error NotServiceOperator();
+
+    /// @notice An operator cannot acknowledge a deprecated binary version. Deprecation
+    ///         is a final signal — the blueprint owner has indicated the version is
+    ///         no longer recommended and `ack` would otherwise pin the service to it.
+    error VersionDeprecatedCannotAck();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT BINARY ATTESTATIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Referenced attestation does not exist.
+    error AttestationNotFound();
+
+    /// @notice Caller is not the original attester and therefore cannot revoke.
+    error NotAttester();
+
+    /// @notice Attestation has already been revoked; revoke is one-way.
+    error AttestationAlreadyRevoked();
+
+    /// @notice Attestation report URI must be non-empty.
+    error EmptyReportUri();
+
+    /// @notice Severity value must be in [0,5]. See `Types.Attestation.severityFound`.
+    error InvalidSeverity();
+
+    /// @notice Attestation expiry must be either zero ("never expires") or strictly
+    ///         in the future at submission time. Rejecting past-dated expiries
+    ///         removes the ambiguity of an "already-expired" attestation row.
+    error ExpiresInPast();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT AUDITORS REGISTRY
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Auditor address is already admitted to the registry.
+    error AuditorAlreadyAdmitted();
+
+    /// @notice Auditor address has never been admitted.
+    error AuditorNotFound();
+
+    /// @notice Auditor weight must be in [0, 1000]. The registry caps weights so a
+    ///         single auditor cannot dominate off-chain aggregate score formulas.
+    error InvalidWeight();
+
+    /// @notice Auditor display name must be non-empty.
+    error EmptyAuditorName();
+
+    /// @notice Self-update path requires the caller to be an admitted auditor.
+    error NotAuditorSelf();
+
+    /// @notice Mutation requires the auditor row to be `active`; soft-removed
+    ///         auditors cannot have weight or metadata mutated until governance
+    ///         re-activates them via `setAuditorActive(true)`.
+    error AuditorNotActive();
+
+    /// @notice Enumeration index past the end of the auditor list.
+    error IndexOutOfBounds();
 }

@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { IBlueprintServiceManager } from "./interfaces/IBlueprintServiceManager.sol";
+import { Types } from "./libraries/Types.sol";
 
 /// @title BlueprintServiceManagerBase
 /// @notice Base implementation of IBlueprintServiceManager with sensible defaults
@@ -161,16 +162,7 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     }
 
     /// @inheritdoc IBlueprintServiceManager
-    function computeBillAdjustmentBps(
-        uint64,
-        uint64,
-        uint64
-    )
-        external
-        view
-        virtual
-        returns (uint16)
-    {
+    function computeBillAdjustmentBps(uint64, uint64, uint64) external view virtual returns (uint16) {
         // Default: full bill (10_000 bps). Override to implement uptime-based
         // discounts, missed-result penalties, or any quality-of-service feedback.
         return 10_000;
@@ -390,6 +382,23 @@ contract BlueprintServiceManagerBase is IBlueprintServiceManager {
     /// @inheritdoc IBlueprintServiceManager
     function getMinOperatorStake() external view virtual returns (bool useDefault, uint256 minStake) {
         return (true, 0); // Use protocol default from staking module
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BINARY VERSION LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onBinaryVersionPublished(uint64, Types.BinaryVersion calldata) external virtual onlyFromTangle {
+        // No-op by default. Override to gate publishes (revert) or to surface
+        // off-chain notifications. The registry row has already been written when
+        // this fires, so reverts are observed but do not roll back the version.
+    }
+
+    /// @inheritdoc IBlueprintServiceManager
+    function onOperatorBinaryAcked(uint64, uint64, address) external virtual onlyFromTangle {
+        // No-op by default. Override to track operator ack reputation or to gate
+        // job dispatch behind acks.
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -769,4 +769,77 @@ library Types {
         Executable, // Queue duration passed, can execute
         Completed // Exit completed (operator left)
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT BINARY VERSIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Append-only binary version record for a blueprint.
+    /// @dev Versions are assigned monotonically by `publishBinaryVersion` and never
+    ///      removed. `deprecated` is a one-way signal: once set the version is
+    ///      flagged for off-chain consumers but its slot is preserved so `versionId`
+    ///      indices remain stable. The `sha256Hash` field is named explicitly to
+    ///      avoid colliding with the global `sha256` precompile alias and is the
+    ///      canonical integrity anchor for the binary referenced by `binaryUri`.
+    ///      `attestationHash` is an optional pointer to a SLSA / sigstore bundle
+    ///      digest; zero means "no attestation bundle published with this version."
+    struct BinaryVersion {
+        uint64 versionId; // monotonic, append-only per blueprint
+        bytes32 sha256Hash; // canonical binary hash
+        string binaryUri; // ipfs://... or https://...
+        bytes32 attestationHash; // optional sigstore / SLSA bundle hash; zero if unset
+        uint64 publishedAt; // block.timestamp at publish
+        bool deprecated; // append-only signal, never rolled back
+    }
+
+    /// @notice Upgrade policy selected per-service for resolving the effective binary.
+    /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
+    ///      APPROVE=0 (default): operator must `ackBinaryVersion` to opt in to a new
+    ///      version; until then the service runs the genesis version (versionId 0).
+    ///      AUTO=1: service tracks the blueprint's currently active version, opting
+    ///      operators in automatically.
+    ///      MANUAL=2: service is pinned to the genesis version (versionId 0) until
+    ///      the operator switches policy. Use for production services that must not
+    ///      follow blueprint-owner version changes.
+    enum UpgradePolicy {
+        APPROVE,
+        AUTO,
+        MANUAL
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BINARY ATTESTATIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Kind of attestation produced for a binary version.
+    /// @dev IMPORTANT: Enum values must only be APPENDED, never reordered or inserted.
+    ///      AUDIT=0 (human review), FUZZ=1 (continuous fuzzing campaign), FORMAL=2
+    ///      (machine-checked formal verification), BUG_BOUNTY=3 (issued by a bounty
+    ///      program operator), SELF=4 (developer self-attestation, weakest signal).
+    enum AttestationKind {
+        AUDIT,
+        FUZZ,
+        FORMAL,
+        BUG_BOUNTY,
+        SELF
+    }
+
+    /// @notice Permissionless attestation against a specific binary version.
+    /// @dev `severityFound` follows the CVSS-style ladder used elsewhere in Tangle:
+    ///      0=none, 1=info, 2=low, 3=med, 4=high, 5=critical. Validated at submit
+    ///      time so off-chain consumers do not need to filter out-of-range values.
+    ///      `expiresAt == 0` means the attestation never auto-expires; finite values
+    ///      must be in the future at submission time. `revoked` is set by the
+    ///      original attester only; the row is never deleted so off-chain history is
+    ///      stable and `attestationId` indices remain valid.
+    struct Attestation {
+        address attester;
+        bytes32 reportHash;
+        string reportUri;
+        AttestationKind kind;
+        uint8 severityFound;
+        uint64 attestedAt;
+        uint64 expiresAt;
+        bool revoked;
+    }
 }
