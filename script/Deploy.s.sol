@@ -15,6 +15,10 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { TangleBlueprintsFacet } from "../src/facets/tangle/TangleBlueprintsFacet.sol";
 import { TangleBlueprintsManagementFacet } from "../src/facets/tangle/TangleBlueprintsManagementFacet.sol";
+import { TangleBlueprintsBinaryVersionsFacet } from "../src/facets/tangle/TangleBlueprintsBinaryVersionsFacet.sol";
+import {
+    TangleBlueprintsBinaryAttestationsFacet
+} from "../src/facets/tangle/TangleBlueprintsBinaryAttestationsFacet.sol";
 import { TangleOperatorsFacet } from "../src/facets/tangle/TangleOperatorsFacet.sol";
 import { TangleServicesRequestsFacet } from "../src/facets/tangle/TangleServicesRequestsFacet.sol";
 import { TangleServicesFacet } from "../src/facets/tangle/TangleServicesFacet.sol";
@@ -408,6 +412,8 @@ contract DeployV2 is DeployScriptBase {
         Tangle router = Tangle(payable(tangleProxy));
         router.registerFacet(address(new TangleBlueprintsFacet()));
         router.registerFacet(address(new TangleBlueprintsManagementFacet()));
+        router.registerFacet(address(new TangleBlueprintsBinaryVersionsFacet()));
+        router.registerFacet(address(new TangleBlueprintsBinaryAttestationsFacet()));
         router.registerFacet(address(new TangleOperatorsFacet()));
         router.registerFacet(address(new TangleServicesRequestsFacet()));
         router.registerFacet(address(new TangleServicesFacet()));

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { Types } from "../libraries/Types.sol";
+
 /// @title IBlueprintServiceManager
 /// @notice Full interface for blueprint-specific service managers
 /// @dev Blueprint developers implement this to customize all aspects of their blueprint.
@@ -375,4 +377,20 @@ interface IBlueprintServiceManager {
     /// @return useDefault True to use protocol default from staking module
     /// @return minStake Custom minimum stake amount (only used if useDefault=false)
     function getMinOperatorStake() external view returns (bool useDefault, uint256 minStake);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BINARY VERSION LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Called when a new binary version is published for this blueprint
+    /// @dev Custom BSMs MAY revert to gate the publish (e.g. require a publisher-multisig sig).
+    ///      Tangle forwards this call best-effort via `_tryCallManager`, so a revert is
+    ///      observed off-chain via `ManagerHookFailed` but does NOT undo the on-chain
+    ///      version row — the registry is append-only by design.
+    function onBinaryVersionPublished(uint64 blueprintId, Types.BinaryVersion calldata version) external;
+
+    /// @notice Called when an operator acknowledges a binary version for a service
+    /// @dev Default no-op; custom BSMs MAY react (e.g. emit reputation events, gate
+    ///      future job dispatch on the ack). Forwarded best-effort.
+    function onOperatorBinaryAcked(uint64 serviceId, uint64 versionId, address operator) external;
 }

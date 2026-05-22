@@ -448,10 +448,47 @@ abstract contract TangleStorage {
     mapping(uint64 => mapping(address => mapping(bytes32 => uint256))) internal _baselinePriceByOpAsset;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT BINARY VERSIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Append-only per-blueprint binary registry plus per-service upgrade policy
+    // and operator acknowledgement tracking. Resolution of the effective version
+    // for a service is handled by `BlueprintsBinaryVersions.effectiveBinaryVersion`.
+
+    /// @notice Blueprint ID => append-only list of binary versions. `versionId` is
+    ///         the array index; entries are never removed so indices stay stable.
+    mapping(uint64 => Types.BinaryVersion[]) internal _blueprintBinaryVersions;
+
+    /// @notice Blueprint ID => currently active version ID for `AUTO` services.
+    /// @dev Sentinel `0` is also the genesis version's index, so any blueprint with
+    ///      at least one published version has a well-defined active index. Reads
+    ///      against a blueprint with zero versions revert `VersionNotFound`.
+    mapping(uint64 => uint64) internal _blueprintActiveVersionId;
+
+    /// @notice Service ID => upgrade policy controlling how the effective version
+    ///         is resolved. Default value `0` corresponds to `UpgradePolicy.APPROVE`.
+    mapping(uint64 => Types.UpgradePolicy) internal _serviceUpgradePolicy;
+
+    /// @notice Service ID => last version ID an operator of the service acknowledged.
+    /// @dev Read only under `UpgradePolicy.APPROVE`. Sentinel `0` collapses with the
+    ///      genesis version's index; the resolution path explicitly handles both
+    ///      "no ack" and "ack == 0" by returning the genesis row.
+    mapping(uint64 => uint64) internal _serviceAckedVersionId;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT BINARY ATTESTATIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Blueprint ID => version ID => append-only attestation list. Rows
+    ///         are never deleted; revocation flips the `revoked` flag so historical
+    ///         indexers can reconstruct the full provenance trail.
+    mapping(uint64 => mapping(uint64 => Types.Attestation[])) internal _blueprintVersionAttestations;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades. Standard gap size is 50.
-    ///      Slots already consumed: 10 (see history above this gap).
-    uint256[39] private __gap;
+    ///      Slots already consumed: 10 (initial) + 5 (binary versions block above:
+    ///      4 mappings for versions/policy/ack + 1 mapping for attestations).
+    uint256[34] private __gap;
 }

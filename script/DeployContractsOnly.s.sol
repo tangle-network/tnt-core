@@ -13,6 +13,11 @@ import { MBSMRegistry } from "../src/MBSMRegistry.sol";
 
 import { TangleBlueprintsFacet } from "../src/facets/tangle/TangleBlueprintsFacet.sol";
 import { TangleBlueprintsManagementFacet } from "../src/facets/tangle/TangleBlueprintsManagementFacet.sol";
+import { TangleBlueprintsBinaryVersionsFacet } from "../src/facets/tangle/TangleBlueprintsBinaryVersionsFacet.sol";
+import {
+    TangleBlueprintsBinaryAttestationsFacet
+} from "../src/facets/tangle/TangleBlueprintsBinaryAttestationsFacet.sol";
+import { BlueprintAuditors } from "../src/governance/BlueprintAuditors.sol";
 import { TangleOperatorsFacet } from "../src/facets/tangle/TangleOperatorsFacet.sol";
 import { TangleServicesRequestsFacet } from "../src/facets/tangle/TangleServicesRequestsFacet.sol";
 import { TangleServicesFacet } from "../src/facets/tangle/TangleServicesFacet.sol";
@@ -48,6 +53,7 @@ contract DeployContractsOnly is Script {
     address public tangleProxy;
     address public stakingProxy;
     address public statusRegistry;
+    address public blueprintAuditors;
 
     function run() external {
         deployer = vm.addr(DEPLOYER_KEY);
@@ -101,12 +107,28 @@ contract DeployContractsOnly is Script {
         tangle.setMBSMRegistry(address(registryProxy));
         console2.log("MBSMRegistry:", address(registryProxy));
 
+        // 8. Deploy BlueprintAuditors registry. Governance-curated weight map used
+        //    by off-chain aggregators scoring the permissionless attestations
+        //    written via `BlueprintsBinaryAttestations`. The deployer holds
+        //    `FIRST_PARTY_ADMIN_ROLE` so a security-council multisig can be
+        //    granted/handed-off post-deploy via the standard role flows. In
+        //    production, `governor` must be the TangleTimelock proxy address;
+        //    we pass `deployer` here as a placeholder for local Anvil runs and
+        //    leave production handoff to the FullDeploy / role-handoff scripts.
+        BlueprintAuditors auditorsImpl = new BlueprintAuditors();
+        ERC1967Proxy auditorsProxy = new ERC1967Proxy(
+            address(auditorsImpl), abi.encodeCall(BlueprintAuditors.initialize, (deployer, deployer, deployer))
+        );
+        blueprintAuditors = address(auditorsProxy);
+        console2.log("BlueprintAuditors:", blueprintAuditors);
+
         vm.stopBroadcast();
 
         console2.log("\n=== Deployment Complete ===");
         console2.log("Tangle:                  ", tangleProxy);
         console2.log("MultiAssetDelegation:    ", stakingProxy);
         console2.log("OperatorStatusRegistry:  ", statusRegistry);
+        console2.log("BlueprintAuditors:       ", blueprintAuditors);
         console2.log("\nNo blueprints, services, or operators created.");
         console2.log("Use CLI or cast to register operators and create blueprints.");
     }
@@ -127,6 +149,8 @@ contract DeployContractsOnly is Script {
         Tangle tangle = Tangle(payable(proxy));
         tangle.registerFacet(address(new TangleBlueprintsFacet()));
         tangle.registerFacet(address(new TangleBlueprintsManagementFacet()));
+        tangle.registerFacet(address(new TangleBlueprintsBinaryVersionsFacet()));
+        tangle.registerFacet(address(new TangleBlueprintsBinaryAttestationsFacet()));
         tangle.registerFacet(address(new TangleOperatorsFacet()));
         tangle.registerFacet(address(new TangleServicesRequestsFacet()));
         tangle.registerFacet(address(new TangleServicesFacet()));
