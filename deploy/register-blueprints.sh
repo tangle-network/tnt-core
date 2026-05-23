@@ -102,7 +102,16 @@ fi
 #              depends on its feature branch landing on main)
 #
 # v0 binary publish migration TODO (tracked in docs/UPGRADING_BLUEPRINTS.md):
-#   ai-trading-blueprint        — DONE: per-repo register-blueprint.sh wired
+# ai-trading-blueprint  — PENDING: register-blueprint.sh wired but the
+#                          remote broadcast reverts at eth_estimateGas
+#                          (`gas required exceeds allowance (0)`).
+#                          Dry-run succeeds. Local anvil unaffected.
+#                          Needs investigation in the trading repo's
+#                          RegisterBlueprint.s.sol — one of the bundled
+#                          setVaultFactory / onOperatorJoined / inline
+#                          createBlueprint calls reverts under the Base
+#                          Sepolia simulator. Flip back to `register`
+#                          once fixed.
 #                                 to BLUEPRINT_BINARY_PATH (cloud variant by
 #                                 default; pin BLUEPRINT_TARGET_VARIANTS for
 #                                 instance/tee/validator).
