@@ -102,16 +102,12 @@ fi
 #              depends on its feature branch landing on main)
 #
 # v0 binary publish migration TODO (tracked in docs/UPGRADING_BLUEPRINTS.md):
-# ai-trading-blueprint  — PENDING: register-blueprint.sh wired but the
-#                          remote broadcast reverts at eth_estimateGas
-#                          (`gas required exceeds allowance (0)`).
-#                          Dry-run succeeds. Local anvil unaffected.
-#                          Needs investigation in the trading repo's
-#                          RegisterBlueprint.s.sol — one of the bundled
-#                          setVaultFactory / onOperatorJoined / inline
-#                          createBlueprint calls reverts under the Base
-#                          Sepolia simulator. Flip back to `register`
-#                          once fixed.
+# ai-trading-blueprint  — DONE: per-repo register-blueprint.sh wired.
+#                          Base Sepolia broadcast bug fixed in PR #89
+#                          (RegisterBlueprint.s.sol now reads PRIVATE_KEY
+#                          via envOr instead of overriding with the Anvil
+#                          deterministic key). On the new Tangle, registers
+#                          as cloud=13, instance=14, tee=15, validator=16.
 #                                 to BLUEPRINT_BINARY_PATH (cloud variant by
 #                                 default; pin BLUEPRINT_TARGET_VARIANTS for
 #                                 instance/tee/validator).
@@ -146,7 +142,7 @@ REPOS=(
     "embedding-inference-blueprint:register"
     "video-gen-inference-blueprint:register"
     "openclaw-sandbox-blueprint:register"
-    "ai-trading-blueprint:pending"
+    "ai-trading-blueprint:register"
     "microvm-blueprint:skip"
     "bls-blueprint:skip"
     "frost-blueprint:skip"
