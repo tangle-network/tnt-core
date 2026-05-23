@@ -3,10 +3,10 @@
   "_chainId": 84532,
   "_l1ChainId": 11155111,
   "roles": {
-    "admin": "0x03A763af11dC58B459A469A9895389F5880B45F4",
-    "treasury": "0x03A763af11dC58B459A469A9895389F5880B45F4",
-    "timelock": "0x03A763af11dC58B459A469A9895389F5880B45F4",
-    "multisig": "0x03A763af11dC58B459A469A9895389F5880B45F4",
+    "admin": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "treasury": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "timelock": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
+    "multisig": "0x2420FFf17c4213A4075cf5f7B6dc33429Aaf22Bb",
     "revokeBootstrap": true
   },
   "core": {

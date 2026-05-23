@@ -1,0 +1,11 @@
+repo	blueprint_id	bsm_address	status	binary_version_id	binary_sha256	binary_uri	binary_attestation	note	timestamp
+llm-inference-blueprint	0	0x6a0EF9695aAFeD077202538048c9b933e5D26475	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:50:19Z
+modal-inference-blueprint	1	0x0346DC54f93011BAD0c8514B4fF92349dC2fB0CF	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:51:04Z
+image-gen-inference-blueprint	2	0x8385F3D078b623779B349Ec8B85208145DaaC78C	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:51:38Z
+training-blueprint	3	0x6ae1bB9d0d0ccCfEb539b16e9E87d47092392DCD	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:52:20Z
+vector-store-blueprint	4	0xab9327E81C332315d6F337836aaebb2e0713ecd9	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:52:56Z
+distributed-inference-blueprint	5	0xBc3340b4C7b8DdcaEF5FAFC0dA967b0067825106	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:53:39Z
+voice-inference-blueprint	6	0x46EdE6E0611CF164D84Cb3b364482C5Ba8B2E9f0	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:54:16Z
+avatar-inference-blueprint	7	0xc15387e7734bAa66405c96fb996893d375A2D824	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:54:52Z
+embedding-inference-blueprint	8	0xe3BaA7a4b7d41261A09f0547F80e9CE5cE3de7DB	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:55:29Z
+video-gen-inference-blueprint	9	0x91E3C8f9a84BBC395eCE8deBf69b032912b81D81	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:56:10Z

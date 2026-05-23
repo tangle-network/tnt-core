@@ -101,6 +101,5 @@
     "vestingDuration": 0,
     "tangleMigration": "0x25e02490ff74668543f167aab838c835ed202db7",
     "zkVerifier": "0x46cee2cb16fc4c6699e9473d2ae545d5470e74a2"
-  },
-  "blueprintAuditors": "0xf4428bbbfa9207b4b91ca5fe8c1d401fd8b1e8e8"
+  }
 }
