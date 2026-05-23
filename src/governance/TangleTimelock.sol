@@ -73,8 +73,8 @@ contract TangleTimelock is Initializable, TimelockControllerUpgradeable, UUPSUpg
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice ERC-7201 storage location for `TimelockControllerStorage`.
-    ///         keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.TimelockController")) - 1)) & ~bytes32(uint256(0xff))
-    /// @dev Pinned to OpenZeppelin Contracts Upgradeable 5.1.0; verify before bumping.
+    ///         keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.TimelockController")) - 1)) &
+    /// ~bytes32(uint256(0xff)) @dev Pinned to OpenZeppelin Contracts Upgradeable 5.1.0; verify before bumping.
     bytes32 private constant TIMELOCK_CONTROLLER_STORAGE_LOCATION =
         0x9a37c2aa9d186a0969ff8a8267bf4e07e864c2f2768f5040949e28a624fb3600;
 

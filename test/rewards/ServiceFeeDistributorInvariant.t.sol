@@ -141,7 +141,8 @@ contract ServiceFeeDistributorInvariantTest is StdInvariant, BaseTest {
     }
 
     function invariant_nativeClaimsNeverExceedDistributed() external view {
-        uint256 pending = distributor.pendingRewards(delegator1, address(0)) + distributor.pendingRewards(delegator2, address(0));
+        uint256 pending =
+            distributor.pendingRewards(delegator1, address(0)) + distributor.pendingRewards(delegator2, address(0));
         uint256 claimed = handler.totalClaimedNative();
         uint256 distributed = handler.totalDistributedNative();
 

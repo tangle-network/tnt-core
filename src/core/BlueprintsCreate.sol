@@ -15,11 +15,7 @@ abstract contract BlueprintsCreate is Base {
     // ═══════════════════════════════════════════════════════════════════════════
 
     event BlueprintCreated(
-        uint64 indexed blueprintId,
-        address indexed owner,
-        address manager,
-        string metadataUri,
-        bytes32 metadataHash
+        uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri, bytes32 metadataHash
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -185,5 +181,4 @@ abstract contract BlueprintsCreate is Base {
     {
         IMasterBlueprintServiceManager(masterManager).onBlueprintCreated(blueprintId, owner, encodedDefinition);
     }
-
 }

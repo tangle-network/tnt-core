@@ -244,8 +244,7 @@ contract BLSAggregationE2ETest is BaseTest {
         // Single signer (operator 0 with 50% stake)
         uint256 signerBitmap = 0x1;
         Types.BN254G1Point memory sig = BLSTestHelper.sign(
-            BLSTestHelper.buildJobResultMessage(serviceId, callId0, address(tangle), _operators(), output),
-            1
+            BLSTestHelper.buildJobResultMessage(serviceId, callId0, address(tangle), _operators(), output), 1
         );
 
         // Count-based with 33.33% threshold requires exactly 1 signer.

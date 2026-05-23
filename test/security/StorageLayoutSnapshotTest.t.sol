@@ -92,20 +92,23 @@ contract StorageLayoutSnapshotTest is Test {
         // Pausable: 0xcd5ed15c6e187e77e9aee88184c21f4f2182ab5827cb3b7e07fbedcd63f03300
         // UUPSUpgradeable: 0xc8a4ef9bdaba9f1c7a14fb45e34f48cb50a04eed8f9e16e9d04acf66800a4f00
         // (TimelockController is verified separately in TimelockSetMinDelayTest.)
-        bytes32 initSlot =
-            keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Initializable")) - 1))
-                & ~bytes32(uint256(0xff));
-        assertEq(initSlot, 0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00, "Initializable slot drift");
+        bytes32 initSlot = keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Initializable")) - 1))
+            & ~bytes32(uint256(0xff));
+        assertEq(
+            initSlot, 0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00, "Initializable slot drift"
+        );
 
-        bytes32 accSlot =
-            keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.AccessControl")) - 1))
-                & ~bytes32(uint256(0xff));
-        assertEq(accSlot, 0x02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800, "AccessControl slot drift");
+        bytes32 accSlot = keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.AccessControl")) - 1))
+            & ~bytes32(uint256(0xff));
+        assertEq(
+            accSlot, 0x02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800, "AccessControl slot drift"
+        );
 
-        bytes32 reentSlot =
-            keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ReentrancyGuard")) - 1))
-                & ~bytes32(uint256(0xff));
-        assertEq(reentSlot, 0x9b779b17422d0df92223018b32b4d1fa46e071723d6817e2486d003becc55f00, "ReentrancyGuard slot drift");
+        bytes32 reentSlot = keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ReentrancyGuard")) - 1))
+            & ~bytes32(uint256(0xff));
+        assertEq(
+            reentSlot, 0x9b779b17422d0df92223018b32b4d1fa46e071723d6817e2486d003becc55f00, "ReentrancyGuard slot drift"
+        );
     }
 
     // ───────────────────────────────────────────────────────────────────────

@@ -185,9 +185,7 @@ abstract contract Operators is Base {
             bytes memory encodedPreferences =
                 abi.encode(Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy }));
             bytes memory managerPayload = registrationInputs.length > 0 ? registrationInputs : encodedPreferences;
-            _callManager(
-                bp.manager, abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, managerPayload))
-            );
+            _callManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, managerPayload)));
         }
     }
 

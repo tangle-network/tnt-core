@@ -36,7 +36,10 @@ library BridgeReceiverDeploy {
         address l1Sender,
         address receiver,
         uint256 sourceChainId
-    ) internal returns (ArbitrumL2Receiver) {
+    )
+        internal
+        returns (ArbitrumL2Receiver)
+    {
         ArbitrumL2Receiver impl = new ArbitrumL2Receiver();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
@@ -50,21 +53,19 @@ library BridgeReceiverDeploy {
         address l1Sender,
         address receiver,
         uint256 sourceChainId
-    ) internal returns (BaseL2Receiver) {
+    )
+        internal
+        returns (BaseL2Receiver)
+    {
         BaseL2Receiver impl = new BaseL2Receiver();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
-            abi.encodeCall(
-                BaseL2Receiver.initialize, (l2Messenger, l1Sender, receiver, sourceChainId, address(this))
-            )
+            abi.encodeCall(BaseL2Receiver.initialize, (l2Messenger, l1Sender, receiver, sourceChainId, address(this)))
         );
         return BaseL2Receiver(address(proxy));
     }
 
-    function deployHyperlaneReceiver(
-        address mailbox,
-        address receiver
-    ) internal returns (HyperlaneReceiver) {
+    function deployHyperlaneReceiver(address mailbox, address receiver) internal returns (HyperlaneReceiver) {
         HyperlaneReceiver impl = new HyperlaneReceiver();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl), abi.encodeCall(HyperlaneReceiver.initialize, (mailbox, receiver, address(this)))
@@ -72,10 +73,7 @@ library BridgeReceiverDeploy {
         return HyperlaneReceiver(address(proxy));
     }
 
-    function deployLayerZeroReceiver(
-        address endpoint,
-        address receiver
-    ) internal returns (LayerZeroReceiver) {
+    function deployLayerZeroReceiver(address endpoint, address receiver) internal returns (LayerZeroReceiver) {
         LayerZeroReceiver impl = new LayerZeroReceiver();
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl), abi.encodeCall(LayerZeroReceiver.initialize, (endpoint, receiver, address(this)))
@@ -96,7 +94,7 @@ contract MockCrossChainReceiver is ICrossChainReceiver {
     }
 }
 
-uint256 constant SOURCE_CHAIN_ID = 11155111;
+uint256 constant SOURCE_CHAIN_ID = 11_155_111;
 
 contract MockArbitrumInbox is IArbitrumInbox {
     struct TicketParams {

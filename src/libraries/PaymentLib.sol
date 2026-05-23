@@ -192,11 +192,8 @@ library PaymentLib {
         }
         amounts.operatorAmount = operatorPiece;
         // Staker absorbs all rounding dust so Σshares == amount exactly.
-        amounts.stakerAmount = amount
-            - amounts.developerAmount
-            - amounts.protocolAmount
-            - amounts.operatorAmount
-            - amounts.keeperAmount;
+        amounts.stakerAmount =
+            amount - amounts.developerAmount - amounts.protocolAmount - amounts.operatorAmount - amounts.keeperAmount;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -288,8 +285,7 @@ library PaymentLib {
 
         // Use low-level call so a reverting recipient (e.g. ERC20 with custom logic
         // that blocklists the caller) does not propagate to the surrounding context.
-        (bool ok, bytes memory ret) =
-            token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
+        (bool ok, bytes memory ret) = token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
         if (!ok) return false;
         // ERC20 transfer returns bool on success; tokens that return no data are
         // treated as successful only when the call itself did not revert.
@@ -397,11 +393,8 @@ library PaymentLib {
     ///      pay a keeper (one-shot pays, RFQ, per-job), so it counts toward the 10_000 bps
     ///      total regardless of whether any specific distribution emits to a keeper.
     function validateSplit(Types.PaymentSplit memory split) internal pure {
-        uint256 total = uint256(split.developerBps)
-            + uint256(split.protocolBps)
-            + uint256(split.operatorBps)
-            + uint256(split.stakerBps)
-            + uint256(split.keeperBps);
+        uint256 total = uint256(split.developerBps) + uint256(split.protocolBps) + uint256(split.operatorBps)
+            + uint256(split.stakerBps) + uint256(split.keeperBps);
         if (total != BPS_DENOMINATOR) {
             revert Errors.InvalidPaymentSplit();
         }

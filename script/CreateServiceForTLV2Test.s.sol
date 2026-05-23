@@ -50,7 +50,15 @@ contract CreateServiceForTLV2Test is Script {
         // 3. Approve service as operator1
         console2.log("Approving service as operator1...");
         vm.startBroadcast(OPERATOR1_KEY);
-        tangle.approveService(Types.ApprovalParams({requestId: serviceId, securityCommitments: new Types.AssetSecurityCommitment[](0), blsPubkey: [uint256(0),0,0,0], blsPopSignature: [uint256(0),0], teeCommitments: new Types.TeeAttestationCommitment[](0)})); // 100% staking
+        tangle.approveService(
+            Types.ApprovalParams({
+                requestId: serviceId,
+                securityCommitments: new Types.AssetSecurityCommitment[](0),
+                blsPubkey: [uint256(0), 0, 0, 0],
+                blsPopSignature: [uint256(0), 0],
+                teeCommitments: new Types.TeeAttestationCommitment[](0)
+            })
+        ); // 100% staking
         vm.stopBroadcast();
         console2.log("Service approved and active");
 

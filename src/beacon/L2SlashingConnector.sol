@@ -367,8 +367,9 @@ contract L2SlashingConnector {
 
         // Use the next-nonce-to-be-issued for accurate fee estimation; do not increment.
         uint256 estimatedNonce = nonceByChain[destinationChainId];
-        bytes memory payload =
-            abi.encodePacked(SLASH_MESSAGE_TYPE, abi.encode(operator, slashBps, newSlashingFactor, estimatedNonce, pod));
+        bytes memory payload = abi.encodePacked(
+            SLASH_MESSAGE_TYPE, abi.encode(operator, slashBps, newSlashingFactor, estimatedNonce, pod)
+        );
 
         return messenger.estimateFee(destinationChainId, payload, config.gasLimit);
     }

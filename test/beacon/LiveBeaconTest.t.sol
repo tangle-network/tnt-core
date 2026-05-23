@@ -86,14 +86,9 @@ contract LiveBeaconTest is Test {
     ///      `main` (tracked via issue #130) and is fixed here as part of the
     function _leUint64Bytes32(uint64 n) internal pure returns (bytes32) {
         // Reverse bytes (n becomes little-endian)
-        uint64 le = ((n & 0x00000000000000FF) << 56)
-                  | ((n & 0x000000000000FF00) << 40)
-                  | ((n & 0x0000000000FF0000) << 24)
-                  | ((n & 0x00000000FF000000) << 8)
-                  | ((n & 0x000000FF00000000) >> 8)
-                  | ((n & 0x0000FF0000000000) >> 24)
-                  | ((n & 0x00FF000000000000) >> 40)
-                  | ((n & 0xFF00000000000000) >> 56);
+        uint64 le = ((n & 0x00000000000000FF) << 56) | ((n & 0x000000000000FF00) << 40)
+            | ((n & 0x0000000000FF0000) << 24) | ((n & 0x00000000FF000000) << 8) | ((n & 0x000000FF00000000) >> 8)
+            | ((n & 0x0000FF0000000000) >> 24) | ((n & 0x00FF000000000000) >> 40) | ((n & 0xFF00000000000000) >> 56);
         // Place in leftmost 8 bytes
         return bytes32(uint256(le) << 192);
     }

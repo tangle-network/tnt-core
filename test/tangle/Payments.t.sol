@@ -79,8 +79,9 @@ contract PaymentsTest is BaseTest {
     }
 
     function test_SetPaymentSplit_ValidConfiguration() public {
-        Types.PaymentSplit memory newSplit =
-            Types.PaymentSplit({ developerBps: 4000, protocolBps: 2000, operatorBps: 2500, stakerBps: 1500, keeperBps: 0 });
+        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
+            developerBps: 4000, protocolBps: 2000, operatorBps: 2500, stakerBps: 1500, keeperBps: 0
+        });
 
         vm.prank(admin);
         tangle.setPaymentSplit(newSplit);
@@ -93,8 +94,9 @@ contract PaymentsTest is BaseTest {
     }
 
     function test_SetPaymentSplit_RevertNotAdmin() public {
-        Types.PaymentSplit memory newSplit =
-            Types.PaymentSplit({ developerBps: 4000, protocolBps: 2000, operatorBps: 2500, stakerBps: 1500, keeperBps: 0 });
+        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
+            developerBps: 4000, protocolBps: 2000, operatorBps: 2500, stakerBps: 1500, keeperBps: 0
+        });
 
         vm.prank(user1);
         vm.expectRevert();
@@ -102,8 +104,9 @@ contract PaymentsTest is BaseTest {
     }
 
     function test_SetPaymentSplit_RevertTotalNot100Percent() public {
-        Types.PaymentSplit memory newSplit =
-            Types.PaymentSplit({ developerBps: 5000, protocolBps: 5000, operatorBps: 5000, stakerBps: 5000, keeperBps: 0 });
+        Types.PaymentSplit memory newSplit = Types.PaymentSplit({
+            developerBps: 5000, protocolBps: 5000, operatorBps: 5000, stakerBps: 5000, keeperBps: 0
+        });
 
         vm.prank(admin);
         vm.expectRevert(Errors.InvalidPaymentSplit.selector);
@@ -404,9 +407,7 @@ contract PaymentsTest is BaseTest {
         // a non-native `paymentToken` then fails the EventDriven native-only constraint.
         vm.prank(user1);
         vm.expectRevert(Errors.InvalidPaymentToken.selector);
-        tangle.requestService(
-            bp, operators, "", callers, 0, address(token), 0, Types.ConfidentialityPolicy.Any
-        );
+        tangle.requestService(bp, operators, "", callers, 0, address(token), 0, Types.ConfidentialityPolicy.Any);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

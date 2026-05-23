@@ -270,9 +270,8 @@ contract ValidatorPod is ReentrancyGuard {
 
         // Cap depends on credential type: 0x01 = 32 ETH, 0x02 = 2048 ETH (EIP-7251).
         uint64 effectiveBalance = BeaconChainProofs.getEffectiveBalanceGwei(proof.validatorFields);
-        uint64 maxEffectiveBalance = isCompounding
-            ? ValidatorTypes.MAX_EFFECTIVE_BALANCE_GWEI_02
-            : ValidatorTypes.MAX_EFFECTIVE_BALANCE_GWEI;
+        uint64 maxEffectiveBalance =
+            isCompounding ? ValidatorTypes.MAX_EFFECTIVE_BALANCE_GWEI_02 : ValidatorTypes.MAX_EFFECTIVE_BALANCE_GWEI;
         restakedGwei = effectiveBalance > maxEffectiveBalance ? maxEffectiveBalance : effectiveBalance;
 
         // Store validator info

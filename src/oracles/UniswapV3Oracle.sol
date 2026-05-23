@@ -300,7 +300,7 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
             quoteUsdPrice = PRICE_PRECISION;
             quoteUpdatedAt = block.timestamp;
         } else {
-            (uint80 roundId, int256 answer, , uint256 updatedAt, uint80 answeredInRound) =
+            (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) =
                 AggregatorV3Interface(quoteFeed).latestRoundData();
             if (answer <= 0) revert InvalidPrice(token, answer);
             if (answeredInRound < roundId) revert StalePrice(token, updatedAt, maxAge);

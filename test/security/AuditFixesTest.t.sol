@@ -82,9 +82,7 @@ contract AuditFixesTest is BaseTest {
 
         vm.expectRevert();
         vm.prank(user1);
-        tangle.requestService(
-            blueprintId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
-        );
+        tangle.requestService(blueprintId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any);
     }
 
     // ───────────────────────────────────────────────────────────────────────
@@ -169,7 +167,8 @@ contract AuditFixesTest is BaseTest {
         // through any authorized origin; for this test we make admin both
         // proposer and disputer by routing via the blueprint owner role too.)
         vm.prank(developer); // blueprint owner == developer
-        uint64 slashId = ITangleSlashing(address(tangle)).proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
+        uint64 slashId =
+            ITangleSlashing(address(tangle)).proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
 
         // Admin is NOT the proposer here, so they CAN dispute as escalation.
         vm.prank(admin);

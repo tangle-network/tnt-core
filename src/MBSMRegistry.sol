@@ -219,7 +219,9 @@ contract MBSMRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeabl
         // Reject revisions that are already scheduled for deprecation. Pinning during the
         // grace window means `getMBSM` returns address(0) the moment `completeDeprecation`
         // runs, breaking every BSM call for the pinned blueprint.
-        if (_deprecationTimestamp[revision] != 0) revert VersionInGracePeriod(revision, _deprecationTimestamp[revision] + deprecationGracePeriod);
+        if (_deprecationTimestamp[revision] != 0) {
+            revert VersionInGracePeriod(revision, _deprecationTimestamp[revision] + deprecationGracePeriod);
+        }
 
         _blueprintPinnedRevision[blueprintId] = revision;
         emit BlueprintPinned(blueprintId, revision);

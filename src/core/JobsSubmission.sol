@@ -237,7 +237,9 @@ abstract contract JobsSubmission is Base {
     function _ensureAggregationBypass(address manager, uint64 serviceId, uint8 jobIndex) private view {
         if (manager == address(0)) return;
         (bool ok, bytes memory ret) = _tryStaticcallManager(
-            manager, abi.encodeWithSelector(IBlueprintServiceManager.requiresAggregation.selector, serviceId, jobIndex), 32
+            manager,
+            abi.encodeWithSelector(IBlueprintServiceManager.requiresAggregation.selector, serviceId, jobIndex),
+            32
         );
         if (ok && abi.decode(ret, (bool))) revert Errors.AggregationRequired(serviceId, jobIndex);
     }

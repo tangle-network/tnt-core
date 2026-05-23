@@ -4,10 +4,10 @@ pragma solidity ^0.8.26;
 import { Script, console2 } from "forge-std/Script.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import { TangleBlueprintsBinaryVersionsFacet } from
-    "../src/facets/tangle/TangleBlueprintsBinaryVersionsFacet.sol";
-import { TangleBlueprintsBinaryAttestationsFacet } from
-    "../src/facets/tangle/TangleBlueprintsBinaryAttestationsFacet.sol";
+import { TangleBlueprintsBinaryVersionsFacet } from "../src/facets/tangle/TangleBlueprintsBinaryVersionsFacet.sol";
+import {
+    TangleBlueprintsBinaryAttestationsFacet
+} from "../src/facets/tangle/TangleBlueprintsBinaryAttestationsFacet.sol";
 import { BlueprintAuditors } from "../src/governance/BlueprintAuditors.sol";
 
 /// @title UpgradeFlowAddon
@@ -50,18 +50,15 @@ contract UpgradeFlowAddon is Script {
 
         vm.startBroadcast(deployerKey);
 
-        TangleBlueprintsBinaryVersionsFacet versionsFacet =
-            new TangleBlueprintsBinaryVersionsFacet();
+        TangleBlueprintsBinaryVersionsFacet versionsFacet = new TangleBlueprintsBinaryVersionsFacet();
         console2.log("VersionsFacet:    ", address(versionsFacet));
 
-        TangleBlueprintsBinaryAttestationsFacet attestationsFacet =
-            new TangleBlueprintsBinaryAttestationsFacet();
+        TangleBlueprintsBinaryAttestationsFacet attestationsFacet = new TangleBlueprintsBinaryAttestationsFacet();
         console2.log("AttestationsFacet:", address(attestationsFacet));
 
         BlueprintAuditors auditorsImpl = new BlueprintAuditors();
         ERC1967Proxy auditorsProxy = new ERC1967Proxy(
-            address(auditorsImpl),
-            abi.encodeCall(BlueprintAuditors.initialize, (admin, governor, firstPartyAdmin))
+            address(auditorsImpl), abi.encodeCall(BlueprintAuditors.initialize, (admin, governor, firstPartyAdmin))
         );
         console2.log("AuditorsImpl:     ", address(auditorsImpl));
         console2.log("AuditorsProxy:    ", address(auditorsProxy));

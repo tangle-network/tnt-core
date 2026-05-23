@@ -11,11 +11,7 @@ interface ITangleBlueprints {
     // ═══════════════════════════════════════════════════════════════════════════
 
     event BlueprintCreated(
-        uint64 indexed blueprintId,
-        address indexed owner,
-        address manager,
-        string metadataUri,
-        bytes32 metadataHash
+        uint64 indexed blueprintId, address indexed owner, address manager, string metadataUri, bytes32 metadataHash
     );
 
     event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri, bytes32 metadataHash);

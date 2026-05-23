@@ -329,13 +329,7 @@ contract OperatorStatusRegistry is IOperatorStatusRegistry, Ownable2Step {
 
         bytes32 structHash = keccak256(
             abi.encode(
-                HEARTBEAT_TYPEHASH,
-                msg.sender,
-                serviceId,
-                blueprintId,
-                statusCode,
-                keccak256(metrics),
-                timestamp
+                HEARTBEAT_TYPEHASH, msg.sender, serviceId, blueprintId, statusCode, keccak256(metrics), timestamp
             )
         );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));

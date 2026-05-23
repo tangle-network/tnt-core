@@ -453,8 +453,9 @@ contract RFQPaymentDistributionTest is BaseTest {
 
     function test_RFQPayment_CustomSplitApplied() public {
         // Set a custom split: 10% dev, 5% protocol, 80% operator, 5% staker
-        Types.PaymentSplit memory customSplit =
-            Types.PaymentSplit({ developerBps: 1000, protocolBps: 500, operatorBps: 8000, stakerBps: 500, keeperBps: 0 });
+        Types.PaymentSplit memory customSplit = Types.PaymentSplit({
+            developerBps: 1000, protocolBps: 500, operatorBps: 8000, stakerBps: 500, keeperBps: 0
+        });
         vm.prank(admin);
         tangle.setPaymentSplit(customSplit);
 
@@ -652,9 +653,7 @@ contract RFQPaymentDistributionTest is BaseTest {
         quotes[0] = Types.SignedJobQuote({ details: details, signature: signature, operator: operator1 });
 
         vm.prank(user1);
-        vm.expectRevert(
-            abi.encodeWithSelector(Errors.JobQuoteRequesterMismatch.selector, operator1, address(0), user1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.JobQuoteRequesterMismatch.selector, operator1, address(0), user1));
         tangle.submitJobFromQuote{ value: price }(serviceId, 0, "", quotes);
     }
 

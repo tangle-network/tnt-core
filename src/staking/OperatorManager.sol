@@ -218,10 +218,7 @@ abstract contract OperatorManager is DelegationStorage {
     ///      their remaining stake is not stranded.
     function _startLeaving() internal {
         Types.OperatorMetadata storage meta = _operatorMetadata[msg.sender];
-        if (
-            meta.status != Types.OperatorStatus.Active
-                && meta.status != Types.OperatorStatus.Inactive
-        ) {
+        if (meta.status != Types.OperatorStatus.Active && meta.status != Types.OperatorStatus.Inactive) {
             revert DelegationErrors.OperatorNotActive(msg.sender);
         }
 

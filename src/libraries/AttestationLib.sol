@@ -12,15 +12,7 @@ library AttestationLib {
     /// @dev Operators MUST set `TeeAttestationCommitment.nonceBinding` to this exact value.
     ///      Cross-request attestation replay is structurally impossible: an attestation
     ///      document binding to nonce N_A cannot satisfy a commitment requiring nonce N_B.
-    function teeNonce(
-        uint64 requestId,
-        address verifyingContract,
-        uint256 chainId
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
+    function teeNonce(uint64 requestId, address verifyingContract, uint256 chainId) internal pure returns (bytes32) {
         return keccak256(abi.encode("tangle.tee.nonce", requestId, verifyingContract, chainId));
     }
 

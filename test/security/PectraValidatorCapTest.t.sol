@@ -26,31 +26,19 @@ contract PectraValidatorCapTest is Test {
         uint64 actualEffective = 64_000_000_000; // 64 ETH
 
         // Reproduce the exact ValidatorPod logic at src/beacon/ValidatorPod.sol:269-273
-        uint64 restakedGwei = actualEffective > POD_CURRENT_CAP_GWEI
-            ? POD_CURRENT_CAP_GWEI
-            : actualEffective;
+        uint64 restakedGwei = actualEffective > POD_CURRENT_CAP_GWEI ? POD_CURRENT_CAP_GWEI : actualEffective;
 
-        assertEq(
-            restakedGwei,
-            POD_CURRENT_CAP_GWEI,
-            "cap applied - 32 ETH credited"
-        );
+        assertEq(restakedGwei, POD_CURRENT_CAP_GWEI, "cap applied - 32 ETH credited");
 
         uint64 lostGwei = actualEffective - restakedGwei;
         assertEq(lostGwei, 32_000_000_000, "BUG: 32 ETH silently lost on a 64 ETH compounding validator");
 
         // Worst case: max compounding balance = 2048 ETH
         uint64 worstCaseEffective = PECTRA_MAX_EFFECTIVE_BALANCE_GWEI;
-        uint64 worstCaseRestaked = worstCaseEffective > POD_CURRENT_CAP_GWEI
-            ? POD_CURRENT_CAP_GWEI
-            : worstCaseEffective;
+        uint64 worstCaseRestaked = worstCaseEffective > POD_CURRENT_CAP_GWEI ? POD_CURRENT_CAP_GWEI : worstCaseEffective;
         uint64 worstCaseLost = worstCaseEffective - worstCaseRestaked;
 
-        assertEq(
-            worstCaseLost,
-            2_016_000_000_000,
-            "BUG: 2016 ETH unaccounted per maxed-out Pectra validator"
-        );
+        assertEq(worstCaseLost, 2_016_000_000_000, "BUG: 2016 ETH unaccounted per maxed-out Pectra validator");
     }
 
     /// @notice Document the intended post-fix behavior. Run after the fix lands
@@ -62,8 +50,10 @@ contract PectraValidatorCapTest is Test {
         //       : ValidatorTypes.MAX_EFFECTIVE_BALANCE_GWEI;
         //   restakedGwei = effective > maxEffective ? maxEffective : effective;
 
-        bytes32 creds01 = bytes32(abi.encodePacked(ValidatorTypes.WITHDRAWAL_CREDENTIALS_PREFIX_01, bytes11(0), address(0xdead)));
-        bytes32 creds02 = bytes32(abi.encodePacked(ValidatorTypes.WITHDRAWAL_CREDENTIALS_PREFIX_02, bytes11(0), address(0xdead)));
+        bytes32 creds01 =
+            bytes32(abi.encodePacked(ValidatorTypes.WITHDRAWAL_CREDENTIALS_PREFIX_01, bytes11(0), address(0xdead)));
+        bytes32 creds02 =
+            bytes32(abi.encodePacked(ValidatorTypes.WITHDRAWAL_CREDENTIALS_PREFIX_02, bytes11(0), address(0xdead)));
 
         assertTrue(ValidatorTypes.has01Prefix(creds01), "0x01 detected");
         assertTrue(ValidatorTypes.has02Prefix(creds02), "0x02 detected");

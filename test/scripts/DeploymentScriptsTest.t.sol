@@ -335,12 +335,8 @@ contract DeploymentScriptsTest is Test {
         assertFalse(tangle.hasRole(tangle.PAUSER_ROLE(), admin), "bootstrap pauser should be revoked");
 
         assertTrue(staking.hasRole(staking.DEFAULT_ADMIN_ROLE(), timelock), "timelock should own staking admin");
-        assertTrue(
-            staking.hasRole(staking.ASSET_MANAGER_ROLE(), multisig), "multisig should own staking asset manager"
-        );
-        assertFalse(
-            staking.hasRole(staking.DEFAULT_ADMIN_ROLE(), admin), "bootstrap staking admin should be revoked"
-        );
+        assertTrue(staking.hasRole(staking.ASSET_MANAGER_ROLE(), multisig), "multisig should own staking asset manager");
+        assertFalse(staking.hasRole(staking.DEFAULT_ADMIN_ROLE(), admin), "bootstrap staking admin should be revoked");
 
         assertEq(OperatorStatusRegistry(statusRegistry).owner(), timelock, "status registry owner should stay timelock");
     }

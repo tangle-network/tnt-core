@@ -39,7 +39,9 @@ contract GovernanceDeployer {
     event GovernanceDeployed(address indexed token, address indexed timelock, address indexed governor);
 
     event ProtocolRolesConfigured(address indexed timelock, address indexed protocolContract);
-    event RoleRevocationFailed(address indexed protocolContract, address indexed account, bytes32 indexed role, bytes reason);
+    event RoleRevocationFailed(
+        address indexed protocolContract, address indexed account, bytes32 indexed role, bytes reason
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STRUCTS
@@ -192,8 +194,9 @@ contract GovernanceDeployer {
         if (originalAdmin != address(0)) {
             for (uint256 i = 0; i < roles.length; i++) {
                 try protocol.revokeRole(roles[i], originalAdmin) {
-                    // success
-                } catch (bytes memory reason) {
+                // success
+                }
+                catch (bytes memory reason) {
                     emit RoleRevocationFailed(protocolContract, originalAdmin, roles[i], reason);
                 }
             }

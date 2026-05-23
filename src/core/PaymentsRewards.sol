@@ -65,8 +65,9 @@ abstract contract PaymentsRewards is Base {
         }
         for (uint256 i = 0; i < len;) {
             try this._claimRewardsTokenSafe(msg.sender, toClaim[i]) {
-                // pending zeroed, transfer succeeded, token removed from set inside the self-call
-            } catch {
+            // pending zeroed, transfer succeeded, token removed from set inside the self-call
+            }
+            catch {
                 // griefing / paused / reverting token: skip this one, leave it in the set,
                 // and continue sweeping the remaining tokens
                 emit RewardsClaimSkipped(msg.sender, toClaim[i]);

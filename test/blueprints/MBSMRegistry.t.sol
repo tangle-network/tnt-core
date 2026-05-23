@@ -57,12 +57,12 @@ contract MBSMRegistryTest is Test {
 
         // EOA / non-contract address must be rejected so MBSM hooks can never silently no-op.
         // Use an arbitrary high address that has no bytecode and no precompile.
-        address eoa = address(0xCAFE_AAAA);
+        address eoa = address(0xCAFEAAAA);
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(MBSMRegistry.NotAContract.selector, eoa));
         registry.addVersion(eoa);
 
-        address dup = address(0xCAFE_BBBB);
+        address dup = address(0xCAFEBBBB);
         _stubMBSM(dup);
         vm.prank(admin);
         registry.addVersion(dup);

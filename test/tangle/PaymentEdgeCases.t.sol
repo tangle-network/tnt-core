@@ -458,8 +458,9 @@ contract PaymentEdgeCasesTest is BaseTest {
     }
 
     function test_PaymentSplit_RevertsTotalNot100Percent() public {
-        Types.PaymentSplit memory split =
-            Types.PaymentSplit({ developerBps: 2000, protocolBps: 2000, operatorBps: 2000, stakerBps: 2000, keeperBps: 0 }); // Total
+        Types.PaymentSplit memory split = Types.PaymentSplit({
+            developerBps: 2000, protocolBps: 2000, operatorBps: 2000, stakerBps: 2000, keeperBps: 0
+        }); // Total
         // = 80%
 
         vm.prank(admin);

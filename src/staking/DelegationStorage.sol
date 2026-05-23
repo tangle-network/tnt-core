@@ -319,14 +319,7 @@ abstract contract DelegationStorage {
     ///      MUST keep the aggregate in sync via `_increaseDelegatedStake` /
     ///      `_decreaseDelegatedStake`; otherwise the invariant
     ///      `aggregate == rewardPool.totalAssets + Σ blueprintPool.totalAssets` breaks.
-    function _getOperatorDelegatedStakeForAsset(
-        address operator,
-        bytes32 assetHash
-    )
-        internal
-        view
-        returns (uint256)
-    {
+    function _getOperatorDelegatedStakeForAsset(address operator, bytes32 assetHash) internal view returns (uint256) {
         return _operatorDelegatedAggregate[operator][assetHash];
     }
 
@@ -350,14 +343,7 @@ abstract contract DelegationStorage {
     /// @dev Single source of truth so the TWAP accrual hook always agrees with the
     ///      value used for billing, slashing, and view facets. For non-bond assets
     ///      self-stake contributes zero.
-    function _getOperatorStakeForAssetHash(
-        address operator,
-        bytes32 assetHash
-    )
-        internal
-        view
-        returns (uint256)
-    {
+    function _getOperatorStakeForAssetHash(address operator, bytes32 assetHash) internal view returns (uint256) {
         uint256 delegated = _getOperatorDelegatedStakeForAsset(operator, assetHash);
         bytes32 bondHash = _operatorBondToken == address(0)
             ? _assetHash(Types.Asset(Types.AssetKind.Native, address(0)))

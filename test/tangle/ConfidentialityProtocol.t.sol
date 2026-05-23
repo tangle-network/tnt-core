@@ -65,12 +65,10 @@ contract ConfidentialityProtocolTest is BaseTest {
 
     function test_ExtendServiceFromQuotes_PreservesStandardRequired() public {
         Types.SignedQuote[] memory quotes = new Types.SignedQuote[](2);
-        quotes[0] = _createQuote(
-            operator1, OPERATOR1_PK, 1 ether, 30 days, Types.ConfidentialityPolicy.StandardRequired
-        );
-        quotes[1] = _createQuote(
-            operator2, OPERATOR2_PK, 1.1 ether, 30 days, Types.ConfidentialityPolicy.StandardRequired
-        );
+        quotes[0] =
+            _createQuote(operator1, OPERATOR1_PK, 1 ether, 30 days, Types.ConfidentialityPolicy.StandardRequired);
+        quotes[1] =
+            _createQuote(operator2, OPERATOR2_PK, 1.1 ether, 30 days, Types.ConfidentialityPolicy.StandardRequired);
 
         vm.prank(user1);
         uint64 serviceId =
@@ -84,12 +82,10 @@ contract ConfidentialityProtocolTest is BaseTest {
         );
 
         Types.SignedQuote[] memory extensionQuotes = new Types.SignedQuote[](2);
-        extensionQuotes[0] = _createQuote(
-            operator1, OPERATOR1_PK, 0.5 ether, 15 days, Types.ConfidentialityPolicy.StandardRequired
-        );
-        extensionQuotes[1] = _createQuote(
-            operator2, OPERATOR2_PK, 0.6 ether, 15 days, Types.ConfidentialityPolicy.StandardRequired
-        );
+        extensionQuotes[0] =
+            _createQuote(operator1, OPERATOR1_PK, 0.5 ether, 15 days, Types.ConfidentialityPolicy.StandardRequired);
+        extensionQuotes[1] =
+            _createQuote(operator2, OPERATOR2_PK, 0.6 ether, 15 days, Types.ConfidentialityPolicy.StandardRequired);
 
         vm.prank(user1);
         tangle.extendServiceFromQuotes{ value: 1.1 ether }(serviceId, extensionQuotes, 15 days);

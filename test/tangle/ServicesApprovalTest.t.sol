@@ -334,9 +334,8 @@ contract ServicesApprovalTest is BaseTest {
         address[] memory ops = new address[](1);
         ops[0] = operator1;
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(
-            bpId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
-        );
+        uint64 requestId =
+            tangle.requestService(bpId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         vm.prank(operator1);
         tangle.approveService(_approve(requestId));
@@ -364,15 +363,13 @@ contract ServicesApprovalTest is BaseTest {
         address[] memory ops = new address[](1);
         ops[0] = operator1;
         vm.prank(user1);
-        uint64 requestId = tangle.requestService(
-            bpId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any
-        );
+        uint64 requestId =
+            tangle.requestService(bpId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.Any);
 
         // Supply an explicit commitment for the default-TNT requirement at 25% exposure.
         Types.AssetSecurityCommitment[] memory cm = new Types.AssetSecurityCommitment[](1);
         cm[0] = Types.AssetSecurityCommitment({
-            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(tnt) }),
-            exposureBps: 2500
+            asset: Types.Asset({ kind: Types.AssetKind.ERC20, token: address(tnt) }), exposureBps: 2500
         });
 
         Types.ApprovalParams memory p;

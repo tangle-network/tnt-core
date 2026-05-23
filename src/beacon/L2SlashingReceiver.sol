@@ -108,8 +108,7 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     /// @notice ERC-7201 slot:
     ///         keccak256(abi.encode(uint256(keccak256("tangle.beacon.L2SlashingReceiver")) - 1))
     ///         & ~bytes32(uint256(0xff))
-    bytes32 private constant RECEIVER_STORAGE_SLOT =
-        0x82055dbb59125fee25966888e9f62ec781a4d1c7ca467f7e3e2e55d698dfc400;
+    bytes32 private constant RECEIVER_STORAGE_SLOT = 0x82055dbb59125fee25966888e9f62ec781a4d1c7ca467f7e3e2e55d698dfc400;
 
     function _getStorage() private pure returns (ReceiverStorage storage $) {
         bytes32 slot = RECEIVER_STORAGE_SLOT;
@@ -245,7 +244,9 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         uint256 sourceChainId,
         address sender,
         bytes calldata data
-    ) internal {
+    )
+        internal
+    {
         // Decode: operator, slashBps, slashingFactor, nonce, podAddress
         (address operator, uint16 slashBps, uint64 slashingFactor, uint256 nonce, address pod) =
             abi.decode(data, (address, uint16, uint64, uint256, address));

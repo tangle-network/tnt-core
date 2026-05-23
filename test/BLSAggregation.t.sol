@@ -702,15 +702,7 @@ contract BLSAggregationTest is BaseTest {
         uint256[4] memory pubkey = [uint256(1), uint256(2), uint256(3), uint256(4)];
 
         // 6666 bps of 3 operators must require 2 signers, not 1.
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Errors.AggregationThresholdNotMet.selector,
-                serviceId,
-                callId,
-                1,
-                2
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.AggregationThresholdNotMet.selector, serviceId, callId, 1, 2));
         tangle.submitAggregatedResult(serviceId, callId, "result", oneSigner, sig, pubkey);
     }
 

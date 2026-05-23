@@ -8,19 +8,10 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import { L2SlashingReceiver, IL2Slasher } from "../../src/beacon/L2SlashingReceiver.sol";
-import {
-    ArbitrumL2Receiver
-} from "../../src/beacon/bridges/ArbitrumCrossChainMessenger.sol";
-import {
-    BaseL2Receiver,
-    IBaseCrossDomainMessenger
-} from "../../src/beacon/bridges/BaseCrossChainMessenger.sol";
-import {
-    HyperlaneReceiver
-} from "../../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
-import {
-    LayerZeroReceiver
-} from "../../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
+import { ArbitrumL2Receiver } from "../../src/beacon/bridges/ArbitrumCrossChainMessenger.sol";
+import { BaseL2Receiver, IBaseCrossDomainMessenger } from "../../src/beacon/bridges/BaseCrossChainMessenger.sol";
+import { HyperlaneReceiver } from "../../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
+import { LayerZeroReceiver } from "../../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 
 /// @notice 3 — verifies that the L2 slashing receivers are
 ///         all UUPS upgradeable, ownership-gated, namespaced under ERC-7201,
@@ -31,45 +22,60 @@ contract L2SlashingReceiverUUPSTest is Test {
     address internal slasher = makeAddr("slasher");
     address internal messenger = makeAddr("messenger");
 
-    // ─── helpers ─────────────────────────────────────────────────────────────
+    // ─── helpers
+    // ─────────────────────────────────────────────────────────────
 
-    function _newL2Receiver(address _slasher, address _messenger, address _owner)
+    function _newL2Receiver(
+        address _slasher,
+        address _messenger,
+        address _owner
+    )
         internal
         returns (L2SlashingReceiver receiver, address impl)
     {
         L2SlashingReceiver implC = new L2SlashingReceiver();
         impl = address(implC);
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            impl, abi.encodeCall(L2SlashingReceiver.initialize, (_slasher, _messenger, _owner))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(impl, abi.encodeCall(L2SlashingReceiver.initialize, (_slasher, _messenger, _owner)));
         receiver = L2SlashingReceiver(address(proxy));
     }
 
-    function _newHyperlane(address _mailbox, address _receiver, address _owner)
+    function _newHyperlane(
+        address _mailbox,
+        address _receiver,
+        address _owner
+    )
         internal
         returns (HyperlaneReceiver h, address impl)
     {
         HyperlaneReceiver implC = new HyperlaneReceiver();
         impl = address(implC);
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            impl, abi.encodeCall(HyperlaneReceiver.initialize, (_mailbox, _receiver, _owner))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(impl, abi.encodeCall(HyperlaneReceiver.initialize, (_mailbox, _receiver, _owner)));
         h = HyperlaneReceiver(address(proxy));
     }
 
-    function _newLayerZero(address _endpoint, address _receiver, address _owner)
+    function _newLayerZero(
+        address _endpoint,
+        address _receiver,
+        address _owner
+    )
         internal
         returns (LayerZeroReceiver lz, address impl)
     {
         LayerZeroReceiver implC = new LayerZeroReceiver();
         impl = address(implC);
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            impl, abi.encodeCall(LayerZeroReceiver.initialize, (_endpoint, _receiver, _owner))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(impl, abi.encodeCall(LayerZeroReceiver.initialize, (_endpoint, _receiver, _owner)));
         lz = LayerZeroReceiver(address(proxy));
     }
 
-    function _newArbitrum(address _l1Sender, address _receiver, uint256 _src, address _owner)
+    function _newArbitrum(
+        address _l1Sender,
+        address _receiver,
+        uint256 _src,
+        address _owner
+    )
         internal
         returns (ArbitrumL2Receiver a, address impl)
     {
@@ -87,19 +93,20 @@ contract L2SlashingReceiverUUPSTest is Test {
         address _receiver,
         uint256 _src,
         address _owner
-    ) internal returns (BaseL2Receiver b, address impl) {
+    )
+        internal
+        returns (BaseL2Receiver b, address impl)
+    {
         BaseL2Receiver implC = new BaseL2Receiver();
         impl = address(implC);
         ERC1967Proxy proxy = new ERC1967Proxy(
-            impl,
-            abi.encodeCall(
-                BaseL2Receiver.initialize, (_l2Messenger, _l1Sender, _receiver, _src, _owner)
-            )
+            impl, abi.encodeCall(BaseL2Receiver.initialize, (_l2Messenger, _l1Sender, _receiver, _src, _owner))
         );
         b = BaseL2Receiver(address(proxy));
     }
 
-    // ─── L2SlashingReceiver ──────────────────────────────────────────────────
+    // ─── L2SlashingReceiver
+    // ──────────────────────────────────────────────────
 
     function test_L2Receiver_initIsOneShot() public {
         (L2SlashingReceiver receiver,) = _newL2Receiver(slasher, messenger, admin);
@@ -116,9 +123,7 @@ contract L2SlashingReceiverUUPSTest is Test {
     function test_L2Receiver_zeroOwnerReverts() public {
         L2SlashingReceiver impl = new L2SlashingReceiver();
         vm.expectRevert(L2SlashingReceiver.ZeroAddress.selector);
-        new ERC1967Proxy(
-            address(impl), abi.encodeCall(L2SlashingReceiver.initialize, (slasher, messenger, address(0)))
-        );
+        new ERC1967Proxy(address(impl), abi.encodeCall(L2SlashingReceiver.initialize, (slasher, messenger, address(0))));
     }
 
     function test_L2Receiver_upgradeByAdmin() public {
@@ -180,7 +185,8 @@ contract L2SlashingReceiverUUPSTest is Test {
         assertEq(slot0, bytes32(0), "no state at non-namespaced slot 0");
     }
 
-    // ─── ArbitrumL2Receiver ──────────────────────────────────────────────────
+    // ─── ArbitrumL2Receiver
+    // ──────────────────────────────────────────────────
 
     function test_Arbitrum_initIsOneShot() public {
         (ArbitrumL2Receiver a,) = _newArbitrum(makeAddr("l1"), makeAddr("rcv"), 1, admin);
@@ -204,18 +210,17 @@ contract L2SlashingReceiverUUPSTest is Test {
         a.upgradeToAndCall(address(impl2), "");
     }
 
-    // ─── BaseL2Receiver ──────────────────────────────────────────────────────
+    // ─── BaseL2Receiver
+    // ──────────────────────────────────────────────────────
 
     function test_Base_initIsOneShot() public {
-        (BaseL2Receiver b,) =
-            _newBase(makeAddr("msgr"), makeAddr("l1"), makeAddr("rcv"), 1, admin);
+        (BaseL2Receiver b,) = _newBase(makeAddr("msgr"), makeAddr("l1"), makeAddr("rcv"), 1, admin);
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         b.initialize(makeAddr("msgr"), makeAddr("l1"), makeAddr("rcv"), 1, admin);
     }
 
     function test_Base_upgradeAuth() public {
-        (BaseL2Receiver b,) =
-            _newBase(makeAddr("msgr"), makeAddr("l1"), makeAddr("rcv"), 1, admin);
+        (BaseL2Receiver b,) = _newBase(makeAddr("msgr"), makeAddr("l1"), makeAddr("rcv"), 1, admin);
         BaseL2Receiver impl2 = new BaseL2Receiver();
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, attacker));
@@ -224,7 +229,8 @@ contract L2SlashingReceiverUUPSTest is Test {
         b.upgradeToAndCall(address(impl2), "");
     }
 
-    // ─── HyperlaneReceiver ───────────────────────────────────────────────────
+    // ─── HyperlaneReceiver
+    // ───────────────────────────────────────────────────
 
     function test_Hyperlane_initIsOneShot() public {
         (HyperlaneReceiver h,) = _newHyperlane(makeAddr("mb"), makeAddr("rcv"), admin);
@@ -251,12 +257,11 @@ contract L2SlashingReceiverUUPSTest is Test {
         HyperlaneReceiver impl2 = new HyperlaneReceiver();
         h.upgradeToAndCall(address(impl2), "");
 
-        assertTrue(
-            h.trustedSenders(42_161, bytes32(uint256(uint160(trusted)))), "trusted survived upgrade"
-        );
+        assertTrue(h.trustedSenders(42_161, bytes32(uint256(uint160(trusted)))), "trusted survived upgrade");
     }
 
-    // ─── LayerZeroReceiver ───────────────────────────────────────────────────
+    // ─── LayerZeroReceiver
+    // ───────────────────────────────────────────────────
 
     function test_LayerZero_initIsOneShot() public {
         (LayerZeroReceiver lz,) = _newLayerZero(makeAddr("ep"), makeAddr("rcv"), admin);

@@ -300,8 +300,7 @@ abstract contract ServicesRequests is Base {
         // bounded; blueprint config `maxOperators == 0` ("unlimited") clamps to the
         // governance-tunable protocol ceiling.
         uint32 protocolCeiling = _maxOperatorsPerService;
-        uint32 effectiveMax =
-            (maxOperators == 0 || maxOperators > protocolCeiling) ? protocolCeiling : maxOperators;
+        uint32 effectiveMax = (maxOperators == 0 || maxOperators > protocolCeiling) ? protocolCeiling : maxOperators;
         if (operatorCount > effectiveMax) {
             revert Errors.TooManyOperators(effectiveMax, operatorCount);
         }

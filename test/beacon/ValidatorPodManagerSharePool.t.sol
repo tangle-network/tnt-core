@@ -42,9 +42,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
 
         uint256 sharesAfterSecond = podManager.getSharesUint(podOwner1);
         // Should mint approximately +5 ether shares (within virtual-offset dust).
-        assertApproxEqAbs(
-            sharesAfterSecond, 15 ether, VIRTUAL_OFFSET_DUST, "second deposit proportional shares"
-        );
+        assertApproxEqAbs(sharesAfterSecond, 15 ether, VIRTUAL_OFFSET_DUST, "second deposit proportional shares");
         assertEq(podManager.totalAssetsOf(podOwner1), 15 ether, "totalAssets sums deposits");
     }
 
@@ -64,9 +62,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
 
         // Shares unchanged; assets up by 1 ETH (modulo virtual-offset dust).
         assertEq(podManager.getSharesUint(podOwner1), sharesBefore, "shares unchanged on rebase up");
-        assertApproxEqAbs(
-            podManager.getRestakedAssets(podOwner1), 33 ether, VIRTUAL_OFFSET_DUST, "assets up by reward"
-        );
+        assertApproxEqAbs(podManager.getRestakedAssets(podOwner1), 33 ether, VIRTUAL_OFFSET_DUST, "assets up by reward");
     }
 
     /// @notice After a rebase-down (slash), shareholders see proportional loss; shares unchanged.
@@ -103,9 +99,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
         assertEq(podManager.totalAssetsOf(podOwner1), 0, "totalAssets clamped to zero");
         // shares still positive (32 ether), but each share now claims only the virtual-offset dust.
         assertEq(podManager.getSharesUint(podOwner1), 32 ether, "shares still outstanding");
-        assertLt(
-            podManager.getRestakedAssets(podOwner1), VIRTUAL_OFFSET_DUST, "assets <= virtual offset on full slash"
-        );
+        assertLt(podManager.getRestakedAssets(podOwner1), VIRTUAL_OFFSET_DUST, "assets <= virtual offset on full slash");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -175,9 +169,7 @@ contract ValidatorPodManagerSharePoolTest is BeaconTestBase {
         assertEq(podManager.totalAssetsOf(podOwner1), 16 ether, "podA assets reduced");
         assertEq(podManager.totalAssetsOf(podOwner2), 32 ether, "podB assets unaffected");
         assertEq(podManager.getSharesUint(podOwner2), 32 ether, "podB shares unaffected");
-        assertEq(
-            podManager.getRestakedAssets(podOwner2), 32 ether, "podB asset-equivalent unchanged"
-        );
+        assertEq(podManager.getRestakedAssets(podOwner2), 32 ether, "podB asset-equivalent unchanged");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

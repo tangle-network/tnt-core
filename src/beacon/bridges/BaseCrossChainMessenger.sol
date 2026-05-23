@@ -154,8 +154,7 @@ contract BaseL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     /// @notice ERC-7201 slot:
     ///         keccak256(abi.encode(uint256(keccak256("tangle.beacon.bridges.BaseL2Receiver")) - 1))
     ///         & ~bytes32(uint256(0xff))
-    bytes32 private constant BASE_L2_RECEIVER_SLOT =
-        0x697acf8f37fcf1e990825dbccd8642ff6efc86e337b0fa3a87405b6fe90aa500;
+    bytes32 private constant BASE_L2_RECEIVER_SLOT = 0x697acf8f37fcf1e990825dbccd8642ff6efc86e337b0fa3a87405b6fe90aa500;
 
     function _getStorage() private pure returns (BaseL2ReceiverStorage storage $) {
         bytes32 s = BASE_L2_RECEIVER_SLOT;
@@ -182,7 +181,10 @@ contract BaseL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         address _receiver,
         uint256 _sourceChainId,
         address _owner
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         if (_owner == address(0)) revert ZeroAddress();
         __UUPSUpgradeable_init();
         __Ownable_init(_owner);

@@ -77,7 +77,11 @@ abstract contract BlueprintsManage is Base {
     }
 
     /// @notice Update blueprint metadata
-    function updateBlueprint(uint64 blueprintId, string calldata metadataUri, bytes32 metadataHash)
+    function updateBlueprint(
+        uint64 blueprintId,
+        string calldata metadataUri,
+        bytes32 metadataHash
+    )
         external
         nonReentrant
     {
@@ -126,7 +130,11 @@ abstract contract BlueprintsManage is Base {
     /// @param blueprintId The blueprint ID
     /// @param jobIndexes Array of job indexes
     /// @param rates Array of per-job event rates (0 to clear override and use blueprint default)
-    function setJobEventRates(uint64 blueprintId, uint8[] calldata jobIndexes, uint256[] calldata rates)
+    function setJobEventRates(
+        uint64 blueprintId,
+        uint8[] calldata jobIndexes,
+        uint256[] calldata rates
+    )
         external
         nonReentrant
     {

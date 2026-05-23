@@ -76,7 +76,11 @@ abstract contract PaymentsBilling is PaymentsCore {
     /// @param revertOnFail When true, eligibility checks revert; when false, return false silently.
     /// @param keeper Caller of the public bill entry point — receives the keeper rebate.
     /// @return billed True if a bill was drawn (or the period was skipped due to zero operators).
-    function _billSubscriptionImpl(uint64 serviceId, bool revertOnFail, address keeper)
+    function _billSubscriptionImpl(
+        uint64 serviceId,
+        bool revertOnFail,
+        address keeper
+    )
         internal
         returns (bool billed, uint256 amountDrawn)
     {
@@ -179,19 +183,20 @@ abstract contract PaymentsBilling is PaymentsCore {
         }
 
         address token = PaymentLib.releaseFromEscrow(escrow, amount);
-        ITanglePaymentsInternal(address(this)).distributeBillWithKeeper(
-            ITanglePaymentsInternal.BillDistribution({
-                serviceId: serviceId,
-                blueprintId: svc.blueprintId,
-                token: token,
-                amount: amount,
-                operators: operators,
-                weights: w.weights,
-                totalWeight: w.totalWeight,
-                hasSecurityCommitments: w.hasSecurityCommitments,
-                keeper: keeper
-            })
-        );
+        ITanglePaymentsInternal(address(this))
+            .distributeBillWithKeeper(
+                ITanglePaymentsInternal.BillDistribution({
+                    serviceId: serviceId,
+                    blueprintId: svc.blueprintId,
+                    token: token,
+                    amount: amount,
+                    operators: operators,
+                    weights: w.weights,
+                    totalWeight: w.totalWeight,
+                    hasSecurityCommitments: w.hasSecurityCommitments,
+                    keeper: keeper
+                })
+            );
 
         emit SubscriptionBilled(serviceId, amount, interval);
         return (true, amount);
@@ -394,7 +399,9 @@ abstract contract PaymentsBilling is PaymentsCore {
         address manager = _blueprints[blueprintId].manager;
         if (manager == address(0)) return uint16(BPS_DENOMINATOR);
         (bool ok, bytes memory ret) = manager.staticcall{ gas: MANAGER_HOOK_GAS_LIMIT }(
-            abi.encodeWithSelector(IBlueprintServiceManager.computeBillAdjustmentBps.selector, serviceId, periodStart, periodEnd)
+            abi.encodeWithSelector(
+                IBlueprintServiceManager.computeBillAdjustmentBps.selector, serviceId, periodStart, periodEnd
+            )
         );
         if (!ok || ret.length < 32) return uint16(BPS_DENOMINATOR);
         uint256 bps = abi.decode(ret, (uint256));
@@ -415,5 +422,4 @@ abstract contract PaymentsBilling is PaymentsCore {
         uint256 tail = stakeNow * tailSeconds;
         return cumNow > tail ? cumNow - tail : 0;
     }
-
 }

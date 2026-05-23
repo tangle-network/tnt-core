@@ -21,11 +21,7 @@ interface ITangleRewards {
     );
 
     event OperatorRewardAccrued(
-        uint64 indexed serviceId,
-        address indexed operator,
-        address indexed token,
-        uint64 blueprintId,
-        uint256 amount
+        uint64 indexed serviceId, address indexed operator, address indexed token, uint64 blueprintId, uint256 amount
     );
 
     event RewardsClaimed(address indexed account, address indexed token, uint256 amount);

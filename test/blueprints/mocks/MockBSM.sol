@@ -104,7 +104,11 @@ contract MockBSM_V1 is BlueprintServiceManagerBase {
         serviceRequestInputs[requestId] = requestInputs;
     }
 
-    function onApprove(address operator, uint64 requestId, uint8 stakingPercent)
+    function onApprove(
+        address operator,
+        uint64 requestId,
+        uint8 stakingPercent
+    )
         external
         payable
         virtual

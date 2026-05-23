@@ -73,7 +73,11 @@ contract OperatorStatusRegistryTest is Test {
         return _signHeartbeatAt(statusCode, metricsData, uint64(block.timestamp));
     }
 
-    function _signHeartbeatAt(uint8 statusCode, bytes memory metricsData, uint64 timestamp)
+    function _signHeartbeatAt(
+        uint8 statusCode,
+        bytes memory metricsData,
+        uint64 timestamp
+    )
         internal
         view
         returns (bytes memory)

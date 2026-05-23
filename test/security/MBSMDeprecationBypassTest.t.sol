@@ -15,8 +15,7 @@ contract MBSMDeprecationBypassTest is Test {
 
     function setUp() public {
         MBSMRegistry impl = new MBSMRegistry();
-        ERC1967Proxy proxy =
-            new ERC1967Proxy(address(impl), abi.encodeCall(MBSMRegistry.initialize, (admin)));
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(MBSMRegistry.initialize, (admin)));
         registry = MBSMRegistry(address(proxy));
     }
 

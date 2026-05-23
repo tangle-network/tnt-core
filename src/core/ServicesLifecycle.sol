@@ -83,9 +83,7 @@ abstract contract ServicesLifecycle is Base {
         }
 
         _terminateService(serviceId);
-        emit ServiceTerminatedForNonPayment(
-            serviceId, msg.sender, uint64(dueAt), uint64(graceEndsAt), rate, balance
-        );
+        emit ServiceTerminatedForNonPayment(serviceId, msg.sender, uint64(dueAt), uint64(graceEndsAt), rate, balance);
     }
 
     function _resolveNonPaymentGraceIntervals(
@@ -472,9 +470,7 @@ abstract contract ServicesLifecycle is Base {
         // Check if manager provides custom exit config
         if (bp.manager != address(0)) {
             (bool ok, bytes memory ret) = _tryStaticcallManager(
-                bp.manager,
-                abi.encodeWithSelector(IBlueprintServiceManager.getExitConfig.selector, serviceId),
-                128
+                bp.manager, abi.encodeWithSelector(IBlueprintServiceManager.getExitConfig.selector, serviceId), 128
             );
             if (ok) {
                 (bool useDefault, uint64 minCommitmentDuration, uint64 exitQueueDuration, bool forceExitAllowed) =
@@ -610,9 +606,7 @@ abstract contract ServicesLifecycle is Base {
         }
     }
 
-    function _loadJoinContext(
-        uint64 serviceId
-    )
+    function _loadJoinContext(uint64 serviceId)
         private
         view
         returns (Types.Service storage svc, Types.Blueprint storage bp)
@@ -652,9 +646,7 @@ abstract contract ServicesLifecycle is Base {
             }
 
             (bool okCan, bytes memory retCan) = _tryStaticcallManager(
-                bp.manager,
-                abi.encodeWithSelector(IBlueprintServiceManager.canJoin.selector, serviceId, msg.sender),
-                32
+                bp.manager, abi.encodeWithSelector(IBlueprintServiceManager.canJoin.selector, serviceId, msg.sender), 32
             );
             if (okCan && !abi.decode(retCan, (bool))) revert Errors.Unauthorized();
         }

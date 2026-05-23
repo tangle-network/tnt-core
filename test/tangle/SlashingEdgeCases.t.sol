@@ -520,11 +520,7 @@ contract SlashingEdgeCasesTest is BaseTest {
         tangle.cancelSlash(slashId, "admin agrees");
 
         assertEq(operator1.balance, balBefore - DISPUTE_BOND, "bond not yet returned");
-        assertEq(
-            tangle.pendingDisputeBondRefund(operator1),
-            DISPUTE_BOND,
-            "bond credited to pull mapping"
-        );
+        assertEq(tangle.pendingDisputeBondRefund(operator1), DISPUTE_BOND, "bond credited to pull mapping");
 
         // Disputer claims the credited bond.
         vm.prank(operator1);

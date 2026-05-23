@@ -19,10 +19,8 @@ contract TimelockSetMinDelayTest is Test {
     function setUp() public {
         TangleTimelock impl = new TangleTimelock();
         address[] memory empty = new address[](0);
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(TangleTimelock.initialize, (1 days, empty, empty, admin))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(TangleTimelock.initialize, (1 days, empty, empty, admin)));
         timelock = TangleTimelock(payable(address(proxy)));
     }
 

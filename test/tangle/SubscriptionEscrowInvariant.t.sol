@@ -170,7 +170,8 @@ contract SubscriptionEscrowInvariantTest is StdInvariant, BaseTest {
         });
 
         vm.prank(developer);
-        uint64 bp = tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription-invariant", address(0), config));
+        uint64 bp =
+            tangle.createBlueprint(_blueprintDefinitionWithConfig("ipfs://subscription-invariant", address(0), config));
 
         _registerOperator(operator1, 5 ether);
         _registerForBlueprint(operator1, bp);
@@ -226,9 +227,7 @@ contract SubscriptionEscrowInvariantTest is StdInvariant, BaseTest {
             + handler.totalRefundedToOwner() + developerOut + treasuryOut + stakerOut;
 
         assertEq(lhs, rhs, "subscription native value not conserved");
-        assertEq(
-            address(tangle).balance, escrow.balance + pendingOperator + pendingKeeper, "tangle balance mismatch"
-        );
+        assertEq(address(tangle).balance, escrow.balance + pendingOperator + pendingKeeper, "tangle balance mismatch");
     }
 
     /// @notice A single bill draw can never exceed the blueprint's nominal subscription rate.
@@ -240,9 +239,7 @@ contract SubscriptionEscrowInvariantTest is StdInvariant, BaseTest {
     ///      adding native to the operator pool.
     function invariant_billAmountNeverExceedsNominalRate() external view {
         assertLe(
-            handler.maxSingleBillRelease(),
-            subscriptionRate,
-            "single-bill draw exceeded nominal subscription rate"
+            handler.maxSingleBillRelease(), subscriptionRate, "single-bill draw exceeded nominal subscription rate"
         );
     }
 
@@ -253,11 +250,7 @@ contract SubscriptionEscrowInvariantTest is StdInvariant, BaseTest {
     ///      must always show the same baseline as the one captured in `setUp`.
     function invariant_baselinePinnedAtActivation() external view {
         PaymentLib.ServiceEscrow memory escrow = tangle.getServiceEscrow(serviceId);
-        assertEq(
-            escrow.subscriptionBaselineStake,
-            pinnedBaseline,
-            "subscriptionBaselineStake mutated after activation"
-        );
+        assertEq(escrow.subscriptionBaselineStake, pinnedBaseline, "subscriptionBaselineStake mutated after activation");
         // Also verify the handler's observation (last-seen value at each successful
         // bill) never drifted from the activation baseline — defends against a
         // sequence-dependent re-pinning that the static read above would miss.

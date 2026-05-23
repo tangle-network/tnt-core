@@ -266,7 +266,11 @@ abstract contract Slashing is Base {
         _recordSlash(proposal.operator, proposal.serviceId, actualSlashed);
 
         // Bond forfeit (interaction) AFTER all state is finalized.
-        _settleDisputeBond(proposal, /*refund*/ false);
+        _settleDisputeBond(
+            proposal,
+            /*refund*/
+            false
+        );
 
         Types.Blueprint storage bp = _blueprints[svc.blueprintId];
         if (bp.manager != address(0)) {
@@ -314,7 +318,11 @@ abstract contract Slashing is Base {
             _recordSlash(proposal.operator, proposal.serviceId, actualSlashed);
 
             // Bond forfeit (interaction) AFTER all state is finalized.
-            _settleDisputeBond(proposal, /*refund*/ false);
+            _settleDisputeBond(
+                proposal,
+                /*refund*/
+                false
+            );
 
             totalSlashed += actualSlashed;
             executedCount++;
@@ -383,7 +391,11 @@ abstract contract Slashing is Base {
         _decrementOperatorPendingTracker(operator);
 
         // Bond refund last (interaction).
-        _settleDisputeBond(proposal, /*refund*/ true);
+        _settleDisputeBond(
+            proposal,
+            /*refund*/
+            true
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -434,8 +446,12 @@ abstract contract Slashing is Base {
     function _executeSlashOnStaking(
         SlashingLib.SlashProposal storage proposal,
         uint64 blueprintId
-    ) internal returns (uint256 actualSlashed) {
-        Types.AssetSecurityCommitment[] memory commitments = _loadServiceCommitments(proposal.serviceId, proposal.operator);
+    )
+        internal
+        returns (uint256 actualSlashed)
+    {
+        Types.AssetSecurityCommitment[] memory commitments =
+            _loadServiceCommitments(proposal.serviceId, proposal.operator);
 
         if (commitments.length == 0) {
             return _staking.slashForBlueprint(
@@ -455,7 +471,11 @@ abstract contract Slashing is Base {
     function _loadServiceCommitments(
         uint64 serviceId,
         address operator
-    ) internal view returns (Types.AssetSecurityCommitment[] memory copy) {
+    )
+        internal
+        view
+        returns (Types.AssetSecurityCommitment[] memory copy)
+    {
         Types.AssetSecurityCommitment[] storage stored = _serviceSecurityCommitments[serviceId][operator];
         uint256 len = stored.length;
         copy = new Types.AssetSecurityCommitment[](len);

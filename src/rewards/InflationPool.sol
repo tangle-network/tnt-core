@@ -1015,7 +1015,9 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         address[] storage list,
         mapping(address => bool) storage membership,
         address account
-    ) internal {
+    )
+        internal
+    {
         if (!membership[account]) return;
         uint256 len = list.length;
         for (uint256 i = 0; i < len; i++) {
@@ -1157,14 +1159,9 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         view
         returns (uint16 stakingBps, uint16 operatorsBps, uint16 customersBps, uint16 developersBps, uint16 stakersBps)
     {
-        return
-            (
-                weights.stakingBps,
-                weights.operatorsBps,
-                weights.customersBps,
-                weights.developersBps,
-                weights.stakersBps
-            );
+        return (
+            weights.stakingBps, weights.operatorsBps, weights.customersBps, weights.developersBps, weights.stakersBps
+        );
     }
 
     /// @notice Get tracked operator count

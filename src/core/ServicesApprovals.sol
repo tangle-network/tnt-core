@@ -98,9 +98,7 @@ abstract contract ServicesApprovals is Base {
         bytes32 teeRoot;
         if (hasTeeCommitments) {
             ServiceValidationLib.validateTeeCommitments(
-                p.requestId,
-                p.teeCommitments,
-                AttestationLib.teeNonce(p.requestId, address(this), block.chainid)
+                p.requestId, p.teeCommitments, AttestationLib.teeNonce(p.requestId, address(this), block.chainid)
             );
             teeRoot = keccak256(abi.encode(p.teeCommitments));
         }

@@ -288,7 +288,10 @@ contract ArbitrumL2Receiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         address _receiver,
         uint256 _sourceChainId,
         address _owner
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         if (_owner == address(0)) revert ZeroAddress();
         __UUPSUpgradeable_init();
         __Ownable_init(_owner);

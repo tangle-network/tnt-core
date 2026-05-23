@@ -127,11 +127,8 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
         // balance get a virtual addend, so the very first depositor cannot
         // unilaterally set the share price by donating just before depositing.
         // shares = actualReceived * (totalShares + VIRTUAL_SHARES) / (balanceBefore + VIRTUAL_ASSETS)
-        shares = actualReceived.mulDiv(
-            totalShares + VIRTUAL_SHARES,
-            balanceBefore + VIRTUAL_ASSETS,
-            Math.Rounding.Floor
-        );
+        shares =
+            actualReceived.mulDiv(totalShares + VIRTUAL_SHARES, balanceBefore + VIRTUAL_ASSETS, Math.Rounding.Floor);
 
         if (shares == 0) revert ZeroShares();
 
@@ -151,11 +148,7 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
         // Calculate assets to withdraw with the same virtual offset:
         // assets = (shares * (balance + VIRTUAL_ASSETS)) / (totalShares + VIRTUAL_SHARES)
         uint256 currentBalance = IERC20(asset).balanceOf(address(this));
-        assets = shares.mulDiv(
-            currentBalance + VIRTUAL_ASSETS,
-            totalShares + VIRTUAL_SHARES,
-            Math.Rounding.Floor
-        );
+        assets = shares.mulDiv(currentBalance + VIRTUAL_ASSETS, totalShares + VIRTUAL_SHARES, Math.Rounding.Floor);
 
         if (assets == 0) revert ZeroAmount();
 

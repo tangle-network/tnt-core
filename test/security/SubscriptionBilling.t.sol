@@ -386,7 +386,6 @@ contract SubscriptionBillingTest is BaseTest {
         assertApproxEqAbs(charged, SUB_RATE, 1, "post-topup bill must NOT be free");
     }
 
-
     /// @notice `twapBillAmount` reverts (rather than silently returning `nominalRate`)
     ///         when `rate * cumDelta` would overflow uint256. Realistic protocol scale
     ///         keeps the product well inside uint256; the revert is a guardrail for

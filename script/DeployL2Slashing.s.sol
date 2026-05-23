@@ -228,8 +228,7 @@ contract DeployL2Slashing is EnvUtils {
         // transferred to `admin` at the bottom of this function.
         L2SlashingReceiver receiverImpl = new L2SlashingReceiver();
         ERC1967Proxy receiverProxy = new ERC1967Proxy(
-            address(receiverImpl),
-            abi.encodeCall(L2SlashingReceiver.initialize, (slasher, initialMessenger, deployer))
+            address(receiverImpl), abi.encodeCall(L2SlashingReceiver.initialize, (slasher, initialMessenger, deployer))
         );
         L2SlashingReceiver receiverContract = L2SlashingReceiver(address(receiverProxy));
         receiver = address(receiverContract);
@@ -293,8 +292,7 @@ contract DeployL2Slashing is EnvUtils {
         // succeeds, then transfer ownership to `admin`.
         address hyperlaneImpl = address(new HyperlaneReceiver());
         ERC1967Proxy hyperlaneProxy = new ERC1967Proxy(
-            hyperlaneImpl,
-            abi.encodeCall(HyperlaneReceiver.initialize, (mailbox, address(receiverContract), deployer))
+            hyperlaneImpl, abi.encodeCall(HyperlaneReceiver.initialize, (mailbox, address(receiverContract), deployer))
         );
         HyperlaneReceiver hyperlaneReceiver = HyperlaneReceiver(address(hyperlaneProxy));
 

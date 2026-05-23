@@ -93,7 +93,8 @@ interface ITangleSlashing {
         uint64 disputeResolutionDeadline,
         uint256 disputeBond,
         uint16 maxPendingSlashesPerOperator
-    ) external;
+    )
+        external;
 
     /// @notice Get slash proposal details
     function getSlashProposal(uint64 slashId) external view returns (SlashingLib.SlashProposal memory);

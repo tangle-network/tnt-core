@@ -916,7 +916,15 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             } else {
                 vm.startPrank(operator1);
             }
-            tangle.approveService(Types.ApprovalParams({requestId: currentRequestId, securityCommitments: new Types.AssetSecurityCommitment[](0), blsPubkey: [uint256(0),0,0,0], blsPopSignature: [uint256(0),0], teeCommitments: new Types.TeeAttestationCommitment[](0)})); // 50% staking exposure
+            tangle.approveService(
+                Types.ApprovalParams({
+                    requestId: currentRequestId,
+                    securityCommitments: new Types.AssetSecurityCommitment[](0),
+                    blsPubkey: [uint256(0), 0, 0, 0],
+                    blsPopSignature: [uint256(0), 0],
+                    teeCommitments: new Types.TeeAttestationCommitment[](0)
+                })
+            ); // 50% staking exposure
             console2.log("Operator1 approved service", currentRequestId);
             if (useBroadcastKeys) {
                 vm.stopBroadcast();
@@ -929,7 +937,15 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
             } else {
                 vm.startPrank(operator2);
             }
-            tangle.approveService(Types.ApprovalParams({requestId: currentRequestId, securityCommitments: new Types.AssetSecurityCommitment[](0), blsPubkey: [uint256(0),0,0,0], blsPopSignature: [uint256(0),0], teeCommitments: new Types.TeeAttestationCommitment[](0)})); // 50% staking exposure
+            tangle.approveService(
+                Types.ApprovalParams({
+                    requestId: currentRequestId,
+                    securityCommitments: new Types.AssetSecurityCommitment[](0),
+                    blsPubkey: [uint256(0), 0, 0, 0],
+                    blsPopSignature: [uint256(0), 0],
+                    teeCommitments: new Types.TeeAttestationCommitment[](0)
+                })
+            ); // 50% staking exposure
             console2.log("Operator2 approved service", currentRequestId);
             if (useBroadcastKeys) {
                 vm.stopBroadcast();
@@ -1149,11 +1165,7 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         tangle.setPaymentSplit(
             Types.PaymentSplit({
-                developerBps: 2000,
-                protocolBps: 500,
-                operatorBps: 6450,
-                stakerBps: 1000,
-                keeperBps: 50
+                developerBps: 2000, protocolBps: 500, operatorBps: 6450, stakerBps: 1000, keeperBps: 50
             })
         );
         console2.log("Payment split: 20% dev / 5% protocol / 64.5% operator / 10% staker / 0.5% keeper");
@@ -1260,7 +1272,15 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         if (useBroadcastKeys) vm.startBroadcast(operatorKey);
         else vm.startPrank(operator);
 
-        tangle.approveService(Types.ApprovalParams({requestId: reqId, securityCommitments: new Types.AssetSecurityCommitment[](0), blsPubkey: [uint256(0),0,0,0], blsPopSignature: [uint256(0),0], teeCommitments: new Types.TeeAttestationCommitment[](0)}));
+        tangle.approveService(
+            Types.ApprovalParams({
+                requestId: reqId,
+                securityCommitments: new Types.AssetSecurityCommitment[](0),
+                blsPubkey: [uint256(0), 0, 0, 0],
+                blsPopSignature: [uint256(0), 0],
+                teeCommitments: new Types.TeeAttestationCommitment[](0)
+            })
+        );
 
         if (useBroadcastKeys) vm.stopBroadcast();
         else vm.stopPrank();

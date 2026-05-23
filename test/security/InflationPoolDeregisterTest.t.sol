@@ -17,8 +17,7 @@ contract InflationPoolDeregisterTest is Test {
     function setUp() public {
         InflationPool impl = new InflationPool();
         ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(InflationPool.initialize, (admin, tnt, address(0), address(0), 7 days))
+            address(impl), abi.encodeCall(InflationPool.initialize, (admin, tnt, address(0), address(0), 7 days))
         );
         pool = InflationPool(payable(address(proxy)));
     }

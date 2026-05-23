@@ -382,14 +382,9 @@ library BeaconChainProofs {
 
     /// @notice Byte-swap a uint64 (little-endian <-> big-endian).
     function _reverseUint64(uint64 n) internal pure returns (uint64) {
-        return ((n & 0x00000000000000FF) << 56)
-             | ((n & 0x000000000000FF00) << 40)
-             | ((n & 0x0000000000FF0000) << 24)
-             | ((n & 0x00000000FF000000) << 8)
-             | ((n & 0x000000FF00000000) >> 8)
-             | ((n & 0x0000FF0000000000) >> 24)
-             | ((n & 0x00FF000000000000) >> 40)
-             | ((n & 0xFF00000000000000) >> 56);
+        return ((n & 0x00000000000000FF) << 56) | ((n & 0x000000000000FF00) << 40) | ((n & 0x0000000000FF0000) << 24)
+            | ((n & 0x00000000FF000000) << 8) | ((n & 0x000000FF00000000) >> 8) | ((n & 0x0000FF0000000000) >> 24)
+            | ((n & 0x00FF000000000000) >> 40) | ((n & 0xFF00000000000000) >> 56);
     }
 
     /// @notice Verify a Merkle proof using SHA256 with simple index

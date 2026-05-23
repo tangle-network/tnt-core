@@ -590,8 +590,9 @@ contract JobPricingAndRFQTest is BaseTest {
         address[] memory ops = new address[](2);
         ops[0] = operator1;
         ops[1] = operator2;
-        uint64 requestId =
-            tangle.requestService(blueprintId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.TeeRequired);
+        uint64 requestId = tangle.requestService(
+            blueprintId, ops, "", new address[](0), 0, address(0), 0, Types.ConfidentialityPolicy.TeeRequired
+        );
         vm.stopPrank();
 
         vm.prank(operator1);

@@ -191,8 +191,8 @@ contract SlashAccountingInvariantTest is StdInvariant, Test {
     }
 
     function invariant_slashAccountingConservesSlashableMass() public view {
-        uint256 actualTotal =
-            exposed.operatorStake(operator) + exposed.rewardPoolTotals(operator) + exposed.blueprintPoolTotals(operator, BLUEPRINT_ID);
+        uint256 actualTotal = exposed.operatorStake(operator) + exposed.rewardPoolTotals(operator)
+            + exposed.blueprintPoolTotals(operator, BLUEPRINT_ID);
 
         assertEq(actualTotal, handler.expectedTotal(), "slashable accounting drifted from modeled total");
     }
@@ -207,8 +207,8 @@ contract SlashAccountingInvariantTest is StdInvariant, Test {
     }
 
     function invariant_cumulativeSlashedNeverExceedsInitialPlusDeposits() public view {
-        uint256 actualTotal =
-            exposed.operatorStake(operator) + exposed.rewardPoolTotals(operator) + exposed.blueprintPoolTotals(operator, BLUEPRINT_ID);
+        uint256 actualTotal = exposed.operatorStake(operator) + exposed.rewardPoolTotals(operator)
+            + exposed.blueprintPoolTotals(operator, BLUEPRINT_ID);
 
         uint256 grossModeled = 90 ether + handler.totalDelegated();
         assertEq(actualTotal + handler.totalSlashed(), grossModeled, "slash conservation violated");

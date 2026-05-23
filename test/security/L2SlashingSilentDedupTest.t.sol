@@ -35,11 +35,7 @@ contract L2SlashingSilentDedupTest is Test {
 
     function test_DuplicateNonceReverts() public {
         bytes memory payload = _buildSlashPayload({
-            operator: makeAddr("op1"),
-            slashBps: 1000,
-            slashingFactor: 9e17,
-            nonce: 42,
-            pod: makeAddr("pod1")
+            operator: makeAddr("op1"), slashBps: 1000, slashingFactor: 9e17, nonce: 42, pod: makeAddr("pod1")
         });
 
         vm.prank(messenger);
@@ -79,22 +75,26 @@ contract L2SlashingSilentDedupTest is Test {
         uint64 slashingFactor,
         uint256 nonce,
         address pod
-    ) internal pure returns (bytes memory) {
-        return abi.encodePacked(
-            SLASH_MESSAGE_TYPE,
-            abi.encode(operator, slashBps, slashingFactor, nonce, pod)
-        );
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodePacked(SLASH_MESSAGE_TYPE, abi.encode(operator, slashBps, slashingFactor, nonce, pod));
     }
 }
 
 contract MockSlasher is IL2Slasher {
     uint256 public callCount;
+
     function slashOperator(address, uint16, bytes calldata) external override {
         callCount++;
     }
+
     function canSlash(address) external pure override returns (bool) {
         return true;
     }
+
     function getSlashableStake(address) external pure override returns (uint256) {
         return type(uint256).max;
     }

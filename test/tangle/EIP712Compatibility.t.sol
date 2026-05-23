@@ -41,7 +41,12 @@ contract EIP712CompatibilityTest is Test {
     function test_JobQuoteDigest_Vector1() public pure {
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
             requester: 0x000000000000000000000000000000000000bEEF,
-            serviceId: 42, jobIndex: 3, price: 1 ether, timestamp: 1_700_000_000, expiry: 1_700_003_600, confidentiality: 0
+            serviceId: 42,
+            jobIndex: 3,
+            price: 1 ether,
+            timestamp: 1_700_000_000,
+            expiry: 1_700_003_600,
+            confidentiality: 0
         });
 
         bytes32 domainSep = _testDomainSeparator();
@@ -74,8 +79,15 @@ contract EIP712CompatibilityTest is Test {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_JobQuoteDigest_Vector2_ZeroPrice() public pure {
-        Types.JobQuoteDetails memory details =
-            Types.JobQuoteDetails({ requester: address(0xC0FFEE), serviceId: 1, jobIndex: 0, price: 0, timestamp: 1_000_000, expiry: 1_003_600, confidentiality: 0 });
+        Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
+            requester: address(0xC0FFEE),
+            serviceId: 1,
+            jobIndex: 0,
+            price: 0,
+            timestamp: 1_000_000,
+            expiry: 1_003_600,
+            confidentiality: 0
+        });
 
         bytes32 domainSep = _testDomainSeparator();
         bytes32 digest = SignatureLib.computeJobQuoteDigest(domainSep, details);
@@ -95,7 +107,12 @@ contract EIP712CompatibilityTest is Test {
     function test_JobQuoteDigest_Vector3_LargePrice() public pure {
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
             requester: 0x000000000000000000000000000000000000bEEF,
-            serviceId: 999, jobIndex: 7, price: type(uint128).max, timestamp: 1_700_000_000, expiry: 1_700_007_200, confidentiality: 0
+            serviceId: 999,
+            jobIndex: 7,
+            price: type(uint128).max,
+            timestamp: 1_700_000_000,
+            expiry: 1_700_007_200,
+            confidentiality: 0
         });
 
         bytes32 domainSep = _testDomainSeparator();
@@ -117,7 +134,12 @@ contract EIP712CompatibilityTest is Test {
     function test_JobQuoteSignature_Vector4_Roundtrip() public pure {
         Types.JobQuoteDetails memory details = Types.JobQuoteDetails({
             requester: 0x000000000000000000000000000000000000bEEF,
-            serviceId: 42, jobIndex: 3, price: 1 ether, timestamp: 1_700_000_000, expiry: 1_700_003_600, confidentiality: 0
+            serviceId: 42,
+            jobIndex: 3,
+            price: 1 ether,
+            timestamp: 1_700_000_000,
+            expiry: 1_700_003_600,
+            confidentiality: 0
         });
 
         bytes32 domainSep = _testDomainSeparator();

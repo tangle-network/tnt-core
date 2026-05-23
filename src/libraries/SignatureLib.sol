@@ -39,8 +39,9 @@ library SignatureLib {
     /// @dev EIP-712 TypeHash for JobQuoteDetails (per-job RFQ).
     /// @dev Includes `requester` so the operator's signature binds the consumer of
     ///      the quote, mirroring the QuoteDetails fix.
-    bytes32 internal constant JOB_QUOTE_TYPEHASH =
-        keccak256("JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)");
+    bytes32 internal constant JOB_QUOTE_TYPEHASH = keccak256(
+        "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)"
+    );
 
     /// @dev EIP-712 TypeHash for domain separator
     bytes32 internal constant DOMAIN_TYPEHASH =

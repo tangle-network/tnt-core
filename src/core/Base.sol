@@ -121,11 +121,7 @@ abstract contract Base is
     /// @param operatorBps Operator share in basis points
     /// @param stakerBps Staker share in basis points
     event PaymentSplitUpdated(
-        uint16 developerBps,
-        uint16 protocolBps,
-        uint16 operatorBps,
-        uint16 stakerBps,
-        uint16 keeperBps
+        uint16 developerBps, uint16 protocolBps, uint16 operatorBps, uint16 stakerBps, uint16 keeperBps
     );
 
     /// @notice Emitted when the protocol treasury address is updated
