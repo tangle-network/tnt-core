@@ -9,3 +9,6 @@ voice-inference-blueprint	6	0x46EdE6E0611CF164D84Cb3b364482C5Ba8B2E9f0	registere
 avatar-inference-blueprint	7	0xc15387e7734bAa66405c96fb996893d375A2D824	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:54:52Z
 embedding-inference-blueprint	8	0xe3BaA7a4b7d41261A09f0547F80e9CE5cE3de7DB	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:55:29Z
 video-gen-inference-blueprint	9	0x91E3C8f9a84BBC395eCE8deBf69b032912b81D81	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-22T23:56:10Z
+ai-agent-sandbox-blueprint	10	0x281d2D1160d80070eBe8989A529b6732C8403625	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-23T00:50:05Z
+ai-trading-blueprint	-	-	failed_rc_1	-	-	-	-	-	2026-05-23T10:52:50Z
+ai-trading-blueprint	16	0xA21F575dA87143ec82D6d183d4e7Af405E9409A4	registered	-	-	-	-	no_v0_published — re-run when binary path is configured	2026-05-23T10:55:36Z
