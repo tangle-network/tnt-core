@@ -15,22 +15,19 @@ const createStore = <T extends { id: string }>(initial: T[] = []) => {
     set(entity: T) {
       map.set(entity.id, entity);
     },
-    getWhere: new Proxy(
-      {},
-      {
-        get: (_target, field: string) => ({
-          eq: async (value: unknown) => {
-            const matches: T[] = [];
-            map.forEach((entity) => {
-              if ((entity as any)[field] === value) {
-                matches.push(entity);
-              }
-            });
-            return matches;
-          },
-        }),
-      }
-    ),
+    async getWhere(filter: Record<string, { _eq?: unknown }>) {
+      const matches: T[] = [];
+      map.forEach((entity) => {
+        const ok = Object.entries(filter).every(([field, expr]) => {
+          if (expr && "_eq" in expr) {
+            return (entity as any)[field] === expr._eq;
+          }
+          return true;
+        });
+        if (ok) matches.push(entity);
+      });
+      return matches;
+    },
     values: () => Array.from(map.values()),
   };
 };

@@ -15,11 +15,11 @@ field_selection:
     - hash
     - from
     - input
-networks:
+chains:
   - id: 31337  # Anvil default chain ID for local development
     start_block: 0
-    rpc_config:
-      url: http://127.0.0.1:8545
+    rpc:
+      - url: http://127.0.0.1:8545
     contracts:
       - name: Tangle
         address:
@@ -185,6 +185,4 @@ networks:
         handler: src/EventHandlers.ts
         events:
           - event: CreditsClaimed(address indexed account, uint256 amount, bytes32 offchainAccountId)
-unordered_multichain_mode: true
-preload_handlers: true
 address_format: lowercase

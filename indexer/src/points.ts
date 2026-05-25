@@ -1,4 +1,4 @@
-import type { PointsAccount, PointsEvent, PointsHourlyTotal, PointsProgram, PointsSnapshot } from "generated/src/Types.gen";
+import type { PointsAccount, PointsEvent, PointsHourlyTotal, PointsProgram, PointsSnapshot } from "envio";
 import { ensurePointsProgram, PROGRAMS } from "./points/programs";
 import type { PointsProgramId } from "./points/programs";
 export { ensurePointsProgram } from "./points/programs";

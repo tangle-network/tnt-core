@@ -1,27 +1,16 @@
 import type { AssetMetadata } from "./assets";
 import { getAssetMetadata, listRegisteredAssets } from "./assets";
+import type { AssetPrice, AssetPriceSample } from "envio";
+import type { PriceContext } from "../lib/handlerContext";
 
-type AssetPriceEntity = {
-  id: string;
-  asset: string;
-  symbol: string;
-  price: bigint;
-  source: string;
-  blockNumber: bigint;
-  updatedAt: bigint;
-};
-
-type AssetPriceSampleEntity = {
-  id: string;
-  asset: string;
-  symbol: string;
-  price?: bigint;
-  source: string;
-  status: PriceSampleStatus;
-  reason?: string;
-  blockNumber: bigint;
-  fetchedAt: bigint;
-};
+// v3 codegen ships these via the `envio` module — use those instead of
+// re-declaring the shape locally. The local copies had drifted: `source`
+// was typed as `string` but v3 narrows to `"FALLBACK" | "COINGECKO" |
+// "STATIC" | "DERIVED"`, and `price?: bigint` (truly optional) didn't
+// match v3's `price: bigint | undefined` (always present, possibly
+// undefined) — the v3 typed `set()` parameter rejects the looser shape.
+type AssetPriceEntity = AssetPrice;
+type AssetPriceSampleEntity = AssetPriceSample;
 
 type PriceCacheEntry = {
   price: number;
@@ -143,7 +132,7 @@ let priceSampleCounter = 0;
 const toScaledPrice = (price: number) => BigInt(Math.round(price * Number(PRICE_SCALE)));
 
 const recordPriceSample = (
-  context: any,
+  context: PriceContext,
   metadata: AssetMetadata,
   price: number | undefined,
   source: PriceSource,
@@ -263,7 +252,7 @@ const resolvePriceAsync = async (
   return { source: "STATIC", status: "FAILURE", reason: "missing-price-config" };
 };
 
-export const refreshRegisteredAssetPrices = async (context: any, blockNumber: bigint, timestamp: bigint) => {
+export const refreshRegisteredAssetPrices = async (context: PriceContext, blockNumber: bigint, timestamp: bigint) => {
   const assets = listRegisteredAssets();
   const ids = assets
     .map((asset) => asset.priceId)
@@ -280,13 +269,13 @@ export const refreshRegisteredAssetPrices = async (context: any, blockNumber: bi
   }
 };
 
-export const getStoredAssetPrice = async (context: any, metadata: AssetMetadata) => {
+export const getStoredAssetPrice = async (context: PriceContext, metadata: AssetMetadata) => {
   const entity = (await context.AssetPrice.get(metadata.address.toLowerCase())) as AssetPriceEntity | undefined;
   return entity?.price ?? null;
 };
 
 export const ensureAssetPrice = async (
-  context: any,
+  context: PriceContext,
   metadata: AssetMetadata,
   blockNumber: bigint,
   timestamp: bigint

@@ -17,10 +17,11 @@ import type {
   SlashConfig,
   SlashProposal,
   WithdrawRequest,
-} from "generated/src/Types.gen";
+} from "envio";
 import type { PointsContext } from "../points";
 import { PointsManager } from "../points";
 import { deactivateParticipation } from "../points/participation";
+import type { HandlerContext } from "./handlerContext";
 
 export type RewardVaultEventType = "DECAY_UPDATED" | "COMMISSION_UPDATED" | "LOCK_DURATIONS_UPDATED";
 export type BlueprintSelectionMode = "ALL" | "FIXED";
@@ -471,11 +472,11 @@ export const ensureCreditLedgerAccount = async (
   return entry;
 };
 
-const hasLiquidVaultStake = async (context: any, delegatorId: string): Promise<boolean> => {
+const hasLiquidVaultStake = async (context: HandlerContext, delegatorId: string): Promise<boolean> => {
   if (!context.LiquidVaultPosition) {
     return false;
   }
-  const positions = (await context.LiquidVaultPosition.getWhere.account_id.eq(delegatorId)) as LiquidVaultPosition[];
+  const positions = (await context.LiquidVaultPosition.getWhere({ account_id: { _eq: delegatorId } })) as LiquidVaultPosition[];
   return positions.some((position) => {
     const activeShares = position.shares ?? 0n;
     const pendingShares = position.pendingShares ?? 0n;
@@ -484,7 +485,7 @@ const hasLiquidVaultStake = async (context: any, delegatorId: string): Promise<b
   });
 };
 
-export const maybeDeactivateDelegatorParticipation = async (context: any, delegator: Delegator, timestamp: bigint) => {
+export const maybeDeactivateDelegatorParticipation = async (context: HandlerContext, delegator: Delegator, timestamp: bigint) => {
   const hasDirect = (delegator.totalDelegated ?? 0n) > 0n;
   const hasLiquid = await hasLiquidVaultStake(context, delegator.id);
   if (!hasDirect && !hasLiquid) {
@@ -492,7 +493,7 @@ export const maybeDeactivateDelegatorParticipation = async (context: any, delega
   }
 };
 
-export const maybeDeactivateOperatorParticipation = async (context: any, operator: Operator, timestamp: bigint) => {
+export const maybeDeactivateOperatorParticipation = async (context: HandlerContext, operator: Operator, timestamp: bigint) => {
   const stake = operator.stakingStake ?? 0n;
   if (stake <= 0n) {
     await deactivateParticipation(context, "operator-hourly", operator.id, timestamp);

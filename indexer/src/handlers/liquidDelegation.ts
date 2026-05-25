@@ -1,11 +1,11 @@
-import { LiquidDelegationFactory, LiquidDelegationVault } from "generated";
+import { indexer } from "envio";
 import type {
   LiquidDelegationVault as LiquidVaultEntity,
   LiquidRedeemRequest,
   LiquidVaultPosition,
   Operator,
   StakingAsset,
-} from "generated/src/Types.gen";
+} from "envio";
 import {
   ZERO_ADDRESS,
   ensureDelegator,
@@ -22,6 +22,7 @@ import {
 import { activateParticipation, pointsContext } from "../points/participation";
 import { awardLiquidVaultStake, penalizeLiquidVaultWithdraw } from "../points/awards";
 import { upsertAssetMetadata } from "../points/assets";
+import type { HandlerContext } from "../lib/handlerContext";
 
 const getVaultId = (address: string) => normalizeAddress(address);
 
@@ -51,18 +52,18 @@ const syncVaultAssetMetadata = (vault: LiquidVaultEntity) => {
 
 const getPositionId = (vaultId: string, accountId: string) => `${vaultId}-${accountId}`;
 
-const ensureVaultEntity = async (context: any, vaultAddress: string): Promise<LiquidVaultEntity | undefined> => {
+const ensureVaultEntity = async (context: HandlerContext, vaultAddress: string): Promise<LiquidVaultEntity | undefined> => {
   const id = getVaultId(vaultAddress);
   return (await context.LiquidDelegationVault.get(id)) as LiquidVaultEntity | undefined;
 };
 
-const saveVaultEntity = (context: any, entity: LiquidVaultEntity) => {
+const saveVaultEntity = (context: HandlerContext, entity: LiquidVaultEntity) => {
   context.LiquidDelegationVault.set(entity);
   syncVaultAssetMetadata(entity);
 };
 
 const ensurePosition = async (
-  context: any,
+  context: HandlerContext,
   vaultId: string,
   accountId: string,
   timestamp: bigint
@@ -84,7 +85,7 @@ const ensurePosition = async (
   return position;
 };
 
-const savePosition = (context: any, position: LiquidVaultPosition) => {
+const savePosition = (context: HandlerContext, position: LiquidVaultPosition) => {
   context.LiquidVaultPosition.set(position);
 };
 
@@ -96,7 +97,7 @@ const applyDelta = (current: bigint | undefined, delta: bigint) => {
 };
 
 const adjustPendingPosition = async (
-  context: any,
+  context: HandlerContext,
   vaultId: string,
   accountId: string,
   shareDelta: bigint,
@@ -114,176 +115,195 @@ const adjustPendingPosition = async (
   return updated;
 };
 
-export function registerLiquidDelegationHandlers() {
-  LiquidDelegationFactory.VaultCreated.handler(async ({ event, context }) => {
-    const timestamp = getTimestamp(event);
-    const vaultAddress = normalizeAddress(event.params.vault);
-    const operatorAddress = normalizeAddress(event.params.operator);
-    const assetAddress = normalizeAddress(event.params.asset ?? ZERO_ADDRESS);
-    const operator = (await ensureOperator(context, operatorAddress, timestamp)) as Operator;
-    const asset = (await ensureStakingAsset(context, assetAddress, timestamp)) as StakingAsset;
-    const existing = await ensureVaultEntity(context, vaultAddress);
-    if (existing) {
-      return;
+indexer.onEvent({ contract: "LiquidDelegationFactory", event: "VaultCreated" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const vaultAddress = normalizeAddress(event.params.vault);
+  const operatorAddress = normalizeAddress(event.params.operator);
+  const assetAddress = normalizeAddress(event.params.asset ?? ZERO_ADDRESS);
+  const operator = (await ensureOperator(context, operatorAddress, timestamp)) as Operator;
+  const asset = (await ensureStakingAsset(context, assetAddress, timestamp)) as StakingAsset;
+  const existing = await ensureVaultEntity(context, vaultAddress);
+  if (existing) {
+    return;
+  }
+  const blueprintIds = (event.params.blueprintIds ?? []).map((value) => toBigInt(value));
+  const blueprintSelection = blueprintIds.length > 0 ? "FIXED" : "ALL";
+  const entity: LiquidVaultEntity = {
+    id: vaultAddress,
+    address: vaultAddress,
+    operator_id: operator.id,
+    stakingAsset_id: asset.id,
+    assetAddress: assetAddress,
+    name: event.params.name,
+    symbol: event.params.symbol,
+    blueprintSelection,
+    blueprintIds,
+    totalAssets: 0n,
+    totalShares: 0n,
+    totalDepositors: 0n,
+    pendingRedeemShares: 0n,
+     harvestedRewards: 0n,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    txHash: getTxHash(event),
+    isNative: assetAddress === ZERO_ADDRESS,
+  } as LiquidVaultEntity;
+  saveVaultEntity(context, entity);
+  // Envio v3 dynamic contract registration. The factory's VaultCreated event
+  // is registered via indexer.contractRegister below; this branch is a
+  // belt-and-suspenders runtime add for cases where the factory emits a
+  // vault that wasn't seen at boot.
+  try {
+    const chain = (context as any).chain;
+    const registrar = chain?.LiquidDelegationVault;
+    if (registrar?.add) {
+      registrar.add(vaultAddress);
     }
-    const blueprintIds = (event.params.blueprintIds ?? []).map((value) => toBigInt(value));
-    const blueprintSelection = blueprintIds.length > 0 ? "FIXED" : "ALL";
-    const entity: LiquidVaultEntity = {
-      id: vaultAddress,
-      address: vaultAddress,
-      operator_id: operator.id,
-      stakingAsset_id: asset.id,
-      assetAddress: assetAddress,
-      name: event.params.name,
-      symbol: event.params.symbol,
-      blueprintSelection,
-      blueprintIds,
-      totalAssets: 0n,
-      totalShares: 0n,
-      totalDepositors: 0n,
-      pendingRedeemShares: 0n,
-       harvestedRewards: 0n,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      txHash: getTxHash(event),
-      isNative: assetAddress === ZERO_ADDRESS,
-    } as LiquidVaultEntity;
-    saveVaultEntity(context, entity);
-    // Dynamic contract registration is optional and may not be available in all Envio versions
-    try {
-      const registrar = (context as any).contracts;
-      if (registrar?.addLiquidDelegationVault) {
-        registrar.addLiquidDelegationVault(vaultAddress);
-      }
-    } catch {
-      // Dynamic registration not supported - vault addresses should be in config.yaml
-    }
-  });
+  } catch {
+    // No-op: vault addresses can also be statically configured in config.yaml.
+  }
+});
 
-  LiquidDelegationVault.Deposit.handler(async ({ event, context }) => {
-    const timestamp = getTimestamp(event);
-    const vault = await ensureVaultEntity(context, event.srcAddress);
-    if (!vault) return;
-    const assets = toBigInt(event.params.assets);
-    const shares = toBigInt(event.params.shares);
-    const updatedVault: LiquidVaultEntity = {
-      ...vault,
-      totalAssets: (vault.totalAssets ?? 0n) + assets,
-      totalShares: (vault.totalShares ?? 0n) + shares,
-      updatedAt: timestamp,
-    } as LiquidVaultEntity;
-    saveVaultEntity(context, updatedVault);
-    const owner = normalizeAddress(event.params.owner);
-    const points = getPointsManager(pointsContext(context), event);
-    await awardLiquidVaultStake(points, owner, vault.id, assets);
-  });
-
-  LiquidDelegationVault.Withdraw.handler(async ({ event, context }) => {
-    const timestamp = getTimestamp(event);
-    const vault = await ensureVaultEntity(context, event.srcAddress);
-    if (!vault) return;
-    const assets = toBigInt(event.params.assets);
-    const shares = toBigInt(event.params.shares);
-    const updatedVault: LiquidVaultEntity = {
-      ...vault,
-      totalAssets: subtractToZero(vault.totalAssets, assets),
-      pendingRedeemShares: subtractToZero(vault.pendingRedeemShares, shares),
-      updatedAt: timestamp,
-    } as LiquidVaultEntity;
-    saveVaultEntity(context, updatedVault);
-
-    const controller = normalizeAddress(event.params.owner);
-    const request = await resolveRedeemRequest(context, updatedVault.id, controller, shares);
-    if (request) {
-      context.LiquidRedeemRequest.set({
-        ...request,
-        claimed: true,
-        claimedAt: timestamp,
-        claimer: normalizeAddress(event.params.receiver),
-      } as LiquidRedeemRequest);
-      if (request.owner_id) {
-        await adjustPendingPosition(
-          context,
-          updatedVault.id,
-          request.owner_id,
-          -(request.shares ?? 0n),
-          -(request.estimatedAssets ?? 0n),
-          timestamp
-        );
-        const delegator = await ensureDelegator(context, request.owner_id, timestamp);
-        await maybeDeactivateDelegatorParticipation(context, delegator, timestamp);
-        const points = getPointsManager(pointsContext(context), event);
-        await penalizeLiquidVaultWithdraw(points, request.owner_id, updatedVault.id, assets);
+// Register vault contracts on-the-fly when the factory emits VaultCreated, so
+// the vault's own events get indexed without manual config edits.
+indexer.contractRegister(
+  { contract: "LiquidDelegationFactory", event: "VaultCreated" },
+  async ({ event, context }) => {
+    const chain = (context as any).chain;
+    const registrar = chain?.LiquidDelegationVault;
+    if (registrar?.add) {
+      try {
+        registrar.add(normalizeAddress(event.params.vault));
+      } catch {
+        // Already registered or unsupported; ignore.
       }
     }
-  });
+  },
+);
 
-  LiquidDelegationVault.RedeemRequest.handler(async ({ event, context }) => {
-    const timestamp = getTimestamp(event);
-    const vault = await ensureVaultEntity(context, event.srcAddress);
-    if (!vault) return;
-    const controller = normalizeAddress(event.params.controller);
-    const owner = normalizeAddress(event.params.owner);
-    const shares = toBigInt(event.params.shares);
-    const totalShares = vault.totalShares ?? 0n;
-    const totalAssets = vault.totalAssets ?? 0n;
-    const estimatedAssets = totalShares > 0n && totalAssets > 0n ? (shares * totalAssets) / totalShares : shares;
-    const id = `${vault.id}-${controller}-${toBigInt(event.params.requestId).toString()}`;
-    const request: LiquidRedeemRequest = {
-      id,
-      vault_id: vault.id,
-      controller,
-      owner_id: owner,
-      requestId: toBigInt(event.params.requestId),
-      shares,
-      estimatedAssets,
-      requestedRound: 0n,
-      claimed: false,
-      createdAt: timestamp,
-      txHash: getTxHash(event),
-    } as LiquidRedeemRequest;
-    context.LiquidRedeemRequest.set(request);
-    const updatedVault: LiquidVaultEntity = {
-      ...vault,
-      totalShares: subtractToZero(vault.totalShares, request.shares ?? 0n),
-      pendingRedeemShares: (vault.pendingRedeemShares ?? 0n) + (request.shares ?? 0n),
-      updatedAt: timestamp,
-    } as LiquidVaultEntity;
-    saveVaultEntity(context, updatedVault);
-    await adjustPendingPosition(context, updatedVault.id, owner, shares, estimatedAssets, timestamp);
-    await activateParticipation(context, "delegator-hourly", owner, "DELEGATOR", timestamp);
-  });
+indexer.onEvent({ contract: "LiquidDelegationVault", event: "Deposit" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const vault = await ensureVaultEntity(context, event.srcAddress);
+  if (!vault) return;
+  const assets = toBigInt(event.params.assets);
+  const shares = toBigInt(event.params.shares);
+  const updatedVault: LiquidVaultEntity = {
+    ...vault,
+    totalAssets: (vault.totalAssets ?? 0n) + assets,
+    totalShares: (vault.totalShares ?? 0n) + shares,
+    updatedAt: timestamp,
+  } as LiquidVaultEntity;
+  saveVaultEntity(context, updatedVault);
+  const owner = normalizeAddress(event.params.owner);
+  const points = getPointsManager(pointsContext(context), event);
+  await awardLiquidVaultStake(points, owner, vault.id, assets);
+});
 
-  LiquidDelegationVault.Transfer.handler(async ({ event, context }) => {
-    const timestamp = getTimestamp(event);
-    const vault = await ensureVaultEntity(context, event.srcAddress);
-    if (!vault) return;
-    const value = toBigInt(event.params.value);
-    if (value === 0n) {
-      return;
+indexer.onEvent({ contract: "LiquidDelegationVault", event: "Withdraw" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const vault = await ensureVaultEntity(context, event.srcAddress);
+  if (!vault) return;
+  const assets = toBigInt(event.params.assets);
+  const shares = toBigInt(event.params.shares);
+  const updatedVault: LiquidVaultEntity = {
+    ...vault,
+    totalAssets: subtractToZero(vault.totalAssets, assets),
+    pendingRedeemShares: subtractToZero(vault.pendingRedeemShares, shares),
+    updatedAt: timestamp,
+  } as LiquidVaultEntity;
+  saveVaultEntity(context, updatedVault);
+
+  const controller = normalizeAddress(event.params.owner);
+  const request = await resolveRedeemRequest(context, updatedVault.id, controller, shares);
+  if (request) {
+    context.LiquidRedeemRequest.set({
+      ...request,
+      claimed: true,
+      claimedAt: timestamp,
+      claimer: normalizeAddress(event.params.receiver),
+    } as LiquidRedeemRequest);
+    if (request.owner_id) {
+      await adjustPendingPosition(
+        context,
+        updatedVault.id,
+        request.owner_id,
+        -(request.shares ?? 0n),
+        -(request.estimatedAssets ?? 0n),
+        timestamp
+      );
+      const delegator = await ensureDelegator(context, request.owner_id, timestamp);
+      await maybeDeactivateDelegatorParticipation(context, delegator, timestamp);
+      const points = getPointsManager(pointsContext(context), event);
+      await penalizeLiquidVaultWithdraw(points, request.owner_id, updatedVault.id, assets);
     }
-    const from = normalizeAddress(event.params.from);
-    const to = normalizeAddress(event.params.to);
-    await handleShareMovement(context, vault, from, to, value, timestamp);
-  });
+  }
+});
 
-  LiquidDelegationVault.RewardsHarvested.handler(async ({ event, context }) => {
-    const timestamp = getTimestamp(event);
-    const vault = await ensureVaultEntity(context, event.srcAddress);
-    if (!vault) return;
-    const amount = toBigInt(event.params.amount);
-    const updatedVault: LiquidVaultEntity = {
-      ...vault,
-      totalAssets: (vault.totalAssets ?? 0n) + amount,
-      harvestedRewards: (vault.harvestedRewards ?? 0n) + amount,
-      updatedAt: timestamp,
-    } as LiquidVaultEntity;
-    saveVaultEntity(context, updatedVault);
-  });
-}
+indexer.onEvent({ contract: "LiquidDelegationVault", event: "RedeemRequest" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const vault = await ensureVaultEntity(context, event.srcAddress);
+  if (!vault) return;
+  const controller = normalizeAddress(event.params.controller);
+  const owner = normalizeAddress(event.params.owner);
+  const shares = toBigInt(event.params.shares);
+  const totalShares = vault.totalShares ?? 0n;
+  const totalAssets = vault.totalAssets ?? 0n;
+  const estimatedAssets = totalShares > 0n && totalAssets > 0n ? (shares * totalAssets) / totalShares : shares;
+  const id = `${vault.id}-${controller}-${toBigInt(event.params.requestId).toString()}`;
+  const request: LiquidRedeemRequest = {
+    id,
+    vault_id: vault.id,
+    controller,
+    owner_id: owner,
+    requestId: toBigInt(event.params.requestId),
+    shares,
+    estimatedAssets,
+    requestedRound: 0n,
+    claimed: false,
+    createdAt: timestamp,
+    txHash: getTxHash(event),
+  } as LiquidRedeemRequest;
+  context.LiquidRedeemRequest.set(request);
+  const updatedVault: LiquidVaultEntity = {
+    ...vault,
+    totalShares: subtractToZero(vault.totalShares, request.shares ?? 0n),
+    pendingRedeemShares: (vault.pendingRedeemShares ?? 0n) + (request.shares ?? 0n),
+    updatedAt: timestamp,
+  } as LiquidVaultEntity;
+  saveVaultEntity(context, updatedVault);
+  await adjustPendingPosition(context, updatedVault.id, owner, shares, estimatedAssets, timestamp);
+  await activateParticipation(context, "delegator-hourly", owner, "DELEGATOR", timestamp);
+});
+
+indexer.onEvent({ contract: "LiquidDelegationVault", event: "Transfer" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const vault = await ensureVaultEntity(context, event.srcAddress);
+  if (!vault) return;
+  const value = toBigInt(event.params.value);
+  if (value === 0n) {
+    return;
+  }
+  const from = normalizeAddress(event.params.from);
+  const to = normalizeAddress(event.params.to);
+  await handleShareMovement(context, vault, from, to, value, timestamp);
+});
+
+indexer.onEvent({ contract: "LiquidDelegationVault", event: "RewardsHarvested" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const vault = await ensureVaultEntity(context, event.srcAddress);
+  if (!vault) return;
+  const amount = toBigInt(event.params.amount);
+  const updatedVault: LiquidVaultEntity = {
+    ...vault,
+    totalAssets: (vault.totalAssets ?? 0n) + amount,
+    harvestedRewards: (vault.harvestedRewards ?? 0n) + amount,
+    updatedAt: timestamp,
+  } as LiquidVaultEntity;
+  saveVaultEntity(context, updatedVault);
+});
 
 const handleShareMovement = async (
-  context: any,
+  context: HandlerContext,
   vault: LiquidVaultEntity,
   from: string,
   to: string,
@@ -322,7 +342,7 @@ const handleShareMovement = async (
   saveVaultEntity(context, { ...vault, totalDepositors, updatedAt: timestamp } as LiquidVaultEntity);
 };
 
-const resolveRedeemRequest = async (context: any, vaultId: string, controller: string, shares: bigint) => {
-  const requests = (await context.LiquidRedeemRequest.getWhere.vault_id.eq(vaultId)) as LiquidRedeemRequest[];
+const resolveRedeemRequest = async (context: HandlerContext, vaultId: string, controller: string, shares: bigint) => {
+  const requests = (await context.LiquidRedeemRequest.getWhere({ vault_id: { _eq: vaultId } })) as LiquidRedeemRequest[];
   return requests.find((req) => !req.claimed && req.controller === controller && (req.shares ?? 0n) === shares);
 };

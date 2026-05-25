@@ -8,12 +8,13 @@ import type {
   PointsProgram,
   Service,
   ServiceOperator,
-} from "generated/src/Types.gen";
+} from "envio";
 import type { PointsContext, PointsProgramId } from "../points";
 import { PointsManager, ensurePointsProgram } from "../points";
 import { toPointsValue } from "./math";
 import { getAssetMetadata, ZERO_ADDRESS } from "./assets";
 import { ensureAssetPrice, getStoredAssetPrice, PRICE_SCALE } from "./prices";
+import type { HandlerContext, PriceContext } from "../lib/handlerContext";
 
 export type PointsProgramCategory = "OPERATOR" | "DELEGATOR" | "SERVICE" | "CREDIT" | "BONUS";
 
@@ -35,7 +36,7 @@ type ParticipationValue = {
 };
 
 
-export const pointsContext = (context: any): PointsContext => ({
+export const pointsContext = (context: HandlerContext): PointsContext => ({
   PointsProgram: context.PointsProgram,
   PointsAccount: context.PointsAccount,
   PointsEvent: context.PointsEvent,
@@ -55,7 +56,7 @@ const adjustAmountToScale = (amount: bigint, decimals: number) => {
 };
 
 export const convertAmountToUsd = async (
-  context: any,
+  context: PriceContext,
   amount: bigint,
   token: string | undefined,
   blockNumber: bigint,
@@ -77,7 +78,7 @@ export const convertAmountToUsd = async (
 };
 
 const ensureParticipationState = async (
-  context: any,
+  context: HandlerContext,
   program: PointsProgram,
   entityId: string,
   category: PointsProgramCategory,
@@ -99,7 +100,7 @@ const ensureParticipationState = async (
 };
 
 export const activateParticipation = async (
-  context: any,
+  context: HandlerContext,
   programId: PointsProgramId,
   entityId: string,
   category: PointsProgramCategory,
@@ -111,7 +112,7 @@ export const activateParticipation = async (
 };
 
 export const deactivateParticipation = async (
-  context: any,
+  context: HandlerContext,
   programId: PointsProgramId,
   entityId: string,
   timestamp: bigint
@@ -125,7 +126,7 @@ export const deactivateParticipation = async (
   context.ParticipationState.set({ ...current, active: false } as ParticipationState);
 };
 
-const getOperatorStakeBasis = async (context: any, operatorId: string, blockNumber: bigint, timestamp: bigint): Promise<bigint> => {
+const getOperatorStakeBasis = async (context: HandlerContext, operatorId: string, blockNumber: bigint, timestamp: bigint): Promise<bigint> => {
   const operator = (await context.Operator.get(operatorId)) as Operator | undefined;
   if (!operator) {
     return 0n;
@@ -134,7 +135,7 @@ const getOperatorStakeBasis = async (context: any, operatorId: string, blockNumb
 };
 
 const sumDelegatorPositions = async (
-  context: any,
+  context: HandlerContext,
   delegator: Delegator,
   positions: DelegatorAssetPosition[],
   blockNumber: bigint,
@@ -154,7 +155,7 @@ const sumDelegatorPositions = async (
 };
 
 const getLiquidVaultStakeBasis = async (
-  context: any,
+  context: HandlerContext,
   delegatorId: string,
   blockNumber: bigint,
   timestamp: bigint
@@ -162,7 +163,7 @@ const getLiquidVaultStakeBasis = async (
   if (!context.LiquidVaultPosition) {
     return 0n;
   }
-  const positions = (await context.LiquidVaultPosition.getWhere.account_id.eq(delegatorId)) as LiquidVaultPosition[];
+  const positions = (await context.LiquidVaultPosition.getWhere({ account_id: { _eq: delegatorId } })) as LiquidVaultPosition[];
   let total = 0n;
   for (const position of positions) {
     const vault = (await context.LiquidDelegationVault.get(position.vault_id)) as LiquidDelegationVault | undefined;
@@ -185,30 +186,30 @@ const getLiquidVaultStakeBasis = async (
   return total;
 };
 
-const getDelegatorStakeBasis = async (context: any, delegatorId: string, blockNumber: bigint, timestamp: bigint): Promise<bigint> => {
+const getDelegatorStakeBasis = async (context: HandlerContext, delegatorId: string, blockNumber: bigint, timestamp: bigint): Promise<bigint> => {
   const delegator = (await context.Delegator.get(delegatorId)) as Delegator | undefined;
   if (!delegator) {
     return 0n;
   }
-  const positions = (await context.DelegatorAssetPosition.getWhere.delegator_id.eq(delegator.id)) as DelegatorAssetPosition[];
+  const positions = (await context.DelegatorAssetPosition.getWhere({ delegator_id: { _eq: delegator.id } })) as DelegatorAssetPosition[];
   return sumDelegatorPositions(context, delegator, positions, blockNumber, timestamp);
 };
 
-const getServiceActivityBasis = async (context: any, serviceId: string): Promise<bigint> => {
+const getServiceActivityBasis = async (context: HandlerContext, serviceId: string): Promise<bigint> => {
   const service = (await context.Service.get(serviceId)) as Service | undefined;
   if (!service) {
     return 0n;
   }
-  const memberships = (await context.ServiceOperator.getWhere.service_id.eq(service.id)) as ServiceOperator[];
+  const memberships = (await context.ServiceOperator.getWhere({ service_id: { _eq: service.id } })) as ServiceOperator[];
   const activeCount = memberships.filter((membership) => membership.active).length;
   return BigInt(activeCount) * USD_SCALE;
 };
 
-const getOperatorServiceBasis = async (context: any, operatorId: string): Promise<bigint> => {
+const getOperatorServiceBasis = async (context: HandlerContext, operatorId: string): Promise<bigint> => {
   if (!context.ServiceOperator) {
     return 0n;
   }
-  const memberships = (await context.ServiceOperator.getWhere.operator_id.eq(operatorId)) as ServiceOperator[];
+  const memberships = (await context.ServiceOperator.getWhere({ operator_id: { _eq: operatorId } })) as ServiceOperator[];
   const activeCount = memberships.filter((membership) => membership.active).length;
   if (activeCount <= 0) {
     return 0n;
@@ -218,7 +219,7 @@ const getOperatorServiceBasis = async (context: any, operatorId: string): Promis
 };
 
 const calculateParticipationValue = async (
-  context: any,
+  context: HandlerContext,
   state: ParticipationState,
   blockNumber: bigint,
   timestamp: bigint
@@ -244,14 +245,14 @@ const calculateParticipationValue = async (
 };
 
 export const processParticipation = async (
-  context: any,
+  context: HandlerContext,
   programId: PointsProgramId,
   blockNumber: bigint,
   timestamp: bigint,
   points: PointsManager
 ) => {
   const program = await ensurePointsProgram(pointsContext(context), programId, timestamp);
-  const states = (await context.ParticipationState.getWhere.program_id.eq(program.id)) as ParticipationState[];
+  const states = (await context.ParticipationState.getWhere({ program_id: { _eq: program.id } })) as ParticipationState[];
   for (const state of states) {
     if (!state.active) continue;
     const sinceLastAward = timestamp - (state.lastAwardAt ?? 0n);
