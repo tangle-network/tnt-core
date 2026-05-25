@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PointsManager } from "../../points";
-import type { PointsAccount, PointsEvent, PointsHourlyTotal, PointsProgram, PointsSnapshot } from "generated/src/Types.gen";
+import type { PointsAccount, PointsEvent, PointsHourlyTotal, PointsProgram, PointsSnapshot } from "envio";
 
 type Store<T> = Map<string, T>;
 

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "lib": ["es2020", "dom"],
+    "target": "es2022",
+    "lib": ["es2022", "dom"],
     "allowJs": true,
     "checkJs": false,
     "outDir": "build",
@@ -11,13 +11,10 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "module": "commonjs",
-    "baseUrl": ".",
-    "paths": {
-      "generated": ["generated"],
-      "generated/*": ["generated/*"]
-    }
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "baseUrl": "."
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts"],
-  "exclude": ["node_modules", "generated", "build", "src/handlers"]
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "envio-env.d.ts", ".envio/**/*.d.ts"],
+  "exclude": ["node_modules", "build"]
 }

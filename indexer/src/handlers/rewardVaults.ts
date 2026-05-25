@@ -1,5 +1,5 @@
-import { InflationPool, RewardVaults } from "generated";
-import type { RewardVault, RewardVaultState } from "generated/src/Types.gen";
+import { indexer } from "envio";
+import type { RewardVault, RewardVaultState } from "envio";
 import {
   ZERO_ADDRESS,
   createStakingRewardClaim,
@@ -54,7 +54,7 @@ export function registerRewardVaultHandlers() {
     return { vault, state };
   };
 
-  RewardVaults.VaultCreated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "VaultCreated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     await ensureRewardVault(context, event.params.asset, timestamp, {
       depositCap: toBigInt(event.params.depositCap),
@@ -62,19 +62,19 @@ export function registerRewardVaultHandlers() {
     });
   });
 
-  RewardVaults.VaultConfigUpdated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "VaultConfigUpdated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     await ensureRewardVault(context, event.params.asset, timestamp, {
       depositCap: toBigInt(event.params.depositCap),
     });
   });
 
-  RewardVaults.VaultDeactivated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "VaultDeactivated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     await ensureRewardVault(context, event.params.asset, timestamp, { active: false });
   });
 
-  RewardVaults.StakeRecorded.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "StakeRecorded" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const { state } = await ensureRewardVault(context, event.params.asset, timestamp, {});
     context.RewardVaultState.set({
@@ -86,7 +86,7 @@ export function registerRewardVaultHandlers() {
     await awardStakingVaultStake(points, normalizeAddress(event.params.delegator), event.params.asset, toBigInt(event.params.amount));
   });
 
-  RewardVaults.UnstakeRecorded.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "UnstakeRecorded" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const { state } = await ensureRewardVault(context, event.params.asset, timestamp, {});
     context.RewardVaultState.set({
@@ -96,7 +96,7 @@ export function registerRewardVaultHandlers() {
     } as RewardVaultState);
   });
 
-  RewardVaults.RewardsDistributed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "RewardsDistributed" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const { state } = await ensureRewardVault(context, event.params.asset, timestamp, {});
     context.RewardVaultState.set({
@@ -113,7 +113,7 @@ export function registerRewardVaultHandlers() {
     });
   });
 
-  RewardVaults.DelegatorRewardsClaimed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "DelegatorRewardsClaimed" }, async ({ event, context }) => {
     const delegator = await ensureDelegator(context, event.params.delegator, getTimestamp(event));
     createStakingRewardClaim(context, "DELEGATOR_CLAIM", event, {
       delegator_id: delegator.id,
@@ -123,7 +123,7 @@ export function registerRewardVaultHandlers() {
     });
   });
 
-  RewardVaults.OperatorCommissionClaimed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "OperatorCommissionClaimed" }, async ({ event, context }) => {
     const operator = await ensureOperator(context, event.params.operator, getTimestamp(event));
     createRewardDistribution(context, "OPERATOR_COMMISSION", event, {
       operator_id: operator.id,
@@ -132,18 +132,18 @@ export function registerRewardVaultHandlers() {
     });
   });
 
-  RewardVaults.DecayConfigUpdated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "DecayConfigUpdated" }, async ({ event, context }) => {
     recordRewardVaultEvent(context, "DECAY_UPDATED", event, {
       valueA: toBigInt(event.params.startBlock),
       valueB: toBigInt(event.params.rateBps),
     });
   });
 
-  RewardVaults.OperatorCommissionUpdated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "OperatorCommissionUpdated" }, async ({ event, context }) => {
     recordRewardVaultEvent(context, "COMMISSION_UPDATED", event, { valueA: BigInt(event.params.newBps) });
   });
 
-  RewardVaults.LockDurationsUpdated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "RewardVaults", event: "LockDurationsUpdated" }, async ({ event, context }) => {
     recordRewardVaultEvent(context, "LOCK_DURATIONS_UPDATED", event, {
       valueA: toBigInt(event.params.oneMonth),
       valueB: toBigInt(event.params.twoMonths),
@@ -151,7 +151,7 @@ export function registerRewardVaultHandlers() {
     });
   });
 
-  InflationPool.OperatorRewardClaimed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "InflationPool", event: "OperatorRewardClaimed" }, async ({ event, context }) => {
     const operator = await ensureOperator(context, event.params.operator, getTimestamp(event));
     createRewardDistribution(context, "INFLATION", event, {
       operator_id: operator.id,
@@ -159,7 +159,7 @@ export function registerRewardVaultHandlers() {
     });
   });
 
-  InflationPool.CustomerRewardClaimed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "InflationPool", event: "CustomerRewardClaimed" }, async ({ event, context }) => {
     const delegator = await ensureDelegator(context, event.params.customer, getTimestamp(event));
     createRewardDistribution(context, "INFLATION", event, {
       delegator_id: delegator.id,
@@ -167,7 +167,7 @@ export function registerRewardVaultHandlers() {
     });
   });
 
-  InflationPool.DeveloperRewardClaimed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "InflationPool", event: "DeveloperRewardClaimed" }, async ({ event, context }) => {
     createRewardDistribution(context, "INFLATION", event, {
       delegator_id: normalizeAddress(event.params.developer),
       amount: toBigInt(event.params.amount),

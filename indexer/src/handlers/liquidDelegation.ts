@@ -1,11 +1,11 @@
-import { LiquidDelegationFactory, LiquidDelegationVault } from "generated";
+import { indexer } from "envio";
 import type {
   LiquidDelegationVault as LiquidVaultEntity,
   LiquidRedeemRequest,
   LiquidVaultPosition,
   Operator,
   StakingAsset,
-} from "generated/src/Types.gen";
+} from "envio";
 import {
   ZERO_ADDRESS,
   ensureDelegator,
@@ -115,7 +115,7 @@ const adjustPendingPosition = async (
 };
 
 export function registerLiquidDelegationHandlers() {
-  LiquidDelegationFactory.VaultCreated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "LiquidDelegationFactory", event: "VaultCreated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const vaultAddress = normalizeAddress(event.params.vault);
     const operatorAddress = normalizeAddress(event.params.operator);
@@ -149,18 +149,39 @@ export function registerLiquidDelegationHandlers() {
       isNative: assetAddress === ZERO_ADDRESS,
     } as LiquidVaultEntity;
     saveVaultEntity(context, entity);
-    // Dynamic contract registration is optional and may not be available in all Envio versions
+    // Envio v3 dynamic contract registration. The factory's VaultCreated event
+    // is registered via indexer.contractRegister below; this branch is a
+    // belt-and-suspenders runtime add for cases where the factory emits a
+    // vault that wasn't seen at boot.
     try {
-      const registrar = (context as any).contracts;
-      if (registrar?.addLiquidDelegationVault) {
-        registrar.addLiquidDelegationVault(vaultAddress);
+      const chain = (context as any).chain;
+      const registrar = chain?.LiquidDelegationVault;
+      if (registrar?.add) {
+        registrar.add(vaultAddress);
       }
     } catch {
-      // Dynamic registration not supported - vault addresses should be in config.yaml
+      // No-op: vault addresses can also be statically configured in config.yaml.
     }
   });
 
-  LiquidDelegationVault.Deposit.handler(async ({ event, context }) => {
+  // Register vault contracts on-the-fly when the factory emits VaultCreated, so
+  // the vault's own events get indexed without manual config edits.
+  indexer.contractRegister(
+    { contract: "LiquidDelegationFactory", event: "VaultCreated" },
+    async ({ event, context }) => {
+      const chain = (context as any).chain;
+      const registrar = chain?.LiquidDelegationVault;
+      if (registrar?.add) {
+        try {
+          registrar.add(normalizeAddress(event.params.vault));
+        } catch {
+          // Already registered or unsupported; ignore.
+        }
+      }
+    },
+  );
+
+  indexer.onEvent({ contract: "LiquidDelegationVault", event: "Deposit" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const vault = await ensureVaultEntity(context, event.srcAddress);
     if (!vault) return;
@@ -178,7 +199,7 @@ export function registerLiquidDelegationHandlers() {
     await awardLiquidVaultStake(points, owner, vault.id, assets);
   });
 
-  LiquidDelegationVault.Withdraw.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "LiquidDelegationVault", event: "Withdraw" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const vault = await ensureVaultEntity(context, event.srcAddress);
     if (!vault) return;
@@ -218,7 +239,7 @@ export function registerLiquidDelegationHandlers() {
     }
   });
 
-  LiquidDelegationVault.RedeemRequest.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "LiquidDelegationVault", event: "RedeemRequest" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const vault = await ensureVaultEntity(context, event.srcAddress);
     if (!vault) return;
@@ -254,7 +275,7 @@ export function registerLiquidDelegationHandlers() {
     await activateParticipation(context, "delegator-hourly", owner, "DELEGATOR", timestamp);
   });
 
-  LiquidDelegationVault.Transfer.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "LiquidDelegationVault", event: "Transfer" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const vault = await ensureVaultEntity(context, event.srcAddress);
     if (!vault) return;
@@ -267,7 +288,7 @@ export function registerLiquidDelegationHandlers() {
     await handleShareMovement(context, vault, from, to, value, timestamp);
   });
 
-  LiquidDelegationVault.RewardsHarvested.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "LiquidDelegationVault", event: "RewardsHarvested" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const vault = await ensureVaultEntity(context, event.srcAddress);
     if (!vault) return;
@@ -323,6 +344,6 @@ const handleShareMovement = async (
 };
 
 const resolveRedeemRequest = async (context: any, vaultId: string, controller: string, shares: bigint) => {
-  const requests = (await context.LiquidRedeemRequest.getWhere.vault_id.eq(vaultId)) as LiquidRedeemRequest[];
+  const requests = (await context.LiquidRedeemRequest.getWhere({ vault_id: { _eq: vaultId } })) as LiquidRedeemRequest[];
   return requests.find((req) => !req.claimed && req.controller === controller && (req.shares ?? 0n) === shares);
 };

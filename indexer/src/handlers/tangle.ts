@@ -1,4 +1,4 @@
-import { Tangle } from "generated";
+import { indexer } from "envio";
 import { decodeFunctionData, parseAbi } from "viem";
 import type {
   Blueprint,
@@ -31,7 +31,7 @@ import type {
   SubscriptionBillSkipped,
   TntPaymentDiscount,
   Upgrade,
-} from "generated/src/Types.gen";
+} from "envio";
 import {
   ZERO_ADDRESS,
   ensureAssetPosition,
@@ -180,7 +180,7 @@ export function registerTangleHandlers() {
      TANGLE EVENTS
      ────────────────────────────────────────────────────────────────────────── */
 
-  Tangle.Initialized.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "Initialized" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const state = await ensureProtocolState(context, timestamp);
     context.ProtocolState.set({
@@ -190,7 +190,7 @@ export function registerTangleHandlers() {
     } as ProtocolState);
   });
 
-  Tangle.Paused.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "Paused" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const state = await ensureProtocolState(context, timestamp);
     context.ProtocolState.set({
@@ -202,7 +202,7 @@ export function registerTangleHandlers() {
     } as ProtocolState);
   });
 
-  Tangle.Unpaused.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "Unpaused" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const state = await ensureProtocolState(context, timestamp);
     context.ProtocolState.set({
@@ -214,7 +214,7 @@ export function registerTangleHandlers() {
     } as ProtocolState);
   });
 
-  Tangle.Upgraded.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "Upgraded" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const implementation = normalizeAddress(event.params.implementation);
     const state = await ensureProtocolState(context, timestamp);
@@ -232,7 +232,7 @@ export function registerTangleHandlers() {
     context.Upgrade.set(upgrade);
   });
 
-  Tangle.QuoteUsed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "QuoteUsed" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const usage: QuoteUsage = {
@@ -245,7 +245,7 @@ export function registerTangleHandlers() {
     context.QuoteUsage.set(usage);
   });
 
-  Tangle.SlashConfigUpdated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "SlashConfigUpdated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const config = await ensureSlashConfig(context, timestamp);
     context.SlashConfig.set({
@@ -260,7 +260,7 @@ export function registerTangleHandlers() {
     } as SlashConfig);
   });
 
-  Tangle.SlashProposed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "SlashProposed" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const slashId = getSlashProposalId(event.params.slashId);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
@@ -283,7 +283,7 @@ export function registerTangleHandlers() {
     context.SlashProposal.set(proposal);
   });
 
-  Tangle.SlashDisputed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "SlashDisputed" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const proposal = await getSlashProposal(context, event.params.slashId);
     if (!proposal) return;
@@ -296,7 +296,7 @@ export function registerTangleHandlers() {
     } as SlashProposal);
   });
 
-  Tangle.SlashCancelled.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "SlashCancelled" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const proposal = await getSlashProposal(context, event.params.slashId);
     if (!proposal) return;
@@ -310,7 +310,7 @@ export function registerTangleHandlers() {
     } as SlashProposal);
   });
 
-  Tangle.SlashExecuted.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "SlashExecuted" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const serviceValue = toBigInt(event.params.serviceId);
@@ -328,7 +328,7 @@ export function registerTangleHandlers() {
     } as SlashProposal);
   });
 
-  Tangle.BlueprintCreated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "BlueprintCreated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const blueprint: Blueprint = {
       id: toBigInt(event.params.blueprintId).toString(),
@@ -347,7 +347,7 @@ export function registerTangleHandlers() {
     await awardDeveloperBlueprint(points, blueprint.owner, blueprint.id);
   });
 
-  Tangle.BlueprintUpdated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "BlueprintUpdated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const id = toBigInt(event.params.blueprintId).toString();
     const existing = await context.Blueprint.get(id);
@@ -360,7 +360,7 @@ export function registerTangleHandlers() {
     });
   });
 
-  Tangle.BlueprintTransferred.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "BlueprintTransferred" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const id = toBigInt(event.params.blueprintId).toString();
     const existing = await context.Blueprint.get(id);
@@ -368,7 +368,7 @@ export function registerTangleHandlers() {
     context.Blueprint.set({ ...existing, owner: normalizeAddress(event.params.to), updatedAt: timestamp });
   });
 
-  Tangle.BlueprintDeactivated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "BlueprintDeactivated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const id = toBigInt(event.params.blueprintId).toString();
     const existing = await context.Blueprint.get(id);
@@ -376,7 +376,7 @@ export function registerTangleHandlers() {
     context.Blueprint.set({ ...existing, active: false, updatedAt: timestamp });
   });
 
-  Tangle.OperatorPreRegistered.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "OperatorPreRegistered" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const intent: OperatorIntent = {
@@ -389,7 +389,7 @@ export function registerTangleHandlers() {
     context.OperatorIntent.set(intent);
   });
 
-  Tangle.OperatorRegistered.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "OperatorRegistered" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const blueprintId = toBigInt(event.params.blueprintId).toString();
     const blueprint = await context.Blueprint.get(blueprintId);
@@ -415,7 +415,7 @@ export function registerTangleHandlers() {
     }
   });
 
-  Tangle.OperatorUnregistered.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "OperatorUnregistered" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const blueprintId = toBigInt(event.params.blueprintId).toString();
     const operatorId = normalizeAddress(event.params.operator);
@@ -429,7 +429,7 @@ export function registerTangleHandlers() {
     }
   });
 
-  Tangle.OperatorPreferencesUpdated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "OperatorPreferencesUpdated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp, {
       ecdsaPublicKey: toHexString(event.params.ecdsaPublicKey) || undefined,
@@ -448,7 +448,7 @@ export function registerTangleHandlers() {
     }
   });
 
-  Tangle.ServiceRequested.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "ServiceRequested" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const id = toBigInt(event.params.requestId).toString();
 
@@ -474,7 +474,7 @@ export function registerTangleHandlers() {
     await awardCustomerServiceRequest(points, request.requester, id);
   });
 
-  Tangle.ServiceRequestedWithSecurity.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "ServiceRequestedWithSecurity" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const id = toBigInt(event.params.requestId).toString();
     const blueprintId = toBigInt(event.params.blueprintId).toString();
@@ -523,7 +523,7 @@ export function registerTangleHandlers() {
     }
   });
 
-  Tangle.ServiceApproved.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "ServiceApproved" }, async ({ event, context }) => {
     const id = toBigInt(event.params.requestId).toString();
     const request = await context.ServiceRequest.get(id);
     if (!request) return;
@@ -536,7 +536,7 @@ export function registerTangleHandlers() {
     });
   });
 
-  Tangle.ServiceRejected.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "ServiceRejected" }, async ({ event, context }) => {
     const id = toBigInt(event.params.requestId).toString();
     const request = await context.ServiceRequest.get(id);
     if (!request) return;
@@ -548,7 +548,7 @@ export function registerTangleHandlers() {
     });
   });
 
-  Tangle.ServiceActivated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "ServiceActivated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const serviceId = toBigInt(event.params.serviceId).toString();
     const blueprintId = toBigInt(event.params.blueprintId).toString();
@@ -592,7 +592,7 @@ export function registerTangleHandlers() {
     await awardCustomerServiceActivation(points, service.owner, service.id);
   });
 
-  Tangle.ServiceTerminated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "ServiceTerminated" }, async ({ event, context }) => {
     const serviceId = toBigInt(event.params.serviceId).toString();
     const service = await context.Service.get(serviceId);
     if (!service) return;
@@ -601,7 +601,7 @@ export function registerTangleHandlers() {
     await deactivateParticipation(context, "service-hourly", service.id, timestamp);
   });
 
-  Tangle.OperatorJoinedService.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "OperatorJoinedService" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const service = await context.Service.get(toBigInt(event.params.serviceId).toString());
     if (!service) return;
@@ -621,7 +621,7 @@ export function registerTangleHandlers() {
     await activateParticipation(context, "operator-service-hourly", operator.id, "OPERATOR", timestamp);
   });
 
-  Tangle.OperatorLeftService.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "OperatorLeftService" }, async ({ event, context }) => {
     const service = await context.Service.get(toBigInt(event.params.serviceId).toString());
     if (!service) return;
     const id = `${service.id}-${normalizeAddress(event.params.operator)}`;
@@ -632,7 +632,7 @@ export function registerTangleHandlers() {
     await deactivateParticipation(context, "operator-service-hourly", normalizeAddress(event.params.operator), timestamp);
   });
 
-  Tangle.ExitScheduled.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "ExitScheduled" }, async ({ event, context }) => {
     const service = await context.Service.get(toBigInt(event.params.serviceId).toString());
     if (!service) return;
     const id = `${service.id}-${normalizeAddress(event.params.operator)}`;
@@ -645,7 +645,7 @@ export function registerTangleHandlers() {
     });
   });
 
-  Tangle.ExitCanceled.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "ExitCanceled" }, async ({ event, context }) => {
     const service = await context.Service.get(toBigInt(event.params.serviceId).toString());
     if (!service) return;
     const id = `${service.id}-${normalizeAddress(event.params.operator)}`;
@@ -659,7 +659,7 @@ export function registerTangleHandlers() {
     });
   });
 
-  Tangle.ExitForced.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "ExitForced" }, async ({ event, context }) => {
     const service = await context.Service.get(toBigInt(event.params.serviceId).toString());
     if (!service) return;
     const id = `${service.id}-${normalizeAddress(event.params.operator)}`;
@@ -676,7 +676,7 @@ export function registerTangleHandlers() {
     await deactivateParticipation(context, "operator-service-hourly", normalizeAddress(event.params.operator), getTimestamp(event));
   });
 
-  Tangle.JobSubmitted.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "JobSubmitted" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const service = await context.Service.get(toBigInt(event.params.serviceId).toString());
     if (!service) return;
@@ -697,7 +697,7 @@ export function registerTangleHandlers() {
     await points.award(job.caller, "service-activity", 1n, "job submitted");
   });
 
-  Tangle.JobSubmittedFromQuote.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "JobSubmittedFromQuote" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const service = await context.Service.get(toBigInt(event.params.serviceId).toString());
     if (!service) return;
@@ -711,6 +711,7 @@ export function registerTangleHandlers() {
       caller: normalizeAddress(event.params.caller),
       inputs: toHexString(event.params.inputs),
       createdAt: timestamp,
+      completedAt: undefined,
       completed: false,
       isRFQ: true,
       totalPrice: toBigInt(event.params.totalPrice),
@@ -721,7 +722,7 @@ export function registerTangleHandlers() {
     await points.award(job.caller, "service-activity", 2n, "rfq job submitted");
   });
 
-  Tangle.JobResultSubmitted.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "JobResultSubmitted" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const serviceId = toBigInt(event.params.serviceId).toString();
     const callId = toBigInt(event.params.callId).toString();
@@ -742,14 +743,14 @@ export function registerTangleHandlers() {
     await points.award(operator.id, "service-activity", 1n, "job result");
   });
 
-  Tangle.JobCompleted.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "JobCompleted" }, async ({ event, context }) => {
     const serviceId = toBigInt(event.params.serviceId).toString();
     const job = await context.JobCall.get(`${serviceId}-${toBigInt(event.params.callId).toString()}`);
     if (!job) return;
     context.JobCall.set({ ...job, completed: true, completedAt: getTimestamp(event) });
   });
 
-  Tangle.AggregatedResultSubmitted.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "AggregatedResultSubmitted" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const serviceId = toBigInt(event.params.serviceId).toString();
     const callId = toBigInt(event.params.callId).toString();
@@ -772,7 +773,7 @@ export function registerTangleHandlers() {
     await points.award(owner, "service-activity", 1n, "aggregated result");
   });
 
-  Tangle.JobEventRateSet.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "JobEventRateSet" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const blueprintId = toBigInt(event.params.blueprintId).toString();
     const blueprint = await context.Blueprint.get(blueprintId);
@@ -790,7 +791,7 @@ export function registerTangleHandlers() {
     context.JobEventRate.set(rate);
   });
 
-  Tangle.EscrowFunded.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "EscrowFunded" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const service = await context.Service.get(toBigInt(event.params.serviceId).toString());
     if (!service) return;
@@ -810,7 +811,7 @@ export function registerTangleHandlers() {
     await awardCustomerEscrowFunding(points, service.owner, service.id, toBigInt(event.params.amount));
   });
 
-  Tangle.SubscriptionBilled.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "SubscriptionBilled" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const service = await context.Service.get(toBigInt(event.params.serviceId).toString());
     if (!service) return;
@@ -837,7 +838,7 @@ export function registerTangleHandlers() {
     context.SubscriptionBilling.set(billing);
   });
 
-  Tangle.PaymentDistributed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "PaymentDistributed" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const serviceIdValue = toBigInt(event.params.serviceId);
     const serviceId = serviceIdValue.toString();
@@ -879,7 +880,7 @@ export function registerTangleHandlers() {
     context.DeveloperPayment.set(developerPayment);
   });
 
-  Tangle.OperatorRewardAccrued.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "OperatorRewardAccrued" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const serviceIdValue = toBigInt(event.params.serviceId);
     const serviceId = serviceIdValue.toString();
@@ -902,7 +903,7 @@ export function registerTangleHandlers() {
     context.OperatorRewardAccrual.set(accrual);
   });
 
-  Tangle.RewardsClaimed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "RewardsClaimed" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const claim: RewardClaim = {
       id: getEventId(event),
@@ -915,7 +916,7 @@ export function registerTangleHandlers() {
     context.RewardClaim.set(claim);
   });
 
-  Tangle.KeeperRebateAccrued.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "KeeperRebateAccrued" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const rebate: KeeperRebate = {
       id: getEventId(event),
@@ -929,7 +930,7 @@ export function registerTangleHandlers() {
     context.KeeperRebate.set(rebate);
   });
 
-  Tangle.TntPaymentDiscountApplied.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "TntPaymentDiscountApplied" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const discount: TntPaymentDiscount = {
       id: getEventId(event),
@@ -943,7 +944,7 @@ export function registerTangleHandlers() {
     context.TntPaymentDiscount.set(discount);
   });
 
-  Tangle.StakerShareRefundedToEscrow.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "StakerShareRefundedToEscrow" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const refund: StakerShareEscrowRefund = {
       id: getEventId(event),
@@ -958,7 +959,7 @@ export function registerTangleHandlers() {
     context.StakerShareEscrowRefund.set(refund);
   });
 
-  Tangle.SubscriptionBaselineInitialized.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "SubscriptionBaselineInitialized" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const serviceId = toBigInt(event.params.serviceId).toString();
     const baseline: SubscriptionBaseline = {
@@ -972,7 +973,7 @@ export function registerTangleHandlers() {
     context.SubscriptionBaseline.set(baseline);
   });
 
-  Tangle.SubscriptionBillSkippedNoOperators.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "SubscriptionBillSkippedNoOperators" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const skip: SubscriptionBillSkipped = {
       id: getEventId(event),
@@ -984,7 +985,7 @@ export function registerTangleHandlers() {
     context.SubscriptionBillSkipped.set(skip);
   });
 
-  Tangle.SubscriptionBillAdjustedByManager.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "SubscriptionBillAdjustedByManager" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const adjustment: SubscriptionBillAdjustment = {
       id: getEventId(event),
@@ -998,7 +999,7 @@ export function registerTangleHandlers() {
     context.SubscriptionBillAdjustment.set(adjustment);
   });
 
-  Tangle.RewardsClaimSkipped.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "RewardsClaimSkipped" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const skip: RewardsClaimSkip = {
       id: getEventId(event),
@@ -1010,7 +1011,7 @@ export function registerTangleHandlers() {
     context.RewardsClaimSkip.set(skip);
   });
 
-  Tangle.RoleAdminChanged.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "RoleAdminChanged" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const role: Role = {
       id: toHexString(event.params.role),
@@ -1021,7 +1022,7 @@ export function registerTangleHandlers() {
     context.Role.set(role);
   });
 
-  Tangle.RoleGranted.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "RoleGranted" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const roleId = toHexString(event.params.role);
     const assignment: RoleAssignment = {
@@ -1035,7 +1036,7 @@ export function registerTangleHandlers() {
     context.RoleAssignment.set(assignment);
   });
 
-  Tangle.RoleRevoked.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Tangle", event: "RoleRevoked" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const roleId = toHexString(event.params.role);
     const id = `${roleId}-${normalizeAddress(event.params.account)}`;

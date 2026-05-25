@@ -8,7 +8,7 @@ import type {
   PointsProgram,
   Service,
   ServiceOperator,
-} from "generated/src/Types.gen";
+} from "envio";
 import type { PointsContext, PointsProgramId } from "../points";
 import { PointsManager, ensurePointsProgram } from "../points";
 import { toPointsValue } from "./math";
@@ -162,7 +162,7 @@ const getLiquidVaultStakeBasis = async (
   if (!context.LiquidVaultPosition) {
     return 0n;
   }
-  const positions = (await context.LiquidVaultPosition.getWhere.account_id.eq(delegatorId)) as LiquidVaultPosition[];
+  const positions = (await context.LiquidVaultPosition.getWhere({ account_id: { _eq: delegatorId } })) as LiquidVaultPosition[];
   let total = 0n;
   for (const position of positions) {
     const vault = (await context.LiquidDelegationVault.get(position.vault_id)) as LiquidDelegationVault | undefined;
@@ -190,7 +190,7 @@ const getDelegatorStakeBasis = async (context: any, delegatorId: string, blockNu
   if (!delegator) {
     return 0n;
   }
-  const positions = (await context.DelegatorAssetPosition.getWhere.delegator_id.eq(delegator.id)) as DelegatorAssetPosition[];
+  const positions = (await context.DelegatorAssetPosition.getWhere({ delegator_id: { _eq: delegator.id } })) as DelegatorAssetPosition[];
   return sumDelegatorPositions(context, delegator, positions, blockNumber, timestamp);
 };
 
@@ -199,7 +199,7 @@ const getServiceActivityBasis = async (context: any, serviceId: string): Promise
   if (!service) {
     return 0n;
   }
-  const memberships = (await context.ServiceOperator.getWhere.service_id.eq(service.id)) as ServiceOperator[];
+  const memberships = (await context.ServiceOperator.getWhere({ service_id: { _eq: service.id } })) as ServiceOperator[];
   const activeCount = memberships.filter((membership) => membership.active).length;
   return BigInt(activeCount) * USD_SCALE;
 };
@@ -208,7 +208,7 @@ const getOperatorServiceBasis = async (context: any, operatorId: string): Promis
   if (!context.ServiceOperator) {
     return 0n;
   }
-  const memberships = (await context.ServiceOperator.getWhere.operator_id.eq(operatorId)) as ServiceOperator[];
+  const memberships = (await context.ServiceOperator.getWhere({ operator_id: { _eq: operatorId } })) as ServiceOperator[];
   const activeCount = memberships.filter((membership) => membership.active).length;
   if (activeCount <= 0) {
     return 0n;
@@ -251,7 +251,7 @@ export const processParticipation = async (
   points: PointsManager
 ) => {
   const program = await ensurePointsProgram(pointsContext(context), programId, timestamp);
-  const states = (await context.ParticipationState.getWhere.program_id.eq(program.id)) as ParticipationState[];
+  const states = (await context.ParticipationState.getWhere({ program_id: { _eq: program.id } })) as ParticipationState[];
   for (const state of states) {
     if (!state.active) continue;
     const sinceLastAward = timestamp - (state.lastAwardAt ?? 0n);

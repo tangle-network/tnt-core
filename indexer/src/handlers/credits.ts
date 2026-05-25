@@ -1,5 +1,5 @@
-import { Credits } from "generated";
-import type { CreditBalance, CreditOperation } from "generated/src/Types.gen";
+import { indexer } from "envio";
+import type { CreditBalance, CreditOperation } from "envio";
 import {
   ensureCreditLedger,
   ensureCreditLedgerAccount,
@@ -13,7 +13,7 @@ import {
 } from "../lib/handlerUtils";
 
 export function registerCreditHandlers() {
-  Credits.CreditsClaimed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "Credits", event: "CreditsClaimed" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const account = normalizeAddress(event.params.account);
     const offchainAccountId = toHexString(event.params.offchainAccountId) || "0x";

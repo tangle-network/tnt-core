@@ -1,4 +1,4 @@
-import { MultiAssetDelegation, OperatorStatusRegistry } from "generated";
+import { indexer } from "envio";
 import type {
   DelegationPosition,
   DelegationBalance,
@@ -18,7 +18,7 @@ import type {
   StakingSlash,
   SlashRecord,
   WithdrawRequest,
-} from "generated/src/Types.gen";
+} from "envio";
 import {
   ZERO_ADDRESS,
   createStakingRewardClaim,
@@ -122,7 +122,7 @@ export function registerStakingHandlers() {
     context.DelegationBalanceDelta.set(entity);
   };
 
-  MultiAssetDelegation.OperatorRegistered.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorRegistered" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const stake = toBigInt(event.params.stake);
     const operator = await ensureOperator(
@@ -140,7 +140,7 @@ export function registerStakingHandlers() {
     await activateParticipation(context, "operator-hourly", operator.id, "OPERATOR", timestamp);
   });
 
-  MultiAssetDelegation.OperatorStakeIncreased.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorStakeIncreased" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const amount = toBigInt(event.params.amount);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
@@ -156,7 +156,7 @@ export function registerStakingHandlers() {
     await getPointsManager(pointsContext(context), event).award(operator.id, "operator-stake", toPointsValue(amount), "stake increased");
   });
 
-  MultiAssetDelegation.OperatorUnstakeScheduled.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorUnstakeScheduled" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const amount = toBigInt(event.params.amount);
     const readyAtRound = toBigInt(event.params.readyRound);
@@ -173,7 +173,7 @@ export function registerStakingHandlers() {
     await recordOperatorStakeChange(context, operator, "UNSTAKE_SCHEDULED", amount, readyAtRound, event);
   });
 
-  MultiAssetDelegation.OperatorUnstakeExecuted.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorUnstakeExecuted" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const stake = getOperatorStakingStake(operator) - toBigInt(event.params.amount);
@@ -192,7 +192,7 @@ export function registerStakingHandlers() {
     await maybeDeactivateOperatorParticipation(context, updatedOperator, timestamp);
   });
 
-  MultiAssetDelegation.OperatorLeavingScheduled.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorLeavingScheduled" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(
       context,
@@ -207,7 +207,7 @@ export function registerStakingHandlers() {
     await recordOperatorStakeChange(context, operator, "LEAVING_SCHEDULED", undefined, toBigInt(event.params.readyRound), event);
   });
 
-  MultiAssetDelegation.OperatorLeft.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorLeft" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(
       context,
@@ -224,7 +224,7 @@ export function registerStakingHandlers() {
     await deactivateParticipation(context, "operator-hourly", operator.id, timestamp);
   });
 
-  MultiAssetDelegation.OperatorBlueprintAdded.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorBlueprintAdded" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const blueprintId = toBigInt(event.params.blueprintId).toString();
@@ -241,7 +241,7 @@ export function registerStakingHandlers() {
     context.OperatorBlueprint.set(membership);
   });
 
-  MultiAssetDelegation.OperatorBlueprintRemoved.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorBlueprintRemoved" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const blueprintId = toBigInt(event.params.blueprintId).toString();
@@ -251,7 +251,7 @@ export function registerStakingHandlers() {
     context.OperatorBlueprint.set({ ...membership, active: false, removedAt: timestamp } as OperatorBlueprint);
   });
 
-  MultiAssetDelegation.Deposited.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "Deposited" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const amount = toBigInt(event.params.amount);
     const delegator = await ensureDelegator(context, event.params.delegator, timestamp);
@@ -286,7 +286,7 @@ export function registerStakingHandlers() {
     await getPointsManager(pointsContext(context), event).award(delegator.id, "delegator-deposit", toPointsValue(amount), "deposit");
   });
 
-  MultiAssetDelegation.WithdrawScheduled.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "WithdrawScheduled" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const amount = toBigInt(event.params.amount);
     const delegator = await ensureDelegator(context, event.params.delegator, timestamp);
@@ -313,7 +313,7 @@ export function registerStakingHandlers() {
     context.WithdrawRequest.set(request);
   });
 
-  MultiAssetDelegation.Withdrawn.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "Withdrawn" }, async ({ event, context }) => {
     const delegator = await ensureDelegator(context, event.params.delegator, getTimestamp(event));
     await settleWithdrawRequest(
       context,
@@ -324,7 +324,7 @@ export function registerStakingHandlers() {
     );
   });
 
-  MultiAssetDelegation.Delegated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "Delegated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const amount = toBigInt(event.params.amount);
     const shares = toBigInt(event.params.shares);
@@ -364,7 +364,7 @@ export function registerStakingHandlers() {
     await recordDelegationBalanceDelta(context, delegator.id, token, amount, "DELEGATE", event);
   });
 
-  MultiAssetDelegation.DelegatorUnstakeScheduled.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "DelegatorUnstakeScheduled" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const delegator = await ensureDelegator(context, event.params.delegator, timestamp);
     const operatorId = normalizeAddress(event.params.operator);
@@ -388,7 +388,7 @@ export function registerStakingHandlers() {
     context.DelegationUnstakeRequest.set(request);
   });
 
-  MultiAssetDelegation.DelegatorUnstakeExecuted.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "DelegatorUnstakeExecuted" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const delegator = await ensureDelegator(context, event.params.delegator, timestamp);
     const operatorId = normalizeAddress(event.params.operator);
@@ -430,7 +430,7 @@ export function registerStakingHandlers() {
     }
   });
 
-  MultiAssetDelegation.BlueprintAddedToDelegation.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "BlueprintAddedToDelegation" }, async ({ event, context }) => {
     recordDelegationBlueprintEvent(context, "ADDED", event, {
       delegator: normalizeAddress(event.params.delegator),
       delegationIndex: toBigInt(event.params.delegationIndex),
@@ -438,7 +438,7 @@ export function registerStakingHandlers() {
     });
   });
 
-  MultiAssetDelegation.BlueprintRemovedFromDelegation.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "BlueprintRemovedFromDelegation" }, async ({ event, context }) => {
     recordDelegationBlueprintEvent(context, "REMOVED", event, {
       delegator: normalizeAddress(event.params.delegator),
       delegationIndex: toBigInt(event.params.delegationIndex),
@@ -446,7 +446,7 @@ export function registerStakingHandlers() {
     });
   });
 
-  MultiAssetDelegation.AssetEnabled.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "AssetEnabled" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const asset = await ensureStakingAsset(context, event.params.token, timestamp);
     setStakingAsset(context, {
@@ -458,13 +458,13 @@ export function registerStakingHandlers() {
     });
   });
 
-  MultiAssetDelegation.AssetDisabled.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "AssetDisabled" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const asset = await ensureStakingAsset(context, event.params.token, timestamp);
     setStakingAsset(context, { ...asset, enabled: false, updatedAt: timestamp });
   });
 
-  MultiAssetDelegation.RoundAdvanced.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "RoundAdvanced" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const roundValue = toBigInt(event.params.round);
     const round: StakingRound = {
@@ -477,7 +477,7 @@ export function registerStakingHandlers() {
     setStakingRound(context, { ...round, id: "latest" });
   });
 
-  MultiAssetDelegation.Slashed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "Slashed" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const slash: StakingSlash = {
@@ -503,7 +503,7 @@ export function registerStakingHandlers() {
     await maybeDeactivateOperatorParticipation(context, updatedOperator, timestamp);
   });
 
-  MultiAssetDelegation.SlashRecorded.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "SlashRecorded" }, async ({ event, context }) => {
     const operator = await ensureOperator(context, event.params.operator, getTimestamp(event));
     const record: SlashRecord = {
       id: getEventId(event),
@@ -518,7 +518,7 @@ export function registerStakingHandlers() {
     context.SlashRecord.set(record);
   });
 
-  MultiAssetDelegation.RewardDistributed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "RewardDistributed" }, async ({ event, context }) => {
     const operator = await ensureOperator(context, event.params.operator, getTimestamp(event));
     createRewardDistribution(context, "POOL", event, {
       operator_id: operator.id,
@@ -526,7 +526,7 @@ export function registerStakingHandlers() {
     });
   });
 
-  MultiAssetDelegation.RewardClaimed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "RewardClaimed" }, async ({ event, context }) => {
     const delegator = await ensureDelegator(context, event.params.account, getTimestamp(event));
     createStakingRewardClaim(context, "DELEGATOR_CLAIM", event, {
       delegator_id: delegator.id,
@@ -534,7 +534,7 @@ export function registerStakingHandlers() {
     });
   });
 
-  MultiAssetDelegation.OperatorDelegationModeSet.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorDelegationModeSet" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operatorAddress = normalizeAddress(event.params.operator);
     const operator = await ensureOperator(context, operatorAddress, timestamp);
@@ -548,7 +548,7 @@ export function registerStakingHandlers() {
     } as Operator);
   });
 
-  MultiAssetDelegation.OperatorWhitelistUpdated.handler(async () => {
+  indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorWhitelistUpdated" }, async () => {
     // No-op: Whitelist membership is checked via contract calls (canDelegate/isWhitelisted).
     // This handler exists to acknowledge the event. Extend if whitelist analytics are needed.
   });
@@ -557,7 +557,7 @@ export function registerStakingHandlers() {
      OPERATOR STATUS REGISTRY
      ────────────────────────────────────────────────────────────────────────── */
 
-  OperatorStatusRegistry.HeartbeatReceived.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "OperatorStatusRegistry", event: "HeartbeatReceived" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const heartbeat: OperatorHeartbeat = {
@@ -575,7 +575,7 @@ export function registerStakingHandlers() {
     await awardOperatorUptime(points, operator.id, toBigInt(event.params.serviceId).toString());
   });
 
-  OperatorStatusRegistry.OperatorWentOffline.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "OperatorStatusRegistry", event: "OperatorWentOffline" }, async ({ event, context }) => {
     const operator = await ensureOperator(context, event.params.operator, getTimestamp(event));
     const entity: OperatorLifecycleEvent = {
       id: getEventId(event),
@@ -590,7 +590,7 @@ export function registerStakingHandlers() {
     context.OperatorLifecycleEvent.set(entity);
   });
 
-  OperatorStatusRegistry.OperatorCameOnline.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "OperatorStatusRegistry", event: "OperatorCameOnline" }, async ({ event, context }) => {
     const operator = await ensureOperator(context, event.params.operator, getTimestamp(event));
     const entity: OperatorLifecycleEvent = {
       id: getEventId(event),
@@ -604,7 +604,7 @@ export function registerStakingHandlers() {
     context.OperatorLifecycleEvent.set(entity);
   });
 
-  OperatorStatusRegistry.StatusChanged.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "OperatorStatusRegistry", event: "StatusChanged" }, async ({ event, context }) => {
     const operator = await ensureOperator(context, event.params.operator, getTimestamp(event));
     const entity: OperatorLifecycleEvent = {
       id: getEventId(event),
@@ -619,7 +619,7 @@ export function registerStakingHandlers() {
     context.OperatorLifecycleEvent.set(entity);
   });
 
-  OperatorStatusRegistry.HeartbeatConfigUpdated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "OperatorStatusRegistry", event: "HeartbeatConfigUpdated" }, async ({ event, context }) => {
     const entity: HeartbeatConfig = {
       id: toBigInt(event.params.serviceId).toString(),
       serviceId: toBigInt(event.params.serviceId),
@@ -630,7 +630,7 @@ export function registerStakingHandlers() {
     context.HeartbeatConfig.set(entity);
   });
 
-  OperatorStatusRegistry.MetricReported.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "OperatorStatusRegistry", event: "MetricReported" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const snapshot: OperatorMetricSnapshot = {
@@ -645,7 +645,7 @@ export function registerStakingHandlers() {
     context.OperatorMetricSnapshot.set(snapshot);
   });
 
-  OperatorStatusRegistry.SlashingTriggered.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "OperatorStatusRegistry", event: "SlashingTriggered" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
     const entity: OperatorLifecycleEvent = {

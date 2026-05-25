@@ -1,5 +1,5 @@
-import { MasterBlueprintServiceManager } from "generated";
-import type { BlueprintDefinition } from "generated/src/Types.gen";
+import { indexer } from "envio";
+import type { BlueprintDefinition } from "envio";
 import {
   getEventId,
   getPointsManager,
@@ -13,7 +13,7 @@ import { pointsContext } from "../points/participation";
 import { awardDeveloperBlueprint } from "../points/awards";
 
 export function registerBlueprintManagerHandlers() {
-  MasterBlueprintServiceManager.BlueprintDefinitionRecorded.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "MasterBlueprintServiceManager", event: "BlueprintDefinitionRecorded" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const blueprintId = toBigInt(event.params.blueprintId);
     const owner = normalizeAddress(event.params.owner);

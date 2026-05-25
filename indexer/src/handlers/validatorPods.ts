@@ -1,4 +1,4 @@
-import { ValidatorPodManager } from "generated";
+import { indexer } from "envio";
 import type {
   Operator,
   OperatorPoolSlash,
@@ -7,7 +7,7 @@ import type {
   ValidatorPodBeaconRebase,
   ValidatorPodWithdrawal,
   NativeOperator,
-} from "generated/src/Types.gen";
+} from "envio";
 import {
   ensureDelegator,
   ensureOperator,
@@ -25,7 +25,7 @@ import { awardNativePodCreated } from "../points/awards";
 import { toPointsValue } from "../points/math";
 
 export function registerValidatorPodHandlers() {
-  ValidatorPodManager.PodCreated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "ValidatorPodManager", event: "PodCreated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const owner = normalizeAddress(event.params.owner);
     const pod = normalizeAddress(event.params.pod);
@@ -41,7 +41,7 @@ export function registerValidatorPodHandlers() {
     await awardNativePodCreated(points, owner, pod);
   });
 
-  ValidatorPodManager.Delegated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "ValidatorPodManager", event: "Delegated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const delegator = await ensureDelegator(context, event.params.delegator, timestamp);
     const operator = await ensureOperator(context, event.params.operator, timestamp);
@@ -58,7 +58,7 @@ export function registerValidatorPodHandlers() {
     await trackNativeOperatorDelegation(context, operator.id, amount, timestamp);
   });
 
-  ValidatorPodManager.Undelegated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "ValidatorPodManager", event: "Undelegated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const delegator = await ensureDelegator(context, event.params.delegator, timestamp);
     const amount = toBigInt(event.params.amount);
@@ -71,7 +71,7 @@ export function registerValidatorPodHandlers() {
     await trackNativeOperatorDelegation(context, normalizeAddress(event.params.operator), -amount, timestamp);
   });
 
-  ValidatorPodManager.SharesUpdated.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "ValidatorPodManager", event: "SharesUpdated" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const entity: ValidatorPodShareEvent = {
       id: `shares-${getTxHash(event)}-${event.logIndex}`,
@@ -89,7 +89,7 @@ export function registerValidatorPodHandlers() {
   // Beacon rebases (rewards / slashes) move totalAssets only; shares are invariant.
   // Tracked separately from SharesUpdated so analytics can distinguish principal
   // mints from pool-price moves.
-  ValidatorPodManager.BeaconRebase.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "ValidatorPodManager", event: "BeaconRebase" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const entity: ValidatorPodBeaconRebase = {
       id: `rebase-${getTxHash(event)}-${event.logIndex}`,
@@ -103,7 +103,7 @@ export function registerValidatorPodHandlers() {
     context.ValidatorPodBeaconRebase.set(entity);
   });
 
-  ValidatorPodManager.OperatorRegistered.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "ValidatorPodManager", event: "OperatorRegistered" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureNativeOperator(context, event.params.operator, timestamp);
     const updated: NativeOperator = {
@@ -116,7 +116,7 @@ export function registerValidatorPodHandlers() {
     context.NativeOperator.set(updated);
   });
 
-  ValidatorPodManager.OperatorDeregistered.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "ValidatorPodManager", event: "OperatorDeregistered" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const operator = await ensureNativeOperator(context, event.params.operator, timestamp);
     const updated: NativeOperator = {
@@ -128,7 +128,7 @@ export function registerValidatorPodHandlers() {
     context.NativeOperator.set(updated);
   });
 
-  ValidatorPodManager.OperatorPoolSlashed.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "ValidatorPodManager", event: "OperatorPoolSlashed" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const slash: OperatorPoolSlash = {
       id: `pool-slash-${getTxHash(event)}-${event.logIndex}`,
@@ -142,7 +142,7 @@ export function registerValidatorPodHandlers() {
     context.OperatorPoolSlash.set(slash);
   });
 
-  ValidatorPodManager.WithdrawalQueued.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "ValidatorPodManager", event: "WithdrawalQueued" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const root = toHexString(event.params.withdrawalRoot);
     const withdrawal: ValidatorPodWithdrawal = {
@@ -158,7 +158,7 @@ export function registerValidatorPodHandlers() {
     context.ValidatorPodWithdrawal.set(withdrawal);
   });
 
-  ValidatorPodManager.WithdrawalCompleted.handler(async ({ event, context }) => {
+  indexer.onEvent({ contract: "ValidatorPodManager", event: "WithdrawalCompleted" }, async ({ event, context }) => {
     const timestamp = getTimestamp(event);
     const root = toHexString(event.params.withdrawalRoot);
     const existing = (await context.ValidatorPodWithdrawal.get(root)) as ValidatorPodWithdrawal | undefined;

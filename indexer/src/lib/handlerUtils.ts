@@ -17,7 +17,7 @@ import type {
   SlashConfig,
   SlashProposal,
   WithdrawRequest,
-} from "generated/src/Types.gen";
+} from "envio";
 import type { PointsContext } from "../points";
 import { PointsManager } from "../points";
 import { deactivateParticipation } from "../points/participation";
@@ -475,7 +475,7 @@ const hasLiquidVaultStake = async (context: any, delegatorId: string): Promise<b
   if (!context.LiquidVaultPosition) {
     return false;
   }
-  const positions = (await context.LiquidVaultPosition.getWhere.account_id.eq(delegatorId)) as LiquidVaultPosition[];
+  const positions = (await context.LiquidVaultPosition.getWhere({ account_id: { _eq: delegatorId } })) as LiquidVaultPosition[];
   return positions.some((position) => {
     const activeShares = position.shares ?? 0n;
     const pendingShares = position.pendingShares ?? 0n;

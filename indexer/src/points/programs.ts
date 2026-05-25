@@ -1,4 +1,4 @@
-import type { PointsProgram as PointsProgramEntity, PointsProgram } from "generated/src/Types.gen";
+import type { PointsProgram as PointsProgramEntity, PointsProgram } from "envio";
 
 interface ProgramDefinition {
   id: string;
