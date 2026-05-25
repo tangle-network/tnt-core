@@ -1,17 +1,20 @@
-import { registerTangleHandlers } from "./handlers/tangle";
-import { registerStakingHandlers } from "./handlers/staking";
-import { registerRewardVaultHandlers } from "./handlers/rewardVaults";
-import { registerBlueprintManagerHandlers } from "./handlers/blueprintManager";
-import { registerCreditHandlers } from "./handlers/credits";
-import { registerHourlyHandlers } from "./handlers/hourly";
-import { registerLiquidDelegationHandlers } from "./handlers/liquidDelegation";
-import { registerValidatorPodHandlers } from "./handlers/validatorPods";
-
-registerTangleHandlers();
-registerStakingHandlers();
-registerRewardVaultHandlers();
-registerBlueprintManagerHandlers();
-registerCreditHandlers();
-registerLiquidDelegationHandlers();
-registerValidatorPodHandlers();
-registerHourlyHandlers();
+/**
+ * Indexer entrypoint. In v3, handler files self-register at module load —
+ * `indexer.onEvent({...}, ...)` and `indexer.onBlock({...}, ...)` calls at
+ * module top level append to a global registration table the runtime
+ * consumes during boot. So this file's only job is to import each handler
+ * module for its side effects.
+ *
+ * Files are imported in dependency order: blueprint metadata first (so the
+ * tangle/staking handlers can reference resolved blueprint identity), then
+ * the transactional surface, then liquid-delegation (which depends on
+ * staking entities), then the block-tick handlers last.
+ */
+import "./handlers/blueprintManager";
+import "./handlers/credits";
+import "./handlers/rewardVaults";
+import "./handlers/staking";
+import "./handlers/tangle";
+import "./handlers/validatorPods";
+import "./handlers/liquidDelegation";
+import "./handlers/hourly";

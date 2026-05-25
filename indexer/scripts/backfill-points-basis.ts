@@ -114,20 +114,29 @@ const fetchDelegatorState = async (endpoint: string, delegatorId: string): Promi
   return payload.data?.delegator ?? null;
 };
 
-const makePriceContext = () => {
-  const prices = new Map<string, { price: bigint }>();
+// In-memory backfill mock conforming to the v3 `AssetPrice` shape. Only
+// `price` is read by the price helpers, but the v3 `EntityOperations.get`
+// signature requires returning the full entity — so the mock provides
+// sentinel values for the other fields. The cast at the end satisfies the
+// `PriceContext` interface without requiring the script to depend on the
+// `envio` package's full HandlerContext.
+import type { PriceContext } from "../src/lib/handlerContext";
+import type { AssetPrice } from "envio";
+
+const makePriceContext = (): PriceContext => {
+  const prices = new Map<string, AssetPrice>();
   return {
     AssetPrice: {
-      async get(id: string) {
+      async get(id) {
         return prices.get(id.toLowerCase()) ?? null;
       },
-      set(entity: { id: string; price: bigint }) {
-        prices.set(entity.id.toLowerCase(), { price: entity.price });
+      set(entity) {
+        prices.set(entity.id.toLowerCase(), entity);
       },
     },
     AssetPriceSample: {
       set() {
-        return undefined;
+        /* backfill discards samples */
       },
     },
   };
