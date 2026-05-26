@@ -65,8 +65,17 @@ cast send "$TANGLE_CORE" \
     "$BLUEPRINT_ID" "$sha256" "$BINARY_URI" "$ATTESTATION" \
     --private-key "$PRIVATE_KEY" --rpc-url "$RPC_URL" >/dev/null
 
-new_count="$(cast call "$TANGLE_CORE" 'getBinaryVersionCount(uint64)(uint64)' "$BLUEPRINT_ID" --rpc-url "$RPC_URL")"
-new_count="${new_count%% *}"
+new_count=""
+for _ in 1 2 3 4 5; do
+    new_count="$(cast call "$TANGLE_CORE" 'getBinaryVersionCount(uint64)(uint64)' "$BLUEPRINT_ID" --rpc-url "$RPC_URL" 2>/dev/null | awk '{print $1}')"
+    if [ -n "$new_count" ] && [ "$new_count" -gt 0 ] 2>/dev/null; then
+        break
+    fi
+done
+if [ -z "$new_count" ] || [ "$new_count" -lt 1 ] 2>/dev/null; then
+    echo "ERROR: publish receipt confirmed but getBinaryVersionCount still 0 after retries — investigate manually." >&2
+    exit 1
+fi
 version_id=$(( new_count - 1 ))
 echo "  published version_id=$version_id"
 

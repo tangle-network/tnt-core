@@ -12,7 +12,7 @@ video-gen-inference-blueprint	9	0x91E3C8f9a84BBC395eCE8deBf69b032912b81D81	regis
 ai-agent-sandbox-blueprint	10	0x281d2D1160d80070eBe8989A529b6732C8403625	registered	-	-	-	-	variant=sandbox; binary=ai-agent-sandbox-blueprint; no_v0_published	2026-05-23T00:50:05Z
 ai-agent-sandbox-blueprint	11	0xDe25dad1757e5Dab5230d44779d7de6ad8181C5C	registered	-	-	-	-	variant=instance; binary=ai-agent-instance-blueprint; no_v0_published	2026-05-23T00:50:07Z
 ai-agent-sandbox-blueprint	12	0x6D6deBfA88260558597Ad912439Ea1949962b3eb	registered	-	-	-	-	variant=tee-instance; binary=ai-agent-tee-instance-blueprint; no_v0_published	2026-05-23T00:50:09Z
-ai-trading-blueprint	13	0xDaBE0ABeA4325aC2Dd35C1FDED303b7b208Dc12E	registered	-	-	-	-	variant=trading; binary=trading-blueprint; no_v0_published	2026-05-23T10:55:36Z
-ai-trading-blueprint	14	0x055F96d7960ed49a82424289E82166D5D80f429d	registered	-	-	-	-	variant=instance; binary=trading-instance-blueprint; no_v0_published	2026-05-23T10:55:38Z
-ai-trading-blueprint	15	0x54Da89CaBbBa9c477180BDd4f2a7aC4952A16e3a	registered	-	-	-	-	variant=tee-instance; binary=trading-tee-instance-blueprint; no_v0_published	2026-05-23T10:55:40Z
-ai-trading-blueprint	16	0x8F982bbF592066c7037526982D19aC131f4933a9	registered	-	-	-	-	variant=validator; binary=trading-validator; no_v0_published	2026-05-23T10:55:42Z
+ai-trading-blueprint	13	0xDaBE0ABeA4325aC2Dd35C1FDED303b7b208Dc12E	registered	-	-	-	-	variant=trading; binary=trading-blueprint; v0=0xf57e46b263d3681e5e948dc7bc2a5b1ee26316575ec2fa4d6acafc2bca1b1a25; release=v0.1.3	2026-05-23T10:55:36Z
+ai-trading-blueprint	14	0x055F96d7960ed49a82424289E82166D5D80f429d	registered	-	-	-	-	variant=instance; binary=trading-instance-blueprint; v0=0xc4e915462a178f71b69458ac794548f67575d94984609899f232131d95a43adc; release=v0.1.3	2026-05-23T10:55:38Z
+ai-trading-blueprint	15	0x54Da89CaBbBa9c477180BDd4f2a7aC4952A16e3a	registered	-	-	-	-	variant=tee-instance; binary=trading-tee-instance-blueprint; v0=0x0ab2be566f902c70048108aa16dd4921d06ee6dd43c04df867d2149b7014cefe; release=v0.1.3	2026-05-23T10:55:40Z
+ai-trading-blueprint	16	0x8F982bbF592066c7037526982D19aC131f4933a9	registered	-	-	-	-	variant=validator; binary=trading-validator; v0=0x1a6dab58a9cd33c15e0b2e42b76011fabec0465c4d7ab345b1fbd3d839982ece; release=v0.1.3	2026-05-23T10:55:42Z
