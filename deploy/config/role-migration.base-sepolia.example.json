@@ -1,0 +1,13 @@
+{
+  "network": "base-sepolia",
+  "contracts": {
+    "tangle": "0x8299d60f373f3a4a8c4878e335cb9d840e6e3730",
+    "staking": "0x91b1186f4f31d6e02e481c0af29c7244a3fe417d",
+    "tntToken": "0x62b3407a22e50183b1055e54d70ee21f59bf865b"
+  },
+  "currentAdmin": "0x2420fff17c4213a4075cf5f7b6dc33429aaf22bb",
+  "timelock": "0x0000000000000000000000000000000000000000",
+  "multisig": "0x0000000000000000000000000000000000000000",
+  "revokeCurrentAdmin": true,
+  "dryRun": true
+}

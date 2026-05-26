@@ -1,0 +1,89 @@
+# Publish a blueprint's released operator binary ON-CHAIN.
+#
+# The per-blueprint repos build + host their binary as a GitHub Release asset
+# (their own release.yml — free, no secrets). This workflow is the privileged
+# half: it takes a published release and records the version on Tangle via
+# publishBinaryVersion. The owner key lives ONLY here (tnt-core secrets), never
+# in the blueprint repos.
+#
+# Manual trigger — pick the blueprint repo, its release tag, and the on-chain
+# blueprint id (from deployments/<network>/blueprints.tsv).
+name: Publish blueprint binary (on-chain)
+
+on:
+  workflow_dispatch:
+    inputs:
+      blueprint_repo:
+        description: 'owner/repo of the blueprint (e.g. tangle-network/llm-inference-blueprint)'
+        required: true
+      tag:
+        description: 'Release tag in that repo (e.g. v0.1.0)'
+        required: true
+      blueprint_id:
+        description: 'On-chain blueprint id (see blueprints.tsv)'
+        required: true
+      network:
+        description: 'Deployment network (matches deployments/<network>/latest.json)'
+        required: true
+        default: 'base-sepolia'
+      target:
+        description: 'Release target triple to publish'
+        required: true
+        default: 'x86_64-unknown-linux-gnu'
+      set_active:
+        description: 'Set this version active after publishing'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry (cast)
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Resolve Tangle core address from the deployment manifest
+        id: addr
+        run: |
+          MANIFEST="deployments/${{ inputs.network }}/latest.json"
+          test -f "$MANIFEST" || { echo "::error::no manifest at $MANIFEST"; exit 1; }
+          TANGLE=$(jq -er '.tangle' "$MANIFEST")
+          echo "tangle=$TANGLE" >> "$GITHUB_OUTPUT"
+          echo "Tangle core ($MANIFEST): $TANGLE"
+
+      - name: Download the released binary asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          REPO='${{ inputs.blueprint_repo }}'
+          TAG='${{ inputs.tag }}'
+          TRIPLE='${{ inputs.target }}'
+          # release.yml names assets "<binary>-<triple>.tar.xz". Match by triple
+          # so we don't need to know each repo's binary name here.
+          ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets \
+            --jq ".assets[] | select(.name | endswith(\"${TRIPLE}.tar.xz\")) | .name" | head -1)
+          test -n "$ASSET" || { echo "::error::no asset for $TRIPLE on $REPO@$TAG"; exit 1; }
+          gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
+          tar -xJf "dl/$ASSET" -C dl
+          BIN=$(find dl -maxdepth 1 -type f ! -name '*.tar.xz' | head -1)
+          test -n "$BIN" || { echo "::error::archive had no binary"; exit 1; }
+          echo "BINARY_PATH=$BIN" >> "$GITHUB_ENV"
+          echo "BINARY_URI=https://github.com/$REPO/releases/download/$TAG/$ASSET" >> "$GITHUB_ENV"
+          echo "Asset: $ASSET"
+
+      - name: Publish version on-chain
+        env:
+          TANGLE_CORE: ${{ steps.addr.outputs.tangle }}
+          RPC_URL: ${{ secrets.PUBLISH_RPC_URL }}
+          PRIVATE_KEY: ${{ secrets.BLUEPRINT_OWNER_KEY }}
+          BLUEPRINT_ID: ${{ inputs.blueprint_id }}
+          SET_ACTIVE: ${{ inputs.set_active }}
+        run: |
+          test -n "$RPC_URL" || { echo "::error::set the PUBLISH_RPC_URL secret"; exit 1; }
+          test -n "$PRIVATE_KEY" || { echo "::error::set the BLUEPRINT_OWNER_KEY secret"; exit 1; }
+          bash deploy/publish-binary.sh
