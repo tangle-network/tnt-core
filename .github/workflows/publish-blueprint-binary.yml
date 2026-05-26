@@ -22,6 +22,10 @@ on:
       blueprint_id:
         description: 'On-chain blueprint id (see blueprints.tsv)'
         required: true
+      binary_name:
+        description: 'Binary to publish (multi-blueprint repos, e.g. trading-instance-blueprint). Leave blank for single-binary repos.'
+        required: false
+        default: ''
       network:
         description: 'Deployment network (matches deployments/<network>/latest.json)'
         required: true
@@ -63,10 +67,13 @@ jobs:
           REPO='${{ inputs.blueprint_repo }}'
           TAG='${{ inputs.tag }}'
           TRIPLE='${{ inputs.target }}'
-          # release.yml names assets "<binary>-<triple>.tar.xz". Match by triple
-          # so we don't need to know each repo's binary name here.
+          BIN='${{ inputs.binary_name }}'
+          # release.yml names assets "<binary>-<triple>.tar.xz". For a
+          # multi-blueprint repo, binary_name disambiguates which one maps to
+          # this blueprint id; otherwise match the single asset by triple.
+          SUFFIX="${BIN:+${BIN}-}${TRIPLE}.tar.xz"
           ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets \
-            --jq ".assets[] | select(.name | endswith(\"${TRIPLE}.tar.xz\")) | .name" | head -1)
+            --jq ".assets[] | select(.name | endswith(\"${SUFFIX}\")) | .name" | head -1)
           test -n "$ASSET" || { echo "::error::no asset for $TRIPLE on $REPO@$TAG"; exit 1; }
           gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
           tar -xJf "dl/$ASSET" -C dl

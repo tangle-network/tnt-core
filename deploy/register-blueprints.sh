@@ -376,20 +376,41 @@ for entry in "${REPOS[@]}"; do
             TSUSD_ADDRESS="$TSUSD_ADDRESS" \
             ./deploy/register-blueprint.sh
     ) > "$log" 2>&1; then
-        bp=$(grep -oE 'DEPLOY_[A-Z_]*BLUEPRINT_ID=[0-9]+|Blueprint ID:[[:space:]]*[0-9]+' "$log" | grep -oE '[0-9]+' | tail -1)
-        bsm=$(grep -oE 'DEPLOY_[A-Z_]*BSM[A-Z_]*=0x[0-9a-fA-F]{40}|(BSM[A-Za-z]*|BSM proxy)[^=:]*[=:][[:space:]]*0x[0-9a-fA-F]{40}' "$log" | grep -oE '0x[0-9a-fA-F]{40}' | tail -1)
-        if [ -n "$bp" ]; then
-            # Globals set by publish_v0_binary: BIN_VERSION_ID, BIN_SHA256,
-            # BIN_URI, BIN_ATTEST, BIN_NOTE. Each defaults to '-' when no v0
-            # publish was attempted.
-            publish_v0_binary "$repo" "$repo_path" "$bp"
-            printf '%s\t%s\t%s\tregistered\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-                "$repo" "$bp" "${bsm:-}" \
-                "$BIN_VERSION_ID" "$BIN_SHA256" "$BIN_URI" "$BIN_ATTEST" "$BIN_NOTE" \
-                "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-                >> "$DEPLOY_MANIFEST"
-            RESULTS+=("$repo: OK id=$bp bsm=${bsm:-?} bin=$BIN_VERSION_ID ($BIN_NOTE)")
-            echo "OK id=$bp bsm=${bsm:-?} bin=$BIN_VERSION_ID"
+        # Record EVERY blueprint the repo registered, not just the last id.
+        # Multi-blueprint repos (sandbox, trading) emit several
+        # `DEPLOY_<LABEL>BLUEPRINT_ID=<n>` lines; we write one manifest row per
+        # id and pair each with its same-label BSM (`DEPLOY_<LABEL>BSM=0x…`,
+        # falling back to `DEPLOY_BSM` for the unlabelled main blueprint).
+        mapfile -t _id_lines < <(grep -oE 'DEPLOY_[A-Z_]*BLUEPRINT_ID=[0-9]+' "$log")
+        if [ "${#_id_lines[@]}" -eq 0 ]; then
+            _single=$(grep -oE 'Blueprint ID:[[:space:]]*[0-9]+' "$log" | grep -oE '[0-9]+' | tail -1)
+            [ -n "$_single" ] && _id_lines=("DEPLOY_BLUEPRINT_ID=$_single")
+        fi
+        if [ "${#_id_lines[@]}" -gt 0 ]; then
+            for _line in "${_id_lines[@]}"; do
+                bp="${_line##*=}"
+                _var="${_line%%=*}"                 # DEPLOY_INSTANCE_BLUEPRINT_ID
+                _label="${_var#DEPLOY_}"            # INSTANCE_BLUEPRINT_ID
+                _label="${_label%BLUEPRINT_ID}"     # INSTANCE_  (or "" for main)
+                _label="${_label%_}"                # INSTANCE   (or "")
+                bsm=""
+                if [ -n "$_label" ]; then
+                    bsm=$(grep -oE "DEPLOY_${_label}_?BSM[A-Z_]*=0x[0-9a-fA-F]{40}" "$log" | grep -oE '0x[0-9a-fA-F]{40}' | tail -1)
+                fi
+                [ -z "$bsm" ] && bsm=$(grep -oE 'DEPLOY_BSM=0x[0-9a-fA-F]{40}' "$log" | grep -oE '0x[0-9a-fA-F]{40}' | tail -1)
+                # Globals set by publish_v0_binary: BIN_VERSION_ID, BIN_SHA256,
+                # BIN_URI, BIN_ATTEST, BIN_NOTE (default '-' / no-publish).
+                publish_v0_binary "$repo" "$repo_path" "$bp"
+                _note="$BIN_NOTE"
+                [ -n "$_label" ] && _note="variant=${_label}; $BIN_NOTE"
+                printf '%s\t%s\t%s\tregistered\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+                    "$repo" "$bp" "${bsm:-}" \
+                    "$BIN_VERSION_ID" "$BIN_SHA256" "$BIN_URI" "$BIN_ATTEST" "$_note" \
+                    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                    >> "$DEPLOY_MANIFEST"
+                RESULTS+=("$repo: OK id=$bp${_label:+ ($_label)} bsm=${bsm:-?}")
+                echo "OK id=$bp${_label:+ variant=$_label} bsm=${bsm:-?} bin=$BIN_VERSION_ID"
+            done
         else
             printf '%s\t-\t-\tunknown_output\t-\t-\t-\t-\t-\t%s\n' \
                 "$repo" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
