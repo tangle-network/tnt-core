@@ -40,6 +40,31 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         blueprintId = tangle.createBlueprint(def);
     }
 
+    function test_GetBlueprintDefinition_ReflectsLiveSources() public {
+        uint64 id = _createOwned();
+        // Genesis: the definition's sources match the genesis (one container source).
+        Types.BlueprintDefinition memory g = tangle.getBlueprintDefinition(id);
+        assertEq(g.sources.length, 1, "genesis def sources");
+        assertEq(uint256(g.sources[0].kind), uint256(Types.BlueprintSourceKind.Container), "genesis kind");
+
+        Types.BlueprintSource[] memory next = new Types.BlueprintSource[](1);
+        next[0] = _multiArchNativeSource();
+        vm.prank(developer);
+        tangle.setBlueprintSources(id, next);
+
+        // The definition view (what the manager reads) must now reflect the live
+        // sources, not the stale genesis blob — else setBlueprintSources is a no-op
+        // for binary resolution.
+        Types.BlueprintDefinition memory d = tangle.getBlueprintDefinition(id);
+        assertEq(d.sources.length, 1, "def reflects new source count");
+        assertEq(uint256(d.sources[0].kind), uint256(Types.BlueprintSourceKind.Native), "def kind -> Native");
+        assertEq(uint256(d.sources[0].native.fetcher), uint256(Types.BlueprintFetcherKind.Github), "def fetcher");
+        assertEq(d.sources[0].binaries.length, 2, "def per-arch binaries");
+        assertEq(d.sources[0].binaries[1].sha256, bytes32(uint256(0xB0B)), "def binary sha overlaid");
+        // Non-source fields still come from the genesis blob (unchanged).
+        assertEq(d.metadataUri, "ipfs://set-sources", "metadataUri preserved from blob");
+    }
+
     function test_SetBlueprintSources_RepointsToMultiArch() public {
         uint64 id = _createOwned();
         // Genesis: one single-arch container source.
