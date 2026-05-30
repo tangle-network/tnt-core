@@ -5,23 +5,24 @@ import { Script, console2 } from "forge-std/Script.sol";
 import { ITangleFull } from "../src/interfaces/ITangle.sol";
 import { Types } from "../src/libraries/Types.sol";
 
-/// @title RequestTradingService
-/// @notice Onboard an operator to a trading blueprint and stand up a live
-/// service in one shot: registerOperator -> requestService -> approveService.
-/// Reliable path when cargo-tangle's bindings are version-skewed vs the
-/// deployed Tangle (this script compiles against tnt-core's own interfaces, so
-/// the selectors always match the deployment).
+/// @title RequestService
+/// @notice Onboard an operator to ANY blueprint and stand up a live service in
+/// one shot: registerOperator -> requestService -> approveService. The target
+/// blueprint is chosen by `BLUEPRINT_ID`, so this is generic protocol ops — not
+/// specific to any one blueprint. Reliable path when cargo-tangle's bindings are
+/// version-skewed vs the deployed Tangle (this script compiles against tnt-core's
+/// own interfaces, so the selectors always match the deployment).
 ///
 /// Env:
 ///   TANGLE_CORE       deployed Tangle (e.g. 0x8299d60f… on Base Sepolia)
-///   BLUEPRINT_ID      uint64 (13 = trading/cloud)
+///   BLUEPRINT_ID      uint64 — the target blueprint to register on / request
 ///   OPERATOR_KEY      operator private key (must already be a staked/active
 ///                     MAD operator; this only registers it on the blueprint)
 ///   OPERATOR_ADDR     operator address
 ///   OPERATOR_PUBKEY   65-byte uncompressed secp256k1 pubkey (0x04‖X‖Y)
 ///   OPERATOR_RPC      operator RPC advertised on-chain (string)
 ///   SERVICE_TTL_SECS  optional, default 604800 (7 days)
-contract RequestTradingService is Script {
+contract RequestService is Script {
     function run() external {
         ITangleFull tangle = ITangleFull(payable(vm.envAddress("TANGLE_CORE")));
         uint64 blueprintId = uint64(vm.envUint("BLUEPRINT_ID"));
@@ -47,7 +48,7 @@ contract RequestTradingService is Script {
         uint64 serviceId = tangle.requestService(
             blueprintId,
             operators,
-            "", // empty config (trading blueprint accepts it; matches CreateServiceForTLV2Test)
+            "", // empty config (blueprints that accept it; matches CreateServiceForTLV2Test)
             permittedCallers,
             ttl,
             address(0), // native payment token
