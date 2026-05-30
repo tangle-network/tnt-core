@@ -33,6 +33,10 @@ set -euo pipefail
 : "${BINARY_URI:?set BINARY_URI}"
 ATTESTATION="${ATTESTATION:-0x0000000000000000000000000000000000000000000000000000000000000000}"
 SET_ACTIVE="${SET_ACTIVE:-true}"
+# ALLOW_BUMP=true publishes a NEW version even when a genesis already exists
+# (the per-release CD path bumps on every release). Default false keeps the
+# original genesis-only, idempotent behavior for manual one-shot publishes.
+ALLOW_BUMP="${ALLOW_BUMP:-false}"
 
 [ -f "$BINARY_PATH" ] || { echo "ERROR: BINARY_PATH not found: $BINARY_PATH" >&2; exit 1; }
 
@@ -42,11 +46,12 @@ echo "  tangle:      $TANGLE_CORE"
 echo "  artifact:    $BINARY_PATH"
 echo "  uri:         $BINARY_URI"
 
-# Append-only guard: never double-publish a genesis version.
+# Genesis guard: by default never double-publish when a version already exists.
+# ALLOW_BUMP=true opts into publishing a new (append-only) version — the CD path.
 count="$(cast call "$TANGLE_CORE" 'getBinaryVersionCount(uint64)(uint64)' "$BLUEPRINT_ID" --rpc-url "$RPC_URL" 2>/dev/null || echo 0)"
 count="${count%% *}" # cast may suffix the decoded type
-if [ -n "$count" ] && [ "$count" != "0" ]; then
-    echo "  already has $count published version(s) — skipping (bump via cargo tangle)."
+if [ -n "$count" ] && [ "$count" != "0" ] && [ "$ALLOW_BUMP" != "true" ]; then
+    echo "  already has $count published version(s) — skipping (set ALLOW_BUMP=true to publish a new version)."
     exit 0
 fi
 
