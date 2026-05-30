@@ -17,6 +17,7 @@ abstract contract BlueprintsManage is Base {
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event JobEventRateSet(uint64 indexed blueprintId, uint8 indexed jobIndex, uint256 rate);
     event BlueprintResourceRequirementsSet(uint64 indexed blueprintId, uint256 count);
+    event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // BLUEPRINT MANAGEMENT
@@ -95,6 +96,28 @@ abstract contract BlueprintsManage is Base {
         _blueprintMetadataUri[blueprintId] = metadataUri;
         _blueprintMetadataHash[blueprintId] = metadataHash;
         emit BlueprintUpdated(blueprintId, metadataUri, metadataHash);
+    }
+
+    /// @notice Replace a blueprint's binary sources (owner-only).
+    /// @dev createBlueprint writes sources once at genesis; this lets the owner
+    ///      repoint the blueprint at real, fetchable, multi-arch artifacts after
+    ///      creation — correcting a placeholder source, or rolling the source
+    ///      forward each release so operators cold-starting through the manager
+    ///      fetch the right per-arch binary. The manager resolves the initial
+    ///      binary from these sources (not from published BinaryVersions, which
+    ///      only drive in-place upgrades), so a wrong/placeholder source here
+    ///      means no operator can boot the blueprint. Same validation as
+    ///      createBlueprint: >=1 source, each with >=1 binary, every binary
+    ///      carrying a non-zero sha256. Sources are not lockable; ownership is
+    ///      the gate. The active/published BinaryVersion set is unaffected.
+    function setBlueprintSources(uint64 blueprintId, Types.BlueprintSource[] calldata sources) external nonReentrant {
+        Types.Blueprint storage bp = _getBlueprint(blueprintId);
+        if (bp.owner != msg.sender) {
+            revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
+        }
+        _validateBlueprintSources(sources);
+        _writeBlueprintSources(blueprintId, sources);
+        emit BlueprintSourcesUpdated(blueprintId, sources.length);
     }
 
     /// @notice Transfer blueprint ownership

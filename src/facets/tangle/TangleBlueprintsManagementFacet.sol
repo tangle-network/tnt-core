@@ -8,7 +8,7 @@ import { IFacetSelectors } from "../../interfaces/IFacetSelectors.sol";
 /// @notice Facet for blueprint metadata and ownership
 contract TangleBlueprintsManagementFacet is BlueprintsManage, IFacetSelectors {
     function selectors() external pure returns (bytes4[] memory selectorList) {
-        selectorList = new bytes4[](13);
+        selectorList = new bytes4[](14);
         selectorList[0] = this.blueprintCount.selector;
         selectorList[1] = this.blueprintMetadata.selector;
         selectorList[2] = this.blueprintSources.selector;
@@ -22,5 +22,6 @@ contract TangleBlueprintsManagementFacet is BlueprintsManage, IFacetSelectors {
         selectorList[10] = this.getJobEventRate.selector;
         selectorList[11] = bytes4(keccak256("setBlueprintResourceRequirements(uint64,(uint8,uint64)[])"));
         selectorList[12] = bytes4(keccak256("getBlueprintResourceRequirements(uint64)"));
+        selectorList[13] = this.setBlueprintSources.selector;
     }
 }

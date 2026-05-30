@@ -679,6 +679,42 @@ abstract contract Base is
         return _blueprints[id];
     }
 
+    /// @dev Validate a blueprint's binary sources: at least one source, each with
+    ///      at least one binary, every binary carrying a non-zero sha256. Shared by
+    ///      createBlueprint and setBlueprintSources so both enforce the same shape.
+    function _validateBlueprintSources(Types.BlueprintSource[] calldata sources) internal pure {
+        if (sources.length == 0) revert Errors.BlueprintSourcesRequired();
+        for (uint256 i = 0; i < sources.length; ++i) {
+            Types.BlueprintSource calldata source = sources[i];
+            if (source.binaries.length == 0) revert Errors.BlueprintBinaryRequired();
+            for (uint256 j = 0; j < source.binaries.length; ++j) {
+                if (source.binaries[j].sha256 == bytes32(0)) {
+                    revert Errors.BlueprintBinaryHashRequired();
+                }
+            }
+        }
+    }
+
+    /// @dev Replace a blueprint's stored sources with `sources` (delete + deep copy).
+    ///      Shared by createBlueprint (genesis write) and setBlueprintSources (owner
+    ///      repoint). Callers must validate via {_validateBlueprintSources} first.
+    function _writeBlueprintSources(uint64 blueprintId, Types.BlueprintSource[] calldata sources) internal {
+        delete _blueprintSources[blueprintId];
+        Types.BlueprintSource[] storage stored = _blueprintSources[blueprintId];
+        for (uint256 i = 0; i < sources.length; ++i) {
+            Types.BlueprintSource storage dst = stored.push();
+            Types.BlueprintSource calldata src = sources[i];
+            dst.kind = src.kind;
+            dst.container = src.container;
+            dst.wasm = src.wasm;
+            dst.native = src.native;
+            dst.testing = src.testing;
+            for (uint256 j = 0; j < src.binaries.length; ++j) {
+                dst.binaries.push(src.binaries[j]);
+            }
+        }
+    }
+
     function _getServiceRequest(uint64 id) internal view returns (Types.ServiceRequest storage) {
         if (id >= _serviceRequestCount) revert Errors.ServiceRequestNotFound(id);
         return _serviceRequests[id];

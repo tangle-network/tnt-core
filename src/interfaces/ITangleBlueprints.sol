@@ -20,6 +20,8 @@ interface ITangleBlueprints {
 
     event BlueprintDeactivated(uint64 indexed blueprintId);
 
+    event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -31,6 +33,9 @@ interface ITangleBlueprints {
 
     /// @notice Update blueprint metadata
     function updateBlueprint(uint64 blueprintId, string calldata metadataUri, bytes32 metadataHash) external;
+
+    /// @notice Replace a blueprint's binary sources (owner only)
+    function setBlueprintSources(uint64 blueprintId, Types.BlueprintSource[] calldata sources) external;
 
     /// @notice Transfer blueprint ownership
     function transferBlueprint(uint64 blueprintId, address newOwner) external;
