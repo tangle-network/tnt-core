@@ -94,21 +94,7 @@ abstract contract BlueprintsCreate is Base {
     }
 
     function _storeBlueprintSources(uint64 blueprintId, Types.BlueprintSource[] calldata sources) private {
-        delete _blueprintSources[blueprintId];
-        Types.BlueprintSource[] storage stored = _blueprintSources[blueprintId];
-        for (uint256 i = 0; i < sources.length; ++i) {
-            Types.BlueprintSource storage dst = stored.push();
-            Types.BlueprintSource calldata src = sources[i];
-            dst.kind = src.kind;
-            dst.container = src.container;
-            dst.wasm = src.wasm;
-            dst.native = src.native;
-            dst.testing = src.testing;
-
-            for (uint256 j = 0; j < src.binaries.length; ++j) {
-                dst.binaries.push(src.binaries[j]);
-            }
-        }
+        _writeBlueprintSources(blueprintId, sources);
     }
 
     function _storeSupportedMemberships(uint64 blueprintId, Types.MembershipModel[] calldata memberships) private {
@@ -123,7 +109,6 @@ abstract contract BlueprintsCreate is Base {
         if (bytes(def.metadataUri).length == 0) revert Errors.BlueprintMetadataRequired();
         if (def.metadataHash == bytes32(0)) revert Errors.BlueprintMetadataHashRequired();
         if (def.jobs.length == 0) revert Errors.InvalidState();
-        if (def.sources.length == 0) revert Errors.BlueprintSourcesRequired();
         if (def.supportedMemberships.length == 0) revert Errors.BlueprintMembershipRequired();
         if (
             def.hasConfig && def.config.pricing == Types.PricingModel.Subscription
@@ -131,15 +116,7 @@ abstract contract BlueprintsCreate is Base {
         ) {
             revert Errors.InvalidState();
         }
-        for (uint256 i = 0; i < def.sources.length; ++i) {
-            Types.BlueprintSource calldata source = def.sources[i];
-            if (source.binaries.length == 0) revert Errors.BlueprintBinaryRequired();
-            for (uint256 j = 0; j < source.binaries.length; ++j) {
-                if (source.binaries[j].sha256 == bytes32(0)) {
-                    revert Errors.BlueprintBinaryHashRequired();
-                }
-            }
-        }
+        _validateBlueprintSources(def.sources);
     }
 
     function _normalizeBlueprintConfig(Types.BlueprintDefinition calldata def)

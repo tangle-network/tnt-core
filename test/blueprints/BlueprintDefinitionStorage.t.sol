@@ -7,6 +7,138 @@ import { Errors } from "../../src/libraries/Errors.sol";
 import { MasterBlueprintServiceManager } from "../../src/MasterBlueprintServiceManager.sol";
 
 contract BlueprintDefinitionStorageTest is BaseTest {
+    event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
+
+    /// @dev A real, fetchable, multi-arch (x86_64 + aarch64) native source — the
+    ///      shape an owner repoints a blueprint to so manager cold-starts resolve
+    ///      the operator's arch. Mirrors the live trading-blueprint fix.
+    function _multiArchNativeSource() internal pure returns (Types.BlueprintSource memory source) {
+        source.kind = Types.BlueprintSourceKind.Native;
+        source.native = Types.NativeSource({
+            fetcher: Types.BlueprintFetcherKind.Github,
+            artifactUri: "https://github.com/tangle-network/ai-trading-blueprint/releases/download/v0.1.13",
+            entrypoint: "trading-blueprint"
+        });
+        source.binaries = new Types.BlueprintBinary[](2);
+        source.binaries[0] = Types.BlueprintBinary({
+            arch: Types.BlueprintArchitecture.Amd64,
+            os: Types.BlueprintOperatingSystem.Linux,
+            name: "trading-blueprint-x86_64-unknown-linux-gnu",
+            sha256: bytes32(uint256(0xA11CE))
+        });
+        source.binaries[1] = Types.BlueprintBinary({
+            arch: Types.BlueprintArchitecture.Arm64,
+            os: Types.BlueprintOperatingSystem.Linux,
+            name: "trading-blueprint-aarch64-unknown-linux-gnu",
+            sha256: bytes32(uint256(0xB0B))
+        });
+    }
+
+    function _createOwned() internal returns (uint64 blueprintId) {
+        Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://set-sources", address(0));
+        vm.prank(developer);
+        blueprintId = tangle.createBlueprint(def);
+    }
+
+    function test_SetBlueprintSources_RepointsToMultiArch() public {
+        uint64 id = _createOwned();
+        // Genesis: one single-arch container source.
+        assertEq(tangle.blueprintSources(id).length, 1, "precondition: one genesis source");
+
+        Types.BlueprintSource[] memory next = new Types.BlueprintSource[](1);
+        next[0] = _multiArchNativeSource();
+
+        vm.expectEmit(true, false, false, true, address(tangle));
+        emit BlueprintSourcesUpdated(id, 1);
+        vm.prank(developer);
+        tangle.setBlueprintSources(id, next);
+
+        Types.BlueprintSource[] memory stored = tangle.blueprintSources(id);
+        assertEq(stored.length, 1, "source count");
+        assertEq(uint256(stored[0].kind), uint256(Types.BlueprintSourceKind.Native), "kind -> Native");
+        assertEq(uint256(stored[0].native.fetcher), uint256(Types.BlueprintFetcherKind.Github), "fetcher -> Github");
+        assertEq(stored[0].native.artifactUri, next[0].native.artifactUri, "artifactUri");
+        // Deep copy of nested binaries, both arches present with exact hashes.
+        assertEq(stored[0].binaries.length, 2, "binary count");
+        assertEq(uint256(stored[0].binaries[0].arch), uint256(Types.BlueprintArchitecture.Amd64), "binary0 arch");
+        assertEq(uint256(stored[0].binaries[1].arch), uint256(Types.BlueprintArchitecture.Arm64), "binary1 arch");
+        assertEq(uint256(stored[0].binaries[1].os), uint256(Types.BlueprintOperatingSystem.Linux), "binary1 os");
+        assertEq(stored[0].binaries[1].name, next[0].binaries[1].name, "binary1 name");
+        assertEq(stored[0].binaries[1].sha256, bytes32(uint256(0xB0B)), "binary1 sha256");
+    }
+
+    function test_SetBlueprintSources_ReplacesNotAppends_NoStaleEntries() public {
+        uint64 id = _createOwned();
+
+        // First set: two sources, the first with two binaries.
+        Types.BlueprintSource[] memory big = new Types.BlueprintSource[](2);
+        big[0] = _multiArchNativeSource(); // 2 binaries
+        big[1] = _defaultBlueprintSource(); // 1 binary
+        vm.prank(developer);
+        tangle.setBlueprintSources(id, big);
+        assertEq(tangle.blueprintSources(id).length, 2, "after first set");
+
+        // Re-set to a single source with a single binary; delete must clear the
+        // prior nested binaries array, not leave the old second binary dangling.
+        Types.BlueprintSource[] memory small = new Types.BlueprintSource[](1);
+        small[0] = _defaultBlueprintSource();
+        vm.prank(developer);
+        tangle.setBlueprintSources(id, small);
+
+        Types.BlueprintSource[] memory stored = tangle.blueprintSources(id);
+        assertEq(stored.length, 1, "shrunk to one source");
+        assertEq(stored[0].binaries.length, 1, "shrunk to one binary (no stale entries)");
+        assertEq(uint256(stored[0].kind), uint256(Types.BlueprintSourceKind.Container), "kind reset");
+    }
+
+    function test_SetBlueprintSources_RevertsForNonOwner() public {
+        uint64 id = _createOwned();
+        Types.BlueprintSource[] memory next = new Types.BlueprintSource[](1);
+        next[0] = _multiArchNativeSource();
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotBlueprintOwner.selector, id, user1));
+        tangle.setBlueprintSources(id, next);
+    }
+
+    function test_SetBlueprintSources_RevertsForUnknownBlueprint() public {
+        Types.BlueprintSource[] memory next = new Types.BlueprintSource[](1);
+        next[0] = _multiArchNativeSource();
+        uint64 missing = tangle.blueprintCount() + 7;
+
+        vm.prank(developer);
+        vm.expectRevert(abi.encodeWithSelector(Errors.BlueprintNotFound.selector, missing));
+        tangle.setBlueprintSources(missing, next);
+    }
+
+    function test_SetBlueprintSources_RevertsOnEmptySources() public {
+        uint64 id = _createOwned();
+        Types.BlueprintSource[] memory empty = new Types.BlueprintSource[](0);
+        vm.prank(developer);
+        vm.expectRevert(Errors.BlueprintSourcesRequired.selector);
+        tangle.setBlueprintSources(id, empty);
+    }
+
+    function test_SetBlueprintSources_RevertsOnSourceWithNoBinaries() public {
+        uint64 id = _createOwned();
+        Types.BlueprintSource[] memory next = new Types.BlueprintSource[](1);
+        next[0] = _multiArchNativeSource();
+        next[0].binaries = new Types.BlueprintBinary[](0);
+        vm.prank(developer);
+        vm.expectRevert(Errors.BlueprintBinaryRequired.selector);
+        tangle.setBlueprintSources(id, next);
+    }
+
+    function test_SetBlueprintSources_RevertsOnZeroBinaryHash() public {
+        uint64 id = _createOwned();
+        Types.BlueprintSource[] memory next = new Types.BlueprintSource[](1);
+        next[0] = _multiArchNativeSource();
+        next[0].binaries[1].sha256 = bytes32(0);
+        vm.prank(developer);
+        vm.expectRevert(Errors.BlueprintBinaryHashRequired.selector);
+        tangle.setBlueprintSources(id, next);
+    }
+
     function test_MetadataSourcesAndMembershipsPersisted() public {
         Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://custom-metadata", address(0));
         def.metadata.name = "Custom Blueprint";
