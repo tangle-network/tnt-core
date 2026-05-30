@@ -38,6 +38,10 @@ on:
         description: 'Set this version active after publishing'
         required: false
         default: 'true'
+      manifest:
+        description: 'Publish the multi-arch <binary>-manifest.json (binaryUri=manifest, sha256=manifest hash) instead of a single-arch tarball'
+        required: false
+        default: 'false'
   workflow_call:
     # Reusable entry point: a blueprint repo's release CI calls this after it
     # publishes a release, so the privileged on-chain publish stays here (the
@@ -69,6 +73,10 @@ on:
         type: string
         required: false
         default: 'true'
+      manifest:
+        type: string
+        required: false
+        default: 'false'
     secrets:
       PUBLISH_RPC_URL:
         required: true
@@ -104,20 +112,33 @@ jobs:
           TAG='${{ inputs.tag }}'
           TRIPLE='${{ inputs.target }}'
           BIN='${{ inputs.binary_name }}'
-          # release.yml names assets "<binary>-<triple>.tar.xz". For a
-          # multi-blueprint repo, binary_name disambiguates which one maps to
-          # this blueprint id; otherwise match the single asset by triple.
-          SUFFIX="${BIN:+${BIN}-}${TRIPLE}.tar.xz"
-          ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets \
-            --jq ".assets[] | select(.name | endswith(\"${SUFFIX}\")) | .name" | head -1)
-          test -n "$ASSET" || { echo "::error::no asset for $TRIPLE on $REPO@$TAG"; exit 1; }
-          gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
-          tar -xJf "dl/$ASSET" -C dl
-          BIN=$(find dl -maxdepth 1 -type f ! -name '*.tar.xz' | head -1)
-          test -n "$BIN" || { echo "::error::archive had no binary"; exit 1; }
-          echo "BINARY_PATH=$BIN" >> "$GITHUB_ENV"
-          echo "BINARY_URI=https://github.com/$REPO/releases/download/$TAG/$ASSET" >> "$GITHUB_ENV"
-          echo "Asset: $ASSET"
+          MANIFEST='${{ inputs.manifest }}'
+          if [ "$MANIFEST" = "true" ]; then
+            # Multi-arch: publish the manifest itself. binaryUri = manifest URL,
+            # sha256 (computed by publish-binary.sh over BINARY_PATH) = manifest
+            # hash. The manager verifies the manifest against this hash, then
+            # resolves + verifies the operator's-arch asset listed inside it.
+            ASSET="${BIN:+${BIN}-}manifest.json"
+            ASSET="${ASSET#-}"
+            gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
+            test -f "dl/$ASSET" || { echo "::error::no manifest asset $ASSET on $REPO@$TAG"; exit 1; }
+            echo "BINARY_PATH=dl/$ASSET" >> "$GITHUB_ENV"
+            echo "BINARY_URI=https://github.com/$REPO/releases/download/$TAG/$ASSET" >> "$GITHUB_ENV"
+            echo "Manifest asset: $ASSET"
+          else
+            # Single-arch: release.yml names assets "<binary>-<triple>.tar.xz".
+            SUFFIX="${BIN:+${BIN}-}${TRIPLE}.tar.xz"
+            ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets \
+              --jq ".assets[] | select(.name | endswith(\"${SUFFIX}\")) | .name" | head -1)
+            test -n "$ASSET" || { echo "::error::no asset for $TRIPLE on $REPO@$TAG"; exit 1; }
+            gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
+            tar -xJf "dl/$ASSET" -C dl
+            BINF=$(find dl -maxdepth 1 -type f ! -name '*.tar.xz' ! -name '*.json' | head -1)
+            test -n "$BINF" || { echo "::error::archive had no binary"; exit 1; }
+            echo "BINARY_PATH=$BINF" >> "$GITHUB_ENV"
+            echo "BINARY_URI=https://github.com/$REPO/releases/download/$TAG/$ASSET" >> "$GITHUB_ENV"
+            echo "Asset: $ASSET"
+          fi
 
       - name: Publish version on-chain
         env:
@@ -126,6 +147,8 @@ jobs:
           PRIVATE_KEY: ${{ secrets.BLUEPRINT_OWNER_KEY }}
           BLUEPRINT_ID: ${{ inputs.blueprint_id }}
           SET_ACTIVE: ${{ inputs.set_active }}
+          # Per-release CD bumps an append-only version each release.
+          ALLOW_BUMP: 'true'
         run: |
           test -n "$RPC_URL" || { echo "::error::set the PUBLISH_RPC_URL secret"; exit 1; }
           test -n "$PRIVATE_KEY" || { echo "::error::set the BLUEPRINT_OWNER_KEY secret"; exit 1; }
