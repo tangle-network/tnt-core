@@ -38,6 +38,42 @@ on:
         description: 'Set this version active after publishing'
         required: false
         default: 'true'
+  workflow_call:
+    # Reusable entry point: a blueprint repo's release CI calls this after it
+    # publishes a release, so the privileged on-chain publish stays here (the
+    # owner key never leaves tnt-core). Inputs mirror workflow_dispatch; the
+    # shared job below reads inputs.*/secrets.* identically for both triggers.
+    inputs:
+      blueprint_repo:
+        type: string
+        required: true
+      tag:
+        type: string
+        required: true
+      blueprint_id:
+        type: string
+        required: true
+      binary_name:
+        type: string
+        required: false
+        default: ''
+      network:
+        type: string
+        required: false
+        default: 'base-sepolia'
+      target:
+        type: string
+        required: false
+        default: 'x86_64-unknown-linux-gnu'
+      set_active:
+        type: string
+        required: false
+        default: 'true'
+    secrets:
+      PUBLISH_RPC_URL:
+        required: true
+      BLUEPRINT_OWNER_KEY:
+        required: true
 
 permissions:
   contents: read
