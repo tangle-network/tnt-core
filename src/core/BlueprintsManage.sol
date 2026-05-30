@@ -66,7 +66,7 @@ abstract contract BlueprintsManage is Base {
         return _blueprintMasterRevisions[blueprintId];
     }
 
-    /// @notice Retrieve the original blueprint definition
+    /// @notice Retrieve the blueprint definition, with current (post-genesis) sources.
     function getBlueprintDefinition(uint64 blueprintId)
         external
         view
@@ -75,6 +75,11 @@ abstract contract BlueprintsManage is Base {
         bytes storage blob = _blueprintDefinitionBlobs[blueprintId];
         if (blob.length == 0) revert Errors.BlueprintNotFound(blueprintId);
         definition = abi.decode(blob, (Types.BlueprintDefinition));
+        // The blob is the genesis snapshot, but sources are mutable post-genesis
+        // via setBlueprintSources (stored in _blueprintSources). Overlay the live
+        // sources so this view — which the blueprint-manager reads to resolve the
+        // operator binary — reflects the current source set, not the stale blob.
+        definition.sources = _blueprintSources[blueprintId];
     }
 
     /// @notice Update blueprint metadata
