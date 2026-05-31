@@ -142,8 +142,14 @@ jobs:
             --dir source-sha --clobber
           X86_SHA="0x$(cat "source-sha/${BINARY_NAME}-x86_64-unknown-linux-gnu.bin.sha256")"
           ARM_SHA="0x$(cat "source-sha/${BINARY_NAME}-aarch64-unknown-linux-gnu.bin.sha256")"
-          export X86_SHA ARM_SHA
-          forge script script/SetBlueprintSources.s.sol:SetBlueprintSources --rpc-url "$RPC_URL" --broadcast
+          BASE="https://github.com/${BLUEPRINT_REPO}/releases/download/${BLUEPRINT_VERSION}"
+          X86_URI="{\"dist_url\":\"${BASE}/dist-manifest.json\",\"archive_url\":\"${BASE}/${BINARY_NAME}-x86_64-unknown-linux-gnu.tar.xz\",\"binaries\":[]}"
+          ARM_URI="{\"dist_url\":\"${BASE}/dist-manifest.json\",\"archive_url\":\"${BASE}/${BINARY_NAME}-aarch64-unknown-linux-gnu.tar.xz\",\"binaries\":[]}"
+          SOURCES="[(2,(\"\",\"\",\"\"),(0,0,\"\",\"\"),(2,'${X86_URI}',\"${BINARY_NAME}\"),(\"\",\"\",\"\"),[(5,1,\"${BINARY_NAME}\",${X86_SHA})]),(2,(\"\",\"\",\"\"),(0,0,\"\",\"\"),(2,'${ARM_URI}',\"${BINARY_NAME}\"),(\"\",\"\",\"\"),[(7,1,\"${BINARY_NAME}\",${ARM_SHA})])]"
+          cast send "$TANGLE_CONTRACT" \
+            'setBlueprintSources(uint64,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[])' \
+            "$BLUEPRINT_ID" "$SOURCES" \
+            --private-key "$BLUEPRINT_OWNER_PRIVATE_KEY" --rpc-url "$RPC_URL"
 
       - name: Download the released binary asset
         if: ${{ inputs.active_version_id == '' }}
