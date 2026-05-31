@@ -42,6 +42,10 @@ on:
         description: 'Publish the multi-arch <binary>-manifest.json (binaryUri=manifest, sha256=manifest hash) instead of a single-arch tarball'
         required: false
         default: 'false'
+      active_version_id:
+        description: 'Activate an existing binary version id without publishing another version'
+        required: false
+        default: ''
   workflow_call:
     # Reusable entry point: a blueprint repo's release CI calls this after it
     # publishes a release, so the privileged on-chain publish stays here (the
@@ -77,6 +81,10 @@ on:
         type: string
         required: false
         default: 'false'
+      active_version_id:
+        type: string
+        required: false
+        default: ''
     secrets:
       PUBLISH_RPC_URL:
         required: true
@@ -105,6 +113,7 @@ jobs:
           echo "Tangle core ($MANIFEST): $TANGLE"
 
       - name: Download the released binary asset
+        if: ${{ inputs.active_version_id == '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -147,6 +156,7 @@ jobs:
           PRIVATE_KEY: ${{ secrets.BLUEPRINT_OWNER_KEY }}
           BLUEPRINT_ID: ${{ inputs.blueprint_id }}
           SET_ACTIVE: ${{ inputs.set_active }}
+          ACTIVE_VERSION_ID: ${{ inputs.active_version_id }}
           # Per-release CD bumps an append-only version each release.
           ALLOW_BUMP: 'true'
         run: |
