@@ -42,6 +42,14 @@ on:
         description: 'Publish the multi-arch <binary>-manifest.json (binaryUri=manifest, sha256=manifest hash) instead of a single-arch tarball'
         required: false
         default: 'false'
+      active_version_id:
+        description: 'Activate an existing binary version id without publishing another version'
+        required: false
+        default: ''
+      update_sources_version:
+        description: 'Update blueprint cold-start sources to this release tag before publishing/activation'
+        required: false
+        default: ''
   workflow_call:
     # Reusable entry point: a blueprint repo's release CI calls this after it
     # publishes a release, so the privileged on-chain publish stays here (the
@@ -77,6 +85,14 @@ on:
         type: string
         required: false
         default: 'false'
+      active_version_id:
+        type: string
+        required: false
+        default: ''
+      update_sources_version:
+        type: string
+        required: false
+        default: ''
     secrets:
       PUBLISH_RPC_URL:
         required: true
@@ -104,7 +120,39 @@ jobs:
           echo "tangle=$TANGLE" >> "$GITHUB_OUTPUT"
           echo "Tangle core ($MANIFEST): $TANGLE"
 
+      - name: Update blueprint cold-start sources
+        if: ${{ inputs.update_sources_version != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TANGLE_CONTRACT: ${{ steps.addr.outputs.tangle }}
+          RPC_URL: ${{ secrets.PUBLISH_RPC_URL }}
+          BLUEPRINT_OWNER_PRIVATE_KEY: ${{ secrets.BLUEPRINT_OWNER_KEY }}
+          BLUEPRINT_REPO: ${{ inputs.blueprint_repo }}
+          BLUEPRINT_VERSION: ${{ inputs.update_sources_version }}
+          BLUEPRINT_ID: ${{ inputs.blueprint_id }}
+          BINARY_NAME: ${{ inputs.binary_name }}
+        run: |
+          set -euo pipefail
+          test -n "$BINARY_NAME" || { echo "::error::binary_name is required when update_sources_version is set"; exit 1; }
+          rm -rf source-sha
+          mkdir -p source-sha
+          gh release download "$BLUEPRINT_VERSION" --repo "$BLUEPRINT_REPO" \
+            --pattern "${BINARY_NAME}-x86_64-unknown-linux-gnu.bin.sha256" \
+            --pattern "${BINARY_NAME}-aarch64-unknown-linux-gnu.bin.sha256" \
+            --dir source-sha --clobber
+          X86_SHA="0x$(cat "source-sha/${BINARY_NAME}-x86_64-unknown-linux-gnu.bin.sha256")"
+          ARM_SHA="0x$(cat "source-sha/${BINARY_NAME}-aarch64-unknown-linux-gnu.bin.sha256")"
+          BASE="https://github.com/${BLUEPRINT_REPO}/releases/download/${BLUEPRINT_VERSION}"
+          X86_URI="{\"dist_url\":\"${BASE}/dist-manifest.json\",\"archive_url\":\"${BASE}/${BINARY_NAME}-x86_64-unknown-linux-gnu.tar.xz\",\"binaries\":[]}"
+          ARM_URI="{\"dist_url\":\"${BASE}/dist-manifest.json\",\"archive_url\":\"${BASE}/${BINARY_NAME}-aarch64-unknown-linux-gnu.tar.xz\",\"binaries\":[]}"
+          SOURCES="[(2,(\"\",\"\",\"\"),(0,0,\"\",\"\"),(2,'${X86_URI}',\"${BINARY_NAME}\"),(\"\",\"\",\"\"),[(5,1,\"${BINARY_NAME}\",${X86_SHA})]),(2,(\"\",\"\",\"\"),(0,0,\"\",\"\"),(2,'${ARM_URI}',\"${BINARY_NAME}\"),(\"\",\"\",\"\"),[(7,1,\"${BINARY_NAME}\",${ARM_SHA})])]"
+          cast send "$TANGLE_CONTRACT" \
+            'setBlueprintSources(uint64,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[])' \
+            "$BLUEPRINT_ID" "$SOURCES" \
+            --private-key "$BLUEPRINT_OWNER_PRIVATE_KEY" --rpc-url "$RPC_URL"
+
       - name: Download the released binary asset
+        if: ${{ inputs.active_version_id == '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -147,6 +195,7 @@ jobs:
           PRIVATE_KEY: ${{ secrets.BLUEPRINT_OWNER_KEY }}
           BLUEPRINT_ID: ${{ inputs.blueprint_id }}
           SET_ACTIVE: ${{ inputs.set_active }}
+          ACTIVE_VERSION_ID: ${{ inputs.active_version_id }}
           # Per-release CD bumps an append-only version each release.
           ALLOW_BUMP: 'true'
         run: |

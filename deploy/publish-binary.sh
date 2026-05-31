@@ -23,20 +23,63 @@
 # Optional env:
 #   ATTESTATION     — bytes32 attestation digest (default 0x0…0)
 #   SET_ACTIVE      — "true" (default) to call setActiveBinaryVersion after publish
+#   ACTIVE_VERSION_ID — activate this existing version and skip publish
 set -euo pipefail
 
 : "${TANGLE_CORE:?set TANGLE_CORE}"
 : "${RPC_URL:?set RPC_URL}"
 : "${PRIVATE_KEY:?set PRIVATE_KEY}"
 : "${BLUEPRINT_ID:?set BLUEPRINT_ID}"
-: "${BINARY_PATH:?set BINARY_PATH}"
-: "${BINARY_URI:?set BINARY_URI}"
 ATTESTATION="${ATTESTATION:-0x0000000000000000000000000000000000000000000000000000000000000000}"
 SET_ACTIVE="${SET_ACTIVE:-true}"
+ACTIVE_VERSION_ID="${ACTIVE_VERSION_ID:-}"
 # ALLOW_BUMP=true publishes a NEW version even when a genesis already exists
 # (the per-release CD path bumps on every release). Default false keeps the
 # original genesis-only, idempotent behavior for manual one-shot publishes.
 ALLOW_BUMP="${ALLOW_BUMP:-false}"
+
+set_active_version() {
+    local version_id="$1"
+    local out=""
+    local delay=3
+
+    for attempt in 1 2 3 4 5; do
+        echo "  -> setActiveBinaryVersion($BLUEPRINT_ID, $version_id) attempt $attempt"
+        if out="$(cast send "$TANGLE_CORE" \
+            'setActiveBinaryVersion(uint64,uint64)' \
+            "$BLUEPRINT_ID" "$version_id" \
+            --private-key "$PRIVATE_KEY" --rpc-url "$RPC_URL" 2>&1)"; then
+            echo "  active version set."
+            return 0
+        fi
+
+        if echo "$out" | grep -Eqi 'replacement transaction underpriced|transaction underpriced|nonce too low|already known'; then
+            echo "  retryable activation send error: $(echo "$out" | tail -1)" >&2
+            sleep "$delay"
+            delay=$((delay * 2))
+            continue
+        fi
+
+        echo "$out" >&2
+        return 1
+    done
+
+    echo "$out" >&2
+    return 1
+}
+
+if [ -n "$ACTIVE_VERSION_ID" ]; then
+    echo "== publish-binary =="
+    echo "  blueprint:   $BLUEPRINT_ID"
+    echo "  tangle:      $TANGLE_CORE"
+    echo "  activate:    $ACTIVE_VERSION_ID"
+    set_active_version "$ACTIVE_VERSION_ID"
+    echo "  done: blueprint $BLUEPRINT_ID active -> v$ACTIVE_VERSION_ID"
+    exit 0
+fi
+
+: "${BINARY_PATH:?set BINARY_PATH}"
+: "${BINARY_URI:?set BINARY_URI}"
 
 [ -f "$BINARY_PATH" ] || { echo "ERROR: BINARY_PATH not found: $BINARY_PATH" >&2; exit 1; }
 
@@ -85,12 +128,7 @@ version_id=$(( new_count - 1 ))
 echo "  published version_id=$version_id"
 
 if [ "$SET_ACTIVE" = "true" ]; then
-    echo "  -> setActiveBinaryVersion($BLUEPRINT_ID, $version_id)"
-    cast send "$TANGLE_CORE" \
-        'setActiveBinaryVersion(uint64,uint64)' \
-        "$BLUEPRINT_ID" "$version_id" \
-        --private-key "$PRIVATE_KEY" --rpc-url "$RPC_URL" >/dev/null
-    echo "  active version set."
+    set_active_version "$version_id"
 fi
 
 echo "  done: blueprint $BLUEPRINT_ID -> v$version_id ($sha256)"
