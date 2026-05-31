@@ -46,6 +46,10 @@ on:
         description: 'Activate an existing binary version id without publishing another version'
         required: false
         default: ''
+      update_sources_version:
+        description: 'Update blueprint cold-start sources to this release tag before publishing/activation'
+        required: false
+        default: ''
   workflow_call:
     # Reusable entry point: a blueprint repo's release CI calls this after it
     # publishes a release, so the privileged on-chain publish stays here (the
@@ -85,6 +89,10 @@ on:
         type: string
         required: false
         default: ''
+      update_sources_version:
+        type: string
+        required: false
+        default: ''
     secrets:
       PUBLISH_RPC_URL:
         required: true
@@ -111,6 +119,31 @@ jobs:
           TANGLE=$(jq -er '.tangle' "$MANIFEST")
           echo "tangle=$TANGLE" >> "$GITHUB_OUTPUT"
           echo "Tangle core ($MANIFEST): $TANGLE"
+
+      - name: Update blueprint cold-start sources
+        if: ${{ inputs.update_sources_version != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TANGLE_CONTRACT: ${{ steps.addr.outputs.tangle }}
+          RPC_URL: ${{ secrets.PUBLISH_RPC_URL }}
+          BLUEPRINT_OWNER_PRIVATE_KEY: ${{ secrets.BLUEPRINT_OWNER_KEY }}
+          BLUEPRINT_REPO: ${{ inputs.blueprint_repo }}
+          BLUEPRINT_VERSION: ${{ inputs.update_sources_version }}
+          BLUEPRINT_ID: ${{ inputs.blueprint_id }}
+          BINARY_NAME: ${{ inputs.binary_name }}
+        run: |
+          set -euo pipefail
+          test -n "$BINARY_NAME" || { echo "::error::binary_name is required when update_sources_version is set"; exit 1; }
+          rm -rf source-sha
+          mkdir -p source-sha
+          gh release download "$BLUEPRINT_VERSION" --repo "$BLUEPRINT_REPO" \
+            --pattern "${BINARY_NAME}-x86_64-unknown-linux-gnu.bin.sha256" \
+            --pattern "${BINARY_NAME}-aarch64-unknown-linux-gnu.bin.sha256" \
+            --dir source-sha --clobber
+          X86_SHA="0x$(cat "source-sha/${BINARY_NAME}-x86_64-unknown-linux-gnu.bin.sha256")"
+          ARM_SHA="0x$(cat "source-sha/${BINARY_NAME}-aarch64-unknown-linux-gnu.bin.sha256")"
+          export X86_SHA ARM_SHA
+          forge script script/SetBlueprintSources.s.sol:SetBlueprintSources --rpc-url "$RPC_URL" --broadcast
 
       - name: Download the released binary asset
         if: ${{ inputs.active_version_id == '' }}
