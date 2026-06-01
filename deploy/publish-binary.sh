@@ -116,12 +116,13 @@ cast send "$TANGLE_CORE" \
 new_count=""
 for _ in 1 2 3 4 5; do
     new_count="$(cast call "$TANGLE_CORE" 'getBinaryVersionCount(uint64)(uint64)' "$BLUEPRINT_ID" --rpc-url "$RPC_URL" 2>/dev/null | awk '{print $1}')"
-    if [ -n "$new_count" ] && [ "$new_count" -gt 0 ] 2>/dev/null; then
+    if [ -n "$new_count" ] && [ "$new_count" -gt "$count" ] 2>/dev/null; then
         break
     fi
+    sleep 2
 done
-if [ -z "$new_count" ] || [ "$new_count" -lt 1 ] 2>/dev/null; then
-    echo "ERROR: publish receipt confirmed but getBinaryVersionCount still 0 after retries — investigate manually." >&2
+if [ -z "$new_count" ] || [ "$new_count" -le "$count" ] 2>/dev/null; then
+    echo "ERROR: publish receipt confirmed but getBinaryVersionCount did not advance from $count — investigate manually." >&2
     exit 1
 fi
 version_id=$(( new_count - 1 ))
