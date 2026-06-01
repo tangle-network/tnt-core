@@ -137,15 +137,37 @@ jobs:
           rm -rf source-sha
           mkdir -p source-sha
           gh release download "$BLUEPRINT_VERSION" --repo "$BLUEPRINT_REPO" \
-            --pattern "${BINARY_NAME}-x86_64-unknown-linux-gnu.bin.sha256" \
-            --pattern "${BINARY_NAME}-aarch64-unknown-linux-gnu.bin.sha256" \
-            --dir source-sha --clobber
-          X86_SHA="0x$(cat "source-sha/${BINARY_NAME}-x86_64-unknown-linux-gnu.bin.sha256")"
-          ARM_SHA="0x$(cat "source-sha/${BINARY_NAME}-aarch64-unknown-linux-gnu.bin.sha256")"
+            --pattern "${BINARY_NAME}-*-unknown-linux-gnu.bin.sha256" \
+            --dir source-sha --clobber || true
           BASE="https://github.com/${BLUEPRINT_REPO}/releases/download/${BLUEPRINT_VERSION}"
-          X86_URI="{\"dist_url\":\"${BASE}/dist-manifest.json\",\"archive_url\":\"${BASE}/${BINARY_NAME}-x86_64-unknown-linux-gnu.tar.xz\",\"binaries\":[]}"
-          ARM_URI="{\"dist_url\":\"${BASE}/dist-manifest.json\",\"archive_url\":\"${BASE}/${BINARY_NAME}-aarch64-unknown-linux-gnu.tar.xz\",\"binaries\":[]}"
-          SOURCES="[(2,(\"\",\"\",\"\"),(0,0,\"\",\"\"),(2,'${X86_URI}',\"${BINARY_NAME}\"),(\"\",\"\",\"\"),[(5,1,\"${BINARY_NAME}\",${X86_SHA})]),(2,(\"\",\"\",\"\"),(0,0,\"\",\"\"),(2,'${ARM_URI}',\"${BINARY_NAME}\"),(\"\",\"\",\"\"),[(7,1,\"${BINARY_NAME}\",${ARM_SHA})])]"
+          SOURCES=""
+
+          append_source() {
+            local triple="$1"
+            local arch="$2"
+            local sha_file="source-sha/${BINARY_NAME}-${triple}.bin.sha256"
+            test -f "$sha_file" || return 0
+
+            local sha
+            sha="0x$(tr -d '[:space:]' < "$sha_file")"
+            test "${#sha}" -eq 66 || { echo "::error::invalid sha256 in $sha_file"; exit 1; }
+
+            local uri
+            uri="{\"dist_url\":\"${BASE}/dist-manifest.json\",\"archive_url\":\"${BASE}/${BINARY_NAME}-${triple}.tar.xz\",\"binaries\":[]}"
+            local source
+            source="(2,(\"\",\"\",\"\"),(0,0,\"\",\"\"),(2,'${uri}',\"${BINARY_NAME}\"),(\"\",\"\",\"\"),[(${arch},1,\"${BINARY_NAME}\",${sha})])"
+
+            if [ -n "$SOURCES" ]; then
+              SOURCES="${SOURCES},${source}"
+            else
+              SOURCES="$source"
+            fi
+          }
+
+          append_source "x86_64-unknown-linux-gnu" 5
+          append_source "aarch64-unknown-linux-gnu" 7
+          test -n "$SOURCES" || { echo "::error::no linux source sha assets found for ${BINARY_NAME}@${BLUEPRINT_VERSION}"; exit 1; }
+          SOURCES="[${SOURCES}]"
           cast send "$TANGLE_CONTRACT" \
             'setBlueprintSources(uint64,(uint8,(string,string,string),(uint8,uint8,string,string),(uint8,string,string),(string,string,string),(uint8,uint8,string,bytes32)[])[])' \
             "$BLUEPRINT_ID" "$SOURCES" \
