@@ -34,6 +34,38 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         });
     }
 
+    function _remoteNativeSource(
+        string memory version,
+        string memory triple,
+        Types.BlueprintArchitecture arch,
+        bytes32 sha
+    )
+        internal
+        pure
+        returns (Types.BlueprintSource memory source)
+    {
+        string memory base =
+            string.concat("https://github.com/tangle-network/ai-trading-blueprint/releases/download/", version);
+        string memory artifactUri = string.concat(
+            "{\"dist_url\":\"",
+            base,
+            "/dist-manifest.json\",\"archive_url\":\"",
+            base,
+            "/trading-blueprint-",
+            triple,
+            ".tar.xz\",\"binaries\":[]}"
+        );
+
+        source.kind = Types.BlueprintSourceKind.Native;
+        source.native = Types.NativeSource({
+            fetcher: Types.BlueprintFetcherKind.Http, artifactUri: artifactUri, entrypoint: "trading-blueprint"
+        });
+        source.binaries = new Types.BlueprintBinary[](1);
+        source.binaries[0] = Types.BlueprintBinary({
+            arch: arch, os: Types.BlueprintOperatingSystem.Linux, name: "trading-blueprint", sha256: sha
+        });
+    }
+
     function _createOwned() internal returns (uint64 blueprintId) {
         Types.BlueprintDefinition memory def = _blueprintDefinition("ipfs://set-sources", address(0));
         vm.prank(developer);
@@ -90,6 +122,61 @@ contract BlueprintDefinitionStorageTest is BaseTest {
         assertEq(uint256(stored[0].binaries[1].os), uint256(Types.BlueprintOperatingSystem.Linux), "binary1 os");
         assertEq(stored[0].binaries[1].name, next[0].binaries[1].name, "binary1 name");
         assertEq(stored[0].binaries[1].sha256, bytes32(uint256(0xB0B)), "binary1 sha256");
+    }
+
+    function test_SetBlueprintSources_AllowsX86OnlyRemoteNativeSource() public {
+        uint64 id = _createOwned();
+
+        Types.BlueprintSource[] memory next = new Types.BlueprintSource[](1);
+        next[0] = _remoteNativeSource(
+            "v0.1.28", "x86_64-unknown-linux-gnu", Types.BlueprintArchitecture.Amd64, bytes32(uint256(0xA11CE))
+        );
+
+        vm.prank(developer);
+        tangle.setBlueprintSources(id, next);
+
+        Types.BlueprintSource[] memory stored = tangle.blueprintSources(id);
+        assertEq(stored.length, 1, "source count");
+        assertEq(uint256(stored[0].kind), uint256(Types.BlueprintSourceKind.Native), "kind -> Native");
+        assertEq(uint256(stored[0].native.fetcher), uint256(Types.BlueprintFetcherKind.Http), "fetcher -> Http");
+        assertEq(stored[0].native.entrypoint, "trading-blueprint", "entrypoint");
+        assertEq(stored[0].binaries.length, 1, "binary count");
+        assertEq(uint256(stored[0].binaries[0].arch), uint256(Types.BlueprintArchitecture.Amd64), "binary arch");
+        assertEq(stored[0].binaries[0].name, "trading-blueprint", "binary name");
+        assertEq(stored[0].binaries[0].sha256, bytes32(uint256(0xA11CE)), "binary sha256");
+
+        Types.BlueprintDefinition memory definition = tangle.getBlueprintDefinition(id);
+        assertEq(definition.sources.length, 1, "definition source count");
+        assertEq(definition.sources[0].native.artifactUri, stored[0].native.artifactUri, "definition artifactUri");
+    }
+
+    function test_SetBlueprintSources_ReflectsPerArchRemoteNativeSourceArray() public {
+        uint64 id = _createOwned();
+
+        Types.BlueprintSource[] memory next = new Types.BlueprintSource[](2);
+        next[0] = _remoteNativeSource(
+            "v0.1.28", "x86_64-unknown-linux-gnu", Types.BlueprintArchitecture.Amd64, bytes32(uint256(0xA11CE))
+        );
+        next[1] = _remoteNativeSource(
+            "v0.1.28", "aarch64-unknown-linux-gnu", Types.BlueprintArchitecture.Arm64, bytes32(uint256(0xB0B))
+        );
+
+        vm.prank(developer);
+        tangle.setBlueprintSources(id, next);
+
+        Types.BlueprintSource[] memory stored = tangle.blueprintSources(id);
+        assertEq(stored.length, 2, "source count");
+        assertEq(stored[0].binaries.length, 1, "x86 binary count");
+        assertEq(stored[1].binaries.length, 1, "arm binary count");
+        assertEq(uint256(stored[0].binaries[0].arch), uint256(Types.BlueprintArchitecture.Amd64), "x86 arch");
+        assertEq(uint256(stored[1].binaries[0].arch), uint256(Types.BlueprintArchitecture.Arm64), "arm arch");
+        assertEq(stored[0].native.entrypoint, "trading-blueprint", "x86 entrypoint");
+        assertEq(stored[1].native.entrypoint, "trading-blueprint", "arm entrypoint");
+
+        Types.BlueprintDefinition memory definition = tangle.getBlueprintDefinition(id);
+        assertEq(definition.sources.length, 2, "definition source count");
+        assertEq(definition.sources[1].binaries[0].sha256, bytes32(uint256(0xB0B)), "definition arm sha");
+        assertEq(definition.sources[1].native.artifactUri, stored[1].native.artifactUri, "definition arm uri");
     }
 
     function test_SetBlueprintSources_ReplacesNotAppends_NoStaleEntries() public {
