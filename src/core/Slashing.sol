@@ -87,7 +87,8 @@ abstract contract Slashing is Base {
             cappedSlashBps,
             effectiveExposureBps,
             evidence,
-            false
+            false,
+            _resolveDisputeWindow(serviceId, bp.manager)
         );
 
         // Cap concurrent pending slashes per operator so a malicious proposer can't
@@ -117,6 +118,29 @@ abstract contract Slashing is Base {
                 )
             );
         }
+    }
+
+    /// @notice Resolve the dispute window for a new slash proposal on `serviceId`.
+    /// @dev Lets a blueprint set a per-service dispute window via its BSM `getSlashingWindow`
+    ///      hook. Returns the protocol default when the hook is absent, opts into the default
+    ///      (`useDefault == true`), or reverts. A custom window is clamped to
+    ///      `[MIN_DISPUTE_WINDOW, MAX_DISPUTE_WINDOW]` so a blueprint can neither rush-execute
+    ///      slashes (window too short for operators to dispute) nor freeze stake indefinitely.
+    function _resolveDisputeWindow(uint64 serviceId, address bpManager) internal view returns (uint64 window) {
+        window = _slashState.config.disputeWindow;
+        if (bpManager == address(0)) return window;
+
+        (bool ok, bytes memory ret) = _tryStaticcallManager(
+            bpManager, abi.encodeWithSelector(IBlueprintServiceManager.getSlashingWindow.selector, serviceId), 64
+        );
+        if (!ok || ret.length < 64) return window;
+
+        (bool useDefault, uint64 custom) = abi.decode(ret, (bool, uint64));
+        if (useDefault) return window;
+
+        if (custom < SlashingLib.MIN_DISPUTE_WINDOW) custom = SlashingLib.MIN_DISPUTE_WINDOW;
+        if (custom > SlashingLib.MAX_DISPUTE_WINDOW) custom = SlashingLib.MAX_DISPUTE_WINDOW;
+        return custom;
     }
 
     function _computeServiceCommitmentExposureBps(
@@ -226,14 +250,38 @@ abstract contract Slashing is Base {
         SlashingLib.SlashProposal storage proposal = _slashProposals[slashId];
 
         bool isAdmin = hasRole(SLASH_ADMIN_ROLE, msg.sender);
-        if (msg.sender != proposal.operator && !isAdmin) {
+
+        // A blueprint can designate a custom dispute resolver via its BSM `queryDisputeOrigin`
+        // hook (symmetric to `querySlashingOrigin` gating proposals). The dispute origin is a
+        // trusted, blueprint-scoped escalation path, so it disputes bondless like SLASH_ADMIN.
+        bool isDisputeOrigin = false;
+        {
+            Types.Service storage dsvc = _services[proposal.serviceId];
+            address bpManager = _blueprints[dsvc.blueprintId].manager;
+            if (bpManager != address(0) && msg.sender != proposal.operator && !isAdmin) {
+                (bool ok, bytes memory ret) = _tryStaticcallManager(
+                    bpManager,
+                    abi.encodeWithSelector(IBlueprintServiceManager.queryDisputeOrigin.selector, proposal.serviceId),
+                    32
+                );
+                if (ok && ret.length >= 32) {
+                    address disputeOrigin = abi.decode(ret, (address));
+                    isDisputeOrigin = disputeOrigin != address(0) && msg.sender == disputeOrigin;
+                }
+            }
+        }
+
+        if (msg.sender != proposal.operator && !isAdmin && !isDisputeOrigin) {
             revert Errors.NotSlashDisputer(slashId, msg.sender);
         }
-        if (isAdmin && msg.sender == proposal.proposer) {
+        // The proposer cannot also dispute their own slash: either privileged path (admin or
+        // dispute origin) would otherwise let one account freeze operator stake for the whole
+        // resolution window for free, then capture the bond on auto-execution.
+        if ((isAdmin || isDisputeOrigin) && msg.sender == proposal.proposer) {
             revert Errors.Unauthorized();
         }
 
-        uint256 requiredBond = isAdmin ? 0 : _slashState.config.disputeBond;
+        uint256 requiredBond = (isAdmin || isDisputeOrigin) ? 0 : _slashState.config.disputeBond;
         if (msg.value != requiredBond) {
             revert Errors.InvalidMsgValue(requiredBond, msg.value);
         }

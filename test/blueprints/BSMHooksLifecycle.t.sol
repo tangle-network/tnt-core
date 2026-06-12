@@ -5,6 +5,7 @@ import { BlueprintTestHarness } from "./TestHarness.sol";
 import { MockBSM_V1, MockBSM_V2, MockBSM_V3 } from "./mocks/MockBSM.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
+import { SlashingLib } from "../../src/libraries/SlashingLib.sol";
 
 /// @title BSMHooksLifecycleTest
 /// @notice Comprehensive tests for BSM hook lifecycle across versions
@@ -534,6 +535,95 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         (bool useDefault, uint64 window) = bsm.getSlashingWindow(serviceId);
         assertFalse(useDefault);
         assertEq(window, 3 days);
+    }
+
+    /// @notice The protocol must actually READ getSlashingWindow at proposal time, not just
+    ///         expose it (the prior test only proved the mock returns the value). Proves the
+    ///         hook is wired: a custom window changes the proposal's executeAfter.
+    function test_V2_CustomSlashingWindow_AppliedToProposal() public {
+        (uint64 blueprintId, address manager) = deployBlueprint(2);
+        MockBSM_V2 bsm = MockBSM_V2(payable(manager));
+        registerOperatorForBlueprint(operator1, blueprintId);
+        uint64 serviceId = createService(blueprintId, operator1, 1 ether);
+
+        // Baseline: no override → protocol default window.
+        uint64 baselineId = proposeSlash(serviceId, operator1, 0.5 ether);
+        uint64 defaultWindow = tangle.getSlashProposal(baselineId).executeAfter - uint64(block.timestamp);
+        assertTrue(defaultWindow != 3 days, "default must differ from custom for a meaningful test");
+
+        // Override to 3 days → proposal's executeAfter reflects it.
+        bsm.setCustomSlashingWindow(serviceId, 3 days);
+        uint256 ts = block.timestamp;
+        uint64 slashId = proposeSlash(serviceId, operator1, 0.5 ether);
+        assertEq(tangle.getSlashProposal(slashId).executeAfter, uint64(ts + 3 days), "custom window wired");
+    }
+
+    /// @notice A blueprint cannot rush-execute slashes (window < MIN) or freeze stake forever
+    ///         (window > MAX); the custom window is clamped to protocol bounds.
+    function test_V2_CustomSlashingWindow_ClampedToBounds() public {
+        (uint64 blueprintId, address manager) = deployBlueprint(2);
+        MockBSM_V2 bsm = MockBSM_V2(payable(manager));
+        registerOperatorForBlueprint(operator1, blueprintId);
+        uint64 serviceId = createService(blueprintId, operator1, 1 ether);
+
+        // Below MIN → clamped up to MIN_DISPUTE_WINDOW.
+        bsm.setCustomSlashingWindow(serviceId, 1); // 1 second
+        uint256 ts = block.timestamp;
+        uint64 lowId = proposeSlash(serviceId, operator1, 0.3 ether);
+        assertEq(
+            tangle.getSlashProposal(lowId).executeAfter,
+            uint64(ts + SlashingLib.MIN_DISPUTE_WINDOW),
+            "clamped up to MIN"
+        );
+
+        // Above MAX → clamped down to MAX_DISPUTE_WINDOW.
+        bsm.setCustomSlashingWindow(serviceId, 3650 days);
+        ts = block.timestamp;
+        uint64 highId = proposeSlash(serviceId, operator1, 0.3 ether);
+        assertEq(
+            tangle.getSlashProposal(highId).executeAfter,
+            uint64(ts + SlashingLib.MAX_DISPUTE_WINDOW),
+            "clamped down to MAX"
+        );
+    }
+
+    /// @notice A blueprint-designated dispute origin (queryDisputeOrigin) can dispute a pending
+    ///         slash bondless, like SLASH_ADMIN — proving the hook is wired into disputeSlash.
+    function test_V3_CustomDisputeOrigin_CanDisputeBondless() public {
+        (uint64 blueprintId, address manager) = deployBlueprint(3);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
+        registerOperatorForBlueprint(operator1, blueprintId);
+        uint64 serviceId = createService(blueprintId, operator1, 1 ether);
+
+        address resolver = makeAddr("disputeResolver");
+        bsm.setCustomDisputeOrigin(serviceId, resolver);
+
+        uint64 slashId = proposeSlash(serviceId, operator1, 0.5 ether);
+
+        // No bond (msg.value 0) — dispute origin is a trusted escalation path.
+        vm.prank(resolver);
+        tangle.disputeSlash(slashId, "resolver escalation");
+
+        SlashingLib.SlashProposal memory p = tangle.getSlashProposal(slashId);
+        assertEq(uint8(p.status), uint8(SlashingLib.SlashStatus.Disputed), "dispute recorded");
+        assertEq(p.disputer, resolver, "disputer is the dispute origin");
+    }
+
+    /// @notice An address that is neither the operator, SLASH_ADMIN, nor the designated dispute
+    ///         origin still cannot dispute — the new path does not open disputes to anyone.
+    function test_V3_NonDisputeOrigin_CannotDispute() public {
+        (uint64 blueprintId, address manager) = deployBlueprint(3);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
+        registerOperatorForBlueprint(operator1, blueprintId);
+        uint64 serviceId = createService(blueprintId, operator1, 1 ether);
+
+        bsm.setCustomDisputeOrigin(serviceId, makeAddr("disputeResolver"));
+        uint64 slashId = proposeSlash(serviceId, operator1, 0.5 ether);
+
+        address rando = makeAddr("rando");
+        vm.prank(rando);
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotSlashDisputer.selector, slashId, rando));
+        tangle.disputeSlash(slashId, "not allowed");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

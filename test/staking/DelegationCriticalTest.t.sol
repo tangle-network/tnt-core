@@ -10,6 +10,7 @@ import {
     FailingERC20
 } from "./DelegationTestHarness.sol";
 import { IMultiAssetDelegation } from "../../src/interfaces/IMultiAssetDelegation.sol";
+import { MultiAssetDelegation } from "../../src/staking/MultiAssetDelegation.sol";
 import { DelegationErrors } from "../../src/staking/DelegationErrors.sol";
 import { Types } from "../../src/libraries/Types.sol";
 
@@ -241,6 +242,49 @@ contract DelegationCriticalTest is DelegationTestHarness {
         vm.prank(delegator1);
         vm.expectRevert(abi.encodeWithSelector(DelegationErrors.OperatorNotActive.selector, operator1));
         delegation.delegate(operator1, 5 ether);
+    }
+
+    /// @notice Audit fix (staking H): an operator with a pending (proposed-but-unexecuted)
+    ///         slash must not be able to drain self-stake during the dispute window. Both
+    ///         the schedule and execute paths are guarded, mirroring `_startLeaving` and the
+    ///         delegator unstake path. `resetPendingSlashCount` stands in for the Tangle-core
+    ///         proposal that increments `_operatorPendingSlashCount`.
+    function test_OperatorUnstake_BlockedWhilePendingSlash() public {
+        MultiAssetDelegation d = MultiAssetDelegation(payable(address(delegation)));
+
+        // Schedule path: a pending slash blocks scheduling a new unstake.
+        vm.prank(admin);
+        d.resetPendingSlashCount(operator1, 1);
+
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.PendingSlashExists.selector, operator1, uint64(1)));
+        delegation.scheduleOperatorUnstake(3 ether);
+
+        // Execute path is load-bearing: a slash can be proposed AFTER scheduling, so an
+        // already-scheduled unstake must still be blocked while the slash is pending.
+        vm.prank(admin);
+        d.resetPendingSlashCount(operator1, 0);
+
+        vm.prank(operator1);
+        delegation.scheduleOperatorUnstake(3 ether);
+        _advanceRounds(OPERATOR_DELAY);
+
+        vm.prank(admin);
+        d.resetPendingSlashCount(operator1, 2);
+
+        vm.prank(operator1);
+        vm.expectRevert(abi.encodeWithSelector(DelegationErrors.PendingSlashExists.selector, operator1, uint64(2)));
+        delegation.executeOperatorUnstake();
+
+        // Once the slash is resolved, the scheduled unstake executes normally — the guard
+        // only blocks the dispute window, it does not strand the bond.
+        vm.prank(admin);
+        d.resetPendingSlashCount(operator1, 0);
+
+        uint256 balanceBefore = operator1.balance;
+        vm.prank(operator1);
+        delegation.executeOperatorUnstake();
+        assertEq(operator1.balance, balanceBefore + 3 ether, "unstake releases after slash resolved");
     }
 
     /// @notice Test operator lifecycle through unstake, slash, and leaving
