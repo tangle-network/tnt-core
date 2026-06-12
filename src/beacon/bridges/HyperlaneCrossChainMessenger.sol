@@ -268,6 +268,23 @@ contract HyperlaneCrossChainMessenger is ICrossChainMessenger {
 ///      C-3 : Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
 ///      and call `initialize(...)`.
 contract HyperlaneReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+    /// @notice Delay before a newly-proposed trusted sender becomes active.
+    /// @dev Mirrors `L2SlashingReceiver.SENDER_ACTIVATION_DELAY`. The trusted-sender
+    ///      mapping is THE trust anchor for inbound slash messages: whoever it points at
+    ///      can forge a slash of any operator. Making changes to it instant would let a
+    ///      compromised owner repoint the anchor and inject a forged slash before any
+    ///      monitor could react, defeating the receiver's own 2-day delay. The propose →
+    ///      wait → activate flow keeps the asymmetry from re-opening.
+    ///
+    ///      DEPLOY-TIME NOTE: the activation delay only protects the *trusted-sender
+    ///      identity*. The Hyperlane security stack that authenticates the message
+    ///      itself — the Interchain Security Module (ISM) configured for this recipient
+    ///      and the `mailbox` it trusts — MUST be pinned to a known-good configuration at
+    ///      deploy time. A permissive or mutable ISM lets an attacker satisfy `handle`'s
+    ///      `onlyMailbox` + `trustedSenders` checks with a forged origin, which no
+    ///      activation delay on this contract can prevent.
+    uint256 public constant SENDER_ACTIVATION_DELAY = 2 days;
+
     /// @custom:storage-location erc7201:tangle.beacon.bridges.HyperlaneReceiver
     struct HyperlaneReceiverStorage {
         address mailbox;
@@ -278,7 +295,11 @@ contract HyperlaneReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
         mapping(uint32 => uint256) domainToChainId;
         // replay protection
         mapping(bytes32 => bool) processedMessages;
-        uint256[50] __gap;
+        // domain => sender => activation timestamp for a pending trust-anchor change
+        mapping(uint32 => mapping(bytes32 => uint256)) pendingTrustedSenders;
+        // Gap reduced from 50 → 49 to account for `pendingTrustedSenders` appended
+        // above (append-only layout, existing slots preserved).
+        uint256[49] __gap;
     }
 
     /// @notice ERC-7201 slot:
@@ -297,12 +318,18 @@ contract HyperlaneReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
     /// @notice Events
     event MessageHandled(uint32 indexed origin, bytes32 sender, uint256 sourceChainId);
     event TrustedSenderSet(uint32 domain, bytes32 sender, bool trusted);
+    /// @notice Emitted when a trusted-sender authorization is proposed (timelocked).
+    event TrustedSenderScheduled(uint32 indexed domain, bytes32 indexed sender, uint256 activationTime);
     /// @notice Event emitted when a message is processed
     event MessageProcessed(bytes32 indexed messageId, uint32 indexed origin, bytes32 sender);
 
     /// @notice Error for replayed messages
     error MessageAlreadyProcessed(bytes32 messageId);
     error ZeroAddress();
+    /// @notice Raised when activating a trusted sender that was never proposed.
+    error SenderNotPending();
+    /// @notice Raised when activating a trusted sender before its delay elapses.
+    error SenderActivationTooEarly(uint256 activationTime);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -397,11 +424,45 @@ contract HyperlaneReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
         $.receiver.receiveMessage(sourceChainId, originalSender, payload);
     }
 
-    /// @notice Set trusted sender
+    function pendingTrustedSenders(uint32 domain, bytes32 sender) external view returns (uint256) {
+        return _getStorage().pendingTrustedSenders[domain][sender];
+    }
+
+    /// @notice Propose a trusted sender (timelocked) or revoke one (immediate).
+    /// @dev Trust-anchor changes are asymmetric on purpose, mirroring
+    ///      `L2SlashingReceiver.setAuthorizedSender`:
+    ///        - `trusted == true`  → schedules activation after `SENDER_ACTIVATION_DELAY`;
+    ///          the sender is NOT trusted until `activateTrustedSender` is called past the delay.
+    ///        - `trusted == false` → revokes immediately (defensive de-authorization is
+    ///          never delayed).
+    ///      This closes the asymmetry where the receiver delayed new senders but a
+    ///      compromised messenger owner could repoint the anchor instantly.
     function setTrustedSender(uint32 domain, address sender, bool trusted) external onlyOwner {
         bytes32 senderBytes = bytes32(uint256(uint160(sender)));
-        _getStorage().trustedSenders[domain][senderBytes] = trusted;
-        emit TrustedSenderSet(domain, senderBytes, trusted);
+        HyperlaneReceiverStorage storage $ = _getStorage();
+        if (!trusted) {
+            $.trustedSenders[domain][senderBytes] = false;
+            $.pendingTrustedSenders[domain][senderBytes] = 0;
+            emit TrustedSenderSet(domain, senderBytes, false);
+            return;
+        }
+        if (sender == address(0)) revert ZeroAddress();
+        uint256 activationTime = block.timestamp + SENDER_ACTIVATION_DELAY;
+        $.pendingTrustedSenders[domain][senderBytes] = activationTime;
+        emit TrustedSenderScheduled(domain, senderBytes, activationTime);
+    }
+
+    /// @notice Activate a previously-proposed trusted sender once its delay has elapsed.
+    function activateTrustedSender(uint32 domain, address sender) external onlyOwner {
+        bytes32 senderBytes = bytes32(uint256(uint160(sender)));
+        HyperlaneReceiverStorage storage $ = _getStorage();
+        uint256 activationTime = $.pendingTrustedSenders[domain][senderBytes];
+        if (activationTime == 0) revert SenderNotPending();
+        if (block.timestamp < activationTime) revert SenderActivationTooEarly(activationTime);
+
+        $.trustedSenders[domain][senderBytes] = true;
+        $.pendingTrustedSenders[domain][senderBytes] = 0;
+        emit TrustedSenderSet(domain, senderBytes, true);
     }
 
     /// @notice Set domain to chain ID mapping

@@ -97,6 +97,13 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     ///      overstates committed delegation after slashes, which is conservative — it
     ///      can only block new delegations, never permit over-delegation. Live
     ///      per-(delegator, operator) asset value is available via `getDelegation`.
+    /// @dev INVARIANT: `delegatorTotalDelegated[d] == Σ_o _delegatorOperatorDelegated[d][o]`.
+    ///      Maintained by decrementing both counters by the same delta on every
+    ///      undelegation completion so the aggregate can always reach 0 once every
+    ///      per-operator commitment is fully unwound — even after slashing reduced the
+    ///      live valuation below the deposited principal (the bug this split fixes:
+    ///      previously a single asset-denominated counter could never be paid down to 0
+    ///      after a slash, permanently bricking `queueWithdrawal`).
     mapping(address delegator => uint256) public delegatorTotalDelegated;
 
     /// @notice Authorized slashers
@@ -181,6 +188,15 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
 
     /// @notice Per-(delegator, operator) delegation share balance.
     mapping(address delegator => mapping(address operator => uint256)) internal _delegationShares;
+
+    /// @notice Per-(delegator, operator) deposit-accounted committed amount (asset units).
+    /// @dev Partition of `delegatorTotalDelegated[d]` by operator. NOT slash-adjusted.
+    ///      Used so that when a delegator fully unwinds an operator (their pool shares
+    ///      hit 0), the *entire* deposited commitment for that operator can be cleared
+    ///      from both this entry and the aggregate counter, regardless of how much value
+    ///      was lost to slashing. This is what lets `delegatorTotalDelegated` reach 0 and
+    ///      unblocks `queueWithdrawal` after a slash.
+    mapping(address delegator => mapping(address operator => uint256)) internal _delegatorOperatorDelegated;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -510,7 +526,10 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
         pool.totalShares += mintedShares;
         _delegationShares[msg.sender][operator] += mintedShares;
 
+        // Maintain the aggregate counter and its per-operator partition in lockstep so
+        // the INVARIANT (aggregate == Σ per-operator) holds.
         delegatorTotalDelegated[msg.sender] += amount;
+        _delegatorOperatorDelegated[msg.sender][operator] += amount;
 
         emit Delegated(msg.sender, operator, amount);
     }
@@ -593,14 +612,45 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
             if (sharesBurned > ownerShares) sharesBurned = ownerShares;
         }
 
-        _delegationShares[msg.sender][operator] = ownerShares - sharesBurned;
+        uint256 remainingShares = ownerShares - sharesBurned;
+        _delegationShares[msg.sender][operator] = remainingShares;
         pool.totalShares -= sharesBurned;
+        // Share→asset conversion can round a hair above the pool's tracked assets
+        // (e.g. live valuation 16.5e18+dust vs totalAssets 16.5e18 when this delegator
+        // holds all shares post-slash). Clamp so the decrement — and the realized payout —
+        // never exceed the pool, which would underflow and re-brick the very withdrawal
+        // this path exists to unblock.
+        if (realizedAssets > pool.totalAssets) realizedAssets = pool.totalAssets;
         pool.totalAssets -= realizedAssets;
 
-        // Counter is asset-denominated against the requested undelegation amount.
-        // Floored to zero defensively for the slashed case where realizedAssets < amount.
+        // Pay down the deposit-accounted counters. The counter is asset-denominated
+        // against the *deposited* principal, not the slashed live valuation, so we must
+        // NOT decrement by `realizedAssets` (which can be below the deposited amount
+        // after a slash) — doing so would leave a permanent residue that can never reach
+        // 0 and would brick `queueWithdrawal` forever.
+        //
+        // When this fully unwinds the delegator's position with this operator
+        // (remainingShares == 0), clear the ENTIRE per-operator deposited commitment from
+        // both counters — that residue is exactly the value lost to slashing and is no
+        // longer recoverable, so it must not keep blocking withdrawals.
+        //
+        // On a partial undelegation (remainingShares > 0), decrement by the requested
+        // `amount`. Since `queueUndelegation` bounds `amount` by the live valuation,
+        // `amount <= depositedForOperator`, so this can never underflow the per-operator
+        // entry; we clamp defensively regardless. This preserves the
+        // INVARIANT (aggregate == Σ per-operator) on every path.
+        uint256 depositedForOperator = _delegatorOperatorDelegated[msg.sender][operator];
+        uint256 counterDelta;
+        if (remainingShares == 0) {
+            counterDelta = depositedForOperator;
+        } else {
+            counterDelta = amount <= depositedForOperator ? amount : depositedForOperator;
+        }
+
+        _delegatorOperatorDelegated[msg.sender][operator] = depositedForOperator - counterDelta;
+
         uint256 counter = delegatorTotalDelegated[msg.sender];
-        delegatorTotalDelegated[msg.sender] = counter >= amount ? counter - amount : 0;
+        delegatorTotalDelegated[msg.sender] = counter >= counterDelta ? counter - counterDelta : 0;
 
         emit UndelegationCompleted(undelegationRoot, msg.sender, operator, realizedAssets);
     }
@@ -633,6 +683,13 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @notice Get total amount delegated by an address (deposit-accounted counter).
     function _getTotalDelegatedBy(address delegator) internal view returns (uint256) {
         return delegatorTotalDelegated[delegator];
+    }
+
+    /// @notice Per-(delegator, operator) deposit-accounted committed amount (asset units).
+    /// @dev Partition of `delegatorTotalDelegated`; NOT slash-adjusted. Use `getDelegation`
+    ///      for the live, slash-adjusted asset value.
+    function delegatorOperatorDelegated(address delegator, address operator) external view returns (uint256) {
+        return _delegatorOperatorDelegated[delegator][operator];
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

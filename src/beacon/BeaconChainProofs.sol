@@ -49,11 +49,14 @@ library BeaconChainProofs {
     uint256 internal constant BEACON_STATE_TREE_HEIGHT = 6;
 
     /// @notice Index of validators list in beacon state (field index 11)
-    /// @dev In SSZ, generalized index = 2^depth + field_index = 32 + 11 = 43
+    /// @dev Post-Pectra state tree has height 6, so the field-level generalized index is
+    ///      (1 << 6) | 11 = 75 (see VALIDATOR_CONTAINER_GINDEX). The validators field is an
+    ///      SSZ List, so individual elements live one level deeper (mix_in_length) — that
+    ///      extra level is handled in `verifyValidatorFields`, not here.
     uint256 internal constant VALIDATOR_LIST_INDEX = 11;
 
     /// @notice Index of balances list in beacon state (field index 12)
-    /// @dev Generalized index = 32 + 12 = 44
+    /// @dev Field-level generalized index = (1 << 6) | 12 = 76 (see BALANCE_CONTAINER_GINDEX).
     uint256 internal constant BALANCE_LIST_INDEX = 12;
 
     /// @notice Height of validator tree (supports up to 2^40 validators)
@@ -191,16 +194,25 @@ library BeaconChainProofs {
         // Hash the validator fields to get the validator leaf
         bytes32 validatorLeaf = _hashValidatorFieldsMemory(proof.validatorFields);
 
-        // Calculate the generalized index for this validator
-        // The validator is in a merkleized list at index VALIDATOR_CONTAINER_GINDEX in state
-        // Within the list, we need to traverse VALIDATOR_TREE_HEIGHT levels to reach the validator
-        // Generalized index = (VALIDATOR_CONTAINER_GINDEX << VALIDATOR_TREE_HEIGHT) | validatorIndex
+        // Calculate the generalized index for this validator.
         //
-        // This creates a path: state root -> validators container -> specific validator
-        uint256 validatorGIndex = (VALIDATOR_CONTAINER_GINDEX << VALIDATOR_TREE_HEIGHT) | uint256(validatorIndex);
+        // The `validators` field in BeaconState is an SSZ `List[Validator, N]`. The
+        // hash-tree-root of a List is `mix_in_length(merkleize(chunks), length)`: the
+        // merkleized element tree is hashed once more against the list length. That
+        // extra level means an element's leaf sits ONE level BELOW the field root in the
+        // state tree — its sub-path within the list field is `VALIDATOR_TREE_HEIGHT + 1`,
+        // not `VALIDATOR_TREE_HEIGHT`. (EigenLayer's reference uses
+        // `VALIDATOR_TREE_HEIGHT + 1` for exactly this reason.)
+        //
+        // Generalized index = (VALIDATOR_CONTAINER_GINDEX << (VALIDATOR_TREE_HEIGHT + 1)) | validatorIndex
+        //
+        // Path: state root -> validators list field -> list-data subtree (left child of the
+        // length mix-in) -> specific validator leaf.
+        uint256 validatorGIndex = (VALIDATOR_CONTAINER_GINDEX << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
 
-        // Proof length: VALIDATOR_TREE_HEIGHT (within list) + BEACON_STATE_TREE_HEIGHT (to state root)
-        uint256 expectedProofLength = (VALIDATOR_TREE_HEIGHT + BEACON_STATE_TREE_HEIGHT) * 32;
+        // Proof length: (VALIDATOR_TREE_HEIGHT + 1) levels within the list (including the
+        // mix_in_length level) + BEACON_STATE_TREE_HEIGHT levels to the state root.
+        uint256 expectedProofLength = (VALIDATOR_TREE_HEIGHT + 1 + BEACON_STATE_TREE_HEIGHT) * 32;
         if (proof.proof.length != expectedProofLength) {
             revert InvalidProofLength();
         }
@@ -255,12 +267,20 @@ library BeaconChainProofs {
         // Leaf index = validatorIndex / 4
         uint256 balanceLeafIndex = validatorIndex / VALIDATORS_PER_BALANCE_LEAF;
 
-        // Verify the balance leaf against balance container root
-        if (proof.proof.length != BALANCE_TREE_HEIGHT * 32) {
+        // `balances` in BeaconState is an SSZ `List[uint64, N]`. Its container root
+        // (`balanceContainerRoot`, already verified against the state root) is
+        // `mix_in_length(merkleize(chunks), length)`, so a packed-balance leaf sits ONE
+        // level BELOW the list root — the same mix_in_length adjustment as the validator
+        // list. The leaf's generalized index within the list root is therefore
+        // `(1 << (BALANCE_TREE_HEIGHT + 1)) | balanceLeafIndex`, and the proof carries
+        // `BALANCE_TREE_HEIGHT + 1` siblings (the extra one being the length mix-in node).
+        if (proof.proof.length != (BALANCE_TREE_HEIGHT + 1) * 32) {
             revert InvalidProofLength();
         }
 
-        bool valid = _verifyMerkleProof(proof.proof, balanceContainerRoot, proof.balanceRoot, balanceLeafIndex);
+        uint256 balanceLeafGIndex = (uint256(1) << (BALANCE_TREE_HEIGHT + 1)) | balanceLeafIndex;
+        bool valid =
+            _verifyMerkleProofFromGIndex(proof.proof, balanceContainerRoot, proof.balanceRoot, balanceLeafGIndex);
 
         if (!valid) {
             revert ProofVerificationFailed();

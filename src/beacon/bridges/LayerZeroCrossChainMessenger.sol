@@ -274,6 +274,22 @@ contract LayerZeroCrossChainMessenger is ICrossChainMessenger {
 ///      C-3 : Converted to UUPS upgradeable. Deploy behind ERC1967Proxy
 ///      and call `initialize(...)`.
 contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+    /// @notice Delay before a newly-proposed trusted peer becomes active.
+    /// @dev Mirrors `L2SlashingReceiver.SENDER_ACTIVATION_DELAY`. The peer mapping is THE
+    ///      trust anchor for inbound slash messages: whoever it points at can forge a
+    ///      slash of any operator. Making peer changes instant would let a compromised
+    ///      owner repoint the anchor and inject a forged slash before any monitor could
+    ///      react, defeating the receiver's own 2-day delay. The propose → wait → activate
+    ///      flow keeps the asymmetry from re-opening.
+    ///
+    ///      DEPLOY-TIME NOTE: the activation delay only protects the *peer identity*. The
+    ///      LayerZero security stack that authenticates the message itself — the DVN set
+    ///      and executor configured for this OApp, plus the `endpoint` it trusts — MUST be
+    ///      pinned to a known-good configuration at deploy time. A permissive DVN/executor
+    ///      configuration lets an attacker satisfy `lzReceive`'s endpoint + peer checks
+    ///      with a forged origin, which no activation delay on this contract can prevent.
+    uint256 public constant SENDER_ACTIVATION_DELAY = 2 days;
+
     /// @custom:storage-location erc7201:tangle.beacon.bridges.LayerZeroReceiver
     struct LayerZeroReceiverStorage {
         address endpoint;
@@ -284,7 +300,13 @@ contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
         mapping(uint32 => uint256) eidToChainId;
         // GUID => processed
         mapping(bytes32 => bool) processedMessages;
-        uint256[50] __gap;
+        // eid => pending peer as bytes32
+        mapping(uint32 => bytes32) pendingPeers;
+        // eid => activation timestamp for the pending peer
+        mapping(uint32 => uint256) pendingPeersAt;
+        // Gap reduced from 50 → 48 to account for `pendingPeers` and `pendingPeersAt`
+        // appended above (append-only layout, existing slots preserved).
+        uint256[48] __gap;
     }
 
     /// @notice ERC-7201 slot:
@@ -302,12 +324,20 @@ contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
 
     /// @notice Events
     event MessageReceived(uint32 indexed srcEid, bytes32 sender, uint256 sourceChainId, address originalSender);
+    /// @notice Emitted when a peer becomes active.
+    event PeerSet(uint32 indexed eid, bytes32 indexed peer);
+    /// @notice Emitted when a peer change is proposed (timelocked).
+    event PeerScheduled(uint32 indexed eid, bytes32 indexed peer, uint256 activationTime);
     /// @notice Event emitted when a message is processed
     event MessageProcessed(bytes32 indexed guid, uint32 indexed srcEid, bytes32 sender);
 
     /// @notice Error for replayed messages
     error MessageAlreadyProcessed(bytes32 guid);
     error ZeroAddress();
+    /// @notice Raised when activating a peer that was never proposed.
+    error PeerNotPending();
+    /// @notice Raised when activating a peer before its delay elapses.
+    error PeerActivationTooEarly(uint256 activationTime);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -393,9 +423,49 @@ contract LayerZeroReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeable
         $.receiver.receiveMessage(sourceChainId, originalSender, payload);
     }
 
-    /// @notice Set trusted peer
+    function pendingPeers(uint32 eid) external view returns (bytes32) {
+        return _getStorage().pendingPeers[eid];
+    }
+
+    function pendingPeersAt(uint32 eid) external view returns (uint256) {
+        return _getStorage().pendingPeersAt[eid];
+    }
+
+    /// @notice Propose a trusted peer (timelocked) or clear one (immediate).
+    /// @dev Trust-anchor changes are asymmetric on purpose, mirroring
+    ///      `L2SlashingReceiver.setAuthorizedSender`:
+    ///        - non-zero `peer` → schedules activation after `SENDER_ACTIVATION_DELAY`;
+    ///          the peer is NOT trusted until `activatePeer` is called past the delay.
+    ///        - `peer == bytes32(0)` → clears the peer immediately (defensive
+    ///          de-authorization is never delayed).
+    ///      This closes the asymmetry where the receiver delayed new senders but a
+    ///      compromised messenger owner could repoint the peer instantly.
     function setPeer(uint32 eid, bytes32 peer) external onlyOwner {
-        _getStorage().peers[eid] = peer;
+        LayerZeroReceiverStorage storage $ = _getStorage();
+        if (peer == bytes32(0)) {
+            $.peers[eid] = bytes32(0);
+            $.pendingPeers[eid] = bytes32(0);
+            $.pendingPeersAt[eid] = 0;
+            emit PeerSet(eid, bytes32(0));
+            return;
+        }
+        uint256 activationTime = block.timestamp + SENDER_ACTIVATION_DELAY;
+        $.pendingPeers[eid] = peer;
+        $.pendingPeersAt[eid] = activationTime;
+        emit PeerScheduled(eid, peer, activationTime);
+    }
+
+    /// @notice Activate a previously-proposed peer once its delay has elapsed.
+    function activatePeer(uint32 eid) external onlyOwner {
+        LayerZeroReceiverStorage storage $ = _getStorage();
+        bytes32 peer = $.pendingPeers[eid];
+        if (peer == bytes32(0)) revert PeerNotPending();
+        if (block.timestamp < $.pendingPeersAt[eid]) revert PeerActivationTooEarly($.pendingPeersAt[eid]);
+
+        $.peers[eid] = peer;
+        $.pendingPeers[eid] = bytes32(0);
+        $.pendingPeersAt[eid] = 0;
+        emit PeerSet(eid, peer);
     }
 
     /// @notice Set chain mapping

@@ -58,13 +58,15 @@ abstract contract BeaconTestBase is Test {
         // Deploy mock beacon oracle
         beaconOracle = new MockBeaconOracle();
 
-        // Deploy pod manager
-        vm.prank(admin);
+        // Deploy pod manager + configure slasher under a persistent prank.
+        // NOTE: `ValidatorPodManager` is large enough that Foundry compiles its
+        // `new` into a `vm.deployCode` cheatcode call, which does NOT consume a
+        // single-shot `vm.prank`. Using start/stopPrank avoids the "cannot
+        // overwrite a prank" error a second `vm.prank(admin)` would otherwise hit.
+        vm.startPrank(admin);
         podManager = new ValidatorPodManager(address(beaconOracle), MIN_OPERATOR_STAKE);
-
-        // Setup slasher
-        vm.prank(admin);
         podManager.addSlasher(slasher);
+        vm.stopPrank();
 
         // Fund actors
         vm.deal(podOwner1, 100 ether);

@@ -94,11 +94,38 @@ contract TangleTest is BaseTest {
     function test_TransferBlueprint() public {
         uint64 blueprintId = _createBlueprint(developer);
 
+        // Step 1: current owner proposes — ownership does NOT move yet.
+        vm.prank(developer);
+        tangle.transferBlueprint(blueprintId, user1);
+        assertEq(tangle.getBlueprint(blueprintId).owner, developer, "owner unchanged until accept");
+        assertEq(tangle.pendingBlueprintOwner(blueprintId), user1, "pending set");
+
+        // A non-pending address cannot accept.
+        vm.prank(user2);
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotPendingBlueprintOwner.selector, blueprintId, user2));
+        tangle.acceptBlueprintOwnership(blueprintId);
+
+        // Step 2: the proposed owner accepts — now it moves.
+        vm.prank(user1);
+        tangle.acceptBlueprintOwnership(blueprintId);
+        assertEq(tangle.getBlueprint(blueprintId).owner, user1, "owner moved after accept");
+        assertEq(tangle.pendingBlueprintOwner(blueprintId), address(0), "pending cleared");
+    }
+
+    function test_TransferBlueprint_CancelByOwner() public {
+        uint64 blueprintId = _createBlueprint(developer);
+
         vm.prank(developer);
         tangle.transferBlueprint(blueprintId, user1);
 
-        Types.Blueprint memory bp = tangle.getBlueprint(blueprintId);
-        assertEq(bp.owner, user1);
+        vm.prank(developer);
+        tangle.cancelBlueprintTransfer(blueprintId);
+        assertEq(tangle.pendingBlueprintOwner(blueprintId), address(0), "pending cancelled");
+
+        // After cancel the former pending owner can no longer accept.
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotPendingBlueprintOwner.selector, blueprintId, user1));
+        tangle.acceptBlueprintOwnership(blueprintId);
     }
 
     function test_TransferBlueprint_RevertZeroAddress() public {

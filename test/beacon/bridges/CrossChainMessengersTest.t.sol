@@ -753,9 +753,41 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
             lzReceiver = BridgeReceiverDeploy.deployLayerZeroReceiver(endpoint, address(receiver));
         }
 
+        /// @dev Trust-anchor changes are timelocked (cross-chain MEDIUM): propose, warp
+        ///      past the activation delay, then activate.
+        function _activatePeer(uint32 eid, bytes32 peer_) internal {
+            lzReceiver.setPeer(eid, peer_);
+            vm.warp(block.timestamp + lzReceiver.SENDER_ACTIVATION_DELAY() + 1);
+            lzReceiver.activatePeer(eid);
+        }
+
+        function test_setPeer_IsTimelocked_NotImmediate() public {
+            uint32 eid = 30_110;
+            bytes32 peerB = bytes32(uint256(uint160(peer)));
+
+            lzReceiver.setPeer(eid, peerB);
+            // Pending, not yet active.
+            assertEq(lzReceiver.peers(eid), bytes32(0));
+            assertEq(lzReceiver.pendingPeers(eid), peerB);
+
+            // Activating before the delay elapses reverts.
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    LayerZeroReceiver.PeerActivationTooEarly.selector, lzReceiver.pendingPeersAt(eid)
+                )
+            );
+            lzReceiver.activatePeer(eid);
+
+            // After the delay it activates.
+            vm.warp(block.timestamp + lzReceiver.SENDER_ACTIVATION_DELAY() + 1);
+            lzReceiver.activatePeer(eid);
+            assertEq(lzReceiver.peers(eid), peerB);
+            assertEq(lzReceiver.pendingPeers(eid), bytes32(0));
+        }
+
         function test_lzReceive_ForwardsMessagesFromTrustedPeer() public {
             uint32 eid = 30_110;
-            lzReceiver.setPeer(eid, bytes32(uint256(uint160(peer))));
+            _activatePeer(eid, bytes32(uint256(uint160(peer))));
 
             Origin memory origin = Origin({ srcEid: eid, sender: bytes32(uint256(uint160(peer))), nonce: 1 });
             bytes memory payload = abi.encode(uint256(42_161), originalSender, bytes("lz"));
@@ -814,9 +846,41 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
             hyperlaneReceiver = BridgeReceiverDeploy.deployHyperlaneReceiver(mailbox, address(receiver));
         }
 
+        /// @dev Trust-anchor changes are timelocked (cross-chain MEDIUM): propose, warp
+        ///      past the activation delay, then activate.
+        function _activateTrustedSender(uint32 domain, address sender) internal {
+            hyperlaneReceiver.setTrustedSender(domain, sender, true);
+            vm.warp(block.timestamp + hyperlaneReceiver.SENDER_ACTIVATION_DELAY() + 1);
+            hyperlaneReceiver.activateTrustedSender(domain, sender);
+        }
+
+        function test_setTrustedSender_IsTimelocked_NotImmediate() public {
+            uint32 domain = 42_161;
+            bytes32 senderB = bytes32(uint256(uint160(trustedSender)));
+
+            hyperlaneReceiver.setTrustedSender(domain, trustedSender, true);
+            // Pending, not yet trusted.
+            assertFalse(hyperlaneReceiver.trustedSenders(domain, senderB));
+            assertGt(hyperlaneReceiver.pendingTrustedSenders(domain, senderB), 0);
+
+            // Activating before the delay elapses reverts.
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    HyperlaneReceiver.SenderActivationTooEarly.selector,
+                    hyperlaneReceiver.pendingTrustedSenders(domain, senderB)
+                )
+            );
+            hyperlaneReceiver.activateTrustedSender(domain, trustedSender);
+
+            // After the delay it becomes trusted.
+            vm.warp(block.timestamp + hyperlaneReceiver.SENDER_ACTIVATION_DELAY() + 1);
+            hyperlaneReceiver.activateTrustedSender(domain, trustedSender);
+            assertTrue(hyperlaneReceiver.trustedSenders(domain, senderB));
+        }
+
         function test_handle_ForwardsTrustedMessage() public {
             uint32 domain = 42_161;
-            hyperlaneReceiver.setTrustedSender(domain, trustedSender, true);
+            _activateTrustedSender(domain, trustedSender);
             bytes memory payload = abi.encode(uint256(42_161), trustedSender, bytes("hl"));
 
             vm.prank(mailbox);
@@ -840,7 +904,7 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function test_handle_RevertsWhenChainMismatch() public {
             uint32 domain = 8453;
-            hyperlaneReceiver.setTrustedSender(domain, trustedSender, true);
+            _activateTrustedSender(domain, trustedSender);
             bytes memory payload = abi.encode(uint256(999), trustedSender, bytes("bad"));
 
             vm.prank(mailbox);
@@ -850,7 +914,8 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function test_handle_RevertsAfterSenderRevoked() public {
             uint32 domain = 42_161;
-            hyperlaneReceiver.setTrustedSender(domain, trustedSender, true);
+            _activateTrustedSender(domain, trustedSender);
+            // Revocation remains immediate even though authorization is timelocked.
             hyperlaneReceiver.setTrustedSender(domain, trustedSender, false);
             bytes memory payload = abi.encode(uint256(42_161), trustedSender, bytes("revoked"));
 
@@ -862,7 +927,7 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
         function test_handle_UsesUpdatedDomainMapping() public {
             uint32 domain = 9999;
             hyperlaneReceiver.setDomainMapping(domain, 5555);
-            hyperlaneReceiver.setTrustedSender(domain, trustedSender, true);
+            _activateTrustedSender(domain, trustedSender);
             bytes memory payload = abi.encode(uint256(5555), trustedSender, bytes("ok"));
 
             vm.prank(mailbox);

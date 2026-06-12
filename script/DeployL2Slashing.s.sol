@@ -297,6 +297,10 @@ contract DeployL2Slashing is EnvUtils {
         HyperlaneReceiver hyperlaneReceiver = HyperlaneReceiver(address(hyperlaneProxy));
 
         // HyperlaneReceiver expects the "sender" to be the origin contract that dispatched the message (the messenger).
+        // The trusted sender is now timelocked (cross-chain MEDIUM): the deploy only
+        // SCHEDULES it. The admin must call `activateTrustedSender` after
+        // SENDER_ACTIVATION_DELAY elapses before any message can be relayed. (The L2
+        // slashing path is not in the initial launch deploy, so the delay is benign.)
         hyperlaneReceiver.setTrustedSender(uint32(sourceChainId), l1Messenger, true);
         if (hyperlaneReceiver.owner() != admin) {
             hyperlaneReceiver.transferOwnership(admin);
@@ -305,7 +309,7 @@ contract DeployL2Slashing is EnvUtils {
         console2.log("HyperlaneReceiver impl:", hyperlaneImpl);
         console2.log("HyperlaneReceiver proxy:", address(hyperlaneReceiver));
         console2.log("Hyperlane mailbox:", mailbox);
-        console2.log("Trusted L1 messenger:", l1Messenger);
+        console2.log("Trusted L1 messenger (SCHEDULED - admin must activateTrustedSender after delay):", l1Messenger);
         return address(hyperlaneReceiver);
     }
 
@@ -336,6 +340,10 @@ contract DeployL2Slashing is EnvUtils {
         if (sourceEid == 0) revert MissingEnv("LAYERZERO_SOURCE_EID");
 
         lzReceiver.setChainMapping(sourceEid, sourceChainId);
+        // The trusted peer is now timelocked (cross-chain MEDIUM): the deploy only
+        // SCHEDULES it. The admin must call `activatePeer` after SENDER_ACTIVATION_DELAY
+        // elapses before any message can be relayed. (The L2 slashing path is not in the
+        // initial launch deploy, so the delay is benign.)
         lzReceiver.setPeer(sourceEid, bytes32(uint256(uint160(l1Messenger))));
         if (lzReceiver.owner() != admin) {
             lzReceiver.transferOwnership(admin);
@@ -345,7 +353,7 @@ contract DeployL2Slashing is EnvUtils {
         console2.log("LayerZeroReceiver proxy:", address(lzReceiver));
         console2.log("LayerZero endpoint:", endpoint);
         console2.log("Source EID:", sourceEid);
-        console2.log("Trusted L1 messenger:", l1Messenger);
+        console2.log("Trusted L1 messenger (SCHEDULED - admin must activatePeer after delay):", l1Messenger);
         return address(lzReceiver);
     }
 

@@ -251,7 +251,10 @@ contract L2SlashingReceiverUUPSTest is Test {
     function test_Hyperlane_statePersistsAcrossUpgrade() public {
         (HyperlaneReceiver h,) = _newHyperlane(makeAddr("mb"), makeAddr("rcv"), address(this));
         address trusted = makeAddr("trusted");
+        // Trust-anchor authorization is timelocked (cross-chain MEDIUM).
         h.setTrustedSender(42_161, trusted, true);
+        vm.warp(block.timestamp + h.SENDER_ACTIVATION_DELAY() + 1);
+        h.activateTrustedSender(42_161, trusted);
         assertTrue(h.trustedSenders(42_161, bytes32(uint256(uint160(trusted)))), "trusted set");
 
         HyperlaneReceiver impl2 = new HyperlaneReceiver();
@@ -282,7 +285,10 @@ contract L2SlashingReceiverUUPSTest is Test {
     function test_LayerZero_statePersistsAcrossUpgrade() public {
         (LayerZeroReceiver lz,) = _newLayerZero(makeAddr("ep"), makeAddr("rcv"), address(this));
         bytes32 peer = bytes32(uint256(uint160(makeAddr("peer"))));
+        // Peer (trust-anchor) authorization is timelocked (cross-chain MEDIUM).
         lz.setPeer(30_110, peer);
+        vm.warp(block.timestamp + lz.SENDER_ACTIVATION_DELAY() + 1);
+        lz.activatePeer(30_110);
         assertEq(lz.peers(30_110), peer);
 
         LayerZeroReceiver impl2 = new LayerZeroReceiver();

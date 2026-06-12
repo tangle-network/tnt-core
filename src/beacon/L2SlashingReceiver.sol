@@ -7,6 +7,19 @@ import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/O
 
 import { ICrossChainReceiver } from "./interfaces/ICrossChainMessenger.sol";
 
+/// @title IOpStackCrossDomainMessenger
+/// @notice Minimal interface for the OP-stack `L2CrossDomainMessenger` singleton.
+/// @dev On OP-stack chains (Optimism, Base, and other Bedrock forks) the
+///      `L2CrossDomainMessenger` is a shared predeploy. It exposes the
+///      authenticated L1 sender of the message currently being relayed via
+///      `xDomainMessageSender()`. Any L2 contract that trusts a message coming
+///      from the singleton MUST read this value to authenticate the L1 origin —
+///      `msg.sender` alone only proves "the singleton relayed *some* message",
+///      not *who* on L1 sent it.
+interface IOpStackCrossDomainMessenger {
+    function xDomainMessageSender() external view returns (address);
+}
+
 /// @title IL2Slasher
 /// @notice Interface for the L2 slashing mechanism
 /// @dev Implement this on Tangle L2 to execute slashing
@@ -50,6 +63,13 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     error NonceAlreadyProcessed(uint256 sourceChainId, address sender, uint256 nonce);
     error SlashingNotPossible(address operator);
     error ZeroAddress();
+    /// @dev Raised when the messenger is configured as the OP-stack singleton but the
+    ///      authenticated L1 sender (`xDomainMessageSender()`) does not match the
+    ///      trusted counterpart registered for the source chain.
+    error UnauthorizedOpStackSender(uint256 sourceChainId, address xDomainSender);
+    /// @dev Raised when an OP-stack-mode delivery arrives for a source chain that has
+    ///      no trusted L1 counterpart configured, so no message can be authenticated.
+    error OpStackSenderNotConfigured(uint256 sourceChainId);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -65,6 +85,11 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     event MessengerUpdated(address indexed oldMessenger, address indexed newMessenger);
     event SlasherScheduled(address indexed newSlasher, uint256 activationTime);
     event SlasherUpdated(address indexed newSlasher);
+
+    /// @notice Emitted when OP-stack delivery mode is toggled for the configured messenger.
+    event OpStackMessengerModeUpdated(bool enabled);
+    /// @notice Emitted when the trusted L1 counterpart for an OP-stack source chain is set.
+    event OpStackL1SenderUpdated(uint256 indexed sourceChainId, address indexed l1Sender);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTANTS
@@ -101,8 +126,21 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         mapping(uint256 => mapping(address => mapping(uint256 => bool))) processedNonces;
         // Cumulative slash bps per operator from beacon chain
         mapping(address => uint256) beaconSlashTotal;
+        // ── OP-stack direct-delivery authentication (cross-chain MEDIUM, forgeable-slash) ──
+        // When the configured `messenger` is the OP-stack `L2CrossDomainMessenger`
+        // singleton (rather than a dedicated per-bridge adapter that pre-authenticates
+        // the L1 origin), the calldata `sender` passed to `receiveMessage` is
+        // ATTACKER-CONTROLLED and must NOT be trusted for authorization. With this flag
+        // set, the authenticated L1 sender is derived from
+        // `IOpStackCrossDomainMessenger(messenger).xDomainMessageSender()` and matched
+        // against `opStackL1Sender[sourceChainId]`.
+        bool opStackMessengerMode;
+        // sourceChainId => trusted L1 counterpart (the L2SlashingConnector on that chain)
+        mapping(uint256 => address) opStackL1Sender;
         // Reserved storage for future upgrades. Keep this LAST.
-        uint256[50] __gap;
+        // Gap reduced from 50 → 48 to account for `opStackMessengerMode` and
+        // `opStackL1Sender` appended above (append-only layout, slots preserved).
+        uint256[48] __gap;
     }
 
     /// @notice ERC-7201 slot:
@@ -189,6 +227,14 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         return _getStorage().beaconSlashTotal[operator];
     }
 
+    function opStackMessengerMode() external view returns (bool) {
+        return _getStorage().opStackMessengerMode;
+    }
+
+    function opStackL1Sender(uint256 sourceChainId) external view returns (address) {
+        return _getStorage().opStackL1Sender[sourceChainId];
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // MODIFIERS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -207,12 +253,48 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc ICrossChainReceiver
+    /// @dev Cross-chain MEDIUM (forgeable-slash): the calldata `sender` is only
+    ///      trustworthy when the configured `messenger` is a dedicated per-bridge
+    ///      adapter that has ALREADY authenticated the L1 origin before forwarding:
+    ///        - `ArbitrumL2Receiver` — checks `msg.sender == applyL1ToL2Alias(l1Sender)`
+    ///        - `BaseL2Receiver`     — checks `l2Messenger.xDomainMessageSender() == l1Sender`
+    ///        - `HyperlaneReceiver`  — checks `trustedSenders[origin][sender]` via ISM-verified `handle`
+    ///        - `LayerZeroReceiver`  — checks `peers[srcEid] == origin.sender` via DVN-verified `lzReceive`
+    ///      In all of those paths the adapter passes its own pre-authenticated
+    ///      `l1Sender` through as `sender`, so trusting it here is sound.
+    ///
+    ///      The DANGEROUS path is wiring the OP-stack `L2CrossDomainMessenger`
+    ///      SINGLETON directly as `messenger`. That singleton relays messages for
+    ///      every L1 actor, so `onlyMessenger` proves nothing about the L1 origin and
+    ///      the calldata `sender` is fully attacker-chosen — an attacker simply sets
+    ///      it to the real connector address. When `opStackMessengerMode` is enabled
+    ///      we therefore DISCARD the calldata `sender` for authorization and derive the
+    ///      authenticated L1 sender from `xDomainMessageSender()`, matching it against
+    ///      the trusted counterpart registered per source chain.
     function receiveMessage(uint256 sourceChainId, address sender, bytes calldata payload) external onlyMessenger {
         ReceiverStorage storage $ = _getStorage();
 
-        // Verify sender is authorized for this source chain
-        if (!$.authorizedSenders[sourceChainId][sender]) {
-            revert UnauthorizedSender();
+        // Authenticate the L1 origin. `authenticatedSender` is the address used for
+        // BOTH authorization and downstream nonce namespacing.
+        address authenticatedSender;
+        if ($.opStackMessengerMode) {
+            // The messenger is the OP-stack singleton: the calldata `sender` is
+            // attacker-controlled and is ignored. Derive the real L1 sender from the
+            // messenger and require it equals the trusted counterpart for this chain.
+            address trusted = $.opStackL1Sender[sourceChainId];
+            if (trusted == address(0)) revert OpStackSenderNotConfigured(sourceChainId);
+
+            address xDomainSender = IOpStackCrossDomainMessenger($.messenger).xDomainMessageSender();
+            if (xDomainSender != trusted) revert UnauthorizedOpStackSender(sourceChainId, xDomainSender);
+
+            authenticatedSender = xDomainSender;
+        } else {
+            // Dedicated adapter path: the adapter already authenticated the L1 origin
+            // and forwarded its own pre-authenticated `l1Sender` as `sender`.
+            if (!$.authorizedSenders[sourceChainId][sender]) {
+                revert UnauthorizedSender();
+            }
+            authenticatedSender = sender;
         }
 
         // Decode and validate payload
@@ -221,7 +303,7 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         bytes4 messageType = bytes4(payload[:4]);
 
         if (messageType == SLASH_MESSAGE_TYPE) {
-            _handleSlashMessage($, sourceChainId, sender, payload[4:]);
+            _handleSlashMessage($, sourceChainId, authenticatedSender, payload[4:]);
         } else {
             revert InvalidPayload();
         }
@@ -298,6 +380,56 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
             $.pendingAuthorizedSenders[chainId][sender] = activationTime;
             emit AuthorizedSenderScheduled(chainId, sender, activationTime);
         }
+    }
+
+    /// @notice Enable / disable OP-stack direct-delivery mode for the configured messenger.
+    /// @dev Set to `true` ONLY when `messenger` is the OP-stack `L2CrossDomainMessenger`
+    ///      singleton. In that mode the calldata `sender` is ignored and the L1 origin is
+    ///      authenticated via `xDomainMessageSender()` against `opStackL1Sender`. Toggling
+    ///      the mode does not by itself authorize any sender — the trusted L1 counterpart
+    ///      must be activated through the timelocked `setOpStackL1Sender` /
+    ///      `activateOpStackL1Sender` flow below.
+    function setOpStackMessengerMode(bool enabled) external onlyOwner {
+        _getStorage().opStackMessengerMode = enabled;
+        emit OpStackMessengerModeUpdated(enabled);
+    }
+
+    /// @notice Schedule (or immediately revoke) the trusted L1 counterpart for an
+    ///         OP-stack source chain. Mirrors `setAuthorizedSender`: authorization is
+    ///         timelocked behind `SENDER_ACTIVATION_DELAY`, revocation is immediate.
+    /// @dev The trusted counterpart is the `L2SlashingConnector` on the source chain.
+    ///      Because OP-stack mode derives the L1 sender from `xDomainMessageSender()`,
+    ///      this value is the sole trust anchor for the OP path and so carries the same
+    ///      activation delay as `authorizedSenders` — a compromised owner cannot instantly
+    ///      repoint it to an attacker-controlled L1 contract.
+    function setOpStackL1Sender(uint256 sourceChainId, address l1Sender, bool authorized) external onlyOwner {
+        ReceiverStorage storage $ = _getStorage();
+        if (!authorized) {
+            // Revocation is immediate, and only clears the slot if it currently points
+            // at `l1Sender` (so a stale revoke cannot wipe a freshly-rotated anchor).
+            if ($.opStackL1Sender[sourceChainId] == l1Sender) {
+                $.opStackL1Sender[sourceChainId] = address(0);
+                emit OpStackL1SenderUpdated(sourceChainId, address(0));
+            }
+            $.pendingAuthorizedSenders[sourceChainId][l1Sender] = 0;
+            return;
+        }
+        if (l1Sender == address(0)) revert ZeroAddress();
+        uint256 activationTime = block.timestamp + SENDER_ACTIVATION_DELAY;
+        $.pendingAuthorizedSenders[sourceChainId][l1Sender] = activationTime;
+        emit AuthorizedSenderScheduled(sourceChainId, l1Sender, activationTime);
+    }
+
+    /// @notice Activate a pending OP-stack trusted L1 counterpart after the delay elapses.
+    function activateOpStackL1Sender(uint256 sourceChainId, address l1Sender) external onlyOwner {
+        ReceiverStorage storage $ = _getStorage();
+        uint256 activationTime = $.pendingAuthorizedSenders[sourceChainId][l1Sender];
+        if (activationTime == 0) revert SenderNotPending();
+        if (block.timestamp < activationTime) revert SenderActivationTooEarly(activationTime);
+
+        $.opStackL1Sender[sourceChainId] = l1Sender;
+        $.pendingAuthorizedSenders[sourceChainId][l1Sender] = 0;
+        emit OpStackL1SenderUpdated(sourceChainId, l1Sender);
     }
 
     /// @notice Activate a pending authorized sender after delay

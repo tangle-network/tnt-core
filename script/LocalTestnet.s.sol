@@ -439,6 +439,10 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
         InflationPool(payable(inflationPool)).setStakerInflationConfig(tangleProxy, serviceFeeDistributor);
         ServiceFeeDistributor(payable(serviceFeeDistributor)).setInflationPool(inflationPool);
 
+        // Gate operator inflation scoring on live operator status (deregistered / leaving /
+        // slashed-inactive operators score 0 automatically).
+        InflationPool(payable(inflationPool)).setOperatorStatusSource(stakingProxy);
+
         // Wire RewardVaults into Tangle for TNT-specific incentives
         Tangle(payable(tangleProxy)).setRewardVaults(rewardVaults);
         uint256 discountBps = _envUintOrZero("TNT_PAYMENT_DISCOUNT_BPS");

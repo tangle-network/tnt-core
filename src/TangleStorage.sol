@@ -484,11 +484,44 @@ abstract contract TangleStorage {
     mapping(uint64 => mapping(uint64 => Types.Attestation[])) internal _blueprintVersionAttestations;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // BLUEPRINT SUPPLY-CHAIN HARDENING (appended 2026-06-12)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Appended after the binary-versions/attestations block (never inserted mid
+    // layout) and the reserved gap is shrunk by the same count to preserve total
+    // storage size for upgrade safety.
+
+    /// @notice Blueprint ID => pending owner for two-step ownership transfer.
+    /// @dev `transferBlueprint` proposes; the proposed owner must call
+    ///      `acceptBlueprintOwnership`. Shrinks the blast radius of a leaked owner
+    ///      key, which otherwise instantly confers binary-distribution authority.
+    mapping(uint64 => address) internal _pendingBlueprintOwner;
+
+    /// @notice Blueprint ID => keccak256 digest of the current cold-start sources.
+    /// @dev Updated whenever sources are (re)written. Operators ack a specific digest
+    ///      via `ackBlueprintSources`; the off-chain manager gates cold-start boot on
+    ///      `operatorAckedCurrentSources` so an owner cannot silently repoint the
+    ///      executable an operator runs without that operator's explicit opt-in.
+    mapping(uint64 => bytes32) internal _blueprintSourcesHash;
+
+    /// @notice Blueprint ID => operator => the sources digest that operator has acked.
+    mapping(uint64 => mapping(address => bytes32)) internal _operatorAckedSourcesHash;
+
+    /// @notice Service ID => operator => per-operator upgrade policy.
+    /// @dev Replaces the service-wide `_serviceUpgradePolicy` scalar (which any single
+    ///      operator could overwrite for everyone). `_serviceOperatorAckedVersionId`
+    ///      is the per-operator counterpart of `_serviceAckedVersionId`.
+    mapping(uint64 => mapping(address => Types.UpgradePolicy)) internal _serviceOperatorUpgradePolicy;
+
+    /// @notice Service ID => operator => last acknowledged version (per operator).
+    mapping(uint64 => mapping(address => uint64)) internal _serviceOperatorAckedVersionId;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // RESERVED STORAGE GAP
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Reserved storage slots for future upgrades. Standard gap size is 50.
-    ///      Slots already consumed: 10 (initial) + 5 (binary versions block above:
-    ///      4 mappings for versions/policy/ack + 1 mapping for attestations).
-    uint256[34] private __gap;
+    ///      Slots already consumed: 10 (initial) + 5 (binary versions block) + 5
+    ///      (supply-chain hardening block above). Shrunk 34 -> 29 when that block
+    ///      was appended.
+    uint256[29] private __gap;
 }

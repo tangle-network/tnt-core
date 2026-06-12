@@ -6,6 +6,7 @@ import { MockBinaryHookBSM } from "../mocks/MockBinaryHookBSM.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { Errors } from "../../src/libraries/Errors.sol";
 import { BlueprintsBinaryVersions } from "../../src/core/BlueprintsBinaryVersions.sol";
+import { BlueprintsManage } from "../../src/core/BlueprintsManage.sol";
 
 /// @title BlueprintsBinaryVersionsTest
 /// @notice Coverage for the per-blueprint binary version registry, per-service
@@ -654,5 +655,83 @@ contract BlueprintsBinaryVersionsTest is UpgradeFlowHarness {
         uint64 bp2 = _createBlueprint(developer);
         assertEq(versions.getBinaryVersionCount(bp2), 0);
         assertEq(versions.getActiveBinaryVersionId(bp2), 0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PER-OPERATOR upgrade policy / ack isolation (audit fix)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice One operator's ack must not move the version another operator runs.
+    function test_perOperator_ackIsolation() public {
+        (uint64 bp, uint64 sid) = _createServiceWithSingleOperator(developer, operator1, address(0));
+        _publishV(bp, developer, HASH_V0, "ipfs://v0");
+        _publishV(bp, developer, HASH_V1, "ipfs://v1");
+
+        // operator1 opts into APPROVE and acks v1.
+        vm.prank(operator1);
+        versions.setServiceUpgradePolicy(sid, Types.UpgradePolicy.APPROVE);
+        vm.prank(operator1);
+        versions.ackBinaryVersion(sid, 1);
+
+        // operator1 resolves to v1; operator2 (never acked) resolves independently to genesis.
+        assertEq(versions.effectiveBinaryVersionForOperator(sid, operator1).sha256Hash, HASH_V1, "op1 -> v1");
+        assertEq(versions.effectiveBinaryVersionForOperator(sid, operator2).sha256Hash, HASH_V0, "op2 unaffected");
+        assertEq(uint8(versions.getOperatorServiceUpgradePolicy(sid, operator1)), uint8(Types.UpgradePolicy.APPROVE));
+        assertEq(versions.getOperatorAckedVersionId(sid, operator1), 1);
+        assertEq(versions.getOperatorAckedVersionId(sid, operator2), 0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COLD-START SOURCES ACK GATE (audit fix — supply chain)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice An operator's ack tracks a SPECIFIC sources digest; repointing the
+    ///         sources invalidates the ack so the off-chain manager won't boot the
+    ///         new binary until the operator re-acks.
+    function test_coldStart_ackInvalidatedByRepoint() public {
+        BlueprintsManage mgmt = BlueprintsManage(payable(address(tangleProxy)));
+        uint64 bp = _createBlueprint(developer);
+        _registerOperator(operator1);
+        _registerForBlueprint(operator1, bp);
+
+        bytes32 h0 = mgmt.blueprintSourcesHash(bp);
+        assertTrue(h0 != bytes32(0), "genesis sources hash set");
+        assertFalse(mgmt.operatorAckedCurrentSources(bp, operator1), "not acked yet");
+
+        // Operator acks the live digest.
+        vm.prank(operator1);
+        mgmt.ackBlueprintSources(bp, h0);
+        assertTrue(mgmt.operatorAckedCurrentSources(bp, operator1), "acked current");
+
+        // Owner repoints sources → hash changes → prior ack no longer valid.
+        Types.BlueprintSource[] memory next = new Types.BlueprintSource[](1);
+        next[0] = _defaultBlueprintSource();
+        next[0].binaries[0].sha256 = bytes32(uint256(0xBEEF)); // different artifact
+        vm.prank(developer);
+        mgmt.setBlueprintSources(bp, next);
+
+        assertTrue(mgmt.blueprintSourcesHash(bp) != h0, "hash changed on repoint");
+        assertFalse(mgmt.operatorAckedCurrentSources(bp, operator1), "stale ack invalidated");
+
+        // Acking the stale digest reverts; acking the new one restores opt-in.
+        vm.prank(operator1);
+        vm.expectRevert();
+        mgmt.ackBlueprintSources(bp, h0);
+
+        bytes32 h1 = mgmt.blueprintSourcesHash(bp);
+        vm.prank(operator1);
+        mgmt.ackBlueprintSources(bp, h1);
+        assertTrue(mgmt.operatorAckedCurrentSources(bp, operator1), "re-acked new sources");
+    }
+
+    /// @notice Only registered operators of the blueprint can ack its sources.
+    function test_coldStart_nonOperatorCannotAck() public {
+        BlueprintsManage mgmt = BlueprintsManage(payable(address(tangleProxy)));
+        uint64 bp = _createBlueprint(developer);
+        bytes32 h0 = mgmt.blueprintSourcesHash(bp);
+
+        vm.prank(operator2);
+        vm.expectRevert(abi.encodeWithSelector(Errors.OperatorNotRegistered.selector, bp, operator2));
+        mgmt.ackBlueprintSources(bp, h0);
     }
 }
