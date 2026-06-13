@@ -92,6 +92,39 @@ library BeaconChainProofs {
     /// @dev (1 << BEACON_STATE_TREE_HEIGHT) | BALANCE_LIST_INDEX = (1 << 6) | 12 = 76.
     uint256 internal constant BALANCE_CONTAINER_GINDEX = 76;
 
+    /// @notice Deneb-fork beacon-state tree height (≤32 state fields → height 5).
+    /// @dev Only used by the version-parameterized verify paths, primarily so the verifier
+    ///      can be exercised against EigenLayer's real committed Deneb proof fixtures (the
+    ///      fork-independent merkle/gindex/extraction logic is identical across forks; the
+    ///      ONLY fork-dependent value is the state tree height and the two field gindexes
+    ///      derived from it). Production paths default to PECTRA (height 6).
+    uint256 internal constant DENEB_BEACON_STATE_TREE_HEIGHT = 5;
+
+    /// @notice Which beacon-state fork layout a proof was generated against.
+    /// @dev Mirrors EigenLayer's `ProofVersion`. PECTRA (height 6) is the live-mainnet
+    ///      default; DENEB (height 5) is retained for verifying historical/reference proofs.
+    enum ProofVersion {
+        DENEB,
+        PECTRA
+    }
+
+    /// @notice Beacon-state tree height for a fork version.
+    function _stateTreeHeight(ProofVersion version) private pure returns (uint256) {
+        return version == ProofVersion.PECTRA ? BEACON_STATE_TREE_HEIGHT : DENEB_BEACON_STATE_TREE_HEIGHT;
+    }
+
+    /// @notice Field-level generalized index of the `validators` list for a fork version.
+    /// @dev (1 << stateTreeHeight) | VALIDATOR_LIST_INDEX. Pectra: 75, Deneb: 43.
+    function _validatorContainerGIndex(ProofVersion version) private pure returns (uint256) {
+        return (uint256(1) << _stateTreeHeight(version)) | VALIDATOR_LIST_INDEX;
+    }
+
+    /// @notice Field-level generalized index of the `balances` list for a fork version.
+    /// @dev (1 << stateTreeHeight) | BALANCE_LIST_INDEX. Pectra: 76, Deneb: 44.
+    function _balanceContainerGIndex(ProofVersion version) private pure returns (uint256) {
+        return (uint256(1) << _stateTreeHeight(version)) | BALANCE_LIST_INDEX;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -187,6 +220,22 @@ library BeaconChainProofs {
         pure
         returns (bool)
     {
+        return verifyValidatorFields(ProofVersion.PECTRA, beaconStateRoot, validatorIndex, proof);
+    }
+
+    /// @notice Verify validator fields against the beacon state root for a specific fork.
+    /// @dev Production calls the PECTRA wrapper above. The DENEB path exists so the verifier
+    ///      can be validated against EigenLayer's real committed Deneb proof fixtures.
+    function verifyValidatorFields(
+        ProofVersion version,
+        bytes32 beaconStateRoot,
+        uint40 validatorIndex,
+        ValidatorTypes.ValidatorFieldsProof memory proof
+    )
+        internal
+        pure
+        returns (bool)
+    {
         if (proof.validatorFields.length != VALIDATOR_FIELDS_LENGTH) {
             revert InvalidValidatorFieldsLength();
         }
@@ -204,15 +253,17 @@ library BeaconChainProofs {
         // not `VALIDATOR_TREE_HEIGHT`. (EigenLayer's reference uses
         // `VALIDATOR_TREE_HEIGHT + 1` for exactly this reason.)
         //
-        // Generalized index = (VALIDATOR_CONTAINER_GINDEX << (VALIDATOR_TREE_HEIGHT + 1)) | validatorIndex
+        // Generalized index = (validatorContainerGIndex << (VALIDATOR_TREE_HEIGHT + 1)) | validatorIndex
         //
         // Path: state root -> validators list field -> list-data subtree (left child of the
         // length mix-in) -> specific validator leaf.
-        uint256 validatorGIndex = (VALIDATOR_CONTAINER_GINDEX << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
+        uint256 stateHeight = _stateTreeHeight(version);
+        uint256 validatorGIndex =
+            (_validatorContainerGIndex(version) << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
 
         // Proof length: (VALIDATOR_TREE_HEIGHT + 1) levels within the list (including the
-        // mix_in_length level) + BEACON_STATE_TREE_HEIGHT levels to the state root.
-        uint256 expectedProofLength = (VALIDATOR_TREE_HEIGHT + 1 + BEACON_STATE_TREE_HEIGHT) * 32;
+        // mix_in_length level) + stateTreeHeight levels to the state root.
+        uint256 expectedProofLength = (VALIDATOR_TREE_HEIGHT + 1 + stateHeight) * 32;
         if (proof.proof.length != expectedProofLength) {
             revert InvalidProofLength();
         }
@@ -237,15 +288,29 @@ library BeaconChainProofs {
         pure
         returns (bool)
     {
-        // Balance container is at generalized index 44 in the beacon state
-        // Proof length: BEACON_STATE_TREE_HEIGHT levels to reach balances from state root
-        uint256 expectedProofLength = BEACON_STATE_TREE_HEIGHT * 32;
+        return verifyBalanceContainer(ProofVersion.PECTRA, beaconStateRoot, proof);
+    }
+
+    /// @notice Verify the balances list root against the beacon state root for a specific fork.
+    /// @dev State-root-relative (EigenLayer's reference proves it block-root-relative in one
+    ///      shot; ours is the two-step decomposition). Production calls the PECTRA wrapper.
+    function verifyBalanceContainer(
+        ProofVersion version,
+        bytes32 beaconStateRoot,
+        ValidatorTypes.BalanceContainerProof calldata proof
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        // Proof length: stateTreeHeight levels to reach the balances field from the state root.
+        uint256 expectedProofLength = _stateTreeHeight(version) * 32;
         if (proof.proof.length != expectedProofLength) {
             revert InvalidProofLength();
         }
 
         return _verifyMerkleProofFromGIndex(
-            proof.proof, beaconStateRoot, proof.balanceContainerRoot, BALANCE_CONTAINER_GINDEX
+            proof.proof, beaconStateRoot, proof.balanceContainerRoot, _balanceContainerGIndex(version)
         );
     }
 
