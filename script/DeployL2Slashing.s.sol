@@ -76,8 +76,12 @@ contract DeployL2Slashing is EnvUtils {
     enum BridgeProtocol {
         Hyperlane,
         LayerZero,
-        DirectMessenger // For testing with direct calls
+        DirectMessenger, // For testing with direct calls
+        OpStack // OP-Stack canonical CrossDomainMessenger (Base/Optimism) — native, no third-party trust
     }
+
+    /// @notice OP-Stack L2CrossDomainMessenger predeploy (same address on all OP chains).
+    address internal constant OP_L2_CROSS_DOMAIN_MESSENGER = 0x4200000000000000000000000000000000000007;
 
     /// @notice True on mainnets where slashing would be live. Bypass on local with TANGLE_DEPLOY_LOCAL=1.
     function _isProductionChain() internal view returns (bool) {
@@ -231,7 +235,11 @@ contract DeployL2Slashing is EnvUtils {
             vm.startPrank(deployer);
         }
 
-        TangleL2Slasher slasherContract = new TangleL2Slasher(staking, admin);
+        // Own the slasher as the deployer during setup so `setAuthorizedCaller` below succeeds,
+        // then hand off to `admin` at the bottom (mirrors the receiver). Constructing it owned by
+        // `admin` directly would revert `setAuthorizedCaller` whenever admin != deployer (i.e.
+        // always in production), since that call runs in the deployer's broadcast context.
+        TangleL2Slasher slasherContract = new TangleL2Slasher(staking, deployer);
         slasher = address(slasherContract);
         console2.log("TangleL2Slasher:", slasher);
 
@@ -268,12 +276,31 @@ contract DeployL2Slashing is EnvUtils {
             bridgeReceiver =
                 _deployAndConfigureLayerZeroReceiver(receiverContract, deployer, admin, sourceChainId, l1Messenger);
             receiverContract.setMessenger(bridgeReceiver);
+        } else if (bridge == BridgeProtocol.OpStack) {
+            // OP-Stack native path: NO bridge adapter. The receiver talks directly to the OP
+            // L2CrossDomainMessenger predeploy and authenticates the L1 origin via
+            // xDomainMessageSender(). The trusted L1 sender is the L1 BaseCrossChainMessenger
+            // adapter (the contract that calls L1CrossDomainMessenger.sendMessage), passed as
+            // L1_MESSENGER — NOT the connector. No ISM/DVN to pin; trust is Base/Ethereum itself.
+            if (l1Messenger == address(0)) revert MissingEnv("L1_MESSENGER");
+            bridgeReceiver = address(0);
+            address l2Messenger = vm.envOr("L2_CROSS_DOMAIN_MESSENGER", OP_L2_CROSS_DOMAIN_MESSENGER);
+            receiverContract.setMessenger(l2Messenger); // bootstrap (immediate)
+            receiverContract.setOpStackMessengerMode(true);
+            // Timelocked: schedules the trusted L1 sender; admin must activateOpStackL1Sender
+            // after SENDER_ACTIVATION_DELAY before slashing relays.
+            receiverContract.setOpStackL1Sender(sourceChainId, l1Messenger, true);
+            console2.log("OP-Stack mode: L2 messenger set; opStack L1 sender SCHEDULED (activate after delay):");
+            console2.log("  l2Messenger:", l2Messenger);
+            console2.log("  l1Sender (BaseCrossChainMessenger):", l1Messenger);
         } else {
             bridgeReceiver = address(0);
             receiverContract.setMessenger(fallbackMessenger);
         }
 
-        if (l1Connector != address(0)) {
+        // authorizedSenders is the adapter-path auth; in OP-Stack mode the receiver uses
+        // opStackL1Sender instead, so skip it there (harmless but meaningless otherwise).
+        if (l1Connector != address(0) && bridge != BridgeProtocol.OpStack) {
             receiverContract.setAuthorizedSender(sourceChainId, l1Connector, true);
             console2.log("Authorized L1 connector:", l1Connector);
         }
@@ -281,6 +308,10 @@ contract DeployL2Slashing is EnvUtils {
         if (receiverContract.owner() != admin) {
             receiverContract.transferOwnership(admin);
             console2.log("Transferred L2SlashingReceiver ownership to admin");
+        }
+        if (slasherContract.owner() != admin) {
+            slasherContract.transferOwnership(admin);
+            console2.log("Transferred TangleL2Slasher ownership to admin");
         }
 
         if (broadcast) {
@@ -456,6 +487,8 @@ contract DeployL2Slashing is EnvUtils {
             vm.serializeString(root, "bridge", "hyperlane");
         } else if (bridge == BridgeProtocol.LayerZero) {
             vm.serializeString(root, "bridge", "layerzero");
+        } else if (bridge == BridgeProtocol.OpStack) {
+            vm.serializeString(root, "bridge", "opstack");
         } else {
             vm.serializeString(root, "bridge", "direct");
         }
@@ -512,6 +545,16 @@ contract DeployL2SlashingHyperlane is EnvUtils {
     function run() external {
         DeployL2Slashing deploy = new DeployL2Slashing();
         deploy.run(DeployL2Slashing.BridgeProtocol.Hyperlane);
+    }
+}
+
+/// @title DeployL2SlashingOpStack
+/// @notice OP-Stack (Base/Optimism) native receiver deployment — recommended for Base. Uses the
+///         canonical L2CrossDomainMessenger; no third-party bridge, no ISM/DVN to pin.
+contract DeployL2SlashingOpStack is EnvUtils {
+    function run() external {
+        DeployL2Slashing deploy = new DeployL2Slashing();
+        deploy.run(DeployL2Slashing.BridgeProtocol.OpStack);
     }
 }
 

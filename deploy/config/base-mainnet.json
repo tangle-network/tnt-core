@@ -218,33 +218,29 @@
   },
   "beacon": {
     "deploy": false,
-    "_note": "Native-ETH restaking slash bridge. L1 (Ethereum) leg: ValidatorPodManager + EIP4788 oracle + L2SlashingConnector + bridge messenger. Set deploy=true only when the operational inputs below are real. Do NOT enable USE_MOCK_BEACON_ORACLE on mainnet.",
+    "_note": "Native-ETH restaking slash bridge. L1 (Ethereum) leg: ValidatorPodManager + EIP4788 oracle + L2SlashingConnector + BaseCrossChainMessenger. bridge=opstack uses Base's canonical L1CrossDomainMessenger — NATIVE, no third-party ISM/DVN to pin. Set deploy=true only when admin/oracle are real. Never enable USE_MOCK_BEACON_ORACLE on mainnet.",
     "l1ChainId": 1,
-    "bridge": "hyperlane",
+    "bridge": "opstack",
     "minOperatorStake": "32000000000000000000",
     "_todo_admin": "TODO: L1 pod-manager/connector owner — MUST be a multisig/timelock, not the deployer",
     "admin": "0x0000000000000000000000000000000000000000",
     "_todo_slashingOracle": "TODO: off-chain beacon-slash watcher that calls propagateBeaconSlashing",
     "slashingOracle": "0x0000000000000000000000000000000000000000",
     "beaconOracle": "0x0000000000000000000000000000000000000000",
-    "_todo_l1HyperlaneMailbox": "TODO: pin the canonical L1 Hyperlane mailbox",
-    "l1HyperlaneMailbox": "0x0000000000000000000000000000000000000000",
-    "l1HyperlaneIgp": "0x0000000000000000000000000000000000000000"
+    "_note_l1CrossDomainMessenger": "Base mainnet's canonical L1CrossDomainMessenger on Ethereum (the script defaults to this when blank); set explicitly for other OP chains.",
+    "l1CrossDomainMessenger": "0x866E82a600A1414e583f7F13623F1aC5d58b0Afa"
   },
   "l2Slashing": {
     "deploy": false,
-    "_note": "L2 (this chain) slash receiver + TangleL2Slasher + bridge adapter. Set deploy=true only with pinned bridge infra. The bridge ISM (Hyperlane) / DVN+executor (LayerZero) MUST be pinned out-of-band before activation, and the +2-day trust-anchor activation + staking.addSlasher(TangleL2Slasher) are post-deploy timelock actions.",
-    "bridge": "hyperlane",
+    "_note": "L2 (this chain) slash receiver + TangleL2Slasher. bridge=opstack uses the OP L2CrossDomainMessenger predeploy (0x42..07) and authenticates via xDomainMessageSender — no bridge adapter, no ISM/DVN. l1Messenger is the L1 BaseCrossChainMessenger (from the beacon manifest), NOT the connector. Post-deploy timelock actions: staking.addSlasher(TangleL2Slasher), +2-day activateOpStackL1Sender. See deploy/RUNBOOK-launch.md.",
+    "bridge": "opstack",
     "sourceChainId": 1,
     "_todo_admin": "TODO: receiver/slasher owner — multisig/timelock",
     "admin": "0x0000000000000000000000000000000000000000",
     "_todo_l1Connector": "TODO: L2SlashingConnector from the beacon (L1) deploy manifest",
     "l1Connector": "0x0000000000000000000000000000000000000000",
-    "_todo_l1Messenger": "TODO: L1 messenger adapter from the beacon (L1) deploy manifest",
+    "_todo_l1Messenger": "TODO: L1 BaseCrossChainMessenger from the beacon (L1) deploy manifest (the xDomainMessageSender on L2)",
     "l1Messenger": "0x0000000000000000000000000000000000000000",
-    "_todo_hyperlaneMailbox": "TODO: pin the canonical mailbox on this chain",
-    "hyperlaneMailbox": "0x0000000000000000000000000000000000000000",
-    "_todo_ism": "TODO: pin the Hyperlane ISM (or LayerZero DVN set) — the real message-auth trust anchor",
-    "ism": "0x0000000000000000000000000000000000000000"
+    "l2CrossDomainMessenger": "0x4200000000000000000000000000000000000007"
   }
 }

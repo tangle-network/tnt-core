@@ -53,34 +53,52 @@ else
   echo "--- [2/4] liquidVaults.deploy=false — skipped ---"
 fi
 
-# 3) Beacon L1 slash bridge (cross-chain; needs L1_RPC + real bridge infra + oracle).
+# 3) Beacon L1 slash bridge (cross-chain; needs L1_RPC + bridge + oracle).
+#    Default bridge is OP-Stack canonical messenger (Base/Optimism) — native, no ISM/DVN to pin.
 if [ "$(cfg '.beacon.deploy')" = "true" ]; then
   echo "--- [3/4] DeployBeaconSlashing (L1 leg) on L1_RPC ---"
   : "${L1_RPC:?beacon.deploy=true requires L1_RPC (Ethereum mainnet)}"
+  BRIDGE="$(cfg '.beacon.bridge')"; BRIDGE="${BRIDGE:-opstack}"
+  case "$BRIDGE" in
+    opstack)   BEACON_ENTRY="DeployBeaconSlashingOpStack" ;;
+    layerzero) BEACON_ENTRY="DeployBeaconSlashingL1LayerZero" ;;
+    *)         BEACON_ENTRY="DeployBeaconSlashingBase" ;;  # hyperlane
+  esac
+  echo "    bridge=$BRIDGE entry=$BEACON_ENTRY"
   ADMIN="$(cfg '.beacon.admin')" \
   SLASHING_ORACLE="$(cfg '.beacon.slashingOracle')" \
   BEACON_ORACLE="$(cfg '.beacon.beaconOracle')" \
+  L1_CROSS_DOMAIN_MESSENGER="$(cfg '.beacon.l1CrossDomainMessenger')" \
   L1_HYPERLANE_MAILBOX="$(cfg '.beacon.l1HyperlaneMailbox')" \
   L1_HYPERLANE_IGP="$(cfg '.beacon.l1HyperlaneIgp')" \
   TANGLE_CHAIN_ID="$(jq -r '.chainId' "$MANIFEST")" \
   SKIP_CHAIN_CONFIG=true \
   BEACON_SLASHING_MANIFEST="deployments/$NETWORK/beacon-l1.json" \
-    forge script script/DeployBeaconSlashing.s.sol:DeployBeaconSlashingBase --rpc-url "$L1_RPC" --broadcast --slow
+    forge script "script/DeployBeaconSlashing.s.sol:$BEACON_ENTRY" --rpc-url "$L1_RPC" --broadcast --slow
 else
   echo "--- [3/4] beacon.deploy=false — skipped ---"
 fi
 
 # 4) L2 slash receiver + slasher (cross-chain; needs the L1 connector/messenger from step 3).
+#    For OP-Stack, L1_MESSENGER is the L1 BaseCrossChainMessenger (xDomainMessageSender on L2).
 if [ "$(cfg '.l2Slashing.deploy')" = "true" ]; then
   echo "--- [4/4] DeployL2Slashing (L2 leg) on L2_RPC ---"
+  BRIDGE="$(cfg '.l2Slashing.bridge')"; BRIDGE="${BRIDGE:-opstack}"
+  case "$BRIDGE" in
+    opstack)   L2_ENTRY="DeployL2SlashingOpStack" ;;
+    layerzero) L2_ENTRY="DeployL2SlashingLayerZero" ;;
+    *)         L2_ENTRY="DeployL2SlashingHyperlane" ;;
+  esac
+  echo "    bridge=$BRIDGE entry=$L2_ENTRY"
   ADMIN="$(cfg '.l2Slashing.admin')" \
   STAKING="$STAKING" \
   SOURCE_CHAIN_ID="$(cfg '.l2Slashing.sourceChainId')" \
   L1_CONNECTOR="$(cfg '.l2Slashing.l1Connector')" \
   L1_MESSENGER="$(cfg '.l2Slashing.l1Messenger')" \
+  L2_CROSS_DOMAIN_MESSENGER="$(cfg '.l2Slashing.l2CrossDomainMessenger')" \
   HYPERLANE_MAILBOX="$(cfg '.l2Slashing.hyperlaneMailbox')" \
   L2_SLASHING_MANIFEST="deployments/$NETWORK/l2-slashing.json" \
-    forge script script/DeployL2Slashing.s.sol:DeployL2SlashingHyperlane --rpc-url "$L2_RPC" --broadcast --slow
+    forge script "script/DeployL2Slashing.s.sol:$L2_ENTRY" --rpc-url "$L2_RPC" --broadcast --slow
 else
   echo "--- [4/4] l2Slashing.deploy=false — skipped ---"
 fi

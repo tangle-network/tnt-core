@@ -31,18 +31,29 @@ selected.
 | Beacon restaking | `ValidatorPodManager` + EIP4788 oracle + connector + messenger (pods on demand) | L1 | needs infra |
 | L2 slashing | `TangleL2Slasher` + `L2SlashingReceiver` + bridge adapter | L2 | needs infra |
 
-## 3. REQUIRED post-deploy timelock/multisig actions (beacon + L2 slashing only)
+## 3. Bridge choice — use OP-Stack native for Base (default)
+For Base ↔ Ethereum the default is `bridge: "opstack"`: the L1 leg deploys `BaseCrossChainMessenger`
+wrapping Base's canonical `L1CrossDomainMessenger`, and the L2 `L2SlashingReceiver` runs in
+`opStackMessengerMode` authenticating via `xDomainMessageSender()`. **This inherits Base/Ethereum
+security with NO third-party bridge and NO ISM/DVN to pin** — strictly simpler and more trustless
+than Hyperlane/LayerZero, and L1→L2 (the slash direction) is fast. Only set `bridge` to
+`hyperlane`/`layerzero` if deploying to a non-OP chain; those additionally require pinning the
+ISM / DVN+executor out-of-band.
+
+## 3b. REQUIRED post-deploy timelock/multisig actions (beacon + L2 slashing only)
 Slashing is **inert** until all of these are done by the timelock/multisig — no deploy key can do
 them (by design):
 1. `MultiAssetDelegation.addSlasher(TangleL2Slasher)` — authorize the L2 slasher (sent by the
    staking ASSET_MANAGER/admin = timelock). **Without this, every beacon-originated slash reverts.**
-2. Pin the Hyperlane **ISM** (or LayerZero **DVN + executor**) to a known-good config out-of-band.
-   This is the real message-authentication trust anchor; the deploy does not set it.
-3. After `SENDER_ACTIVATION_DELAY` (2 days): `HyperlaneReceiver.activateTrustedSender(...)` and
+2. After `SENDER_ACTIVATION_DELAY` (2 days): activate the scheduled trust anchor —
+   OP-Stack: `L2SlashingReceiver.activateOpStackL1Sender(srcChain, l1BaseMessenger)`;
+   Hyperlane/LayerZero: `*Receiver.activateTrustedSender/activatePeer(...)` +
    `L2SlashingReceiver.activateAuthorizedSender(...)`. The deploy only *schedules* these.
-4. `ConfigureL2SlashingConnector` (on L1) wiring the L1 connector → the L2 receiver address.
-5. `L2SlashingConnector.registerPodOperator(...)` for each onboarded pod (else slash propagation
+3. `ConfigureL2SlashingConnector` (on L1) wiring the L1 connector → the L2 receiver address.
+4. `L2SlashingConnector.registerPodOperator(...)` for each onboarded pod (else slash propagation
    reverts `UnknownPod`).
+5. (Hyperlane/LayerZero only) pin the **ISM** / **DVN+executor** out-of-band before activation.
+   Not needed for OP-Stack.
 
 ## 4. Verification after launch
 - `forge test` (or CI `Foundry CI` workflow) green; facet sizes within EIP-170 (the `size` CI job).

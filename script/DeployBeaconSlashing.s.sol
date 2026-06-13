@@ -9,6 +9,7 @@ import { EIP4788Oracle } from "../src/beacon/l1/EIP4788Oracle.sol";
 import { L2SlashingConnector } from "../src/beacon/L2SlashingConnector.sol";
 import { HyperlaneCrossChainMessenger } from "../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
 import { LayerZeroCrossChainMessenger } from "../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
+import { BaseCrossChainMessenger } from "../src/beacon/bridges/BaseCrossChainMessenger.sol";
 
 error MissingEnv(string key);
 error AddressNotAllowlisted(string key, address provided, address expected);
@@ -29,7 +30,8 @@ contract DeployBeaconSlashingL1 is Script {
     // Bridge protocol selection
     enum BridgeProtocol {
         Hyperlane,
-        LayerZero
+        LayerZero,
+        OpStack // OP-Stack canonical CrossDomainMessenger (Base/Optimism) — native, no third-party trust
     }
 
     function run() external {
@@ -185,8 +187,10 @@ contract DeployBeaconSlashingL1 is Script {
 
         if (bridge == BridgeProtocol.Hyperlane) {
             messenger = deployHyperlaneMessenger();
-        } else {
+        } else if (bridge == BridgeProtocol.LayerZero) {
             messenger = deployLayerZeroMessenger();
+        } else {
+            messenger = deployOpStackMessenger();
         }
 
         connectorContract.setMessenger(messenger);
@@ -287,6 +291,34 @@ contract DeployBeaconSlashingL1 is Script {
         return address(messenger);
     }
 
+    /// @notice Deploy the OP-Stack canonical-bridge adapter (Base/Optimism). This wraps the
+    ///         target chain's L1CrossDomainMessenger (deployed on L1, one per OP chain), so the
+    ///         slash message inherits Base/Ethereum security with NO third-party ISM/DVN to pin.
+    /// @dev Run on L1 (Ethereum). `L1_CROSS_DOMAIN_MESSENGER` overrides; defaults are Base's
+    ///      canonical L1 messenger proxy on Ethereum mainnet / Sepolia. For Optimism or other OP
+    ///      chains, pass the override.
+    function deployOpStackMessenger() internal returns (address) {
+        address l1Messenger = vm.envOr("L1_CROSS_DOMAIN_MESSENGER", address(0));
+        if (l1Messenger == address(0) && block.chainid == 1) {
+            // Base mainnet's L1CrossDomainMessenger proxy on Ethereum.
+            l1Messenger = 0x866E82a600A1414e583f7F13623F1aC5d58b0Afa;
+        } else if (l1Messenger == address(0) && block.chainid == 11_155_111) {
+            // Base Sepolia's L1CrossDomainMessenger proxy on Sepolia.
+            l1Messenger = 0xC34855F4De64F1840e5686e64278da901e261f20;
+        }
+        if (l1Messenger == address(0)) {
+            revert(
+                "Unsupported chain for OP-Stack (set L1_CROSS_DOMAIN_MESSENGER to the target OP chain's L1 messenger)"
+            );
+        }
+
+        _verifyBridgeContract("L1CrossDomainMessenger", l1Messenger);
+
+        BaseCrossChainMessenger messenger = new BaseCrossChainMessenger(l1Messenger);
+        console2.log("BaseCrossChainMessenger (OP-Stack):", address(messenger));
+        return address(messenger);
+    }
+
     function _requireEnvUint(string memory key) internal returns (uint256 value) {
         try vm.envUint(key) returns (uint256 raw) {
             return raw;
@@ -322,7 +354,13 @@ contract DeployBeaconSlashingL1 is Script {
 
         string memory root = "beaconSlashing";
         vm.serializeString(root, "kind", "beacon-slashing-l1");
-        vm.serializeString(root, "bridge", bridge == BridgeProtocol.Hyperlane ? "hyperlane" : "layerzero");
+        vm.serializeString(
+            root,
+            "bridge",
+            bridge == BridgeProtocol.Hyperlane
+                ? "hyperlane"
+                : bridge == BridgeProtocol.LayerZero ? "layerzero" : "opstack"
+        );
         vm.serializeUint(root, "chainId", block.chainid);
         vm.serializeAddress(root, "admin", admin);
         vm.serializeAddress(root, "oracle", oracle);
@@ -472,6 +510,18 @@ contract DeployBeaconSlashingBaseSepolia is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
         deploy.run(DeployBeaconSlashingL1.BridgeProtocol.Hyperlane);
+    }
+}
+
+/// @title DeployBeaconSlashingOpStack
+/// @notice OP-Stack (Base/Optimism) native L1 leg — recommended for Base. Deploys the
+///         BaseCrossChainMessenger wrapping the target OP chain's canonical L1CrossDomainMessenger;
+///         no third-party bridge, no ISM/DVN to pin. Run on L1 (Ethereum); set
+///         L1_CROSS_DOMAIN_MESSENGER to the target OP chain's L1 messenger (defaults to Base's).
+contract DeployBeaconSlashingOpStack is Script {
+    function run() external {
+        DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
+        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.OpStack);
     }
 }
 
