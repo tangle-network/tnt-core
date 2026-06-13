@@ -80,7 +80,8 @@ contract L2SlashingReceiverOpStackTest is Test {
 
         L2SlashingReceiver impl = new L2SlashingReceiver();
         ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl), abi.encodeCall(L2SlashingReceiver.initialize, (address(slasher), address(opMessenger), owner))
+            address(impl),
+            abi.encodeCall(L2SlashingReceiver.initialize, (address(slasher), address(opMessenger), owner))
         );
         receiver = L2SlashingReceiver(address(proxy));
 
@@ -158,9 +159,7 @@ contract L2SlashingReceiverOpStackTest is Test {
         uint256 otherChain = 10;
         bytes memory payload = _slashPayload(3);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(L2SlashingReceiver.OpStackSenderNotConfigured.selector, otherChain)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L2SlashingReceiver.OpStackSenderNotConfigured.selector, otherChain));
         opMessenger.relayCall(
             realConnector,
             address(receiver),
@@ -179,9 +178,7 @@ contract L2SlashingReceiverOpStackTest is Test {
 
         // Activating before the delay reverts.
         uint256 activationTime = receiver.pendingAuthorizedSenders(L1_CHAIN_ID, newCounterpart);
-        vm.expectRevert(
-            abi.encodeWithSelector(L2SlashingReceiver.SenderActivationTooEarly.selector, activationTime)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L2SlashingReceiver.SenderActivationTooEarly.selector, activationTime));
         receiver.activateOpStackL1Sender(L1_CHAIN_ID, newCounterpart);
 
         // After the delay, activation repoints the anchor.
