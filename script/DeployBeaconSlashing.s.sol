@@ -56,6 +56,11 @@ contract DeployBeaconSlashingL1 is Script {
             _enforceAllowlist("L2_RECEIVER_ALLOWLIST", l2Receiver);
         }
 
+        // Fail closed on production chains: ADMIN/SLASHING_ORACLE must be explicit, distinct,
+        // non-deployer addresses (these own the pod manager / connector and authorize beacon
+        // slashes), and the forgeable MockBeaconOracle must never reach mainnet.
+        _requireProductionBeaconConfig(deployer, admin, oracle, useMockBeaconOracle);
+
         console2.log("=== L1 Beacon Slashing Deployment ===");
         console2.log("Deployer:", deployer);
         console2.log("Admin:", admin);
@@ -380,6 +385,32 @@ contract DeployBeaconSlashingL1 is Script {
                 revert AddressNotAllowlisted(key, candidate, allowed);
             }
         } catch { }
+    }
+
+    /// @notice True on L1/L2 mainnets where beacon slashing would be live. Bypass on
+    ///         local/anvil with TANGLE_DEPLOY_LOCAL=1.
+    function _isProductionChain() internal view returns (bool) {
+        if (vm.envOr("TANGLE_DEPLOY_LOCAL", uint256(0)) != 0) return false;
+        uint256 id = block.chainid;
+        // Ethereum, Base, Tangle, Arbitrum, Optimism mainnets.
+        return id == 1 || id == 8453 || id == 5845 || id == 42_161 || id == 10;
+    }
+
+    /// @notice Refuse to deploy beacon slashing infra to a production chain with hot-key admin
+    ///         or a forgeable mock oracle.
+    function _requireProductionBeaconConfig(
+        address deployer,
+        address admin,
+        address oracle,
+        bool useMockBeaconOracle
+    )
+        internal
+        view
+    {
+        if (!_isProductionChain()) return;
+        require(!useMockBeaconOracle, "config: USE_MOCK_BEACON_ORACLE forbidden on production");
+        require(admin != deployer, "config: ADMIN must be a multisig/timelock, not the deployer");
+        require(oracle != deployer, "config: SLASHING_ORACLE must be set, not the deployer");
     }
 
     /// @notice Verify bridge contract exists and has code

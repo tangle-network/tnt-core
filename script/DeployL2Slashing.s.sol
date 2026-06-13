@@ -79,6 +79,21 @@ contract DeployL2Slashing is EnvUtils {
         DirectMessenger // For testing with direct calls
     }
 
+    /// @notice True on mainnets where slashing would be live. Bypass on local with TANGLE_DEPLOY_LOCAL=1.
+    function _isProductionChain() internal view returns (bool) {
+        if (vm.envOr("TANGLE_DEPLOY_LOCAL", uint256(0)) != 0) return false;
+        uint256 id = block.chainid;
+        return id == ETHEREUM_MAINNET || id == BASE_MAINNET || id == 5845 || id == 42_161 || id == 10;
+    }
+
+    /// @notice Refuse to deploy L2 slashing to a production chain with hot-key admin or the
+    ///         deployer-controlled DirectMessenger mock bridge.
+    function _requireProductionL2Config(address deployer, address admin, BridgeProtocol bridge) internal view {
+        if (!_isProductionChain()) return;
+        require(bridge != BridgeProtocol.DirectMessenger, "config: DirectMessenger forbidden on production");
+        require(admin != deployer, "config: ADMIN must be a multisig/timelock, not the deployer");
+    }
+
     function run() external {
         run(BridgeProtocol.DirectMessenger);
     }
@@ -104,6 +119,11 @@ contract DeployL2Slashing is EnvUtils {
         } else if (l1Messenger != address(0)) {
             _enforceAllowlist("L1_MESSENGER_ALLOWLIST", l1Messenger);
         }
+
+        // Fail closed on production chains: ADMIN must be an explicit non-deployer
+        // timelock/multisig (it owns the receiver/slasher and activates trust anchors), and
+        // the DirectMessenger mock path (deployer-controlled slashing) must never reach mainnet.
+        _requireProductionL2Config(deployer, admin, bridge);
 
         console2.log("=== L2 Slashing Receiver Deployment ===");
         console2.log("Deployer:", deployer);
