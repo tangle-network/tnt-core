@@ -73,8 +73,9 @@ contract DelegationRewardsManagerTest is DelegationTestHarness {
         uint16 expected = uint16((4 * uint256(sixMonth) + uint256(none)) / 5);
         assertEq(second.lockMultiplierBps, expected);
 
-        // Fast-forward past the lock expiry and delegate again – multiplier returns to base
-        vm.roll(block.number + delegation.LOCK_SIX_MONTHS() + 1);
+        // Fast-forward past the lock expiry and delegate again – multiplier returns to base.
+        // Lock expiry is timestamp-based (LOCK_* are seconds), so warp rather than roll.
+        vm.warp(block.timestamp + delegation.LOCK_SIX_MONTHS() + 1);
         vm.prank(delegator1);
         delegation.delegate(operator1, 1 ether);
 

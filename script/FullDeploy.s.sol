@@ -15,7 +15,7 @@ import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.so
 import { Tangle } from "../src/Tangle.sol";
 import { Types } from "../src/libraries/Types.sol";
 import { BlueprintAuditors } from "../src/governance/BlueprintAuditors.sol";
-import { ITangleAdmin } from "../src/interfaces/ITangle.sol";
+import { ITangleAdmin, ITangleFull } from "../src/interfaces/ITangle.sol";
 import { IMultiAssetDelegation } from "../src/interfaces/IMultiAssetDelegation.sol";
 import { MultiAssetDelegation } from "../src/staking/MultiAssetDelegation.sol";
 import { OperatorStatusRegistry } from "../src/staking/OperatorStatusRegistry.sol";
@@ -153,6 +153,31 @@ contract FullDeploy is DeployV2 {
         address credits;
     }
 
+    // Slashing config applied via ITangleFull.setSlashConfig during the bootstrap
+    // window (deployer holds ADMIN_ROLE) BEFORE role handoff. Without this, mainnet
+    // ships the hardcoded SlashingLib defaults (maxSlashBps=100%, disputeBond=0).
+    struct SlashingParamsConfig {
+        bool set;
+        uint64 disputeWindow;
+        bool instantSlashEnabled;
+        uint16 maxSlashBps;
+        uint64 disputeResolutionDeadline;
+        uint256 disputeBond;
+        uint16 maxPendingSlashesPerOperator;
+    }
+
+    // Payment split applied via ITangleFull.setPaymentSplit during the bootstrap
+    // window. Without this, keeperBps stays 0 and the permissionless billSubscription
+    // path has no keeper market. Slices must sum to exactly 10000.
+    struct PaymentsConfig {
+        bool set;
+        uint16 developerBps;
+        uint16 protocolBps;
+        uint16 operatorBps;
+        uint16 stakerBps;
+        uint16 keeperBps;
+    }
+
     struct FullDeployConfig {
         string network;
         RolesConfig roles;
@@ -160,6 +185,8 @@ contract FullDeploy is DeployV2 {
         StakeAssetConfig[] stakeAssets;
         IncentiveConfig incentives;
         GuardsConfig guards;
+        SlashingParamsConfig slashing;
+        PaymentsConfig payments;
         ManifestConfig manifest;
         MigrationConfig migration;
         CreditsConfig credits;
@@ -266,6 +293,9 @@ contract FullDeploy is DeployV2 {
         _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
         _configureOperatorBondToken(staking, tntToken);
         _applyGuards(staking, tangle, cfg.guards);
+        // Apply slash/payment params while the deployer still holds ADMIN_ROLE
+        // (both setters are onlyRole(ADMIN_ROLE)); role handoff below revokes it.
+        _applyProtocolParams(tangle, cfg.slashing, cfg.payments);
         if (migration.deploy) {
             migration = _deployMigration(migration, tntToken, deployer, timelock, treasury);
         }
@@ -496,6 +526,47 @@ contract FullDeploy is DeployV2 {
         }
         if (jsonBlob.keyExists(".guards.maxBlueprintsPerOperator")) {
             cfg.guards.maxBlueprintsPerOperator = uint32(jsonBlob.readUint(".guards.maxBlueprintsPerOperator"));
+        }
+
+        // Optional slashing block: presence of maxSlashBps opts the whole block in.
+        if (jsonBlob.keyExists(".slashing.maxSlashBps")) {
+            cfg.slashing.set = true;
+            cfg.slashing.maxSlashBps = uint16(jsonBlob.readUint(".slashing.maxSlashBps"));
+            if (jsonBlob.keyExists(".slashing.disputeWindow")) {
+                cfg.slashing.disputeWindow = uint64(jsonBlob.readUint(".slashing.disputeWindow"));
+            }
+            if (jsonBlob.keyExists(".slashing.instantSlashEnabled")) {
+                cfg.slashing.instantSlashEnabled = jsonBlob.readBool(".slashing.instantSlashEnabled");
+            }
+            if (jsonBlob.keyExists(".slashing.disputeResolutionDeadline")) {
+                cfg.slashing.disputeResolutionDeadline =
+                    uint64(jsonBlob.readUint(".slashing.disputeResolutionDeadline"));
+            }
+            if (jsonBlob.keyExists(".slashing.disputeBond")) {
+                cfg.slashing.disputeBond = _readUintFlexible(jsonBlob, ".slashing.disputeBond");
+            }
+            if (jsonBlob.keyExists(".slashing.maxPendingSlashesPerOperator")) {
+                cfg.slashing.maxPendingSlashesPerOperator =
+                    uint16(jsonBlob.readUint(".slashing.maxPendingSlashesPerOperator"));
+            }
+        }
+
+        // Optional payments block: presence of operatorBps opts the whole block in.
+        if (jsonBlob.keyExists(".payments.operatorBps")) {
+            cfg.payments.set = true;
+            cfg.payments.operatorBps = uint16(jsonBlob.readUint(".payments.operatorBps"));
+            if (jsonBlob.keyExists(".payments.developerBps")) {
+                cfg.payments.developerBps = uint16(jsonBlob.readUint(".payments.developerBps"));
+            }
+            if (jsonBlob.keyExists(".payments.protocolBps")) {
+                cfg.payments.protocolBps = uint16(jsonBlob.readUint(".payments.protocolBps"));
+            }
+            if (jsonBlob.keyExists(".payments.stakerBps")) {
+                cfg.payments.stakerBps = uint16(jsonBlob.readUint(".payments.stakerBps"));
+            }
+            if (jsonBlob.keyExists(".payments.keeperBps")) {
+                cfg.payments.keeperBps = uint16(jsonBlob.readUint(".payments.keeperBps"));
+            }
         }
 
         if (jsonBlob.keyExists(".manifest.path")) cfg.manifest.path = jsonBlob.readString(".manifest.path");
@@ -1051,6 +1122,49 @@ contract FullDeploy is DeployV2 {
 
         if (tangleAddr != address(0) && guards.pauseTangle) {
             Tangle(payable(tangleAddr)).pause();
+        }
+    }
+
+    /// @notice Apply slashing + payment-split params during the bootstrap window.
+    /// @dev Both setters are onlyRole(ADMIN_ROLE); this runs before `_applyRoleHandoff`
+    ///      revokes the deployer's bootstrap admin. Skipped if the config block is absent,
+    ///      preserving the contracts' own secure-by-construction defaults where unset.
+    function _applyProtocolParams(
+        address tangleAddr,
+        SlashingParamsConfig memory slashing,
+        PaymentsConfig memory payments
+    )
+        internal
+    {
+        if (tangleAddr == address(0)) return;
+        ITangleFull tangle = ITangleFull(tangleAddr);
+
+        if (slashing.set) {
+            tangle.setSlashConfig(
+                slashing.disputeWindow,
+                slashing.instantSlashEnabled,
+                slashing.maxSlashBps,
+                slashing.disputeResolutionDeadline,
+                slashing.disputeBond,
+                slashing.maxPendingSlashesPerOperator
+            );
+            console2.log("SlashConfig set: maxSlashBps", slashing.maxSlashBps);
+        }
+
+        if (payments.set) {
+            uint256 sum = uint256(payments.developerBps) + payments.protocolBps + payments.operatorBps
+                + payments.stakerBps + payments.keeperBps;
+            require(sum == 10_000, "FullDeploy: payment split must sum to 10000");
+            tangle.setPaymentSplit(
+                Types.PaymentSplit({
+                    developerBps: payments.developerBps,
+                    protocolBps: payments.protocolBps,
+                    operatorBps: payments.operatorBps,
+                    stakerBps: payments.stakerBps,
+                    keeperBps: payments.keeperBps
+                })
+            );
+            console2.log("PaymentSplit set: keeperBps", payments.keeperBps);
         }
     }
 

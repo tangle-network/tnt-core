@@ -122,7 +122,7 @@ abstract contract DepositManager is DelegationStorage {
             uint64 lockDuration = _getLockDuration(lockMultiplier);
             _depositLocks[msg.sender][assetHash].push(
                 Types.LockInfo({
-                    amount: amount, multiplier: lockMultiplier, expiryBlock: uint64(block.number) + lockDuration
+                    amount: amount, multiplier: lockMultiplier, expiryTimestamp: uint64(block.timestamp) + lockDuration
                 })
             );
         }
@@ -251,7 +251,7 @@ abstract contract DepositManager is DelegationStorage {
         Types.LockInfo[] storage locks = _depositLocks[delegator][assetHash];
         uint256 locksLength = locks.length;
         for (uint256 i = 0; i < locksLength;) {
-            if (locks[i].expiryBlock > block.number) {
+            if (locks[i].expiryTimestamp > block.timestamp) {
                 locked += locks[i].amount;
             }
             unchecked {
@@ -330,7 +330,7 @@ abstract contract DepositManager is DelegationStorage {
         uint256 i = locks.length;
         while (i > 0) {
             i--;
-            if (locks[i].expiryBlock <= block.number) {
+            if (locks[i].expiryTimestamp <= block.timestamp) {
                 totalAmount += locks[i].amount;
                 count++;
                 // Swap with last and pop

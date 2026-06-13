@@ -4,7 +4,7 @@
   "_chainId": 8453,
   "_l1ChainId": 1,
   "_todo_tnt_sentinel": "TODO: 0x0000000000000000000000000000000000000001 is a sentinel meaning 'use the deployed/reused TNT token' (FullDeploy replaces it at runtime)",
-  "_todo_roles": "TODO: set multisig / safe addresses for admin, treasury, timelock, and multisig role holders",
+  "_todo_roles": "TODO: set multisig / safe addresses for admin, treasury, timelock, and multisig role holders. timelock MUST be the TangleTimelock proxy from script/DeployGovernance.s.sol (deploy governance FIRST).",
   "roles": {
     "admin": "0x0000000000000000000000000000000000000000",
     "treasury": "0x0000000000000000000000000000000000000000",
@@ -18,20 +18,21 @@
     "tangle": "0x0000000000000000000000000000000000000000",
     "staking": "0x0000000000000000000000000000000000000000",
     "statusRegistry": "0x0000000000000000000000000000000000000000",
-    "minOperatorStake": 2000000000000000000,
+    "_note_minOperatorStake": "Anti-sybil native-TNT bond floor (single-bond-asset model: the operator bond is always TNT). Raised 2 TNT -> 1000 TNT. Per-blueprint getMinOperatorStake remains the real value-at-risk lever.",
+    "minOperatorStake": 1000000000000000000000,
     "minDelegation": 200000000000000000,
     "operatorCommissionBps": 1000,
     "_todo_tnt_token": "TODO: point to canonical TNT token on Base",
     "maxBlueprintsPerOperator": 0
   },
-  "_todo_stake_assets": "TODO: replace placeholder token/adapter addresses with canonical Base deployments",
-  "_todo_deposit_policy": "TODO: adjust deposit caps/output as the protocol scales",
+  "_todo_stake_assets": "TODO: replace placeholder token/adapter addresses with canonical Base deployments before enabling any 0x0 asset. rewardMultiplierBps is flattened to 10000 (1.0x) for ALL assets: the field is currently write-only/unread in reward math and the previous non-flat schedule was risk-ASCENDING (paid more for riskier LSTs) — a latent landmine a future wiring PR would activate verbatim. Reintroduce non-flat values only with USD normalization behind a joint re-audit.",
+  "_todo_deposit_policy": "TODO: adjust deposit caps as the protocol scales. stETH+wstETH share the same Lido underlying — treat their caps as one family budget (15k each => 30k aggregate). Gate any 0x0-asset enablement on real Base address + adapter.",
   "stakeAssets": [
     {
       "symbol": "TNT",
       "token": "0x0000000000000000000000000000000000000001",
       "adapter": "0x0000000000000000000000000000000000000000",
-      "minOperatorStake": 2000000000000000000,
+      "minOperatorStake": 1000000000000000000000,
       "minDelegation": 200000000000000000,
       "depositCap": 1000000000000000000000000,
       "rewardMultiplierBps": 10000
@@ -40,10 +41,10 @@
       "symbol": "WETH",
       "token": "0x4200000000000000000000000000000000000006",
       "adapter": "0x0000000000000000000000000000000000000000",
-      "minOperatorStake": 1000000000000000000,
+      "minOperatorStake": 0,
       "minDelegation": 100000000000000000,
       "depositCap": 50000000000000000000000,
-      "rewardMultiplierBps": 11000
+      "rewardMultiplierBps": 10000
     },
     {
       "symbol": "stETH",
@@ -51,8 +52,8 @@
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 0,
       "minDelegation": 0,
-      "depositCap": 30000000000000000000000,
-      "rewardMultiplierBps": 12500
+      "depositCap": 15000000000000000000000,
+      "rewardMultiplierBps": 10000
     },
     {
       "symbol": "wstETH",
@@ -60,8 +61,8 @@
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 0,
       "minDelegation": 0,
-      "depositCap": 30000000000000000000000,
-      "rewardMultiplierBps": 13000
+      "depositCap": 15000000000000000000000,
+      "rewardMultiplierBps": 10000
     },
     {
       "symbol": "EIGEN",
@@ -69,8 +70,8 @@
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 0,
       "minDelegation": 0,
-      "depositCap": 1000000000000000000000000,
-      "rewardMultiplierBps": 12000
+      "depositCap": 250000000000000000000000,
+      "rewardMultiplierBps": 10000
     },
     {
       "symbol": "USDC",
@@ -79,7 +80,7 @@
       "minOperatorStake": 0,
       "minDelegation": 0,
       "depositCap": 20000000000000,
-      "rewardMultiplierBps": 9000
+      "rewardMultiplierBps": 10000
     },
     {
       "symbol": "USDT",
@@ -88,7 +89,7 @@
       "minOperatorStake": 0,
       "minDelegation": 0,
       "depositCap": 20000000000000,
-      "rewardMultiplierBps": 9000
+      "rewardMultiplierBps": 10000
     },
     {
       "symbol": "DAI",
@@ -97,7 +98,7 @@
       "minOperatorStake": 0,
       "minDelegation": 0,
       "depositCap": 15000000000000,
-      "rewardMultiplierBps": 9200
+      "rewardMultiplierBps": 10000
     },
     {
       "symbol": "WBTC",
@@ -106,7 +107,7 @@
       "minOperatorStake": 0,
       "minDelegation": 0,
       "depositCap": 500000000000,
-      "rewardMultiplierBps": 11000
+      "rewardMultiplierBps": 10000
     },
     {
       "symbol": "tBTC",
@@ -115,7 +116,7 @@
       "minOperatorStake": 0,
       "minDelegation": 0,
       "depositCap": 250000000000,
-      "rewardMultiplierBps": 11500
+      "rewardMultiplierBps": 10000
     },
     {
       "symbol": "lBTC",
@@ -124,7 +125,7 @@
       "minOperatorStake": 0,
       "minDelegation": 0,
       "depositCap": 150000000000,
-      "rewardMultiplierBps": 11500
+      "rewardMultiplierBps": 10000
     },
     {
       "symbol": "USDe",
@@ -132,8 +133,8 @@
       "adapter": "0x0000000000000000000000000000000000000000",
       "minOperatorStake": 0,
       "minDelegation": 0,
-      "depositCap": 15000000000000,
-      "rewardMultiplierBps": 9200
+      "depositCap": 5000000000000,
+      "rewardMultiplierBps": 10000
     }
   ],
   "incentives": {
@@ -147,12 +148,14 @@
     "tntToken": "0x0000000000000000000000000000000000000000",
     "vaultOperatorCommissionBps": 1500,
     "epochLength": 604800,
-    "_todo_inflation": "TODO: target ~1% yearly inflation budget (pre-fund InflationPool; it does not mint)",
+    "_todo_inflation": "TODO (Drew/governance ratify): InflationPool does not mint — treasury PRE-FUNDS it via InflationPool.fund(). Recommended Year-1 budget ~2,000,000 TNT (~1.8% of genesis float) with a declining schedule (e.g. Y2 0.7x, Y3 0.5x) funded from a named treasury reserve. year1FundTnt below is the recommendation, not yet executed.",
+    "year1FundTnt": "2000000000000000000000000",
+    "_note_weights": "Reroute toward the security layer vs genesis design: stakingBps 5000->5500, developersBps 1500->1000 (donor; developer rewards are ADMIN-allowlist gated, not sybil-farmable). stakersBps stays 0 at genesis — the exposure-weighted rail no-ops until ServiceFeeDistributor + keeper + live services exist; pre-commit a governance migration to staking 3500 / stakers 1500 once that path is live.",
     "weights": {
-      "stakingBps": 5000,
+      "stakingBps": 5500,
       "operatorsBps": 2500,
       "customersBps": 1000,
-      "developersBps": 1500,
+      "developersBps": 1000,
       "stakersBps": 0
     },
     "vaults": [
@@ -183,7 +186,33 @@
       }
     ]
   },
-  "_todo_guards": "TODO: finalize guard policies (pauses, adapter requirements, delays)",
+  "_note_governance_slashing_payments": "These three blocks are consumed by deploy/deploy-all.sh (the prod orchestrator) AFTER core deploy. governance -> script/DeployGovernance.s.sol (deploy Timelock+Governor, then put the Timelock address in roles.timelock). slashing -> Tangle.setSlashConfig. payments -> Tangle.setPaymentSplit. Without these steps mainnet ships the insecure hardcoded defaults (maxSlashBps=100%, disputeBond=0, keeperBps=0). See deploy/MAINNET-PARAMETERS.md for rationale.",
+  "governance": {
+    "_note": "Launch values for a ~50M-float governance token. Conservative-start; relax later via governance. quorumPercent=6 absent an independent CANCELLER_ROLE guardian Safe — wire a guardian and you may lower to 4.",
+    "votingDelay": 86400,
+    "votingPeriod": 604800,
+    "proposalThreshold": "200000000000000000000000",
+    "quorumPercent": 6,
+    "timelockDelay": 345600
+  },
+  "slashing": {
+    "_note": "Drives Tangle.setSlashConfig. maxSlashBps 50% removes the buggy-blueprint full-slash foot-gun (governance can still authorize 100% per-service for equivocation). disputeBond prices spam disputes (refund-on-cancel, forfeit-on-execute). disputeResolutionDeadline 21d gives a >=3/5 multisig ~3x its 7d SLA before an honestly-disputed stake auto-executes (fail-open).",
+    "maxSlashBps": 5000,
+    "disputeWindow": 604800,
+    "instantSlashEnabled": false,
+    "disputeResolutionDeadline": 1814400,
+    "disputeBond": "20000000000000000",
+    "maxPendingSlashesPerOperator": 8
+  },
+  "payments": {
+    "_note": "Drives Tangle.setPaymentSplit (must sum to 10000 exactly). keeperBps 50 (carved from protocol 2000->1950) makes permissionless billSubscription EV-positive so the sole escrow-draw path has a keeper market. Run the protocol keeper bot from block 1 regardless.",
+    "developerBps": 2000,
+    "protocolBps": 1950,
+    "operatorBps": 4000,
+    "stakerBps": 2000,
+    "keeperBps": 50
+  },
+  "_todo_guards": "TODO: finalize guard policies (pauses, adapter requirements, delays). delegatorDelay/operatorDelay/bondLessDelay=0 means KEEP protocol defaults (28/56 rounds), not instant.",
   "guards": {
     "pauseStaking": false,
     "pauseTangle": false,
@@ -199,6 +228,7 @@
     "logSummary": true
   },
   "migration": {
+    "_todo_allocations": "TODO (Drew/governance ratify): pin the four genesis allocation amounts so total genesis supply and inflation headroom are explicit. TangleToken.MAX_SUPPLY == migration snapshot total (~109.26M); if allocations sum to it, headroom is 0 and the protocol is true fixed-supply (security budget = whatever treasury pre-funds). Decide explicitly: ~5% inflation envelope vs true fixed-supply, then assert at deploy.",
     "emitArtifacts": true,
     "artifactsPath": "deployments/base-mainnet/migration.json",
     "merklePath": "deployments/base-mainnet/merkle-tree.json",

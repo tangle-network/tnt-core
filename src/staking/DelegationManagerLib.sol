@@ -765,7 +765,7 @@ abstract contract DelegationManagerLib is OperatorManager {
         Types.LockInfo[] storage locks = _depositLocks[delegator][assetHash];
         for (uint256 i = 0; i < locks.length; i++) {
             Types.LockInfo storage info = locks[i];
-            if (info.expiryBlock > block.number) {
+            if (info.expiryTimestamp > block.timestamp) {
                 uint16 lockBps = _getLockMultiplierBps(info.multiplier);
                 lockedAmount += info.amount;
                 weightedBpsSum += Math.mulDiv(info.amount, lockBps, 1);
