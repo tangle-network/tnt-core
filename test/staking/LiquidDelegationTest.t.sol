@@ -570,7 +570,9 @@ contract LiquidDelegationTest is Test {
         vm.prank(slasher);
         staking.slashForBlueprint(operator1, 1, 0, 1000, keccak256("evidence"));
 
-        // Pending-slash gate blocks executes; advance past both the bond-less delay and slash window.
+        // slashForBlueprint is an immediate O(1) slash (it does NOT set _operatorPendingSlashCount —
+        // that is the Tangle-core dispute-window path). This test exercises the underlying-delegation-
+        // shrinks-during-pending-redeem path + reservation clamping; advance past the bond-less delay.
         uint64 delay = uint64(staking.delegationBondLessDelay());
         _advanceRounds(delay + 5);
 

@@ -264,7 +264,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
         bytes32 balanceContainerRoot = keccak256("balanceRoot");
         uint40 validatorIndex = 100;
 
-        // Wrong proof length (should be BALANCE_TREE_HEIGHT * 32)
+        // Wrong proof length (should be (BALANCE_TREE_HEIGHT + 1) * 32 — the +1 is the SSZ List mix_in_length level)
         bytes memory wrongProof = abi.encodePacked(keccak256("sibling0"));
 
         ValidatorTypes.BalanceProof memory proof = ValidatorTypes.BalanceProof({

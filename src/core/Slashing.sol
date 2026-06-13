@@ -256,7 +256,7 @@ abstract contract Slashing is Base {
         // trusted, blueprint-scoped escalation path, so it disputes bondless like SLASH_ADMIN.
         bool isDisputeOrigin = false;
         {
-            Types.Service storage dsvc = _services[proposal.serviceId];
+            Types.Service storage dsvc = _getService(proposal.serviceId);
             address bpManager = _blueprints[dsvc.blueprintId].manager;
             if (bpManager != address(0) && msg.sender != proposal.operator && !isAdmin) {
                 (bool ok, bytes memory ret) = _tryStaticcallManager(

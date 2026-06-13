@@ -16,8 +16,11 @@ interface ITangleBlueprints {
 
     event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri, bytes32 metadataHash);
 
-    /// @dev Emitted on propose (pendingOwner = new owner) AND on cancel (pendingOwner = address(0)).
+    /// @dev Emitted when a two-step ownership transfer is proposed (pendingOwner = the proposed owner).
     event BlueprintTransferProposed(uint64 indexed blueprintId, address indexed from, address indexed pendingOwner);
+
+    /// @dev Emitted when a pending two-step ownership transfer is cancelled by the current owner.
+    event BlueprintTransferCancelled(uint64 indexed blueprintId, address indexed owner);
 
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
 

@@ -17,6 +17,7 @@ abstract contract BlueprintsManage is Base {
 
     event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri, bytes32 metadataHash);
     event BlueprintTransferProposed(uint64 indexed blueprintId, address indexed from, address indexed pendingOwner);
+    event BlueprintTransferCancelled(uint64 indexed blueprintId, address indexed owner);
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
     event BlueprintDeactivated(uint64 indexed blueprintId);
     event JobEventRateSet(uint64 indexed blueprintId, uint8 indexed jobIndex, uint256 rate);
@@ -170,7 +171,7 @@ abstract contract BlueprintsManage is Base {
             revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
         }
         delete _pendingBlueprintOwner[blueprintId];
-        emit BlueprintTransferProposed(blueprintId, bp.owner, address(0));
+        emit BlueprintTransferCancelled(blueprintId, bp.owner);
     }
 
     /// @notice Get the pending owner of a blueprint (zero if none).
