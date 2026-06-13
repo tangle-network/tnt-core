@@ -84,8 +84,8 @@ contract TangleGovernor is
     /// @notice Initialize the governor
     /// @param token The TNT governance token (must implement IVotes)
     /// @param timelock The timelock controller for execution
-    /// @param initialVotingDelay Blocks before voting starts (e.g., 7200 = ~1 day)
-    /// @param initialVotingPeriod Blocks for voting duration (e.g., 50400 = ~1 week)
+    /// @param initialVotingDelay Seconds before voting starts (ERC-6372 timestamp clock; e.g., 1 days = 86400)
+    /// @param initialVotingPeriod Seconds for voting duration (ERC-6372 timestamp clock; e.g., 7 days = 604800)
     /// @param initialProposalThreshold Tokens needed to propose (e.g., 100000e18 = 100k TNT)
     /// @param quorumPercent Quorum as percentage of total supply (e.g., 4 = 4%)
     function initialize(

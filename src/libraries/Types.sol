@@ -512,7 +512,10 @@ library Types {
     struct LockInfo {
         uint256 amount;
         LockMultiplier multiplier;
-        uint64 expiryBlock;
+        // Unix timestamp (seconds) at which the lock expires. Lock durations
+        // (LOCK_ONE_MONTH, ...) are denominated in seconds, so expiry is
+        // timestamp-based and chain-block-time independent.
+        uint64 expiryTimestamp;
     }
 
     /// @notice Deposit for a single asset
