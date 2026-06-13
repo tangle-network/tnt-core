@@ -176,13 +176,20 @@ contract L2SlashingReceiverOpStackTest is Test {
         receiver.setOpStackL1Sender(L1_CHAIN_ID, newCounterpart, true);
         assertEq(receiver.opStackL1Sender(L1_CHAIN_ID), realConnector, "anchor unchanged until activation");
 
-        // Activating before the delay reverts.
-        uint256 activationTime = receiver.pendingAuthorizedSenders(L1_CHAIN_ID, newCounterpart);
+        // Activating before the delay reverts. OP-stack scheduling uses its OWN pending mapping
+        // (disjoint from the adapter-path pendingAuthorizedSenders), so it cannot be cross-activated.
+        (address pendingSender, uint256 activationTime) = receiver.pendingOpStackL1Sender(L1_CHAIN_ID);
+        assertEq(pendingSender, newCounterpart, "scheduled in the OP-stack-only mapping");
+        assertEq(receiver.pendingAuthorizedSenders(L1_CHAIN_ID, newCounterpart), 0, "not in adapter pending map");
         vm.expectRevert(abi.encodeWithSelector(L2SlashingReceiver.SenderActivationTooEarly.selector, activationTime));
         receiver.activateOpStackL1Sender(L1_CHAIN_ID, newCounterpart);
 
-        // After the delay, activation repoints the anchor.
+        // The adapter-path activator cannot activate an OP-stack-scheduled sender (no cross-wiring).
         vm.warp(block.timestamp + receiver.SENDER_ACTIVATION_DELAY() + 1);
+        vm.expectRevert(L2SlashingReceiver.SenderNotPending.selector);
+        receiver.activateAuthorizedSender(L1_CHAIN_ID, newCounterpart);
+
+        // The correct activator repoints the anchor.
         receiver.activateOpStackL1Sender(L1_CHAIN_ID, newCounterpart);
         assertEq(receiver.opStackL1Sender(L1_CHAIN_ID), newCounterpart);
 
@@ -190,5 +197,31 @@ contract L2SlashingReceiverOpStackTest is Test {
         vm.prank(attacker);
         vm.expectRevert();
         receiver.setOpStackL1Sender(L1_CHAIN_ID, attacker, true);
+    }
+
+    /// @notice Enabling OP-stack mode is immediate (tightening), but DISABLING it is timelocked —
+    ///         a mode flip cannot silently re-open the calldata-sender forgery path.
+    function test_opStackModeDisable_isTimelocked() public {
+        assertTrue(receiver.opStackMessengerMode(), "enabled in setUp");
+
+        // setOpStackMessengerMode(false) only SCHEDULES the disable; mode stays true.
+        receiver.setOpStackMessengerMode(false);
+        assertTrue(receiver.opStackMessengerMode(), "still enabled until activation");
+        uint256 at = receiver.opStackModeDisableAt();
+        assertGt(at, 0, "disable scheduled");
+
+        // Too early reverts.
+        vm.expectRevert(abi.encodeWithSelector(L2SlashingReceiver.SenderActivationTooEarly.selector, at));
+        receiver.activateOpStackMessengerModeDisable();
+
+        // After the delay it applies.
+        vm.warp(at + 1);
+        receiver.activateOpStackMessengerModeDisable();
+        assertFalse(receiver.opStackMessengerMode(), "disabled after delay");
+
+        // Re-enabling is immediate and cancels any pending disable.
+        receiver.setOpStackMessengerMode(true);
+        assertTrue(receiver.opStackMessengerMode());
+        assertEq(receiver.opStackModeDisableAt(), 0, "pending disable cleared on enable");
     }
 }

@@ -16,11 +16,16 @@ interface ITangleBlueprints {
 
     event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri, bytes32 metadataHash);
 
+    /// @dev Emitted on propose (pendingOwner = new owner) AND on cancel (pendingOwner = address(0)).
+    event BlueprintTransferProposed(uint64 indexed blueprintId, address indexed from, address indexed pendingOwner);
+
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
 
     event BlueprintDeactivated(uint64 indexed blueprintId);
 
     event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
+
+    event BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator, bytes32 sourcesHash);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FUNCTIONS

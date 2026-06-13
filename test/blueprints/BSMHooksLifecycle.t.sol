@@ -609,6 +609,29 @@ contract BSMHooksLifecycleTest is BlueprintTestHarness {
         assertEq(p.disputer, resolver, "disputer is the dispute origin");
     }
 
+    /// @notice A dispute origin that is ALSO the proposer cannot self-dispute its own slash
+    ///         (the `(isAdmin || isDisputeOrigin) && msg.sender == proposer` guard) — covers the
+    ///         dispute-origin branch of that guard, mirroring the admin-branch test.
+    function test_V3_DisputeOriginCannotSelfDisputeOwnProposal() public {
+        (uint64 blueprintId, address manager) = deployBlueprint(3);
+        MockBSM_V3 bsm = MockBSM_V3(payable(manager));
+        registerOperatorForBlueprint(operator1, blueprintId);
+        uint64 serviceId = createService(blueprintId, operator1, 1 ether);
+
+        // Same address is both the slashing origin (so it can propose) and the dispute origin.
+        address resolver = makeAddr("slasherAndResolver");
+        bsm.setCustomSlashingOrigin(serviceId, resolver);
+        bsm.setCustomDisputeOrigin(serviceId, resolver);
+
+        vm.prank(resolver);
+        uint64 slashId = tangle.proposeSlash(serviceId, operator1, 1000, keccak256("evidence"));
+
+        // Resolver is the dispute origin AND the proposer → self-dispute is rejected.
+        vm.prank(resolver);
+        vm.expectRevert(Errors.Unauthorized.selector);
+        tangle.disputeSlash(slashId, "self dispute");
+    }
+
     /// @notice An address that is neither the operator, SLASH_ADMIN, nor the designated dispute
     ///         origin still cannot dispute — the new path does not open disputes to anyone.
     function test_V3_NonDisputeOrigin_CannotDispute() public {

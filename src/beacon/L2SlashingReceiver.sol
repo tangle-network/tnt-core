@@ -137,10 +137,21 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         bool opStackMessengerMode;
         // sourceChainId => trusted L1 counterpart (the L2SlashingConnector on that chain)
         mapping(uint256 => address) opStackL1Sender;
+        // Dedicated staging for OP-stack sender scheduling, disjoint from
+        // `pendingAuthorizedSenders` so an OP-stack schedule cannot be activated into the
+        // adapter-path `authorizedSenders` (or vice-versa) by calling the wrong activator.
+        // (chainId => pending sender) and (chainId => activation timestamp).
+        mapping(uint256 => address) pendingOpStackL1Sender;
+        mapping(uint256 => uint256) pendingOpStackL1SenderAt;
+        // Timelock for DISABLING OP-stack mode (the dangerous downgrade back to calldata-sender
+        // trust). Enabling is immediate (tightening); disabling is delayed so a mode flip cannot
+        // silently re-open the forgeable path without the same 2-day window every other anchor has.
+        uint256 opStackModeDisableAt;
         // Reserved storage for future upgrades. Keep this LAST.
-        // Gap reduced from 50 → 48 to account for `opStackMessengerMode` and
-        // `opStackL1Sender` appended above (append-only layout, slots preserved).
-        uint256[48] __gap;
+        // Gap reduced 50 → 48 (opStackMessengerMode + opStackL1Sender), then 48 → 45
+        // (pendingOpStackL1Sender + pendingOpStackL1SenderAt + opStackModeDisableAt).
+        // Append-only; slots preserved.
+        uint256[45] __gap;
     }
 
     /// @notice ERC-7201 slot:
@@ -233,6 +244,21 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
 
     function opStackL1Sender(uint256 sourceChainId) external view returns (address) {
         return _getStorage().opStackL1Sender[sourceChainId];
+    }
+
+    /// @notice Pending (scheduled) OP-stack L1 sender + its activation time for a source chain.
+    function pendingOpStackL1Sender(uint256 sourceChainId)
+        external
+        view
+        returns (address sender, uint256 activationAt)
+    {
+        ReceiverStorage storage $ = _getStorage();
+        return ($.pendingOpStackL1Sender[sourceChainId], $.pendingOpStackL1SenderAt[sourceChainId]);
+    }
+
+    /// @notice Scheduled activation time for a pending OP-stack mode disable (0 if none).
+    function opStackModeDisableAt() external view returns (uint256) {
+        return _getStorage().opStackModeDisableAt;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -390,8 +416,31 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     ///      must be activated through the timelocked `setOpStackL1Sender` /
     ///      `activateOpStackL1Sender` flow below.
     function setOpStackMessengerMode(bool enabled) external onlyOwner {
-        _getStorage().opStackMessengerMode = enabled;
-        emit OpStackMessengerModeUpdated(enabled);
+        ReceiverStorage storage $ = _getStorage();
+        if (enabled) {
+            // Enabling tightens auth (calldata sender ignored → xDomainMessageSender required),
+            // so it is immediate; this also cancels any pending disable.
+            $.opStackMessengerMode = true;
+            $.opStackModeDisableAt = 0;
+            emit OpStackMessengerModeUpdated(true);
+        } else {
+            // Disabling is the dangerous downgrade (re-trusts the calldata sender). Timelock it
+            // so a mode flip cannot silently re-open the forgeable path inside the window every
+            // other trust anchor here is protected by. Apply via `activateOpStackMessengerModeDisable`.
+            $.opStackModeDisableAt = block.timestamp + SENDER_ACTIVATION_DELAY;
+            emit OpStackMessengerModeUpdated(false);
+        }
+    }
+
+    /// @notice Apply a previously-scheduled OP-stack mode disable after the activation delay.
+    function activateOpStackMessengerModeDisable() external onlyOwner {
+        ReceiverStorage storage $ = _getStorage();
+        uint256 at = $.opStackModeDisableAt;
+        if (at == 0) revert SenderNotPending();
+        if (block.timestamp < at) revert SenderActivationTooEarly(at);
+        $.opStackMessengerMode = false;
+        $.opStackModeDisableAt = 0;
+        emit OpStackMessengerModeUpdated(false);
     }
 
     /// @notice Schedule (or immediately revoke) the trusted L1 counterpart for an
@@ -411,24 +460,27 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
                 $.opStackL1Sender[sourceChainId] = address(0);
                 emit OpStackL1SenderUpdated(sourceChainId, address(0));
             }
-            $.pendingAuthorizedSenders[sourceChainId][l1Sender] = 0;
+            $.pendingOpStackL1SenderAt[sourceChainId] = 0;
             return;
         }
         if (l1Sender == address(0)) revert ZeroAddress();
         uint256 activationTime = block.timestamp + SENDER_ACTIVATION_DELAY;
-        $.pendingAuthorizedSenders[sourceChainId][l1Sender] = activationTime;
+        // Staged in the OP-stack-only mapping. We key only by chainId (one trusted L1
+        // counterpart per source chain) and store the pending sender + its activation time.
+        $.pendingOpStackL1Sender[sourceChainId] = l1Sender;
+        $.pendingOpStackL1SenderAt[sourceChainId] = activationTime;
         emit AuthorizedSenderScheduled(sourceChainId, l1Sender, activationTime);
     }
 
     /// @notice Activate a pending OP-stack trusted L1 counterpart after the delay elapses.
     function activateOpStackL1Sender(uint256 sourceChainId, address l1Sender) external onlyOwner {
         ReceiverStorage storage $ = _getStorage();
-        uint256 activationTime = $.pendingAuthorizedSenders[sourceChainId][l1Sender];
-        if (activationTime == 0) revert SenderNotPending();
+        uint256 activationTime = $.pendingOpStackL1SenderAt[sourceChainId];
+        if (activationTime == 0 || $.pendingOpStackL1Sender[sourceChainId] != l1Sender) revert SenderNotPending();
         if (block.timestamp < activationTime) revert SenderActivationTooEarly(activationTime);
 
         $.opStackL1Sender[sourceChainId] = l1Sender;
-        $.pendingAuthorizedSenders[sourceChainId][l1Sender] = 0;
+        $.pendingOpStackL1SenderAt[sourceChainId] = 0;
         emit OpStackL1SenderUpdated(sourceChainId, l1Sender);
     }
 
