@@ -15,6 +15,12 @@ import { OperatorStatusRegistry } from "../../src/staking/OperatorStatusRegistry
 import { Tangle } from "../../src/Tangle.sol";
 import { TangleToken } from "../../src/governance/TangleToken.sol";
 import { FullDeploy } from "../../script/FullDeploy.s.sol";
+import { ITangleFull } from "../../src/interfaces/ITangle.sol";
+import { SlashingLib } from "../../src/libraries/SlashingLib.sol";
+import { DeployGovernance } from "../../script/DeployGovernance.s.sol";
+import { GovernanceDeployer } from "../../src/governance/GovernanceDeployer.sol";
+import { TangleTimelock } from "../../src/governance/TangleTimelock.sol";
+import { TangleGovernor } from "../../src/governance/TangleGovernor.sol";
 
 /// @notice Minimal staking stub so L2 slashing scripts can deploy their contracts
 contract MockStaking is IStaking {
@@ -194,6 +200,16 @@ contract FullDeployHarness is FullDeploy {
             address(0)
         );
     }
+
+    function applyProtocolParamsNoPrank(
+        address tangleAddr,
+        SlashingParamsConfig memory slashing,
+        PaymentsConfig memory payments
+    )
+        external
+    {
+        _applyProtocolParams(tangleAddr, slashing, payments);
+    }
 }
 
 contract DeployBeaconSlashingHarness is DeployBeaconSlashingL1 {
@@ -237,6 +253,15 @@ contract DeployL2SlashingHarness is DeployL2Slashing {
             vm.envOr("L1_MESSENGER", address(0)),
             false
         );
+    }
+}
+
+contract DeployGovernanceHarness is DeployGovernance {
+    function deployAndRenounceNoBroadcast(GovernanceDeployer.DeployParams memory params)
+        external
+        returns (address token, address timelock, address governor)
+    {
+        return _deployAndRenounce(params);
     }
 }
 
@@ -336,6 +361,120 @@ contract DeploymentScriptsTest is Test {
         assertFalse(staking.hasRole(staking.DEFAULT_ADMIN_ROLE(), admin), "bootstrap staking admin should be revoked");
 
         assertEq(OperatorStatusRegistry(statusRegistry).owner(), timelock, "status registry owner should stay timelock");
+    }
+
+    function testFullDeployAppliesSlashAndPaymentParams() public {
+        address admin = makeAddr("admin");
+        address treasury = makeAddr("treasury");
+        address timelock = makeAddr("timelock");
+
+        DeployV2Harness deployHarness = new DeployV2Harness();
+        (, address tangleProxy,) = deployHarness.deployCoreWithStatusRegistryOwnerNoPrank(admin, treasury, timelock);
+
+        FullDeployHarness fullDeploy = new FullDeployHarness();
+        Tangle tangle = Tangle(payable(tangleProxy));
+
+        // Grant the harness ADMIN_ROLE so its internal setter calls succeed — this
+        // mirrors the deployer holding bootstrap admin during the real broadcast.
+        // Cache the role before the prank: the inner view call would otherwise consume it.
+        bytes32 adminRole = tangle.ADMIN_ROLE();
+        vm.prank(admin);
+        tangle.grantRole(adminRole, address(fullDeploy));
+
+        FullDeploy.SlashingParamsConfig memory slashing = FullDeploy.SlashingParamsConfig({
+            set: true,
+            disputeWindow: 604_800,
+            instantSlashEnabled: false,
+            maxSlashBps: 5000,
+            disputeResolutionDeadline: 1_814_400,
+            disputeBond: 0.02 ether,
+            maxPendingSlashesPerOperator: 8
+        });
+        FullDeploy.PaymentsConfig memory payments = FullDeploy.PaymentsConfig({
+            set: true,
+            developerBps: 2000,
+            protocolBps: 1950,
+            operatorBps: 4000,
+            stakerBps: 2000,
+            keeperBps: 50
+        });
+
+        fullDeploy.applyProtocolParamsNoPrank(tangleProxy, slashing, payments);
+
+        SlashingLib.SlashConfig memory sc = ITangleFull(tangleProxy).getSlashConfig();
+        assertEq(sc.maxSlashBps, 5000, "maxSlashBps should be the secure 50%, not the 100% default");
+        assertEq(sc.disputeWindow, 604_800, "disputeWindow");
+        assertEq(sc.disputeBond, 0.02 ether, "disputeBond should be priced, not free");
+        assertEq(sc.disputeResolutionDeadline, 1_814_400, "disputeResolutionDeadline");
+        assertEq(sc.maxPendingSlashesPerOperator, 8, "maxPendingSlashesPerOperator");
+        assertFalse(sc.instantSlashEnabled, "instantSlash must be off");
+
+        (uint16 dev, uint16 protocol, uint16 op, uint16 staker, uint16 keeper) =
+            ITangleFull(tangleProxy).paymentSplit();
+        assertEq(dev, 2000, "developerBps");
+        assertEq(protocol, 1950, "protocolBps");
+        assertEq(op, 4000, "operatorBps");
+        assertEq(staker, 2000, "stakerBps");
+        assertEq(keeper, 50, "keeperBps should fund the keeper market");
+    }
+
+    function testFullDeployPaymentSplitMustSumToTenThousand() public {
+        address admin = makeAddr("admin");
+        address treasury = makeAddr("treasury");
+
+        DeployV2Harness deployHarness = new DeployV2Harness();
+        (, address tangleProxy,) = deployHarness.deployCoreNoPrank(admin, treasury);
+
+        FullDeployHarness fullDeploy = new FullDeployHarness();
+        bytes32 adminRole = Tangle(payable(tangleProxy)).ADMIN_ROLE();
+        vm.prank(admin);
+        Tangle(payable(tangleProxy)).grantRole(adminRole, address(fullDeploy));
+
+        FullDeploy.SlashingParamsConfig memory slashing; // set=false, skipped
+        FullDeploy.PaymentsConfig memory payments = FullDeploy.PaymentsConfig({
+            set: true,
+            developerBps: 2000,
+            protocolBps: 2000,
+            operatorBps: 4000,
+            stakerBps: 2000,
+            keeperBps: 50 // sum = 10050, must revert
+        });
+
+        vm.expectRevert(bytes("FullDeploy: payment split must sum to 10000"));
+        fullDeploy.applyProtocolParamsNoPrank(tangleProxy, slashing, payments);
+    }
+
+    function testDeployGovernanceWiresRolesAndRenouncesAdmin() public {
+        DeployGovernanceHarness harness = new DeployGovernanceHarness();
+
+        // Mainnet-shaped params with a fresh token (admin = harness for the local test).
+        GovernanceDeployer.DeployParams memory params = GovernanceDeployer.DeployParams({
+            tokenAdmin: address(harness),
+            initialTokenSupply: 50_000_000 ether,
+            existingToken: address(0),
+            timelockDelay: 4 days,
+            votingDelay: uint48(1 days),
+            votingPeriod: uint32(7 days),
+            proposalThreshold: 200_000 ether,
+            quorumPercent: 6
+        });
+
+        (address token, address timelockAddr, address governorAddr) = harness.deployAndRenounceNoBroadcast(params);
+
+        TangleTimelock timelock = TangleTimelock(payable(timelockAddr));
+        TangleGovernor governor = TangleGovernor(payable(governorAddr));
+
+        // Governor owns proposal/cancel; deployer admin is gone; params took.
+        assertTrue(timelock.hasRole(timelock.PROPOSER_ROLE(), governorAddr), "governor should propose");
+        assertTrue(timelock.hasRole(timelock.CANCELLER_ROLE(), governorAddr), "governor should cancel");
+        assertFalse(
+            timelock.hasRole(timelock.DEFAULT_ADMIN_ROLE(), address(harness)), "bootstrap admin must be renounced"
+        );
+        assertEq(timelock.getMinDelay(), 4 days, "timelock delay");
+        assertEq(governor.votingPeriod(), 7 days, "voting period");
+        assertEq(governor.proposalThreshold(), 200_000 ether, "proposal threshold");
+        assertEq(governor.timelock(), timelockAddr, "governor bound to timelock");
+        assertTrue(token != address(0), "token deployed");
     }
 
     function testDeployBeaconSlashingScriptRunsOpStack() public {

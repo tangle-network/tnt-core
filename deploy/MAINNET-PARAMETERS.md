@@ -25,15 +25,17 @@ never calls the setters that would write the secure values.
 2. **Lock-expiry unit bug — FIXED in this change.** `LockInfo.expiryBlock = block.number + lockDuration` added
    a *seconds* duration to a *block number* and compared against `block.number`. On Base (~2s blocks) every
    lock lasted ~2× its label and was chain-block-time dependent. Now timestamp-based (`expiryTimestamp`).
-3. **`setSlashConfig` deploy step — must be wired.** Without it mainnet ships `maxSlashBps=100%`,
-   `disputeBond=0`. The `slashing` block in the config now carries the secure values; the orchestrator must
-   apply them.
-4. **`setPaymentSplit` deploy step — must be wired.** Without it `keeperBps=0` and the sole escrow-draw path
-   (`billSubscription`, permissionless) has no keeper market → long-tail revenue leaks. The `payments` block
-   now carries `keeperBps=50` (carved from protocol).
-5. **Governance params pinned + fail-closed.** Manual governance deploy with no config keys is the
-   testnet-values-leak trap (20m/3h/1k/1%). The `governance` block now pins them; the deploy must assert the
-   values are not the testnet defaults.
+3. **`setSlashConfig` deploy step — WIRED in this change.** `FullDeploy` now reads the `slashing` config
+   block and calls `setSlashConfig` during the bootstrap window (before role handoff). Without it mainnet
+   shipped `maxSlashBps=100%`, `disputeBond=0`.
+4. **`setPaymentSplit` deploy step — WIRED in this change.** `FullDeploy` reads the `payments` block and
+   applies it (sum-to-10000 asserted). Without it `keeperBps=0` and the sole escrow-draw path
+   (`billSubscription`, permissionless) had no keeper market → long-tail revenue leaks.
+5. **Governance deploy + params pinned — ADDED in this change.** `FullDeploy` does not deploy the
+   Governor/Timelock; new `script/DeployGovernance.s.sol` (wrapping the audited `GovernanceDeployer`) deploys
+   token+Timelock+Governor from the `governance` config block, wires roles, and renounces the bootstrap admin,
+   with a prod guard that rejects testnet values (20m/3h leak). Run it before `FullDeploy` and pin its
+   Timelock/token into the config.
 6. **Timelock delay 4 days** (was implied 2d). The timelock holds DEFAULT_ADMIN + UPGRADER over Tangle,
    MultiAssetDelegation, and the token; 4d > the protocol's own 7d exit delay floor for detection, well under
    the 30d clamp.
@@ -67,7 +69,8 @@ never calls the setters that would write the secure values.
 ## Pre-audit code punch-list (not yet applied — for the audited diff)
 
 Done in this change: **lock-expiry timestamp fix** (`Types.LockInfo`, `DepositManager`, `DelegationManagerLib`
-+ test). Remaining, prioritized for the same audited diff:
++ test); **`FullDeploy` slash/payment wiring** + tests; **`DeployGovernance.s.sol`** + test + runbook;
+**`TangleGovernor` NatSpec** (Blocks→Seconds). Remaining, prioritized for the same audited diff:
 
 **P1 (rug/correctness primitives):**
 - `RewardVaults.setOperatorCommission`: lower hard cap 5000→2000 bps and gate behind a 7d queue/execute/cancel
@@ -91,8 +94,8 @@ Done in this change: **lock-expiry timestamp fix** (`Types.LockInfo`, `DepositMa
 - Delete dead zero-ref constants `DISPUTE_WINDOW_ROUNDS`, `ROUNDS_PER_EPOCH`, `REWARD_GRACE_PERIOD_ROUNDS`
   from `ProtocolConfig.sol` (verified 0 external references; `DISPUTE_WINDOW_ROUNDS` 3.5d even contradicts the
   live 7d `SlashConfig.disputeWindow`). Storage-layout-safe (library constants).
-- `TangleGovernor.sol` NatSpec: "Blocks (7200/50400)" → "Seconds (ERC-6372 timestamp clock; 86400/604800)";
-  document `MAX_ACTION_VALUE` caps native value only.
+- `TangleGovernor.sol` NatSpec Blocks→Seconds is done; still document that `MAX_ACTION_VALUE` caps native
+  value only (not ERC20/TNT outflows, which are governed by vote+timelock).
 - Indexer `expiryBlock` field (`schema.graphql`, `staking.ts` — currently a hardcoded `0n` placeholder, not
   wired to the contract value) → rename to `expiryTimestamp` and re-run `npm run codegen`.
 

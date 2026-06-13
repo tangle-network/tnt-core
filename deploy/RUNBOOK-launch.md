@@ -6,11 +6,27 @@ L2 slashing are a cross-chain system that additionally needs operational infra a
 timelock actions — they are gated `deploy: false` in `base-mainnet.json` until those are ready.
 
 ## 0. Prerequisites
-- `base-mainnet.json` roles filled with the real **admin / treasury / timelock / multisig** (the
-  `FullDeploy` production guard reverts otherwise).
 - `PRIVATE_KEY` (deployer), `L2_RPC` (the core chain), and for beacon/L2 slashing `L1_RPC`
   (Ethereum mainnet) + pinned bridge infra (mailbox/endpoint, **ISM/DVN**) + an off-chain
   slashing oracle address.
+- Governance + token deployed first (step 0b) so `roles.timelock` and `incentives.tntToken` can be
+  pinned. `FullDeploy` does **not** deploy the Governor/Timelock — it consumes the timelock address.
+- `base-mainnet.json` then filled with the real **admin / treasury / timelock / multisig** plus the
+  governance/slashing/payments blocks (see `deploy/MAINNET-PARAMETERS.md`). The `FullDeploy`
+  production guard reverts on unset roles.
+
+## 0b. Deploy governance (BEFORE the orchestrator)
+```bash
+# Reuse an existing TNT token (TOKEN=...) or deploy a fresh one (INITIAL_SUPPLY=<wei>).
+PRIVATE_KEY=0x... [TOKEN=0x... | INITIAL_SUPPLY=...] \
+FULL_DEPLOY_CONFIG=deploy/config/base-mainnet.json \
+forge script script/DeployGovernance.s.sol:DeployGovernance --rpc-url <L2_RPC> --broadcast --slow
+```
+Reads the `governance` block (votingDelay / votingPeriod / proposalThreshold / quorumPercent /
+timelockDelay), deploys token (or reuses) + `TangleTimelock` + `TangleGovernor`, wires the Governor
+as PROPOSER/EXECUTOR/CANCELLER, and renounces the deployer's bootstrap timelock admin. Take the
+`TangleTimelock` and `TangleToken` addresses from `deployments/governance.json` and set
+`roles.timelock` + `incentives.tntToken` (and `roles.admin/treasury/multisig`) in the config.
 
 ## 1. Run the orchestrator
 ```bash
@@ -26,7 +42,8 @@ selected.
 ## 2. What deploys
 | Subsystem | Unit | Chain | Turnkey? |
 |---|---|---|---|
-| Core (Tangle, MultiAssetDelegation, incentives, governance) | proxies | L2 | yes |
+| Governance (TNT token, TangleTimelock, TangleGovernor) | proxies | L2 | step 0b (separate) |
+| Core (Tangle, MultiAssetDelegation, incentives) | proxies | L2 | yes |
 | Liquid staking | `LiquidDelegationFactory` (vaults created on demand) | L2 | yes |
 | Beacon restaking | `ValidatorPodManager` + EIP4788 oracle + connector + messenger (pods on demand) | L1 | needs infra |
 | L2 slashing | `TangleL2Slasher` + `L2SlashingReceiver` + bridge adapter | L2 | needs infra |
