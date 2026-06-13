@@ -99,18 +99,47 @@ Done in this change: **lock-expiry timestamp fix** (`Types.LockInfo`, `DepositMa
 - Indexer `expiryBlock` field (`schema.graphql`, `staking.ts` — currently a hardcoded `0n` placeholder, not
   wired to the contract value) → rename to `expiryTimestamp` and re-run `npm run codegen`.
 
+## Finalized monetary + governance decisions (set in config)
+
+These were the big open items; here's the call and why, alternatives noted.
+
+**Supply = true fixed-supply.** The genesis migration mints all four buckets — Substrate ~51.24M / EVM
+~1.13M / Treasury ~41.84M / Foundation ~15.04M — which sum to `MAX_SUPPLY` 109,255,636.92 TNT *exactly*.
+Genesis hits the cap, so the surviving `MINTER_ROLE` is inert and the InflationPool can never mint. This is
+the strongest possible supply guarantee. *Alternative considered:* a ~5% mintable inflation envelope (reserve
+headroom under the cap) — rejected because the snapshot already equals the cap and minimal-dilution is the
+stronger market signal; a fixed cap + treasury-funded security is cleaner than soft inflation.
+
+**Inflation = 1% of supply, treasury-funded (not minted).** `year1FundTnt = 1,092,556.37 TNT` (1% of
+MAX_SUPPLY), transferred from the Treasury bucket into the InflationPool via `fund()`. Because supply is fixed,
+this is emission/redistribution, not monetary inflation. Treasury (41.84M) sustains a flat 1% for ~38 years; a
+declining schedule (Y2 0.8×, Y3 0.6×) stretches it. *Alternatives:* 0.5% (leaner, slower security-stake
+growth) or 2% (faster bootstrap, ~19yr runway). 1% is the balance — meaningful staking yield without draining
+the treasury or signalling high dilution.
+
+**Governance launch values (thin-float-aware).** `votingDelay 1d / votingPeriod 7d / proposalThreshold 100k
+TNT / quorum 4% / timelockDelay 4d`. The non-obvious driver: quorum is `% of getPastTotalSupply` = the full
+109.26M minted at genesis, but most supply is vesting-locked and undelegated at launch (Substrate+EVM unlock
+only 10% at TGE; Treasury 0%, Foundation 30%), so realistic delegatable float is single-digit millions. A high
+quorum would *brick* governance. 4% (~4.37M votes) is reachable with engagement; 100k proposalThreshold is a
+spam floor that isn't paralyzing on thin float. *Alternatives:* quorum 3% if early participation is weak, 6%
+once float deepens (ratchet up via governance as vesting unlocks over 3yr). `proposalThreshold` 200k if you
+expect strong delegation. The real defense against a low-quorum capture proposal is the **CANCELLER guardian
+Safe below**, not a high quorum — wire it.
+
 ## Open decisions (only Drew / governance can ratify)
 
 - **Role addresses:** the four Safes/timelock for `roles.*`.
+- **Finalize the canonical mainnet snapshot:** regenerate `merkle-tree.json` + the EVM/treasury/foundation
+  carveouts, decide the ~3.19M expired-unclaimed decay (policy = 90% decay), pin `merkleRoot` + `programVKey`
+  + `sp1VerifierGateway`, then set `migration.deploy = true`. The four amounts load from those files.
 - **SLASH_ADMIN_ROLE** held by a ≥3/5 multisig with a documented <7d dispute-adjudication SLA (fail-open
   auto-execute makes honest-dispute safety contingent on responsiveness).
-- **CANCELLER_ROLE guardian Safe** on the timelock — as-built only the governor holds it. If a guardian is
-  wired, `quorumPercent` can be 4 instead of 6.
-- **Inflation budget size:** the actual Year-1 fund (recommended ~2.0M TNT / ~1.8% gross) + a declining
-  multi-year schedule, funded from a named treasury reserve. Currently a recommendation in config, not executed.
-- **Genesis allocation amounts** (substrate / evm / treasury / foundation) and the **headroom decision**:
-  ~5% inflation envelope vs true fixed-supply. Pin one and assert it at deploy.
-- **Governance init values** ratification (defaults proposed above).
+- **CANCELLER_ROLE guardian Safe** on the timelock — as-built only the governor holds it. Strongly recommended
+  at launch given the thin votable float (it's the real capture defense). Lets quorum stay low safely.
+- **Execute the treasury pre-funding:** transfer `year1FundTnt` into the InflationPool post-deploy + commit to
+  the multi-year declining schedule from a named treasury reserve.
+- **Governance init values** ratification (set above; ratify or adjust per the alternatives).
 - **Pre-committed weight migration** (staking→stakers, e.g. 3500/1500) once `ServiceFeeDistributor` + keeper +
   live services exist — `stakersBps=0` is correct at genesis but the rail should turn on after launch.
 - **Gated-asset enablement:** stETH/wstETH/EIGEN/WBTC/tBTC/lBTC/USDe are `0x0` placeholders — each needs a real
