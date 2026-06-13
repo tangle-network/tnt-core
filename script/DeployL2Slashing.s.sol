@@ -6,8 +6,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 
 import { L2SlashingReceiver } from "../src/beacon/L2SlashingReceiver.sol";
 import { TangleL2Slasher } from "../src/beacon/TangleL2Slasher.sol";
-import { HyperlaneReceiver } from "../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
-import { LayerZeroReceiver } from "../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 
 error MissingEnv(string key);
 error AddressNotAllowlisted(string key, address provided, address expected);
@@ -74,9 +72,26 @@ contract DeployL2Slashing is EnvUtils {
 
     // Bridge protocol selection
     enum BridgeProtocol {
-        Hyperlane,
-        LayerZero,
-        DirectMessenger // For testing with direct calls
+        DirectMessenger, // For testing with direct calls
+        OpStack // OP-Stack canonical CrossDomainMessenger (Base/Optimism) — native, no third-party trust
+    }
+
+    /// @notice OP-Stack L2CrossDomainMessenger predeploy (same address on all OP chains).
+    address internal constant OP_L2_CROSS_DOMAIN_MESSENGER = 0x4200000000000000000000000000000000000007;
+
+    /// @notice True on mainnets where slashing would be live. Bypass on local with TANGLE_DEPLOY_LOCAL=1.
+    function _isProductionChain() internal view returns (bool) {
+        if (vm.envOr("TANGLE_DEPLOY_LOCAL", uint256(0)) != 0) return false;
+        uint256 id = block.chainid;
+        return id == ETHEREUM_MAINNET || id == BASE_MAINNET || id == 5845 || id == 42_161 || id == 10;
+    }
+
+    /// @notice Refuse to deploy L2 slashing to a production chain with hot-key admin or the
+    ///         deployer-controlled DirectMessenger mock bridge.
+    function _requireProductionL2Config(address deployer, address admin, BridgeProtocol bridge) internal view {
+        if (!_isProductionChain()) return;
+        require(bridge != BridgeProtocol.DirectMessenger, "config: DirectMessenger forbidden on production");
+        require(admin != deployer, "config: ADMIN must be a multisig/timelock, not the deployer");
     }
 
     function run() external {
@@ -104,6 +119,11 @@ contract DeployL2Slashing is EnvUtils {
         } else if (l1Messenger != address(0)) {
             _enforceAllowlist("L1_MESSENGER_ALLOWLIST", l1Messenger);
         }
+
+        // Fail closed on production chains: ADMIN must be an explicit non-deployer
+        // timelock/multisig (it owns the receiver/slasher and activates trust anchors), and
+        // the DirectMessenger mock path (deployer-controlled slashing) must never reach mainnet.
+        _requireProductionL2Config(deployer, admin, bridge);
 
         console2.log("=== L2 Slashing Receiver Deployment ===");
         console2.log("Deployer:", deployer);
@@ -211,7 +231,11 @@ contract DeployL2Slashing is EnvUtils {
             vm.startPrank(deployer);
         }
 
-        TangleL2Slasher slasherContract = new TangleL2Slasher(staking, admin);
+        // Own the slasher as the deployer during setup so `setAuthorizedCaller` below succeeds,
+        // then hand off to `admin` at the bottom (mirrors the receiver). Constructing it owned by
+        // `admin` directly would revert `setAuthorizedCaller` whenever admin != deployer (i.e.
+        // always in production), since that call runs in the deployer's broadcast context.
+        TangleL2Slasher slasherContract = new TangleL2Slasher(staking, deployer);
         slasher = address(slasherContract);
         console2.log("TangleL2Slasher:", slasher);
 
@@ -238,22 +262,31 @@ contract DeployL2Slashing is EnvUtils {
         slasherContract.setAuthorizedCaller(receiver, true);
         console2.log("Authorized receiver as slasher caller");
 
-        if (bridge == BridgeProtocol.Hyperlane) {
+        if (bridge == BridgeProtocol.OpStack) {
+            // OP-Stack native path: NO bridge adapter. The receiver talks directly to the OP
+            // L2CrossDomainMessenger predeploy and authenticates the L1 origin via
+            // xDomainMessageSender(). The trusted L1 sender is the L1 BaseCrossChainMessenger
+            // adapter (the contract that calls L1CrossDomainMessenger.sendMessage), passed as
+            // L1_MESSENGER — NOT the connector. No ISM/DVN to pin; trust is Base/Ethereum itself.
             if (l1Messenger == address(0)) revert MissingEnv("L1_MESSENGER");
-            bridgeReceiver =
-                _deployAndConfigureHyperlaneReceiver(receiverContract, deployer, admin, sourceChainId, l1Messenger);
-            receiverContract.setMessenger(bridgeReceiver);
-        } else if (bridge == BridgeProtocol.LayerZero) {
-            if (l1Messenger == address(0)) revert MissingEnv("L1_MESSENGER");
-            bridgeReceiver =
-                _deployAndConfigureLayerZeroReceiver(receiverContract, deployer, admin, sourceChainId, l1Messenger);
-            receiverContract.setMessenger(bridgeReceiver);
+            bridgeReceiver = address(0);
+            address l2Messenger = vm.envOr("L2_CROSS_DOMAIN_MESSENGER", OP_L2_CROSS_DOMAIN_MESSENGER);
+            receiverContract.setMessenger(l2Messenger); // bootstrap (immediate)
+            receiverContract.setOpStackMessengerMode(true);
+            // Timelocked: schedules the trusted L1 sender; admin must activateOpStackL1Sender
+            // after SENDER_ACTIVATION_DELAY before slashing relays.
+            receiverContract.setOpStackL1Sender(sourceChainId, l1Messenger, true);
+            console2.log("OP-Stack mode: L2 messenger set; opStack L1 sender SCHEDULED (activate after delay):");
+            console2.log("  l2Messenger:", l2Messenger);
+            console2.log("  l1Sender (BaseCrossChainMessenger):", l1Messenger);
         } else {
             bridgeReceiver = address(0);
             receiverContract.setMessenger(fallbackMessenger);
         }
 
-        if (l1Connector != address(0)) {
+        // authorizedSenders is the adapter-path auth; in OP-Stack mode the receiver uses
+        // opStackL1Sender instead, so skip it there (harmless but meaningless otherwise).
+        if (l1Connector != address(0) && bridge != BridgeProtocol.OpStack) {
             receiverContract.setAuthorizedSender(sourceChainId, l1Connector, true);
             console2.log("Authorized L1 connector:", l1Connector);
         }
@@ -262,139 +295,16 @@ contract DeployL2Slashing is EnvUtils {
             receiverContract.transferOwnership(admin);
             console2.log("Transferred L2SlashingReceiver ownership to admin");
         }
+        if (slasherContract.owner() != admin) {
+            slasherContract.transferOwnership(admin);
+            console2.log("Transferred TangleL2Slasher ownership to admin");
+        }
 
         if (broadcast) {
             vm.stopBroadcast();
         } else if (deployer != address(0)) {
             vm.stopPrank();
         }
-    }
-
-    function _deployAndConfigureHyperlaneReceiver(
-        L2SlashingReceiver receiverContract,
-        address deployer,
-        address admin,
-        uint256 sourceChainId,
-        address l1Messenger
-    )
-        internal
-        returns (address)
-    {
-        address mailbox = vm.envOr("HYPERLANE_MAILBOX", _defaultHyperlaneMailbox(block.chainid));
-        if (mailbox == address(0)) revert MissingEnv("HYPERLANE_MAILBOX");
-
-        // Verify bridge contract exists before deployment
-        _verifyBridgeContract("Hyperlane Mailbox", mailbox);
-
-        // C-3 (Round 4): deploy HyperlaneReceiver behind ERC1967 proxy.
-        // `deployer` is the broadcaster (or the active pranker in dry-run); we
-        // wire it as the initial owner so the `setTrustedSender` call below
-        // succeeds, then transfer ownership to `admin`.
-        address hyperlaneImpl = address(new HyperlaneReceiver());
-        ERC1967Proxy hyperlaneProxy = new ERC1967Proxy(
-            hyperlaneImpl, abi.encodeCall(HyperlaneReceiver.initialize, (mailbox, address(receiverContract), deployer))
-        );
-        HyperlaneReceiver hyperlaneReceiver = HyperlaneReceiver(address(hyperlaneProxy));
-
-        // HyperlaneReceiver expects the "sender" to be the origin contract that dispatched the message (the messenger).
-        hyperlaneReceiver.setTrustedSender(uint32(sourceChainId), l1Messenger, true);
-        if (hyperlaneReceiver.owner() != admin) {
-            hyperlaneReceiver.transferOwnership(admin);
-        }
-
-        console2.log("HyperlaneReceiver impl:", hyperlaneImpl);
-        console2.log("HyperlaneReceiver proxy:", address(hyperlaneReceiver));
-        console2.log("Hyperlane mailbox:", mailbox);
-        console2.log("Trusted L1 messenger:", l1Messenger);
-        return address(hyperlaneReceiver);
-    }
-
-    function _deployAndConfigureLayerZeroReceiver(
-        L2SlashingReceiver receiverContract,
-        address deployer,
-        address admin,
-        uint256 sourceChainId,
-        address l1Messenger
-    )
-        internal
-        returns (address)
-    {
-        address endpoint = vm.envOr("LAYERZERO_ENDPOINT", _defaultLayerZeroEndpoint(block.chainid));
-        if (endpoint == address(0)) revert MissingEnv("LAYERZERO_ENDPOINT");
-
-        // Verify bridge contract exists before deployment
-        _verifyBridgeContract("LayerZero Endpoint", endpoint);
-
-        // C-3 (Round 4): deploy LayerZeroReceiver behind ERC1967 proxy.
-        address lzImpl = address(new LayerZeroReceiver());
-        ERC1967Proxy lzProxy = new ERC1967Proxy(
-            lzImpl, abi.encodeCall(LayerZeroReceiver.initialize, (endpoint, address(receiverContract), deployer))
-        );
-        LayerZeroReceiver lzReceiver = LayerZeroReceiver(address(lzProxy));
-
-        uint32 sourceEid = uint32(vm.envOr("LAYERZERO_SOURCE_EID", uint256(_defaultLayerZeroEid(sourceChainId))));
-        if (sourceEid == 0) revert MissingEnv("LAYERZERO_SOURCE_EID");
-
-        lzReceiver.setChainMapping(sourceEid, sourceChainId);
-        lzReceiver.setPeer(sourceEid, bytes32(uint256(uint160(l1Messenger))));
-        if (lzReceiver.owner() != admin) {
-            lzReceiver.transferOwnership(admin);
-        }
-
-        console2.log("LayerZeroReceiver impl:", lzImpl);
-        console2.log("LayerZeroReceiver proxy:", address(lzReceiver));
-        console2.log("LayerZero endpoint:", endpoint);
-        console2.log("Source EID:", sourceEid);
-        console2.log("Trusted L1 messenger:", l1Messenger);
-        return address(lzReceiver);
-    }
-
-    function _defaultHyperlaneMailbox(uint256 chainId) internal pure returns (address mailbox) {
-        if (chainId == 1) {
-            return 0xc005dc82818d67AF737725bD4bf75435d065D239;
-        }
-        if (chainId == 11_155_111) {
-            return 0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766;
-        }
-        if (chainId == 17_000) {
-            return 0x5b6CFf85442B851A8e6eaBd2A4E4507B5135B3B0;
-        }
-        if (chainId == 8453) {
-            return 0xeA87ae93Fa0019a82A727bfd3eBd1cFCa8f64f1D;
-        }
-        if (chainId == 84_532) {
-            return 0x6966b0E55883d49BFB24539356a2f8A673E02039;
-        }
-        return address(0);
-    }
-
-    function _defaultLayerZeroEndpoint(uint256 chainId) internal pure returns (address endpoint) {
-        if (chainId == 1) {
-            return 0x1a44076050125825900e736c501f859c50fE728c;
-        }
-        if (chainId == 11_155_111) {
-            return 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        }
-        if (chainId == 17_000) {
-            return 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        }
-        if (chainId == 8453) {
-            return 0x1a44076050125825900e736c501f859c50fE728c;
-        }
-        if (chainId == 84_532) {
-            return 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        }
-        return address(0);
-    }
-
-    function _defaultLayerZeroEid(uint256 chainId) internal pure returns (uint32) {
-        if (chainId == 1) return 30_101;
-        if (chainId == 42_161) return 30_110;
-        if (chainId == 8453) return 30_184;
-        if (chainId == 11_155_111) return 40_161;
-        if (chainId == 421_614) return 40_231;
-        if (chainId == 84_532) return 40_245;
-        return 0;
     }
 
     function _envStringOrEmpty(string memory key) internal view returns (string memory value) {
@@ -424,10 +334,8 @@ contract DeployL2Slashing is EnvUtils {
 
         string memory root = "l2Slashing";
         vm.serializeString(root, "kind", "l2-slashing");
-        if (bridge == BridgeProtocol.Hyperlane) {
-            vm.serializeString(root, "bridge", "hyperlane");
-        } else if (bridge == BridgeProtocol.LayerZero) {
-            vm.serializeString(root, "bridge", "layerzero");
+        if (bridge == BridgeProtocol.OpStack) {
+            vm.serializeString(root, "bridge", "opstack");
         } else {
             vm.serializeString(root, "bridge", "direct");
         }
@@ -478,21 +386,13 @@ contract DeployL2SlashingTestnet is EnvUtils {
     }
 }
 
-/// @title DeployL2SlashingHyperlane
-/// @notice Convenience script for Hyperlane receiver deployments.
-contract DeployL2SlashingHyperlane is EnvUtils {
+/// @title DeployL2SlashingOpStack
+/// @notice OP-Stack (Base/Optimism) native receiver deployment — recommended for Base. Uses the
+///         canonical L2CrossDomainMessenger; no third-party bridge, no ISM/DVN to pin.
+contract DeployL2SlashingOpStack is EnvUtils {
     function run() external {
         DeployL2Slashing deploy = new DeployL2Slashing();
-        deploy.run(DeployL2Slashing.BridgeProtocol.Hyperlane);
-    }
-}
-
-/// @title DeployL2SlashingLayerZero
-/// @notice Convenience script for LayerZero receiver deployments.
-contract DeployL2SlashingLayerZero is EnvUtils {
-    function run() external {
-        DeployL2Slashing deploy = new DeployL2Slashing();
-        deploy.run(DeployL2Slashing.BridgeProtocol.LayerZero);
+        deploy.run(DeployL2Slashing.BridgeProtocol.OpStack);
     }
 }
 

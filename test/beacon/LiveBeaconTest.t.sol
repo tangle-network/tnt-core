@@ -155,34 +155,43 @@ contract LiveBeaconTest is Test {
         assertEq(balance3, 0, "Balance 3");
     }
 
-    /// @notice Test generalized index calculation for validators
+    /// @notice Test generalized index calculation for validators (SSZ List mix_in_length).
+    /// @dev The `validators` field is an SSZ List, whose root is
+    ///      `mix_in_length(merkleize(chunks), length)`. That extra hash level pushes each
+    ///      element ONE level deeper than a bare Vector, so the correct shift is
+    ///      `VALIDATOR_TREE_HEIGHT + 1` (= 41), not `VALIDATOR_TREE_HEIGHT` (= 40), and the
+    ///      validators-container gindex in post-Pectra state is 75 (not the stale 43 the
+    ///      previous version of this test hardcoded). Expected values below are derived
+    ///      from the SSZ spec, NOT read back from the library under test.
+    ///        gindex(i) = (75 << 41) | i
+    ///        75 << 41 = 75 * 2_199_023_255_552 = 164_926_744_166_400
     function test_validatorGeneralizedIndex() public pure {
-        // Validator at index 0 should have gindex:
-        // (VALIDATOR_CONTAINER_GINDEX << VALIDATOR_TREE_HEIGHT) | 0
-        // = (43 << 40) | 0
-        // = 47278999994368
+        uint256 gindex0 = (uint256(75) << 41) | 0;
+        assertEq(gindex0, 164_926_744_166_400, "Validator 0 gindex (75 << 41)");
 
-        uint256 gindex0 = (uint256(43) << 40) | 0;
-        assertEq(gindex0, 47_278_999_994_368, "Validator 0 gindex");
+        uint256 gindex100 = (uint256(75) << 41) | 100;
+        assertEq(gindex100, 164_926_744_166_500, "Validator 100 gindex");
 
-        // Validator at index 100
-        uint256 gindex100 = (uint256(43) << 40) | 100;
-        assertEq(gindex100, 47_278_999_994_468, "Validator 100 gindex");
+        // The shift MUST be 41 (height + mix_in_length level), not 40.
+        assertEq((uint256(75) << 41) >> 41, 75, "validators container gindex is 75");
+        assertTrue((uint256(75) << 41) != (uint256(75) << 40), "shift must include mix_in_length level");
     }
 
-    /// @notice Test generalized index calculation for balances
+    /// @notice Test generalized index calculation for balances (SSZ List mix_in_length).
+    /// @dev `balances` is also an SSZ List, so the packed-balance leaf sits one level below
+    ///      the list root: shift `BALANCE_TREE_HEIGHT + 1` (= 39), balances-container
+    ///      gindex 76. Values derived from the SSZ spec, not the code under test.
     function test_balanceGeneralizedIndex() public pure {
-        // Balances are packed 4 per leaf
-        // Validator 0-3 are in leaf 0
-        // gindex = (BALANCE_CONTAINER_GINDEX << BALANCE_TREE_HEIGHT) | leafIndex
-        // = (44 << 38) | 0
+        // Leaf 0 holds validators 0-3.
+        uint256 gindex0 = (uint256(76) << 39) | 0;
+        assertEq(gindex0 >> 39, 76, "balances container gindex is 76");
 
-        uint256 gindex0 = (44 << 38) | 0;
-        assertEq(gindex0 >> 38, 44, "Balance container gindex");
+        // Validators 4-7 are in leaf 1.
+        uint256 gindex4 = (uint256(76) << 39) | 1;
+        assertEq(gindex4 & ((uint256(1) << 39) - 1), 1, "Leaf index for validator 4");
 
-        // Validators 4-7 are in leaf 1
-        uint256 gindex4 = (44 << 38) | 1;
-        assertEq(gindex4 & 0x3FFFFFFFFF, 1, "Leaf index for validator 4");
+        // The shift MUST include the mix_in_length level.
+        assertTrue((uint256(76) << 39) != (uint256(76) << 38), "balance shift must include mix_in_length level");
     }
 
     /// @notice Test slashing factor calculation

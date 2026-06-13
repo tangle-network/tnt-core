@@ -12,7 +12,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Default values
-BRIDGE="hyperlane"
+# Bridge is OP-Stack-native (Base/Optimism canonical CrossDomainMessenger); Hyperlane/LayerZero removed.
+BRIDGE="opstack"
 DRY_RUN=false
 SKIP_PHASE=""
 
@@ -34,7 +35,7 @@ usage() {
     echo "  L1_CHAIN_ID         L1 chain ID (default: auto-detect)"
     echo ""
     echo "Options:"
-    echo "  --bridge BRIDGE     Bridge protocol: hyperlane or layerzero (default: hyperlane)"
+    echo "  --bridge BRIDGE     Bridge protocol: opstack (default: opstack; OP-Stack-native, HL/LZ removed)"
     echo "  --config FILE       L2 deploy config JSON (for Phase 1)"
     echo "  --dry-run           Print commands without executing"
     echo "  --skip-phase N      Skip phase N (1-4)"
@@ -132,12 +133,8 @@ phase2() {
     export SKIP_CHAIN_CONFIG=true  # We'll configure in Phase 4
     export BEACON_SLASHING_MANIFEST="$MANIFEST_DIR/beacon-l1.json"
 
-    local script_name
-    if [[ "$BRIDGE" == "layerzero" ]]; then
-        script_name="DeployBeaconSlashingL1LayerZero"
-    else
-        script_name="DeployBeaconSlashingL1"
-    fi
+    # Bridge is OP-Stack-native; the base L1 script defaults to OP-Stack.
+    local script_name="DeployBeaconSlashingOpStack"
 
     run_cmd forge script "script/DeployBeaconSlashing.s.sol:$script_name" \
         --rpc-url "$L1_RPC_URL" \
@@ -183,12 +180,8 @@ phase3() {
         exit 1
     fi
 
-    local script_name
-    if [[ "$BRIDGE" == "layerzero" ]]; then
-        script_name="DeployL2SlashingLayerZero"
-    else
-        script_name="DeployL2SlashingHyperlane"
-    fi
+    # Bridge is OP-Stack-native; Hyperlane/LayerZero receiver paths removed.
+    local script_name="DeployL2SlashingOpStack"
 
     run_cmd forge script "script/DeployL2Slashing.s.sol:$script_name" \
         --rpc-url "$L2_RPC_URL" \

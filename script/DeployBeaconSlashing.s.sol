@@ -7,8 +7,7 @@ import { ValidatorPodManager } from "../src/beacon/ValidatorPodManager.sol";
 import { MockBeaconOracle } from "../src/beacon/BeaconRootReceiver.sol";
 import { EIP4788Oracle } from "../src/beacon/l1/EIP4788Oracle.sol";
 import { L2SlashingConnector } from "../src/beacon/L2SlashingConnector.sol";
-import { HyperlaneCrossChainMessenger } from "../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
-import { LayerZeroCrossChainMessenger } from "../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
+import { BaseCrossChainMessenger } from "../src/beacon/bridges/BaseCrossChainMessenger.sol";
 
 error MissingEnv(string key);
 error AddressNotAllowlisted(string key, address provided, address expected);
@@ -28,12 +27,11 @@ contract DeployBeaconSlashingL1 is Script {
 
     // Bridge protocol selection
     enum BridgeProtocol {
-        Hyperlane,
-        LayerZero
+        OpStack // OP-Stack canonical CrossDomainMessenger (Base/Optimism) — native, no third-party trust
     }
 
     function run() external {
-        run(BridgeProtocol.Hyperlane);
+        run(BridgeProtocol.OpStack);
     }
 
     function run(BridgeProtocol bridge) public {
@@ -55,6 +53,11 @@ contract DeployBeaconSlashingL1 is Script {
         if (l2Receiver != address(0)) {
             _enforceAllowlist("L2_RECEIVER_ALLOWLIST", l2Receiver);
         }
+
+        // Fail closed on production chains: ADMIN/SLASHING_ORACLE must be explicit, distinct,
+        // non-deployer addresses (these own the pod manager / connector and authorize beacon
+        // slashes), and the forgeable MockBeaconOracle must never reach mainnet.
+        _requireProductionBeaconConfig(deployer, admin, oracle, useMockBeaconOracle);
 
         console2.log("=== L1 Beacon Slashing Deployment ===");
         console2.log("Deployer:", deployer);
@@ -178,11 +181,7 @@ contract DeployBeaconSlashingL1 is Script {
         connector = address(connectorContract);
         console2.log("L2SlashingConnector:", connector);
 
-        if (bridge == BridgeProtocol.Hyperlane) {
-            messenger = deployHyperlaneMessenger();
-        } else {
-            messenger = deployLayerZeroMessenger();
-        }
+        messenger = deployOpStackMessenger();
 
         connectorContract.setMessenger(messenger);
         if (l2Receiver != address(0)) {
@@ -200,85 +199,31 @@ contract DeployBeaconSlashingL1 is Script {
         }
     }
 
-    function deployHyperlaneMessenger() internal returns (address) {
-        // Hyperlane Mailbox addresses by chain
-        // See: https://docs.hyperlane.xyz/docs/reference/addresses/deployments/mailbox
-        // See: https://github.com/hyperlane-xyz/hyperlane-registry/tree/main/chains
-        // NOTE: L2 slashing deploy scripts also use `HYPERLANE_MAILBOX`; to avoid env collisions, L1 uses L1_* vars.
-        address mailbox = vm.envOr("L1_HYPERLANE_MAILBOX", address(0));
-        address igp = vm.envOr("L1_HYPERLANE_IGP", address(0));
-        if (mailbox != address(0) || igp != address(0)) {
-            if (mailbox == address(0)) revert MissingEnv("L1_HYPERLANE_MAILBOX");
-            if (igp == address(0)) revert MissingEnv("L1_HYPERLANE_IGP");
+    /// @notice Deploy the OP-Stack canonical-bridge adapter (Base/Optimism). This wraps the
+    ///         target chain's L1CrossDomainMessenger (deployed on L1, one per OP chain), so the
+    ///         slash message inherits Base/Ethereum security with NO third-party ISM/DVN to pin.
+    /// @dev Run on L1 (Ethereum). `L1_CROSS_DOMAIN_MESSENGER` overrides; defaults are Base's
+    ///      canonical L1 messenger proxy on Ethereum mainnet / Sepolia. For Optimism or other OP
+    ///      chains, pass the override.
+    function deployOpStackMessenger() internal returns (address) {
+        address l1Messenger = vm.envOr("L1_CROSS_DOMAIN_MESSENGER", address(0));
+        if (l1Messenger == address(0) && block.chainid == 1) {
+            // Base mainnet's L1CrossDomainMessenger proxy on Ethereum.
+            l1Messenger = 0x866E82a600A1414e583f7F13623F1aC5d58b0Afa;
+        } else if (l1Messenger == address(0) && block.chainid == 11_155_111) {
+            // Base Sepolia's L1CrossDomainMessenger proxy on Sepolia.
+            l1Messenger = 0xC34855F4De64F1840e5686e64278da901e261f20;
+        }
+        if (l1Messenger == address(0)) {
+            revert(
+                "Unsupported chain for OP-Stack (set L1_CROSS_DOMAIN_MESSENGER to the target OP chain's L1 messenger)"
+            );
         }
 
-        if (mailbox == address(0) && igp == address(0) && block.chainid == 1) {
-            // Ethereum mainnet
-            mailbox = 0xc005dc82818d67AF737725bD4bf75435d065D239;
-            igp = 0x6cA0B6D22da47f091B7613223cD4BB03a2d77918;
-        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 11_155_111) {
-            // Sepolia testnet
-            mailbox = 0xfFAEF09B3cd11D9b20d1a19bECca54EEC2884766;
-            igp = 0x6f2756380FD49228ae25Aa7F2817993cB74Ecc56;
-        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 17_000) {
-            // Holesky testnet
-            mailbox = 0x5b6CFf85442B851A8e6eaBd2A4E4507B5135B3B0;
-            igp = 0x6f2756380FD49228ae25Aa7F2817993cB74Ecc56; // Same as Sepolia - verify before mainnet
-        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 8453) {
-            // Base mainnet
-            mailbox = 0xeA87ae93Fa0019a82A727bfd3eBd1cFCa8f64f1D;
-            igp = 0xc3F23848Ed2e04C0c6d41bd7804fa8f89F940B94;
-        } else if (mailbox == address(0) && igp == address(0) && block.chainid == 84_532) {
-            // Base Sepolia testnet
-            mailbox = 0x6966b0E55883d49BFB24539356a2f8A673E02039;
-            igp = 0x28B02B97a850872C4D33C3E024fab6499ad96564;
-        }
+        _verifyBridgeContract("L1CrossDomainMessenger", l1Messenger);
 
-        if (mailbox == address(0) || igp == address(0)) {
-            revert("Unsupported chain for Hyperlane (set L1_HYPERLANE_MAILBOX and L1_HYPERLANE_IGP to override)");
-        }
-
-        // Verify bridge contracts exist before deployment
-        _verifyBridgeContract("Hyperlane Mailbox", mailbox);
-        _verifyBridgeContract("Hyperlane IGP", igp);
-
-        HyperlaneCrossChainMessenger messenger = new HyperlaneCrossChainMessenger(mailbox, igp);
-        console2.log("HyperlaneCrossChainMessenger:", address(messenger));
-        return address(messenger);
-    }
-
-    function deployLayerZeroMessenger() internal returns (address) {
-        // LayerZero V2 Endpoint addresses by chain
-        // See: https://docs.layerzero.network/deployments/deployed-contracts
-        // NOTE: L2 slashing deploy scripts use `LAYERZERO_ENDPOINT`; to avoid env collisions, L1 uses L1_* vars.
-        address endpoint = vm.envOr("L1_LAYERZERO_ENDPOINT", address(0));
-
-        if (endpoint == address(0) && block.chainid == 1) {
-            // Ethereum mainnet
-            endpoint = 0x1a44076050125825900e736c501f859c50fE728c;
-        } else if (endpoint == address(0) && block.chainid == 11_155_111) {
-            // Sepolia testnet
-            endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        } else if (endpoint == address(0) && block.chainid == 17_000) {
-            // Holesky testnet
-            endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        } else if (endpoint == address(0) && block.chainid == 8453) {
-            // Base mainnet
-            endpoint = 0x1a44076050125825900e736c501f859c50fE728c;
-        } else if (endpoint == address(0) && block.chainid == 84_532) {
-            // Base Sepolia testnet
-            endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        }
-
-        if (endpoint == address(0)) {
-            revert("Unsupported chain for LayerZero (set L1_LAYERZERO_ENDPOINT to override)");
-        }
-
-        // Verify bridge contract exists before deployment
-        _verifyBridgeContract("LayerZero Endpoint", endpoint);
-
-        LayerZeroCrossChainMessenger messenger = new LayerZeroCrossChainMessenger(endpoint);
-        console2.log("LayerZeroCrossChainMessenger:", address(messenger));
+        BaseCrossChainMessenger messenger = new BaseCrossChainMessenger(l1Messenger);
+        console2.log("BaseCrossChainMessenger (OP-Stack):", address(messenger));
         return address(messenger);
     }
 
@@ -317,7 +262,7 @@ contract DeployBeaconSlashingL1 is Script {
 
         string memory root = "beaconSlashing";
         vm.serializeString(root, "kind", "beacon-slashing-l1");
-        vm.serializeString(root, "bridge", bridge == BridgeProtocol.Hyperlane ? "hyperlane" : "layerzero");
+        vm.serializeString(root, "bridge", "opstack");
         vm.serializeUint(root, "chainId", block.chainid);
         vm.serializeAddress(root, "admin", admin);
         vm.serializeAddress(root, "oracle", oracle);
@@ -382,6 +327,32 @@ contract DeployBeaconSlashingL1 is Script {
         } catch { }
     }
 
+    /// @notice True on L1/L2 mainnets where beacon slashing would be live. Bypass on
+    ///         local/anvil with TANGLE_DEPLOY_LOCAL=1.
+    function _isProductionChain() internal view returns (bool) {
+        if (vm.envOr("TANGLE_DEPLOY_LOCAL", uint256(0)) != 0) return false;
+        uint256 id = block.chainid;
+        // Ethereum, Base, Tangle, Arbitrum, Optimism mainnets.
+        return id == 1 || id == 8453 || id == 5845 || id == 42_161 || id == 10;
+    }
+
+    /// @notice Refuse to deploy beacon slashing infra to a production chain with hot-key admin
+    ///         or a forgeable mock oracle.
+    function _requireProductionBeaconConfig(
+        address deployer,
+        address admin,
+        address oracle,
+        bool useMockBeaconOracle
+    )
+        internal
+        view
+    {
+        if (!_isProductionChain()) return;
+        require(!useMockBeaconOracle, "config: USE_MOCK_BEACON_ORACLE forbidden on production");
+        require(admin != deployer, "config: ADMIN must be a multisig/timelock, not the deployer");
+        require(oracle != deployer, "config: SLASHING_ORACLE must be set, not the deployer");
+    }
+
     /// @notice Verify bridge contract exists and has code
     function _verifyBridgeContract(string memory name, address addr) internal view {
         if (addr == address(0)) revert BridgeContractNotFound(name, addr);
@@ -398,7 +369,7 @@ contract DeployBeaconSlashingL1 is Script {
 contract DeployBeaconSlashingL1Testnet is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
-        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.Hyperlane);
+        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.OpStack);
     }
 }
 
@@ -409,16 +380,7 @@ contract DeployBeaconSlashingL1Testnet is Script {
 contract DeployBeaconSlashingL1Holesky is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
-        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.Hyperlane);
-    }
-}
-
-/// @title DeployBeaconSlashingL1HoleskyLayerZero
-/// @notice Convenience script for Holesky testnet deployment using LayerZero.
-contract DeployBeaconSlashingL1HoleskyLayerZero is Script {
-    function run() external {
-        DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
-        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.LayerZero);
+        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.OpStack);
     }
 }
 
@@ -429,7 +391,7 @@ contract DeployBeaconSlashingL1HoleskyLayerZero is Script {
 contract DeployBeaconSlashingBase is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
-        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.Hyperlane);
+        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.OpStack);
     }
 }
 
@@ -440,16 +402,19 @@ contract DeployBeaconSlashingBase is Script {
 contract DeployBeaconSlashingBaseSepolia is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
-        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.Hyperlane);
+        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.OpStack);
     }
 }
 
-/// @title DeployBeaconSlashingL1LayerZero
-/// @notice Generic convenience script for LayerZero deployments on any supported L1 chain.
-contract DeployBeaconSlashingL1LayerZero is Script {
+/// @title DeployBeaconSlashingOpStack
+/// @notice OP-Stack (Base/Optimism) native L1 leg — recommended for Base. Deploys the
+///         BaseCrossChainMessenger wrapping the target OP chain's canonical L1CrossDomainMessenger;
+///         no third-party bridge, no ISM/DVN to pin. Run on L1 (Ethereum); set
+///         L1_CROSS_DOMAIN_MESSENGER to the target OP chain's L1 messenger (defaults to Base's).
+contract DeployBeaconSlashingOpStack is Script {
     function run() external {
         DeployBeaconSlashingL1 deploy = new DeployBeaconSlashingL1();
-        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.LayerZero);
+        deploy.run(DeployBeaconSlashingL1.BridgeProtocol.OpStack);
     }
 }
 

@@ -16,11 +16,19 @@ interface ITangleBlueprints {
 
     event BlueprintUpdated(uint64 indexed blueprintId, string metadataUri, bytes32 metadataHash);
 
+    /// @dev Emitted when a two-step ownership transfer is proposed (pendingOwner = the proposed owner).
+    event BlueprintTransferProposed(uint64 indexed blueprintId, address indexed from, address indexed pendingOwner);
+
+    /// @dev Emitted when a pending two-step ownership transfer is cancelled by the current owner.
+    event BlueprintTransferCancelled(uint64 indexed blueprintId, address indexed owner);
+
     event BlueprintTransferred(uint64 indexed blueprintId, address indexed from, address indexed to);
 
     event BlueprintDeactivated(uint64 indexed blueprintId);
 
     event BlueprintSourcesUpdated(uint64 indexed blueprintId, uint256 sourceCount);
+
+    event BlueprintSourcesAcked(uint64 indexed blueprintId, address indexed operator, bytes32 sourcesHash);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // FUNCTIONS
@@ -37,8 +45,26 @@ interface ITangleBlueprints {
     /// @notice Replace a blueprint's binary sources (owner only)
     function setBlueprintSources(uint64 blueprintId, Types.BlueprintSource[] calldata sources) external;
 
-    /// @notice Transfer blueprint ownership
+    /// @notice Propose a transfer of blueprint ownership (step 1 of 2)
     function transferBlueprint(uint64 blueprintId, address newOwner) external;
+
+    /// @notice Accept a pending blueprint ownership transfer (step 2 of 2)
+    function acceptBlueprintOwnership(uint64 blueprintId) external;
+
+    /// @notice Cancel a pending blueprint ownership transfer
+    function cancelBlueprintTransfer(uint64 blueprintId) external;
+
+    /// @notice The pending owner of a blueprint (zero if none)
+    function pendingBlueprintOwner(uint64 blueprintId) external view returns (address);
+
+    /// @notice Acknowledge the blueprint's current cold-start sources digest (operator opt-in)
+    function ackBlueprintSources(uint64 blueprintId, bytes32 sourcesHash) external;
+
+    /// @notice The current cold-start sources digest for a blueprint
+    function blueprintSourcesHash(uint64 blueprintId) external view returns (bytes32);
+
+    /// @notice Whether `operator` has acked the blueprint's current cold-start sources
+    function operatorAckedCurrentSources(uint64 blueprintId, address operator) external view returns (bool);
 
     /// @notice Deactivate a blueprint
     function deactivateBlueprint(uint64 blueprintId) external;

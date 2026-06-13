@@ -7,10 +7,7 @@ import { DeployV2 } from "../../script/Deploy.s.sol";
 import { DeployBeaconSlashingL1 } from "../../script/DeployBeaconSlashing.s.sol";
 import { DeployL2Slashing } from "../../script/DeployL2Slashing.s.sol";
 import { LocalTestnetSetup } from "../../script/LocalTestnet.s.sol";
-import { L2SlashingReceiver } from "../../src/beacon/L2SlashingReceiver.sol";
 import { TangleL2Slasher } from "../../src/beacon/TangleL2Slasher.sol";
-import { HyperlaneReceiver } from "../../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
-import { LayerZeroReceiver } from "../../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 import { IStaking } from "../../src/interfaces/IStaking.sol";
 import { Types } from "../../src/libraries/Types.sol";
 import { MultiAssetDelegation } from "../../src/staking/MultiAssetDelegation.sol";
@@ -341,15 +338,13 @@ contract DeploymentScriptsTest is Test {
         assertEq(OperatorStatusRegistry(statusRegistry).owner(), timelock, "status registry owner should stay timelock");
     }
 
-    function testDeployBeaconSlashingScriptRunsHyperlane() public {
+    function testDeployBeaconSlashingScriptRunsOpStack() public {
         uint256 originalChainId = block.chainid;
-        vm.chainId(1); // ensure Hyperlane addresses resolve
+        vm.chainId(1); // ensure OP-Stack default L1 messenger resolves (Base on mainnet)
 
-        // Etch dummy code at mainnet Hyperlane addresses so _verifyBridgeContract passes
-        address hyperlaneMailbox = 0xc005dc82818d67AF737725bD4bf75435d065D239;
-        address hyperlaneIgp = 0x6cA0B6D22da47f091B7613223cD4BB03a2d77918;
-        vm.etch(hyperlaneMailbox, hex"00");
-        vm.etch(hyperlaneIgp, hex"00");
+        // Etch dummy code at Base's L1CrossDomainMessenger so _verifyBridgeContract passes
+        address l1CrossDomainMessenger = 0x866E82a600A1414e583f7F13623F1aC5d58b0Afa;
+        vm.etch(l1CrossDomainMessenger, hex"00");
 
         uint256 privateKey = 0xB0B;
         address deployer = vm.addr(privateKey);
@@ -361,40 +356,12 @@ contract DeploymentScriptsTest is Test {
 
         DeployBeaconSlashingHarness script = new DeployBeaconSlashingHarness();
         (address podManager, address connector, address messenger) = script.deployNoPrank(
-            DeployBeaconSlashingL1.BridgeProtocol.Hyperlane, admin, oracle, 3799, receiver, address(0)
+            DeployBeaconSlashingL1.BridgeProtocol.OpStack, admin, oracle, 3799, receiver, address(0)
         );
 
         assertTrue(podManager != address(0), "pod manager deployed");
         assertTrue(connector != address(0), "connector deployed");
         assertTrue(messenger != address(0), "messenger deployed");
-
-        vm.chainId(originalChainId);
-    }
-
-    function testDeployBeaconSlashingScriptRunsLayerZero() public {
-        uint256 originalChainId = block.chainid;
-        vm.chainId(11_155_111); // Sepolia supported by both messengers
-
-        // Etch dummy code at Sepolia LayerZero endpoint so _verifyBridgeContract passes
-        address layerZeroEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-        vm.etch(layerZeroEndpoint, hex"00");
-
-        uint256 privateKey = 0xCAFE;
-        address deployer = vm.addr(privateKey);
-        vm.deal(deployer, 1000 ether);
-
-        address admin = deployer;
-        address oracle = makeAddr("oracle2");
-        address receiver = makeAddr("receiver2");
-
-        DeployBeaconSlashingHarness script = new DeployBeaconSlashingHarness();
-        (address podManager, address connector, address messenger) = script.deployNoPrank(
-            DeployBeaconSlashingL1.BridgeProtocol.LayerZero, admin, oracle, 3799, receiver, address(0)
-        );
-
-        assertTrue(podManager != address(0), "pod manager deployed");
-        assertTrue(connector != address(0), "connector deployed");
-        assertTrue(messenger != address(0), "layerzero messenger deployed");
 
         vm.chainId(originalChainId);
     }
@@ -420,66 +387,6 @@ contract DeploymentScriptsTest is Test {
 
         TangleL2Slasher slasherContract = TangleL2Slasher(slasher);
         assertTrue(slasherContract.authorizedCallers(receiver), "receiver should be authorized caller");
-    }
-
-    function testDeployL2SlashingScriptRunsHyperlane() public {
-        uint256 privateKey = 0xDAD;
-        address deployer = vm.addr(privateKey);
-        vm.deal(deployer, 1000 ether);
-
-        MockStaking staking = new MockStaking();
-        staking.setStake(makeAddr("operator"), 32 ether);
-
-        // Provide Hyperlane mailbox via env and etch code at address
-        address mailbox = makeAddr("hyperlaneMailbox");
-        vm.etch(mailbox, hex"00"); // Etch dummy code so _verifyBridgeContract passes
-        vm.setEnv("HYPERLANE_MAILBOX", vm.toString(mailbox));
-        vm.setEnv("L1_MESSENGER", vm.toString(makeAddr("hyperlaneL1Messenger")));
-
-        DeployL2SlashingHarness script = new DeployL2SlashingHarness();
-        address admin = deployer;
-        address l1Connector = makeAddr("l1Connector");
-
-        (address slasher, address receiver) = script.deployNoPrank(
-            DeployL2Slashing.BridgeProtocol.Hyperlane, admin, address(staking), 1, l1Connector, address(0)
-        );
-
-        assertTrue(slasher != address(0), "slasher deployed");
-        assertTrue(receiver != address(0), "receiver deployed");
-        address adapter = L2SlashingReceiver(receiver).messenger();
-        assertTrue(adapter != address(0) && adapter.code.length > 0, "hyperlane adapter deployed");
-        assertEq(HyperlaneReceiver(adapter).mailbox(), mailbox, "hyperlane mailbox wired");
-    }
-
-    function testDeployL2SlashingScriptRunsLayerZero() public {
-        uint256 privateKey = 0xDAD1;
-        address deployer = vm.addr(privateKey);
-        vm.deal(deployer, 1000 ether);
-
-        MockStaking staking = new MockStaking();
-        staking.setStake(makeAddr("operator"), 32 ether);
-
-        // Provide LayerZero endpoint via env and etch code at address
-        address endpoint = makeAddr("layerzeroEndpoint");
-        vm.etch(endpoint, hex"00"); // Etch dummy code so _verifyBridgeContract passes
-        vm.setEnv("LAYERZERO_ENDPOINT", vm.toString(endpoint));
-        vm.setEnv("L1_MESSENGER", vm.toString(makeAddr("layerzeroL1Messenger")));
-        // Provide the source EID explicitly for the harness (chainId 1 => 30101).
-        vm.setEnv("LAYERZERO_SOURCE_EID", vm.toString(uint256(30_101)));
-
-        DeployL2SlashingHarness script = new DeployL2SlashingHarness();
-        address admin = deployer;
-        address l1Connector = makeAddr("l1ConnectorLZ");
-
-        (address slasher, address receiver) = script.deployNoPrank(
-            DeployL2Slashing.BridgeProtocol.LayerZero, admin, address(staking), 1, l1Connector, address(0)
-        );
-
-        assertTrue(slasher != address(0), "slasher deployed");
-        assertTrue(receiver != address(0), "receiver deployed");
-        address adapter = L2SlashingReceiver(receiver).messenger();
-        assertTrue(adapter != address(0) && adapter.code.length > 0, "layerzero adapter deployed");
-        assertEq(LayerZeroReceiver(adapter).endpoint(), endpoint, "layerzero endpoint wired");
     }
 
     function testLocalTestnetSetupRuns() public {

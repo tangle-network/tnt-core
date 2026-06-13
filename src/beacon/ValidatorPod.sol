@@ -304,8 +304,12 @@ contract ValidatorPod is ReentrancyGuard {
             revert NoActiveValidators();
         }
 
-        // Snapshot the pod's current ETH balance
-        uint64 podBalanceGwei = uint64(address(this).balance / 1 gwei);
+        // Snapshot only the pod ETH that has NOT already been accounted as withdrawable
+        // by a prior checkpoint. `withdrawableRestakedExecutionLayerGwei` is the running
+        // tally of execution-layer ETH already credited as a rebase. Subtracting it here
+        // ensures parked ETH (exited principal / partial withdrawals awaiting claim) is
+        // counted exactly once instead of being re-credited as fresh reward every cycle.
+        uint64 podBalanceGwei = _newlyWithdrawableGwei();
 
         if (revertIfNoBalance && podBalanceGwei == 0) {
             revert InsufficientBalance();
@@ -429,8 +433,19 @@ contract ValidatorPod is ReentrancyGuard {
     function _finalizeCheckpoint() internal {
         int256 totalDeltaWei = int256(currentCheckpoint.balanceDeltasGwei) * 1 gwei;
 
-        // Add any ETH that arrived at the pod (partial withdrawals, tips, etc.)
-        totalDeltaWei += int256(uint256(currentCheckpoint.podBalanceGwei)) * 1 gwei;
+        // Add only the ETH that newly arrived at the pod since the last checkpoint
+        // (partial withdrawals, exited principal, tips). `podBalanceGwei` was snapshotted
+        // net of `withdrawableRestakedExecutionLayerGwei` in `startCheckpoint`, so this is
+        // the un-accounted delta — never the full parked balance.
+        uint64 newlyWithdrawableGwei = currentCheckpoint.podBalanceGwei;
+        totalDeltaWei += int256(uint256(newlyWithdrawableGwei)) * 1 gwei;
+
+        // Promote the newly counted ETH into the running withdrawable tally so the NEXT
+        // checkpoint nets it out and does not double-count it. INVARIANT: counted-stake
+        // never includes the same wei twice.
+        if (newlyWithdrawableGwei > 0) {
+            withdrawableRestakedExecutionLayerGwei += newlyWithdrawableGwei;
+        }
 
         // ELIP-004: Calculate new slashing factor if balance decreased due to beacon slashing
         // The slashing factor tracks the proportional decrease in validator balances
@@ -497,6 +512,17 @@ contract ValidatorPod is ReentrancyGuard {
     function withdrawToStaker(address recipient, uint256 amount) external onlyPodManager nonReentrant {
         if (amount > address(this).balance) {
             revert InsufficientBalance();
+        }
+
+        // This ETH was already counted as withdrawable by a prior checkpoint, so remove
+        // it from the running tally before it leaves the pod. Without this, a later
+        // checkpoint would treat the now-departed wei as never-accounted and re-credit a
+        // phantom positive rebase. Clamp to the tally (rounding down to gwei) so a payout
+        // larger than the tracked withdrawable amount cannot underflow.
+        uint256 amountGwei = amount / 1 gwei;
+        if (amountGwei > 0) {
+            uint256 tally = withdrawableRestakedExecutionLayerGwei;
+            withdrawableRestakedExecutionLayerGwei = amountGwei >= tally ? 0 : tally - amountGwei;
         }
 
         (bool success,) = recipient.call{ value: amount }("");
@@ -574,7 +600,9 @@ contract ValidatorPod is ReentrancyGuard {
             revert NoActiveValidators();
         }
 
-        uint64 podBalanceGwei = uint64(address(this).balance / 1 gwei);
+        // Same single-count guard as `startCheckpoint`: only the not-yet-accounted
+        // execution-layer ETH is snapshotted as fresh withdrawable balance.
+        uint64 podBalanceGwei = _newlyWithdrawableGwei();
         uint64 timestamp = uint64(block.timestamp);
 
         currentCheckpoint = ValidatorTypes.Checkpoint({
@@ -606,6 +634,19 @@ contract ValidatorPod is ReentrancyGuard {
     /// @dev Now returns the tracked running total instead of 0
     function _getTotalRestakedGwei() internal view returns (uint64) {
         return totalRestakedBalanceGwei;
+    }
+
+    /// @notice Execution-layer ETH (in gwei) that has arrived since it was last accounted.
+    /// @dev `address(this).balance / 1 gwei` is the total parked ETH;
+    ///      `withdrawableRestakedExecutionLayerGwei` is the portion already credited as a
+    ///      rebase by a prior checkpoint. The difference is the fresh, not-yet-counted
+    ///      amount a new checkpoint may credit. Saturates to 0 if the tally somehow
+    ///      exceeds the live balance (e.g. ETH left via a path that did not decrement it),
+    ///      so a checkpoint can never credit a negative phantom amount.
+    function _newlyWithdrawableGwei() internal view returns (uint64) {
+        uint256 balanceGwei = address(this).balance / 1 gwei;
+        uint256 accounted = withdrawableRestakedExecutionLayerGwei;
+        return balanceGwei > accounted ? uint64(balanceGwei - accounted) : 0;
     }
 
     /// @notice Get validator info by pubkey hash

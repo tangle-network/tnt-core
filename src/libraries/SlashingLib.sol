@@ -221,6 +221,10 @@ library SlashingLib {
     /// @param evidence Evidence hash
     /// @param instant If true, skip dispute window (requires instantSlashEnabled)
     /// @return slashId The new slash proposal ID
+    /// @param disputeWindow Effective dispute window (seconds) for this proposal. The caller
+    ///        resolves this — protocol default or a per-service override from the blueprint's
+    ///        `getSlashingWindow` hook — and is responsible for clamping it to
+    ///        `[MIN_DISPUTE_WINDOW, MAX_DISPUTE_WINDOW]`. Ignored for instant slashes.
     function proposeSlash(
         SlashState storage state,
         mapping(uint64 => SlashProposal) storage proposals,
@@ -230,7 +234,8 @@ library SlashingLib {
         uint16 slashBps,
         uint16 exposureBps,
         bytes32 evidence,
-        bool instant
+        bool instant,
+        uint64 disputeWindow
     )
         internal
         returns (uint64 slashId)
@@ -250,7 +255,11 @@ library SlashingLib {
             }
             executeAfter = uint64(block.timestamp);
         } else {
-            executeAfter = uint64(block.timestamp) + state.config.disputeWindow;
+            // Defense-in-depth: clamp again here so the library never produces a proposal
+            // outside protocol bounds even if a caller forgets to clamp.
+            if (disputeWindow < MIN_DISPUTE_WINDOW) disputeWindow = MIN_DISPUTE_WINDOW;
+            if (disputeWindow > MAX_DISPUTE_WINDOW) disputeWindow = MAX_DISPUTE_WINDOW;
+            executeAfter = uint64(block.timestamp) + disputeWindow;
         }
 
         // Create proposal

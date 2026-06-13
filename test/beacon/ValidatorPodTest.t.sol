@@ -67,10 +67,12 @@ contract ValidatorPodTest is BeaconTestBase {
         );
 
         bytes32 validatorLeaf = _hashValidatorFields(fields);
+        // SSZ List mix_in_length: validator leaf sits one level below the list field root,
+        // so the sub-path is VALIDATOR_TREE_HEIGHT + 1 levels (matches the library fix).
         (bytes memory validatorProofBytes, bytes32 beaconStateRoot) = _buildProofFromGindex(
             validatorLeaf,
             _validatorGindex(validatorIndex),
-            VALIDATOR_TREE_HEIGHT + BEACON_STATE_TREE_HEIGHT,
+            VALIDATOR_TREE_HEIGHT + 1 + BEACON_STATE_TREE_HEIGHT,
             keccak256(abi.encodePacked(salt, "validator"))
         );
 
@@ -105,10 +107,13 @@ contract ValidatorPodTest is BeaconTestBase {
     {
         bytes32 balanceLeaf = _buildBalanceLeaf(validatorIndex, balanceGwei);
 
-        (bytes memory balanceProofBytes, bytes32 balanceContainerRoot) = _buildProofFromIndex(
+        // SSZ List mix_in_length: balance leaf sits one level below the balances list
+        // root, so we build from the gindex (1 << (BALANCE_TREE_HEIGHT+1)) | leafIndex over
+        // BALANCE_TREE_HEIGHT + 1 levels (matches the library fix).
+        (bytes memory balanceProofBytes, bytes32 balanceContainerRoot) = _buildProofFromGindex(
             balanceLeaf,
-            validatorIndex / VALIDATORS_PER_BALANCE_LEAF,
-            BALANCE_TREE_HEIGHT,
+            (uint256(1) << (BALANCE_TREE_HEIGHT + 1)) | (validatorIndex / VALIDATORS_PER_BALANCE_LEAF),
+            BALANCE_TREE_HEIGHT + 1,
             keccak256(abi.encodePacked(salt, "balance"))
         );
 
@@ -209,7 +214,8 @@ contract ValidatorPodTest is BeaconTestBase {
     }
 
     function _validatorGindex(uint40 validatorIndex) internal pure returns (uint256) {
-        return (VALIDATOR_CONTAINER_GINDEX << VALIDATOR_TREE_HEIGHT) | uint256(validatorIndex);
+        // SSZ List mix_in_length adds one level: shift by VALIDATOR_TREE_HEIGHT + 1.
+        return (VALIDATOR_CONTAINER_GINDEX << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

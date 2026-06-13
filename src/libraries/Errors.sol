@@ -56,6 +56,12 @@ library Errors {
     /// @notice Caller is not blueprint owner
     error NotBlueprintOwner(uint64 blueprintId, address caller);
 
+    /// @notice Caller is not the pending owner of a two-step blueprint transfer
+    error NotPendingBlueprintOwner(uint64 blueprintId, address caller);
+
+    /// @notice Acked cold-start sources digest does not match the live one
+    error StaleSourcesAck(uint64 blueprintId, bytes32 acked, bytes32 live);
+
     /// @notice Blueprint definition missing required metadata
     error BlueprintMetadataRequired();
 

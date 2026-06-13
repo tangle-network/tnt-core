@@ -19,16 +19,14 @@ set -euo pipefail
 #
 # Optional env:
 #   FULL_DEPLOY_CONFIG     (defaults: deploy/config/base-sepolia-holesky.json)
-#   SLASHING_BRIDGE        (hyperlane|layerzero, default: hyperlane)
+#   SLASHING_BRIDGE        (opstack, default: opstack; OP-Stack-native, HL/LZ removed)
 #   L1_MANIFEST_PATH       (default: <manifestDir>/beacon-slashing.json)
 #   L2_SLASHING_MANIFEST_PATH (default: <manifestDir>/l2-slashing.json)
 #   DEPLOY_MIGRATION       (true|false, default: false)
 #
 # Bridge overrides for unsupported chains:
-#   Hyperlane (L1 messenger): L1_HYPERLANE_MAILBOX + L1_HYPERLANE_IGP
-#   LayerZero (L1 messenger): L1_LAYERZERO_ENDPOINT
-#   Hyperlane (dest receiver): HYPERLANE_MAILBOX
-#   LayerZero (dest receiver): LAYERZERO_ENDPOINT + LAYERZERO_SOURCE_EID
+#   OP-Stack (L1 messenger): L1_CROSS_DOMAIN_MESSENGER (target OP chain's L1CrossDomainMessenger)
+#   OP-Stack (dest receiver): L2_CROSS_DOMAIN_MESSENGER (defaults to the OP L2 predeploy)
 #
 # Migration deploy (if DEPLOY_MIGRATION=true):
 #   TREASURY_RECIPIENT required (treasury carveout exists in snapshot artifacts)
@@ -44,7 +42,7 @@ cd "$ROOT_DIR"
 : "${SOURCE_CHAIN_ID:?Missing SOURCE_CHAIN_ID}"
 
 FULL_DEPLOY_CONFIG="${FULL_DEPLOY_CONFIG:-deploy/config/base-sepolia-holesky.json}"
-SLASHING_BRIDGE="${SLASHING_BRIDGE:-hyperlane}"
+SLASHING_BRIDGE="${SLASHING_BRIDGE:-opstack}"
 DEPLOY_MIGRATION="${DEPLOY_MIGRATION:-false}"
 
 if ! command -v jq >/dev/null 2>&1; then
@@ -81,10 +79,8 @@ if [[ -z "$STAKING_ADDR" || "$STAKING_ADDR" == "null" || "$STAKING_ADDR" == "0x0
 fi
 
 echo "==> 2/4 Deploy beacon slashing infra on L1 (chainId=$SOURCE_CHAIN_ID) (no dest wiring yet)"
-L1_SCRIPT="DeployBeaconSlashingL1"
-if [[ "$SLASHING_BRIDGE" == "layerzero" ]]; then
-  L1_SCRIPT="DeployBeaconSlashingL1LayerZero"
-fi
+# Bridge is OP-Stack-native; Hyperlane/LayerZero removed.
+L1_SCRIPT="DeployBeaconSlashingOpStack"
 
 SKIP_CHAIN_CONFIG=true \
 TANGLE_CHAIN_ID="$DEST_CHAIN_ID" \
@@ -103,9 +99,8 @@ fi
 
 echo "==> 3/4 Deploy destination slashing receiver (bridge=$SLASHING_BRIDGE)"
 case "$SLASHING_BRIDGE" in
-  hyperlane) L2_BRIDGE_CONTRACT="DeployL2SlashingHyperlane" ;;
-  layerzero) L2_BRIDGE_CONTRACT="DeployL2SlashingLayerZero" ;;
-  *) echo "Unsupported SLASHING_BRIDGE: $SLASHING_BRIDGE (expected hyperlane|layerzero)" >&2; exit 1 ;;
+  opstack) L2_BRIDGE_CONTRACT="DeployL2SlashingOpStack" ;;
+  *) echo "Unsupported SLASHING_BRIDGE: $SLASHING_BRIDGE (only opstack is supported; HL/LZ removed)" >&2; exit 1 ;;
 esac
 
 STAKING="$STAKING_ADDR" \

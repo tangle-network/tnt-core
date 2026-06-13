@@ -260,7 +260,9 @@ contract FullDeploy is DeployV2 {
         _applyRewardsManager(staking, rewardVaults, inflationPool);
         _wireServiceFeeDistributor(staking, tangle, serviceFeeDistributor, streamingPaymentManager, priceOracle);
         _configureRewardVaults(rewardVaults, cfg.incentives.vaults);
-        _configureInflationPool(inflationPool, cfg.incentives, metrics, rewardVaults, tangle, serviceFeeDistributor);
+        _configureInflationPool(
+            inflationPool, cfg.incentives, metrics, rewardVaults, tangle, serviceFeeDistributor, staking
+        );
         _wireTangleModules(tangle, statusRegistry, metrics, rewardVaults, tntToken, cfg.incentives, cfg.guards);
         _configureOperatorBondToken(staking, tntToken);
         _applyGuards(staking, tangle, cfg.guards);
@@ -901,13 +903,21 @@ contract FullDeploy is DeployV2 {
         address metrics,
         address rewardVaults,
         address tangleAddr,
-        address distributor
+        address distributor,
+        address staking
     )
         internal
     {
         if (poolAddr == address(0)) return;
 
         InflationPool pool = InflationPool(payable(poolAddr));
+
+        // Wire the live operator-status source so deregistered / leaving / slashed-inactive
+        // operators stop accruing inflation rewards automatically. The staking backend
+        // (MultiAssetDelegation) exposes `isOperatorActive(address)`.
+        if (staking != address(0)) {
+            pool.setOperatorStatusSource(staking);
+        }
 
         if (metrics != address(0) || rewardVaults != address(0)) {
             pool.setContracts(address(0), metrics, rewardVaults);

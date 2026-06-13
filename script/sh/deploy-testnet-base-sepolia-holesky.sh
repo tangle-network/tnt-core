@@ -9,9 +9,9 @@ set -euo pipefail
 # - jq installed
 # - env: PRIVATE_KEY, BASE_SEPOLIA_RPC, HOLESKY_RPC
 # - env (optional): FULL_DEPLOY_CONFIG (defaults to deploy/config/base-sepolia-holesky.json)
-# - env (optional): SLASHING_BRIDGE=hyperlane|layerzero (defaults: hyperlane)
+# - env (optional): SLASHING_BRIDGE=opstack (defaults: opstack; OP-Stack-native, HL/LZ removed)
 #
-# LayerZero note: you likely need to set LAYERZERO_SOURCE_EID for Holesky.
+# OP-Stack note: set L1_CROSS_DOMAIN_MESSENGER for non-Base OP chains; defaults to Base's L1 messenger.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
@@ -21,7 +21,7 @@ cd "$ROOT_DIR"
 : "${HOLESKY_RPC:?Missing HOLESKY_RPC}"
 
 FULL_DEPLOY_CONFIG="${FULL_DEPLOY_CONFIG:-deploy/config/base-sepolia-holesky.json}"
-SLASHING_BRIDGE="${SLASHING_BRIDGE:-hyperlane}"
+SLASHING_BRIDGE="${SLASHING_BRIDGE:-opstack}"
 DEPLOY_MIGRATION="${DEPLOY_MIGRATION:-false}"
 
 if ! command -v jq >/dev/null 2>&1; then
@@ -82,10 +82,8 @@ if [[ -z "$STAKING_ADDR" || "$STAKING_ADDR" == "null" || "$STAKING_ADDR" == "0x0
 fi
 
 echo "==> 2/4 Deploy beacon slashing infra on Holesky (no L2 wiring yet)"
+# Bridge is OP-Stack-native; Hyperlane/LayerZero removed. The Holesky wrapper now uses OP-Stack.
 L1_SCRIPT="DeployBeaconSlashingL1Holesky"
-if [[ "$SLASHING_BRIDGE" == "layerzero" ]]; then
-  L1_SCRIPT="DeployBeaconSlashingL1HoleskyLayerZero"
-fi
 
 SKIP_CHAIN_CONFIG=true \
 TANGLE_CHAIN_ID=84532 \
@@ -104,16 +102,9 @@ fi
 
 echo "==> 3/4 Deploy L2 slashing receiver on Base Sepolia"
 case "$SLASHING_BRIDGE" in
-  hyperlane) L2_BRIDGE_CONTRACT="DeployL2SlashingHyperlane" ;;
-  layerzero)
-    if [[ -z "${LAYERZERO_SOURCE_EID:-}" ]]; then
-      echo "Missing LAYERZERO_SOURCE_EID (required for Holesky source)" >&2
-      exit 1
-    fi
-    L2_BRIDGE_CONTRACT="DeployL2SlashingLayerZero"
-    ;;
+  opstack) L2_BRIDGE_CONTRACT="DeployL2SlashingOpStack" ;;
   *)
-    echo "Unsupported SLASHING_BRIDGE: $SLASHING_BRIDGE (expected hyperlane|layerzero)" >&2
+    echo "Unsupported SLASHING_BRIDGE: $SLASHING_BRIDGE (only opstack is supported; HL/LZ removed)" >&2
     exit 1
     ;;
 esac

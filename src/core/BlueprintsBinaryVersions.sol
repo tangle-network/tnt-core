@@ -37,6 +37,9 @@ abstract contract BlueprintsBinaryVersions is Base {
     event BinaryVersionDeprecated(uint64 indexed blueprintId, uint64 indexed versionId);
     event BinaryActiveVersionChanged(uint64 indexed blueprintId, uint64 indexed versionId);
     event ServiceUpgradePolicySet(uint64 indexed serviceId, Types.UpgradePolicy policy);
+    event OperatorServiceUpgradePolicySet(
+        uint64 indexed serviceId, address indexed operator, Types.UpgradePolicy policy
+    );
     event OperatorBinaryAcked(uint64 indexed serviceId, uint64 indexed versionId, address indexed operator);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -150,8 +153,14 @@ abstract contract BlueprintsBinaryVersions is Base {
         if (svc.status != Types.ServiceStatus.Active) revert Errors.ServiceNotActive(serviceId);
         if (!_serviceOperators[serviceId][msg.sender].active) revert Errors.NotServiceOperator();
 
+        // Per-operator is the source of truth: one operator can no longer flip the
+        // policy for every other operator of the service (last-writer-wins griefing).
+        // The legacy service-wide scalar is kept updated only for backward-compatible
+        // reads; off-chain dispatch should resolve via `effectiveBinaryVersionForOperator`.
+        _serviceOperatorUpgradePolicy[serviceId][msg.sender] = policy;
         _serviceUpgradePolicy[serviceId] = policy;
         emit ServiceUpgradePolicySet(serviceId, policy);
+        emit OperatorServiceUpgradePolicySet(serviceId, msg.sender, policy);
     }
 
     /// @notice Acknowledge a binary version for a service under `APPROVE` policy.
@@ -173,6 +182,10 @@ abstract contract BlueprintsBinaryVersions is Base {
         if (versionId >= versions.length) revert Errors.VersionNotFound();
         if (versions[versionId].deprecated) revert Errors.VersionDeprecatedCannotAck();
 
+        // Per-operator ack is authoritative (closes the single-operator rollback
+        // griefing where one operator could roll the service-wide acked version back
+        // to a known-weak build for everyone). Legacy scalar kept for back-compat reads.
+        _serviceOperatorAckedVersionId[serviceId][msg.sender] = versionId;
         _serviceAckedVersionId[serviceId] = versionId;
         emit OperatorBinaryAcked(serviceId, versionId, msg.sender);
 
@@ -267,6 +280,50 @@ abstract contract BlueprintsBinaryVersions is Base {
             return versions[acked];
         }
         // MANUAL: pinned to genesis until the operator switches policy.
+        return versions[0];
+    }
+
+    /// @notice Per-operator upgrade policy for a service (canonical; default APPROVE).
+    function getOperatorServiceUpgradePolicy(
+        uint64 serviceId,
+        address operator
+    )
+        external
+        view
+        returns (Types.UpgradePolicy)
+    {
+        return _serviceOperatorUpgradePolicy[serviceId][operator];
+    }
+
+    /// @notice Per-operator last acknowledged version for a service.
+    function getOperatorAckedVersionId(uint64 serviceId, address operator) external view returns (uint64) {
+        return _serviceOperatorAckedVersionId[serviceId][operator];
+    }
+
+    /// @notice Resolve the binary version a SPECIFIC operator of a service should run.
+    /// @dev Canonical resolver after per-operator policy/ack scoping: each operator's
+    ///      AUTO/APPROVE/MANUAL choice and ack are independent, so one operator cannot
+    ///      move the version another operator runs. Mirrors `effectiveBinaryVersion`
+    ///      but reads the per-`(serviceId, operator)` policy and ack.
+    function effectiveBinaryVersionForOperator(
+        uint64 serviceId,
+        address operator
+    )
+        external
+        view
+        returns (Types.BinaryVersion memory)
+    {
+        Types.Service storage svc = _getService(serviceId);
+        Types.BinaryVersion[] storage versions = _blueprintBinaryVersions[svc.blueprintId];
+        if (versions.length == 0) revert Errors.VersionNotFound();
+
+        Types.UpgradePolicy policy = _serviceOperatorUpgradePolicy[serviceId][operator];
+        if (policy == Types.UpgradePolicy.AUTO) {
+            return versions[_blueprintActiveVersionId[svc.blueprintId]];
+        }
+        if (policy == Types.UpgradePolicy.APPROVE) {
+            return versions[_serviceOperatorAckedVersionId[serviceId][operator]];
+        }
         return versions[0];
     }
 }

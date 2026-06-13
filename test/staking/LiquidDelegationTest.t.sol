@@ -508,6 +508,95 @@ contract LiquidDelegationTest is Test {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // PENDING-REDEEM RATE-NEUTRALITY (sandwich) TESTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice A pending redemption must NOT inflate the asset-per-share rate seen by a later
+    ///         depositor. `requestRedeem` burns LP shares immediately but the underlying delegation
+    ///         shares are only queued (not reduced) until claim, so without reserving the redeemed
+    ///         assets out of totalAssets() a victim depositing in between would mint against an
+    ///         inflated rate and be diluted. Asserts the victim's position is worth ~their deposit.
+    function test_Vault_PendingRedeemDoesNotDiluteNextDepositor() public {
+        address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
+        LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
+
+        uint256 D = 10 ether;
+
+        // A deposits D.
+        vm.startPrank(user1);
+        token.approve(address(vault), D);
+        vault.deposit(D, user1);
+        // A requests redemption of half their shares.
+        vault.requestRedeem(D / 2, user1, user1);
+        vm.stopPrank();
+
+        // Victim V deposits D right after the pending request was filed.
+        vm.startPrank(user2);
+        token.approve(address(vault), D);
+        vault.deposit(D, user2);
+        vm.stopPrank();
+
+        // V must not be diluted: their shares should be worth ~D, not ~2D-worth-of-rate-victimhood.
+        uint256 vValue = vault.convertToAssets(vault.balanceOf(user2));
+        // Allow a few wei of rounding from the virtual offset (1e3) and integer division.
+        assertApproxEqAbs(vValue, D, 1e4, "Victim must not be diluted by a pending redemption");
+
+        // Sanity: totalAssets() excludes the reserved half (~D/2 reserved out of the deposited 2*D).
+        // After V deposits, underlying delegation ~= 2*D, reserved ~= D/2, so net ~= 1.5*D.
+        uint256 net = vault.totalAssets();
+        assertApproxEqAbs(net, D + D / 2, 1e4, "totalAssets() must exclude reserved redemption assets");
+    }
+
+    /// @notice The reservation must be released exactly once and must not strand or over-release
+    ///         assets when a slash lands while the redemption is pending. After a mid-pending slash,
+    ///         claiming the request must succeed and drive the pending-reserve accumulator back to a
+    ///         consistent state (verified indirectly: a later full exit prices correctly to ~0).
+    function test_Vault_SlashDuringPendingRedeem_ReleasesCleanly() public {
+        address vaultAddr = factory.createAllBlueprintsVault(operator1, address(token));
+        LiquidDelegationVault vault = LiquidDelegationVault(payable(vaultAddr));
+
+        // A deposits 10, requests redeem of half.
+        vm.startPrank(user1);
+        token.approve(address(vault), 10 ether);
+        vault.deposit(10 ether, user1);
+        uint256 requestId = vault.requestRedeem(5 ether, user1, user1);
+        vm.stopPrank();
+
+        // totalAssets() should be net of the ~5 ether reservation.
+        assertApproxEqAbs(vault.totalAssets(), 5 ether, 1e4, "reserved half excluded pre-slash");
+
+        // Slash 10% while the redemption is pending. Slashing shrinks the underlying delegation but
+        // must not strand the reserved amount nor let the accumulator underflow on claim.
+        vm.prank(slasher);
+        staking.slashForBlueprint(operator1, 1, 0, 1000, keccak256("evidence"));
+
+        // slashForBlueprint is an immediate O(1) slash (it does NOT set _operatorPendingSlashCount —
+        // that is the Tangle-core dispute-window path). This test exercises the underlying-delegation-
+        // shrinks-during-pending-redeem path + reservation clamping; advance past the bond-less delay.
+        uint64 delay = uint64(staking.delegationBondLessDelay());
+        _advanceRounds(delay + 5);
+
+        // Claim should succeed and return some (slash-reduced) assets without reverting.
+        uint256 balBefore = token.balanceOf(user1);
+        vm.prank(user1);
+        uint256 assetsOut = vault.redeem(requestId, 5 ether, user1, user1);
+        assertEq(token.balanceOf(user1), balBefore + assetsOut, "claimed assets transferred");
+
+        // After release, the reservation is gone: the remaining holder's position prices off the
+        // full (slash-reduced) underlying with no phantom reserve subtracted. convertToAssets of the
+        // remaining shares must be > 0 and must not exceed the live underlying delegation.
+        uint256 remainingValue = vault.convertToAssets(vault.balanceOf(user1));
+        uint256 underlying = staking.getDelegation(vaultAddr, operator1);
+        assertLe(remainingValue, underlying + 1e3, "no phantom reserve left after release");
+        assertGt(remainingValue, 0, "remaining holder still has value");
+
+        // A second claim must revert (release happens exactly once).
+        vm.prank(user1);
+        vm.expectRevert(LiquidDelegationVault.AlreadyClaimed.selector);
+        vault.redeem(requestId, 5 ether, user1, user1);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // OPERATOR PERMISSION TESTS
     // ═══════════════════════════════════════════════════════════════════════════
 

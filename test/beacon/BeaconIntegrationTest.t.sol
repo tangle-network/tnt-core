@@ -12,8 +12,12 @@ import { console2 } from "forge-std/Test.sol";
 /// @notice Integration tests for the full beacon chain staking flow
 /// @dev Tests end-to-end scenarios including proof verification, checkpoints, and slashing
 contract BeaconIntegrationTest is BeaconTestBase {
-    uint256 private constant POD_CREATION_GAS_BUDGET = 4_500_000;
-    uint256 private constant BALANCE_UPDATE_GAS_BUDGET = 4_500_000;
+    // Regression guard, measured under the optimizer-OFF `fast` test profile (production
+    // uses the optimizer and is far lower). Raised from 4.5M after the checkpoint
+    // withdrawable-ETH accounting was added to ValidatorPod (the EigenLayer-style fix that
+    // stops parked pod ETH being re-credited every checkpoint).
+    uint256 private constant POD_CREATION_GAS_BUDGET = 6_000_000;
+    uint256 private constant BALANCE_UPDATE_GAS_BUDGET = 6_000_000;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TEST FIXTURES (EigenLayer-style)

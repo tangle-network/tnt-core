@@ -12,6 +12,7 @@ import { TangleMetrics } from "./TangleMetrics.sol";
 import { RewardVaults } from "./RewardVaults.sol";
 import { ITangleSecurityView } from "../interfaces/ITangleSecurityView.sol";
 import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
+import { IStaking } from "../interfaces/IStaking.sol";
 import { Types } from "../libraries/Types.sol";
 
 /// @title InflationPool
@@ -184,6 +185,15 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     /// @notice Funding period duration in seconds (defaults to 365 days).
     uint256 public fundingPeriodSeconds;
 
+    /// @notice Optional live operator-status source (the staking backend / Tangle staking view).
+    /// @dev Appended after `fundingPeriodSeconds` (append-only — DO NOT reorder) so existing
+    ///      deployments keep their storage layout. When set, operator reward scoring is gated on
+    ///      `isOperatorActive(operator)` so that a deregistered / leaving / slashed-inactive
+    ///      operator scores 0 automatically, without an admin having to call `deregisterOperator`.
+    ///      When unset (`address(0)`) the gate is a no-op and behavior is unchanged, so this is a
+    ///      backward-compatible addition for already-deployed pools that have not wired it.
+    IStaking public operatorStatusSource;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -202,6 +212,7 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint16 stakingBps, uint16 operatorsBps, uint16 customersBps, uint16 developersBps, uint16 stakersBps
     );
     event StakerInflationConfigured(address indexed tangle, address indexed distributor);
+    event OperatorStatusSourceUpdated(address indexed source);
     event EpochLengthUpdated(uint256 newLength);
     event OperatorRewardClaimed(address indexed operator, uint256 amount);
     event CustomerRewardClaimed(address indexed customer, uint256 amount);
@@ -570,13 +581,21 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256[] memory scores = new uint256[](trackedOperators.length);
 
         for (uint256 i = 0; i < trackedOperators.length; i++) {
-            // Only include operators who have met minimum stake duration
-            uint256 regEpoch = operatorRegistrationEpoch[trackedOperators[i]];
+            address op = trackedOperators[i];
+            // Gate 1: minimum stake duration since registration (flash-stake protection).
+            uint256 regEpoch = operatorRegistrationEpoch[op];
             if (regEpoch == 0 || currentEpoch < regEpoch + minStakeEpochs) {
                 scores[i] = 0;
                 continue;
             }
-            scores[i] = _calculateOperatorScore(trackedOperators[i]);
+            // Gate 2: live operator status. A deregistered / leaving / slashed-inactive operator
+            // scores 0 automatically so it stops diluting active operators, without requiring an
+            // admin to call deregisterOperator. No-op when no status source is configured.
+            if (!_isOperatorLiveActive(op)) {
+                scores[i] = 0;
+                continue;
+            }
+            scores[i] = _calculateOperatorScore(op);
             totalScore += scores[i];
         }
 
@@ -614,6 +633,22 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         uint256 heartbeatBonus = heartbeats * stakeWeight / 100;
 
         score = jobScore + heartbeatBonus;
+    }
+
+    /// @notice Whether an operator is currently active per the configured live-status source.
+    /// @dev Fail-open ONLY when no source is wired (`operatorStatusSource == address(0)`), so
+    ///      existing deployments that have not configured a source keep their prior behavior.
+    ///      When a source IS wired, an unexpected revert from the external call is treated as
+    ///      "not active" (fail-closed): a deregistered operator must not keep accruing rewards
+    ///      just because the status read reverted.
+    function _isOperatorLiveActive(address operator) internal view returns (bool) {
+        IStaking source = operatorStatusSource;
+        if (address(source) == address(0)) return true;
+        try source.isOperatorActive(operator) returns (bool active) {
+            return active;
+        } catch {
+            return false;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1094,6 +1129,18 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
         emit StakerInflationConfigured(address(tangle), address(serviceFeeDistributor));
     }
 
+    /// @notice Configure the live operator-status source used to gate operator reward scoring.
+    /// @dev When set, an operator that is not `isOperatorActive` (deregistered / leaving /
+    ///      slashed-inactive) scores 0 in `_distributeOperatorRewards`, so inactive operators
+    ///      stop accruing `pendingOperatorRewards` automatically — no admin `deregisterOperator`
+    ///      call required. Pass `address(0)` to disable the gate (no-op fallback).
+    /// @param source The staking backend exposing `isOperatorActive(address)` (typically the
+    ///        same Tangle staking contract used elsewhere in the protocol).
+    function setOperatorStatusSource(address source) external onlyRole(ADMIN_ROLE) {
+        operatorStatusSource = IStaking(source);
+        emit OperatorStatusSourceUpdated(source);
+    }
+
     /// @notice Emergency withdraw all tokens to a new pool
     /// @dev Used when migrating to a new pool version
     function emergencyWithdraw(address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -1216,5 +1263,6 @@ contract InflationPool is Initializable, UUPSUpgradeable, AccessControlUpgradeab
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
 
     /// @dev Reserved storage slots for future upgrades (Round 2 storage F-3).
-    uint256[50] private __gap;
+    ///      Decremented from 50 → 49 when `operatorStatusSource` was appended above.
+    uint256[49] private __gap;
 }

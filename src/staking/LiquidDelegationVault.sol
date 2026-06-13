@@ -59,6 +59,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     struct RedeemRequestData {
         uint256 shares; // Shares to redeem
         uint256 unstakeShares; // Shares scheduled in staking bond-less request
+        uint256 reservedAssets; // Asset value reserved out of totalAssets() while pending
         uint64 requestedRound; // Round when requested
         bool claimed; // Whether claimed
     }
@@ -71,6 +72,16 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
 
     /// @notice Operator approvals: controller => operator => approved
     mapping(address => mapping(address => bool)) private _operators;
+
+    /// @notice Assets reserved for in-flight redemptions.
+    /// @dev `scheduleDelegatorUnstake` only queues the bond-less request; it does NOT reduce the
+    ///      vault's underlying delegation shares until `executeDelegatorUnstakeAndWithdraw` runs at
+    ///      claim time. Without this accumulator, `totalAssets()` (priced off the still-un-reduced
+    ///      delegation) stays inflated while `totalSupply()` has already dropped from the burn,
+    ///      letting a pending redeemer inflate the asset-per-share rate and shortchange the next
+    ///      depositor. We subtract reserved assets from `totalAssets()` so the rate is rate-neutral
+    ///      across the request/claim lifecycle. Appended at the END of the storage region.
+    uint256 private _pendingRedeemAssets;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -132,10 +143,19 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Total assets managed by this vault
-    /// @dev Returns the operator's delegated stake from this vault's perspective
+    /// @dev Returns the operator's delegated stake from this vault's perspective, net of assets
+    ///      already reserved for in-flight redemptions. Reserved assets are still counted in the
+    ///      underlying delegation (the bond-less request only queues, it does not reduce shares
+    ///      until claim), so we exclude them here to keep the asset-per-share rate stable while a
+    ///      redemption is pending. Floored at 0 to stay safe if slashing pushes the underlying
+    ///      delegation below the reserved amount.
     function totalAssets() public view returns (uint256) {
-        // Get our delegation to this operator
-        return staking.getDelegation(address(this), operator);
+        uint256 underlying = staking.getDelegation(address(this), operator);
+        uint256 reserved = _pendingRedeemAssets;
+        if (reserved >= underlying) {
+            return 0;
+        }
+        return underlying - reserved;
     }
 
     /// @notice Convert assets to shares
@@ -277,10 +297,20 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Schedule unstake in underlying staking contract
         staking.scheduleDelegatorUnstake(operator, address(asset), assets);
 
+        // Reserve the redeemed asset value out of totalAssets() for the lifetime of the request.
+        // `assets` was priced at the current (already-net) rate above, before the burn, so it is
+        // exactly the value the redeemer is removing from the rate. We store it per-request so the
+        // exact amount is released once at claim time, even if other requests reserve concurrently.
+        _pendingRedeemAssets += assets;
+
         // Create request record
         requestId = _nextRequestId[controller]++;
         _redeemRequests[controller][requestId] = RedeemRequestData({
-            shares: shares, unstakeShares: unstakeShares, requestedRound: requestRound, claimed: false
+            shares: shares,
+            unstakeShares: unstakeShares,
+            reservedAssets: assets,
+            requestedRound: requestRound,
+            claimed: false
         });
 
         emit RedeemRequest(controller, owner, requestId, msg.sender, shares);
@@ -355,6 +385,17 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         }
 
         req.claimed = true;
+
+        // Release the reservation exactly once. `req.claimed` is flipped above before any external
+        // call and a second claim reverts with AlreadyClaimed, so this subtraction runs once per
+        // request. Clamp to the live accumulator so a slash-during-pending (which can only ever
+        // shrink the underlying delegation, never the bookkeeping) can never underflow the counter.
+        uint256 toRelease = req.reservedAssets;
+        uint256 reservedTotal = _pendingRedeemAssets;
+        if (toRelease > reservedTotal) {
+            toRelease = reservedTotal;
+        }
+        _pendingRedeemAssets = reservedTotal - toRelease;
 
         assets = staking.executeDelegatorUnstakeAndWithdraw(
             operator, address(asset), req.unstakeShares, req.requestedRound, receiver

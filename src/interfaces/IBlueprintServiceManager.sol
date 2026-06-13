@@ -67,11 +67,14 @@ interface IBlueprintServiceManager {
     /// @return threshold Threshold percentage (0-100)
     function getHeartbeatThreshold(uint64 serviceId) external view returns (bool useDefault, uint8 threshold);
 
-    /// @notice Get the slashing window for a service
-    /// @dev Time window for disputes before slash is finalized
+    /// @notice Get the dispute window for a service's slashes
+    /// @dev Time window (in SECONDS) during which a proposed slash can be disputed before it
+    ///      becomes executable. Wired at slash-proposal time; a custom window is clamped to the
+    ///      protocol bounds [MIN_DISPUTE_WINDOW, MAX_DISPUTE_WINDOW]. Return useDefault=true to
+    ///      use the protocol-global window.
     /// @param serviceId The service ID
     /// @return useDefault True to use protocol default
-    /// @return window Slashing window in blocks
+    /// @return window Dispute window in seconds (clamped to protocol bounds)
     function getSlashingWindow(uint64 serviceId) external view returns (bool useDefault, uint64 window);
 
     /// @notice Get the exit configuration for operator departures
@@ -287,7 +290,10 @@ interface IBlueprintServiceManager {
     function querySlashingOrigin(uint64 serviceId) external view returns (address slashingOrigin);
 
     /// @notice Query the account authorized to dispute slashes
-    /// @dev Override to allow custom dispute resolution
+    /// @dev Override to designate a custom dispute resolver (e.g. a dispute contract). This
+    ///      account may dispute a pending slash on this service bondless, like SLASH_ADMIN, and
+    ///      escalates it to admin resolution. It cannot dispute a slash it proposed itself.
+    ///      Return address(0) to disable the custom dispute path (operator + SLASH_ADMIN only).
     /// @param serviceId The service ID
     /// @return disputeOrigin Address that can dispute (default: this contract)
     function queryDisputeOrigin(uint64 serviceId) external view returns (address disputeOrigin);

@@ -1,0 +1,133 @@
+# Foundry CI — test gate for the Solidity protocol.
+#
+# Replaces the job removed in #151, which OOM-killed the 16 GB ubuntu runner on
+# `forge build --sizes` (optimizer + via-IR over the full 352-file graph at the
+# ~20-minute mark). This restores the *correctness* gate without that compile:
+#   - Tests run under FOUNDRY_PROFILE=fast (optimizer OFF, sparse_mode), which
+#     fits the 16 GB runner and is the same profile the repo uses locally.
+#   - EIP-170 facet sizes are enforced by test/FacetSize.t.sol (cheap, exact),
+#     so we never need the `--sizes` optimizer build that caused the OOM.
+#
+# If `fast` ever stops fitting the runner, shard `forge test` across a matrix
+# by --match-path, or move to a larger runner — do NOT delete the gate.
+name: Foundry CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: foundry-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FOUNDRY_PROFILE: fast
+
+jobs:
+  test:
+    name: Build + Test (fast profile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Detect Foundry-relevant changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            CHANGED="$(git ls-tree -r --name-only "$HEAD")"
+          else
+            CHANGED="$(git diff --name-only "$BASE" "$HEAD" || git ls-tree -r --name-only "$HEAD")"
+          fi
+          if echo "$CHANGED" | grep -Eq '^(src|test|script|dependencies)/|^(foundry\.toml|remappings\.txt|soldeer\.lock)$'; then
+            echo "foundry_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "foundry_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Cache Foundry build artifacts
+        if: steps.changes.outputs.foundry_changed == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            cache
+            out
+          key: foundry-fast-${{ runner.os }}-${{ hashFiles('foundry.toml', 'soldeer.lock', 'remappings.txt', 'src/**', 'test/**', 'dependencies/**') }}
+          restore-keys: |
+            foundry-fast-${{ runner.os }}-
+
+      - name: Install Foundry
+        if: steps.changes.outputs.foundry_changed == 'true'
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.5.1
+
+      - name: Install Solidity dependencies
+        if: steps.changes.outputs.foundry_changed == 'true'
+        run: forge soldeer update -d
+
+      - name: Build
+        if: steps.changes.outputs.foundry_changed == 'true'
+        run: |
+          forge --version
+          forge build
+
+      - name: Test
+        if: steps.changes.outputs.foundry_changed == 'true'
+        # FacetSize is excluded here: it measures deployed bytecode, which is meaningless
+        # under the optimizer-off `fast` profile. EIP-170 sizes are gated by the size job.
+        run: forge test -vv --no-match-path 'test/FacetSize.t.sol'
+
+  size:
+    name: EIP-170 facet sizes (optimizer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.5.1
+
+      - name: Install Solidity dependencies
+        run: forge soldeer update -d
+
+      - name: Build src with optimizer and enforce EIP-170
+        env:
+          FOUNDRY_PROFILE: ci_size
+        run: |
+          # --sizes prints a runtime-size table; fail if any contract exceeds the
+          # 24576-byte EIP-170 limit. forge marks over-limit rows, but we parse the
+          # numeric column directly so the gate is explicit and version-robust.
+          forge build --sizes | tee sizes.txt
+          python3 - <<'PY'
+          import re, sys
+          over = []
+          for line in open('sizes.txt'):
+              # rows look like: | ContractName | 12345 | 6789 | ... (runtime size col)
+              cells = [c.strip() for c in line.split('|') if c.strip()]
+              if len(cells) >= 2 and re.fullmatch(r'\d+', cells[1]):
+                  if int(cells[1]) > 24576:
+                      over.append((cells[0], int(cells[1])))
+          if over:
+              print("EIP-170 violations (runtime > 24576):")
+              for name, size in over:
+                  print(f"  {name}: {size} (over by {size-24576})")
+              sys.exit(1)
+          print("All contracts within EIP-170 runtime limit.")
+          PY

@@ -151,6 +151,12 @@ abstract contract OperatorManager is DelegationStorage {
         if (meta.status != Types.OperatorStatus.Active) {
             revert DelegationErrors.OperatorNotActive(msg.sender);
         }
+        // Block self-stake reduction while a slash is pending, mirroring `_startLeaving`
+        // and the delegator unstake path. Otherwise an operator who sees a proposed slash
+        // could drain self-stake to `minStake` during the dispute window and escape the bond.
+        if (_operatorPendingSlashCount[msg.sender] > 0) {
+            revert DelegationErrors.PendingSlashExists(msg.sender, _operatorPendingSlashCount[msg.sender]);
+        }
         if (amount == 0) revert DelegationErrors.ZeroAmount();
 
         // Check minimum stake requirement after unstake
@@ -179,6 +185,12 @@ abstract contract OperatorManager is DelegationStorage {
         Types.OperatorBondLessRequest storage request = _operatorBondLessRequests[msg.sender];
 
         if (request.amount == 0) return 0;
+        // Load-bearing guard: a slash can be proposed AFTER the unstake was scheduled, so the
+        // pending-slash check must also gate execution (not just scheduling) to keep the bond
+        // locked across the dispute window.
+        if (_operatorPendingSlashCount[msg.sender] > 0) {
+            revert DelegationErrors.PendingSlashExists(msg.sender, _operatorPendingSlashCount[msg.sender]);
+        }
         if (currentRound < request.requestedRound + delegationBondLessDelay) {
             revert DelegationErrors.LeavingTooEarly(currentRound, request.requestedRound + delegationBondLessDelay);
         }

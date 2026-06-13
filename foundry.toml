@@ -49,6 +49,22 @@ gas_reports = []
 [profile.ci]
 verbosity = 4
 
+[profile.ci_size]
+# EIP-170 size gate for CI: compile ONLY src (no tests/scripts) with the optimizer
+# ON, mirroring production codegen, so `forge build --sizes` reports real deployed
+# facet sizes. The correctness suite runs under `fast` (optimizer OFF) which inflates
+# bytecode ~80% and would false-fail the size check — hence this separate profile.
+# src-only keeps the optimizer+via-IR compile within the 16 GB CI runner budget that
+# the full `forge build --sizes` graph (incl. 90 test files) blew in #151.
+via_ir = true
+optimizer = true
+optimizer_runs = 1
+gas_reports = []
+test = ".foundry/empty-test"
+script = ".foundry/empty-script"
+out = "out/ci-size"
+cache_path = "cache/ci-size"
+
 [fmt]
 bracket_spacing = true
 int_types = "long"

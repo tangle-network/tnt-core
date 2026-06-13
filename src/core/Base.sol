@@ -713,6 +713,11 @@ abstract contract Base is
                 dst.binaries.push(src.binaries[j]);
             }
         }
+        // Pin a digest of the cold-start sources so operators can ack a specific
+        // source-set and the off-chain manager can gate boot on that ack (a repoint
+        // changes this hash, invalidating stale acks). calldata-encoded so the digest
+        // is deterministic and cheap to recompute off-chain from the same input.
+        _blueprintSourcesHash[blueprintId] = keccak256(abi.encode(sources));
     }
 
     function _getServiceRequest(uint64 id) internal view returns (Types.ServiceRequest storage) {

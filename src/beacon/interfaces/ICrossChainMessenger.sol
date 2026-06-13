@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 /// @title ICrossChainMessenger
 /// @notice Abstract interface for cross-chain message passing
-/// @dev Implement this for different bridges: Base, Arbitrum, Tempo, LayerZero, Axelar, etc.
+/// @dev Implement this for the supported native bridges: OP-Stack (Base) and Arbitrum.
 interface ICrossChainMessenger {
     /// @notice Send a message to another chain
     /// @param destinationChainId The target chain ID

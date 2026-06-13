@@ -243,13 +243,11 @@ contract BeaconChainProofsTest is BeaconTestBase {
         uint64 expectedBalance = 300;
         bytes32 balanceLeaf = _generateBalanceRoot(100, 200, expectedBalance, 400);
 
-        bytes32[] memory siblings = new bytes32[](BALANCE_TREE_HEIGHT);
-        for (uint256 i = 0; i < siblings.length; i++) {
-            siblings[i] = keccak256(abi.encodePacked("balance-sibling", i));
-        }
-
-        (bytes memory proofBytes, bytes32 balanceContainerRoot) =
-            _generateMerkleProof(balanceLeaf, siblings, validatorIndex / 4);
+        // SSZ List mix_in_length: the packed-balance leaf sits one level below the
+        // balances list root, so we build from gindex (1 << (BALANCE_TREE_HEIGHT+1)) | leaf
+        // — yielding a BALANCE_TREE_HEIGHT + 1 length proof against the corrected library.
+        uint256 balanceLeafGIndex = (uint256(1) << (BALANCE_TREE_HEIGHT + 1)) | (validatorIndex / 4);
+        (bytes memory proofBytes, bytes32 balanceContainerRoot) = _buildProofFromGindex(balanceLeaf, balanceLeafGIndex);
 
         ValidatorTypes.BalanceProof memory proof =
             ValidatorTypes.BalanceProof({ pubkeyHash: bytes32(0), balanceRoot: balanceLeaf, proof: proofBytes });
@@ -266,7 +264,7 @@ contract BeaconChainProofsTest is BeaconTestBase {
         bytes32 balanceContainerRoot = keccak256("balanceRoot");
         uint40 validatorIndex = 100;
 
-        // Wrong proof length (should be BALANCE_TREE_HEIGHT * 32)
+        // Wrong proof length (should be (BALANCE_TREE_HEIGHT + 1) * 32 — the +1 is the SSZ List mix_in_length level)
         bytes memory wrongProof = abi.encodePacked(keccak256("sibling0"));
 
         ValidatorTypes.BalanceProof memory proof = ValidatorTypes.BalanceProof({
