@@ -9,10 +9,10 @@ set -euo pipefail
 # - jq installed
 # - env: PRIVATE_KEY, BASE_RPC, MAINNET_RPC
 # - env (optional): FULL_DEPLOY_CONFIG (defaults to deploy/config/base-mainnet.json)
-# - env (optional): SLASHING_BRIDGE=hyperlane|layerzero (defaults: hyperlane)
+# - env (optional): SLASHING_BRIDGE=opstack (defaults: opstack; OP-Stack-native, HL/LZ removed)
 # - env (optional): DEPLOY_MIGRATION=true to deploy migration after core/slashing
 #
-# LayerZero note: you may need to set LAYERZERO_SOURCE_EID (defaults include ETH mainnet).
+# OP-Stack note: set L1_CROSS_DOMAIN_MESSENGER for non-Base OP chains; defaults to Base's L1 messenger.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
@@ -22,7 +22,7 @@ cd "$ROOT_DIR"
 : "${MAINNET_RPC:?Missing MAINNET_RPC}"
 
 FULL_DEPLOY_CONFIG="${FULL_DEPLOY_CONFIG:-deploy/config/base-mainnet.json}"
-SLASHING_BRIDGE="${SLASHING_BRIDGE:-hyperlane}"
+SLASHING_BRIDGE="${SLASHING_BRIDGE:-opstack}"
 DEPLOY_MIGRATION="${DEPLOY_MIGRATION:-false}"
 
 if ! command -v jq >/dev/null 2>&1; then
@@ -58,10 +58,8 @@ if [[ -z "$STAKING_ADDR" || "$STAKING_ADDR" == "null" || "$STAKING_ADDR" == "0x0
 fi
 
 echo "==> 2/4 Deploy beacon slashing infra on Ethereum mainnet (no L2 wiring yet)"
-L1_SCRIPT="DeployBeaconSlashingL1"
-if [[ "$SLASHING_BRIDGE" == "layerzero" ]]; then
-  L1_SCRIPT="DeployBeaconSlashingL1"
-fi
+# Bridge is OP-Stack-native; Hyperlane/LayerZero removed.
+L1_SCRIPT="DeployBeaconSlashingOpStack"
 
 SKIP_CHAIN_CONFIG=true \
 TANGLE_CHAIN_ID=8453 \
@@ -80,12 +78,9 @@ fi
 
 echo "==> 3/4 Deploy L2 slashing receiver on Base mainnet"
 case "$SLASHING_BRIDGE" in
-  hyperlane) L2_BRIDGE_CONTRACT="DeployL2SlashingHyperlane" ;;
-  layerzero)
-    L2_BRIDGE_CONTRACT="DeployL2SlashingLayerZero"
-    ;;
+  opstack) L2_BRIDGE_CONTRACT="DeployL2SlashingOpStack" ;;
   *)
-    echo "Unsupported SLASHING_BRIDGE: $SLASHING_BRIDGE (expected hyperlane|layerzero)" >&2
+    echo "Unsupported SLASHING_BRIDGE: $SLASHING_BRIDGE (only opstack is supported; HL/LZ removed)" >&2
     exit 1
     ;;
 esac

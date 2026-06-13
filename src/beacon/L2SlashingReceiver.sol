@@ -284,8 +284,6 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     ///      adapter that has ALREADY authenticated the L1 origin before forwarding:
     ///        - `ArbitrumL2Receiver` — checks `msg.sender == applyL1ToL2Alias(l1Sender)`
     ///        - `BaseL2Receiver`     — checks `l2Messenger.xDomainMessageSender() == l1Sender`
-    ///        - `HyperlaneReceiver`  — checks `trustedSenders[origin][sender]` via ISM-verified `handle`
-    ///        - `LayerZeroReceiver`  — checks `peers[srcEid] == origin.sender` via DVN-verified `lzReceive`
     ///      In all of those paths the adapter passes its own pre-authenticated
     ///      `l1Sender` through as `sender`, so trusting it here is sound.
     ///

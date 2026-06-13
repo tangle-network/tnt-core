@@ -10,8 +10,6 @@ import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/O
 import { L2SlashingReceiver, IL2Slasher } from "../../src/beacon/L2SlashingReceiver.sol";
 import { ArbitrumL2Receiver } from "../../src/beacon/bridges/ArbitrumCrossChainMessenger.sol";
 import { BaseL2Receiver, IBaseCrossDomainMessenger } from "../../src/beacon/bridges/BaseCrossChainMessenger.sol";
-import { HyperlaneReceiver } from "../../src/beacon/bridges/HyperlaneCrossChainMessenger.sol";
-import { LayerZeroReceiver } from "../../src/beacon/bridges/LayerZeroCrossChainMessenger.sol";
 
 /// @notice 3 — verifies that the L2 slashing receivers are
 ///         all UUPS upgradeable, ownership-gated, namespaced under ERC-7201,
@@ -38,36 +36,6 @@ contract L2SlashingReceiverUUPSTest is Test {
         ERC1967Proxy proxy =
             new ERC1967Proxy(impl, abi.encodeCall(L2SlashingReceiver.initialize, (_slasher, _messenger, _owner)));
         receiver = L2SlashingReceiver(address(proxy));
-    }
-
-    function _newHyperlane(
-        address _mailbox,
-        address _receiver,
-        address _owner
-    )
-        internal
-        returns (HyperlaneReceiver h, address impl)
-    {
-        HyperlaneReceiver implC = new HyperlaneReceiver();
-        impl = address(implC);
-        ERC1967Proxy proxy =
-            new ERC1967Proxy(impl, abi.encodeCall(HyperlaneReceiver.initialize, (_mailbox, _receiver, _owner)));
-        h = HyperlaneReceiver(address(proxy));
-    }
-
-    function _newLayerZero(
-        address _endpoint,
-        address _receiver,
-        address _owner
-    )
-        internal
-        returns (LayerZeroReceiver lz, address impl)
-    {
-        LayerZeroReceiver implC = new LayerZeroReceiver();
-        impl = address(implC);
-        ERC1967Proxy proxy =
-            new ERC1967Proxy(impl, abi.encodeCall(LayerZeroReceiver.initialize, (_endpoint, _receiver, _owner)));
-        lz = LayerZeroReceiver(address(proxy));
     }
 
     function _newArbitrum(
@@ -227,73 +195,5 @@ contract L2SlashingReceiverUUPSTest is Test {
         b.upgradeToAndCall(address(impl2), "");
         vm.prank(admin);
         b.upgradeToAndCall(address(impl2), "");
-    }
-
-    // ─── HyperlaneReceiver
-    // ───────────────────────────────────────────────────
-
-    function test_Hyperlane_initIsOneShot() public {
-        (HyperlaneReceiver h,) = _newHyperlane(makeAddr("mb"), makeAddr("rcv"), admin);
-        vm.expectRevert(Initializable.InvalidInitialization.selector);
-        h.initialize(makeAddr("mb"), makeAddr("rcv"), admin);
-    }
-
-    function test_Hyperlane_upgradeAuth() public {
-        (HyperlaneReceiver h,) = _newHyperlane(makeAddr("mb"), makeAddr("rcv"), admin);
-        HyperlaneReceiver impl2 = new HyperlaneReceiver();
-        vm.prank(attacker);
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, attacker));
-        h.upgradeToAndCall(address(impl2), "");
-        vm.prank(admin);
-        h.upgradeToAndCall(address(impl2), "");
-    }
-
-    function test_Hyperlane_statePersistsAcrossUpgrade() public {
-        (HyperlaneReceiver h,) = _newHyperlane(makeAddr("mb"), makeAddr("rcv"), address(this));
-        address trusted = makeAddr("trusted");
-        // Trust-anchor authorization is timelocked (cross-chain MEDIUM).
-        h.setTrustedSender(42_161, trusted, true);
-        vm.warp(block.timestamp + h.SENDER_ACTIVATION_DELAY() + 1);
-        h.activateTrustedSender(42_161, trusted);
-        assertTrue(h.trustedSenders(42_161, bytes32(uint256(uint160(trusted)))), "trusted set");
-
-        HyperlaneReceiver impl2 = new HyperlaneReceiver();
-        h.upgradeToAndCall(address(impl2), "");
-
-        assertTrue(h.trustedSenders(42_161, bytes32(uint256(uint160(trusted)))), "trusted survived upgrade");
-    }
-
-    // ─── LayerZeroReceiver
-    // ───────────────────────────────────────────────────
-
-    function test_LayerZero_initIsOneShot() public {
-        (LayerZeroReceiver lz,) = _newLayerZero(makeAddr("ep"), makeAddr("rcv"), admin);
-        vm.expectRevert(Initializable.InvalidInitialization.selector);
-        lz.initialize(makeAddr("ep"), makeAddr("rcv"), admin);
-    }
-
-    function test_LayerZero_upgradeAuth() public {
-        (LayerZeroReceiver lz,) = _newLayerZero(makeAddr("ep"), makeAddr("rcv"), admin);
-        LayerZeroReceiver impl2 = new LayerZeroReceiver();
-        vm.prank(attacker);
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, attacker));
-        lz.upgradeToAndCall(address(impl2), "");
-        vm.prank(admin);
-        lz.upgradeToAndCall(address(impl2), "");
-    }
-
-    function test_LayerZero_statePersistsAcrossUpgrade() public {
-        (LayerZeroReceiver lz,) = _newLayerZero(makeAddr("ep"), makeAddr("rcv"), address(this));
-        bytes32 peer = bytes32(uint256(uint160(makeAddr("peer"))));
-        // Peer (trust-anchor) authorization is timelocked (cross-chain MEDIUM).
-        lz.setPeer(30_110, peer);
-        vm.warp(block.timestamp + lz.SENDER_ACTIVATION_DELAY() + 1);
-        lz.activatePeer(30_110);
-        assertEq(lz.peers(30_110), peer);
-
-        LayerZeroReceiver impl2 = new LayerZeroReceiver();
-        lz.upgradeToAndCall(address(impl2), "");
-
-        assertEq(lz.peers(30_110), peer, "peer survived upgrade");
     }
 }

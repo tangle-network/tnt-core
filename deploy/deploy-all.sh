@@ -61,16 +61,13 @@ if [ "$(cfg '.beacon.deploy')" = "true" ]; then
   BRIDGE="$(cfg '.beacon.bridge')"; BRIDGE="${BRIDGE:-opstack}"
   case "$BRIDGE" in
     opstack)   BEACON_ENTRY="DeployBeaconSlashingOpStack" ;;
-    layerzero) BEACON_ENTRY="DeployBeaconSlashingL1LayerZero" ;;
-    *)         BEACON_ENTRY="DeployBeaconSlashingBase" ;;  # hyperlane
+    *)         BEACON_ENTRY="DeployBeaconSlashingOpStack" ;;  # OP-Stack-native; HL/LZ removed
   esac
   echo "    bridge=$BRIDGE entry=$BEACON_ENTRY"
   ADMIN="$(cfg '.beacon.admin')" \
   SLASHING_ORACLE="$(cfg '.beacon.slashingOracle')" \
   BEACON_ORACLE="$(cfg '.beacon.beaconOracle')" \
   L1_CROSS_DOMAIN_MESSENGER="$(cfg '.beacon.l1CrossDomainMessenger')" \
-  L1_HYPERLANE_MAILBOX="$(cfg '.beacon.l1HyperlaneMailbox')" \
-  L1_HYPERLANE_IGP="$(cfg '.beacon.l1HyperlaneIgp')" \
   TANGLE_CHAIN_ID="$(jq -r '.chainId' "$MANIFEST")" \
   SKIP_CHAIN_CONFIG=true \
   BEACON_SLASHING_MANIFEST="deployments/$NETWORK/beacon-l1.json" \
@@ -86,8 +83,7 @@ if [ "$(cfg '.l2Slashing.deploy')" = "true" ]; then
   BRIDGE="$(cfg '.l2Slashing.bridge')"; BRIDGE="${BRIDGE:-opstack}"
   case "$BRIDGE" in
     opstack)   L2_ENTRY="DeployL2SlashingOpStack" ;;
-    layerzero) L2_ENTRY="DeployL2SlashingLayerZero" ;;
-    *)         L2_ENTRY="DeployL2SlashingHyperlane" ;;
+    *)         L2_ENTRY="DeployL2SlashingOpStack" ;;  # OP-Stack-native; HL/LZ removed
   esac
   echo "    bridge=$BRIDGE entry=$L2_ENTRY"
   ADMIN="$(cfg '.l2Slashing.admin')" \
@@ -96,7 +92,6 @@ if [ "$(cfg '.l2Slashing.deploy')" = "true" ]; then
   L1_CONNECTOR="$(cfg '.l2Slashing.l1Connector')" \
   L1_MESSENGER="$(cfg '.l2Slashing.l1Messenger')" \
   L2_CROSS_DOMAIN_MESSENGER="$(cfg '.l2Slashing.l2CrossDomainMessenger')" \
-  HYPERLANE_MAILBOX="$(cfg '.l2Slashing.hyperlaneMailbox')" \
   L2_SLASHING_MANIFEST="deployments/$NETWORK/l2-slashing.json" \
     forge script "script/DeployL2Slashing.s.sol:$L2_ENTRY" --rpc-url "$L2_RPC" --broadcast --slow
 else
@@ -109,9 +104,9 @@ cat <<'EOF'
 If beacon + l2Slashing were deployed, slashing is INERT until ALL of the following:
   1. staking.addSlasher(TangleL2Slasher)      — authorize the L2 slasher on MultiAssetDelegation
                                                  (must be sent by the staking ASSET_MANAGER/admin = timelock).
-  2. Pin the bridge ISM (Hyperlane) / DVN+executor (LayerZero) to a known-good config out-of-band.
-  3. After SENDER_ACTIVATION_DELAY (2 days): HyperlaneReceiver.activateTrustedSender(srcChain, l1Messenger)
-                                              and L2SlashingReceiver.activateAuthorizedSender(srcChain, l1Connector).
+  2. Bridge is OP-Stack-native (Base/Optimism canonical CrossDomainMessenger) — no third-party ISM/DVN to pin.
+  3. After SENDER_ACTIVATION_DELAY (2 days): L2SlashingReceiver.activateOpStackL1Sender(srcChain, l1Messenger)
+                                              (l1Messenger = the L1 BaseCrossChainMessenger adapter).
   4. Wire the L1 connector -> L2 receiver: ConfigureL2SlashingConnector (L1_RPC) with L2_RECEIVER from the L2 manifest.
   5. Register pod->operator mappings (L2SlashingConnector.registerPodOperator) for onboarded pods.
 See deploy/RUNBOOK-launch.md for the full checklist.

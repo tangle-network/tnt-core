@@ -19,12 +19,8 @@ interface IBeaconSlashPod {
 /// 4. L2SlashingReceiver receives message and executes slashing on L2
 ///
 /// Chain-agnostic: Works with any ICrossChainMessenger implementation:
-/// - Base: Native L1→L2 messaging
+/// - OP-Stack (Base/Optimism): native canonical CrossDomainMessenger
 /// - Arbitrum: Retryable tickets
-/// - Tempo: Custom bridge
-/// - LayerZero: OApp messaging
-/// - Axelar: GMP
-/// - Hyperlane: Mailbox
 contract L2SlashingConnector {
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
