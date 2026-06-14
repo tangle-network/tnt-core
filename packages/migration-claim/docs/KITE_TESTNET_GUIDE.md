@@ -68,7 +68,10 @@ Save the `PROGRAM_VKEY` from the output.
 
 ## Step 3: Deploy Migration Contracts
 
-The migration includes token allocations for the foundation and liquidity operations. For testnet, use your deployer address as the recipient for both.
+The wrapper reads the normalized 100M distribution from `deploy/distributions/normalized-100m.json` when
+run from the repo. It uses the same four buckets as the production deploy path: Substrate claims, active EVM
+claims, foundation, and treasury. For testnet, use your deployer address as the treasury and foundation
+recipient.
 
 ```bash
 cd packages/migration-claim
@@ -77,13 +80,15 @@ PRIVATE_KEY=0x... \
 PROGRAM_VKEY=0x<from-step-2> \
 SP1_VERIFIER=0x<gateway-from-step-1> \
 FOUNDATION_RECIPIENT=0x<your-deployer-address> \
-LIQUIDITY_OPS_RECIPIENT=0x<your-deployer-address> \
+TREASURY_RECIPIENT=0x<your-deployer-address> \
   ./scripts/deploy-tangle-migration.sh --kite
 ```
 
 **Environment variables:**
 - `FOUNDATION_RECIPIENT`: EVM address to receive foundation tokens (~15M TNT)
-- `LIQUIDITY_OPS_RECIPIENT`: EVM address to receive liquidity/ops tokens (5M TNT)
+- `TREASURY_RECIPIENT`: EVM address to receive treasury tokens (~35.64M TNT)
+
+The current normalized distribution has no liquidity-ops bucket and no active EVM allocation.
 
 Save the deployed addresses:
 - `TNT_TOKEN`
@@ -272,7 +277,7 @@ export PRIVATE_KEY=0x...
 export PROGRAM_VKEY=0x...
 export SP1_VERIFIER=0x...
 export FOUNDATION_RECIPIENT=0x...      # Receives ~15M TNT (use deployer address for testnet)
-export LIQUIDITY_OPS_RECIPIENT=0x...   # Receives 5M TNT (use deployer address for testnet)
+export TREASURY_RECIPIENT=0x...        # Receives ~35.64M TNT (use deployer address for testnet)
 
 # Relayer
 export RELAYER_PRIVATE_KEY=0x...

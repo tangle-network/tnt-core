@@ -1,6 +1,10 @@
 # TNT Substrate → EVM Migration (SP1)
 
-This subpackage (`packages/migration-claim`) contains the SP1/ZK-based migration claim system for TNT, plus scripts and real snapshot outputs for testnet/mainnet dry runs.
+This subpackage (`packages/migration-claim`) contains the SP1/ZK-based migration claim system for TNT, plus scripts and snapshot outputs used by deployment rehearsals.
+
+Mainnet genesis is normalized to exactly 100,000,000 TNT in `deploy/distributions/normalized-100m.json`.
+That file is the distribution source of truth: active Substrate claims, active EVM claims, the foundation
+bucket, and the treasury balancer must sum to `TangleToken.MAX_SUPPLY`.
 
 ## What’s Included
 
@@ -10,19 +14,20 @@ This subpackage (`packages/migration-claim`) contains the SP1/ZK-based migration
 - `src/lockups/TNTVestingFactory.sol` + `src/lockups/TNTLinearVesting.sol`: per-beneficiary linear vesting contracts.
 - `src/TNT.sol`: simple mintable ERC20 used for local testing only (production can use the canonical TNT token from `tnt-core`).
 
-**Real snapshot outputs (kept in-repo for reproducible testing)**
+**Snapshot outputs (kept in-repo for reproducible testing)**
 - `packages/migration-claim/merkle-tree.json`: Merkle root + per-SS58 proofs.
 - `packages/migration-claim/evm-claims.json`: EVM recipient list + amounts.
-- `packages/migration-claim/treasury-carveout.json`: Sum of non-claimable Substrate module accounts (sent to the EVM treasury at deploy).
-- `packages/migration-claim/foundation-carveout.json`: Optional carveout for the foundation allocation (sent fully liquid at deploy).
+- `packages/migration-claim/treasury-carveout.json`: Treasury bucket input before normalization.
+- `packages/migration-claim/foundation-carveout.json`: Foundation bucket input before deployment vesting policy is applied.
 
-If you need to carve out additional non-claimable pubkeys (beyond `modl*` module accounts), add them to `treasury-carveout.json` and re-run `scripts/carveoutTreasury.ts` (or pass `--treasury-pubkey 0x...`).
+If you regenerate the snapshot, update `deploy/distributions/normalized-100m.json` and run
+`python3 deploy/distributions/reconcile.py`. Treasury is the balancing bucket; the 100M cap does not move.
 
 ## Vesting Schedule (default)
 
 Claims split into:
-- `unlockedBps = 200` (2%) transferred immediately to the recipient at TGE.
-- `vestedAmount` (98%) transferred to a deterministic `TNTLinearVesting` contract for the recipient.
+- `unlockedBps = 1000` (10%) transferred immediately to the recipient at claim time.
+- `vestedAmount` (90%) transferred to a deterministic `TNTLinearVesting` contract for the recipient.
 
 **Default vesting parameters:**
 - 12-month cliff (365 days) - no tokens vest during this period
@@ -32,6 +37,11 @@ Claims split into:
 You can update vesting config via `TangleMigration.setVestingConfig(...)` only while `totalClaimed == 0` (before the first claim).
 
 Vesting contracts are created with `delegatee = recipient` so (if the token supports `IVotes`) the recipient can use voting power while tokens are locked.
+
+`FullDeploy` handles the treasury and foundation buckets separately from user claims:
+
+- Treasury: 0% unlocked, 6-month cliff, 30-month linear vest.
+- Foundation: 30% unlocked, 6-month cliff, 30-month linear vest.
 
 ## Merkle Format
 

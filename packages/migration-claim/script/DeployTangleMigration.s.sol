@@ -16,8 +16,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  *
  * Environment Variables (Required):
  *   MERKLE_ROOT          - Merkle root from migration snapshot
- *   TOTAL_SUBSTRATE      - Exact total for Substrate claims (from distribution.json)
- *   TOTAL_EVM            - Exact total for EVM airdrop (from distribution.json)
+ *   TOTAL_SUBSTRATE      - Exact total for Substrate claims (from normalized-100m.json)
+ *   TOTAL_EVM            - Exact total for active EVM claims (currently 0 in normalized-100m.json)
  *
  * Environment Variables (Optional):
  *   PRIVATE_KEY          - Deployer private key (default: Anvil account 0)
@@ -29,18 +29,18 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  *   TREASURY_RECIPIENT   - Address to receive treasury allocation (vested)
  *   TREASURY_AMOUNT      - Treasury allocation in wei (0% unlocked, 100% vested)
  *   FOUNDATION_RECIPIENT - Address to receive foundation allocation
- *   FOUNDATION_AMOUNT    - Foundation allocation in wei (2% of total supply unlocked, rest vested)
- *   LIQUIDITY_OPS_RECIPIENT - Address to receive liquidity ops allocation
- *   LIQUIDITY_OPS_AMOUNT    - Liquidity ops allocation in wei (100% liquid)
+ *   FOUNDATION_AMOUNT    - Foundation allocation in wei (30% unlocked, rest vested)
+ *   LIQUIDITY_OPS_RECIPIENT - Legacy test-only liquidity ops recipient
+ *   LIQUIDITY_OPS_AMOUNT    - Legacy test-only liquidity ops amount in wei
  *
  * Usage:
- *   # Use the deploy-migration.sh wrapper script which reads from distribution.json:
+ *   # Use the deploy-migration.sh wrapper script which reads normalized-100m.json:
  *   ./scripts/local-env/deploy-migration.sh
  *
  *   # Or manually with exact values:
  *   MERKLE_ROOT=0x824b... \
- *   TOTAL_SUBSTRATE=108138164691043996671207028 \
- *   TOTAL_EVM=1125776519168932493729792 \
+ *   TOTAL_SUBSTRATE=49322182835914246230618074 \
+ *   TOTAL_EVM=0 \
  *   USE_MOCK_VERIFIER=true \
  *   forge script script/DeployTangleMigration.s.sol:DeployTangleMigration \
  *     --rpc-url http://localhost:8545 --broadcast
@@ -183,13 +183,13 @@ contract DeployTangleMigration is Script {
         console.log("   Remaining in deployer:", evmAllocation / 1e18, "TNT");
         console.log("   Run ExecuteEVMAirdrop to distribute to", "EVM holders");
 
-        // 8. Optional: Treasury allocation (0% unlocked, 100% vested with 12-month cliff + 24-month linear)
+        // 8. Optional: Treasury allocation (0% unlocked, 100% vested with 6-month cliff + 30-month linear)
         if (treasuryAmount > 0) {
             require(treasuryRecipient != address(0), "TREASURY_RECIPIENT required when TREASURY_AMOUNT > 0");
 
             // Treasury: 0% unlocked, 100% goes to vesting contract
-            // 12-month cliff + 24-month linear = 3 years total
-            TNTVestingFactory treasuryVestingFactory = new TNTVestingFactory(365 days, 730 days);
+            // 6-month cliff + 30-month linear = 3 years total
+            TNTVestingFactory treasuryVestingFactory = new TNTVestingFactory(180 days, 912 days);
             // forge-lint: disable-next-line(unsafe-typecast)
             address treasuryVesting = treasuryVestingFactory.getOrCreateVesting(
                 configuredTnt,
@@ -203,23 +203,22 @@ contract DeployTangleMigration is Script {
             console.log("   Total:", treasuryAmount / 1e18, "TNT");
             console.log("   Vesting contract:", treasuryVesting);
             console.log("   Beneficiary:", treasuryRecipient);
-            console.log("   Cliff: 12 months, Linear: 24 months (3 years total)");
+            console.log("   Cliff: 6 months, Linear: 30 months (3 years total)");
         }
 
-        // 9. Optional: Foundation allocation (2% of total supply unlocked, rest vested with 12-month cliff + 24-month linear)
+        // 9. Optional: Foundation allocation (30% unlocked, rest vested with 6-month cliff + 30-month linear)
         if (foundationAmount > 0) {
             require(foundationRecipient != address(0), "FOUNDATION_RECIPIENT required when FOUNDATION_AMOUNT > 0");
 
-            // Foundation: 2% of TOTAL SUPPLY unlocked immediately, rest vested
-            uint256 foundationUnlocked = (totalSupply * 200) / 10_000; // 2% of total supply
-            require(foundationUnlocked <= foundationAmount, "Foundation allocation too small for 2% total supply unlock");
+            // Foundation: 30% of its allocation unlocked immediately, rest vested.
+            uint256 foundationUnlocked = (foundationAmount * 3000) / 10_000;
             uint256 foundationVested = foundationAmount - foundationUnlocked;
 
             // Transfer unlocked portion directly
             require(tntToken.transfer(foundationRecipient, foundationUnlocked), "Foundation unlocked transfer failed");
 
-            // Create vesting for the rest (12-month cliff + 24-month linear = 3 years)
-            TNTVestingFactory foundationVestingFactory = new TNTVestingFactory(365 days, 730 days);
+            // Create vesting for the rest (6-month cliff + 30-month linear = 3 years)
+            TNTVestingFactory foundationVestingFactory = new TNTVestingFactory(180 days, 912 days);
             // forge-lint: disable-next-line(unsafe-typecast)
             address foundationVesting = foundationVestingFactory.getOrCreateVesting(
                 configuredTnt,
@@ -229,12 +228,12 @@ contract DeployTangleMigration is Script {
             );
             require(tntToken.transfer(foundationVesting, foundationVested), "Foundation vesting transfer failed");
 
-            console.log("\n6. Foundation Allocation (2% of total supply unlocked):");
+            console.log("\n6. Foundation Allocation (30% unlocked):");
             console.log("   Total:", foundationAmount / 1e18, "TNT");
-            console.log("   Unlocked (2% of total supply):", foundationUnlocked / 1e18, "TNT to", foundationRecipient);
+            console.log("   Unlocked:", foundationUnlocked / 1e18, "TNT to", foundationRecipient);
             console.log("   Vested:", foundationVested / 1e18, "TNT");
             console.log("   Vesting contract:", foundationVesting);
-            console.log("   Cliff: 12 months, Linear: 24 months (3 years total)");
+            console.log("   Cliff: 6 months, Linear: 30 months (3 years total)");
         }
 
         // 10. Optional: Liquidity Ops allocation (100% liquid for liquidity/operational expenses)

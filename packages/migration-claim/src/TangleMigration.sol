@@ -144,7 +144,7 @@ contract TangleMigration is Ownable, ReentrancyGuard {
 
         adminClaimDeadline = block.timestamp + 60 days;
 
-        // Defaults: 2% unlocked, 98% vested over 18 months (6-month cliff + 12-month linear)
+        // Defaults: 10% unlocked, 90% vested over 36 months (12-month cliff + 24-month linear).
         unlockedBps = DEFAULT_UNLOCKED_BPS;
         vestingFactory = new TNTVestingFactory(DEFAULT_CLIFF_DURATION, DEFAULT_VESTING_DURATION);
 
