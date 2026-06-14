@@ -40,7 +40,7 @@
 \maketitle
 
 \begin{abstract}
-Tangle Network is a decentralized protocol for coordinating computational services with cryptoeconomic accountability. This document describes the protocol's architecture, economic mechanisms, and security model. Tangle enables developers to define service templates (blueprints), operators to provide compute with staked collateral, and customers to consume services with cryptographic guarantees. The protocol uses O(1) algorithms for staking, slashing, and reward distribution, enabling unlimited scalability. Economic security emerges from aligned incentives: operators stake assets that can be destroyed if they misbehave, making honest behavior more profitable than cheating. The network token (TNT) is hard-capped at 100{,}000{,}000 TNT,
+Tangle Network is a decentralized protocol for coordinating computational services with cryptoeconomic accountability. This document describes the protocol's architecture, economic mechanisms, and security model. Developers define service templates (blueprints), operators provide compute with staked collateral, and customers consume services with cryptographic guarantees. The core accounting paths for staking, slashing, and reward distribution are O(1), so gas cost does not grow with participant count. Operators stake assets that can be destroyed if they misbehave, which makes honest service the economically rational path. The network token (TNT) is hard-capped at 100{,}000{,}000 TNT,
 with the full supply minted at genesis; ``inflation'' rewards are treasury-funded emissions that create no new supply.
 \end{abstract}
 
@@ -51,9 +51,9 @@ with the full supply minted at genesis; ``inflation'' rewards are treasury-funde
 \section{Introduction}
 %==============================================================================
 
-The deployment of increasingly capable AI systems demands infrastructure that can scale with their requirements while maintaining accountability. Current infrastructure options, centralized cloud providers or fragmented decentralized alternatives, impose constraints that limit both innovation and access. Centralized systems concentrate power in few hands, creating single points of failure and extracting value from a position of control. Decentralized alternatives lack the coordination mechanisms necessary for production workloads.
+Increasingly capable AI systems need infrastructure that can scale without losing accountability. Current options fall into two weak categories: centralized cloud providers that can revoke access or change terms, and decentralized compute markets that often lack the coordination needed for production workloads. Centralized systems also concentrate pricing power, operational control, and customer relationships in a few companies.
 
-Tangle addresses this gap by providing a protocol layer where computational services operate with cryptographic accountability and economic security. The protocol coordinates three participant types: developers who define service templates, operators who provide compute, and customers who consume services. Value flows through the system via service fees and inflation rewards, distributed according to contribution rather than position.
+Tangle fills that gap with a protocol layer for computational services. Developers define service templates. Operators provide compute and stake collateral. Customers request service instances and pay for work. Service fees and treasury-funded emission then flow to participants according to contribution rather than control of distribution.
 
 \subsection{The Infrastructure Question}
 
@@ -65,7 +65,7 @@ AI agents capable of autonomous action require infrastructure that matches their
     \item An agent making consequential decisions needs audit trails that cannot be falsified
 \end{itemize}
 
-Traditional cloud infrastructure provides compute but not accountability. Terms of service change, access can be revoked, and providers are few. Their market power grows as dependence deepens. For infrastructure underpinning significant economic activity, this concentration creates systemic risk.
+Traditional cloud infrastructure provides compute but not hard accountability. Terms can change, access can be revoked, and the provider set is small. Dependence becomes market power. For infrastructure that controls meaningful economic activity, that is a real risk.
 
 Tangle provides an alternative where accountability is cryptographic rather than contractual. Operators stake assets that can be destroyed if they violate service terms. Customers pay for services with cryptographic proof of delivery. The protocol coordinates without controlling, enabling a competitive market of independent operators rather than dependence on a few large providers.
 
@@ -97,11 +97,11 @@ Six principles guide Tangle's design. Each addresses a specific failure mode in 
 
 \subsubsection{Democratized Ownership}
 
-The dominant model for AI infrastructure concentrates value in platform operators. Cloud providers capture margin on every API call. Platforms retain customer relationships, reducing developers and operators to commoditized inputs.
+The dominant model for AI infrastructure concentrates value in cloud companies. They capture margin on every API call and own the customer relationship. Developers and operators become interchangeable suppliers.
 
 Tangle inverts this model. Value flows to those who create it: developers earn from blueprints, operators earn from compute, delegators earn from stake. The protocol captures only a governance-controlled fee (currently 19.5\%, with a 0.5\% keeper rebate carved out) funding ongoing development. This fee is not rent but payment for coordination.
 
-The inflation distribution allocates a share to developers (10\%) alongside operators (25\%), ensuring blueprint creators, not just compute providers, share in network growth. Payment splits route value to participants who earned it. Governance grants voting power proportional to stake.
+The inflation distribution allocates 10\% to developers and 25\% to operators. Blueprint creators share in network growth alongside compute providers. Payment splits route value to participants who earned it. Governance grants voting power proportional to stake.
 
 \subsubsection{Permissionless Participation}
 
@@ -131,9 +131,9 @@ The security condition is explicit: for any attack, the expected cost (detection
 
 Gas costs determine what is practical on EVM chains. Operations costing millions of gas are impossible. Naive implementations of staking and reward distribution iterate over participants. For a million delegators, this exceeds any block gas limit.
 
-Tangle implements O(1) algorithms that handle unlimited participants without iteration. Share-based accounting tracks delegation through exchange rates rather than individual balances. Accumulated-per-share rewards track distributions through single accumulators. Proportional slashing adjusts exchange rates without iterating over positions.
+The core accounting paths are O(1). Share-based accounting tracks delegation through exchange rates rather than individual balances. Accumulated-per-share rewards track distributions through single accumulators. Proportional slashing adjusts exchange rates without iterating over positions.
 
-This efficiency is not optimization but fundamental design requirement. A protocol that cannot handle millions of participants cannot support the volume the autonomous future requires.
+This is a design requirement, not a micro-optimization. A protocol that iterates over every delegator cannot support a large operator market on an EVM chain.
 
 \subsubsection{Isolation by Default}
 
@@ -155,11 +155,11 @@ The most significant tension is between expressiveness and security. Hooks enabl
 \section{Blueprints and Services}
 %==============================================================================
 
-The blueprint system forms the foundation of Tangle's service architecture. Blueprints define what services do; services are running instances with assigned operators.
+The blueprint system is Tangle's service architecture. A blueprint defines a service type. A service instance is the live deployment of that blueprint with a selected operator set.
 
 \subsection{What Is a Blueprint?}
 
-A blueprint is a reusable template defining a service type. Developers create blueprints to specify computational tasks, pricing models, operator requirements, and optionally custom logic through hooks.
+A blueprint is a reusable template for a service type. Developers use it to specify computational tasks, pricing models, operator requirements, and optional custom logic through hooks.
 
 Formally, a blueprint comprises:
 \begin{itemize}[noitemsep]
@@ -174,7 +174,7 @@ Blueprints are identified by unique numeric IDs assigned at creation. Once an op
 
 \subsection{What Is a Service Instance?}
 
-A service is a running instance of a blueprint with assigned operators. Where blueprints define what a service type does, service instances represent actual deployments.
+A service instance is a running deployment of a blueprint with assigned operators. The blueprint says what can be run; the service instance is the thing customers actually use.
 
 A service comprises:
 \begin{itemize}[noitemsep]
@@ -215,7 +215,7 @@ Four payment models accommodate different service types:
 
 \textbf{Fixed membership} locks the operator set at service creation. Operators cannot join or leave once activated.
 
-\textbf{Dynamic membership} permits operators to join after activation and leave subject to exit queue constraints. This enables long-running services to adapt.
+\textbf{Dynamic membership} permits operators to join after activation and leave subject to exit queue constraints. Long-running services can change operator sets without recreating the blueprint.
 
 \subsection{Master Blueprint Service Manager (MBSM)}
 
@@ -261,7 +261,7 @@ Emergency deprecation bypasses the grace period for security incidents.
 
 \subsubsection{Why This Matters}
 
-The MBSM system solves a fundamental tension: protocols need to evolve, but services need stability. A blueprint running a trading agent cannot have its service manager change mid-operation. Pinning provides stability guarantees while the protocol retains upgrade capability.
+MBSM handles a practical upgrade problem: the protocol needs to evolve, but live services need stable rules. A trading-agent service instance cannot have its service manager change mid-operation. Pinning gives that service a fixed manager while the protocol can still ship new MBSM versions.
 
 %==============================================================================
 \section{Operators and Staking}
@@ -325,7 +325,7 @@ The service marketplace bridges supply (operators) with demand (customers) throu
 
 Service pricing mechanisms face design choices. Fixed pricing cannot adapt to changing costs. Order books work poorly for heterogeneous services. AMMs struggle with operator differentiation.
 
-Request-for-quote asks operators to provide binding prices for specific requests. Customers collect quotes, evaluate holistically, and select. RFQ accommodates operator heterogeneity naturally, requires no on-chain state, and provides instant finality.
+Request-for-quote asks operators to provide binding prices for specific requests. Customers compare price, resource mix, exposure, and operator history, then select a quote. RFQ fits heterogeneous operators, requires no standing on-chain order book, and gives final pricing at service creation.
 
 \subsection{The RFQ Flow}
 
@@ -588,7 +588,7 @@ Stakers (exposure rail, 0\% at genesis) & 0\% \\
 \end{tabular}
 \end{center}
 
-The protocol defines five distribution categories. The exposure-rail ``stakers'' category rewards participants who restake assets from external protocols (e.g., beacon chain validators) once live services use that rail; it is set to 0\% at genesis because the beacon-chain and L2 restaking paths are deployment-gated for Phase 2 (see \S\ref{sec:beacon}). Governance can adjust all weights to steer network growth.
+The protocol defines five distribution categories. The exposure-rail ``stakers'' category rewards participants who restake assets from external protocols (e.g., beacon chain validators) once live services use that rail. It is set to 0\% at genesis because the beacon-chain and L2 restaking paths are deployment-gated for Phase 2 (see \S\ref{sec:beacon}). Governance can adjust all weights to steer network growth.
 
 \subsection{Operator Scoring}
 
@@ -743,7 +743,7 @@ UUPS places upgrade logic in implementation rather than proxy, reducing proxy si
 
 The core \texttt{Tangle} contract is a custom facet router behind a UUPS proxy, \emph{not} an EIP-2535 Diamond: there is no \texttt{diamondCut} or loupe interface. The protocol's functionality is split across roughly two dozen core mixin facets, each handling a specific domain: blueprints, operators, service lifecycle and approvals, jobs and aggregation, RFQ, payments, slashing, and quotes. The router's \texttt{fallback} resolves an incoming function selector to the facet that implements it and \texttt{delegatecall}s into it, so all facets execute against the single shared proxy storage, enabling atomic cross-domain operations while keeping individual facet code auditable. Upgrades do not go through a diamond cut; they follow the UUPS path under governance, which can also update the selector-to-facet routing. Developers interacting with the protocol should be aware that function selectors route through the proxy to the appropriate facet implementation.
 
-Upgrades are the most powerful governance action. A malicious upgrade could drain funds or disable slashing. Every upgrade proposal should be treated as dangerous until proven otherwise.
+Upgrades are the most sensitive governance action. A malicious upgrade could drain funds or disable slashing. Every upgrade proposal should be treated as dangerous until proven otherwise.
 
 %==============================================================================
 \section{Security Model}
@@ -826,7 +826,7 @@ This provides only 6\% margin. A 10\% token price drop yields ratio 0.95, making
 
 Flash loans enable acquiring capital without economic exposure. An adversary could borrow tokens, stake, attack, and repay within one transaction.
 
-Tangle prevents this through temporal separation. Stake and delegations cannot be acquired and withdrawn within a single transaction: unbonding clears only after multi-day, round-based exit delays (delegator 28 rounds, $\sim$7 days; operator 56 rounds, $\sim$14 days), so a flash loan repaid in the same transaction can never both stake and exit. Additionally, slashing proposals survive their dispute window (and the 21-day fail-open resolution deadline), long after any flash loan repayment.
+Tangle prevents this through temporal separation. Stake and delegations cannot be acquired and withdrawn within a single transaction: unbonding clears only after multi-day, round-based exit delays (delegator 28 rounds, $\sim$7 days; operator 56 rounds, $\sim$14 days), so a flash loan repaid in the same transaction can never both stake and exit. Slashing proposals also survive their dispute window and the 21-day fail-open resolution deadline, long after any flash loan repayment.
 
 \subsection{Attack Vectors and Mitigations}
 
@@ -937,15 +937,15 @@ Developer rewards & Protocol inflation & None & None & None \\
 
 \textbf{Compute-native design.} Restaking protocols treat computation as external, AVS operators run whatever software the AVS requires. Tangle treats computation as native: the SDK provides job execution, result aggregation, and P2P coordination. This reduces friction for service developers and operators alike.
 
-\textbf{Blueprint abstraction.} EigenLayer requires deploying new AVS contracts for each service type. Tangle's blueprint system enables service definition through configuration: same contracts, different parameters. A developer creates a price oracle, an AI inference service, and a keeper bot using identical tooling.
+\textbf{Blueprint abstraction.} EigenLayer requires deploying new AVS contracts for each service type. Tangle defines service types through blueprints: same protocol contracts, different parameters and hooks. A developer creates a price oracle, an AI inference service, and a keeper bot using identical tooling.
 
-\textbf{Granular exposure control.} Most restaking protocols offer binary participation: opt in or out per service. Tangle's exposure model allows operators to tune risk: participate in a high-risk service with 20\% exposure while maintaining full stake. This enables rational capital allocation without all-or-nothing decisions.
+\textbf{Granular exposure control.} Most restaking protocols offer binary participation: opt in or out per service. Tangle's exposure model lets operators tune risk, for example by joining a higher-risk service with 20\% exposure while keeping the rest of their stake available. Operators do not have to make all-or-nothing risk decisions.
 
 \textbf{O(1) scalability.} Share-based accounting and accumulated-per-share distributions enable operations that don't iterate over participants. As delegation grows to thousands of operators and millions of delegators, gas costs remain constant. Competitors using per-account iteration face gas limits that constrain growth.
 
 \textbf{Integrated marketplace.} The RFQ system prices heterogeneous services naturally. An AI inference operator with GPUs quotes differently than a lightweight oracle operator. Competitors using fixed pricing or external markets lack this integration.
 
-\textbf{Developer economics.} Tangle allocates a dedicated 10\% of inflation to blueprint developers (alongside 25\% to operators), creating sustainable economics for service creators. Competing protocols provide no developer incentives beyond optional fees, limiting ecosystem investment.
+\textbf{Developer economics.} Tangle allocates 10\% of treasury-funded emission to blueprint developers alongside 25\% to operators. Service creators get a direct reward path instead of relying only on optional fees.
 
 \subsection{When to Choose Each Protocol}
 
@@ -972,13 +972,13 @@ For cross-layer slashing enforcement, the L2 path uses the OP-Stack native cross
 \section{Conclusion}
 %==============================================================================
 
-Tangle provides the coordination layer for a decentralized compute economy. The protocol enables developers to define computational services, operators to provide those services with economic accountability, and customers to consume services with cryptographic guarantees.
+Tangle provides the coordination layer for a decentralized compute market. Developers define computational services. Operators provide those services with economic accountability. Customers consume them with cryptographic guarantees.
 
-The mechanisms described, blueprints and services, staking and delegation, the service marketplace, fee distribution, slashing, and governance, compose into a coherent system where honest participation is more profitable than cheating and where value distributes according to contribution. Decentralization is a launch trajectory, not a launch-day fact: at mainnet the UUPS upgrade key sits behind the 4-day governance timelock and a guardian multisig, and most supply is still vesting-locked. As vesting unlocks deepen the delegatable float and governance quorum ratchets up, control diffuses toward the broad set of operators, developers, and delegators the protocol is built to serve.
+The mechanisms described here, blueprints and services, staking and delegation, RFQ pricing, fee distribution, slashing, and governance, are designed around one rule: honest participation should be more profitable than cheating. Decentralization is a launch trajectory, not a launch-day fact. At mainnet the UUPS upgrade key sits behind the 4-day governance timelock and a guardian multisig, and most supply is still vesting-locked. As vesting unlocks deepen the delegatable float and governance quorum ratchets up, control diffuses toward operators, developers, and delegators.
 
-This is not merely an ideological position but a practical one. Decentralized infrastructure is more resilient, competitive markets produce better pricing, and cryptographic verification provides stronger guarantees than legal agreements. The same properties that made decentralized finance compelling make decentralized AI infrastructure compelling.
+The practical argument is straightforward. Decentralized infrastructure reduces provider concentration. Competitive markets pressure pricing. Cryptographic verification gives customers evidence rather than promises. The same properties that made decentralized finance useful apply to decentralized AI infrastructure.
 
-The operating layer for autonomous work must be built now. Tangle is that layer.
+Autonomous work needs an accountability layer. Tangle is built to be that layer.
 
 \appendix
 
