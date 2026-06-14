@@ -103,20 +103,22 @@ Done in this change: **lock-expiry timestamp fix** (`Types.LockInfo`, `DepositMa
 
 These were the big open items; here's the call and why, alternatives noted.
 
-**Supply = true fixed-supply, normalized DOWN to a round 100,000,000 TNT.** The raw Substrate snapshot
-totalled ~109.26M (Substrate ~51.24M / EVM ~1.13M / Treasury ~41.84M / Foundation ~15.04M). For a clean
-headline number we normalize to exactly **100M** by reducing ONLY the Treasury bucket (~41.84M → ~32.59M);
-the three claimant buckets are untouched (real obligations). `TangleToken.MAX_SUPPLY` is now `100_000_000e18`
-(no 109 number in the contract); genesis mints the full cap so `MINTER_ROLE` is inert and the InflationPool
-can never mint. The normalize-down provenance + the swappable raw/normalized distributions live in
-`deploy/distributions/` (raw-snapshot.json → normalized-100m.json) for a full audit trail. *Alternative
-considered:* keep the cap at the raw 109.26M with a 9.26M mintable headroom — rejected; a round 100M true
-fixed supply is the cleaner story and minimal-dilution the stronger signal.
+**Supply = true fixed-supply, normalized DOWN to a round 100,000,000 TNT** (two steps). The OG Substrate
+snapshot (block 8116528) grand total was ~109.26M. From the actual `packages/migration-claim/` outputs:
+(1) **drop the expired airdrop claims** (~3.19M, 1-year window expired — not allocated, no decay; already
+excluded from the merkle tree), leaving ~106.06M allocated; (2) **reduce ONLY the Treasury bucket**
+(~41.70M → **~35.64M**) to land on exactly 100M. Active claimant buckets are untouched: **Substrate
+49.32M** (merkle), **EVM 0** (no active claims), **Foundation 15.04M**; Treasury = `100M − claims` is the
+balancer. The 9.26M total reduction = 3.19M dropped-expired + 6.06M treasury-haircut. `TangleToken.MAX_SUPPLY`
+is `100_000_000e18` (no 109 in the contract); genesis mints the full cap so `MINTER_ROLE` is inert. Provenance
++ swappable distributions live in `deploy/distributions/` (raw-snapshot.json → normalized-100m.json), enforced
+by `reconcile.py` + a `FullDeploy` `genesis == MAX_SUPPLY` assertion. *Alternative considered:* keep the cap
+at 109.26M with mintable headroom — rejected; a round 100M true fixed supply is the cleaner story.
 
 **Inflation = 1% of supply, treasury-funded (not minted).** `year1FundTnt = exactly 1,000,000 TNT` (1% of
 the 100M cap), transferred from the Treasury bucket into the InflationPool via `fund()`. Because supply is
-fixed, this is emission/redistribution, not monetary inflation. The ~32.59M treasury sustains a flat 1% for
-~32 years; a declining schedule (Y2 0.8×, Y3 0.6×) stretches it. *Alternatives:* 0.5% (leaner) or 2% (faster
+fixed, this is emission/redistribution, not monetary inflation. The ~35.64M treasury sustains a flat 1% for
+~35 years; a declining schedule (Y2 0.8×, Y3 0.6×) stretches it. *Alternatives:* 0.5% (leaner) or 2% (faster
 bootstrap, ~16yr runway). 1% is the balance — meaningful staking yield without draining the treasury or
 signalling high dilution.
 
