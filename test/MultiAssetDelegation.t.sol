@@ -561,9 +561,9 @@ contract MultiAssetDelegationTest is Test {
 
     function test_SetOperatorCommission() public {
         vm.startPrank(admin);
-        delegation.setOperatorCommission(2000); // 20%
-        // Commission changes require 7-day timelock
-        vm.warp(block.timestamp + 7 days + 1);
+        delegation.setOperatorCommission(2000); // 20% — an increase over the 10% default
+        // Commission INCREASES require a 14-day timelock (decreases are immediate)
+        vm.warp(block.timestamp + 14 days + 1);
         delegation.executeCommissionChange();
         vm.stopPrank();
 

@@ -33,12 +33,22 @@ abstract contract DelegationStorage {
     uint64 public constant LOCK_THREE_MONTHS = 90 days;
     uint64 public constant LOCK_SIX_MONTHS = 180 days;
 
-    // Lock multipliers in BPS (10000 = 1x)
+    // Lock multipliers in BPS (10000 = 1x). Mildly CONVEX (rising marginal rate)
+    // so longer locks are not dominated by rolling shorter ones: a flat +0.1x/month
+    // curve made 6mo strictly worse than two rolling 3mo locks, so the protocol paid
+    // for long-lock commitment it would not actually get. Marginal gains now increase
+    // with tenure (1mo +0.10x, 2mo +0.15x, 3mo +0.20x, 6mo +0.35x over the prior tier).
     uint16 public constant MULTIPLIER_NONE = 10_000;
     uint16 public constant MULTIPLIER_ONE_MONTH = 11_000;
-    uint16 public constant MULTIPLIER_TWO_MONTHS = 12_000;
-    uint16 public constant MULTIPLIER_THREE_MONTHS = 13_000;
-    uint16 public constant MULTIPLIER_SIX_MONTHS = 16_000;
+    uint16 public constant MULTIPLIER_TWO_MONTHS = 12_500;
+    uint16 public constant MULTIPLIER_THREE_MONTHS = 14_500;
+    uint16 public constant MULTIPLIER_SIX_MONTHS = 18_000;
+
+    /// @notice Upper bound (2x) on a per-asset reward multiplier set via enableAsset.
+    /// @dev Defense-in-depth so a misconfigured/hostile asset enablement cannot ship an
+    ///      arbitrarily large reward weight (the field is honored by the reward math; a
+    ///      future wiring change must not be able to over-reward an asset unbounded).
+    uint16 public constant MAX_REWARD_MULTIPLIER_BPS = 20_000;
 
     // Minimum lock amount to prevent lock multiplier bypass via small deposits
     // Set to 0.01 ETH (1e16 wei) equivalent to prevent dust attacks while remaining accessible
@@ -87,9 +97,12 @@ abstract contract DelegationStorage {
     /// @notice Operator commission rate in basis points
     uint16 public operatorCommissionBps;
 
-    // Commission change timelock to protect existing delegations
-    /// @notice Timelock delay for commission changes (7 days)
-    uint64 public constant COMMISSION_CHANGE_DELAY = 7 days;
+    // Commission-increase timelock to protect existing delegations. 14 days is
+    // strictly greater than the delegator exit/unbonding delay (~7 days) so a
+    // delegator always has a clean window to exit before a higher commission binds.
+    // Decreases bypass this (applied immediately) since they only benefit delegators.
+    /// @notice Timelock delay for commission increases (14 days)
+    uint64 public constant COMMISSION_CHANGE_DELAY = 14 days;
 
     /// @notice Pending commission change value (0 means no pending change)
     uint16 internal _pendingCommissionBps;

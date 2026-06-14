@@ -115,6 +115,22 @@ abstract contract PaymentsDistribution is PaymentsCore, PaymentsEffectiveExposur
     ///      snapshot so an operator cannot inflate the customer's bill by ramping stake on
     ///      a single asset post-activation.
     function _initSubscriptionBaseline(uint64 serviceId, address[] calldata operators) internal {
+        // A subscription whose billing interval is >= its TTL would expire before the
+        // first bill is ever due (billing is gated on the TTL with a strict comparison),
+        // so it would run and collect zero operator revenue. Reject such a (interval, ttl)
+        // pairing at activation. TTL is per-request (unknown at blueprint create), which is
+        // why this lives here rather than in blueprint validation.
+        {
+            Types.Service storage svcCfg = _getService(serviceId);
+            // ttl == 0 means UNBOUNDED (the TTL gate everywhere is `ttl > 0 && expired`),
+            // so an unbounded subscription never expires and any interval is fine. Only a
+            // BOUNDED service is at risk: interval >= ttl would expire it before the first
+            // bill is ever due, so it would run and collect zero operator revenue.
+            if (svcCfg.pricing == Types.PricingModel.Subscription && svcCfg.ttl != 0) {
+                uint64 interval = _blueprintConfigs[svcCfg.blueprintId].subscriptionInterval;
+                require(interval < svcCfg.ttl, "subscription interval must be < ttl");
+            }
+        }
         IStaking staking = _staking;
         address oracleAddr = _priceOracle;
         bool useOracle = oracleAddr != address(0);

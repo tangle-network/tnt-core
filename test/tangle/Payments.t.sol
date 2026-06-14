@@ -823,7 +823,9 @@ contract PaymentsTest is BaseTest {
             minOperators: 1,
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
-            subscriptionInterval: 30 days,
+            // interval < ttl (12h < 1d) so activation succeeds; the service still expires
+            // after the 2-day warp below, exercising the billing-when-expired revert.
+            subscriptionInterval: 12 hours,
             eventRate: 0
         });
 
@@ -1051,13 +1053,20 @@ contract PaymentsTest is BaseTest {
     }
 
     function _setupSubscriptionServiceWithDepositAndTTL(uint256 initialDeposit, uint64 ttl) internal returns (uint64) {
+        // Activation requires interval < ttl for a BOUNDED service (else it would expire
+        // before the first bill). Keep the default 30d interval for unbounded/long-ttl
+        // services; shrink it below a short bounded ttl (e.g. the 1-day expired-service case).
+        uint64 interval = 30 days;
+        if (ttl != 0 && interval >= ttl) {
+            interval = ttl / 2 == 0 ? 1 : ttl / 2;
+        }
         Types.BlueprintConfig memory config = Types.BlueprintConfig({
             membership: Types.MembershipModel.Fixed,
             pricing: Types.PricingModel.Subscription,
             minOperators: 1,
             maxOperators: 10,
             subscriptionRate: 0.1 ether,
-            subscriptionInterval: 30 days,
+            subscriptionInterval: interval,
             eventRate: 0
         });
 

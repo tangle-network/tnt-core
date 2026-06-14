@@ -40,6 +40,12 @@ contract RewardVaults is
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant PRECISION = 1e18;
 
+    /// @notice Hard cap on the vault operator commission (20%).
+    uint16 public constant MAX_COMMISSION_BPS = 2000;
+
+    /// @notice Timelock on a commission INCREASE (7 days). Decreases apply immediately.
+    uint64 public constant COMMISSION_TIMELOCK = 7 days;
+
     /// @notice Configurable lock durations for multiplier rewards (in seconds)
     uint256 public lockDurationOneMonth = 30 days;
     uint256 public lockDurationTwoMonths = 60 days;
@@ -151,6 +157,11 @@ contract RewardVaults is
     /// @notice List of active vault assets
     address[] public vaultAssets;
 
+    /// @notice Pending commission INCREASE awaiting the timelock (0 = none queued).
+    uint16 internal _pendingCommissionBps;
+    /// @notice Timestamp after which a queued commission increase may be executed (0 = none).
+    uint64 internal _commissionExecuteAfter;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -171,6 +182,8 @@ contract RewardVaults is
     event OperatorCommissionClaimed(address indexed asset, address indexed operator, uint256 amount);
 
     event OperatorCommissionUpdated(uint16 newBps);
+    event CommissionIncreaseQueued(uint16 newBps, uint64 executeAfter);
+    event CommissionIncreaseCancelled(uint16 cancelledBps);
     event LockDurationsUpdated(uint256 oneMonth, uint256 twoMonths, uint256 threeMonths, uint256 sixMonths);
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -209,6 +222,7 @@ contract RewardVaults is
         _grantRole(UPGRADER_ROLE, admin);
         _grantRole(REWARDS_MANAGER_ROLE, admin);
 
+        require(_operatorCommissionBps <= MAX_COMMISSION_BPS, "Commission exceeds cap");
         tntToken = TangleToken(_tntToken);
         operatorCommissionBps = _operatorCommissionBps;
     }
@@ -250,11 +264,49 @@ contract RewardVaults is
         emit VaultDeactivated(asset);
     }
 
-    /// @notice Update operator commission rate
+    /// @notice Change the operator commission rate (capped at MAX_COMMISSION_BPS = 20%).
+    /// @dev A DECREASE (or no-op) only benefits delegators and applies immediately,
+    ///      cancelling any queued increase. An INCREASE is queued behind
+    ///      COMMISSION_TIMELOCK (7 days) so delegators get notice before a higher
+    ///      commission binds; apply it with `executeCommissionIncrease`. This removes the
+    ///      previous one-tx, uncapped-at-50% spike primitive.
     function setOperatorCommission(uint16 newBps) external onlyRole(ADMIN_ROLE) {
-        require(newBps <= 5000, "Max 50% commission");
+        require(newBps <= MAX_COMMISSION_BPS, "Commission exceeds cap");
+        if (newBps <= operatorCommissionBps) {
+            operatorCommissionBps = newBps;
+            _pendingCommissionBps = 0;
+            _commissionExecuteAfter = 0;
+            emit OperatorCommissionUpdated(newBps);
+            return;
+        }
+        _pendingCommissionBps = newBps;
+        _commissionExecuteAfter = uint64(block.timestamp) + COMMISSION_TIMELOCK;
+        emit CommissionIncreaseQueued(newBps, _commissionExecuteAfter);
+    }
+
+    /// @notice Execute a queued commission increase after its timelock elapses.
+    function executeCommissionIncrease() external onlyRole(ADMIN_ROLE) {
+        require(_commissionExecuteAfter != 0, "No pending increase");
+        require(block.timestamp >= _commissionExecuteAfter, "Timelock not elapsed");
+        uint16 newBps = _pendingCommissionBps;
+        _pendingCommissionBps = 0;
+        _commissionExecuteAfter = 0;
         operatorCommissionBps = newBps;
         emit OperatorCommissionUpdated(newBps);
+    }
+
+    /// @notice Cancel a queued commission increase.
+    function cancelCommissionIncrease() external onlyRole(ADMIN_ROLE) {
+        require(_commissionExecuteAfter != 0, "No pending increase");
+        uint16 cancelled = _pendingCommissionBps;
+        _pendingCommissionBps = 0;
+        _commissionExecuteAfter = 0;
+        emit CommissionIncreaseCancelled(cancelled);
+    }
+
+    /// @notice View a queued commission increase (0,0 if none).
+    function getPendingCommissionIncrease() external view returns (uint16 pendingBps, uint64 executeAfter) {
+        return (_pendingCommissionBps, _commissionExecuteAfter);
     }
 
     /// @notice Update lock durations to better align with observed block times

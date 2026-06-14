@@ -409,7 +409,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         evilToken.setTarget(address(delegation));
 
         vm.prank(admin);
-        delegation.enableAsset(address(evilToken), 0, 0, 0, 10_000);
+        delegation.enableAsset(address(evilToken), 0, 1, 0, 10_000);
 
         evilToken.mint(delegator1, 10 ether);
 
@@ -438,7 +438,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
         evilToken.setTarget(address(delegation));
 
         vm.prank(admin);
-        delegation.enableAsset(address(evilToken), 0, 0, 0, 10_000);
+        delegation.enableAsset(address(evilToken), 0, 1, 0, 10_000);
 
         evilToken.mint(delegator1, 20 ether);
 
@@ -834,10 +834,8 @@ contract DelegationCriticalTest is DelegationTestHarness {
         delegation.removeSlasher(newSlasher);
         assertFalse(delegation.isSlasher(newSlasher));
 
-        // Set commission (now uses timelock)
+        // A commission DECREASE (500 < 1000 default) applies immediately, no timelock.
         delegation.setOperatorCommission(500);
-        vm.warp(block.timestamp + 7 days + 1);
-        delegation.executeCommissionChange();
         assertEq(delegation.operatorCommissionBps(), 500);
 
         // Set delays
@@ -942,7 +940,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
     function test_MinimumDelegation_1Wei() public {
         // Override min delegation for this test
         vm.prank(admin);
-        delegation.enableAsset(address(token), 0, 0, 0, 10_000); // 0 min delegation
+        delegation.enableAsset(address(token), 0, 1, 0, 10_000); // 0 min delegation
 
         token.mint(delegator1, 1);
 
@@ -983,7 +981,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
     function test_DepositCapEnforcement() public {
         // Set deposit cap
         vm.prank(admin);
-        delegation.enableAsset(address(token), 0, 0, 10 ether, 10_000); // 10 ETH cap
+        delegation.enableAsset(address(token), 0, 1, 10 ether, 10_000); // 10 ETH cap
 
         token.mint(delegator1, 20 ether);
 
@@ -1004,7 +1002,7 @@ contract DelegationCriticalTest is DelegationTestHarness {
 
     function test_DepositCapDecreasesOnWithdrawExecution() public {
         vm.prank(admin);
-        delegation.enableAsset(address(token), 0, 0, 10 ether, 10_000); // 10 ETH cap
+        delegation.enableAsset(address(token), 0, 1, 10 ether, 10_000); // 10 ETH cap
 
         token.mint(delegator1, 20 ether);
 

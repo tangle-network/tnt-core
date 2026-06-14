@@ -364,8 +364,13 @@ contract RewardsTest is Test {
     }
 
     function test_Vaults_SetOperatorCommission() public {
+        // An increase (1500 -> 2000) is queued behind the 7-day timelock, then executed.
+        // 2000 == MAX_COMMISSION_BPS (the 20% cap).
         vm.prank(admin);
         vaults.setOperatorCommission(2000); // 20%
+        vm.warp(block.timestamp + 7 days + 1);
+        vm.prank(admin);
+        vaults.executeCommissionIncrease();
 
         assertEq(vaults.operatorCommissionBps(), 2000);
     }

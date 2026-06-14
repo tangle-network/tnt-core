@@ -63,12 +63,25 @@ contract StakingAdminFacet is StakingFacetBase, IFacetSelectors {
         _tangleCore = tangle;
     }
 
-    /// @notice Queue a commission rate change behind a timelock
-    /// @dev The change will take effect after COMMISSION_CHANGE_DELAY (7 days)
+    /// @notice Change the operator commission rate.
+    /// @dev A DECREASE (or no-op) only benefits delegators, so it applies immediately and
+    ///      clears any pending change. An INCREASE harms delegators and is queued behind
+    ///      COMMISSION_CHANGE_DELAY (14 days, strictly greater than the delegator exit
+    ///      delay) so delegators can exit before the higher rate binds; it must then be
+    ///      applied via `executeCommissionChange`.
     /// @param bps New commission rate in basis points
     function setOperatorCommission(uint16 bps) external onlyRole(ADMIN_ROLE) {
         require(bps <= BPS_DENOMINATOR, "Invalid BPS");
-        // Queue the commission change instead of immediate application
+        // Decrease (or equal): apply immediately, cancelling any pending increase.
+        if (bps <= operatorCommissionBps) {
+            uint16 oldBps = operatorCommissionBps;
+            operatorCommissionBps = bps;
+            _pendingCommissionBps = 0;
+            _commissionChangeExecuteAfter = 0;
+            emit CommissionChangeExecuted(oldBps, bps);
+            return;
+        }
+        // Increase: queue behind the timelock.
         if (_commissionChangeExecuteAfter != 0) {
             revert DelegationErrors.CommissionChangeAlreadyPending();
         }

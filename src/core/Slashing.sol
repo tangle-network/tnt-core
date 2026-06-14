@@ -78,6 +78,15 @@ abstract contract Slashing is Base {
 
         uint16 cappedSlashBps = SlashingLib.capSlashBps(slashBps, _slashState.config.maxSlashBps);
 
+        // Cap concurrent pending slashes per operator BEFORE writing the proposal, so an
+        // over-cap proposal is rejected without ever creating a Pending record (no reliance
+        // on tx-revert to undo an orphan). `maxPendingSlashesPerOperator` is validated
+        // non-zero in both `initializeConfig` and `updateConfig`, so we trust it here.
+        if (_operatorActiveSlashProposals[operator] >= _slashState.config.maxPendingSlashesPerOperator) {
+            revert Errors.InvalidState();
+        }
+        _operatorActiveSlashProposals[operator] += 1;
+
         slashId = SlashingLib.proposeSlash(
             _slashState,
             _slashProposals,
@@ -90,14 +99,6 @@ abstract contract Slashing is Base {
             false,
             _resolveDisputeWindow(serviceId, bp.manager)
         );
-
-        // Cap concurrent pending slashes per operator so a malicious proposer can't
-        // grief by spamming. `maxPendingSlashesPerOperator` is validated non-zero in
-        // both `initializeConfig` and `updateConfig`, so we trust it here.
-        if (_operatorActiveSlashProposals[operator] >= _slashState.config.maxPendingSlashesPerOperator) {
-            revert Errors.InvalidState();
-        }
-        _operatorActiveSlashProposals[operator] += 1;
 
         // Increment pending slash count to block delegator withdrawals
         _staking.incrementPendingSlash(operator);
