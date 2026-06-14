@@ -148,8 +148,8 @@
     "tntToken": "0x0000000000000000000000000000000000000000",
     "vaultOperatorCommissionBps": 1500,
     "epochLength": 604800,
-    "_todo_inflation": "TODO (Drew/governance ratify): InflationPool does not mint — treasury PRE-FUNDS it via InflationPool.fund(). Recommended Year-1 budget ~2,000,000 TNT (~1.8% of genesis float) with a declining schedule (e.g. Y2 0.7x, Y3 0.5x) funded from a named treasury reserve. year1FundTnt below is the recommendation, not yet executed.",
-    "year1FundTnt": "2000000000000000000000000",
+    "_note_inflation": "FIXED SUPPLY: genesis mints the entire MAX_SUPPLY (109,255,636.92 TNT = sum of the 4 migration buckets), so the InflationPool can never mint — 'inflation' is treasury-funded emission, not new supply. year1FundTnt = 1% of MAX_SUPPLY (1,092,556.37 TNT), pre-funded from the Treasury bucket (41.84M) via InflationPool.fund(). At a flat 1% that reserve lasts ~38yr; a declining schedule (e.g. Y2 0.8x, Y3 0.6x) stretches it further. Funding is a post-deploy treasury action, not done by the deploy script.",
+    "year1FundTnt": "1092556369192129278856109",
     "_note_weights": "Reroute toward the security layer vs genesis design: stakingBps 5000->5500, developersBps 1500->1000 (donor; developer rewards are ADMIN-allowlist gated, not sybil-farmable). stakersBps stays 0 at genesis — the exposure-weighted rail no-ops until ServiceFeeDistributor + keeper + live services exist; pre-commit a governance migration to staking 3500 / stakers 1500 once that path is live.",
     "weights": {
       "stakingBps": 5500,
@@ -188,11 +188,11 @@
   },
   "_note_governance_slashing_payments": "These three blocks are consumed by deploy/deploy-all.sh (the prod orchestrator) AFTER core deploy. governance -> script/DeployGovernance.s.sol (deploy Timelock+Governor, then put the Timelock address in roles.timelock). slashing -> Tangle.setSlashConfig. payments -> Tangle.setPaymentSplit. Without these steps mainnet ships the insecure hardcoded defaults (maxSlashBps=100%, disputeBond=0, keeperBps=0). See deploy/MAINNET-PARAMETERS.md for rationale.",
   "governance": {
-    "_note": "Launch values for a ~50M-float governance token. Conservative-start; relax later via governance. quorumPercent=6 absent an independent CANCELLER_ROLE guardian Safe — wire a guardian and you may lower to 4.",
+    "_note": "Quorum is % of getPastTotalSupply = the full 109.26M minted at genesis, but most supply is vesting-locked/undelegated at launch (substrate+EVM unlock only 10% at TGE; treasury 0%, foundation 30%). Realistic delegatable float at launch is single-digit millions, so a high quorum BRICKS governance. quorumPercent=4 (~4.37M votes) is reachable with engagement; proposalThreshold 100k TNT is a spam floor that isn't paralyzing on thin float. Conservative-start: ratchet quorum up via governance as vesting unlocks over 3yr. STRONGLY pair with an independent CANCELLER_ROLE guardian Safe (see openDecisions) — it is the real defense against a low-quorum capture proposal, not a high quorum. Alternatives: quorum 3% if early participation is weak, or 6% only once float deepens.",
     "votingDelay": 86400,
     "votingPeriod": 604800,
-    "proposalThreshold": "200000000000000000000000",
-    "quorumPercent": 6,
+    "proposalThreshold": "100000000000000000000000",
+    "quorumPercent": 4,
     "timelockDelay": 345600
   },
   "slashing": {
@@ -228,7 +228,9 @@
     "logSummary": true
   },
   "migration": {
-    "_todo_allocations": "TODO (Drew/governance ratify): pin the four genesis allocation amounts so total genesis supply and inflation headroom are explicit. TangleToken.MAX_SUPPLY == migration snapshot total (~109.26M); if allocations sum to it, headroom is 0 and the protocol is true fixed-supply (security budget = whatever treasury pre-funds). Decide explicitly: ~5% inflation envelope vs true fixed-supply, then assert at deploy.",
+    "_decision_headroom": "DECIDED: true fixed-supply. The four buckets sum to TangleToken.MAX_SUPPLY (109,255,636.92 TNT) exactly, so genesis mints the entire cap and the surviving MINTER_ROLE is inert. There is NO ~5% inflation envelope — all rewards (the 1% staking emission + payment-split staker share) are funded from existing TNT (Treasury bucket). This is the strongest supply guarantee; pair it with the written treasury pre-funding schedule (see incentives.year1FundTnt).",
+    "_todo_allocations": "TODO (Drew to finalize the CANONICAL mainnet snapshot, then set deploy=true): the recommended baseline from packages/migration-claim is Substrate ~51.24M / EVM ~1.13M / Treasury ~41.84M / Foundation ~15.04M = 109.26M. Sepolia's numbers differ slightly from the raw merkle-tree.json and ~3.19M expired-unclaimed needs a decay decision (policy in unclaimed-accounts.json = 90% decay). Regenerate the mainnet merkle-tree.json + carveouts, pin merkleRoot + programVKey + sp1VerifierGateway, then the four amounts load from those files. Migration deploy stays OFF until that snapshot + a deploy=true are in.",
+    "deploy": false,
     "emitArtifacts": true,
     "artifactsPath": "deployments/base-mainnet/migration.json",
     "merklePath": "deployments/base-mainnet/merkle-tree.json",
