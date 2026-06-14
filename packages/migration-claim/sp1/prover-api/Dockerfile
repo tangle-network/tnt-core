@@ -4,7 +4,7 @@ FROM rust:1.91-slim AS builder
 
 WORKDIR /repo
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates g++ curl git protobuf-compiler \
+    && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates g++ curl git protobuf-compiler libprotobuf-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY packages/migration-claim/sp1 ./packages/migration-claim/sp1
