@@ -1,0 +1,36 @@
+{
+  "name": "raw-snapshot",
+  "status": "provenance-only — NOT deployed (see normalized-100m.json for the live distribution)",
+  "description": "Original, unnormalized Substrate->EVM migration snapshot. Preserved for history and reproducibility of the normalize-down. Sourced from packages/migration-claim/.",
+  "totalSupply": "109255636919212927885610910",
+  "totalSupplyTnt": "109255636.919212927885610910",
+  "source": "packages/migration-claim/{merkle-tree.json, evm-claims.json, treasury-carveout.json, foundation-carveout.json}",
+  "buckets": {
+    "substrate": {
+      "wei": "51244581812207794935986305",
+      "tnt": "51244581.812207794935986305",
+      "claim": "SP1 Groth16 zk-proof of Substrate key ownership + merkle proof",
+      "adjustable": false
+    },
+    "evm": {
+      "wei": "1125776519168932451653760",
+      "tnt": "1125776.519168932451653760",
+      "claim": "EVM merkle claim",
+      "adjustable": false
+    },
+    "treasury": {
+      "wei": "41844468761091374585756819",
+      "tnt": "41844468.761091374585756819",
+      "claim": "direct carveout to the protocol treasury (Substrate treasury module account)",
+      "adjustable": true,
+      "note": "the only adjustable bucket; reduced in normalized-100m"
+    },
+    "foundation": {
+      "wei": "15040809826744825912214026",
+      "tnt": "15040809.826744825912214026",
+      "claim": "direct carveout to the foundation (30% unlocked at start, rest vests ~3yr)",
+      "adjustable": false
+    }
+  },
+  "note": "These amounts are the Sepolia-config canonical totals; the raw merkle-tree.json totals differ slightly and ~3.19M is expired-unclaimed. The CANONICAL mainnet snapshot must be regenerated before deploy (see README)."
+}
