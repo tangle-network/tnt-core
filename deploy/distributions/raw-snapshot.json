@@ -1,36 +1,49 @@
 {
   "name": "raw-snapshot",
   "status": "provenance-only — NOT deployed (see normalized-100m.json for the live distribution)",
-  "description": "Original, unnormalized Substrate->EVM migration snapshot. Preserved for history and reproducibility of the normalize-down. Sourced from packages/migration-claim/.",
-  "totalSupply": "109255636919212927885610910",
-  "totalSupplyTnt": "109255636.919212927885610910",
-  "source": "packages/migration-claim/{merkle-tree.json, evm-claims.json, treasury-carveout.json, foundation-carveout.json}",
+  "description": "Original Substrate->EVM migration snapshot (block 8116528). Preserved for history and reproducibility of the normalize-down. Amounts taken directly from packages/migration-claim/ outputs.",
+  "snapshotBlock": 8116528,
+  "ogGrandTotal": "109255636919212927885610910",
+  "ogGrandTotalTnt": "109255636.919212927885610910",
+  "allocatedTotal": "106064889699565213939217524",
+  "allocatedTotalTnt": "106064889.699565213939217524",
   "buckets": {
     "substrate": {
-      "wei": "51244581812207794935986305",
-      "tnt": "51244581.812207794935986305",
+      "wei": "49322182835914246230618074",
+      "tnt": "49322182.835914246230618074",
+      "source": "merkle-tree.json .totalValue (1977 active claimants)",
       "claim": "SP1 Groth16 zk-proof of Substrate key ownership + merkle proof",
       "adjustable": false
     },
     "evm": {
-      "wei": "1125776519168932451653760",
-      "tnt": "1125776.519168932451653760",
-      "claim": "EVM merkle claim",
+      "wei": "0",
+      "tnt": "0",
+      "source": "evm-claims.json (no active EVM claims; the OG EVM airdrop claims expired — see excluded.expired)",
       "adjustable": false
-    },
-    "treasury": {
-      "wei": "41844468761091374585756819",
-      "tnt": "41844468.761091374585756819",
-      "claim": "direct carveout to the protocol treasury (Substrate treasury module account)",
-      "adjustable": true,
-      "note": "the only adjustable bucket; reduced in normalized-100m"
     },
     "foundation": {
       "wei": "15040809826744825912214026",
       "tnt": "15040809.826744825912214026",
-      "claim": "direct carveout to the foundation (30% unlocked at start, rest vests ~3yr)",
+      "source": "foundation-carveout.json (tangle-foundation)",
       "adjustable": false
+    },
+    "treasury": {
+      "wei": "41701897036906141796385424",
+      "tnt": "41701897.036906141796385424",
+      "source": "treasury-carveout.json (substrate-module-accounts)",
+      "adjustable": true,
+      "note": "the only adjustable bucket; normalized down in normalized-100m.json"
     }
   },
-  "note": "These amounts are the Sepolia-config canonical totals; the raw merkle-tree.json totals differ slightly and ~3.19M is expired-unclaimed. The CANONICAL mainnet snapshot must be regenerated before deploy (see README)."
+  "excluded": {
+    "expired": {
+      "wei": "3190747219647713946393386",
+      "tnt": "3190747.219647713946393386",
+      "native": { "wei": "2064970700478781494739626", "count": 4988 },
+      "evm": { "wei": "1125776519168932451653760", "count": 7124 },
+      "source": "unclaimed-accounts.json",
+      "policy": "NOT ALLOCATED. These OG airdrop claims had a 1-year claim window on the Substrate chain that expired; they are not carried into genesis (no decay, no re-add). Already excluded from merkle-tree.json.",
+      "note": "3 pubkeys overlap the active merkle set — resolve in the canonical regen; excluding the expired claim is correct regardless."
+    }
+  }
 }

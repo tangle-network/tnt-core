@@ -247,6 +247,15 @@ contract FullDeploy is DeployV2 {
             uint256 totalSupply = migration.substrateAllocation + migration.evmAllocation + migration.treasuryAmount
                 + migration.foundationAmount;
             if (cfg.incentives.tntToken == address(0)) {
+                // Fixed supply: a fresh genesis must mint EXACTLY the cap, so the buckets
+                // (substrate + evm + foundation + treasury-as-balancer) reconcile to 100M and
+                // a mis-summed snapshot fails closed instead of leaving mintable headroom.
+                // See deploy/distributions/ + reconcile.py.
+                // 100_000_000 ether == TangleToken.MAX_SUPPLY (the fixed-supply cap).
+                require(
+                    totalSupply == 100_000_000 ether,
+                    "FullDeploy: genesis allocations must sum to exactly MAX_SUPPLY (100M)"
+                );
                 tntInitialSupply = totalSupply;
             }
         }
