@@ -33,6 +33,7 @@ export type DelegationBlueprintAction = "ADDED" | "REMOVED";
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const GLOBAL_PROTOCOL_ID = "tangle-protocol";
 export const GLOBAL_SLASH_CONFIG_ID = "slash-config";
+export const GLOBAL_COMMISSION_CHANGE_ID = "commission-change";
 export const HOURLY_BLOCK_INTERVAL = 300;
 
 // Chain ID - reads from INDEXER_CHAIN_ID env var, defaults to 31337 for local dev
