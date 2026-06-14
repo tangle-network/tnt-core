@@ -33,7 +33,7 @@
 
 \title{\textbf{Tangle Cloud}\\[0.5em]\large The Decentralized Compute Layer for AI\\[1em]\normalsize Product Vision \& Infrastructure}
 \author{Tangle Foundation}
-\date{January 2025}
+\date{June 2026}
 
 \begin{document}
 
@@ -65,10 +65,40 @@ Every interaction with Tangle Cloud products generates economic activity that ac
 \begin{description}
     \item[Customers] use products (sandbox runtime, workbench, or third-party applications), request services from operators, and pay in tokens. Payments split among developers, operators, and the protocol.
     \item[Operators] provide compute by staking tokens and running infrastructure. They earn fees proportional to services provided, and can serve more services as they accumulate more stake.
-    \item[Developers] create blueprints defining service behavior and earn from fee splits and inflation rewards proportional to adoption.
+    \item[Developers] create blueprints defining service behavior and earn from fee splits and emission rewards proportional to adoption.
     \item[Delegators] provide additional stake to operators and share in operator rewards proportional to their delegation.
-    \item[Protocol] captures a governance-controlled fee (currently 20\%) funding development, security audits, and ecosystem growth.
+    \item[Protocol] captures a governance-controlled fee (currently 19.5\%, with a 0.5\% keeper rebate carved out so permissionless billing is EV-positive) funding development, security audits, and ecosystem growth.
 \end{description}
+
+Service payments split across five recipients in the service's payment asset, as summarized in Table~\ref{tab:feesplit}.
+
+\begin{table}[h]
+\centering
+\caption{Canonical service fee split (sums to 100\%).}
+\label{tab:feesplit}
+\begin{tabular}{lr}
+\toprule
+\textbf{Recipient} & \textbf{Share} \\
+\midrule
+Operator & 40\% \\
+Developer & 20\% \\
+Delegators (stakers) & 20\% \\
+Protocol & 19.5\% \\
+Keeper rebate & 0.5\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The 0.5\% keeper rebate is carved from the protocol share so that permissionless subscription billing is EV-positive for whoever triggers it.
+
+\subsection{Token Supply and Distribution}
+
+TNT is hard-capped: \texttt{MAX\_SUPPLY} = 109,255,636.92 TNT. %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+Genesis mints the full cap across four buckets (Substrate $\approx$51.24M, EVM $\approx$1.13M, Treasury $\approx$41.84M, Foundation $\approx$15.04M), so \texttt{totalSupply} equals the cap at genesis. %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+The protocol is hard-capped; the InflationPool cannot mint; emission is treasury-funded; only governance can mint and only up to the cap (no headroom at genesis). ``Emission'' is treasury-funded: $\approx$1\% of supply per year ($\approx$1,092,556 TNT) %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+is transferred from the Treasury bucket into the InflationPool; it dilutes no one and creates no new supply.
+
+Migrated balances are claimed via an SP1 Groth16 zk-proof of Substrate key ownership plus a merkle proof. Vesting unlocks 10\% at claim, then a 12-month cliff and 24-month linear release; treasury and foundation allocations vest over $\approx$3 years (foundation with 30\% unlocked at start). See the \textit{Tangle Protocol Specification} for the full supply and distribution schedule.
 
 \subsection{Network Effects}
 
@@ -86,7 +116,7 @@ The flywheel accelerates as barriers fall. Improved tooling reduces operational 
 
 More developers $\rightarrow$ more blueprints $\rightarrow$ more use cases $\rightarrow$ more customers $\rightarrow$ more fees $\rightarrow$ more developers.
 
-Developers create blueprints when they see opportunity. Blueprint diversity attracts customers with varied needs. Customer payment generates fees and inflation rewards for developers. Developer success attracts more developers.
+Developers create blueprints when they see opportunity. Blueprint diversity attracts customers with varied needs. Customer payment generates fees and emission rewards for developers. Developer success attracts more developers.
 
 This flywheel benefits from composability. Blueprints can reference and extend each other. A successful oracle blueprint enables DeFi blueprints. DeFi success attracts custody blueprints. Ecosystem density increases value of each component.
 
@@ -94,7 +124,7 @@ This flywheel benefits from composability. Blueprints can reference and extend e
 
 More delegators $\rightarrow$ more stake $\rightarrow$ more security $\rightarrow$ higher-value use cases $\rightarrow$ more fees $\rightarrow$ more stake.
 
-Security is the product delegators produce. More stake backing operators enables higher-value services. Services managing \$1M need operators with \$1.5M+ stake. Higher-value services generate more fees. Fees attract more delegation.
+Security is the product delegators produce. More stake backing operators enables higher-value services. Required security is set per service via exposure commitments and the 50\% per-service slash ceiling, not a fixed ratio. Higher-value services generate more fees. Fees attract more delegation.
 
 Delegation yield compounds the effect. Delegators earning attractive yield retain and increase positions. Growing stake enables progressively higher-value use cases. Each tier of security unlocks new customer segments.
 
@@ -118,7 +148,7 @@ The network grows as a coherent whole rather than isolated components. Early par
 
 The sandbox runtime is where autonomous work actually executes. It provides secure, accountable compute for AI agents and automated workflows.
 
-The sandbox runtime implements decentralized AI agent execution. Operators run agents in isolated containers with cryptographic accountability. The protocol coordinates without controlling, addressing the concentration concerns outlined in Section 1.
+The sandbox runtime implements decentralized AI agent execution. Operators run agents in isolated containers with cryptoeconomic accountability. The protocol coordinates without controlling, addressing the concentration concerns outlined in Section 1.
 
 \subsection{Isolation Technologies}
 
@@ -143,7 +173,7 @@ Regardless of technology, certain guarantees must hold:
     \item \textbf{Resource limits}: Bounded CPU, memory, and other consumption
 \end{itemize}
 
-Operators who fail to maintain guarantees face slashing.
+Operators who fail to maintain guarantees face slashing. Slashing is bounded and contestable: the per-service penalty is capped at 50\% (a hardcoded 100\% ceiling, governance-raisable per service for equivocation), a challenger posts a 0.02 ETH dispute bond (refunded on cancel, forfeited on execute), and disputes resolve within a 21-day window that fails open (auto-executes if unresolved). An operator with any pending slash is frozen from unstaking, preventing evasion.
 
 \subsection{Deployment Models}
 
@@ -189,14 +219,14 @@ Service pricing uses request-for-quote (RFQ):
 
 \begin{enumerate}[noitemsep]
     \item Customer broadcasts quote request specifying requirements
-    \item Operators return signed quotes with pricing
-    \item Customer selects and submits quotes
-    \item Service activates with committed prices
+    \item Operators return EIP-712 signed quotes with pricing
+    \item Customer accepts selected quotes on-chain, where signatures are verified
+    \item Service activates at the committed prices
 \end{enumerate}
 
 This accommodates operator heterogeneity, different hardware, locations, and capabilities command different prices. Customers evaluate holistically, not just on price.
 
-For recurring workloads, subscription pricing provides predictable costs. Customers fund escrow; the protocol bills at intervals.
+For recurring workloads, subscription pricing provides predictable costs. Customers fund escrow; anyone can permissionlessly trigger TWAP-fair billing at intervals, earning the 0.5\% keeper rebate.
 
 For variable workloads, event-driven pricing charges per job. Customers pay when they submit work.
 
@@ -242,7 +272,7 @@ The current workbench implementation uses a centralized client-server architectu
     \item WebSocket connections carry user inputs to the agent and stream outputs back
     \item The orchestrator handles container lifecycle, auto-scaling, and resource allocation
     \item A collaboration server enables real-time multiplayer features
-    \item Protocol handles payment splits (developer, operator, delegator, protocol)
+    \item Protocol handles payment splits (see Table~\ref{tab:feesplit})
 \end{enumerate}
 
 The orchestrator manages container provisioning, health monitoring, and session routing. This centralized architecture provides reliable performance and simplified operations during the current phase of development.
@@ -323,19 +353,19 @@ The protocol's openness enables:
     \item Aggregator services helping customers find operators
 \end{itemize}
 
-Each third-party product creates and captures value while the protocol captures its fee regardless of which products generate activity.
+Each third-party product creates and captures value while the protocol captures its 19.5\% share regardless of which products generate activity.
 
 \subsection{Use Cases Enabled}
 
-\textbf{Confidential AI for enterprises}: A pharmaceutical company needs AI analysis of proprietary clinical data. They select operators with verified security credentials, require specific isolation, and maintain cryptographic evidence of proper handling.
+\textbf{Confidential AI for enterprises}: A pharmaceutical company needs AI analysis of proprietary clinical data. They select operators with verified security credentials, require specific isolation, and rely on cryptoeconomic accountability (slashing-backed) for proper handling; hardware-attested confidentiality (TEE) is on the roadmap.
 
-\textbf{Verifiable AI for high-stakes decisions}: A trading firm needs confidence that analysis used the specified model and data. Verification mechanisms detect model substitution or data manipulation.
+\textbf{Accountable AI for high-stakes decisions}: A trading firm needs confidence that analysis used the specified model and data. Operators are held accountable through stake and slashing; cryptographic verification of model and data integrity (ZK/TEE) is on the roadmap.
 
 \textbf{Collaborative AI for distributed teams}: A research consortium spans institutions with different governance. Each runs operator infrastructure within its boundaries while participating in collaborative workflows.
 
 \textbf{Autonomous agents with accountability}: Deploy AI agents that take real-world actions. Agents run in sandboxed environments with logged actions and economic guarantees.
 
-\textbf{Developer monetization at scale}: Create a blueprint; earn from every service instantiation across all operators. Inflation provides additional rewards proportional to adoption.
+\textbf{Developer monetization at scale}: Create a blueprint; earn from every service instantiation across all operators. Treasury-funded emission provides additional rewards proportional to adoption.
 
 %==============================================================================
 \section{Incentives and Pricing}
@@ -347,7 +377,7 @@ Operators earn from multiple sources:
 
 \textbf{Service fees}: Direct payment for services provided, distributed according to exposure commitment.
 
-\textbf{Inflation rewards}: Protocol inflation distributed based on job execution success rate and stake weight.
+\textbf{Emission rewards}: A fixed 25\% operator share of treasury-funded emission, distributed by stake weight and active-service participation. The exposure rail starts at 0 until live services and the fee distributor exist.
 
 \textbf{Tips and premiums}: Customers may offer premiums for priority, specific hardware, or geographic proximity.
 
@@ -358,6 +388,25 @@ Operator profitability depends on:
     \item Stake opportunity cost
     \item Market pricing dynamics
 \end{itemize}
+
+Treasury-funded emission is distributed across five buckets, summarized in Table~\ref{tab:emission}. The stakers (exposure) bucket is the exposure rail and starts at 0\% at genesis because live services and the fee distributor are not yet active (beacon-chain restaking and cross-L2 slashing are Phase 2; see Section~6).
+
+\begin{table}[h]
+\centering
+\caption{Emission allocation and distribution weights (sums to 100\%).}
+\label{tab:emission}
+\begin{tabular}{lr}
+\toprule
+\textbf{Bucket} & \textbf{Weight} \\
+\midrule
+Staking & 55\% \\
+Operators & 25\% \\
+Customers & 10\% \\
+Developers & 10\% \\
+Stakers (exposure rail) & 0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Customer Pricing}
 
@@ -392,13 +441,15 @@ The RFQ system enables price discovery. Customers can specify budgets; operators
 
 \subsubsection{Pricing Models}
 
-Three pricing models accommodate different workload types:
+Four payment models accommodate different workload types:
 
-\textbf{Subscription}: Predictable costs for recurring workloads. Customers fund escrow; the protocol bills at intervals.
+\textbf{Subscription}: Predictable costs for recurring workloads. Customers fund escrow; anyone can permissionlessly trigger TWAP-fair billing at intervals, earning the 0.5\% keeper rebate.
 
 \textbf{Event-driven}: Per-job pricing for variable workloads. Customers pay when they submit work.
 
 \textbf{Pay-once}: Upfront payment for one-time computations, distributed when operators approve.
+
+\textbf{RFQ quotes}: Operator-signed EIP-712 quotes that the customer accepts on-chain at the committed price.
 
 See the \textit{Tangle Protocol Specification} for detailed payment flow mechanics.
 
@@ -407,12 +458,16 @@ See the \textit{Tangle Protocol Specification} for detailed payment flow mechani
 The TNT token serves multiple functions within the ecosystem:
 
 \begin{description}
-    \item[Staking] is required for operator participation. The amount staked determines service capacity and enables operators to accept higher-value workloads requiring greater economic security.
-    \item[Delegation] allows passive holders to earn yield by backing operators. Delegators share in operator rewards proportional to their contribution, providing a way to participate without running infrastructure.
-    \item[Governance] grants voting rights on protocol parameters. Token holders can propose and vote on fee structures, inflation rates, and protocol upgrades.
-    \item[Payment] in TNT may receive discounts on service fees, aligning customer incentives with ecosystem participation.
-    \item[Fee distribution] flows in TNT, creating coherent value circulation where network activity generates rewards that flow back to participants.
+    \item[Staking] is required for operator participation. Operators self-bond at least 1,000 TNT (the bond is always TNT; delegation may accept other assets, but the operator bond does not). The amount staked determines service capacity and enables operators to accept higher-value workloads requiring greater economic security.
+    \item[Delegation] allows passive holders to earn yield by backing operators. The minimum delegation is 0.2 TNT. Delegators share in operator rewards (operator commission defaults to 10\%, with a 7-day timelock on changes) proportional to their contribution. Longer lock commitments earn multipliers up to 1.6x (timestamp-based: 1.0/1.1/1.2/1.3/1.6x at 0/1/2/3/6 months). Unbonding takes $\approx$7 days for delegators and $\approx$14 days for operators. A liquid delegation vault (ERC-7540) is also available, with a 15\% default operator commission.
+    \item[Governance] grants voting rights on protocol parameters. Token holders can propose and vote on fee structures, emission allocation and distribution weights, and protocol upgrades.
+    \item[Payment] is made in the service's chosen payment asset; staking, operator bonds, and governance are denominated in TNT. Fee discounts for paying in TNT are on the roadmap.
+    \item[Fee distribution] flows in the payment asset to recipients, creating coherent value circulation where network activity generates rewards that flow back to participants.
 \end{description}
+
+\subsection{Governance Parameters}
+
+At launch the governor uses an ERC-6372 timestamp clock (not block numbers). The proposal threshold is a flat 100,000 TNT ($\approx$0.09\% of supply), with a 1-day voting delay, a 7-day voting period, and a 4-day timelock applied uniformly to all executions (there is no separate upgrade tier). Quorum is set at 4\% of total supply, deliberately low because most supply is vesting-locked at launch, leaving a thin delegatable float. A canceller guardian multisig and the 4-day timelock are the real capture defense; quorum ratchets up as vesting unlocks.
 
 %==============================================================================
 \section{Roadmap}
@@ -422,7 +477,7 @@ Development proceeds through phases targeting progressive capability and decentr
 
 \subsection{Current State}
 
-\textbf{Core protocol contracts}: Deployed and audited. Full service lifecycle operational including: blueprint registration, operator staking, service creation via RFQ, job execution, payment distribution, and slashing with dispute windows. See \textit{Tangle Protocol Specification} for mechanism details.
+\textbf{Core protocol contracts}: Feature-complete and undergoing external security audit ahead of mainnet on Base. The full service lifecycle is implemented including: blueprint registration, operator staking, service creation via RFQ, job execution, payment distribution, and slashing with dispute windows. The contracts are a custom facet router behind a UUPS proxy (the fallback resolves a selector to one of the core mixin facets and delegatecalls into it over shared proxy storage); this is not an EIP-2535 Diamond (no \texttt{diamondCut}/loupe), and upgrades go through the UUPS path under governance. See \textit{Tangle Protocol Specification} for mechanism details.
 
 \textbf{Blueprint SDK}: Production-ready with comprehensive features:
 \begin{itemize}[noitemsep]
@@ -465,15 +520,15 @@ See \textit{Blueprint SDK Developer Guide} for implementation details.
 
 \textbf{Full governance activation}: Progressive decentralization transferring control to token holders. Phases:
 \begin{enumerate}[noitemsep]
-    \item Parameter governance (fee rates, inflation schedules)
+    \item Parameter governance (fee rates, emission allocation and distribution weights)
     \item Upgrade governance (contract upgrades via timelock)
     \item Full governance (guardian multisig sunset)
 \end{enumerate}
 See \textit{Tangle Protocol Specification}, Governance section for mechanism details.
 
-\textbf{Cross-chain deployment}:
+\textbf{Cross-chain deployment}: Tangle Cloud launches on Base; cross-L2 slashing (OP-Stack native messenger) is Phase 2.
 \begin{itemize}[noitemsep]
-    \item L2 priority: Arbitrum, Base, Optimism for lower transaction costs
+    \item Additional L2s: Arbitrum, Optimism for lower transaction costs
     \item Bridge integration: Canonical bridges for TNT token portability
     \item Service portability: Same blueprint deployable across chains
 \end{itemize}
@@ -524,11 +579,11 @@ Key metrics for ecosystem health:
     \item[Operator diversity] measures geographic and organizational distribution. A healthy network has no single entity dominating compute provision.
     \item[Blueprint diversity] tracks use case coverage. Blueprints should serve varied needs across industries and applications.
     \item[Customer growth] monitors new customer acquisition and retention rates, indicating whether products deliver compelling value.
-    \item[Fee volume] measures protocol revenue from service payments, indicating real economic activity.
+    \item[Fee volume] measures total service-payment volume, of which the protocol takes a 19.5\% slice, indicating real economic activity.
     \item[Stake growth] tracks total value locked, reflecting increasing security capacity for higher-value workloads.
 \end{description}
 
-These metrics guide parameter adjustments (inflation rates, fee structures, minimum stakes) to ensure sustainable growth.
+These metrics guide parameter adjustments (emission allocation and distribution weights, fee structures, minimum stakes) to ensure sustainable growth.
 
 %==============================================================================
 \section{Risks and Limitations}
@@ -544,9 +599,11 @@ Honest assessment of challenges facing Tangle Cloud:
 
 \subsection{Economic Risks}
 
-\textbf{Token volatility}: Slashing effectiveness depends on stake value. Rapid token price declines can reduce security margins below safe thresholds faster than services can respond. Circuit breakers help but cannot eliminate this risk.
+\textbf{Token volatility}: Slashing effectiveness depends on stake value. Rapid token price declines can reduce security margins below safe thresholds faster than services can respond. Bounded slashing (the 50\% per-service cap), the dispute window, and the pending-slash unstake freeze constrain the damage but cannot eliminate this risk.
 
-\textbf{Cold start problem}: Two-sided marketplaces face bootstrapping challenges. Customers need operators; operators need customers. Early network growth requires subsidies (inflation rewards) that must eventually transition to sustainable fee-based economics.
+\textbf{Cold start problem}: Two-sided marketplaces face bootstrapping challenges. Customers need operators; operators need customers. Early network growth is funded by treasury-funded emission, a finite runway ($\approx$1\% of supply per year) that must transition to sustainable fee-based economics before the treasury bucket is exhausted. %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+
+\textbf{Thin delegatable float and quorum}: At launch most supply is vesting-locked, so the governance quorum is set at only 4\% of total supply. A canceller guardian multisig and the 4-day timelock are the primary capture defense until vesting unlocks and quorum ratchets up.
 
 \subsection{Adoption Risks}
 
