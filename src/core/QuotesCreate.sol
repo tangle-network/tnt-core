@@ -216,7 +216,8 @@ abstract contract QuotesCreate is Base {
             status: Types.ServiceStatus.Active
         });
 
-        activation.totalExposure = _processOperatorQuotes(activation.serviceId, operators, exposures, quotes);
+        activation.totalExposure =
+            _processOperatorQuotes(blueprintId, activation.serviceId, operators, exposures, quotes);
 
         emit ServiceActivated(activation.serviceId, 0, blueprintId, activation.confidentiality);
         _recordServiceCreated(activation.serviceId, blueprintId, msg.sender, operators.length);
@@ -273,6 +274,7 @@ abstract contract QuotesCreate is Base {
     /// @notice Process operator quotes and register them for the service
     /// @dev Extracted to separate function to avoid stack too deep
     function _processOperatorQuotes(
+        uint64 blueprintId,
         uint64 serviceId,
         address[] memory operators,
         uint16[] memory exposures,
@@ -288,6 +290,14 @@ abstract contract QuotesCreate is Base {
             });
             _serviceOperatorSet[serviceId].add(operators[i]);
             totalExposure += exposure;
+
+            // INVARIANT: every operator backing a live service — including RFQ/quote
+            // services — must be counted in _operatorActiveServiceCount so the
+            // unregisterOperator and startLeaving() active-service guards block them
+            // from pulling stake while the service is Active. Mirrors the standard
+            // request/approve activation path (TangleServicesFacet); _terminateService
+            // decrements this for every operator in _serviceOperatorSet on termination.
+            _operatorActiveServiceCount[blueprintId][operators[i]]++;
 
             // Store resource commitment hash for QoS dispute evidence
             Types.ResourceCommitment[] calldata resources = quotes[i].details.resourceCommitments;

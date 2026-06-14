@@ -163,6 +163,9 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
             inbox.setSubmissionFee(0.01 ether);
             vm.deal(sender, 1 ether);
 
+            // sendMessage is restricted to authorized relayers (the connector). The test
+            // contract is the adapter owner, so authorize `sender` for the legit flow.
+            messenger.setAuthorizedSender(sender, true);
             vm.prank(sender);
             bytes32 messageId = messenger.sendMessage{ value: 0.2 ether }(42_161, target, payload, 500_000);
 
@@ -275,6 +278,9 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
 
         function test_sendMessage_ForwardsToBaseMessenger() public {
             vm.deal(sender, 1 ether);
+            // sendMessage is restricted to authorized relayers (the connector). The test
+            // contract is the adapter owner, so authorize `sender` for the legit flow.
+            messenger.setAuthorizedSender(sender, true);
             vm.prank(sender);
             bytes32 messageId = messenger.sendMessage{ value: 0.5 ether }(8453, target, payload, 120_000);
 

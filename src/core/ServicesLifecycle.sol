@@ -34,6 +34,7 @@ abstract contract ServicesLifecycle is Base {
     );
     event OperatorJoinedService(uint64 indexed serviceId, address indexed operator, uint16 exposureBps);
     event OperatorSecurityCommitmentsStored(uint64 indexed serviceId, address indexed operator, uint256 count);
+    event OperatorSecurityCommitmentsCleared(uint64 indexed serviceId, address indexed operator, uint256 count);
     event OperatorSecurityCommitment(
         uint64 indexed serviceId, address indexed operator, uint8 assetKind, address asset, uint16 exposureBps
     );
@@ -198,6 +199,29 @@ abstract contract ServicesLifecycle is Base {
         Types.AssetSecurityRequirement[] storage requirements = _serviceSecurityRequirements[serviceId];
         if (requirements.length > 0) {
             _validateSecurityCommitments(requirements, commitments);
+        }
+
+        // Invariant: an operator's stored commitments for a service are a full REPLACEMENT
+        // of any prior set, never an append. Leave paths intentionally retain the array for
+        // post-exit accounting, so a rejoin must clear it here before re-pushing. Without
+        // this, each rejoin would duplicate every commitment — inflating the operator's
+        // billing weight / reward share (PaymentsBilling._accrueOperatorWeights iterates the
+        // array) and multiplying per-asset slash application. Also clear the per-asset BPS
+        // mapping for the previously stored assets so a commitment dropped on rejoin cannot
+        // leave a stale exposure that Slashing._effectiveExposureBps would still read.
+        Types.AssetSecurityCommitment[] storage prior = _serviceSecurityCommitments[serviceId][msg.sender];
+        uint256 priorCount = prior.length;
+        if (priorCount > 0) {
+            for (uint256 p = 0; p < priorCount;) {
+                // forge-lint: disable-next-line(asm-keccak256)
+                bytes32 priorHash = keccak256(abi.encode(prior[p].asset.kind, prior[p].asset.token));
+                delete _serviceSecurityCommitmentBps[serviceId][msg.sender][priorHash];
+                unchecked {
+                    ++p;
+                }
+            }
+            delete _serviceSecurityCommitments[serviceId][msg.sender];
+            emit OperatorSecurityCommitmentsCleared(serviceId, msg.sender, priorCount);
         }
 
         for (uint256 i = 0; i < commitments.length; i++) {

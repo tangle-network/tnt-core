@@ -77,20 +77,30 @@ contract StandardAssetAdapter is IAssetAdapter, Ownable {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @inheritdoc IAssetAdapter
+    /// @dev INVARIANT: shares minted == tokens ACTUALLY received into custody, so
+    ///      `totalShares` can never exceed the adapter's real balance. Crediting the
+    ///      requested `assets` for a fee-on-transfer token (where balanceAfter -
+    ///      balanceBefore < assets) over-credits shares and bricks the last withdrawer
+    ///      once the pool is drained below the outstanding share total. We measure the
+    ///      balance delta and mint against that (1:1, since this is a non-rebasing token).
     function deposit(address from, uint256 assets) external override onlyDelegationManager returns (uint256 shares) {
         if (assets == 0) revert ZeroAmount();
         if (from == address(0)) revert ZeroAddress();
 
-        // For standard tokens, shares == assets (1:1)
-        shares = assets;
-
-        // Transfer tokens from user to this adapter
+        // Measure actual tokens received to stay solvent under fee-on-transfer tokens.
+        uint256 balanceBefore = IERC20(asset).balanceOf(address(this));
         IERC20(asset).safeTransferFrom(from, address(this), assets);
+        uint256 received = IERC20(asset).balanceOf(address(this)) - balanceBefore;
+
+        if (received == 0) revert ZeroAmount();
+
+        // Standard (non-rebasing) token: shares == tokens received (1:1).
+        shares = received;
 
         // Track total shares
         totalShares += shares;
 
-        emit Deposit(from, assets, shares);
+        emit Deposit(from, received, shares);
     }
 
     /// @inheritdoc IAssetAdapter

@@ -92,6 +92,13 @@ contract RewardVaults is
         LockDuration lockDuration; // Lock duration for multiplier
         uint256 lockExpiry; // When lock expires (0 = no lock)
         uint256 boostedScore; // Weighted score minted for this delegator/operator pair
+        // Rewards accrued at the position's prior boostedScore that have been settled
+        // (snapshotted out of the per-share rate) but not yet transferred. MasterChef
+        // requires settling pending before mutating boostedScore; without an external
+        // transfer (recordDelegate is called via swallowed try/catch) we bank the
+        // settled amount here and pay it on claim. Appended last for upgrade safety:
+        // existing positions read 0, the correct "no credit yet" default.
+        uint256 accruedRewards;
     }
 
     /// @notice Snapshot returned when rendering vaults in UI clients
@@ -363,24 +370,43 @@ contract RewardVaults is
         state.totalScore += score;
 
         // Track delegator's first interaction for reward claiming
+        OperatorPool storage pool = operatorPools[asset][operator];
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
         bool isNewDelegator = debt.stakedAmount == 0;
         if (isNewDelegator) {
-            debt.lastAccumulatedPerShare = operatorPools[asset][operator].accumulatedPerShare;
+            debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
+        } else {
+            // Top-up: harvest rewards already accrued to the EXISTING boostedScore before
+            // it grows, so the added stake cannot retroactively earn prior-epoch rewards.
+            _settle(pool, debt);
         }
         debt.stakedAmount += amount;
         debt.boostedScore += score;
-        debt.lockDuration = LockDuration.None;
-        debt.lockExpiry = 0;
+
+        // A lock-multiplier boost MUST carry a matching lock commitment. Map the boost
+        // bps to a lock duration and stamp the longest applicable lockExpiry; never
+        // shorten an existing, still-active lock (a top-up cannot unlock prior stake).
+        LockDuration lock = _lockDurationFromBps(lockMultiplierBps);
+        if (lock != LockDuration.None) {
+            uint256 newExpiry = block.timestamp + _lockDurationSeconds(lock);
+            if (newExpiry > debt.lockExpiry) {
+                debt.lockExpiry = newExpiry;
+                debt.lockDuration = lock;
+            }
+        } else if (isNewDelegator) {
+            // Fresh unboosted position: no lock. Existing positions keep any prior lock.
+            debt.lockDuration = LockDuration.None;
+            debt.lockExpiry = 0;
+        }
 
         if (isNewDelegator) {
             _trackDelegatorOperator(asset, delegator, operator);
         }
 
         // Update operator pool total (score-weighted)
-        operatorPools[asset][operator].totalStaked += score;
+        pool.totalStaked += score;
 
-        emit StakeRecorded(asset, delegator, operator, amount, LockDuration.None);
+        emit StakeRecorded(asset, delegator, operator, amount, lock);
     }
 
     /// @inheritdoc IRewardsManager
@@ -399,8 +425,15 @@ contract RewardVaults is
 
         // Update vault totals
         VaultState storage state = vaultStates[asset];
+        OperatorPool storage pool = operatorPools[asset][operator];
         DelegatorDebt storage debt = delegatorDebts[asset][delegator][operator];
         if (debt.stakedAmount < amount) revert InsufficientStake();
+
+        // Harvest rewards accrued to the current boostedScore before it shrinks, so the
+        // departing stake's already-earned rewards are banked (not forfeited by the
+        // smaller post-unstake score).
+        _settle(pool, debt);
+
         uint256 stakedBefore = debt.stakedAmount;
         uint256 score = debt.boostedScore == 0 ? amount : (debt.boostedScore * amount) / stakedBefore;
         state.totalDeposits -= amount;
@@ -420,7 +453,6 @@ contract RewardVaults is
         }
 
         // Update operator pool total (score-weighted)
-        OperatorPool storage pool = operatorPools[asset][operator];
         if (pool.totalStaked < score) revert InsufficientStake();
         pool.totalStaked -= score;
 
@@ -563,12 +595,22 @@ contract RewardVaults is
         bool isNewDelegator = debt.stakedAmount == 0;
         if (isNewDelegator) {
             debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
+        } else {
+            // Top-up: harvest rewards already accrued to the EXISTING boostedScore before it
+            // grows, so the added stake cannot retroactively earn prior-epoch rewards.
+            _settle(pool, debt);
         }
         debt.stakedAmount += amount;
-        debt.lockDuration = lock;
+        // A lock boost MUST carry a matching lock commitment, and a top-up must never
+        // SHORTEN an existing active lock. Stamp the longest applicable expiry.
         if (lock != LockDuration.None) {
-            debt.lockExpiry = block.timestamp + _lockDurationSeconds(lock);
-        } else {
+            uint256 newExpiry = block.timestamp + _lockDurationSeconds(lock);
+            if (newExpiry > debt.lockExpiry) {
+                debt.lockExpiry = newExpiry;
+                debt.lockDuration = lock;
+            }
+        } else if (isNewDelegator) {
+            debt.lockDuration = LockDuration.None;
             debt.lockExpiry = 0;
         }
         debt.boostedScore += score;
@@ -594,7 +636,13 @@ contract RewardVaults is
         if (debt.lockExpiry > block.timestamp) revert StillLocked(debt.lockExpiry);
         if (debt.stakedAmount < amount) revert InsufficientStake();
 
-        // Update operator pool before unstaking
+        // Update operator pool
+        OperatorPool storage pool = operatorPools[asset][operator];
+
+        // Harvest rewards accrued to the current boostedScore before it shrinks, so the
+        // departing stake's already-earned rewards are banked (not forfeited by the
+        // smaller post-unstake score).
+        _settle(pool, debt);
 
         // Update vault state
         VaultState storage state = vaultStates[asset];
@@ -604,8 +652,7 @@ contract RewardVaults is
         state.totalDeposits -= amount;
         state.totalScore -= score;
 
-        // Update operator pool
-        OperatorPool storage pool = operatorPools[asset][operator];
+        // Update operator pool total (score-weighted)
         if (pool.totalStaked < score) revert InsufficientStake();
         pool.totalStaked -= score;
 
@@ -772,7 +819,7 @@ contract RewardVaults is
         emit RewardsDistributed(asset, operator, poolReward, commission);
     }
 
-    /// @notice Calculate delegator rewards owed
+    /// @notice Calculate delegator rewards owed (banked credit + unsettled accrual)
     function _calculateDelegatorRewards(
         OperatorPool storage pool,
         DelegatorDebt storage debt
@@ -781,10 +828,24 @@ contract RewardVaults is
         view
         returns (uint256)
     {
-        if (debt.stakedAmount == 0) return 0;
-
         uint256 accumulatedDiff = pool.accumulatedPerShare - debt.lastAccumulatedPerShare;
-        return (debt.boostedScore * accumulatedDiff) / PRECISION;
+        return debt.accruedRewards + (debt.boostedScore * accumulatedDiff) / PRECISION;
+    }
+
+    /// @notice Settle a position's pending rewards before its boostedScore changes.
+    /// @dev INVARIANT: boostedScore must NEVER be mutated (top-up or partial unstake)
+    ///      without first banking the rewards already accrued to the OLD boostedScore and
+    ///      advancing lastAccumulatedPerShare to the current per-share rate. Otherwise the
+    ///      new score retroactively earns (or forfeits) rewards from epochs it did not
+    ///      participate in — the MasterChef "harvest before resize" rule. We bank into
+    ///      accruedRewards (no external transfer) because the live caller wraps this in a
+    ///      swallowed try/catch and a failed payout would silently skip settlement.
+    function _settle(OperatorPool storage pool, DelegatorDebt storage debt) internal {
+        uint256 accumulatedDiff = pool.accumulatedPerShare - debt.lastAccumulatedPerShare;
+        if (accumulatedDiff != 0 && debt.boostedScore != 0) {
+            debt.accruedRewards += (debt.boostedScore * accumulatedDiff) / PRECISION;
+        }
+        debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
     }
 
     /// @notice Shared implementation for delegator reward claims
@@ -800,6 +861,7 @@ contract RewardVaults is
         }
 
         debt.lastAccumulatedPerShare = pool.accumulatedPerShare;
+        debt.accruedRewards = 0;
         _transferRewards(delegator, owed);
 
         emit DelegatorRewardsClaimed(asset, delegator, operator, owed);
@@ -810,6 +872,18 @@ contract RewardVaults is
     function _calculateScore(uint256 amount, LockDuration lock) internal pure returns (uint256) {
         uint256 multiplierBps = _lockMultiplierBps(lock);
         return (amount * multiplierBps) / BPS_DENOMINATOR;
+    }
+
+    /// @notice Map an inbound lock-multiplier (bps) to the lock duration that earns it.
+    /// @dev Inverse of `_lockMultiplierBps`. The live recordDelegate path only forwards a
+    ///      raw multiplier, so we recover the commitment tier it implies and snap any
+    ///      in-between value DOWN to the nearest tier (you only get the lock you commit to).
+    function _lockDurationFromBps(uint16 lockMultiplierBps) internal pure returns (LockDuration) {
+        if (lockMultiplierBps >= 16_000) return LockDuration.SixMonths;
+        if (lockMultiplierBps >= 13_000) return LockDuration.ThreeMonths;
+        if (lockMultiplierBps >= 12_000) return LockDuration.TwoMonths;
+        if (lockMultiplierBps >= 11_000) return LockDuration.OneMonth;
+        return LockDuration.None;
     }
 
     /// @notice Get lock multiplier in basis points

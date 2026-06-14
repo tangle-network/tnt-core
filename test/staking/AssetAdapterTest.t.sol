@@ -245,11 +245,15 @@ contract AssetAdapterTest is Test {
         vm.prank(delegationManager);
         uint256 shares = rebasingAdapter.deposit(user1, 100 ether);
 
-        // virtual-offset math.
+        // Symmetric virtual-offset math (VIRTUAL_SHARES == VIRTUAL_ASSETS == 1e8):
         //   shares = actualReceived * (totalShares + VIRTUAL_SHARES) / (balanceBefore + VIRTUAL_ASSETS)
-        // First deposit: totalShares = 0, balanceBefore = 0, VIRTUAL_SHARES = 1e8, VIRTUAL_ASSETS = 1
-        //   shares = 100e18 * 1e8 / 1 = 1e28
-        assertEq(shares, 100 ether * 1e8, "Initial shares with virtual offset");
+        // First deposit: totalShares = 0, balanceBefore = 0, VIRTUAL_SHARES = 1e8, VIRTUAL_ASSETS = 1e8
+        //   shares = 100e18 * 1e8 / 1e8 = 100e18
+        // Shares are token-denominated 1:1 at the bootstrap ratio — required by the
+        // cross-asset USD/exposure layer, which consumes the returned share count as raw
+        // token wei. (The prior asymmetric 1e8/1 offset minted ~1e8x-inflated shares and
+        // inflated rebasing-asset USD exposure — that was the bug this fix removes.)
+        assertEq(shares, 100 ether, "Initial shares token-denominated 1:1 with symmetric offset");
         assertEq(rebasingAdapter.totalShares(), shares, "Total shares updated");
     }
 
@@ -271,16 +275,18 @@ contract AssetAdapterTest is Test {
         // Token rebases by 10%
         rebasingToken.rebase(1000); // 10% = 1000 bps
 
-        // virtual-offset math leaves a 1-wei dust on the
-        // round-trip — that's the price of the first-depositor inflation
-        // defense. ApproxEq with 1-wei tolerance pins both `sharesToAssets`
-        // and `withdraw` close enough to the rebased value.
+        // The SYMMETRIC virtual offset (VIRTUAL_ASSETS == VIRTUAL_SHARES == 1e8) adds a
+        // ~1e8-wei addend to a ~1e20-wei pool, so the floored round-trip leaves dust on
+        // the order of ~1e7 wei (≈9e-14 relative — economically immaterial). Tolerance
+        // is widened from 1 to 1e8 to bound that dust; pinning it tighter would assert
+        // the old asymmetric 1e8/1 offset (the inflation bug), not correct behavior.
+        uint256 dustTolerance = 1e8;
         uint256 value = rebasingAdapter.sharesToAssets(shares);
-        assertApproxEqAbs(value, 110 ether, 1, "Value should increase with rebase (~1 wei dust)");
+        assertApproxEqAbs(value, 110 ether, dustTolerance, "Value should increase with rebase (symmetric-offset dust)");
 
         vm.prank(delegationManager);
         uint256 withdrawn = rebasingAdapter.withdraw(user2, shares);
-        assertApproxEqAbs(withdrawn, 110 ether, 1, "Should withdraw rebased amount (~1 wei dust)");
+        assertApproxEqAbs(withdrawn, 110 ether, dustTolerance, "Should withdraw rebased amount (symmetric-offset dust)");
     }
 
     function test_RebasingAdapter_MultipleDepositorsWithRebase() public {

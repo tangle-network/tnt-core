@@ -50,6 +50,7 @@ library BN254 {
     error InvalidG2Point();
     error PairingFailed();
     error HashToPointFailed();
+    error DegenerateBlsInput();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // POINT VALIDATION
@@ -254,6 +255,11 @@ library BN254 {
         return p.x[0] == 0 && p.x[1] == 0 && p.y[0] == 0 && p.y[1] == 0;
     }
 
+    /// @notice Check if a G1 point is the point at infinity (encoded as (0, 0))
+    function isG1Infinity(Types.BN254G1Point memory p) internal pure returns (bool) {
+        return p.x == 0 && p.y == 0;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // FP2 ARITHMETIC (Extension Field: Fp2 = Fp[i]/(i^2 + 1))
     // ═══════════════════════════════════════════════════════════════════════════
@@ -426,6 +432,19 @@ library BN254 {
         view
         returns (bool)
     {
+        // SECURITY INVARIANT: the BLS verification equation e(sig, G2) == e(H(m), pubkey)
+        // must NOT be satisfiable by the identity (point at infinity). The pairing
+        // precompile treats infinity as the pairing identity, so e(O, ·) = e(·, O) = 1.
+        // An all-zero (signature, pubkey) pair therefore collapses BOTH sides of the
+        // check to 1 and "verifies" ANY message — a universal forgery. Likewise an
+        // infinity signature alone (e(O, G2) = 1) would verify the trivial pubkey, and
+        // an infinity pubkey alone enables rogue-key style aggregation forgeries.
+        // Reject degenerate (infinity) and malformed (off-curve / out-of-field) inputs
+        // up front; only genuine subgroup elements may reach the pairing.
+        if (isG1Infinity(signature) || isG2Infinity(pubkey)) revert DegenerateBlsInput();
+        if (!isValidG1(signature)) revert InvalidG1Point();
+        if (!isValidG2(pubkey)) revert InvalidG2Point();
+
         Types.BN254G1Point memory msgPoint = hashToG1(message);
         Types.BN254G2Point memory g2 = Types.BN254G2Point([G2_X0, G2_X1], [G2_Y0, G2_Y1]);
         return pairingCheck(signature, g2, msgPoint, pubkey);

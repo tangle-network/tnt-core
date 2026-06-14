@@ -23,8 +23,11 @@ contract MockTNT {
     }
 }
 
-/// @notice F-001: top-up does not settle reward debt -> stake retroactively
-///         earns rewards accrued before it existed, draining the pool.
+/// @notice F-001 REGRESSION: top-up now settles reward debt before growing the
+///         position's boostedScore, so freshly-added stake CANNOT retroactively
+///         earn rewards accrued before it existed. Honest delegators stay whole
+///         and the pool stays solvent. Fails if the harvest-before-resize
+///         settlement in recordDelegate/_settle is removed.
 contract F001_TopUpRewardDebtPoC is Test {
     RewardVaults vault;
     MockTNT tnt;
@@ -56,7 +59,7 @@ contract F001_TopUpRewardDebtPoC is Test {
         tnt.mint(address(vault), REWARD);
     }
 
-    function test_F001_TopUpStealsPriorEpochRewards() public {
+    function test_F001_TopUpDoesNotStealPriorEpochRewards() public {
         // ── SETUP: attacker delegates a dust 1 wei; honest delegates LARGE ──
         // Both join BEFORE any reward is distributed. lockMultiplierBps = 0 means
         // score == amount (no boost).
@@ -79,46 +82,51 @@ contract F001_TopUpRewardDebtPoC is Test {
         assertApproxEqAbs(honestFair, REWARD, 1e6, "honest should earn ~full reward");
 
         // ── ATTACK: attacker TOPS UP by LARGE *after* the reward accrued ──
-        // recordDelegate sees stakedAmount != 0 (not a new delegator) so it adds
-        // boostedScore WITHOUT settling pending or advancing lastAccumulatedPerShare.
+        // recordDelegate sees stakedAmount != 0 (not a new delegator). The fix makes
+        // it _settle() FIRST — banking the (~0) rewards accrued to the old boostedScore
+        // and advancing lastAccumulatedPerShare — before growing boostedScore, so the
+        // added stake starts from the current per-share rate with zero retroactive credit.
         vault.recordDelegate(ATTACKER, OPERATOR, ASSET, LARGE, 0);
 
         uint256 attackerAfter = vault.pendingDelegatorRewards(ASSET, ATTACKER, OPERATOR);
         console2.log("--- after attacker top-up of LARGE ---");
         console2.log("attacker pending NOW:", attackerAfter);
 
-        // ── OUTCOME: attacker's freshly-added stake retroactively earns the
-        // rewards that accrued before it existed. Pending jumps from ~0 to ~REWARD.
+        // ── OUTCOME (FIXED): recordDelegate settles the position before growing
+        // boostedScore (harvest-before-resize). The added LARGE stake therefore
+        // earns NOTHING from the already-distributed epoch — pending stays the
+        // attacker's fair ~0 share (banked accruedRewards from the 1 wei stake +
+        // zero new accrual). It does NOT jump to ~REWARD.
         assertApproxEqAbs(
-            attackerAfter, REWARD, 1e6, "BUG: top-up retroactively earns the full prior reward"
+            attackerAfter, 0, 1e6, "top-up must not retroactively earn the prior-epoch reward"
         );
-        assertGt(attackerAfter, attackerFair + REWARD / 2, "attacker pending exploded after top-up");
+        assertLe(attackerAfter, attackerFair + 1, "top-up did not inflate the attacker's pending");
 
-        // The pool now owes attacker(~REWARD) + honest(~REWARD) = ~2x REWARD, but
-        // only REWARD of TNT was ever funded. Prove insolvency by claiming.
-        uint256 attackerClaimed = vault.claimDelegatorRewardsFor(ASSET, OPERATOR, ATTACKER);
-        console2.log("attacker CLAIMED:", attackerClaimed);
-        console2.log("attacker TNT balance:", tnt.balanceOf(ATTACKER));
-        console2.log("vault TNT remaining:", tnt.balanceOf(address(vault)));
+        // The attacker has no claimable rewards: their fair share rounded to 0 and
+        // the top-up earned nothing retroactively, so the claim reverts with
+        // NoRewardsToClaim (owed == 0). The pool is NOT drained.
+        vm.expectRevert(RewardVaults.NoRewardsToClaim.selector);
+        vault.claimDelegatorRewardsFor(ASSET, OPERATOR, ATTACKER);
+        console2.log("attacker claim REVERTED: NoRewardsToClaim (nothing stolen)");
 
-        assertApproxEqAbs(attackerClaimed, REWARD, 1e6, "attacker drained ~full epoch reward");
-
-        // The honest delegator, who actually staked LARGE for the whole epoch,
-        // can no longer be paid: the attacker already drained the pool.
+        // The honest delegator, who staked LARGE for the whole epoch, is still owed
+        // ~REWARD and the vault remains solvent enough to pay it.
         uint256 honestStillOwed = vault.pendingDelegatorRewards(ASSET, HONEST, OPERATOR);
         console2.log("honest STILL owed:", honestStillOwed);
         console2.log("vault can cover honest?", tnt.balanceOf(address(vault)) >= honestStillOwed);
 
         assertApproxEqAbs(honestStillOwed, REWARD, 1e6, "honest is still owed ~full reward");
-        assertLt(
+        assertGe(
             tnt.balanceOf(address(vault)),
             honestStillOwed,
-            "INSOLVENT: vault cannot pay the honest delegator after attacker top-up theft"
+            "SOLVENT: vault can still pay the honest delegator after the top-up"
         );
 
-        // And the honest claim now reverts on insufficient balance, confirming the drain.
-        vm.expectRevert(bytes("Insufficient reward balance"));
-        vault.claimDelegatorRewardsFor(ASSET, OPERATOR, HONEST);
-        console2.log("honest claim REVERTED: Insufficient reward balance (funds stolen)");
+        // The honest delegator can actually claim their ~full epoch reward.
+        uint256 honestClaimed = vault.claimDelegatorRewardsFor(ASSET, OPERATOR, HONEST);
+        console2.log("honest CLAIMED:", honestClaimed);
+        console2.log("honest TNT balance:", tnt.balanceOf(HONEST));
+        console2.log("vault TNT remaining:", tnt.balanceOf(address(vault)));
+        assertApproxEqAbs(honestClaimed, REWARD, 1e6, "honest delegator received ~full reward");
     }
 }

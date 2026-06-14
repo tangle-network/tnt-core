@@ -49,26 +49,36 @@ contract RebasingShareScalePoC is Test {
         token.approve(address(adapter), type(uint256).max);
     }
 
-    /// F-003: a fresh-pool deposit of 1 token (1e18 wei) mints ~1e8x that in shares.
-    /// These shares become the delegation-layer "amount" that the oracle USD-exposure
-    /// path (PaymentsEffectiveExposure) treats as raw TOKEN wei -> 1e8x over-weighting.
-    function test_RebasingDeposit_Mints_1e8x_TokenWei() public {
+    /// F-003 (FIXED): the symmetric virtual offset (VIRTUAL_SHARES == VIRTUAL_ASSETS == 1e8)
+    /// makes shares TOKEN-DENOMINATED 1:1 on bootstrap. A fresh-pool deposit of 1 token
+    /// (1e18 wei) now mints exactly 1e18 shares — not the old 1e26 (1e8x) — so the share
+    /// count consumed downstream as the delegation `amount` and fed to oracle.toUSD()
+    /// stays raw-token-wei accurate. Regression guard: any reintroduced asymmetric offset
+    /// (e.g. 1e8/1) would mint 1e26 here and trip these assertions.
+    function test_RebasingDeposit_Mints_1To1_TokenWei() public {
         uint256 oneToken = 1 ether; // 1e18 wei
         vm.prank(dm);
         uint256 shares = adapter.deposit(alice, oneToken);
 
-        // shares = 1e18 * (0 + 1e8) / (0 + 1) = 1e26  == 1e8 * tokenWei
-        assertEq(shares, oneToken * 1e8, "first deposit minted 1e8x token wei");
-        assertEq(adapter.totalShares(), shares, "totalShares scaled 1e8x");
+        // shares = 1e18 * (0 + 1e8) / (0 + 1e8) = 1e18  == token wei, 1:1 (no 1e8 inflation)
+        assertEq(shares, oneToken, "first deposit mints 1:1 token wei (no 1e8 inflation)");
+        assertEq(adapter.totalShares(), oneToken, "totalShares equals deposited token wei");
     }
 
-    /// F-004: previewDeposit / assetsToShares disagree with the actual deposit by 1e10x
-    /// on the bootstrap (returns assets*1e18 instead of assets*1e8).
-    function test_PreviewDeposit_Disagrees_By_1e10() public view {
+    /// F-004 (FIXED): previewDeposit / assetsToShares now use the SAME symmetric offset
+    /// formula as deposit, so the preview agrees exactly with the shares actually minted
+    /// (bootstrap: assets * VS / VA == assets). No 1e10 disagreement. Regression guard:
+    /// the divergence (preview = assets*1e18 vs mint = assets*1e8) reappears the moment the
+    /// offsets are made asymmetric again.
+    function test_PreviewDeposit_Agrees_With_Deposit() public {
         uint256 oneToken = 1 ether;
-        uint256 previewed = adapter.previewDeposit(oneToken); // assets * 1e18
-        uint256 actualMintScale = oneToken * 1e8; // what deposit() would mint
-        assertEq(previewed, oneToken * 1e18, "preview returns 1e18x");
-        assertEq(previewed / actualMintScale, 1e10, "preview overstates deposit by 1e10x");
+        uint256 previewed = adapter.previewDeposit(oneToken);
+        // bootstrap preview is token-denominated 1:1
+        assertEq(previewed, oneToken, "preview is token-denominated 1:1 (no 1e10 inflation)");
+
+        vm.prank(dm);
+        uint256 minted = adapter.deposit(alice, oneToken);
+        // preview must equal what deposit actually mints — agreement, not 1e10 skew
+        assertEq(previewed, minted, "previewDeposit agrees with deposit() exactly");
     }
 }

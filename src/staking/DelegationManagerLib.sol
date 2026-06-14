@@ -857,6 +857,15 @@ abstract contract DelegationManagerLib is OperatorManager {
             revert DelegationErrors.NotFixedMode();
         }
 
+        // Invariant: while a slash is pending against the operator, a Fixed-mode delegator may
+        // not rebalance stake between blueprint pools. Fixed-mode slashing is per-blueprint, so
+        // rebalancing physically moves `totalAssets` out of the pending-slash target pool and into
+        // safe pools, evading the slash and socializing the loss onto honest pool delegators. This
+        // mirrors the dispute-window lock already enforced on every unstake/exit path.
+        if (_operatorPendingSlashCount[d.operator] > 0) {
+            revert DelegationErrors.PendingSlashExists(d.operator, _operatorPendingSlashCount[d.operator]);
+        }
+
         uint64[] storage blueprints = _delegationBlueprints[msg.sender][delegationIndex];
 
         // Check if blueprint already selected
@@ -919,6 +928,15 @@ abstract contract DelegationManagerLib is OperatorManager {
         // Only Fixed mode delegations can modify blueprints
         if (d.selectionMode != Types.BlueprintSelectionMode.Fixed) {
             revert DelegationErrors.NotFixedMode();
+        }
+
+        // Invariant: while a slash is pending against the operator, a Fixed-mode delegator may
+        // not rebalance stake between blueprint pools. `removeBlueprintFromDelegation` zeroes the
+        // removed pool's position and redistributes its `totalAssets` into the remaining pools; if
+        // the removed blueprint is the pending-slash target the slash collects nothing. Locking
+        // this path during the dispute window mirrors the unstake/exit guards.
+        if (_operatorPendingSlashCount[d.operator] > 0) {
+            revert DelegationErrors.PendingSlashExists(d.operator, _operatorPendingSlashCount[d.operator]);
         }
 
         uint64[] storage blueprints = _delegationBlueprints[msg.sender][delegationIndex];

@@ -79,10 +79,24 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     /// @notice Owner for configuration
     address public owner;
 
+    /// @notice Callers authorized to relay messages through this adapter.
+    /// @dev SECURITY INVARIANT: `sendMessage` lends this adapter's authenticated L1
+    ///      identity (the aliased L1 sender the L2 receiver checks) to whatever payload
+    ///      it forwards. The L2 receiver authenticates the *adapter*, not the original
+    ///      caller, so any address able to invoke `sendMessage` can forge an
+    ///      L1-authenticated message (e.g. a beacon SLASH) against any operator.
+    ///      `sendMessage` MUST therefore be restricted to the legitimate L1 origin (the
+    ///      L2SlashingConnector). The owner is implicitly authorized.
+    mapping(address => bool) public authorizedSenders;
+
     /// @notice Events for gas configuration changes
     event MinGasLimitUpdated(uint256 oldLimit, uint256 newLimit);
     event GasBufferUpdated(uint256 oldBuffer, uint256 newBuffer);
     event L2RefundAddressUpdated(address indexed oldAddress, address indexed newAddress);
+    event AuthorizedSenderUpdated(address indexed sender, bool authorized);
+
+    /// @notice Caller is not authorized to relay messages through this adapter.
+    error UnauthorizedSender(address caller);
 
     /// @dev SECURITY: For production, owner should be a timelock or multisig.
     /// Critical parameters (minGasLimit, gasBufferBps) affect cross-chain security.
@@ -100,6 +114,14 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         require(msg.sender == owner, "Only owner");
     }
 
+    /// @notice Authorize (or revoke) a caller permitted to relay through `sendMessage`.
+    /// @dev The legitimate caller is the L2SlashingConnector. Owner-gated.
+    function setAuthorizedSender(address sender, bool authorized) external onlyOwner {
+        require(sender != address(0), "Zero address");
+        authorizedSenders[sender] = authorized;
+        emit AuthorizedSenderUpdated(sender, authorized);
+    }
+
     /// @inheritdoc ICrossChainMessenger
     /// @dev Gas limit is now enforced to be at least minGasLimit and includes buffer
     function sendMessage(
@@ -112,6 +134,14 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         payable
         returns (bytes32 messageId)
     {
+        // INVARIANT: only the owner or an explicitly authorized sender (the
+        // L2SlashingConnector) may borrow this adapter's authenticated L1 identity.
+        // Without this gate any caller is a confused deputy that can forge an
+        // L1-authenticated SLASH on L2.
+        if (msg.sender != owner && !authorizedSenders[msg.sender]) {
+            revert UnauthorizedSender(msg.sender);
+        }
+
         require(
             destinationChainId == ARBITRUM_ONE_CHAIN_ID || destinationChainId == ARBITRUM_SEPOLIA_CHAIN_ID,
             "Unsupported chain"

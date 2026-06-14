@@ -81,6 +81,9 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
     event Buyback(uint256 ethSpent, uint256 tokensReceived, TokenDestination destination);
     event BuybackConfigUpdated(BuybackMode mode, TokenDestination destination, uint256 threshold);
     event BuybackPauseUpdated(bool paused);
+    /// @notice Emitted when an automatic buyback cannot price the swap and the ETH is
+    ///         deferred to the pending balance instead of being swapped unprotected.
+    event BuybackDeferredNoQuote(uint256 ethAmount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -90,6 +93,10 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
     error InsufficientBalance();
     error SlippageExceeded();
     error PoolNotSet();
+    /// @notice Raised when a swap would execute with no effective minimum output
+    ///         (i.e. zero slippage protection), which exposes the buyback to an MEV
+    ///         sandwich. A buyback MUST have a non-zero `amountOutMinimum`.
+    error NoSlippageProtection();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
@@ -162,22 +169,44 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
             return;
         }
 
-        // Native ETH handling based on mode
+        // Native ETH handling based on mode.
+        //
+        // Automatic paths (AUTO / THRESHOLD) are triggered by an external payment, so
+        // there is no caller able to supply a slippage floor. They rely entirely on the
+        // on-chain estimate from `_getExpectedOutput` (oracle/TWAP). If no estimate is
+        // available the swap would have zero slippage protection, so we DEFER the ETH to
+        // the pending balance (recoverable via the manual `executeBuyback*` path with an
+        // explicit `minTokensOut`) instead of swapping it unprotected into an MEV sandwich.
         if (buybackMode == BuybackMode.AUTO) {
-            // Immediate buyback
-            _executeBuyback(amount);
+            _executeBuybackAuto(amount);
         } else if (buybackMode == BuybackMode.THRESHOLD) {
             // Accumulate and buyback when threshold reached
             pendingBuybackBalance += amount;
             if (pendingBuybackBalance >= buybackThreshold) {
                 uint256 buybackAmount = pendingBuybackBalance;
                 pendingBuybackBalance = 0;
-                _executeBuyback(buybackAmount);
+                _executeBuybackAuto(buybackAmount);
             }
         } else {
             // MANUAL mode: just accumulate
             pendingBuybackBalance += amount;
         }
+    }
+
+    /// @notice Automatic (caller-less) buyback path. Defers to pending instead of
+    ///         swapping when the swap cannot be given a non-zero minimum output.
+    /// @dev Invariant: never swaps with zero slippage protection. When no on-chain
+    ///      estimate is available, the ETH is held as pending and can be swept later
+    ///      via `executeBuyback`/`executeBuybackAll` with an explicit `minTokensOut`.
+    function _executeBuybackAuto(uint256 ethAmount) internal {
+        if (ethAmount == 0) return;
+        if (_minOutFor(ethAmount, 0) == 0) {
+            // Unpriceable right now: do NOT swap unprotected. Hold for manual sweep.
+            pendingBuybackBalance += ethAmount;
+            emit BuybackDeferredNoQuote(ethAmount);
+            return;
+        }
+        _executeBuyback(ethAmount, 0);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -186,22 +215,43 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
 
     /// @notice Execute buyback with accumulated ETH (for MANUAL mode)
     /// @param amount Amount of ETH to use for buyback
-    function executeBuyback(uint256 amount) external nonReentrant {
+    /// @param minTokensOut Caller-supplied minimum tokens to receive. This is a hard
+    ///        slippage floor: the swap reverts if it would return fewer tokens. Because
+    ///        this trigger is permissionless, the caller MUST pass a sane bound (e.g.
+    ///        computed off-chain against the current pool price) so an MEV bot cannot
+    ///        sandwich the swap. The effective floor is `max(oracleMinOut, minTokensOut)`.
+    function executeBuyback(uint256 amount, uint256 minTokensOut) external nonReentrant {
         if (amount > pendingBuybackBalance) revert InsufficientBalance();
         pendingBuybackBalance -= amount;
-        _executeBuyback(amount);
+        _executeBuyback(amount, minTokensOut);
     }
 
     /// @notice Execute buyback with all accumulated ETH
-    function executeBuybackAll() external nonReentrant {
+    /// @param minTokensOut Caller-supplied minimum tokens to receive (see `executeBuyback`).
+    function executeBuybackAll(uint256 minTokensOut) external nonReentrant {
         uint256 amount = pendingBuybackBalance;
         if (amount == 0) revert InsufficientBalance();
         pendingBuybackBalance = 0;
-        _executeBuyback(amount);
+        _executeBuyback(amount, minTokensOut);
+    }
+
+    /// @notice Compute the effective minimum output for a swap.
+    /// @dev Combines the on-chain oracle/TWAP estimate (discounted by `maxSlippageBps`)
+    ///      with the caller-supplied floor and returns the larger of the two. Either
+    ///      source alone is sufficient to bound slippage; both is strictly safer.
+    function _minOutFor(uint256 ethAmount, uint256 callerMinOut) internal view returns (uint256) {
+        uint256 expectedOut = _getExpectedOutput(ethAmount);
+        uint256 oracleMinOut = (expectedOut * (10_000 - maxSlippageBps)) / 10_000;
+        return callerMinOut > oracleMinOut ? callerMinOut : oracleMinOut;
     }
 
     /// @notice Internal buyback execution
-    function _executeBuyback(uint256 ethAmount) internal {
+    /// @dev Invariant: a buyback swap MUST carry a non-zero `amountOutMinimum`. A zero
+    ///      minimum (the old behaviour when `_getExpectedOutput` returned 0) lets an MEV
+    ///      bot sandwich the WETH->token swap and extract the entire buyback. The minimum
+    ///      is the greater of the oracle-derived floor and the caller-supplied floor; if
+    ///      both are zero the swap is rejected with `NoSlippageProtection`.
+    function _executeBuyback(uint256 ethAmount, uint256 callerMinOut) internal {
         if (ethAmount == 0) return;
         if (address(swapRouter) == address(0)) revert PoolNotSet();
         if (buybackPaused) {
@@ -209,13 +259,13 @@ abstract contract BuybackBlueprintBase is TokenizedBlueprintBase {
             return;
         }
 
+        // Resolve the slippage floor BEFORE moving funds. Fail closed: no protection -> no swap.
+        uint256 minOut = _minOutFor(ethAmount, callerMinOut);
+        if (minOut == 0) revert NoSlippageProtection();
+
         // Wrap ETH to WETH
         weth.deposit{ value: ethAmount }();
         weth.approve(address(swapRouter), ethAmount);
-
-        // Calculate minimum output with slippage protection
-        uint256 expectedOut = _getExpectedOutput(ethAmount);
-        uint256 minOut = (expectedOut * (10_000 - maxSlippageBps)) / 10_000;
 
         // Execute swap: WETH -> Blueprint Token
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({

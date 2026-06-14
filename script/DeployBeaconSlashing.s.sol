@@ -184,6 +184,10 @@ contract DeployBeaconSlashingL1 is Script {
         messenger = deployOpStackMessenger();
 
         connectorContract.setMessenger(messenger);
+        // sendMessage on the adapter is restricted to authorized relayers so it cannot
+        // be used as a confused deputy to forge an L1-authenticated slash. The connector
+        // is the sole legitimate caller; authorize it now (adapter owner == deployer here).
+        BaseCrossChainMessenger(messenger).setAuthorizedSender(connector, true);
         if (l2Receiver != address(0)) {
             connectorContract.setDefaultDestinationChain(tangleChainId);
             connectorContract.setChainConfig(tangleChainId, l2Receiver, 200_000, true);
@@ -435,6 +439,9 @@ contract ConfigureL2SlashingConnector is Script {
         connector.setMessenger(messengerAddr);
         connector.setDefaultDestinationChain(tangleChainId);
         connector.setChainConfig(tangleChainId, l2Receiver, 200_000, true);
+        // Authorize the connector as the sole relayer on the adapter so its restricted
+        // sendMessage accepts the legit slash path (adapter owner == deployer).
+        BaseCrossChainMessenger(messengerAddr).setAuthorizedSender(connectorAddr, true);
 
         vm.stopBroadcast();
 

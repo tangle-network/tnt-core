@@ -6,9 +6,6 @@ import { Types } from "../libraries/Types.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { SlashingLib } from "../libraries/SlashingLib.sol";
 import { IBlueprintServiceManager } from "../interfaces/IBlueprintServiceManager.sol";
-import { IServiceFeeDistributor } from "../interfaces/IServiceFeeDistributor.sol";
-import { IPriceOracle } from "../oracles/interfaces/IPriceOracle.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title Slashing
 /// @notice Slashing with dispute window support
@@ -70,11 +67,18 @@ abstract contract Slashing is Base {
             revert Errors.OperatorNotInService(serviceId, operator);
         }
 
+        // INVARIANT: each exposure dimension is applied to the slash fraction exactly
+        // once. `effectiveSlashBps` carries ONLY the service-level exposure
+        // (`opData.exposureBps`). The per-asset commitment exposure
+        // (`commitment.exposureBps`) is applied exactly once downstream, in
+        // `_staking.slashForService` (SlashingManager._slashForService), via the
+        // commitments forwarded by `_executeSlashOnStaking`. Folding the commitment
+        // average in here as well would double-count it (F-COORD-001 / F-REPRO-001:
+        // realized slash = slashBps * opExposure * avg(commitment) * commitment, i.e.
+        // the operator is under-slashed). The no-commitment fallback
+        // (`_slashForBlueprint`) applies no further exposure, so for that path
+        // `effectiveSlashBps` is the complete, correctly-scaled rate.
         uint16 effectiveExposureBps = opData.exposureBps;
-        if (_serviceSecurityRequirements[serviceId].length > 0) {
-            uint16 commitmentBps = _computeServiceCommitmentExposureBps(serviceId, operator, svc.blueprintId);
-            effectiveExposureBps = uint16((uint256(effectiveExposureBps) * commitmentBps) / BPS_DENOMINATOR);
-        }
 
         uint16 cappedSlashBps = SlashingLib.capSlashBps(slashBps, _slashState.config.maxSlashBps);
 
@@ -144,94 +148,12 @@ abstract contract Slashing is Base {
         return custom;
     }
 
-    function _computeServiceCommitmentExposureBps(
-        uint64 serviceId,
-        address operator,
-        uint64 blueprintId
-    )
-        internal
-        view
-        returns (uint16 exposureBps)
-    {
-        Types.AssetSecurityRequirement[] storage reqs = _serviceSecurityRequirements[serviceId];
-        uint256 reqsLength = reqs.length;
-        if (reqsLength == 0) return BPS_DENOMINATOR;
-
-        // Cache storage reads
-        address serviceFeeDistributor = _serviceFeeDistributor;
-
-        if (serviceFeeDistributor == address(0)) {
-            uint256 sum;
-            uint256 count;
-            for (uint256 i = 0; i < reqsLength;) {
-                Types.Asset memory asset = reqs[i].asset;
-                // forge-lint: disable-next-line(asm-keccak256)
-                bytes32 assetHash = keccak256(abi.encode(asset.kind, asset.token));
-                uint16 committed = _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
-                sum += committed;
-                count++;
-                unchecked {
-                    ++i;
-                }
-            }
-            if (count == 0) return BPS_DENOMINATOR;
-            exposureBps = uint16(sum / count);
-            if (exposureBps > BPS_DENOMINATOR) exposureBps = BPS_DENOMINATOR;
-            return exposureBps;
-        }
-
-        // Cache storage reads
-        address priceOracleAddr = _priceOracle;
-        IPriceOracle oracle = IPriceOracle(priceOracleAddr);
-        bool useOracle = priceOracleAddr != address(0);
-
-        uint256 weightedCommitted; // scaled down by BPS_DENOMINATOR to avoid overflow
-        uint256 totalWeight;
-        for (uint256 i = 0; i < reqsLength;) {
-            Types.Asset memory asset = reqs[i].asset;
-            // forge-lint: disable-next-line(asm-keccak256)
-            bytes32 assetHash = keccak256(abi.encode(asset.kind, asset.token));
-            uint16 committed = _serviceSecurityCommitmentBps[serviceId][operator][assetHash];
-            if (committed == 0) {
-                unchecked {
-                    ++i;
-                }
-                continue;
-            }
-
-            (uint256 allScore, uint256 fixedScore) =
-                IServiceFeeDistributor(serviceFeeDistributor).getPoolScore(operator, blueprintId, asset);
-            uint256 totalScore = allScore + fixedScore;
-            if (totalScore == 0) {
-                unchecked {
-                    ++i;
-                }
-                continue;
-            }
-
-            uint256 weight = totalScore;
-            if (useOracle) {
-                address token = asset.kind == Types.AssetKind.Native ? address(0) : asset.token;
-                weight = oracle.toUSD(token, totalScore);
-            }
-            if (weight == 0) {
-                unchecked {
-                    ++i;
-                }
-                continue;
-            }
-
-            weightedCommitted += Math.mulDiv(weight, committed, BPS_DENOMINATOR);
-            totalWeight += weight;
-            unchecked {
-                ++i;
-            }
-        }
-
-        if (totalWeight == 0) return BPS_DENOMINATOR;
-        exposureBps = uint16(Math.mulDiv(weightedCommitted, BPS_DENOMINATOR, totalWeight));
-        if (exposureBps > BPS_DENOMINATOR) exposureBps = BPS_DENOMINATOR;
-    }
+    // NOTE: the former `_computeServiceCommitmentExposureBps` helper (which averaged
+    // the per-asset `commitment.exposureBps` and folded it into `effectiveSlashBps`
+    // at propose time) was removed. The per-asset commitment exposure is now applied
+    // exactly once, in `_staking.slashForService`. Re-introducing any commitment-
+    // exposure scaling in `proposeSlash` would double-count exposure and under-slash
+    // the operator (F-COORD-001 / F-REPRO-001).
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DISPUTE

@@ -103,6 +103,7 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     error AlreadyClaimed();
     error InsufficientShares();
     error AsyncRequired();
+    error RateUndefined();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -148,7 +149,16 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     ///      underlying delegation (the bond-less request only queues, it does not reduce shares
     ///      until claim), so we exclude them here to keep the asset-per-share rate stable while a
     ///      redemption is pending. Floored at 0 to stay safe if slashing pushes the underlying
-    ///      delegation below the reserved amount.
+    ///      delegation below the reserved (pre-slash-priced) amount.
+    ///
+    ///      The floor case (reserved >= underlying) is DEGENERATE: a slash has pushed the
+    ///      remaining backing below the still-pre-slash-priced reservation, so the per-share
+    ///      rate is temporarily undefined. `_rateDefinedForMint` gates new mints in that window
+    ///      (see deposit/mint) — without it, totalAssets()==0 with totalSupply()>0 collapses
+    ///      convertToShares' denominator to the virtual offset and a dust deposit mints a
+    ///      dominant share fraction, draining non-redeeming holders once the reservation
+    ///      releases. The window self-heals as pending redeems are claimed and reservation
+    ///      drops back below underlying.
     function totalAssets() public view returns (uint256) {
         uint256 underlying = staking.getDelegation(address(this), operator);
         uint256 reserved = _pendingRedeemAssets;
@@ -156,6 +166,16 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
             return 0;
         }
         return underlying - reserved;
+    }
+
+    /// @notice Whether the asset-per-share rate is well-defined enough to safely MINT new shares.
+    /// @dev INVARIANT: never mint against a collapsed rate. A mint is only safe when either the
+    ///      vault is empty (totalSupply()==0, first-depositor case handled by the virtual offset)
+    ///      or there is real backing for existing shares (totalAssets() > 0). When totalSupply()>0
+    ///      and totalAssets()==0 the rate has collapsed onto the virtual offset and any mint
+    ///      inflates the new depositor's share at the expense of existing holders.
+    function _rateDefinedForMint() internal view returns (bool) {
+        return totalSupply() == 0 || totalAssets() > 0;
     }
 
     /// @notice Convert assets to shares
@@ -192,6 +212,9 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     /// @return shares Number of shares minted
     function deposit(uint256 assets, address receiver) public nonReentrant returns (uint256 shares) {
         if (assets == 0) revert ZeroAssets();
+        // Refuse to mint while the rate is collapsed (slash-during-pending-redeem); minting
+        // here would hand the depositor an inflated share of existing holders' stake.
+        if (!_rateDefinedForMint()) revert RateUndefined();
 
         shares = convertToShares(assets);
         if (shares == 0) revert ZeroShares();
@@ -225,6 +248,8 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     /// @return assets Amount of assets deposited
     function mint(uint256 shares, address receiver) public nonReentrant returns (uint256 assets) {
         if (shares == 0) revert ZeroShares();
+        // Refuse to mint while the rate is collapsed (slash-during-pending-redeem); see deposit().
+        if (!_rateDefinedForMint()) revert RateUndefined();
 
         assets = convertToAssets(shares);
         if (assets == 0) revert ZeroAssets();

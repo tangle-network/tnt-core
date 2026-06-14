@@ -5,10 +5,13 @@ import { Test } from "forge-std/Test.sol";
 import { BN254 } from "../../src/libraries/BN254.sol";
 import { Types } from "../../src/libraries/Types.sol";
 
-/// @notice Probe BN254.verifyBls behaviour on degenerate (point-at-infinity) inputs
-///         and on a non-subgroup-membership check, to characterise the precompile.
+/// @notice Regression guard for the BN254 point-at-infinity universal-forgery.
+///         verifyBls MUST reject degenerate (point-at-infinity) signature/pubkey inputs
+///         up front with DegenerateBlsInput() rather than letting them reach the pairing
+///         precompile, where e(O, ·) = e(·, O) = 1 collapses both sides of the BLS check
+///         and "verifies" ANY message.
 contract BN254InfinityTest is Test {
-    function test_verifyBls_infinityPubkey_and_infinitySig_verifiesAnyMessage() public {
+    function test_verifyBls_infinityPubkey_and_infinitySig_isRejected() public {
         // signature = G1 point at infinity (0,0), pubkey = G2 point at infinity (0,0,0,0)
         Types.BN254G1Point memory sig = Types.BN254G1Point(0, 0);
         Types.BN254G2Point memory pubkey = Types.BN254G2Point([uint256(0), 0], [uint256(0), 0]);
@@ -16,19 +19,17 @@ contract BN254InfinityTest is Test {
         bytes memory msg1 = abi.encode("arbitrary message A", uint256(1));
         bytes memory msg2 = abi.encode("totally different message B", address(this));
 
-        bool ok1 = BN254.verifyBls(msg1, sig, pubkey);
-        bool ok2 = BN254.verifyBls(msg2, sig, pubkey);
+        // The all-zero (signature, pubkey) pair previously verified over ANY message —
+        // a universal forgery. The fix rejects degenerate inputs before the pairing,
+        // so verifyBls must revert for every message instead of returning true.
+        vm.expectRevert(BN254.DegenerateBlsInput.selector);
+        BN254.verifyBls(msg1, sig, pubkey);
 
-        emit log_named_uint("verifyBls(msgA, O, O)", ok1 ? 1 : 0);
-        emit log_named_uint("verifyBls(msgB, O, O)", ok2 ? 1 : 0);
-
-        // If these are TRUE, the library treats an all-zero signature/pubkey pair as a
-        // universally-valid BLS signature over ANY message.
-        assertTrue(ok1, "infinity sig/pubkey should NOT verify but does");
-        assertTrue(ok2, "infinity sig/pubkey should NOT verify but does");
+        vm.expectRevert(BN254.DegenerateBlsInput.selector);
+        BN254.verifyBls(msg2, sig, pubkey);
     }
 
-    function test_verifyBls_realPubkey_zeroSig_doesNotVerify() public {
+    function test_verifyBls_realPubkey_zeroSig_isRejected() public {
         // A real (nonzero, on-curve) G2 generator as pubkey, with infinity signature.
         Types.BN254G2Point memory pubkey = Types.BN254G2Point(
             [
@@ -42,9 +43,11 @@ contract BN254InfinityTest is Test {
         );
         Types.BN254G1Point memory sig = Types.BN254G1Point(0, 0);
         bytes memory m = abi.encode("msg");
-        bool ok = BN254.verifyBls(m, sig, pubkey);
-        emit log_named_uint("verifyBls(m, O, realGen)", ok ? 1 : 0);
-        // With a real pubkey and O signature this should fail (e(O,gen)=1 != e(H(m),gen)).
-        assertFalse(ok, "zero sig should not verify against real pubkey");
+        // An infinity (zero) signature against a real pubkey is a degenerate input:
+        // e(O, gen) = 1 would let an attacker forge without holding the key. The fix
+        // rejects the infinity signature up front rather than relying on the pairing
+        // result, so verifyBls reverts instead of returning false.
+        vm.expectRevert(BN254.DegenerateBlsInput.selector);
+        BN254.verifyBls(m, sig, pubkey);
     }
 }

@@ -39,41 +39,59 @@ contract TNTLockupAuditPoC is Test {
         token = new MockVotesToken();
     }
 
-    /// PoC #1: The genesis distribution script (DistributeTNTWithLockup) calls
-    /// getOrCreateLock as the DEPLOYER on behalf of each recipient. The factory's
-    /// `msg.sender == beneficiary` guard rejects this, so EVERY locked transfer reverts.
-    function test_distributionFlow_alwaysReverts() public {
+    /// REGRESSION (was PoC #1): the genesis distribution script
+    /// (DistributeTNTWithLockup) calls getOrCreateLock as the DEPLOYER on behalf of
+    /// each recipient. `getOrCreateLock` is now permissionless, so the batch distributor
+    /// can create a lock for a recipient even though it is NOT the beneficiary — the
+    /// `msg.sender == beneficiary` DoS guard is gone. Guards against reintroducing that
+    /// guard (which would make the entire genesis distribution revert).
+    function test_distributionFlow_succeedsForNonBeneficiaryDistributor() public {
         token.mint(deployer, 1_000 ether);
 
         vm.startPrank(deployer); // == vm.startBroadcast(deployerKey) in the script
         // Reproduces DistributeTNTWithLockup.s.sol:121 exactly:
         //   factory.getOrCreateLock(token, t.to, unlockTimestamp, t.to)
-        vm.expectRevert(
-            abi.encodeWithSelector(TNTLockFactory.NotBeneficiary.selector, deployer, beneficiary)
-        );
-        factory.getOrCreateLock(address(token), beneficiary, unlockTs, beneficiary);
+        address lock = factory.getOrCreateLock(address(token), beneficiary, unlockTs, beneficiary);
         vm.stopPrank();
+
+        // Distributor (deployer != beneficiary) successfully provisioned the lock.
+        assertTrue(lock.code.length > 0, "lock not deployed by distributor");
+        assertEq(TNTCliffLock(lock).beneficiary(), beneficiary, "wrong beneficiary on distributed lock");
     }
 
-    /// PoC #2: The ONLY caller that succeeds is the beneficiary itself — proving the
-    /// factory is unusable by a batch distributor and only supports self-service creation.
-    function test_onlyBeneficiaryCanCreate() public {
-        vm.prank(beneficiary);
-        address lock = factory.getOrCreateLock(address(token), beneficiary, unlockTs, beneficiary);
+    /// REGRESSION (was PoC #2): creation no longer auto-delegates to a caller-supplied
+    /// delegatee. A front-runner could call getOrCreateLock first, but the caller-chosen
+    /// `delegatee` is recorded only in the event and is NEVER applied at init — so the
+    /// lock's voting power stays unassigned (delegates == address(0)) until the
+    /// beneficiary themselves delegates. Guards the delegation-hijack closure.
+    function test_creationDoesNotAutoDelegate_onlyBeneficiaryCanDelegate() public {
+        // Front-runner deploys the lock but passes its OWN address as the delegatee.
+        address frontRunner = address(0xF00D);
+        vm.prank(frontRunner);
+        address lock = factory.getOrCreateLock(address(token), beneficiary, unlockTs, frontRunner);
         assertTrue(lock.code.length > 0, "lock not deployed");
         assertEq(TNTCliffLock(lock).beneficiary(), beneficiary);
-        // self-delegation wired through at init
-        assertEq(token.delegates(lock), beneficiary, "delegatee not set to beneficiary");
+
+        // No auto-delegation: the caller-supplied delegatee was NOT acted upon, so the
+        // lock's voting power is still unassigned. This is the hijack-safety invariant.
+        assertEq(token.delegates(lock), address(0), "creation must not auto-delegate");
+
+        // Only the beneficiary can subsequently direct the lock's voting power.
+        vm.prank(beneficiary);
+        TNTCliffLock(lock).delegate(beneficiary);
+        assertEq(token.delegates(lock), beneficiary, "beneficiary delegation not applied");
     }
 
-    /// PoC #3 (latent): the implementation behind the clones is never initialized
-    /// and `initialize` has no access control beyond the one-shot flag — anyone can
-    /// seize it. Demonstrates the missing _disableInitializers equivalent.
-    function test_implementationIsInitializableByAnyone() public {
+    /// REGRESSION (was PoC #3): the implementation behind the clones is now sealed in its
+    /// constructor (`initialized = true`), the _disableInitializers equivalent. Anyone
+    /// trying to seize the template by calling `initialize` on it now reverts
+    /// AlreadyInitialized. Clones still initialize fine (covered by the other tests) since
+    /// they carry their own zeroed storage. Guards against dropping the constructor seal.
+    function test_implementationIsSealedAgainstInitialization() public {
         address impl = factory.implementation();
-        assertFalse(TNTCliffLock(impl).initialized(), "impl pre-initialized");
+        assertTrue(TNTCliffLock(impl).initialized(), "impl must be sealed at construction");
         vm.prank(address(0x1234));
+        vm.expectRevert(TNTCliffLock.AlreadyInitialized.selector);
         TNTCliffLock(impl).initialize(address(token), address(0x1234), unlockTs, address(0x1234));
-        assertEq(TNTCliffLock(impl).beneficiary(), address(0x1234));
     }
 }

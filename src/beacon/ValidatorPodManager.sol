@@ -146,6 +146,16 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     /// @notice Total shares currently queued for withdrawal per staker
     mapping(address => uint256) public queuedShares;
 
+    /// @notice Beacon-pool shares locked as collateral behind a delegator's live delegations.
+    /// @dev INVARIANT (no-double-spend of restaked principal): for every owner,
+    ///        `_shares[owner] >= queuedShares[owner] + delegatedShares[owner]`.
+    ///      A beacon share is in at most one of {free, queued-for-withdrawal, delegated}.
+    ///      `delegateTo` locks shares here; `completeUndelegation` releases the shares the
+    ///      delegator still has economic claim to and BURNS the rest (the slashed portion),
+    ///      so a slash permanently destroys the corresponding beacon principal instead of
+    ///      letting the delegator withdraw it. `queueWithdrawal` may only draw on free shares.
+    mapping(address owner => uint256) public delegatedShares;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE - UNDELEGATION QUEUE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -197,6 +207,14 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
     ///      was lost to slashing. This is what lets `delegatorTotalDelegated` reach 0 and
     ///      unblocks `queueWithdrawal` after a slash.
     mapping(address delegator => mapping(address operator => uint256)) internal _delegatorOperatorDelegated;
+
+    /// @notice Per-(delegator, operator) beacon-pool shares escrowed behind this delegation.
+    /// @dev Partition of `delegatedShares[delegator]` by operator. Locked on `delegateTo`,
+    ///      and on `completeUndelegation` the delegator gets back only the share-fraction
+    ///      they still have economic claim to after slashing; the remainder is burned from
+    ///      their beacon pool so slashed principal can never be withdrawn (closes the
+    ///      "service slash is non-punitive" finding).
+    mapping(address delegator => mapping(address operator => uint256)) internal _delegatorOperatorEscrowShares;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -511,12 +529,29 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
         if (!_operators[operator]) revert NotOperator();
         if (amount == 0) revert ZeroAmount();
 
-        uint256 availableAssets = _convertToAssets(_pools[msg.sender], _shares[msg.sender]);
-        uint256 currentDelegated = delegatorTotalDelegated[msg.sender];
-
-        if (availableAssets < currentDelegated + amount) {
+        // Only beacon shares that are neither already queued for withdrawal nor already
+        // locked behind another delegation may back a new delegation. Enforcing this in
+        // share space (the canonical custody unit) — instead of trusting the conservative
+        // asset counter alone — closes the double-count where shares queued for withdrawal
+        // were delegated again, then withdrawn for real, leaving a phantom delegation.
+        // INVARIANT: _shares[d] >= queuedShares[d] + delegatedShares[d] after this call.
+        BeaconPool storage beaconPool = _pools[msg.sender];
+        uint256 ownerShares = _shares[msg.sender];
+        uint256 lockedShares = queuedShares[msg.sender] + delegatedShares[msg.sender];
+        uint256 freeShares = ownerShares > lockedShares ? ownerShares - lockedShares : 0;
+        uint256 freeAssets = _convertToAssets(beaconPool, freeShares);
+        if (freeAssets < amount) {
             revert InsufficientShares();
         }
+
+        // Lock the beacon shares that collateralize this delegation, at the current pool rate.
+        // Over-delegation is already prevented by the `freeAssets < amount` gate above; this
+        // escrow is what `completeUndelegation` later releases (surviving) and burns (slashed).
+        // Floor a non-zero delegation to at least one share and clamp to the free shares so
+        // the no-double-spend INVARIANT (_shares >= queued + delegated) can never be violated.
+        uint256 escrowShares = _convertToShares(beaconPool, amount);
+        if (escrowShares == 0) escrowShares = 1;
+        if (escrowShares > freeShares) escrowShares = freeShares;
 
         DelegationPool storage pool = _operatorDelegationPools[operator];
         uint256 mintedShares = _convertDelegationToShares(pool, amount);
@@ -525,6 +560,10 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
         pool.totalAssets += amount;
         pool.totalShares += mintedShares;
         _delegationShares[msg.sender][operator] += mintedShares;
+
+        // Lock the collateralizing beacon shares.
+        delegatedShares[msg.sender] += escrowShares;
+        _delegatorOperatorEscrowShares[msg.sender][operator] += escrowShares;
 
         // Maintain the aggregate counter and its per-operator partition in lockstep so
         // the INVARIANT (aggregate == Σ per-operator) holds.
@@ -651,6 +690,60 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
 
         uint256 counter = delegatorTotalDelegated[msg.sender];
         delegatorTotalDelegated[msg.sender] = counter >= counterDelta ? counter - counterDelta : 0;
+
+        // Reconcile the escrowed beacon shares behind this delegation. The portion of the
+        // escrow covered by this unwind is proportional to the delegation-pool shares burned.
+        // Of that covered escrow, the delegator only KEEPS the slash-adjusted fraction
+        // (realized value / deposited value); the slashed remainder is BURNED from their
+        // beacon pool so the principal lost to slashing can never be withdrawn. This is what
+        // makes a service slash punitive: without it the delegator releases their full escrow
+        // and withdraws 100% of beacon principal regardless of the slash.
+        // INVARIANT after release+burn: a delegator's withdrawable beacon principal reflects
+        // every slash that hit the operators they delegated to.
+        uint256 escrowForOperator = _delegatorOperatorEscrowShares[msg.sender][operator];
+        if (escrowForOperator > 0) {
+            uint256 escrowCovered;
+            if (remainingShares == 0) {
+                // Full unwind of this operator: reconcile the entire escrow.
+                escrowCovered = escrowForOperator;
+            } else {
+                // Partial unwind: cover escrow proportional to delegation shares burned.
+                escrowCovered = escrowForOperator.mulDiv(sharesBurned, ownerShares, Math.Rounding.Floor);
+                if (escrowCovered > escrowForOperator) escrowCovered = escrowForOperator;
+            }
+
+            // Surviving (releasable) escrow = covered * realized / depositedCovered.
+            // depositedCovered is the deposit-accounted value of the portion being unwound.
+            uint256 depositedCovered = counterDelta;
+            uint256 escrowToRelease;
+            if (depositedCovered == 0 || realizedAssets >= depositedCovered) {
+                // No value lost on the covered portion: release all covered escrow.
+                escrowToRelease = escrowCovered;
+            } else {
+                escrowToRelease = escrowCovered.mulDiv(realizedAssets, depositedCovered, Math.Rounding.Floor);
+            }
+            uint256 escrowToBurn = escrowCovered - escrowToRelease;
+
+            // Unlock the covered escrow from the delegation locks.
+            _delegatorOperatorEscrowShares[msg.sender][operator] = escrowForOperator - escrowCovered;
+            uint256 locked = delegatedShares[msg.sender];
+            delegatedShares[msg.sender] = locked >= escrowCovered ? locked - escrowCovered : 0;
+
+            // Burn the slashed portion out of the delegator's beacon pool: destroy the
+            // shares and the principal they represent so they are never withdrawable.
+            if (escrowToBurn > 0) {
+                BeaconPool storage bp = _pools[msg.sender];
+                uint256 burnShares = escrowToBurn > _shares[msg.sender] ? _shares[msg.sender] : escrowToBurn;
+                if (burnShares > bp.totalShares) burnShares = bp.totalShares;
+                uint256 burnAssets = _convertToAssets(bp, burnShares);
+                _shares[msg.sender] -= burnShares;
+                _aggregateShares -= burnShares;
+                bp.totalShares -= burnShares;
+                bp.totalAssets = burnAssets >= bp.totalAssets ? 0 : bp.totalAssets - burnAssets;
+                // forge-lint: disable-next-line(unsafe-typecast)
+                emit BeaconRebase(msg.sender, -int256(burnAssets), bp.totalAssets, bp.totalShares);
+            }
+        }
 
         emit UndelegationCompleted(undelegationRoot, msg.sender, operator, realizedAssets);
     }
@@ -782,16 +875,16 @@ contract ValidatorPodManager is IStaking, Ownable, ReentrancyGuard {
         canComplete = !completed && block.number >= startBlock + withdrawalDelayBlocks;
     }
 
-    /// @notice Calculate available beacon-pool shares for withdrawal.
+    /// @notice Calculate available (free) beacon-pool shares for withdrawal.
+    /// @dev Mirrors the no-double-spend INVARIANT enforced in `delegateTo`/`queueWithdrawal`:
+    ///      free = ownerShares - queuedShares - delegatedShares. Uses the exact escrowed
+    ///      delegated-share count (not an asset-counter conversion) so the view matches the
+    ///      shares actually locked behind live delegations.
     function getAvailableToWithdraw(address staker) external view returns (uint256 available) {
         uint256 ownerShares = _shares[staker];
         if (ownerShares == 0) return 0;
 
-        uint256 queued = queuedShares[staker];
-        uint256 delegatedAssets = delegatorTotalDelegated[staker];
-        uint256 delegatedShares = delegatedAssets == 0 ? 0 : _convertToShares(_pools[staker], delegatedAssets);
-
-        uint256 used = queued + delegatedShares;
+        uint256 used = queuedShares[staker] + delegatedShares[staker];
         if (ownerShares > used) {
             available = ownerShares - used;
         }

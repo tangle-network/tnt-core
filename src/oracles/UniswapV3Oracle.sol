@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { IPriceOracle, IPriceOracleAdmin } from "./interfaces/IPriceOracle.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title IUniswapV3Pool
 /// @notice Minimal Uniswap V3 pool interface for TWAP
@@ -382,7 +383,24 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         return (ratio >> 32) + (ratio % (1 << 32) == 0 ? 0 : 1);
     }
 
-    /// @notice Get price from sqrtPriceX96
+    /// @notice Get the price of one WHOLE priced-token expressed in QUOTE smallest units (raw quote wei).
+    /// @dev sqrtPriceX96 = sqrt(token1_raw / token0_raw) * 2^96, where the ratio is in smallest units
+    ///      (wei), so (sqrtPriceX96^2 / 2^192) is the dimensionless raw token1/token0 ratio.
+    ///
+    ///      INVARIANT: the returned `priceInQuote` MUST be denominated in raw quote-token units per
+    ///      ONE WHOLE priced token, because `_getPriceData` finishes the conversion with
+    ///        data.price = priceInQuote * quoteUsdPrice(18dp, per WHOLE quote token) / 10^quoteDecimals
+    ///      which then yields an 18-decimal USD price per whole priced token. Concretely:
+    ///        priceInQuote = rawRatio * 10^tokenDecimals
+    ///      (the `quoteDecimals` cancel in the chain above; they MUST NOT appear here).
+    ///
+    ///      Two correctness requirements the previous implementation violated:
+    ///      1) MULTIPLY-BEFORE-DIVIDE / no early >>192 truncation. The raw ratio is < 1 for almost
+    ///         every real pair (e.g. an 18-dec token quoted in 6-dec USDC), so flooring it to an
+    ///         integer before applying decimals produced 0. We fold the 10^tokenDecimals scale into
+    ///         the division so the result keeps full precision, using 512-bit `Math.mulDiv` to avoid
+    ///         the uint256 overflow of `sqrtPriceX96^2` at high ticks.
+    ///      2) CORRECT decimal factor: scale by 10^tokenDecimals (NOT 10^quoteDecimals / 10^tokenDecimals).
     function _getPriceFromSqrtX96(
         uint256 sqrtPriceX96,
         bool isToken0,
@@ -393,28 +411,27 @@ contract UniswapV3Oracle is IPriceOracle, IPriceOracleAdmin, Ownable {
         pure
         returns (uint256)
     {
-        // sqrtPriceX96 = sqrt(token1/token0) * 2^96
-        // price = (sqrtPriceX96 / 2^96)^2
-        // Adjust for decimals
+        quoteDecimals; // unused: quote decimals cancel in the _getPriceData conversion chain.
 
-        uint256 price;
+        uint256 tokenScale = 10 ** tokenDecimals;
+
         if (isToken0) {
-            // Price of token0 in token1
-            // price = (sqrtPriceX96)^2 / 2^192
-            price = (sqrtPriceX96 * sqrtPriceX96) >> 192;
-            // Adjust for decimals: multiply by 10^quoteDecimals, result in quote decimals
-            price = (price * (10 ** quoteDecimals)) / (10 ** tokenDecimals);
+            // Priced token is token0, quote is token1.
+            // priceInQuote = (sqrtPriceX96^2 / 2^192) * 10^tokenDecimals
+            //             = mulDiv( mulDiv(sqrtPriceX96, sqrtPriceX96, Q96), 10^tokenDecimals, Q96 )
+            // First mulDiv yields rawRatio * 2^96 (fits in uint256 across the full tick range);
+            // second applies the token scale and the remaining 2^96 divisor with full precision.
+            uint256 ratioX96 = Math.mulDiv(sqrtPriceX96, sqrtPriceX96, Q96);
+            return Math.mulDiv(ratioX96, tokenScale, Q96);
         } else {
-            // Price of token1 in token0
-            // price = 2^192 / (sqrtPriceX96)^2
-            uint256 sqrtSquared = (sqrtPriceX96 * sqrtPriceX96);
-            if (sqrtSquared > 0) {
-                price = (1 << 192) / sqrtSquared;
-                price = (price * (10 ** quoteDecimals)) / (10 ** tokenDecimals);
-            }
+            // Priced token is token1, quote is token0.
+            // priceInQuote = (2^192 / sqrtPriceX96^2) * 10^tokenDecimals
+            //             = mulDiv( mulDiv(Q96, Q96, sqrtPriceX96), 10^tokenDecimals, sqrtPriceX96 )
+            // Avoids both the uint256 overflow of sqrtPriceX96^2 and truncation-to-0 when price > 1.
+            if (sqrtPriceX96 == 0) return 0;
+            uint256 invX96 = Math.mulDiv(Q96, Q96, sqrtPriceX96); // = 2^192 / sqrtPriceX96
+            return Math.mulDiv(invX96, tokenScale, sqrtPriceX96);
         }
-
-        return price;
     }
 }
 

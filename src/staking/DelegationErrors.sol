@@ -125,6 +125,11 @@ library DelegationErrors {
     /// @dev Blocks operator exit while they have active service commitments.
     error OperatorHasActiveServices(address operator);
 
+    /// @dev The active-services query to the Tangle core could not be evaluated (staticcall
+    ///      reverted or returned malformed data). Exit is fail-closed: rather than skip the
+    ///      guard, leaving is blocked until the query can be answered.
+    error ActiveServiceCheckUnavailable(address operator);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ACCESS CONTROL ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
