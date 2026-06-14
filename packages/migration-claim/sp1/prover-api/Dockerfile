@@ -1,8 +1,10 @@
-FROM rust:1.88-slim AS builder
+# rustc >= 1.91: the SP1 host deps raised their MSRV (sp1-build@6.1.0 needs 1.91,
+# p3-baby-bear/p3-koala-bear need 1.89). 1.88 fails the host `cargo build`.
+FROM rust:1.91-slim AS builder
 
 WORKDIR /repo
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates g++ curl git \
+    && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates g++ curl git protobuf-compiler libprotobuf-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY packages/migration-claim/sp1 ./packages/migration-claim/sp1
