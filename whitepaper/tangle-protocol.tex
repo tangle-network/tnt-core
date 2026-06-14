@@ -33,14 +33,15 @@
 
 \title{\textbf{Tangle Network}\\[0.5em]\large The Operating Layer for Autonomous Work\\[1em]\normalsize Protocol Specification v1.0}
 \author{Tangle Foundation}
-\date{January 2025}
+\date{June 2026}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-Tangle Network is a decentralized protocol for coordinating computational services with cryptoeconomic accountability. This document describes the protocol's architecture, economic mechanisms, and security model. Tangle enables developers to define service templates (blueprints), operators to provide compute with staked collateral, and customers to consume services with cryptographic guarantees. The protocol uses O(1) algorithms for staking, slashing, and reward distribution, enabling unlimited scalability. Economic security emerges from aligned incentives: operators stake assets that can be destroyed if they misbehave, making honest behavior more profitable than cheating.
+Tangle Network is a decentralized protocol for coordinating computational services with cryptoeconomic accountability. This document describes the protocol's architecture, economic mechanisms, and security model. Tangle enables developers to define service templates (blueprints), operators to provide compute with staked collateral, and customers to consume services with cryptographic guarantees. The protocol uses O(1) algorithms for staking, slashing, and reward distribution, enabling unlimited scalability. Economic security emerges from aligned incentives: operators stake assets that can be destroyed if they misbehave, making honest behavior more profitable than cheating. The network token (TNT) is hard-capped at 109{,}255{,}636.92 TNT, %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+with the full supply minted at genesis; ``inflation'' rewards are treasury-funded emissions that create no new supply.
 \end{abstract}
 
 \tableofcontents
@@ -98,9 +99,9 @@ Six principles guide Tangle's design. Each addresses a specific failure mode in 
 
 The dominant model for AI infrastructure concentrates value in platform operators. Cloud providers capture margin on every API call. Platforms retain customer relationships, reducing developers and operators to commoditized inputs.
 
-Tangle inverts this model. Value flows to those who create it: developers earn from blueprints, operators earn from compute, delegators earn from stake. The protocol captures only a governance-controlled fee (currently 20\%) funding ongoing development. This fee is not rent but payment for coordination.
+Tangle inverts this model. Value flows to those who create it: developers earn from blueprints, operators earn from compute, delegators earn from stake. The protocol captures only a governance-controlled fee (currently 19.5\%, with a 0.5\% keeper rebate carved out) funding ongoing development. This fee is not rent but payment for coordination.
 
-The inflation distribution allocates 25\% to developers and 25\% to operators, ensuring both blueprint creators and compute providers share in network growth. Payment splits route value to participants who earned it. Governance grants voting power proportional to stake.
+The inflation distribution allocates a share to developers (10\%) alongside operators (25\%), ensuring blueprint creators, not just compute providers, share in network growth. Payment splits route value to participants who earned it. Governance grants voting power proportional to stake.
 
 \subsubsection{Permissionless Participation}
 
@@ -200,13 +201,15 @@ Services terminate through customer request, TTL expiration, or failure to maint
 
 \subsection{Pricing Models}
 
-Three pricing models accommodate different service types:
+Four payment models accommodate different service types:
 
 \textbf{Pay-once} collects a single upfront payment, distributed when operators approve. This suits one-time computations.
 
-\textbf{Subscription} collects recurring payments from customer-funded escrow. This suits ongoing services.
+\textbf{Subscription} collects recurring payments from customer-funded escrow. Billing is permissionless and TWAP-fair: anyone may call \texttt{billSubscription}, and the 0.5\% keeper rebate makes doing so EV-positive without a privileged scheduler. This suits ongoing services.
 
 \textbf{Event-driven} collects payment per job execution. This suits variable workloads.
+
+\textbf{RFQ quotes} let operators sign binding, EIP-712 prices for a specific request, which the customer accepts and executes on-chain (see \S\ref{sec:marketplace}). This suits price discovery across heterogeneous operators.
 
 \subsection{Membership Models}
 
@@ -235,6 +238,8 @@ Two contracts compose the MBSM system:
     \item Blueprint pinning: developers can pin to specific versions for stability
     \item Graceful deprecation: 7-day grace period before old versions become unusable
 \end{itemize}
+
+These three roles are distinct: the \texttt{MasterBlueprintServiceManager} is the protocol-side dispatcher that receives lifecycle hook calls and forwards them to the right blueprint manager; the \texttt{MBSMRegistry} is the version registry that maps revision numbers to dispatcher implementations; and \texttt{BlueprintServiceManagerBase} is the developer-facing base contract a blueprint author extends to implement custom hooks for their own blueprint.
 
 \subsubsection{Version Management}
 
@@ -266,9 +271,9 @@ Operators are staked entities that run services and earn rewards. The staking sy
 
 \subsection{Operator Registration}
 
-An entity becomes an operator by depositing a bond meeting minimum stake requirements. Registration creates metadata tracking self-stake, delegation count, and status.
+An entity becomes an operator by depositing a self-bond meeting minimum stake requirements. The bond is single-asset: at least 1{,}000 TNT, always denominated in TNT (delegation may accept other assets, but the operator self-bond does not). Registration creates metadata tracking self-stake, delegation count, and status. Operators set a commission (default 10\%) on delegator rewards; commission changes are subject to a 7-day timelock. Delegations have a floor of 0.2 TNT.
 
-Operators then register for specific blueprints, providing an ECDSA public key for gossip identity and an RPC endpoint for communication. The protocol validates that the blueprint is active, minimum stakes are met, and schema validation passes.
+Operators then register for specific blueprints, providing an ECDSA public key for gossip identity (with an optional BLS key for threshold/aggregate signing) and an RPC endpoint for communication. Quotes operators sign use EIP-712. The protocol validates that the blueprint is active, minimum stakes are met, and schema validation passes.
 
 \subsection{Delegation Modes}
 
@@ -283,7 +288,7 @@ Operators configure delegation mode:
 
 Tangle implements liquid delegation through \texttt{LiquidDelegationVault}, an ERC-7540 compliant vault enabling asynchronous deposit and redemption of delegation positions. Delegators deposit assets and receive vault shares representing their proportional claim on the operator's staked position. These shares are transferable, enabling liquid delegation positions that can be used in DeFi while the underlying assets remain staked.
 
-The vault uses asynchronous request-fulfill flow per ERC-7540: delegators submit deposit or redemption requests, which are fulfilled after the protocol's delay periods (28 rounds for delegators). A virtual share offset ($V = 10^3$) prevents first-depositor attacks on the share exchange rate. When slashing occurs, total vault assets decrease while shares remain constant, automatically distributing losses proportionally across all vault participants.
+The vault uses asynchronous request-fulfill flow per ERC-7540: delegators submit deposit or redemption requests, which are fulfilled after the protocol's delay periods. Time advances in rounds of 6 hours; delegator exits clear after 28 rounds (~7 days) and operator exits after 56 rounds (~14 days). The vault applies a default 15\% operator commission on accrued rewards. A virtual share offset ($V = 10^3$) prevents first-depositor attacks on the share exchange rate. When slashing occurs, total vault assets decrease while shares remain constant, automatically distributing losses proportionally across all vault participants.
 
 \subsection{Exposure Selection}
 
@@ -303,7 +308,7 @@ When delegating amount $x$ to a pool with state $(T_s, T_a)$, the delegator rece
 \[
 h = x \cdot \frac{T_s + V}{T_a + V}
 \]
-where $V$ is a virtual offset preventing first-depositor attacks.
+where $V$ is a virtual offset (typically $10^3$) preventing first-depositor attacks; see Appendix~\ref{sec:appendix-shares}.
 
 The delegation's value is $v = h \cdot (T_a / T_s)$. When assets change through rewards or slashing, this value changes proportionally without per-delegator updates.
 
@@ -311,6 +316,7 @@ When slashing occurs, only total assets decrease. Shares remain constant. The ex
 
 %==============================================================================
 \section{The Service Marketplace}
+\label{sec:marketplace}
 %==============================================================================
 
 The service marketplace bridges supply (operators) with demand (customers) through request-for-quote pricing.
@@ -461,21 +467,22 @@ Value flows through Tangle via service fees and inflation rewards.
 
 \subsection{Service Fee Splits}
 
-When customers pay, the payment splits across recipients. Default allocation:
+When customers pay, the payment splits across five recipients. Default allocation:
 \begin{center}
 \begin{tabular}{lr}
 \toprule
 Recipient & Share \\
 \midrule
-Developer & 20\% \\
-Protocol Treasury & 20\% \\
 Operators & 40\% \\
-Delegators & 20\% \\
+Developer & 20\% \\
+Stakers (delegators) & 20\% \\
+Protocol Treasury & 19.5\% \\
+Keeper rebate & 0.5\% \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-These percentages are governance-controlled. The delegator share captures rounding dust.
+These percentages are governance-controlled. The 0.5\% keeper rebate is carved from the protocol share and paid to whoever triggers permissionless subscription billing, making \texttt{billSubscription} EV-positive for keepers. The staker (delegator) share captures rounding dust.
 
 \subsection{Operator Revenue}
 
@@ -525,13 +532,37 @@ The square root on fees prevents whale dominance.
 
 %==============================================================================
 \section{Inflation and Epoch Distribution}
+\label{sec:inflation}
 %==============================================================================
 
 Inflation rewards provide income while service demand develops, encouraging early participation.
 
+\subsection{Token Supply, Genesis Allocation, and Migration}
+
+TNT is hard-capped at \texttt{MAX\_SUPPLY} $=$ 109{,}255{,}636.92 TNT. %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+The full cap is minted at genesis across four buckets, so \texttt{totalSupply} equals the cap from block zero:
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Genesis Bucket & Amount (TNT) \\
+\midrule
+Substrate (migration claims) & $\sim$51.24M \\
+EVM (genesis EVM accounts) & $\sim$1.13M \\
+Treasury & $\sim$41.84M \\ %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+Foundation & $\sim$15.04M \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Because the genesis supply already equals the cap, no new TNT can be created in practice. The supply is hard-capped; the InflationPool cannot mint and only distributes TNT it already holds; emission is treasury-funded; and while a governance \texttt{MINTER\_ROLE} exists, it can mint only up to the cap, so with genesis $=$ cap it has no headroom (\texttt{mint()} reverts). What the protocol calls ``inflation'' is therefore an \emph{emission}: TNT transferred from the Treasury bucket into the InflationPool, not freshly issued supply.
+
+\textbf{Migration and vesting.} Substrate balances migrate to the EVM via claims proven with an SP1 Groth16 zero-knowledge proof of Substrate key ownership plus a Merkle inclusion proof. Claimed allocations vest: 10\% is unlocked at claim, followed by a 12-month cliff and 24-month linear release. Treasury and foundation allocations vest over roughly three years, with 30\% of the foundation allocation unlocked at the start. Because most of the supply is vesting-locked at launch, the delegatable and votable float is thin, a constraint that shapes the governance parameters below.
+
 \subsection{The Pre-Funded Model}
 
-The InflationPool uses a pre-funded model. The pool cannot mint tokens; it distributes tokens it holds. Governance funds the pool with yearly allocations.
+The InflationPool uses a pre-funded model. The pool cannot mint tokens; it distributes tokens it holds. Emission is funded by transfers from the Treasury bucket into the pool via \texttt{fund()}, targeting roughly 1\% of supply per year ($\sim$1{,}092{,}556 TNT/yr). %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+These transfers move already-minted TNT; they dilute no holder and create no new supply.
 
 Each epoch's budget:
 \[
@@ -548,16 +579,16 @@ Default allocation:
 \toprule
 Category & Weight \\
 \midrule
-Stakers (delegators) & 40\% \\
+Staking (delegators) & 55\% \\
 Operators (performance) & 25\% \\
-Developers (merit) & 25\% \\
 Customers (usage) & 10\% \\
-Restakers (exposure rewards) & 0\% \\
+Developers (merit) & 10\% \\
+Stakers (exposure rail, 0\% at genesis) & 0\% \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The protocol defines five distribution categories. The restaker category exists for future activation via governance to reward participants who restake assets from external protocols (e.g., beacon chain validators). It is currently set to 0\% but can be activated by adjusting weights. Governance can adjust all weights to steer network growth.
+The protocol defines five distribution categories. The exposure-rail ``stakers'' category rewards participants who restake assets from external protocols (e.g., beacon chain validators) once live services use that rail; it is set to 0\% at genesis because the beacon-chain and L2 restaking paths are deployment-gated for Phase 2 (see \S\ref{sec:beacon}). Governance can adjust all weights to steer network growth.
 
 \subsection{Operator Scoring}
 
@@ -586,13 +617,13 @@ Combined with the SDK's QoS package (see \textit{Blueprint SDK Guide}, Quality o
 
 \subsection{The Dispute Window}
 
-Slash proposals do not execute immediately. A dispute window (default 7 days) provides operators opportunity to contest.
+Slash proposals do not execute immediately. A dispute window provides operators opportunity to contest, and the resolution deadline (\texttt{disputeResolutionDeadline}, 21 days at launch) is \emph{fail-open}: if a dispute is left unresolved past the deadline, the slash auto-executes. Disputing requires posting a \texttt{disputeBond} of 0.02 ETH, refunded if the slash is cancelled and forfeited if it executes, which prices out griefing disputes.
 
 The lifecycle:
 \begin{enumerate}[noitemsep]
-    \item \textbf{Proposal}: Evidence submitted, pending proposal created
-    \item \textbf{Dispute}: Operator may submit counter-evidence; administrators may cancel
-    \item \textbf{Execution}: After window expires, any address may execute undisputed slashes
+    \item \textbf{Proposal}: Evidence submitted, pending proposal created. The operator is immediately frozen from unstaking while any slash is pending (anti-evasion)
+    \item \textbf{Dispute}: Operator may post the dispute bond and submit counter-evidence; administrators may cancel
+    \item \textbf{Execution}: After the window expires (or the resolution deadline lapses unresolved), any address may execute undisputed slashes
 \end{enumerate}
 
 \subsection{Proportional Slashing}
@@ -624,45 +655,45 @@ Tangle prioritizes \textbf{safety over liveness}. Proposals that fail do less da
 
 \subsection{Governance Mechanism}
 
-On-chain governance uses OpenZeppelin Governor with ERC20Votes:
+On-chain governance uses OpenZeppelin Governor with ERC20Votes on an ERC-6372 timestamp clock (all windows are wall-clock durations, not block counts):
 
 \begin{center}
 \begin{tabular}{lll}
 \toprule
-Parameter & Default & Rationale \\
+Parameter & Launch value & Rationale \\
 \midrule
-Proposal threshold & 1\% of supply & Prevents spam while allowing minority proposals \\
-Voting delay & 2 days & Time for review and position preparation \\
-Voting period & 7 days & 4-5 days for defense after attack detection \\
-Quorum & 10\% of supply & Above baseline apathy, achievable for important decisions \\
-Timelock & 3 days (7 upgrades) & Exit window matching dispute window \\
+Proposal threshold & 100{,}000 TNT (flat) & $\sim$0.09\% of supply; lets a small set of holders propose \\
+Voting delay & 1 day & Time for review and position preparation \\
+Voting period & 7 days & Defense window after attack detection \\
+Quorum & 4\% of total supply & Reachable given thin delegatable float at launch \\
+Timelock & 4 days (uniform) & Single exit window for all actions, including upgrades \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\textbf{Parameter Selection Rationale.} The 1\% threshold (Compound uses 1\%, Uniswap 2.5\%, Aave 0.5\%) prevents spam while ensuring 20-50 addresses can propose. The 10\% quorum reflects historical DAO participation of 5-15\% on routine proposals. The 7-day voting period provides defense time, most governance attacks are detected within 72-96 hours. The timelock provides approximately 100,000 blocks for affected users to exit.
+\textbf{Parameter Selection Rationale.} The threshold is a flat 100{,}000 TNT ($\sim$0.09\% of supply) rather than a percentage, so a small set of committed holders can propose. The quorum is set to a low 4\% of total supply because most supply is vesting-locked at launch, leaving a thin delegatable and votable float; a percentage-of-supply quorum calibrated to mature DAOs would be unreachable. Quorum is expected to ratchet up as vesting unlocks and float deepens. The real capture defense at launch is not the quorum but a \textsc{canceller} guardian multisig together with the uniform 4-day timelock, which gives affected users a wall-clock window to exit before any passed proposal executes. There is no separate, longer upgrade timelock; upgrades use the same 4-day delay under the highest scrutiny.
 
 \subsection{Worked Example: Fee Parameter Change}
 
-A proposal to increase protocol fee from 10\% to 15\%:
+A proposal to increase the protocol fee share from 19.5\% to 22\%:
 
-\textbf{Day 0}: Token holder with 1.2\% creates proposal targeting \texttt{setProtocolFee(1500)}.
+\textbf{Day 0}: A holder (or delegate) controlling at least 100{,}000 TNT creates a proposal targeting \texttt{setProtocolFeeBps(2200)}.
 
-\textbf{Days 0-2}: Community reviews. Analysis shows \$500K additional annual revenue, 5\% operator margin reduction. Supporters argue treasury needs audit funding; operators post objections.
+\textbf{Day 0-1}: Voting delay. Community reviews; the snapshot timestamp is recorded for vote-weight accounting. Supporters argue the treasury needs audit funding; operators post objections.
 
-\textbf{Days 2-9}: Voting opens. By day 5: 8\% participation, 65\% in favor. Operator coalition opposition raises participation to 14\% by day 8, margin narrows to 55\%.
+\textbf{Days 1-8}: Voting period (7 days). By day 5, participation passes the 4\% quorum with a majority in favor; an opposing coalition raises turnout further as the deadline approaches.
 
-\textbf{Day 9}: Final tally: 14.2\% participation (above quorum), 54\% in favor. Passes by simple majority.
+\textbf{Day 8}: Voting closes. Quorum (4\% of total supply) is met and a simple majority is in favor, so the proposal succeeds.
 
-\textbf{Days 9-12}: Timelock period. Operators adjust pricing or begin exit procedures.
+\textbf{Days 8-12}: Timelock period (4 days). Operators adjust pricing or begin exit procedures; the canceller guardian can veto a clearly malicious proposal during this window.
 
-\textbf{Day 12}: Anyone calls \texttt{execute()}. Fee updates to 15\%.
+\textbf{Day 12}: Anyone calls \texttt{execute()}. The protocol fee share updates to 22\%.
 
 \subsection{Attack Resistance}
 
-\textbf{Governance capture}: With 10\% quorum and simple majority, an attacker controlling just over 10\% could pass proposals if others abstain. Defense relies on attacks triggering defensive participation. Timelocks provide mobilization time.
+\textbf{Governance capture}: The 4\% quorum is deliberately low because the launch float is thin, so quorum alone is not the defense. The real defenses are the canceller guardian multisig, which can veto a malicious proposal during the timelock, and the uniform 4-day timelock, which gives users a wall-clock window to exit. Quorum ratchets up as vesting unlocks deepen the float. Attacks also trigger defensive participation, and timelocks provide mobilization time.
 
-\textbf{Flash loan attacks}: OpenZeppelin's ERC20Votes uses vote checkpointing. Voting power is determined at snapshot block, not current holdings. Attackers borrowing tokens after snapshot gain no power.
+\textbf{Flash loan attacks}: OpenZeppelin's ERC20Votes uses vote checkpointing on a timestamp clock. Voting power is determined at the proposal's snapshot timestamp, not current holdings. Attackers borrowing tokens after the snapshot gain no power.
 
 \textbf{Whale manipulation}: Large holders have disproportionate influence by design. Those with more at stake should have more say. Whales abusing power face social and economic consequences, their stake's value depends on protocol health.
 
@@ -692,13 +723,13 @@ These mechanisms create centralization risk. Mitigation is transparency (all act
 
 Governance controls comprehensive protocol parameters:
 
-\textbf{Fee parameters}: Developer, protocol, operator, staker percentages (default 20/20/40/20); TNT payment discounts; minimum fees.
+\textbf{Fee parameters}: Operator, developer, staker, protocol, keeper percentages (default 40/20/20/19.5/0.5); TNT payment discounts; minimum fees.
 
-\textbf{Inflation parameters}: Distribution weights (40/25/25/10); epoch length (7 days); funding period (365 days); minimum stake epochs (1).
+\textbf{Inflation parameters}: Distribution weights (staking 55 / operators 25 / customers 10 / developers 10 / exposure stakers 0); epoch length (7 days); funding period (365 days); minimum stake epochs (1).
 
-\textbf{Staking parameters}: Minimum operator stakes per asset; delegation modes; lock multipliers (1.0/1.1/1.2/1.3/1.6x); maximum blueprints per operator.
+\textbf{Staking parameters}: Operator self-bond floor (1{,}000 TNT, TNT-only); minimum delegation (0.2 TNT); operator commission (default 10\%, 7-day timelock); round length (6 hours) and exit delays (delegator 28 rounds, operator 56 rounds); delegation modes; lock multipliers (1.0/1.1/1.2/1.3/1.6x); maximum blueprints per operator.
 
-\textbf{Slashing parameters}: Dispute window (7 days); maximum slash percentages (100\%); instant slash enablement (disabled).
+\textbf{Slashing parameters}: Dispute resolution deadline (21 days, fail-open); dispute bond (0.02 ETH); maximum slash (\texttt{maxSlashBps} 50\% at launch, governance-raisable per-service for equivocation up to a hardcoded 100\% ceiling); instant slash enablement (disabled).
 
 \textbf{Service parameters}: Min/max TTLs; request expiry; maximum quote age (1 hour); heartbeat requirements.
 
@@ -708,9 +739,9 @@ Contract upgrades use UUPS (Universal Upgradeable Proxy Standard). Each upgradea
 
 UUPS places upgrade logic in implementation rather than proxy, reducing proxy size and attack surface. UUPS allows disabling upgradeability if desired. Upgrades follow standard governance with longest timelock (7 days) and highest scrutiny.
 
-\subsubsection{Diamond/Facet Architecture}
+\subsubsection{Facet Router Architecture}
 
-The core Tangle contracts use a diamond pattern (EIP-2535) to manage code complexity. The protocol's functionality is split across approximately 20 facets, each handling a specific domain: staking, delegation, slashing, service lifecycle, blueprint management, exposure, rewards, and governance. Facets share storage through a unified diamond proxy, enabling atomic cross-domain operations while keeping individual facet code auditable and upgradeable independently. Developers interacting with the protocol should be aware that function selectors route through the diamond proxy to the appropriate facet implementation.
+The core \texttt{Tangle} contract is a custom facet router behind a UUPS proxy, \emph{not} an EIP-2535 Diamond: there is no \texttt{diamondCut} or loupe interface. The protocol's functionality is split across roughly two dozen core mixin facets, each handling a specific domain: blueprints, operators, service lifecycle and approvals, jobs and aggregation, RFQ, payments, slashing, and quotes. The router's \texttt{fallback} resolves an incoming function selector to the facet that implements it and \texttt{delegatecall}s into it, so all facets execute against the single shared proxy storage, enabling atomic cross-domain operations while keeping individual facet code auditable. Upgrades do not go through a diamond cut; they follow the UUPS path under governance, which can also update the selector-to-facet routing. Developers interacting with the protocol should be aware that function selectors route through the proxy to the appropriate facet implementation.
 
 Upgrades are the most powerful governance action. A malicious upgrade could drain funds or disable slashing. Every upgrade proposal should be treated as dangerous until proven otherwise.
 
@@ -795,7 +826,7 @@ This provides only 6\% margin. A 10\% token price drop yields ratio 0.95, making
 
 Flash loans enable acquiring capital without economic exposure. An adversary could borrow tokens, stake, attack, and repay within one transaction.
 
-Tangle prevents this through temporal separation. Stake must remain locked for \texttt{minStakeEpochs} (default: 1 week) before operators can participate. Flash loans, repaid within a single transaction, cannot satisfy this. Additionally, slashing proposals survive 7-day dispute windows, long after any flash loan repayment.
+Tangle prevents this through temporal separation. Stake and delegations cannot be acquired and withdrawn within a single transaction: unbonding clears only after multi-day, round-based exit delays (delegator 28 rounds, $\sim$7 days; operator 56 rounds, $\sim$14 days), so a flash loan repaid in the same transaction can never both stake and exit. Additionally, slashing proposals survive their dispute window (and the 21-day fail-open resolution deadline), long after any flash loan repayment.
 
 \subsection{Attack Vectors and Mitigations}
 
@@ -895,7 +926,7 @@ Service definition & Blueprints (code) & AVS contracts & Network configs & DSS c
 Collateral types & Multi-asset & ETH/LSTs & Multi-asset & Multi-asset \\
 Slashing model & Per-service exposure & Binary opt-in & Per-network & Per-DSS \\
 Pricing mechanism & RFQ marketplace & Fixed/market & Fixed/market & Fixed/market \\
-Scaling approach & O(1) algorithms & O(n) iteration & O(n) iteration & O(n) iteration \\
+Scaling approach & O(1) algorithms & Varies & Varies & Varies \\
 Job execution & Built-in & External & External & External \\
 Developer rewards & Protocol inflation & None & None & None \\
 \hline
@@ -914,7 +945,7 @@ Developer rewards & Protocol inflation & None & None & None \\
 
 \textbf{Integrated marketplace.} The RFQ system prices heterogeneous services naturally. An AI inference operator with GPUs quotes differently than a lightweight oracle operator. Competitors using fixed pricing or external markets lack this integration.
 
-\textbf{Developer economics.} Tangle allocates 25\% of inflation to blueprint developers, creating sustainable economics for service creators. Competing protocols provide no developer incentives beyond optional fees, limiting ecosystem investment.
+\textbf{Developer economics.} Tangle allocates a dedicated 10\% of inflation to blueprint developers (alongside 25\% to operators), creating sustainable economics for service creators. Competing protocols provide no developer incentives beyond optional fees, limiting ecosystem investment.
 
 \subsection{When to Choose Each Protocol}
 
@@ -928,11 +959,14 @@ Developer rewards & Protocol inflation & None & None & None \\
 
 %==============================================================================
 \section{Beacon Chain Integration}
+\label{sec:beacon}
 %==============================================================================
 
-Tangle includes a beacon chain module enabling Ethereum validators to restake their beacon chain credentials. The \texttt{ValidatorPodManager} manages \texttt{ValidatorPod} contracts that verify beacon chain proofs (withdrawal credentials, balance snapshots, validator status) to attest restaked ETH positions. Validators deploy a pod, point their withdrawal credentials to it, and gain restaking capacity proportional to their beacon chain balance.
+\textbf{Status: code-complete, deployment gated for Phase 2, not active at mainnet launch.} The contracts described in this section are implemented and tested but deploy with \texttt{deploy=false} at launch; they are why the exposure-rail ``stakers'' inflation bucket is 0\% at genesis (\S\ref{sec:inflation}).
 
-For cross-layer slashing enforcement, the \texttt{L2SlashingConnector} and \texttt{L2SlashingReceiver} bridge slashing decisions between L1 and L2 deployments. A \texttt{TangleL2Slasher} executes slashing on L2 based on L1-originated proofs. This architecture enables ETH validator restaking on Tangle regardless of which layer the services operate on.
+Tangle includes a beacon chain module enabling Ethereum validators to restake their beacon chain credentials. The \texttt{ValidatorPodManager} manages \texttt{ValidatorPod} contracts that verify beacon chain proofs (withdrawal credentials, balance snapshots, validator status), using SP1 and Merkle proofs, to attest restaked ETH positions. Validators deploy a pod, point their withdrawal credentials to it, and gain restaking capacity proportional to their beacon chain balance.
+
+For cross-layer slashing enforcement, the L2 path uses the OP-Stack native cross-domain messenger on Base: the \texttt{L2SlashingConnector} and \texttt{L2SlashingReceiver} bridge slashing decisions between L1 and L2, authenticated via \texttt{xDomainMessageSender}, and a \texttt{TangleL2Slasher} executes slashing on L2 based on L1-originated messages. This architecture enables ETH validator restaking on Tangle regardless of which layer the services operate on.
 
 %==============================================================================
 \section{Conclusion}
@@ -940,7 +974,7 @@ For cross-layer slashing enforcement, the \texttt{L2SlashingConnector} and \text
 
 Tangle provides the coordination layer for a decentralized compute economy. The protocol enables developers to define computational services, operators to provide those services with economic accountability, and customers to consume services with cryptographic guarantees.
 
-The mechanisms described, blueprints and services, staking and delegation, the service marketplace, fee distribution, slashing, and governance, compose into a coherent system where honest participation is more profitable than cheating, where value distributes according to contribution, and where no single party controls the infrastructure on which others depend.
+The mechanisms described, blueprints and services, staking and delegation, the service marketplace, fee distribution, slashing, and governance, compose into a coherent system where honest participation is more profitable than cheating and where value distributes according to contribution. Decentralization is a launch trajectory, not a launch-day fact: at mainnet the UUPS upgrade key sits behind the 4-day governance timelock and a guardian multisig, and most supply is still vesting-locked. As vesting unlocks deepen the delegatable float and governance quorum ratchets up, control diffuses toward the broad set of operators, developers, and delegators the protocol is built to serve.
 
 This is not merely an ideological position but a practical one. Decentralized infrastructure is more resilient, competitive markets produce better pricing, and cryptographic verification provides stronger guarantees than legal agreements. The same properties that made decentralized finance compelling make decentralized AI infrastructure compelling.
 
@@ -955,6 +989,7 @@ The operating layer for autonomous work must be built now. Tangle is that layer.
 This appendix provides formal definitions for the mathematical constructs referenced throughout the protocol specification.
 
 \subsection{Share-Based Accounting}
+\label{sec:appendix-shares}
 
 Share-based accounting enables O(1) operations for deposits, withdrawals, and value changes across unlimited participants.
 
@@ -1002,13 +1037,14 @@ The precision factor $10^{18}$ prevents dust loss from integer division.
 
 When distributing payment $P$ across recipients with basis point allocations:
 \begin{align*}
+\text{operatorAmount} &= \lfloor P \times \text{operatorBps} / 10000 \rfloor \\
 \text{developerAmount} &= \lfloor P \times \text{developerBps} / 10000 \rfloor \\
 \text{protocolAmount} &= \lfloor P \times \text{protocolBps} / 10000 \rfloor \\
-\text{operatorAmount} &= \lfloor P \times \text{operatorBps} / 10000 \rfloor \\
-\text{delegatorAmount} &= P - \text{developer} - \text{protocol} - \text{operator}
+\text{keeperAmount} &= \lfloor P \times \text{keeperBps} / 10000 \rfloor \\
+\text{delegatorAmount} &= P - \text{operator} - \text{developer} - \text{protocol} - \text{keeper}
 \end{align*}
 
-The delegator amount captures rounding dust, ensuring exact distribution.
+The delegator (staker) amount captures rounding dust, ensuring exact distribution.
 
 \subsection{Operator Scoring}
 

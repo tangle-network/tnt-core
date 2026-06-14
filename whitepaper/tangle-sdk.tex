@@ -32,9 +32,8 @@
 \titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
 \titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{1em}{}
 
-% Rust code styling
+% Rust code styling (listings has no native Rust language; keywords supplied explicitly)
 \lstdefinestyle{rust}{
-    language=C,
     basicstyle=\ttfamily\small,
     keywordstyle=\color{blue!70!black}\bfseries,
     commentstyle=\color{green!50!black}\itshape,
@@ -44,6 +43,23 @@
     frame=single,
     backgroundcolor=\color{gray!5},
     morekeywords={async,await,pub,fn,struct,impl,use,let,mut,const,trait,for,loop,if,else,match,Ok,Err,Some,None,Result,Self,self,move,where,type,dyn},
+    morestring=[b]",
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+}
+
+% Solidity code styling (listings has no native Solidity language; keywords supplied explicitly)
+\lstdefinestyle{solidity}{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue!70!black}\bfseries,
+    commentstyle=\color{green!50!black}\itshape,
+    stringstyle=\color{orange!80!black},
+    showstringspaces=false,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!5},
+    morekeywords={contract,function,external,public,internal,private,view,pure,payable,override,returns,mapping,address,uint8,uint16,uint64,uint256,bytes,bytes32,string,memory,calldata,storage,require,emit,struct,constant,if,else,return},
+    morestring=[b]",
     morecomment=[l]{//},
     morecomment=[s]{/*}{*/},
 }
@@ -52,7 +68,7 @@
 
 \title{\textbf{Tangle Blueprint SDK}\\[0.5em]\large Developer Guide\\[1em]\normalsize Building Decentralized Services with Rust}
 \author{Tangle Foundation}
-\date{January 2025}
+\date{June 2026}
 
 \begin{document}
 
@@ -215,13 +231,13 @@ Blueprints customize protocol behavior through hooks, functions called at specif
     \item[onRegister] validates operator registrations. A blueprint for AI services might require operators to prove GPU capability.
     \item[onRequest] validates service requests. A membership service might verify the customer's eligibility.
     \item[onApprove] processes operator approvals. A DeFi service might lock collateral or initialize state.
-    \item[onUnappliedSlash] executes custom slashing logic when a slash is finalized. A threshold service might redistribute key shares.
+    \item[onUnappliedSlash] executes custom slashing logic when a slash is finalized. A threshold service might redistribute key shares. The \texttt{slashPercent} argument is the dispute-survived, per-service-capped slash as a whole percent (0--100); note that \texttt{proposeSlash} takes the proposed amount in basis points while BSM callbacks such as this one receive a whole percent (a deliberately different unit, not a bug).
     \item[onServiceTermination] handles cleanup. A subscription service might finalize billing.
 \end{description}
 
 Hooks are implemented in Solidity by extending \texttt{BlueprintServiceManagerBase}:
 
-\begin{lstlisting}[language=Java,basicstyle=\ttfamily\small]
+\begin{lstlisting}[style=solidity]
 contract MyBlueprintBSM is BlueprintServiceManagerBase {
     // Track registered operators
     mapping(address => bool) public isRegistered;
@@ -291,15 +307,15 @@ The SDK provides base contracts that extend \texttt{BlueprintServiceManagerBase}
 
 \textbf{TokenizedBlueprintBase} enables blueprints to issue community tokens tied to their service. Operators and users can stake these tokens to earn Synthetix-style staking rewards, creating aligned incentives around blueprint adoption. The base contract handles token issuance, staking accounting, and reward distribution.
 
-\textbf{BuybackBlueprintBase} adds AMM buyback mechanics. A portion of service fees is automatically used to buy back the blueprint's community token on decentralized exchanges, creating sustained demand. Blueprint developers configure the buyback percentage and target AMM pool.
+\textbf{BuybackBlueprintBase} adds AMM buyback mechanics. A portion of service fees is automatically used to buy back the blueprint's community token on decentralized exchanges, creating sustained demand. Blueprint developers configure the buyback percentage and target AMM pool. The buyback is funded from the blueprint developer's share of the service fee split (see Payment Models); it does not draw from operator, staker, or protocol shares.
 
-These extensions compose with each other and with custom hooks, enabling blueprints to build sophisticated token economies around their services.
+These extensions compose with each other and with custom hooks, enabling blueprints to build token economies around their services. They are opt-in base contracts: a blueprint must explicitly extend and deploy them, and they are not auto-deployed by the protocol. Treat them as early-maturity primitives. On-chain buybacks execute against public AMM pools and are therefore MEV-exposed (front-running, sandwiching); developers should bound slippage, consider TWAP execution, and size buybacks conservatively relative to pool depth.
 
 \subsection{Slashing Customization}
 
 Blueprints define their own slashing conditions:
 
-\texttt{querySlashingOrigin} specifies who may propose slashes (governance, specific contract, anyone with evidence).
+\texttt{querySlashingOrigin} returns a \emph{single} authorized address that may propose slashes (in addition to the service owner and blueprint owner). There is no built-in permissionless ``anyone with evidence'' path: to support open, evidence-based proposals, point \texttt{querySlashingOrigin} at a verification contract you deploy that validates submitted evidence and forwards \texttt{proposeSlash} on the caller's behalf.
 
 \texttt{queryDisputeOrigin} specifies who may dispute (the accused operator, governance, delegated arbitrators).
 
@@ -307,19 +323,19 @@ Custom verification contracts implement evidence validation, dispute resolution,
 
 \subsection{Membership Customization}
 
-For dynamic membership services:
+Membership is configured on the service request, not through blueprint hooks. A request specifies a \texttt{Types.MembershipModel} (\texttt{Fixed} or \texttt{Dynamic}) together with \texttt{minOperators}, and the blueprint constrains which models are permitted via its \texttt{supportedMemberships} allow-list. There are no \texttt{queryMinOperators}, \texttt{queryMaxOperators}, or \texttt{queryExitDelay} hooks; operator exit timing is governed by the protocol's staking unbonding schedule (see Staking), not by a blueprint callback.
 
-\textbf{queryMinOperators/queryMaxOperators} bound the operator set size.
-
-\textbf{queryExitDelay} specifies how long operators must wait before leaving.
-
-Custom logic can implement reputation-based entry, stake-weighted selection, or geographic distribution requirements.
+Within these models, custom \texttt{onRegister}/\texttt{onRequest} logic can still implement reputation-based entry, stake-weighted selection, or geographic distribution requirements.
 
 \subsection{Job Configuration}
 
 \textbf{requiresAggregation} determines whether results need multi-operator consensus.
 
-\textbf{getAggregationThreshold} specifies the required agreement percentage (by count or stake weight).
+\textbf{getAggregationThreshold(serviceId, jobIndex)} returns \texttt{(uint16 thresholdBps, uint8 mode)} per job: \texttt{thresholdBps} is the required agreement in basis points and \texttt{mode} selects how it is counted (\texttt{0} = count-based, \texttt{1} = stake-weighted). The protocol default is \texttt{6700}/count-based (two-thirds by operator count).
+
+\subsection{Hook Versioning (MBSM)}
+
+The protocol routes hook calls into a blueprint's service manager through the Master Blueprint Service Manager (MBSM). The \texttt{MBSMRegistry} tracks MBSM versions, and each blueprint is pinned to the MBSM version it was created against. The set and ABI of lifecycle hooks (\texttt{onRegister}, \texttt{onRequest}, \texttt{onApprove}, \texttt{onUnappliedSlash}, \texttt{onServiceTermination}, and the query hooks) are therefore \emph{version-bound}: a given MBSM version defines exactly which hooks exist and their signatures. When adopting a newer MBSM version, recheck the hook ABIs against that version rather than assuming forward compatibility.
 
 %==============================================================================
 \section{Triggers in Depth}
@@ -369,10 +385,14 @@ Cron triggers suit periodic tasks: heartbeats, maintenance, report generation, A
 For lifecycle automation, implement \texttt{BackgroundKeeper}. The SDK provides built-in keepers:
 
 \begin{itemize}[noitemsep]
-    \item \texttt{EpochKeeper} for inflation distribution
+    \item \texttt{EpochKeeper} for epoch-boundary reward distribution (treasury-funded emission paid out from the pre-funded InflationPool)
     \item \texttt{StreamKeeper} for payment stream settlement
     \item \texttt{RoundKeeper} for round-based protocols
 \end{itemize}
+
+TNT is hard-capped at \texttt{MAX\_SUPPLY} $=$ 109{,}255{,}636.92 TNT, %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+and the full cap is minted at genesis across four buckets (Substrate, EVM, Treasury, Foundation), so \texttt{totalSupply} equals the cap from block zero. The InflationPool cannot mint; it only distributes TNT it already holds. ``Inflation'' here is treasury-funded \emph{emission}: roughly 1\% of supply per year ($\approx$ 1{,}092{,}556 TNT) %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+is transferred from the Treasury bucket into the InflationPool and paid out at epoch boundaries. This dilutes no one and creates no new supply. A governance \texttt{MINTER\_ROLE} exists and can mint only up to the cap, but with genesis already at the cap it has no headroom (a \texttt{mint()} that would exceed the cap reverts).
 
 \begin{lstlisting}
 use blueprint_sdk::tangle::services::{BackgroundKeeper, KeeperConfig, KeeperHandle};
@@ -449,7 +469,7 @@ Skip aggregation when:
 The service manager contract controls aggregation:
 \begin{itemize}[noitemsep]
     \item \texttt{requiresAggregation(serviceId, jobIndex)} returns whether job needs aggregation
-    \item \texttt{getAggregationThreshold(serviceId)} returns required percentage
+    \item \texttt{getAggregationThreshold(serviceId, jobIndex)} returns \texttt{(uint16 thresholdBps, uint8 mode)} (default \texttt{6700}/count-based)
 \end{itemize}
 
 %==============================================================================
@@ -736,11 +756,13 @@ The QoS system integrates multiple monitoring backends:
 
 QoS provides data; slashing provides consequences. Connecting these systems enables automatic SLA enforcement.
 
-\textbf{Architecture}: QoS metrics flow from operators to a monitoring service. When metrics violate thresholds, the monitor proposes a slash via Tangle. The service manager's \texttt{querySlashingOrigin} hook authorizes the monitor. After dispute window, slashing executes.
+\textbf{Architecture}: QoS metrics flow from operators to a monitoring service. When metrics violate thresholds, the monitor proposes a slash via Tangle. The service manager's \texttt{querySlashingOrigin} hook authorizes the monitor. After the dispute window, slashing executes.
+
+The on-chain entry point is \texttt{proposeSlash(uint64 serviceId, address operator, uint16 slashBps, bytes32 evidence)}. The amount is in \emph{basis points}, the call \emph{reverts on zero evidence}, the effective slash is capped at the service's \texttt{maxSlashBps} (\texttt{5000} $=$ 50\% at mainnet launch), and the realized penalty is scaled by the operator's committed exposure to the service. The examples below pass a non-zero \texttt{evidence} hash committing to the off-chain measurement.
 
 \subsubsection{Example: Heartbeat-Based Slashing}
 
-\begin{lstlisting}[language=Java,basicstyle=\ttfamily\small]
+\begin{lstlisting}[style=solidity]
 contract HeartbeatSlashingManager {
     uint256 public constant MAX_MISSED = 3;
     uint256 public constant INTERVAL = 5 minutes;
@@ -759,7 +781,11 @@ contract HeartbeatSlashingManager {
         uint256 missed = elapsed / INTERVAL;
 
         if (missed > MAX_MISSED) {
-            tangle.proposeSlash(serviceId, operator, 500); // 5%
+            bytes32 evidence = keccak256(
+                abi.encode(serviceId, operator, missed, block.timestamp)
+            );
+            // slashBps in basis points (500 = 5%); zero evidence reverts
+            tangle.proposeSlash(serviceId, operator, 500, evidence);
         }
     }
 
@@ -771,7 +797,7 @@ contract HeartbeatSlashingManager {
 
 \subsubsection{Example: Latency-Based Slashing}
 
-\begin{lstlisting}[language=Java,basicstyle=\ttfamily\small]
+\begin{lstlisting}[style=solidity]
 contract LatencySlashingManager {
     uint256 public constant MAX_LATENCY_MS = 5000;  // 5 second SLA
     uint256 public constant VIOLATION_THRESHOLD = 10;
@@ -791,7 +817,11 @@ contract LatencySlashingManager {
         violations[serviceId][operator]++;
 
         if (violations[serviceId][operator] >= VIOLATION_THRESHOLD) {
-            tangle.proposeSlash(serviceId, operator, 1000); // 10%
+            bytes32 evidence = keccak256(
+                abi.encode(serviceId, operator, actualLatencyMs, proof)
+            );
+            // slashBps in basis points (1000 = 10%); zero evidence reverts
+            tangle.proposeSlash(serviceId, operator, 1000, evidence);
             violations[serviceId][operator] = 0;
         }
     }
@@ -800,7 +830,7 @@ contract LatencySlashingManager {
 
 \subsubsection{Example: Availability-Based Slashing}
 
-\begin{lstlisting}[language=Java,basicstyle=\ttfamily\small]
+\begin{lstlisting}[style=solidity]
 contract AvailabilitySlashingManager {
     uint256 public constant MIN_UPTIME_PERCENT = 99;
     uint256 public constant WINDOW = 1 days;
@@ -821,8 +851,19 @@ contract AvailabilitySlashingManager {
             if (r.totalChecks > 0) {
                 uint256 pct = (r.successfulChecks * 100) / r.totalChecks;
                 if (pct < MIN_UPTIME_PERCENT) {
-                    uint256 slash = (MIN_UPTIME_PERCENT - pct) * 100;
-                    tangle.proposeSlash(serviceId, operator, uint16(slash));
+                    // Liveness penalty is a small band: 10 bps per missing
+                    // percentage point, capped at 200 bps (2%). Liveness
+                    // faults are not equivocation; large slashes are reserved
+                    // for safety violations. Any value above the service's
+                    // maxSlashBps is further capped by the protocol on execute.
+                    uint256 slashBps = (MIN_UPTIME_PERCENT - pct) * 10;
+                    if (slashBps > 200) slashBps = 200;
+                    bytes32 evidence = keccak256(
+                        abi.encode(serviceId, operator, pct, r.windowStart)
+                    );
+                    tangle.proposeSlash(
+                        serviceId, operator, uint16(slashBps), evidence
+                    );
                 }
             }
             r.windowStart = block.timestamp;
@@ -870,6 +911,8 @@ When designing QoS-based slashing:
     \item Consider grace periods for new operators
 \end{itemize}
 
+\textbf{Dispute-game guardrails}: at mainnet launch a slash proposal opens a dispute that requires a \texttt{disputeBond} of 0.02 ETH (refunded if the dispute is cancelled, forfeited if the slash executes). The \texttt{disputeResolutionDeadline} is 21 days and is \emph{fail-open}: if the dispute is not resolved in time the slash auto-executes. Because resolution is fail-open, blueprints relying on QoS slashing should run an $m$-of-$n$ set of independent monitors so a single offline monitor cannot block a justified slash, and conversely so a single faulty monitor cannot force one. An operator with any pending slash is frozen from unstaking, which prevents stake-exit during the dispute window.
+
 %==============================================================================
 \section{Verifiability and Detection}
 %==============================================================================
@@ -878,12 +921,18 @@ Slashing requires detection. This section covers verification strategies, worked
 
 \subsection{Verification Economics}
 
+This section uses a few economic terms defined fully in the Tangle economics paper, summarized here: \emph{PfC} (profit-from-corruption) is the most an attacker can extract by violating the service; \emph{CoC} (cost-of-corruption) is the stake an attacker must put at risk to do so; \emph{exposure} is the fraction of an operator's stake committed to a given service and thus slashable for it; and the \emph{security ratio} is CoC$/$PfC. These are nominal upper bounds; the realized figures depend on how reliably violations are detected and slashed.
+
 Not all verification is worthwhile. Let $C_v$ be verification cost, $P_d$ detection probability, $S$ slash amount, and $P_c$ probability of cheating. Verification is justified when:
 \[
 C_v < P_d \times S \times P_c
 \]
 
 This reveals design principles. High slashes enable profitable verification even with moderate detection. Probabilistic verification (random sampling) achieves deterrence at lower cost. Verification costs should scale with stakes.
+
+\textbf{Slashing realization.} The slash amount $S$ in these bounds is \emph{nominal}. The amount actually lost by a corrupt operator is closer to $P_{\text{execute}} \times P_d \times S_{\text{nominal}}$, where $P_{\text{execute}}$ accounts for the dispute game: at launch the dispute window is fail-open over 21 days, but a sophisticated attacker may still attempt to exit stake before execution (mitigated, not eliminated, by the pending-slash unstake freeze). Treat the headline CoC and security ratio as conditional bounds that hold only under the stated detection assumptions (probe-indistinguishability: challenges are statistically indistinguishable from real jobs) and collusion assumptions (no coalition above the corruption threshold).
+
+\textbf{Deterrence versus the verifier's private incentive.} The condition $P_d \times S > V$ above is a \emph{social} deterrence condition: it tells you whether cheating is unprofitable in aggregate. It is distinct from whether any individual party is privately paid enough to \emph{run} the verification --- the verifier's dilemma. Detection has a real cost $C_v$, yet slash proceeds are routed by the protocol fee split rather than handed to whoever reported the violation. To close this gap, blueprints should fund an explicit reporter bounty or lean on the protocol's permissionless keeper rebate (see Payment Models) so that producing and submitting evidence is itself EV-positive.
 
 \subsection{Verification Approaches}
 
@@ -909,34 +958,34 @@ AI outputs are often non-deterministic and subjective.
 
 \subsection{Worked Example: Verifiable AI Sandbox}
 
-A sandbox service promising agents run on Claude with specified isolation.
+A sandbox service promising agents run on a specified frontier model (the configured model, e.g. a named Claude, GPT, or Llama variant) with specified isolation.
 
 \textbf{Verification mechanisms}:
 \begin{itemize}[noitemsep]
-    \item Model fingerprinting: Challenge database of (prompt, expected pattern) pairs distinguishing Claude from alternatives
+    \item Model fingerprinting: Challenge database of (prompt, expected pattern) pairs distinguishing the promised model from alternatives
     \item Performance: Heartbeat jobs with latency requirements
     \item Isolation: gVisor/Firecracker required at registration; QoS monitors for anomalies
 \end{itemize}
 
-\textbf{Slashing configuration}:
+\textbf{Slashing configuration} (each subject to the per-service \texttt{maxSlashBps} ceiling, 50\% at mainnet launch):
 \begin{itemize}[noitemsep]
     \item Model substitution: 50\% (severe, violates core promise)
     \item Performance degradation: 5\% (moderate, affects quality)
-    \item Isolation breach: 100\% (maximum, compromises security)
+    \item Isolation breach: configured at 100\%, but realized slash is capped at \texttt{maxSlashBps} (50\% at launch) unless governance raises the per-service ceiling for an equivocation-class fault
 \end{itemize}
 
 \textbf{Quantified economics.} Customer runs trading agents managing \$200,000. PfC = \$200,000 (assets under management).
 
-Service uses 3 operators, each staking \$100,000 with 80\% exposure. Corrupting requires all 3 (any honest operator detects substitution via challenges). CoC = $3 \times \$100,000 \times 0.8 = \$240,000$.
+Service uses 3 operators, each staking \$100,000 with 80\% exposure. Corrupting requires all 3 (any honest operator detects substitution via challenges, under the probe-indistinguishability and no-collusion-above-threshold assumptions). The \emph{nominal} stake at risk is $3 \times \$100,000 \times 0.8 = \$240,000$. With the launch \texttt{maxSlashBps} of 50\%, however, a single corruption event can burn at most 50\% of each committed stake, so the \emph{realizable} CoC for a one-shot attack is $3 \times \$100,000 \times 0.8 \times 0.5 = \$120,000$.
 
-Security ratio = \$240,000 / \$200,000 = 1.2. Exceeds 1 but below recommended 1.5x.
+Security ratio against realizable CoC = \$120,000 / \$200,000 = 0.6, below 1 --- the 50\% cap means a single substitution event is not deterred by stake alone at these parameters. Restoring a ratio above 1 (the economics paper's target band; the previously cited ``1.5x'' is illustrative, not a protocol constant) requires raising stake or operator count, reducing exposure to a smaller AUM cap per service, or governance-raising \texttt{maxSlashBps} for the equivocation-class substitution fault.
 
-\textbf{Detection probability.} Model fingerprinting challenges submitted 10 times daily. Each detects substitution with 85\% probability. Over 7-day dispute window:
+\textbf{Detection probability.} Model fingerprinting challenges submitted 10 times daily. Each detects substitution with 85\% probability, \emph{assuming probes are indistinguishable from real jobs}; an operator who can identify probes can pass them while cheating real traffic, collapsing $P_d$. Over a 7-day window:
 \[
 P_d = 1 - (1 - 0.85)^{70} \approx 99.99\%
 \]
 
-Effectively certain detection justifies the 1.2 ratio, expected cost is $0.9999 \times \$240,000 \approx \$240,000$.
+Under that assumption detection is near-certain, but the deterrent is still bounded by the realizable slash above: effective expected cost to the attacker is approximately $P_{\text{execute}} \times P_d \times \$120,000$, not the nominal \$240,000.
 
 \subsection{Worked Example: Verifiable Oracle}
 
@@ -949,18 +998,18 @@ A price oracle promising freshness (5 min), accuracy (1\%), and availability (99
     \item External auditing: Anyone compares oracle prices to public market data
 \end{itemize}
 
-\textbf{Slashing configuration}:
+\textbf{Slashing configuration} (realized slash capped at the per-service \texttt{maxSlashBps}, 50\% at launch):
 \begin{itemize}[noitemsep]
-    \item Source forgery: 100\% (complete integrity compromise)
-    \item Price deviation: 10\% per incident, accumulating
-    \item Availability failure: 1\% per missed update, capped at 20\%
+    \item Source forgery: configured at 100\% (safety/equivocation class), realized at the \texttt{maxSlashBps} ceiling unless governance raises it for this service
+    \item Price deviation: 10\% per incident, accumulating up to the ceiling
+    \item Availability failure: a small liveness band of $\sim$10 bps (0.1\%) per missed update, capped at 200 bps (2\%) --- liveness faults are not equivocation and should not approach the safety ceiling
 \end{itemize}
 
 \textbf{Economics.} Oracle serves DeFi with \$100M exposure. Manipulated prices enable \$10M arbitrage (PfC = \$10M).
 
-5 operators each staking \$3M with 100\% exposure. Corrupting 3-of-5 yields CoC = \$9M.
+5 operators each staking \$3M with 100\% exposure. The nominal stake of a 3-of-5 coalition is \$9M, but with the 50\% launch \texttt{maxSlashBps} the realizable one-shot CoC is $\$9M \times 0.5 = \$4.5M$.
 
-Security ratio = 0.9, insufficient. Blueprint should increase stake requirements or reduce exposure to smaller protocols.
+Security ratio against realizable CoC = 0.45 --- insufficient under the no-collusion-above-threshold assumption. The blueprint should increase stake requirements, raise the corruption threshold, reduce exposure to smaller protocols, or have governance raise \texttt{maxSlashBps} for the source-forgery (equivocation) fault.
 
 \subsection{Formal Verification Properties}
 
@@ -972,9 +1021,9 @@ Security ratio = 0.9, insufficient. Blueprint should increase stake requirements
 
 \textit{Importance}: Detection probability determines effective cost of cheating.
 
-\textbf{Property V3 (Economic Sufficiency)}: For all violation types $M$ with benefit $V_M$: $p_M \times S_M > V_M$.
+\textbf{Property V3 (Economic Sufficiency)}: For all violation types $M$ with benefit $V_M$: $p_M \times S_M > V_M$, where $S_M$ is the \emph{realizable} slash, i.e. $S_M \le \texttt{maxSlashBps} \times (\text{committed exposure})$.
 
-\textit{Importance}: Core security condition. Blueprints must configure detection and slashing to satisfy this.
+\textit{Importance}: Core security condition. Blueprints must configure detection and slashing to satisfy this. Note the hard ceiling: if $V_M$ exceeds $\texttt{maxSlashBps}$ times an operator's committed stake (50\% at launch), no detection probability or slash schedule deters that operator alone --- the only remedies are raising stake, increasing the number of operators required to corrupt, reducing per-service exposure, or governance-raising \texttt{maxSlashBps} for that equivocation-class fault.
 
 \textbf{Property V4 (Verification Efficiency)}: Verification cost $C_v < \alpha \times V_s$ where $V_s$ is service value.
 
@@ -987,6 +1036,19 @@ Blueprints should analyze mechanisms against these properties, documenting false
 %==============================================================================
 
 Blueprints interact with the Tangle marketplace for service discovery and pricing. Understanding this interaction helps developers design robust services.
+
+\subsection{Payment Models}
+
+A service selects one of four payment models at request time:
+
+\begin{description}[noitemsep]
+    \item[PayOnce] a single up-front payment for the service term.
+    \item[Subscription] recurring billing. Billing is permissionless and TWAP-fair: anyone may call \texttt{billSubscription} when a period is due, and the call carries a 0.5\% keeper rebate (carved from the protocol's share) so that running the keeper is EV-positive.
+    \item[EventDriven] pay-per-job, settled as jobs are executed.
+    \item[RFQ quotes] operator-signed, EIP-712 typed quotes accepted on-chain (see The RFQ System).
+\end{description}
+
+\textbf{Fee split.} Each service-fee payment is split across five recipients in basis points summing to 100\%: operator 4000 (40\%), developer 2000 (20\%), staker 2000 (20\%), protocol 1950 (19.5\%), and keeper 50 (0.5\%). The keeper's 0.5\% is the rebate carved out of the protocol share that makes permissionless subscription billing worthwhile. The developer's 2000-bps share is also the source from which \texttt{BuybackBlueprintBase} funds token buybacks.
 
 \subsection{The RFQ System}
 
@@ -1021,11 +1083,11 @@ Operators run a separate \textbf{pricing engine} service alongside their bluepri
 \begin{enumerate}[noitemsep]
     \item Receives quote requests via RPC or P2P gossip
     \item Calculates prices based on resource requirements and operator pricing models
-    \item Signs quotes using EIP-712 typed data signatures
-    \item Returns signed quotes with proof-of-work to prevent spam
+    \item Signs the quote as EIP-712 typed data over the whole \texttt{QuoteDetails} struct
+    \item Returns the signed quote; spam resistance comes from the expiry timestamp and the operator's signature, with acceptance enforced on-chain (there is no proof-of-work)
 \end{enumerate}
 
-The quote contains: blueprint ID, TTL (blocks), total cost, timestamp, expiry, and security commitments (which assets back the operator's stake exposure).
+The signed \texttt{QuoteDetails} struct contains: blueprint ID, TTL in \emph{seconds} (enforced against \texttt{block.timestamp}; the struct field is named \texttt{ttlBlocks} for legacy reasons but the unit is seconds), total cost, timestamp, expiry, and security commitments (which assets back the operator's stake exposure). Because the EIP-712 signature covers the entire struct, any tampering with these fields invalidates the quote, and acceptance is verified on-chain at service creation.
 
 Customers collect signed quotes from multiple operators, compare prices and terms, then submit their chosen quote on-chain to create a service.
 
@@ -1154,14 +1216,7 @@ Job handlers can subscribe to these events for coordination logic.
 
 \subsection{BLS Signature Aggregation}
 
-The \texttt{agg-sig-gossip} feature provides specialized gossip for BLS signature aggregation. When enabled:
-
-\begin{enumerate}[noitemsep]
-    \item Operators compute results and sign with BLS keys
-    \item Signatures broadcast via gossip topic for the job
-    \item Aggregator collects signatures until threshold met
-    \item Aggregated result submitted to chain
-\end{enumerate}
+The \texttt{agg-sig-gossip} feature provides the specialized gossip transport for the BLS signature aggregation flow described in the \emph{BLS Aggregation} section: operators sign their results with BLS keys, broadcast the signatures over the per-job gossip topic, and an aggregator combines them once the threshold is met before submitting the aggregated result on-chain.
 
 This pattern enables efficient multi-operator consensus without centralized coordination.
 
@@ -1202,11 +1257,11 @@ Operators configure their blueprint environment through command-line arguments, 
 \subsection{Core Settings}
 
 \begin{description}
-    \item[http\_rpc\_url] HTTP RPC endpoint for the host chain (default: \texttt{http://127.0.0.1:9944})
-    \item[ws\_rpc\_url] WebSocket RPC endpoint for event subscriptions (default: \texttt{ws://127.0.0.1:9944})
+    \item[http\_rpc\_url] EVM JSON-RPC endpoint for the host chain (local default: \texttt{http://127.0.0.1:8545}, the Anvil port; Base mainnet uses chainId \texttt{8453})
+    \item[ws\_rpc\_url] WebSocket EVM JSON-RPC endpoint for event subscriptions (local default: \texttt{ws://127.0.0.1:8545})
     \item[keystore\_uri] Path to the keystore directory containing operator keys (default: \texttt{./keystore})
     \item[data\_dir] Directory for blueprint-specific data storage (required)
-    \item[protocol] Target protocol: \texttt{tangle}, \texttt{eigenlayer}, or \texttt{symbiotic}
+    \item[protocol] Target protocol: \texttt{tangle} (the only protocol supported at launch; \texttt{eigenlayer} and \texttt{symbiotic} are planned)
     \item[chain] Network: \texttt{local\_testnet}, \texttt{testnet}, or \texttt{mainnet}
 \end{description}
 
