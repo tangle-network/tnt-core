@@ -117,6 +117,17 @@ enum CreditOpType {
   CLAIM
 }
 
+enum DisputeBondEventKind {
+  CREDITED
+  CLAIMED
+}
+
+enum CommissionChangeStatus {
+  QUEUED
+  EXECUTED
+  CANCELLED
+}
+
 type Blueprint {
   id: ID!
   blueprintId: BigInt!
@@ -128,6 +139,12 @@ type Blueprint {
   createdAt: BigInt!
   updatedAt: BigInt!
   operatorCount: BigInt!
+  "Pending owner set by BlueprintTransferProposed; cleared on transfer/cancel."
+  pendingOwner: String
+  pendingTransferAt: BigInt
+  "Hash of the blueprint binary sources, last set by BlueprintSourcesUpdated."
+  sourceCount: BigInt
+  sourcesUpdatedAt: BigInt
   services: [Service!]! @derivedFrom(field: "blueprint")
   paymentDistributions: [PaymentDistribution!]! @derivedFrom(field: "blueprint")
   developerPayments: [DeveloperPayment!]! @derivedFrom(field: "blueprint")
@@ -286,6 +303,11 @@ type Service {
   status: ServiceStatus!
   createdAt: BigInt!
   terminatedAt: BigInt
+  "True when termination came from the non-payment grace path rather than a normal ServiceTerminated."
+  terminatedForNonPayment: Boolean!
+  "Current TTL in seconds, last set by ServiceExtended (null until first extension)."
+  ttl: BigInt
+  extendedAt: BigInt
   serviceOperators: [ServiceOperator!]! @derivedFrom(field: "service")
   jobCalls: [JobCall!]! @derivedFrom(field: "service")
   paymentDistributions: [PaymentDistribution!]! @derivedFrom(field: "service")
@@ -1064,4 +1086,91 @@ type AssetPriceSample {
   reason: String
   blockNumber: BigInt!
   fetchedAt: BigInt!
+}
+
+"""
+Per-operator acknowledgement of a blueprint's binary sources hash
+(BlueprintSourcesAcked). Keyed by blueprintId-operator so the latest ack wins.
+"""
+type BlueprintSourceAck {
+  id: ID!
+  blueprint: Blueprint!
+  operator: String!
+  sourcesHash: String!
+  ackedAt: BigInt!
+  txHash: String!
+}
+
+"""
+Service termination triggered by the non-payment grace path
+(ServiceTerminatedForNonPayment). Distinct from the normal ServiceTerminated event.
+"""
+type ServiceNonPaymentTermination {
+  id: ID!
+  service: Service!
+  triggeredBy: String!
+  dueAt: BigInt!
+  graceEndsAt: BigInt!
+  requiredAmount: BigInt!
+  escrowBalance: BigInt!
+  terminatedAt: BigInt!
+  txHash: String!
+}
+
+"""
+Service TTL extension via a quote (ServiceExtended).
+"""
+type ServiceExtension {
+  id: ID!
+  service: Service!
+  oldTtl: BigInt!
+  newTtl: BigInt!
+  payment: BigInt!
+  extendedAt: BigInt!
+  txHash: String!
+}
+
+"""
+Dispute-bond ledger events from Slashing (DisputeBondCredited / DisputeBondClaimed),
+keyed per emission. Bonds are credited on slash cancellation and pulled by the disputer.
+"""
+type DisputeBondEvent {
+  id: ID!
+  disputer: String!
+  kind: DisputeBondEventKind!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+"""
+Protocol-global operator commission timelock state from StakingAdminFacet
+(CommissionChangeQueued / Executed / Cancelled). Singleton entity keyed by
+GLOBAL_COMMISSION_CHANGE_ID; reflects the latest commission-change transition.
+"""
+type CommissionChangeState {
+  id: ID!
+  status: CommissionChangeStatus!
+  "Pending commission in bps while QUEUED; the applied value after EXECUTED."
+  pendingBps: Int
+  executeAfter: BigInt
+  oldBps: Int
+  newBps: Int
+  updatedAt: BigInt!
+  txHash: String!
+}
+
+"""
+Per-delegator, per-token harvest of expired deposit locks (ExpiredLocksHarvested).
+count is the number of lock entries removed; totalAmount is the unlocked total.
+"""
+type ExpiredLockHarvest {
+  id: ID!
+  delegator: Delegator!
+  token: String!
+  count: BigInt!
+  totalAmount: BigInt!
+  harvestedAt: BigInt!
+  txHash: String!
 }

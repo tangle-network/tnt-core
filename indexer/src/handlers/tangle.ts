@@ -2,6 +2,8 @@ import { indexer } from "envio";
 import { decodeFunctionData, parseAbi } from "viem";
 import type {
   Blueprint,
+  BlueprintSourceAck,
+  DisputeBondEvent,
   DeveloperPayment,
   EscrowBalance,
   JobCall,
@@ -20,6 +22,8 @@ import type {
   Role,
   RoleAssignment,
   Service,
+  ServiceExtension,
+  ServiceNonPaymentTermination,
   ServiceOperator,
   ServiceRequest,
   SlashConfig,
@@ -39,6 +43,7 @@ import {
   ensureOperator,
   ensureProtocolState,
   ensureSlashConfig,
+  getBlockNumber,
   getEventId,
   getPointsManager,
   getSlashProposal,
@@ -327,6 +332,32 @@ indexer.onEvent({ contract: "Tangle", event: "SlashExecuted" }, async ({ event, 
   } as SlashProposal);
 });
 
+indexer.onEvent({ contract: "Tangle", event: "DisputeBondCredited" }, async ({ event, context }) => {
+  const ledgerEvent: DisputeBondEvent = {
+    id: getEventId(event),
+    disputer: normalizeAddress(event.params.disputer),
+    kind: "CREDITED",
+    amount: toBigInt(event.params.amount),
+    blockNumber: getBlockNumber(event),
+    timestamp: getTimestamp(event),
+    txHash: getTxHash(event),
+  } as DisputeBondEvent;
+  context.DisputeBondEvent.set(ledgerEvent);
+});
+
+indexer.onEvent({ contract: "Tangle", event: "DisputeBondClaimed" }, async ({ event, context }) => {
+  const ledgerEvent: DisputeBondEvent = {
+    id: getEventId(event),
+    disputer: normalizeAddress(event.params.disputer),
+    kind: "CLAIMED",
+    amount: toBigInt(event.params.amount),
+    blockNumber: getBlockNumber(event),
+    timestamp: getTimestamp(event),
+    txHash: getTxHash(event),
+  } as DisputeBondEvent;
+  context.DisputeBondEvent.set(ledgerEvent);
+});
+
 indexer.onEvent({ contract: "Tangle", event: "BlueprintCreated" }, async ({ event, context }) => {
   const timestamp = getTimestamp(event);
   const blueprint: Blueprint = {
@@ -364,7 +395,67 @@ indexer.onEvent({ contract: "Tangle", event: "BlueprintTransferred" }, async ({ 
   const id = toBigInt(event.params.blueprintId).toString();
   const existing = await context.Blueprint.get(id);
   if (!existing) return;
-  context.Blueprint.set({ ...existing, owner: normalizeAddress(event.params.to), updatedAt: timestamp });
+  context.Blueprint.set({
+    ...existing,
+    owner: normalizeAddress(event.params.to),
+    pendingOwner: undefined,
+    pendingTransferAt: undefined,
+    updatedAt: timestamp,
+  });
+});
+
+indexer.onEvent({ contract: "Tangle", event: "BlueprintTransferProposed" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const id = toBigInt(event.params.blueprintId).toString();
+  const existing = await context.Blueprint.get(id);
+  if (!existing) return;
+  context.Blueprint.set({
+    ...existing,
+    pendingOwner: normalizeAddress(event.params.pendingOwner),
+    pendingTransferAt: timestamp,
+    updatedAt: timestamp,
+  });
+});
+
+indexer.onEvent({ contract: "Tangle", event: "BlueprintTransferCancelled" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const id = toBigInt(event.params.blueprintId).toString();
+  const existing = await context.Blueprint.get(id);
+  if (!existing) return;
+  context.Blueprint.set({
+    ...existing,
+    pendingOwner: undefined,
+    pendingTransferAt: undefined,
+    updatedAt: timestamp,
+  });
+});
+
+indexer.onEvent({ contract: "Tangle", event: "BlueprintSourcesUpdated" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const id = toBigInt(event.params.blueprintId).toString();
+  const existing = await context.Blueprint.get(id);
+  if (!existing) return;
+  context.Blueprint.set({
+    ...existing,
+    sourceCount: toBigInt(event.params.sourceCount),
+    sourcesUpdatedAt: timestamp,
+    updatedAt: timestamp,
+  });
+});
+
+indexer.onEvent({ contract: "Tangle", event: "BlueprintSourcesAcked" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const blueprintId = toBigInt(event.params.blueprintId).toString();
+  const operator = normalizeAddress(event.params.operator);
+  const ack: BlueprintSourceAck = {
+    id: `${blueprintId}-${operator}`,
+    blueprint_id: blueprintId,
+    operator,
+    sourcesHash: toHexString(event.params.sourcesHash),
+    ackedAt: timestamp,
+    txHash: getTxHash(event),
+  } as BlueprintSourceAck;
+  context.BlueprintSourceAck.set(ack);
 });
 
 indexer.onEvent({ contract: "Tangle", event: "BlueprintDeactivated" }, async ({ event, context }) => {
@@ -562,6 +653,7 @@ indexer.onEvent({ contract: "Tangle", event: "ServiceActivated" }, async ({ even
     status: "ACTIVE",
     createdAt: timestamp,
     terminatedAt: undefined,
+    terminatedForNonPayment: false,
   } as Service;
   context.Service.set(service);
   if (request) {
@@ -598,6 +690,51 @@ indexer.onEvent({ contract: "Tangle", event: "ServiceTerminated" }, async ({ eve
   const timestamp = getTimestamp(event);
   context.Service.set({ ...service, status: "TERMINATED", terminatedAt: timestamp });
   await deactivateParticipation(context, "service-hourly", service.id, timestamp);
+});
+
+indexer.onEvent({ contract: "Tangle", event: "ServiceTerminatedForNonPayment" }, async ({ event, context }) => {
+  const serviceId = toBigInt(event.params.serviceId).toString();
+  const service = await context.Service.get(serviceId);
+  if (!service) return;
+  const timestamp = getTimestamp(event);
+  context.Service.set({
+    ...service,
+    status: "TERMINATED",
+    terminatedAt: timestamp,
+    terminatedForNonPayment: true,
+  });
+  const termination: ServiceNonPaymentTermination = {
+    id: getEventId(event),
+    service_id: service.id,
+    triggeredBy: normalizeAddress(event.params.triggeredBy),
+    dueAt: toBigInt(event.params.dueAt),
+    graceEndsAt: toBigInt(event.params.graceEndsAt),
+    requiredAmount: toBigInt(event.params.requiredAmount),
+    escrowBalance: toBigInt(event.params.escrowBalance),
+    terminatedAt: timestamp,
+    txHash: getTxHash(event),
+  } as ServiceNonPaymentTermination;
+  context.ServiceNonPaymentTermination.set(termination);
+  await deactivateParticipation(context, "service-hourly", service.id, timestamp);
+});
+
+indexer.onEvent({ contract: "Tangle", event: "ServiceExtended" }, async ({ event, context }) => {
+  const serviceId = toBigInt(event.params.serviceId).toString();
+  const service = await context.Service.get(serviceId);
+  if (!service) return;
+  const timestamp = getTimestamp(event);
+  const newTtl = toBigInt(event.params.newTtl);
+  context.Service.set({ ...service, ttl: newTtl, extendedAt: timestamp });
+  const extension: ServiceExtension = {
+    id: getEventId(event),
+    service_id: service.id,
+    oldTtl: toBigInt(event.params.oldTtl),
+    newTtl,
+    payment: toBigInt(event.params.payment),
+    extendedAt: timestamp,
+    txHash: getTxHash(event),
+  } as ServiceExtension;
+  context.ServiceExtension.set(extension);
 });
 
 indexer.onEvent({ contract: "Tangle", event: "OperatorJoinedService" }, async ({ event, context }) => {

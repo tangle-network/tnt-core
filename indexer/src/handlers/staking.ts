@@ -1,10 +1,12 @@
 import { indexer } from "envio";
 import type {
+  CommissionChangeState,
   DelegationPosition,
   DelegationBalance,
   DelegationBalanceDelta,
   DelegationUnstakeRequest,
   Delegator,
+  ExpiredLockHarvest,
   DelegatorAssetPosition,
   DepositLock,
   HeartbeatConfig,
@@ -640,4 +642,65 @@ indexer.onEvent({ contract: "OperatorStatusRegistry", event: "SlashingTriggered"
     txHash: getTxHash(event),
   } as OperatorLifecycleEvent;
   context.OperatorLifecycleEvent.set(entity);
+});
+
+// Protocol-global operator-commission timelock (StakingAdminFacet). Singleton
+// entity tracking the latest QUEUED/EXECUTED/CANCELLED transition.
+const GLOBAL_COMMISSION_CHANGE_ID = "global";
+
+indexer.onEvent({ contract: "MultiAssetDelegation", event: "CommissionChangeQueued" }, async ({ event, context }) => {
+  const state: CommissionChangeState = {
+    id: GLOBAL_COMMISSION_CHANGE_ID,
+    status: "QUEUED",
+    pendingBps: toNumber(event.params.newBps),
+    executeAfter: toBigInt(event.params.executeAfter),
+    oldBps: undefined,
+    newBps: toNumber(event.params.newBps),
+    updatedAt: getTimestamp(event),
+    txHash: getTxHash(event),
+  } as CommissionChangeState;
+  context.CommissionChangeState.set(state);
+});
+
+indexer.onEvent({ contract: "MultiAssetDelegation", event: "CommissionChangeExecuted" }, async ({ event, context }) => {
+  const state: CommissionChangeState = {
+    id: GLOBAL_COMMISSION_CHANGE_ID,
+    status: "EXECUTED",
+    pendingBps: undefined,
+    executeAfter: undefined,
+    oldBps: toNumber(event.params.oldBps),
+    newBps: toNumber(event.params.newBps),
+    updatedAt: getTimestamp(event),
+    txHash: getTxHash(event),
+  } as CommissionChangeState;
+  context.CommissionChangeState.set(state);
+});
+
+indexer.onEvent({ contract: "MultiAssetDelegation", event: "CommissionChangeCancelled" }, async ({ event, context }) => {
+  const state: CommissionChangeState = {
+    id: GLOBAL_COMMISSION_CHANGE_ID,
+    status: "CANCELLED",
+    pendingBps: undefined,
+    executeAfter: undefined,
+    oldBps: undefined,
+    newBps: toNumber(event.params.cancelledBps),
+    updatedAt: getTimestamp(event),
+    txHash: getTxHash(event),
+  } as CommissionChangeState;
+  context.CommissionChangeState.set(state);
+});
+
+indexer.onEvent({ contract: "MultiAssetDelegation", event: "ExpiredLocksHarvested" }, async ({ event, context }) => {
+  const timestamp = getTimestamp(event);
+  const delegator = await ensureDelegator(context, event.params.delegator, timestamp);
+  const harvest: ExpiredLockHarvest = {
+    id: getEventId(event),
+    delegator_id: delegator.id,
+    token: normalizeAddress(event.params.token),
+    count: toBigInt(event.params.count),
+    totalAmount: toBigInt(event.params.totalAmount),
+    harvestedAt: timestamp,
+    txHash: getTxHash(event),
+  } as ExpiredLockHarvest;
+  context.ExpiredLockHarvest.set(harvest);
 });
