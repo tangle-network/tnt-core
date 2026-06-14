@@ -136,7 +136,9 @@ library SlashingLib {
             maxSlashBps: BPS_DENOMINATOR, // 100%
             disputeResolutionDeadline: 14 days,
             disputeBond: 0, // Defaults to disabled; admin enables via setSlashConfig.
-            maxPendingSlashesPerOperator: 32
+            // One pending slash already freezes the operator + its delegators, so a small
+            // cap suffices; lower default bounds admin cleanup cost on a griefing attempt.
+            maxPendingSlashesPerOperator: 8
         });
     }
 

@@ -549,14 +549,14 @@ contract LocalTestnetSetup is Script, BlueprintDefinitionHelper {
 
         // Enable all tokens as staking assets
         // Parameters: token, minOperatorStake, minDelegation, depositCap, rewardMultiplierBps
-        staking.enableAsset(address(usdc), 0, 0, 0, 10_000);
-        staking.enableAsset(address(usdt), 0, 0, 0, 10_000);
-        staking.enableAsset(address(dai), 0, 0, 0, 10_000);
-        staking.enableAsset(address(weth), 0, 0, 0, 12_000); // 1.2x multiplier for WETH
-        staking.enableAsset(address(stETH), 0, 0, 0, 15_000); // 1.5x multiplier for stETH
-        staking.enableAsset(address(wstETH), 0, 0, 0, 15_000); // 1.5x multiplier for wstETH
-        staking.enableAsset(address(eigen), 0, 0, 0, 20_000); // 2x multiplier for EIGEN
-        staking.enableAsset(address(tntToken), 0, 0, 0, 10_000); // TNT native token
+        staking.enableAsset(address(usdc), 0, 1, 0, 10_000);
+        staking.enableAsset(address(usdt), 0, 1, 0, 10_000);
+        staking.enableAsset(address(dai), 0, 1, 0, 10_000);
+        staking.enableAsset(address(weth), 0, 1, 0, 12_000); // 1.2x multiplier for WETH
+        staking.enableAsset(address(stETH), 0, 1, 0, 15_000); // 1.5x multiplier for stETH
+        staking.enableAsset(address(wstETH), 0, 1, 0, 15_000); // 1.5x multiplier for wstETH
+        staking.enableAsset(address(eigen), 0, 1, 0, 20_000); // 2x multiplier for EIGEN
+        staking.enableAsset(address(tntToken), 0, 1, 0, 10_000); // TNT native token
         staking.setOperatorBondToken(address(tntToken));
         console2.log("All tokens enabled as staking assets");
 

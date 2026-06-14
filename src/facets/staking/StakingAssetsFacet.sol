@@ -48,6 +48,10 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
         onlyRole(ASSET_MANAGER_ROLE)
     {
         require(token != address(0), "Use native");
+        // minDelegation must be a hard floor (> 0): the virtual-shares offset only
+        // deters the first-depositor inflation attack when a non-zero floor is enforced.
+        require(_minDelegation > 0, "minDelegation must be > 0");
+        require(_rewardMultiplierBps <= MAX_REWARD_MULTIPLIER_BPS, "multiplier too high");
         bytes32 assetHash = _assetHash(Types.Asset(Types.AssetKind.ERC20, token));
 
         _assetConfigs[assetHash] = Types.AssetConfig({
@@ -153,6 +157,8 @@ contract StakingAssetsFacet is StakingFacetBase, IFacetSelectors {
         require(token != address(0), "Use native");
         require(adapter != address(0), "Invalid adapter");
         require(IAssetAdapter(adapter).supportsAsset(token), "Adapter doesn't support token");
+        require(_minDelegation > 0, "minDelegation must be > 0");
+        require(_rewardMultiplierBps <= MAX_REWARD_MULTIPLIER_BPS, "multiplier too high");
 
         // Register adapter
         _assetAdapters[token] = adapter;

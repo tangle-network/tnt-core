@@ -495,7 +495,7 @@ contract DelegationEdgeCasesTest is Test {
         evilToken.setTarget(address(delegation));
 
         vm.prank(admin);
-        delegation.enableAsset(address(evilToken), 0, 0, 0, 10_000);
+        delegation.enableAsset(address(evilToken), 0, 1, 0, 10_000);
 
         evilToken.mint(delegator1, 10 ether);
 

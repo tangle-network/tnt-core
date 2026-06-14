@@ -414,9 +414,9 @@ contract SlashingEdgeCasesTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_ManyPendingSlashProposals() public {
-        // Per-operator pending-slash cap defaults to 32 (`SlashConfig.maxPendingSlashesPerOperator`).
+        // Per-operator pending-slash cap defaults to 8 (`SlashConfig.maxPendingSlashesPerOperator`).
         // Verify the cap holds and that proposals up to the cap remain Pending.
-        uint256 cap = 32;
+        uint256 cap = 8;
         for (uint256 i = 0; i < cap; i++) {
             vm.prank(user1);
             tangle.proposeSlash(serviceId, operator1, 100, keccak256(abi.encode("evidence", i)));
@@ -427,7 +427,7 @@ contract SlashingEdgeCasesTest is BaseTest {
             assertEq(uint8(proposal.status), uint8(SlashingLib.SlashStatus.Pending));
         }
 
-        // The 33rd proposal must revert via the spam-grief guard.
+        // The 9th proposal must revert via the spam-grief guard.
         vm.prank(user1);
         vm.expectRevert(Errors.InvalidState.selector);
         tangle.proposeSlash(serviceId, operator1, 100, keccak256("over-cap"));

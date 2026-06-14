@@ -373,7 +373,7 @@ contract InvariantFuzzTest is Test, BlueprintDefinitionHelper {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function testFuzz_Invariant_SlashIdsSequential(uint8 numSlashes) public {
-        numSlashes = uint8(bound(uint256(numSlashes), 1, 30));
+        numSlashes = uint8(bound(uint256(numSlashes), 1, 8));
 
         uint64 previousId = type(uint64).max;
 

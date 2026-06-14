@@ -65,11 +65,14 @@ contract TangleGovernor is
     ///      legitimate flows that genuinely need >10 actions can chain proposals.
     uint256 public constant MAX_PROPOSAL_ACTIONS = 10;
 
-    /// @notice Maximum ETH value per single action.
-    /// @dev Lowered from 100k ETH to 10k ETH (audit Round 2 governance #8). 100k × 10
-    ///      actions = 1M ETH outflow per proposal was an over-broad safety bound; 10k
-    ///      keeps any single proposal well below mainnet-scale treasury holdings while
-    ///      remaining permissive for routine grants / refunds.
+    /// @notice Maximum NATIVE value (msg.value) per single action.
+    /// @dev This caps the native-coin (ETH) value attached to a single proposal action
+    ///      only. It does NOT bound ERC20/TNT transfers — those move via token `transfer`
+    ///      calldata (value 0) and are governed solely by the vote + timelock, not this
+    ///      limit. Lowered from 100k to 10k ETH (audit Round 2 governance #8): 100k × 10
+    ///      actions = 1M ETH outflow per proposal was an over-broad safety bound; 10k keeps
+    ///      any single proposal well below mainnet-scale treasury holdings while remaining
+    ///      permissive for routine native grants / refunds.
     uint256 public constant MAX_ACTION_VALUE = 10_000 ether;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
