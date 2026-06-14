@@ -1,0 +1,47 @@
+{
+  "name": "normalized-100m",
+  "status": "LIVE — this is the genesis distribution; total == TangleToken.MAX_SUPPLY (100M) => true fixed supply",
+  "description": "Raw snapshot normalized DOWN to a round 100,000,000 TNT by reducing ONLY the Treasury bucket. Claimant buckets (substrate/evm/foundation) are byte-identical to raw-snapshot.json.",
+  "totalSupply": "100000000000000000000000000",
+  "totalSupplyTnt": "100000000",
+  "derivation": {
+    "method": "treasury = totalSupply - (substrate + evm + foundation)",
+    "claimsSumWei": "67411168158121553299854091",
+    "claimsSumTnt": "67411168.158121553299854091",
+    "treasuryReductionWei": "9255636919212927885610910",
+    "treasuryReductionTnt": "9255636.919212927885610910",
+    "note": "reduction == raw total (109255636.92) - 100000000 exactly; no claimant is affected"
+  },
+  "buckets": {
+    "substrate": {
+      "wei": "51244581812207794935986305",
+      "tnt": "51244581.812207794935986305",
+      "adjustable": false,
+      "note": "identical to raw-snapshot"
+    },
+    "evm": {
+      "wei": "1125776519168932451653760",
+      "tnt": "1125776.519168932451653760",
+      "adjustable": false,
+      "note": "identical to raw-snapshot"
+    },
+    "foundation": {
+      "wei": "15040809826744825912214026",
+      "tnt": "15040809.826744825912214026",
+      "adjustable": false,
+      "note": "identical to raw-snapshot"
+    },
+    "treasury": {
+      "wei": "32588831841878446700145909",
+      "tnt": "32588831.841878446700145909",
+      "adjustable": true,
+      "note": "= 100M - claimsSum; absorbs the entire normalize-down"
+    }
+  },
+  "inflation": {
+    "annualEmissionWei": "1000000000000000000000000",
+    "annualEmissionTnt": "1000000",
+    "note": "1% of 100M, treasury-funded via InflationPool.fund() (not minted); ~32.6M treasury sustains a flat 1% for ~32yr"
+  },
+  "pending": "substrate/evm/foundation are CURRENT ESTIMATES pending the canonical mainnet snapshot regen. On regen, recompute treasury = 100M - (final substrate+evm+foundation). The 100M total and MAX_SUPPLY are FIXED; Treasury is the balancing bucket. Then mirror into base-mainnet.json migration.* + carveouts and set migration.deploy=true."
+}

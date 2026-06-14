@@ -57,9 +57,14 @@ contract TangleToken is
     // STORAGE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Maximum total supply (hard cap).
-    /// @dev This is set to the current migration snapshot total supply (in wei).
-    uint256 public constant MAX_SUPPLY = 109_255_636_919_212_927_885_610_910;
+    /// @notice Maximum total supply (hard cap) — the normalized 100,000,000 TNT target.
+    /// @dev The raw Substrate migration snapshot totalled ~109.26M TNT; for a clean fixed
+    ///      supply the protocol normalizes DOWN to a round 100M target by reducing the
+    ///      Treasury genesis bucket (claimant buckets are untouched). Genesis mints exactly
+    ///      this amount, so the cap is reached at genesis and no further TNT is ever minted.
+    ///      The normalize-down provenance lives in deploy/distributions/ (raw snapshot ->
+    ///      normalized-100m), kept out of the contract by design.
+    uint256 public constant MAX_SUPPLY = 100_000_000 * 1e18;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {

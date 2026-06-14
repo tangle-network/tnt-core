@@ -148,8 +148,8 @@
     "tntToken": "0x0000000000000000000000000000000000000000",
     "vaultOperatorCommissionBps": 1500,
     "epochLength": 604800,
-    "_note_inflation": "FIXED SUPPLY: genesis mints the entire MAX_SUPPLY (109,255,636.92 TNT = sum of the 4 migration buckets), so the InflationPool can never mint — 'inflation' is treasury-funded emission, not new supply. year1FundTnt = 1% of MAX_SUPPLY (1,092,556.37 TNT), pre-funded from the Treasury bucket (41.84M) via InflationPool.fund(). At a flat 1% that reserve lasts ~38yr; a declining schedule (e.g. Y2 0.8x, Y3 0.6x) stretches it further. Funding is a post-deploy treasury action, not done by the deploy script.",
-    "year1FundTnt": "1092556369192129278856109",
+    "_note_inflation": "FIXED SUPPLY at the normalized 100,000,000 TNT target (TangleToken.MAX_SUPPLY). Genesis mints the entire cap across the 4 migration buckets, so the InflationPool can never mint — 'inflation' is treasury-funded emission, not new supply. year1FundTnt = 1% of MAX_SUPPLY = exactly 1,000,000 TNT, pre-funded from the Treasury bucket (~32.6M after normalize-down) via InflationPool.fund(). At a flat 1% that reserve lasts ~32yr; a declining schedule (e.g. Y2 0.8x, Y3 0.6x) stretches it further. Funding is a post-deploy treasury action, not done by the deploy script.",
+    "year1FundTnt": "1000000000000000000000000",
     "_note_weights": "Reroute toward the security layer vs genesis design: stakingBps 5000->5500, developersBps 1500->1000 (donor; developer rewards are ADMIN-allowlist gated, not sybil-farmable). stakersBps stays 0 at genesis — the exposure-weighted rail no-ops until ServiceFeeDistributor + keeper + live services exist; pre-commit a governance migration to staking 3500 / stakers 1500 once that path is live.",
     "weights": {
       "stakingBps": 5500,
@@ -228,8 +228,8 @@
     "logSummary": true
   },
   "migration": {
-    "_decision_headroom": "DECIDED: true fixed-supply. The four buckets sum to TangleToken.MAX_SUPPLY (109,255,636.92 TNT) exactly, so genesis mints the entire cap and the surviving MINTER_ROLE is inert. There is NO ~5% inflation envelope — all rewards (the 1% staking emission + payment-split staker share) are funded from existing TNT (Treasury bucket). This is the strongest supply guarantee; pair it with the written treasury pre-funding schedule (see incentives.year1FundTnt).",
-    "_todo_allocations": "TODO (Drew to finalize the CANONICAL mainnet snapshot, then set deploy=true): the recommended baseline from packages/migration-claim is Substrate ~51.24M / EVM ~1.13M / Treasury ~41.84M / Foundation ~15.04M = 109.26M. Sepolia's numbers differ slightly from the raw merkle-tree.json and ~3.19M expired-unclaimed needs a decay decision (policy in unclaimed-accounts.json = 90% decay). Regenerate the mainnet merkle-tree.json + carveouts, pin merkleRoot + programVKey + sp1VerifierGateway, then the four amounts load from those files. Migration deploy stays OFF until that snapshot + a deploy=true are in.",
+    "_decision_headroom": "DECIDED: true fixed-supply at the normalized 100,000,000 TNT target (= TangleToken.MAX_SUPPLY). The raw Substrate snapshot (~109.26M) is normalized DOWN to 100M by reducing ONLY the Treasury bucket (~41.84M -> ~32.59M); claimant buckets are untouched. Genesis mints the entire 100M cap and the MINTER_ROLE is inert. NO inflation envelope — all rewards (1% staking emission + payment-split staker share) are treasury-funded from existing TNT. Provenance + the swappable raw/normalized distributions live in deploy/distributions/ (raw-snapshot.json -> normalized-100m.json).",
+    "_todo_allocations": "TODO (Drew to finalize the CANONICAL mainnet snapshot, then set deploy=true): live distribution = deploy/distributions/normalized-100m.json. Substrate/EVM/Foundation are byte-identical to the raw snapshot (real claims); Treasury = 100M - (substrate+evm+foundation) ~= 32.59M is the balancing bucket. Current estimates pending regen (Sepolia vs raw merkle variance + ~3.19M expired-unclaimed, 90% decay). On regen: recompute Treasury against the 100M target, mirror the four amounts here + into the carveouts, pin merkleRoot + programVKey + sp1VerifierGateway, set deploy=true. The 100M total + MAX_SUPPLY never change.",
     "deploy": false,
     "emitArtifacts": true,
     "artifactsPath": "deployments/base-mainnet/migration.json",
