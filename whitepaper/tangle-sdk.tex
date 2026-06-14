@@ -106,8 +106,8 @@ The SDK is written in Rust for several reasons:
     \item \textbf{Performance}: Critical for operators processing high-throughput workloads. Rust compiles to native code with zero-cost abstractions.
     \item \textbf{Safety}: Prevents memory errors and race conditions. For operator software handling valuable stake and sensitive data, safety is non-negotiable.
     \item \textbf{Async runtime}: Tokio provides efficient concurrent execution for handling blockchain events, P2P networking, and customer requests simultaneously.
-    \item \textbf{WebAssembly compilation}: Enables portable execution for sandboxed environments.
-    \item \textbf{Ecosystem compatibility}: Excellent integration with blockchain tooling (alloy, libp2p, ark-bn254).
+    \item \textbf{WebAssembly compilation}: Lets SDK code run in sandboxed environments.
+    \item \textbf{Tooling compatibility}: Strong integration with blockchain tooling (alloy, libp2p, ark-bn254).
 \end{itemize}
 
 %==============================================================================
@@ -305,11 +305,11 @@ contract MyBlueprintBSM is BlueprintServiceManagerBase {
 
 The SDK provides base contracts that extend \texttt{BlueprintServiceManagerBase} with reusable economic mechanics:
 
-\textbf{TokenizedBlueprintBase} enables blueprints to issue community tokens tied to their service. Operators and users can stake these tokens to earn Synthetix-style staking rewards, creating aligned incentives around blueprint adoption. The base contract handles token issuance, staking accounting, and reward distribution.
+\textbf{TokenizedBlueprintBase} lets blueprints issue community tokens tied to their service. Operators and users can stake these tokens to earn Synthetix-style staking rewards, so adoption can reward the participants backing the blueprint. The base contract handles token issuance, staking accounting, and reward distribution.
 
-\textbf{BuybackBlueprintBase} adds AMM buyback mechanics. A portion of service fees is automatically used to buy back the blueprint's community token on decentralized exchanges, creating sustained demand. Blueprint developers configure the buyback percentage and target AMM pool. The buyback is funded from the blueprint developer's share of the service fee split (see Payment Models); it does not draw from operator, staker, or protocol shares.
+\textbf{BuybackBlueprintBase} adds AMM buyback mechanics. A portion of service fees is automatically used to buy back the blueprint's community token on decentralized exchanges, creating recurring buy pressure. Blueprint developers configure the buyback percentage and target AMM pool. The buyback is funded from the blueprint developer's share of the service fee split (see Payment Models); it does not draw from operator, staker, or protocol shares.
 
-These extensions compose with each other and with custom hooks, enabling blueprints to build token economies around their services. They are opt-in base contracts: a blueprint must explicitly extend and deploy them, and they are not auto-deployed by the protocol. Treat them as early-maturity primitives. On-chain buybacks execute against public AMM pools and are therefore MEV-exposed (front-running, sandwiching); developers should bound slippage, consider TWAP execution, and size buybacks conservatively relative to pool depth.
+These extensions compose with each other and with custom hooks. They are opt-in base contracts: a blueprint must explicitly extend and deploy them, and they are not auto-deployed by the protocol. Treat them as early-maturity primitives. On-chain buybacks execute against public AMM pools and are therefore MEV-exposed (front-running, sandwiching); developers should bound slippage, consider TWAP execution, and size buybacks conservatively relative to pool depth.
 
 \subsection{Slashing Customization}
 
@@ -754,7 +754,7 @@ The QoS system integrates multiple monitoring backends:
 
 \subsection{QoS-Based Slashing}
 
-QoS provides data; slashing provides consequences. Connecting these systems enables automatic SLA enforcement.
+QoS provides data; slashing provides consequences. Connecting the two turns service-level objectives into enforceable penalties.
 
 \textbf{Architecture}: QoS metrics flow from operators to a monitoring service. When metrics violate thresholds, the monitor proposes a slash via Tangle. The service manager's \texttt{querySlashingOrigin} hook authorizes the monitor. After the dispute window, slashing executes.
 
@@ -1035,7 +1035,7 @@ Blueprints should analyze mechanisms against these properties, documenting false
 \section{Working with the Marketplace}
 %==============================================================================
 
-Blueprints interact with the Tangle marketplace for service discovery and pricing. Understanding this interaction helps developers design robust services.
+Blueprints interact with the Tangle marketplace for service discovery and pricing. Developers need this flow to design services that can price, launch, and settle correctly.
 
 \subsection{Payment Models}
 
@@ -1093,7 +1093,7 @@ Customers collect signed quotes from multiple operators, compare prices and term
 
 \subsection{Price Discovery}
 
-Prices converge as operators observe market conditions. On-chain service creation reveals accepted prices. Operators analyze historical prices and adjust quotes.
+Prices adjust as operators observe market conditions. On-chain service creation reveals accepted prices. Operators analyze historical prices and update quotes.
 
 Quality differentiation prevents pure price competition. Operators with better reliability, faster hardware, or stronger security can command premiums.
 
