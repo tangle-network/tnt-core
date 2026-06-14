@@ -390,8 +390,8 @@ For lifecycle automation, implement \texttt{BackgroundKeeper}. The SDK provides 
     \item \texttt{RoundKeeper} for round-based protocols
 \end{itemize}
 
-TNT is hard-capped at \texttt{MAX\_SUPPLY} $=$ 109{,}255{,}636.92 TNT, %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
-and the full cap is minted at genesis across four buckets (Substrate, EVM, Treasury, Foundation), so \texttt{totalSupply} equals the cap from block zero. The InflationPool cannot mint; it only distributes TNT it already holds. ``Inflation'' here is treasury-funded \emph{emission}: roughly 1\% of supply per year ($\approx$ 1{,}092{,}556 TNT) %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+TNT is hard-capped at \texttt{MAX\_SUPPLY} $=$ 100{,}000{,}000 TNT,
+and the full cap is minted at genesis across four buckets (Substrate, EVM, Treasury, Foundation), so \texttt{totalSupply} equals the cap from block zero. The InflationPool cannot mint; it only distributes TNT it already holds. ``Inflation'' here is treasury-funded \emph{emission}: roughly 1\% of supply per year ($\approx$ 1{,}000{,}000 TNT)
 is transferred from the Treasury bucket into the InflationPool and paid out at epoch boundaries. This dilutes no one and creates no new supply. A governance \texttt{MINTER\_ROLE} exists and can mint only up to the cap, but with genesis already at the cap it has no headroom (a \texttt{mint()} that would exceed the cap reverts).
 
 \begin{lstlisting}

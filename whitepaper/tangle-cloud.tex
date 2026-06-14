@@ -93,9 +93,9 @@ The 0.5\% keeper rebate is carved from the protocol share so that permissionless
 
 \subsection{Token Supply and Distribution}
 
-TNT is hard-capped: \texttt{MAX\_SUPPLY} = 109,255,636.92 TNT. %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
-Genesis mints the full cap across four buckets (Substrate $\approx$51.24M, EVM $\approx$1.13M, Treasury $\approx$41.84M, Foundation $\approx$15.04M), so \texttt{totalSupply} equals the cap at genesis. %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
-The protocol is hard-capped; the InflationPool cannot mint; emission is treasury-funded; only governance can mint and only up to the cap (no headroom at genesis). ``Emission'' is treasury-funded: $\approx$1\% of supply per year ($\approx$1,092,556 TNT) %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+TNT is hard-capped: \texttt{MAX\_SUPPLY} = 100,000,000 TNT.
+Genesis mints the full cap across four buckets (Substrate $\approx$51.24M, EVM $\approx$1.13M, Treasury $\approx$32.59M, Foundation $\approx$15.04M), so \texttt{totalSupply} equals the cap at genesis.
+The protocol is hard-capped; the InflationPool cannot mint; emission is treasury-funded; only governance can mint and only up to the cap (no headroom at genesis). ``Emission'' is treasury-funded: $\approx$1\% of supply per year ($\approx$1,000,000 TNT)
 is transferred from the Treasury bucket into the InflationPool; it dilutes no one and creates no new supply.
 
 Migrated balances are claimed via an SP1 Groth16 zk-proof of Substrate key ownership plus a merkle proof. Vesting unlocks 10\% at claim, then a 12-month cliff and 24-month linear release; treasury and foundation allocations vest over $\approx$3 years (foundation with 30\% unlocked at start). See the \textit{Tangle Protocol Specification} for the full supply and distribution schedule.
@@ -601,7 +601,7 @@ Honest assessment of challenges facing Tangle Cloud:
 
 \textbf{Token volatility}: Slashing effectiveness depends on stake value. Rapid token price declines can reduce security margins below safe thresholds faster than services can respond. Bounded slashing (the 50\% per-service cap), the dispute window, and the pending-slash unstake freeze constrain the damage but cannot eliminate this risk.
 
-\textbf{Cold start problem}: Two-sided marketplaces face bootstrapping challenges. Customers need operators; operators need customers. Early network growth is funded by treasury-funded emission, a finite runway ($\approx$1\% of supply per year) that must transition to sustainable fee-based economics before the treasury bucket is exhausted. %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+\textbf{Cold start problem}: Two-sided marketplaces face bootstrapping challenges. Customers need operators; operators need customers. Early network growth is funded by treasury-funded emission, a finite runway ($\approx$1\% of supply per year) that must transition to sustainable fee-based economics before the treasury bucket is exhausted.
 
 \textbf{Thin delegatable float and quorum}: At launch most supply is vesting-locked, so the governance quorum is set at only 4\% of total supply. A canceller guardian multisig and the 4-day timelock are the primary capture defense until vesting unlocks and quorum ratchets up.
 
