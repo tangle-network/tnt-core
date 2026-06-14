@@ -660,7 +660,7 @@ type DepositLock {
   position: DelegatorAssetPosition!
   amount: BigInt!
   duration: LockDuration!
-  expiryBlock: BigInt!
+  expiryTimestamp: BigInt!
 }
 
 """Withdraw request queue mirrored from MultiAssetDelegation.WithdrawScheduled/Withdrawn. readyAtRound matches the contract's executeAfter round."""

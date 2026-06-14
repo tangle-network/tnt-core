@@ -21,8 +21,6 @@ import type {
 } from "envio";
 import {
   ZERO_ADDRESS,
-  createStakingRewardClaim,
-  createRewardDistribution,
   ensureAssetPosition,
   ensureDelegationPosition,
   ensureDelegator,
@@ -279,7 +277,7 @@ indexer.onEvent({ contract: "MultiAssetDelegation", event: "Deposited" }, async 
       position_id: position.id,
       amount,
       duration: multiplier,
-      expiryBlock: 0n,
+      expiryTimestamp: 0n,
     } as DepositLock;
     context.DepositLock.set(lock);
   }
@@ -516,22 +514,6 @@ indexer.onEvent({ contract: "MultiAssetDelegation", event: "SlashRecorded" }, as
     txHash: getTxHash(event),
   } as SlashRecord;
   context.SlashRecord.set(record);
-});
-
-indexer.onEvent({ contract: "MultiAssetDelegation", event: "RewardDistributed" }, async ({ event, context }) => {
-  const operator = await ensureOperator(context, event.params.operator, getTimestamp(event));
-  createRewardDistribution(context, "POOL", event, {
-    operator_id: operator.id,
-    amount: toBigInt(event.params.amount),
-  });
-});
-
-indexer.onEvent({ contract: "MultiAssetDelegation", event: "RewardClaimed" }, async ({ event, context }) => {
-  const delegator = await ensureDelegator(context, event.params.account, getTimestamp(event));
-  createStakingRewardClaim(context, "DELEGATOR_CLAIM", event, {
-    delegator_id: delegator.id,
-    amount: toBigInt(event.params.amount),
-  });
 });
 
 indexer.onEvent({ contract: "MultiAssetDelegation", event: "OperatorDelegationModeSet" }, async ({ event, context }) => {

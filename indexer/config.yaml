@@ -99,8 +99,6 @@ chains:
           - event: RoundAdvanced(uint64 indexed round)
           - event: Slashed(address indexed operator, uint64 indexed serviceId, uint64 indexed blueprintId, bytes32 assetHash, uint16 slashBps, uint256 operatorSlashed, uint256 delegatorsSlashed, uint256 exchangeRateAfter)
           - event: SlashRecorded(address indexed operator, uint64 indexed slashId, bytes32 assetHash, uint16 slashBps, uint256 totalSlashed, uint256 exchangeRateBefore, uint256 exchangeRateAfter)
-          - event: RewardDistributed(address indexed operator, uint256 amount)
-          - event: RewardClaimed(address indexed account, uint256 amount)
           - event: OperatorDelegationModeSet(address indexed operator, uint8 mode)
           - event: OperatorWhitelistUpdated(address indexed operator, address indexed delegator, bool approved)
       - name: OperatorStatusRegistry
@@ -141,7 +139,6 @@ chains:
           - event: Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)
           - event: Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)
           - event: RedeemRequest(address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares)
-          - event: RewardsHarvested(address indexed caller, uint256 amount)
           - event: OperatorSet(address indexed controller, address indexed operator, bool approved)
           - event: Transfer(address indexed from, address indexed to, uint256 value)
       - name: RewardVaults
@@ -157,7 +154,6 @@ chains:
           - event: RewardsDistributed(address indexed asset, address indexed operator, uint256 poolReward, uint256 commission)
           - event: DelegatorRewardsClaimed(address indexed asset, address indexed delegator, address indexed operator, uint256 amount)
           - event: OperatorCommissionClaimed(address indexed asset, address indexed operator, uint256 amount)
-          - event: DecayConfigUpdated(uint256 startBlock, uint256 rateBps)
           - event: OperatorCommissionUpdated(uint16 newBps)
           - event: LockDurationsUpdated(uint256 oneMonth, uint256 twoMonths, uint256 threeMonths, uint256 sixMonths)
       - name: InflationPool

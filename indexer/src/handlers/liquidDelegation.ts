@@ -288,20 +288,6 @@ indexer.onEvent({ contract: "LiquidDelegationVault", event: "Transfer" }, async 
   await handleShareMovement(context, vault, from, to, value, timestamp);
 });
 
-indexer.onEvent({ contract: "LiquidDelegationVault", event: "RewardsHarvested" }, async ({ event, context }) => {
-  const timestamp = getTimestamp(event);
-  const vault = await ensureVaultEntity(context, event.srcAddress);
-  if (!vault) return;
-  const amount = toBigInt(event.params.amount);
-  const updatedVault: LiquidVaultEntity = {
-    ...vault,
-    totalAssets: (vault.totalAssets ?? 0n) + amount,
-    harvestedRewards: (vault.harvestedRewards ?? 0n) + amount,
-    updatedAt: timestamp,
-  } as LiquidVaultEntity;
-  saveVaultEntity(context, updatedVault);
-});
-
 const handleShareMovement = async (
   context: HandlerContext,
   vault: LiquidVaultEntity,
