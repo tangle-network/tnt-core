@@ -58,7 +58,7 @@ never calls the setters that would write the secure values.
 | `stakeAssets[EIGEN].depositCap` | 1M | **250k** | Right-size before any future enablement (entry stays `0x0`/disabled) |
 | `stakeAssets[USDe].depositCap` | 15M | **5M** | Risk right-size (disabled) |
 | `stakeAssets[stETH/wstETH].depositCap` | 30k each | **15k each** | Same Lido underlying — treat as one family budget (15k each = 30k aggregate) |
-| **+ `governance` block** | (absent) | votingDelay 1d / votingPeriod 7d / proposalThreshold 200k TNT / quorum 6% / timelockDelay 4d | Pin launch governance; conservative-start |
+| **+ `governance` block** | (absent) | votingDelay 1d / votingPeriod 7d / proposalThreshold 100k TNT / quorum 4% / timelockDelay 4d | Pin launch governance; thin-float-aware conservative start |
 | **+ `slashing` block** | (absent) | maxSlashBps 50% / disputeWindow 7d / disputeBond 0.02 ETH / resolutionDeadline 21d / maxPending 8 | Drives `setSlashConfig`; removes 100%-slash + free-dispute defaults |
 | **+ `payments` block** | (absent) | 2000/1950/4000/2000/**50** (dev/protocol/operator/staker/keeper) | Drives `setPaymentSplit`; keeper market for permissionless billing |
 
@@ -124,10 +124,10 @@ signalling high dilution.
 
 **Governance launch values (thin-float-aware).** `votingDelay 1d / votingPeriod 7d / proposalThreshold 100k
 TNT / quorum 4% / timelockDelay 4d`. The non-obvious driver: quorum is `% of getPastTotalSupply` = the full
-109.26M minted at genesis, but most supply is vesting-locked and undelegated at launch (Substrate+EVM unlock
-only 10% at TGE; Treasury 0%, Foundation 30%), so realistic delegatable float is single-digit millions. A high
-quorum would *brick* governance. 4% (~4.37M votes) is reachable with engagement; 100k proposalThreshold is a
-spam floor that isn't paralyzing on thin float. *Alternatives:* quorum 3% if early participation is weak, 6%
+100M minted at genesis, but most supply is vesting-locked and undelegated at launch (Substrate unlocks
+10% at claim, Treasury 0%, Foundation 30%), so realistic delegatable float is single-digit millions. A high
+quorum would *brick* governance. 4% (= 4,000,000 votes at the 100M cap) is reachable with engagement; 100k
+proposalThreshold is a spam floor that isn't paralyzing on thin float. *Alternatives:* quorum 3% if early participation is weak, 6%
 once float deepens (ratchet up via governance as vesting unlocks over 3yr). `proposalThreshold` 200k if you
 expect strong delegation. The real defense against a low-quorum capture proposal is the **CANCELLER guardian
 Safe below**, not a high quorum — wire it.

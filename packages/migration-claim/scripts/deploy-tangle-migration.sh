@@ -7,14 +7,12 @@
 # 3. TangleMigration contract (with merkle root and funding)
 # 4. Treasury vesting (if TREASURY_RECIPIENT set)
 # 5. Foundation vesting (if FOUNDATION_RECIPIENT set)
-# 6. Liquidity ops transfer (if LIQUIDITY_OPS_RECIPIENT set)
 #
-# Reads allocations from JSON files:
-# - merkle-tree.json: Substrate claims (merkle root + total)
-# - evm-claims.json: EVM claims (may be 0 if excluded)
-# - treasury-carveout.json: Treasury allocation
-# - foundation-carveout.json: Foundation allocation
-# - liquidity-ops-carveout.json: Liquidity ops allocation
+# Reads allocations from deploy/distributions/normalized-100m.json when present:
+# - substrate: Substrate claims
+# - evm: active EVM claims, currently 0
+# - treasury: treasury balancer
+# - foundation: foundation allocation
 #
 # Prerequisites:
 # - Foundry installed
@@ -25,7 +23,7 @@
 #   PRIVATE_KEY (required)
 #   TREASURY_RECIPIENT - Address to receive treasury allocation (vested)
 #   FOUNDATION_RECIPIENT - Address to receive foundation allocation
-#   LIQUIDITY_OPS_RECIPIENT - Address to receive liquidity ops allocation
+#   LIQUIDITY_OPS_RECIPIENT - Legacy test-only liquidity ops recipient
 #   PROGRAM_VKEY - SP1 program verification key (required for --base-sepolia, --kite-testnet)
 #   SP1_VERIFIER - SP1 verifier gateway address (required for --kite-testnet)
 #
@@ -112,6 +110,7 @@ fi
 
 # Check prerequisites
 command -v forge >/dev/null 2>&1 || { echo "Error: Foundry not installed"; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "Error: jq not installed"; exit 1; }
 
 # PRIVATE_KEY is required
 if [ -z "$PRIVATE_KEY" ]; then
@@ -163,54 +162,44 @@ if ! cast block-number --rpc-url "$RPC_URL" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Read merkle root and total substrate allocation from the generated tree
+# Read merkle root from the generated tree
 if [ -f "$ROOT_DIR/merkle-tree.json" ]; then
     MERKLE_ROOT=$(grep -o '"root": "0x[a-fA-F0-9]\{64\}"' "$ROOT_DIR/merkle-tree.json" | grep -o '0x[a-fA-F0-9]\{64\}')
-    TOTAL_SUBSTRATE=$(grep -o '"totalValue": "[0-9]*"' "$ROOT_DIR/merkle-tree.json" | grep -o '[0-9]*')
     echo "Merkle Root: $MERKLE_ROOT"
-    echo "Total Substrate: $TOTAL_SUBSTRATE"
 else
     echo "Error: merkle-tree.json not found at $ROOT_DIR"
     echo "Please run the migration snapshot generator first."
     exit 1
 fi
 
-# Read total EVM allocation from evm-claims.json (may be 0 if claims excluded)
-if [ -f "$ROOT_DIR/evm-claims.json" ]; then
-    TOTAL_EVM=$(grep -o '"totalAmount": "[0-9]*"' "$ROOT_DIR/evm-claims.json" | grep -o '[0-9]*')
-    if [ -z "$TOTAL_EVM" ]; then
-        TOTAL_EVM="0"
-    fi
-    echo "Total EVM: $TOTAL_EVM"
-else
-    echo "Warning: evm-claims.json not found, setting TOTAL_EVM=0"
-    TOTAL_EVM="0"
-fi
-
-# Read treasury carveout from treasury-carveout.json
-if [ -f "$ROOT_DIR/treasury-carveout.json" ]; then
-    TREASURY_AMOUNT=$(grep -o '"amount": "[0-9]*"' "$ROOT_DIR/treasury-carveout.json" | grep -o '[0-9]*')
-    echo "Treasury Amount: $TREASURY_AMOUNT"
-else
-    echo "Warning: treasury-carveout.json not found"
-    TREASURY_AMOUNT="0"
-fi
-
-# Read foundation carveout from foundation-carveout.json
-if [ -f "$ROOT_DIR/foundation-carveout.json" ]; then
-    FOUNDATION_AMOUNT=$(grep -o '"amount": "[0-9]*"' "$ROOT_DIR/foundation-carveout.json" | grep -o '[0-9]*')
-    echo "Foundation Amount: $FOUNDATION_AMOUNT"
-else
-    echo "Warning: foundation-carveout.json not found"
-    FOUNDATION_AMOUNT="0"
-fi
-
-# Read liquidity ops carveout from liquidity-ops-carveout.json
-if [ -f "$ROOT_DIR/liquidity-ops-carveout.json" ]; then
-    LIQUIDITY_OPS_AMOUNT=$(grep -o '"amount": "[0-9]*"' "$ROOT_DIR/liquidity-ops-carveout.json" | grep -o '[0-9]*')
-    echo "Liquidity Ops Amount: $LIQUIDITY_OPS_AMOUNT"
-else
+# Prefer the normalized 100M distribution used by FullDeploy.
+DIST_FILE="$ROOT_DIR/../../deploy/distributions/normalized-100m.json"
+if [ -f "$DIST_FILE" ]; then
+    TOTAL_SUBSTRATE=$(jq -r '.buckets.substrate.wei' "$DIST_FILE")
+    TOTAL_EVM=$(jq -r '.buckets.evm.wei' "$DIST_FILE")
+    TREASURY_AMOUNT=$(jq -r '.buckets.treasury.wei' "$DIST_FILE")
+    FOUNDATION_AMOUNT=$(jq -r '.buckets.foundation.wei' "$DIST_FILE")
     LIQUIDITY_OPS_AMOUNT="0"
+    echo "Distribution: $DIST_FILE"
+else
+    echo "Warning: normalized-100m.json not found; falling back to package-local snapshot files"
+    TOTAL_SUBSTRATE=$(grep -o '"totalValue": "[0-9]*"' "$ROOT_DIR/merkle-tree.json" | grep -o '[0-9]*')
+    TOTAL_EVM=$(grep -o '"totalAmount": "[0-9]*"' "$ROOT_DIR/evm-claims.json" 2>/dev/null | grep -o '[0-9]*' || true)
+    TREASURY_AMOUNT=$(grep -o '"amount": "[0-9]*"' "$ROOT_DIR/treasury-carveout.json" 2>/dev/null | grep -o '[0-9]*' || true)
+    FOUNDATION_AMOUNT=$(grep -o '"amount": "[0-9]*"' "$ROOT_DIR/foundation-carveout.json" 2>/dev/null | grep -o '[0-9]*' || true)
+    LIQUIDITY_OPS_AMOUNT=$(grep -o '"amount": "[0-9]*"' "$ROOT_DIR/liquidity-ops-carveout.json" 2>/dev/null | grep -o '[0-9]*' || true)
+    TOTAL_EVM="${TOTAL_EVM:-0}"
+    TREASURY_AMOUNT="${TREASURY_AMOUNT:-0}"
+    FOUNDATION_AMOUNT="${FOUNDATION_AMOUNT:-0}"
+    LIQUIDITY_OPS_AMOUNT="${LIQUIDITY_OPS_AMOUNT:-0}"
+fi
+
+echo "Total Substrate: $TOTAL_SUBSTRATE"
+echo "Total EVM: $TOTAL_EVM"
+echo "Treasury Amount: $TREASURY_AMOUNT"
+echo "Foundation Amount: $FOUNDATION_AMOUNT"
+if [ "$LIQUIDITY_OPS_AMOUNT" != "0" ]; then
+    echo "Liquidity Ops Amount: $LIQUIDITY_OPS_AMOUNT"
 fi
 
 cd "$ROOT_DIR"

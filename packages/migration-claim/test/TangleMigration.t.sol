@@ -73,8 +73,8 @@ contract TangleMigrationTest is Test {
         assertEq(migration.owner(), owner);
         assertEq(migration.treasury(), treasury);
         assertFalse(migration.paused());
-        // New defaults: 2% unlocked
-        assertEq(migration.unlockedBps(), 200);
+        // Default claim schedule: 10% unlocked.
+        assertEq(migration.unlockedBps(), 1000);
         // Vesting config: 12-month cliff + 24-month linear (3 years total)
         assertEq(migration.cliffDuration(), 365 days);
         assertEq(migration.vestingDuration(), 730 days);
@@ -511,8 +511,6 @@ contract TangleMigrationTest is Test {
 
     function test_LinearVesting_CannotReleaseBeforeCliff() public {
         bytes memory zkProof = "";
-
-        uint256 vestedAmount = TEST_AMOUNT - (TEST_AMOUNT * migration.unlockedBps()) / 10_000;
 
         vm.prank(claimer);
         migration.claimWithZKProof(TEST_PUBKEY, TEST_AMOUNT, merkleProof, zkProof, claimer);
