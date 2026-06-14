@@ -103,19 +103,22 @@ Done in this change: **lock-expiry timestamp fix** (`Types.LockInfo`, `DepositMa
 
 These were the big open items; here's the call and why, alternatives noted.
 
-**Supply = true fixed-supply.** The genesis migration mints all four buckets — Substrate ~51.24M / EVM
-~1.13M / Treasury ~41.84M / Foundation ~15.04M — which sum to `MAX_SUPPLY` 109,255,636.92 TNT *exactly*.
-Genesis hits the cap, so the surviving `MINTER_ROLE` is inert and the InflationPool can never mint. This is
-the strongest possible supply guarantee. *Alternative considered:* a ~5% mintable inflation envelope (reserve
-headroom under the cap) — rejected because the snapshot already equals the cap and minimal-dilution is the
-stronger market signal; a fixed cap + treasury-funded security is cleaner than soft inflation.
+**Supply = true fixed-supply, normalized DOWN to a round 100,000,000 TNT.** The raw Substrate snapshot
+totalled ~109.26M (Substrate ~51.24M / EVM ~1.13M / Treasury ~41.84M / Foundation ~15.04M). For a clean
+headline number we normalize to exactly **100M** by reducing ONLY the Treasury bucket (~41.84M → ~32.59M);
+the three claimant buckets are untouched (real obligations). `TangleToken.MAX_SUPPLY` is now `100_000_000e18`
+(no 109 number in the contract); genesis mints the full cap so `MINTER_ROLE` is inert and the InflationPool
+can never mint. The normalize-down provenance + the swappable raw/normalized distributions live in
+`deploy/distributions/` (raw-snapshot.json → normalized-100m.json) for a full audit trail. *Alternative
+considered:* keep the cap at the raw 109.26M with a 9.26M mintable headroom — rejected; a round 100M true
+fixed supply is the cleaner story and minimal-dilution the stronger signal.
 
-**Inflation = 1% of supply, treasury-funded (not minted).** `year1FundTnt = 1,092,556.37 TNT` (1% of
-MAX_SUPPLY), transferred from the Treasury bucket into the InflationPool via `fund()`. Because supply is fixed,
-this is emission/redistribution, not monetary inflation. Treasury (41.84M) sustains a flat 1% for ~38 years; a
-declining schedule (Y2 0.8×, Y3 0.6×) stretches it. *Alternatives:* 0.5% (leaner, slower security-stake
-growth) or 2% (faster bootstrap, ~19yr runway). 1% is the balance — meaningful staking yield without draining
-the treasury or signalling high dilution.
+**Inflation = 1% of supply, treasury-funded (not minted).** `year1FundTnt = exactly 1,000,000 TNT` (1% of
+the 100M cap), transferred from the Treasury bucket into the InflationPool via `fund()`. Because supply is
+fixed, this is emission/redistribution, not monetary inflation. The ~32.59M treasury sustains a flat 1% for
+~32 years; a declining schedule (Y2 0.8×, Y3 0.6×) stretches it. *Alternatives:* 0.5% (leaner) or 2% (faster
+bootstrap, ~16yr runway). 1% is the balance — meaningful staking yield without draining the treasury or
+signalling high dilution.
 
 **Governance launch values (thin-float-aware).** `votingDelay 1d / votingPeriod 7d / proposalThreshold 100k
 TNT / quorum 4% / timelockDelay 4d`. The non-obvious driver: quorum is `% of getPastTotalSupply` = the full
