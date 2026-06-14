@@ -131,13 +131,6 @@ indexer.onEvent({ contract: "RewardVaults", event: "OperatorCommissionClaimed" }
   });
 });
 
-indexer.onEvent({ contract: "RewardVaults", event: "DecayConfigUpdated" }, async ({ event, context }) => {
-  recordRewardVaultEvent(context, "DECAY_UPDATED", event, {
-    valueA: toBigInt(event.params.startBlock),
-    valueB: toBigInt(event.params.rateBps),
-  });
-});
-
 indexer.onEvent({ contract: "RewardVaults", event: "OperatorCommissionUpdated" }, async ({ event, context }) => {
   recordRewardVaultEvent(context, "COMMISSION_UPDATED", event, { valueA: BigInt(event.params.newBps) });
 });

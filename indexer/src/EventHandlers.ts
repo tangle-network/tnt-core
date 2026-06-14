@@ -11,10 +11,10 @@
  * staking entities), then the block-tick handlers last.
  */
 import "./handlers/blueprintManager";
-import "./handlers/credits";
 import "./handlers/rewardVaults";
 import "./handlers/staking";
 import "./handlers/tangle";
 import "./handlers/validatorPods";
 import "./handlers/liquidDelegation";
+import "./handlers/credits";
 import "./handlers/hourly";
