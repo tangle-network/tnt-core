@@ -40,7 +40,7 @@
 \maketitle
 
 \begin{abstract}
-Tangle Network is a decentralized protocol for coordinating computational services with cryptoeconomic accountability. This document describes the protocol's architecture, economic mechanisms, and security model. Tangle enables developers to define service templates (blueprints), operators to provide compute with staked collateral, and customers to consume services with cryptographic guarantees. The protocol uses O(1) algorithms for staking, slashing, and reward distribution, enabling unlimited scalability. Economic security emerges from aligned incentives: operators stake assets that can be destroyed if they misbehave, making honest behavior more profitable than cheating. The network token (TNT) is hard-capped at 109{,}255{,}636.92 TNT, %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+Tangle Network is a decentralized protocol for coordinating computational services with cryptoeconomic accountability. This document describes the protocol's architecture, economic mechanisms, and security model. Tangle enables developers to define service templates (blueprints), operators to provide compute with staked collateral, and customers to consume services with cryptographic guarantees. The protocol uses O(1) algorithms for staking, slashing, and reward distribution, enabling unlimited scalability. Economic security emerges from aligned incentives: operators stake assets that can be destroyed if they misbehave, making honest behavior more profitable than cheating. The network token (TNT) is hard-capped at 100{,}000{,}000 TNT,
 with the full supply minted at genesis; ``inflation'' rewards are treasury-funded emissions that create no new supply.
 \end{abstract}
 
@@ -539,7 +539,7 @@ Inflation rewards provide income while service demand develops, encouraging earl
 
 \subsection{Token Supply, Genesis Allocation, and Migration}
 
-TNT is hard-capped at \texttt{MAX\_SUPPLY} $=$ 109{,}255{,}636.92 TNT. %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+TNT is hard-capped at \texttt{MAX\_SUPPLY} $=$ 100{,}000{,}000 TNT.
 The full cap is minted at genesis across four buckets, so \texttt{totalSupply} equals the cap from block zero:
 
 \begin{center}
@@ -549,7 +549,7 @@ Genesis Bucket & Amount (TNT) \\
 \midrule
 Substrate (migration claims) & $\sim$51.24M \\
 EVM (genesis EVM accounts) & $\sim$1.13M \\
-Treasury & $\sim$41.84M \\ %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+Treasury & $\sim$32.59M \\
 Foundation & $\sim$15.04M \\
 \bottomrule
 \end{tabular}
@@ -561,7 +561,7 @@ Because the genesis supply already equals the cap, no new TNT can be created in 
 
 \subsection{The Pre-Funded Model}
 
-The InflationPool uses a pre-funded model. The pool cannot mint tokens; it distributes tokens it holds. Emission is funded by transfers from the Treasury bucket into the pool via \texttt{fund()}, targeting roughly 1\% of supply per year ($\sim$1{,}092{,}556 TNT/yr). %% PENDING-100M: if normalized to 100M total, treasury ~32.6M and emission ~1,000,000 TNT/yr
+The InflationPool uses a pre-funded model. The pool cannot mint tokens; it distributes tokens it holds. Emission is funded by transfers from the Treasury bucket into the pool via \texttt{fund()}, targeting roughly 1\% of supply per year ($\sim$1{,}000{,}000 TNT/yr).
 These transfers move already-minted TNT; they dilute no holder and create no new supply.
 
 Each epoch's budget:
