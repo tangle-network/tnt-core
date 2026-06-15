@@ -121,7 +121,14 @@ abstract contract BlueprintsManage is Base {
     ///      createBlueprint: >=1 source, each with >=1 binary, every binary
     ///      carrying a non-zero sha256. Sources are not lockable; ownership is
     ///      the gate. The active/published BinaryVersion set is unaffected.
-    function setBlueprintSources(uint64 blueprintId, Types.BlueprintSource[] calldata sources) external nonReentrant {
+    function setBlueprintSources(
+        uint64 blueprintId,
+        Types.BlueprintSource[] calldata sources
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (bp.owner != msg.sender) {
             revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
@@ -136,7 +143,7 @@ abstract contract BlueprintsManage is Base {
     ///      blueprint's binary-distribution authority to an attacker — the proposed
     ///      owner must call `acceptBlueprintOwnership`, and the current owner can
     ///      revoke a pending proposal until then via `cancelBlueprintTransfer`.
-    function transferBlueprint(uint64 blueprintId, address newOwner) external nonReentrant {
+    function transferBlueprint(uint64 blueprintId, address newOwner) external whenNotPaused nonReentrant {
         if (newOwner == address(0)) revert Errors.ZeroAddress();
 
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
@@ -151,7 +158,7 @@ abstract contract BlueprintsManage is Base {
     /// @notice Accept a pending blueprint ownership transfer (step 2 of 2).
     /// @dev Only the address named by the current owner in `transferBlueprint` can
     ///      accept; this is what actually moves `bp.owner`.
-    function acceptBlueprintOwnership(uint64 blueprintId) external nonReentrant {
+    function acceptBlueprintOwnership(uint64 blueprintId) external whenNotPaused nonReentrant {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         address pending = _pendingBlueprintOwner[blueprintId];
         if (pending == address(0) || msg.sender != pending) {
@@ -165,7 +172,7 @@ abstract contract BlueprintsManage is Base {
     }
 
     /// @notice Cancel a pending blueprint ownership transfer.
-    function cancelBlueprintTransfer(uint64 blueprintId) external nonReentrant {
+    function cancelBlueprintTransfer(uint64 blueprintId) external whenNotPaused nonReentrant {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (bp.owner != msg.sender) {
             revert Errors.NotBlueprintOwner(blueprintId, msg.sender);
@@ -187,7 +194,7 @@ abstract contract BlueprintsManage is Base {
     ///      reverts if it no longer matches the live sources (front-run / stale ack).
     /// @param blueprintId Target blueprint.
     /// @param sourcesHash The digest the operator is acking; must equal the live hash.
-    function ackBlueprintSources(uint64 blueprintId, bytes32 sourcesHash) external nonReentrant {
+    function ackBlueprintSources(uint64 blueprintId, bytes32 sourcesHash) external whenNotPaused nonReentrant {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (bp.owner == address(0)) revert Errors.BlueprintNotFound(blueprintId);
         // Only operators registered for the blueprint can ack — acks are meaningful
@@ -217,7 +224,7 @@ abstract contract BlueprintsManage is Base {
     }
 
     /// @notice Deactivate a blueprint
-    function deactivateBlueprint(uint64 blueprintId) external nonReentrant {
+    function deactivateBlueprint(uint64 blueprintId) external whenNotPaused nonReentrant {
         Types.Blueprint storage bp = _getBlueprint(blueprintId);
         if (bp.owner != msg.sender) {
             revert Errors.NotBlueprintOwner(blueprintId, msg.sender);

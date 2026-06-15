@@ -80,10 +80,13 @@ abstract contract JobsRFQ is Base {
         Types.StoredJobSchema storage schema = _blueprintJobSchemas[svc.blueprintId][jobIndex];
         SchemaLib.validateJobParams(schema, inputs, svc.blueprintId, jobIndex);
 
-        // Verify quotes and compute total cost
+        // Verify quotes and compute total cost. The operator-signed price is bound to the
+        // exact job inputs via keccak256(inputs); a substituted-input redemption reverts.
         uint64 effectiveMaxQuoteAge = _maxQuoteAge > 0 ? _maxQuoteAge : ProtocolConfig.MAX_QUOTE_AGE;
-        uint256 totalPrice =
-            _verifyQuotesAndRecordOperators(serviceId, jobIndex, quotes, effectiveMaxQuoteAge, msg.sender);
+        bytes32 inputsHash = keccak256(inputs);
+        uint256 totalPrice = _verifyQuotesAndRecordOperators(
+            serviceId, jobIndex, quotes, effectiveMaxQuoteAge, msg.sender, inputsHash
+        );
 
         if (totalPrice > 0 && !_isPaymentAssetAllowedByManager(bp.manager, serviceId, address(0))) {
             revert Errors.TokenNotAllowed(address(0));
@@ -134,7 +137,8 @@ abstract contract JobsRFQ is Base {
         uint8 jobIndex,
         Types.SignedJobQuote[] calldata quotes,
         uint64 maxQuoteAge,
-        address expectedRequester
+        address expectedRequester,
+        bytes32 expectedInputsHash
     )
         private
         returns (uint256 totalPrice)
@@ -177,7 +181,7 @@ abstract contract JobsRFQ is Base {
             // Verify EIP-712 signature and mark as used. Domain separator is recomputed
             // per-call against current chainid so cross-fork replay is impossible.
             SignatureLib.verifyAndMarkJobQuoteUsed(
-                _usedQuotes, _domainSeparatorView(), quote, maxQuoteAge, expectedRequester
+                _usedQuotes, _domainSeparatorView(), quote, maxQuoteAge, expectedRequester, expectedInputsHash
             );
 
             totalPrice += quote.details.price;

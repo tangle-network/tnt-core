@@ -19,6 +19,14 @@ abstract contract ServicesLifecycle is Base {
     uint64 internal constant DEFAULT_NON_PAYMENT_GRACE_INTERVALS = 1;
     uint64 internal constant MAX_NON_PAYMENT_GRACE_INTERVALS = 12;
 
+    /// @notice Thrown when a dynamic-join operator supplies an exposure that exceeds 100%
+    ///         (`BPS_DENOMINATOR`). An out-of-range exposure inflates the operator's TWAP
+    ///         billing/reward weight (`PaymentsBilling`/`PaymentsDistribution` multiply
+    ///         `delta * exposureBps / BPS_DENOMINATOR`) above the rest of the operator set
+    ///         and distorts slash scaling. Mirrors the request-path bound at
+    ///         `ServicesRequests._validateOperators`.
+    error InvalidExposureBps(uint16 exposureBps);
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -175,6 +183,15 @@ abstract contract ServicesLifecycle is Base {
 
     /// @notice Join a dynamic service
     function joinService(uint64 serviceId, uint16 exposureBps) external whenNotPaused nonReentrant {
+        // Bound the operator's exposure to 100% (`BPS_DENOMINATOR`), mirroring the
+        // request-path check in `ServicesRequests._validateOperators`. An unchecked
+        // exposure > 10000 is stored verbatim on `ServiceOperator.exposureBps` and later
+        // scales the operator's TWAP weight in `PaymentsBilling`/`PaymentsDistribution`
+        // (`delta * exposureBps / BPS_DENOMINATOR`), inflating their share of the bill /
+        // reward pool above the honest operator set and distorting slash scaling.
+        if (exposureBps > BPS_DENOMINATOR) {
+            revert InvalidExposureBps(exposureBps);
+        }
         (Types.Service storage svc, Types.Blueprint storage bp) = _loadJoinContext(serviceId);
         if (_serviceSecurityRequirements[serviceId].length > 0) {
             // Enforce explicit per-asset security commitments when the service requires them.
@@ -194,6 +211,11 @@ abstract contract ServicesLifecycle is Base {
         whenNotPaused
         nonReentrant
     {
+        // Same exposure bound as `joinService` — must fail before any commitment storage
+        // is cleared/re-pushed so a rejected join leaves no state behind.
+        if (exposureBps > BPS_DENOMINATOR) {
+            revert InvalidExposureBps(exposureBps);
+        }
         (Types.Service storage svc, Types.Blueprint storage bp) = _loadJoinContext(serviceId);
 
         Types.AssetSecurityRequirement[] storage requirements = _serviceSecurityRequirements[serviceId];

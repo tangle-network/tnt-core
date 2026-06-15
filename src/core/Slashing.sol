@@ -175,9 +175,24 @@ abstract contract Slashing is Base {
         bool isAdmin = hasRole(SLASH_ADMIN_ROLE, msg.sender);
 
         // A blueprint can designate a custom dispute resolver via its BSM `queryDisputeOrigin`
-        // hook (symmetric to `querySlashingOrigin` gating proposals). The dispute origin is a
-        // trusted, blueprint-scoped escalation path, so it disputes bondless like SLASH_ADMIN.
-        bool isDisputeOrigin = false;
+        // hook (symmetric to `querySlashingOrigin` gating proposals).
+        //
+        // Two distinct properties are tracked here:
+        //   * `senderIsDisputeOrigin` — the caller IS the blueprint's configured dispute origin.
+        //     This is an AUTHORIZATION property: such a caller may dispute at all.
+        //   * `disputeOriginIsBondless` — that authorized dispute origin additionally gets the
+        //     SLASH_ADMIN-style bondless escalation. This is a BOND-EXEMPTION property and is
+        //     granted ONLY when the slash it disputes was NOT created by that same blueprint's
+        //     authority (see `_proposerIsBlueprintControlled`).
+        //
+        // Splitting the two closes the griefing vector: when the proposing side and the
+        // dispute-origin side are BOTH blueprint-controlled, the "dispute" is not adversarial —
+        // it is the same party extending the operator's stake freeze for the whole
+        // `disputeResolutionDeadline` window for FREE, defeating the anti-griefing bond. In that
+        // case the dispute origin is still allowed to dispute, but it must post the bond like any
+        // ordinary disputer; it does not get the free freeze.
+        bool senderIsDisputeOrigin = false;
+        bool disputeOriginIsBondless = false;
         {
             Types.Service storage dsvc = _getService(proposal.serviceId);
             address bpManager = _blueprints[dsvc.blueprintId].manager;
@@ -189,27 +204,74 @@ abstract contract Slashing is Base {
                 );
                 if (ok && ret.length >= 32) {
                     address disputeOrigin = abi.decode(ret, (address));
-                    isDisputeOrigin = disputeOrigin != address(0) && msg.sender == disputeOrigin;
+                    senderIsDisputeOrigin = disputeOrigin != address(0) && msg.sender == disputeOrigin;
+                    disputeOriginIsBondless = senderIsDisputeOrigin
+                        && !_proposerIsBlueprintControlled(proposal.proposer, dsvc, bpManager, proposal.serviceId);
                 }
             }
         }
 
-        if (msg.sender != proposal.operator && !isAdmin && !isDisputeOrigin) {
+        // Authorization: operator, SLASH_ADMIN, or the blueprint's configured dispute origin.
+        if (msg.sender != proposal.operator && !isAdmin && !senderIsDisputeOrigin) {
             revert Errors.NotSlashDisputer(slashId, msg.sender);
         }
         // The proposer cannot also dispute their own slash: either privileged path (admin or
-        // dispute origin) would otherwise let one account freeze operator stake for the whole
-        // resolution window for free, then capture the bond on auto-execution.
-        if ((isAdmin || isDisputeOrigin) && msg.sender == proposal.proposer) {
+        // bondless dispute origin) would otherwise let one account freeze operator stake for the
+        // whole resolution window for free, then capture the bond on auto-execution. (A
+        // bond-posting dispute origin is intentionally not blocked here — it has skin in the
+        // game via the forfeitable bond.)
+        if ((isAdmin || disputeOriginIsBondless) && msg.sender == proposal.proposer) {
             revert Errors.Unauthorized();
         }
 
-        uint256 requiredBond = (isAdmin || isDisputeOrigin) ? 0 : _slashState.config.disputeBond;
+        // Bond exemption applies only to SLASH_ADMIN and a BONDLESS dispute origin. A dispute
+        // origin that lost the bondless path (blueprint-authored slash) pays the bond.
+        uint256 requiredBond = (isAdmin || disputeOriginIsBondless) ? 0 : _slashState.config.disputeBond;
         if (msg.value != requiredBond) {
             revert Errors.InvalidMsgValue(requiredBond, msg.value);
         }
 
         SlashingLib.disputeSlash(_slashProposals, _slashState.config, slashId, msg.sender, reason, msg.value);
+    }
+
+    /// @dev True when `proposer` is an account THIS blueprint controls: the blueprint owner or
+    ///      the address the BSM currently returns from `querySlashingOrigin`. Used to deny the
+    ///      bondless dispute-origin path on a slash the blueprint itself authored — otherwise the
+    ///      blueprint sits on BOTH sides of the dispute (it supplied the slashing origin AND the
+    ///      dispute origin) and can freeze an operator's stake for the full resolution window for
+    ///      free, defeating the anti-griefing bond.
+    ///
+    ///      The service owner (`dsvc.owner`) is intentionally NOT treated as blueprint-controlled:
+    ///      it is the service requester (a user), a distinct party from the blueprint. A slash a
+    ///      service owner proposed, disputed bondless by a blueprint-supplied neutral dispute
+    ///      contract, is a legitimate adversarial escalation and keeps the bondless path.
+    ///
+    ///      The staticcall is gas-capped and revert-safe; on hook failure we conservatively treat
+    ///      the proposer as blueprint-controlled (deny bondless), since a manager that cannot
+    ///      answer cannot vouch for the proposer's neutrality (fail-closed).
+    function _proposerIsBlueprintControlled(
+        address proposer,
+        Types.Service storage dsvc,
+        address bpManager,
+        uint64 serviceId
+    )
+        internal
+        view
+        returns (bool)
+    {
+        if (proposer == _blueprints[dsvc.blueprintId].owner) {
+            return true;
+        }
+        (bool ok, bytes memory ret) = _tryStaticcallManager(
+            bpManager, abi.encodeWithSelector(IBlueprintServiceManager.querySlashingOrigin.selector, serviceId), 32
+        );
+        if (!ok || ret.length < 32) {
+            // Manager unreachable / wrong shape: cannot prove the proposer is neutral, so deny
+            // the bondless path (fail-closed).
+            return true;
+        }
+        address slashingOrigin = abi.decode(ret, (address));
+        return slashingOrigin != address(0) && proposer == slashingOrigin;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -484,16 +546,39 @@ abstract contract Slashing is Base {
 
         address payable t = _treasury;
         if (t == address(0)) {
-            // Treasury unset — restore the bond on the proposal so it can be settled
-            // once a treasury is configured, rather than silently stranding ETH.
-            proposal.disputeBond = bond;
-            proposal.disputer = disputer;
+            // Treasury unset on the forfeit path. This branch is only reachable with
+            // `refund == false` (cancelSlash returns early via the refund branch above),
+            // and by the time `executeSlash`/`executeSlashBatch` call us the proposal is
+            // already `Executed` — so restoring the bond onto the proposal would strand it
+            // permanently (`isExecutable` is false for `Executed`; nothing re-runs this).
+            // With no treasury to receive the forfeit, fall back to crediting the disputer
+            // via the pull mapping: a real, known claimant recovers the ETH instead of it
+            // being locked forever. (Production deploys always set a treasury; this is the
+            // fail-safe for a misconfigured/zeroed treasury.)
+            if (disputer != address(0)) {
+                _pendingDisputeBondRefunds[disputer] += bond;
+                emit DisputeBondCredited(disputer, bond);
+            } else {
+                // No treasury and no disputer to credit — restore on the proposal as a last
+                // resort (unreachable in practice: a forfeit implies a disputer posted bond).
+                proposal.disputeBond = bond;
+                proposal.disputer = disputer;
+            }
             return;
         }
         (bool ok,) = t.call{ value: bond }("");
         if (!ok) {
-            proposal.disputeBond = bond;
-            proposal.disputer = disputer;
+            // Treasury push failed (e.g. a reverting/gas-griefing treasury contract). The
+            // slash has already finalized to `Executed` by the time `executeSlash` calls us,
+            // so restoring the bond onto the proposal would strand it permanently:
+            // `isExecutable` returns false for `Executed`, so no later call ever re-runs this
+            // settlement. Instead, credit the forfeited bond to the treasury via the existing
+            // pull-claimable mapping. The treasury (a protocol-controlled address) drains it
+            // with `claimDisputeBond()`, giving forfeited bonds the same recovery path that
+            // refunds already have. We do NOT restore `disputer`/`disputeBond` on the proposal:
+            // ownership of the forfeited bond now belongs to the treasury, not the disputer.
+            _pendingDisputeBondRefunds[t] += bond;
+            emit DisputeBondCredited(t, bond);
         }
     }
 

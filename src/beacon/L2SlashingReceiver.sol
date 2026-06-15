@@ -70,6 +70,8 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     /// @dev Raised when an OP-stack-mode delivery arrives for a source chain that has
     ///      no trusted L1 counterpart configured, so no message can be authenticated.
     error OpStackSenderNotConfigured(uint256 sourceChainId);
+    /// @dev Raised by `flushDeferredSlash` when the operator has no banked deferred debt.
+    error NoDeferredSlash(address operator);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -78,6 +80,13 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     event SlashingReceived(uint256 indexed sourceChainId, address indexed operator, uint16 slashBps, bytes32 messageId);
 
     event SlashingExecuted(address indexed operator, uint16 slashBps, uint64 slashingFactor);
+
+    /// @notice Emitted when a slash cannot be applied immediately (no slashable stake) and the
+    ///         owed bps are banked for later collection via `flushDeferredSlash`.
+    event SlashingDeferred(address indexed operator, uint16 slashBps, uint256 totalDeferredBps);
+
+    /// @notice Emitted when previously-banked deferred slash debt is realised against an operator.
+    event DeferredSlashFlushed(address indexed operator, uint16 slashBps, uint256 remainingDeferredBps);
 
     event AuthorizedSenderUpdated(uint256 indexed chainId, address indexed sender, bool authorized);
     event AuthorizedSenderScheduled(uint256 indexed chainId, address indexed sender, uint256 activationTime);
@@ -100,6 +109,9 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
 
     /// @notice Delay before new authorized senders become active
     uint256 public constant SENDER_ACTIVATION_DELAY = 2 days;
+
+    /// @notice Basis-point denominator (100% == 10_000 bps). A single slash can never exceed this.
+    uint16 public constant BPS_DENOMINATOR = 10_000;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERC-7201 NAMESPACED STORAGE
@@ -147,11 +159,22 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         // trust). Enabling is immediate (tightening); disabling is delayed so a mode flip cannot
         // silently re-open the forgeable path without the same 2-day window every other anchor has.
         uint256 opStackModeDisableAt;
+        // ── Deferred-slash debt (beacon-slash-evasion MEDIUM) ──
+        // When a slash message arrives but the operator currently has no slashable L2 stake
+        // (`canSlash == false`, e.g. they withdrew all L2 stake to dodge a pending beacon
+        // slash), reverting forever would let them escape permanently — the bridge nonce is
+        // single-shot and cannot be redelivered after the message is consumed elsewhere, and an
+        // always-reverting message blocks no future stake from being slashed. Instead we BANK
+        // the owed bps here, mark the nonce processed, and let anyone realise it via
+        // `flushDeferredSlash` the moment the operator re-acquires slashable stake. Accumulated
+        // bps are capped to BPS_DENOMINATOR on flush so a re-staked operator can never be
+        // slashed for more than 100% of their stake.
+        mapping(address => uint256) deferredSlashBps;
         // Reserved storage for future upgrades. Keep this LAST.
         // Gap reduced 50 → 48 (opStackMessengerMode + opStackL1Sender), then 48 → 45
-        // (pendingOpStackL1Sender + pendingOpStackL1SenderAt + opStackModeDisableAt).
-        // Append-only; slots preserved.
-        uint256[45] __gap;
+        // (pendingOpStackL1Sender + pendingOpStackL1SenderAt + opStackModeDisableAt), then
+        // 45 → 44 (deferredSlashBps). Append-only; slots preserved.
+        uint256[44] __gap;
     }
 
     /// @notice ERC-7201 slot:
@@ -236,6 +259,12 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
 
     function beaconSlashTotal(address operator) external view returns (uint256) {
         return _getStorage().beaconSlashTotal[operator];
+    }
+
+    /// @notice Banked slash debt (in bps) owed by an operator that had no slashable L2 stake
+    ///         when the slash arrived. Realisable via `flushDeferredSlash` once stake returns.
+    function deferredSlashBps(address operator) external view returns (uint256) {
+        return _getStorage().deferredSlashBps[operator];
     }
 
     function opStackMessengerMode() external view returns (bool) {
@@ -338,13 +367,19 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Handle a slash message from L1
-    /// @dev Critical CEI ordering: the slash must apply BEFORE the nonce is consumed.
-    ///      A previous version flipped the nonce to "processed" first, which meant
-    ///      transient failures (`canSlash == false` because the operator just
-    ///      unregistered, slashing paused, etc.) silently dropped the slash with no
-    ///      retry path — the bridge cannot redeliver an already-consumed nonce. The
-    ///      legitimate "applied with zero bps" case (`slashBps == 0`) is also a hard
-    ///      revert here so the L1 connector never wastes a bridge fee on a no-op.
+    /// @dev Nonce/CEI ordering: a delivered slash ALWAYS consumes its bridge nonce exactly once.
+    ///      Two terminal outcomes both consume the nonce:
+    ///        1. `canSlash == true`  → the slash is applied immediately.
+    ///        2. `canSlash == false` → the operator currently has no slashable L2 stake (e.g.
+    ///           they withdrew everything to dodge a pending beacon slash). We BANK the owed bps
+    ///           as deferred debt and let `flushDeferredSlash` realise it the moment stake
+    ///           returns. Consuming the nonce here is safe because the debt now lives in this
+    ///           contract's storage, not in the (single-shot, non-redeliverable) bridge message.
+    ///      The earlier design reverted on `canSlash == false`, which let an operator escape the
+    ///      slash permanently by zeroing their L2 stake — every redelivery reverted forever.
+    ///      The legitimate "zero bps" case (`slashBps == 0`) is still a hard revert: the L1
+    ///      connector now fails-closed before shipping a zero-bps message, so receiving one is an
+    ///      invalid payload, not a no-op to bank.
     function _handleSlashMessage(
         ReceiverStorage storage $,
         uint256 sourceChainId,
@@ -363,26 +398,72 @@ contract L2SlashingReceiver is Initializable, UUPSUpgradeable, OwnableUpgradeabl
             revert NonceAlreadyProcessed(sourceChainId, sender, nonce);
         }
 
-        // Refuse to mark the nonce processed unless the slash is going to apply. If the
-        // slasher cannot apply the slash right now (paused, unknown operator, etc.) we
-        // revert so the bridge layer keeps the message available for retry.
+        // A zero-bps message is always invalid: the L1 connector fails-closed before shipping one.
         if (slashBps == 0) {
             revert InvalidPayload();
         }
-        if (!$.slasher.canSlash(operator)) {
-            revert SlashingNotPossible(operator);
+
+        // The nonce is consumed exactly once regardless of which branch we take below; the slash
+        // can no longer be replayed once banked or applied.
+        $.processedNonces[sourceChainId][sender][nonce] = true;
+
+        if ($.slasher.canSlash(operator)) {
+            // Apply immediately.
+            _applySlash($, sourceChainId, operator, slashBps, slashingFactor, pod);
+        } else {
+            // No slashable stake right now: bank the debt so the operator cannot evade the slash
+            // by withdrawing their L2 stake. Realised later via `flushDeferredSlash`.
+            uint256 newTotal = $.deferredSlashBps[operator] + slashBps;
+            $.deferredSlashBps[operator] = newTotal;
+            emit SlashingDeferred(operator, slashBps, newTotal);
         }
 
-        // Apply the slash FIRST (state-changing), then mark the nonce processed.
-        // If `slashOperator` reverts, the whole tx reverts and the nonce stays open.
+        emit SlashingReceived(sourceChainId, operator, slashBps, keccak256(abi.encode(sourceChainId, sender, nonce)));
+    }
+
+    /// @notice Apply a slash and book-keep the cumulative beacon slash total.
+    /// @dev `slashOperator` reverting here reverts the whole tx (and, for the immediate path,
+    ///      un-consumes the nonce), so a slasher that is paused/unavailable never silently drops
+    ///      the slash.
+    function _applySlash(
+        ReceiverStorage storage $,
+        uint256 sourceChainId,
+        address operator,
+        uint16 slashBps,
+        uint64 slashingFactor,
+        address pod
+    )
+        internal
+    {
         bytes memory reason = abi.encode("BEACON_CHAIN_SLASH", sourceChainId, pod, slashingFactor, block.timestamp);
         $.slasher.slashOperator(operator, slashBps, reason);
         $.beaconSlashTotal[operator] += slashBps;
-
-        $.processedNonces[sourceChainId][sender][nonce] = true;
-
         emit SlashingExecuted(operator, slashBps, slashingFactor);
-        emit SlashingReceived(sourceChainId, operator, slashBps, keccak256(abi.encode(sourceChainId, sender, nonce)));
+    }
+
+    /// @notice Realise an operator's banked deferred slash debt once they regain slashable stake.
+    /// @dev Permissionless: the debt is fixed and adversarially favourable to the protocol, so
+    ///      anyone may trigger collection (a watcher/keeper, the slasher, or the protocol itself).
+    ///      The banked bps are capped to `BPS_DENOMINATOR` so a re-staked operator can never be
+    ///      slashed for more than 100% of their stake in a single flush; any excess remains booked
+    ///      and is collectable on the next flush after they re-stake again.
+    /// @param operator The operator whose deferred slash debt to realise.
+    function flushDeferredSlash(address operator) external {
+        ReceiverStorage storage $ = _getStorage();
+        uint256 owed = $.deferredSlashBps[operator];
+        if (owed == 0) revert NoDeferredSlash(operator);
+        if (!$.slasher.canSlash(operator)) revert SlashingNotPossible(operator);
+
+        uint16 applyBps = owed > BPS_DENOMINATOR ? BPS_DENOMINATOR : uint16(owed);
+        uint256 remaining = owed - applyBps;
+        $.deferredSlashBps[operator] = remaining;
+
+        bytes memory reason = abi.encode("BEACON_CHAIN_SLASH_DEFERRED", operator, applyBps, block.timestamp);
+        $.slasher.slashOperator(operator, applyBps, reason);
+        $.beaconSlashTotal[operator] += applyBps;
+
+        emit SlashingExecuted(operator, applyBps, 0);
+        emit DeferredSlashFlushed(operator, applyBps, remaining);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

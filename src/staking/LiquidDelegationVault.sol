@@ -9,7 +9,16 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IERC7540Deposit, IERC7540Redeem, IERC7540Operator } from "../interfaces/IERC7540.sol";
 import { IMultiAssetDelegation } from "../interfaces/IMultiAssetDelegation.sol";
+import { IAssetAdapter } from "./adapters/IAssetAdapter.sol";
 import { Types } from "../libraries/Types.sol";
+
+/// @notice Minimal view into the staking router's adapter registry.
+/// @dev `getAssetAdapter` lives on `DepositManager` (inherited directly by the router),
+///      not on `IMultiAssetDelegation`, so we surface it through a focused local interface
+///      rather than widening the shared interface from here.
+interface IAdapterLookup {
+    function getAssetAdapter(address token) external view returns (address);
+}
 
 /// @title LiquidDelegationVault
 /// @notice ERC7540 vault for liquid delegation to a specific operator with specific blueprints
@@ -161,11 +170,35 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
     ///      drops back below underlying.
     function totalAssets() public view returns (uint256) {
         uint256 underlying = staking.getDelegation(address(this), operator);
+        // Idle asset backing held by the vault is real value for share holders. It is normally ~0
+        // (deposits forward straight into staking), but a redeem that out-earns the exiting
+        // redeemer's request-time entitlement RETAINS the reward surplus in the vault for remaining
+        // holders (see `redeem`). The vault's whole accounting is denominated in staking
+        // deposit-units (adapter shares for adapter-backed assets, raw tokens otherwise), so idle
+        // RAW token balance is converted to deposit-units before being added — mixing token wei into
+        // a share-denominated total would mis-price the rebasing/non-1:1 case.
+        uint256 idle = _idleBackingInDepositUnits();
+        uint256 underlyingPlusIdle = underlying + idle;
         uint256 reserved = _pendingRedeemAssets;
-        if (reserved >= underlying) {
+        if (reserved >= underlyingPlusIdle) {
             return 0;
         }
-        return underlying - reserved;
+        return underlyingPlusIdle - reserved;
+    }
+
+    /// @notice The vault's idle asset balance expressed in staking deposit-units.
+    /// @dev For adapter-backed assets, deposit-units are adapter shares, so raw idle token wei must
+    ///      be converted via the adapter's `assetsToShares` to match the denomination of
+    ///      `getDelegation`/`_pendingRedeemAssets`. For non-adapter assets it is 1:1.
+    function _idleBackingInDepositUnits() internal view returns (uint256) {
+        // Native vaults hold no ERC20 idle balance and `asset` is address(0); `balanceOf` on it
+        // would revert, so short-circuit (native deposit/redeem are not yet implemented anyway).
+        if (isNative) return 0;
+        uint256 idleTokens = asset.balanceOf(address(this));
+        if (idleTokens == 0) return 0;
+        address adapter = IAdapterLookup(address(staking)).getAssetAdapter(address(asset));
+        if (adapter == address(0)) return idleTokens;
+        return IAssetAdapter(adapter).assetsToShares(idleTokens);
     }
 
     /// @notice Whether the asset-per-share rate is well-defined enough to safely MINT new shares.
@@ -196,6 +229,14 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         return shares.mulDiv(totalAssets() + VIRTUAL_ASSETS, totalSupply() + VIRTUAL_SHARES, Math.Rounding.Floor);
     }
 
+    /// @notice Convert shares to the asset cost rounded UP (ceiling).
+    /// @dev ERC-4626 requires `mint()` to charge the minter the asset cost rounded UP so a
+    ///      minter can never receive shares worth more than they paid. `convertToAssets`
+    ///      floors (correct for redemption previews), so `mint()` uses this ceiling variant.
+    function _convertToAssetsRoundUp(uint256 shares) internal view returns (uint256 assets) {
+        return shares.mulDiv(totalAssets() + VIRTUAL_ASSETS, totalSupply() + VIRTUAL_SHARES, Math.Rounding.Ceil);
+    }
+
     /// @notice Get blueprint IDs for this vault
     function blueprintIds() external view returns (uint64[] memory) {
         return _blueprintIds;
@@ -219,27 +260,58 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         shares = convertToShares(assets);
         if (shares == 0) revert ZeroShares();
 
+        // Transfer assets from sender, push into staking, and delegate the exact
+        // deposit-units the staking layer credited (adapter shares for adapter-backed
+        // assets, raw assets otherwise).
+        _depositAndDelegate(assets);
+
+        // Mint liquid shares to receiver
+        _mint(receiver, shares);
+
+        emit Deposit(msg.sender, receiver, assets, shares);
+    }
+
+    /// @notice Pull `assets` from the caller, deposit into staking, and delegate the credited units.
+    /// @dev ROOT-CAUSE FIX for adapter-backed assets. The staking layer credits the *adapter share*
+    ///      amount (`DepositManager._handleErc20Deposit`), which differs from the raw `assets` for
+    ///      rebasing/non-1:1 adapters. Two bugs flow from delegating the raw amount:
+    ///        1. when an adapter is registered, the adapter pulls tokens via
+    ///           `safeTransferFrom(vault, adapter)`, so the vault must approve the ADAPTER, not the
+    ///           router — otherwise every deposit reverts on the adapter's transferFrom; and
+    ///        2. `delegateWithOptions` must be passed the credited deposit-units, not `assets`, or it
+    ///           reverts with `InsufficientDeposit` (units < assets) or mis-accounts.
+    ///      We read the credited delta from `getDeposit` around the call so the delegated amount is
+    ///      exactly what was credited, regardless of adapter math or rebase-on-transfer.
+    /// @return credited The deposit-unit amount credited by staking and delegated to the operator.
+    function _depositAndDelegate(uint256 assets) internal returns (uint256 credited) {
         // Transfer assets from sender
         asset.safeTransferFrom(msg.sender, address(this), assets);
 
-        // Approve and deposit into staking
-        // Use forceApprove to handle tokens like USDT that require resetting to 0 first
-        asset.forceApprove(address(staking), assets);
+        // Approve the actual spender. When an adapter is registered for this asset, the adapter
+        // (not the router) executes `safeTransferFrom(vault, adapter)`, so the allowance must be
+        // granted to the adapter. Use forceApprove to handle tokens like USDT that require a reset.
+        address adapter = IAdapterLookup(address(staking)).getAssetAdapter(address(asset));
+        address spender = adapter != address(0) ? adapter : address(staking);
+        asset.forceApprove(spender, assets);
 
         // NOTE: Native ETH handling via WETH is not yet implemented.
         // TODO: Add IWETH unwrap support when native ETH staking is enabled.
         //       This would require: IWETH(address(asset)).withdraw(assets);
         //       followed by: staking.deposit{value: assets}();
         // For now, all assets (including wrapped native) are deposited as ERC20.
+        uint256 creditedBefore = staking.getDeposit(address(this), address(asset)).amount;
         staking.depositERC20(address(asset), assets);
+        credited = staking.getDeposit(address(this), address(asset)).amount - creditedBefore;
+        if (credited == 0) revert ZeroAssets();
 
-        // Delegate to operator with blueprint selection
-        staking.delegateWithOptions(operator, address(asset), assets, selectionMode, _blueprintIds);
+        // Clear any residual allowance (defense-in-depth for adapters that do not pull the full
+        // amount, e.g. fee-on-transfer paths) so a stale approval cannot be exploited later.
+        if (asset.allowance(address(this), spender) != 0) {
+            asset.forceApprove(spender, 0);
+        }
 
-        // Mint liquid shares to receiver
-        _mint(receiver, shares);
-
-        emit Deposit(msg.sender, receiver, assets, shares);
+        // Delegate the credited deposit-units (NOT the raw asset amount) to the operator.
+        staking.delegateWithOptions(operator, address(asset), credited, selectionMode, _blueprintIds);
     }
 
     /// @notice Mint exact shares by depositing assets
@@ -251,16 +323,14 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // Refuse to mint while the rate is collapsed (slash-during-pending-redeem); see deposit().
         if (!_rateDefinedForMint()) revert RateUndefined();
 
-        assets = convertToAssets(shares);
+        // ERC-4626: mint() must round the asset cost UP so the minter pays at least fair value.
+        // Flooring here (as `convertToAssets` does) lets a minter receive shares worth more than
+        // they pay, diluting existing holders by the fractional remainder each call.
+        assets = _convertToAssetsRoundUp(shares);
         if (assets == 0) revert ZeroAssets();
 
-        // Use deposit logic
-        asset.safeTransferFrom(msg.sender, address(this), assets);
-        // Use forceApprove to handle tokens like USDT that require resetting to 0 first
-        asset.forceApprove(address(staking), assets);
-
-        staking.depositERC20(address(asset), assets);
-        staking.delegateWithOptions(operator, address(asset), assets, selectionMode, _blueprintIds);
+        // Use the shared deposit/delegate path (correct spender + credited-unit delegation).
+        _depositAndDelegate(assets);
 
         _mint(receiver, shares);
 
@@ -415,16 +485,47 @@ contract LiquidDelegationVault is ERC20, IERC7540Deposit, IERC7540Redeem, IERC75
         // call and a second claim reverts with AlreadyClaimed, so this subtraction runs once per
         // request. Clamp to the live accumulator so a slash-during-pending (which can only ever
         // shrink the underlying delegation, never the bookkeeping) can never underflow the counter.
-        uint256 toRelease = req.reservedAssets;
+        uint256 entitlement = req.reservedAssets;
         uint256 reservedTotal = _pendingRedeemAssets;
-        if (toRelease > reservedTotal) {
-            toRelease = reservedTotal;
-        }
+        uint256 toRelease = entitlement > reservedTotal ? reservedTotal : entitlement;
         _pendingRedeemAssets = reservedTotal - toRelease;
 
-        assets = staking.executeDelegatorUnstakeAndWithdraw(
-            operator, address(asset), req.unstakeShares, req.requestedRound, receiver
+        // Withdraw the matured bond-less request INTO THE VAULT (not directly to the receiver).
+        // The staking layer prices `unstakeShares` at the CURRENT (post-reward) rate, so `returned`
+        // (in deposit-units) can exceed the redeemer's request-time `entitlement` once rewards
+        // accrue during unbonding. The exiting redeemer is entitled ONLY to their request-time
+        // value; the reward surplus that accrued on the still-delegated pending position belongs to
+        // the remaining holders. Paying out the full position (as the prior code did, by sending
+        // directly to `receiver`) siphoned that surplus to the exiter and diluted everyone else.
+        uint256 balanceBefore = asset.balanceOf(address(this));
+        uint256 returned = staking.executeDelegatorUnstakeAndWithdraw(
+            operator, address(asset), req.unstakeShares, req.requestedRound, address(this)
         );
+        // Tokens actually received by the vault for this withdrawal (post-rebase for adapter assets).
+        uint256 tokensReceived = asset.balanceOf(address(this)) - balanceBefore;
+
+        // Pay the redeemer the PROPORTION of received tokens matching their request-time entitlement,
+        // capping at 100% so they never take more than the position returned. `entitlement` and
+        // `returned` are both deposit-units (same denomination), so the ratio is denomination-safe
+        // and works for adapter-backed (rebasing) assets where `tokensReceived != returned`.
+        //   - reward accrued  (returned > entitlement): redeemer gets their fixed entitlement worth,
+        //     surplus tokens stay in the vault for remaining holders.
+        //   - slash hit       (returned < entitlement): redeemer gets the full reduced position.
+        // When NO shares remain after the burn (this was the last/only holder), there are no
+        // remaining holders to retain surplus for, so the redeemer receives the full position —
+        // this also avoids leaving rounding dust behind on a complete exit.
+        if (returned == 0) {
+            assets = 0;
+        } else if (totalSupply() == 0 || entitlement >= returned) {
+            assets = tokensReceived; // pay out everything received (last holder / slash / at-par)
+        } else {
+            assets = tokensReceived.mulDiv(entitlement, returned, Math.Rounding.Floor);
+        }
+        if (assets > 0) {
+            asset.safeTransfer(receiver, assets);
+        }
+        // Any residual (reward surplus, or rounding dust) stays as idle balance and is counted by
+        // `totalAssets()` (converted to deposit-units) for the benefit of remaining holders.
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }

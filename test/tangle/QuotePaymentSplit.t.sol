@@ -69,7 +69,7 @@ contract RevertingMetricsRecorder is IMetricsRecorder {
 contract QuotePaymentSplitTest is BaseTest {
     uint256 internal constant OPERATOR_PK = 0xA11CE;
     bytes32 private constant QUOTE_TYPEHASH = keccak256(
-        "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+        "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,uint8 operation,uint64 serviceId,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)Asset(uint8 kind,address token)AssetSecurityCommitment(Asset asset,uint16 exposureBps)ResourceCommitment(uint8 kind,uint64 count)"
     );
 
     RecordingMetrics internal metrics;
@@ -151,6 +151,8 @@ contract QuotePaymentSplitTest is BaseTest {
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
             confidentiality: Types.ConfidentialityPolicy.Any,
+            operation: Types.QuoteOperation.Create,
+            serviceId: 0,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -182,6 +184,8 @@ contract QuotePaymentSplitTest is BaseTest {
                 details.timestamp,
                 details.expiry,
                 details.confidentiality,
+                details.operation,
+                details.serviceId,
                 commitmentsHash,
                 resourcesHash
             )

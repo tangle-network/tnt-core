@@ -114,10 +114,24 @@ abstract contract ServicesApprovals is Base {
         // mirror what was actually committed, including the auto-fill case.
         uint8 effectiveStakingPercent;
         if (hasSuppliedCommitments) {
+            // The hook's `stakingPercent` is a single representative number the
+            // blueprint uses for launch/admission gating. It MUST be derived from
+            // the MINIMUM committed exposure across every asset, never from
+            // `securityCommitments[0]`. A service's effective security floor is
+            // bounded by the weakest asset commitment: an operator that commits
+            // 100% on the first asset but 10% on a second has truly bound only
+            // 10% of the service's collateral. Reporting `[0]` lets the operator
+            // inflate the percent the manager sees (e.g. 100% when the binding
+            // exposure is 10%), misleading every gating decision downstream.
+            uint16 minExposureBps = type(uint16).max;
             for (uint256 i = 0; i < p.securityCommitments.length; i++) {
-                _requestSecurityCommitments[p.requestId][msg.sender].push(p.securityCommitments[i]);
+                Types.AssetSecurityCommitment calldata c = p.securityCommitments[i];
+                _requestSecurityCommitments[p.requestId][msg.sender].push(c);
+                if (c.exposureBps < minExposureBps) {
+                    minExposureBps = c.exposureBps;
+                }
             }
-            effectiveStakingPercent = uint8(p.securityCommitments[0].exposureBps / 100);
+            effectiveStakingPercent = uint8(minExposureBps / 100);
         } else if (hasRequirements) {
             _storeDefaultTntCommitment(p.requestId, msg.sender);
             effectiveStakingPercent = uint8(requirements[0].minExposureBps / 100);

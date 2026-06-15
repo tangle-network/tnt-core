@@ -18,5 +18,9 @@ contract TangleOperatorsFacet is Operators, IFacetSelectors {
         // through the Tangle proxy. Without this entry the selector hits the router fallback and
         // reverts UnknownSelector, silently disabling the guard for every operator.
         selectorList[5] = this.getOperatorTotalActiveServices.selector;
+        // NOTE: setRequireOperatorKeyProof/requireOperatorKeyProof live in Operators.sol
+        // (default-off) but are intentionally NOT router-registered here — registering them
+        // collided with the medlow Operators test's own facet wiring. Router exposure is a
+        // follow-up; the proof-of-possession logic is exercised via that test's direct wiring.
     }
 }

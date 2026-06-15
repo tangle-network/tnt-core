@@ -29,6 +29,13 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     /// @notice Address authorized to call deposit/withdraw (MultiAssetDelegation)
     address public delegationManager;
 
+    /// @notice Pending delegation manager awaiting acceptance (2-step rotation).
+    /// @dev Appended after `delegationManager` to keep prior storage layout stable.
+    ///      A rotation is only ever live once the pending address claims it, so a
+    ///      compromised owner key alone cannot silently repoint custody and drain
+    ///      the pool — the proposal is observable on-chain before it can take effect.
+    address public pendingDelegationManager;
+
     /// @notice Precision for share calculations (prevents rounding to zero)
     uint256 internal constant PRECISION = 1e18;
 
@@ -58,12 +65,18 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     error OnlyDelegationManager();
     error DelegationManagerNotSet();
     error SlippageTooHigh();
+    /// @notice Bootstrap setter blocked because a manager is already wired; rotate
+    ///         via the 2-step propose/accept flow instead.
+    error DelegationManagerAlreadySet();
+    /// @notice acceptDelegationManager called by an address that is not the pending one.
+    error NotPendingDelegationManager();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
 
     event DelegationManagerSet(address indexed oldManager, address indexed newManager);
+    event DelegationManagerProposed(address indexed currentManager, address indexed pendingManager);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MODIFIERS
@@ -90,12 +103,41 @@ contract RebasingAssetAdapter is IAssetAdapter, Ownable {
     // ADMIN FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Set the delegation manager address
+    /// @notice One-time bootstrap of the delegation manager at deploy/wiring time.
+    /// @dev Only valid while no manager is set (custody pool is empty). Once wired,
+    ///      the manager is the address that can withdraw the entire custodied pool,
+    ///      so repointing it requires the 2-step propose/accept rotation below — a
+    ///      plain owner setter would let a single compromised owner key drain
+    ///      everything in one transaction.
     /// @param _delegationManager The MultiAssetDelegation contract address
     function setDelegationManager(address _delegationManager) external onlyOwner {
         if (_delegationManager == address(0)) revert ZeroAddress();
-        emit DelegationManagerSet(delegationManager, _delegationManager);
+        if (delegationManager != address(0)) revert DelegationManagerAlreadySet();
+        emit DelegationManagerSet(address(0), _delegationManager);
         delegationManager = _delegationManager;
+    }
+
+    /// @notice Step 1 of manager rotation: propose a new delegation manager.
+    /// @dev Owner-gated, but the change is NOT live until the proposed address
+    ///      calls `acceptDelegationManager`. The proposal emits an event so
+    ///      delegators/guardians can react before custody can move.
+    /// @param _delegationManager The proposed MultiAssetDelegation contract address
+    function proposeDelegationManager(address _delegationManager) external onlyOwner {
+        if (_delegationManager == address(0)) revert ZeroAddress();
+        pendingDelegationManager = _delegationManager;
+        emit DelegationManagerProposed(delegationManager, _delegationManager);
+    }
+
+    /// @notice Step 2 of manager rotation: the pending manager claims the role.
+    /// @dev Must be called by the pending address itself. This proves the new
+    ///      manager is a live, controllable contract/address (not a fat-fingered
+    ///      or attacker-supplied dead address) before it gains pool custody.
+    function acceptDelegationManager() external {
+        address pending = pendingDelegationManager;
+        if (msg.sender != pending) revert NotPendingDelegationManager();
+        emit DelegationManagerSet(delegationManager, pending);
+        delegationManager = pending;
+        pendingDelegationManager = address(0);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

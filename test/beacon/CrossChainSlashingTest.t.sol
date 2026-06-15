@@ -698,19 +698,38 @@ contract CrossChainSlashingTest is Test {
         assertTrue(receiver.isNonceProcessed(ETH_CHAIN_ID, address(connector), nonce));
     }
 
-    function test_receiveMessage_RevertsWhenSlashingPaused() public {
+    function test_receiveMessage_DefersSlashWhenSlashingPaused() public {
+        // When slashing is paused, `canSlash` returns false. The receiver no longer
+        // drops the slash (which would let an operator escape it permanently) nor
+        // reverts forever (the single-shot bridge nonce can't be redelivered). Instead
+        // it BANKS the owed bps as deferred debt, consumes the nonce, and lets anyone
+        // realise the debt via `flushDeferredSlash` once slashing is unpaused.
         vm.prank(admin);
         slasher.setPaused(true);
 
         bytes4 messageType = bytes4(keccak256("BEACON_SLASH"));
-        bytes memory payload = abi.encodePacked(messageType, abi.encode(operator1, uint16(1000), 0.9e18, 0, pod1));
+        uint16 slashBps = 1000;
+        uint256 nonce = 0;
+        bytes memory payload = abi.encodePacked(messageType, abi.encode(operator1, slashBps, 0.9e18, nonce, pod1));
 
-        // After the S-1 CEI fix the receiver no longer silently consumes the nonce
-        // when `canSlash` returns false. It reverts so the bridge keeps the
-        // message available for retry once the cause (paused, etc.) is resolved.
-        vm.expectRevert();
         vm.prank(address(messenger));
         receiver.receiveMessage(ETH_CHAIN_ID, address(connector), payload);
+
+        // No stake was actually slashed while paused...
+        assertEq(staking.lastSlashAmount(), 0, "no immediate slash while paused");
+        // ...but the debt is banked so the operator cannot evade it.
+        assertEq(receiver.deferredSlashBps(operator1), slashBps, "owed bps banked as deferred debt");
+        // The nonce is consumed exactly once; a redelivery must be rejected as a replay.
+        assertTrue(receiver.isNonceProcessed(ETH_CHAIN_ID, address(connector), nonce), "nonce consumed");
+
+        // Once unpaused, the banked debt is realised against the operator.
+        vm.prank(admin);
+        slasher.setPaused(false);
+        receiver.flushDeferredSlash(operator1);
+
+        assertEq(staking.lastSlashedOperator(), operator1, "deferred slash applied to operator");
+        assertEq(staking.lastSlashAmount(), (INITIAL_STAKE * slashBps) / 10_000, "full banked bps realised");
+        assertEq(receiver.deferredSlashBps(operator1), 0, "deferred debt cleared after flush");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

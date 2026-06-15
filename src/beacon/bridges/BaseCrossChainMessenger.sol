@@ -15,6 +15,18 @@ interface IBaseCrossDomainMessenger {
     function xDomainMessageSender() external view returns (address);
 }
 
+/// @notice Selector exposed by the paired L2 adapter (`BaseL2Receiver`) that the
+///         L1 messenger must invoke. The adapter authenticates the L1 origin via
+///         `xDomainMessageSender()`, derives the source chain + sender from its
+///         own storage, then forwards to the final `ICrossChainReceiver`.
+/// @dev The L1 messenger MUST encode THIS selector (not `ICrossChainReceiver.receiveMessage`):
+///      the L2 `target` is the adapter, which only exposes `relayMessage(bytes)`.
+///      Encoding any other selector makes the cross-chain call revert on L2,
+///      silently killing the slash path.
+interface IL2RelayReceiver {
+    function relayMessage(bytes calldata payload) external;
+}
+
 contract BaseCrossChainMessenger is ICrossChainMessenger {
     /// @notice Base L1 CrossDomainMessenger
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
@@ -50,6 +62,12 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
 
     /// @notice Caller is not authorized to relay messages through this adapter.
     error UnauthorizedSender(address caller);
+
+    /// @notice Effective gas limit exceeds the uint32 range the OP-stack messenger accepts.
+    /// @dev Without this guard the `uint32` cast at the messenger call would silently
+    ///      truncate, causing the L2 execution to be funded with the wrong (wrapped)
+    ///      gas limit — a corrupted, potentially under-gassed cross-chain message.
+    error GasLimitTooHigh(uint256 effectiveGasLimit);
 
     /// @dev SECURITY: For production, owner should be a timelock or multisig.
     /// Critical parameters (minGasLimit, gasBufferBps) affect cross-chain security.
@@ -96,13 +114,20 @@ contract BaseCrossChainMessenger is ICrossChainMessenger {
         // Apply minimum gas limit and add safety buffer
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
-        // Base native messaging
-        // effectiveGasLimit fits into uint32 because we enforce reasonable limits.
-        // forge-lint: disable-next-line(unsafe-typecast)
+        // Bound the gas limit to the uint32 the OP-stack messenger accepts. The cast
+        // below would otherwise silently truncate any value >= 2**32, corrupting the
+        // gas funded for L2 execution.
+        if (effectiveGasLimit > type(uint32).max) {
+            revert GasLimitTooHigh(effectiveGasLimit);
+        }
+
+        // Base native messaging. The L2 `target` is the paired adapter (`BaseL2Receiver`),
+        // which exposes `relayMessage(bytes)` — it authenticates the L1 origin via
+        // `xDomainMessageSender()` and derives the source chain + sender from its own
+        // storage, so only the raw `payload` is forwarded here.
         l1Messenger.sendMessage{ value: msg.value }(
             target,
-            abi.encodeCall(ICrossChainReceiver.receiveMessage, (block.chainid, msg.sender, payload)),
-            // forge-lint: disable-next-line(unsafe-typecast)
+            abi.encodeCall(IL2RelayReceiver.relayMessage, (payload)),
             uint32(effectiveGasLimit)
         );
 

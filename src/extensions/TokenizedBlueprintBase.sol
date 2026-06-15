@@ -43,6 +43,8 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, address indexed token, uint256 amount);
     event RewardAdded(address indexed token, uint256 amount);
+    /// @notice Emitted when an untracked ERC20 balance is reconciled into the reward stream.
+    event RewardSynced(address indexed token, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
@@ -50,6 +52,10 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
 
     error ZeroAmount();
     error InsufficientStake();
+    /// @notice Withdrawal attempted before the stake-lock window elapsed (JIT-reward guard).
+    error StakeLocked(uint256 unlockTime);
+    /// @notice Reward sync requested for the staking token itself (would steal staked principal).
+    error CannotSyncStakingToken();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // REWARD TOKEN STATE (per reward token)
@@ -61,6 +67,19 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
         uint256 rewardRate; // Reward per second (for streaming mode)
         uint256 periodFinish; // When current reward period ends (for streaming)
         uint256 pendingRewards; // Undistributed rewards (for instant mode)
+        // ─── appended storage (audit remediation) ────────────────────────────
+        // Carries the per-distribution truncation residue of the
+        // (amount * 1e18) / totalStaked division so that dust is folded into the
+        // next distribution instead of being silently lost. Scaled by 1e18.
+        uint256 rewardRemainder;
+        // Total reward amount (in raw token units) ever credited to the reward
+        // stream for this token. Used by syncReward() to reconcile untracked
+        // ERC20 balances without double-counting already-distributed revenue.
+        uint256 totalCredited;
+        // Total reward amount (in raw token units) ever paid out / claimed for
+        // this token. Used together with totalCredited to compute the
+        // outstanding reward liability held by the contract.
+        uint256 totalClaimed;
     }
 
     /// @notice Reward state per token (address(0) = native ETH)
@@ -97,6 +116,28 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
     bool public streamingMode = false;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // STAKE-LOCK STATE (appended — audit remediation, JIT-reward guard)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NOTE: appended at the end of the contract's storage layout to remain
+    // upgrade-safe (no existing slot is reordered or shifted).
+
+    /// @notice Minimum time a stake must remain locked before it can be withdrawn.
+    /// @dev JIT-reward guard: instant-mode rewards are applied to whoever is staked
+    ///      at the moment revenue arrives. Without a lock, an attacker can stake
+    ///      immediately before a known payment and unstake immediately after,
+    ///      capturing rewards with zero time-at-risk and diluting honest stakers.
+    ///      The withdraw path always enforces this window; the value is the policy
+    ///      knob. Defaults to 0 (disabled) so the base preserves the historical
+    ///      no-lock behavior; production blueprints exposed to instant-mode revenue
+    ///      MUST set a non-zero window via `_setStakeLockDuration` (e.g. 1 day) to
+    ///      close the JIT-reward vector. Streaming mode is intrinsically immune
+    ///      since rewards accrue per-second of time-at-risk.
+    uint256 public stakeLockDuration;
+
+    /// @notice Per-user earliest withdrawal timestamp. Refreshed on every stake.
+    mapping(address => uint256) public stakeUnlockTime;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -122,6 +163,39 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
         _notifyReward(token, amount);
     }
 
+    /// @notice Reconcile untracked ERC20 revenue into the reward stream.
+    /// @dev ERC20 developer revenue is delivered to this contract via a plain
+    ///      `IERC20.transfer`, which (unlike native ETH) does NOT trigger the
+    ///      `receive()` -> `_onPaymentReceived` hook. Without this entrypoint such
+    ///      revenue would be permanently stranded (never flows into `_notifyReward`).
+    ///      Anyone may call this to push the untracked surplus into the reward
+    ///      stream; the amount is derived from the on-chain balance, so it cannot
+    ///      be used to inflate rewards beyond actual holdings.
+    /// @param token The ERC20 reward token to reconcile (must NOT be address(0)
+    ///        — native ETH already routes through receive()).
+    /// @return synced The amount reconciled into the reward stream.
+    function syncReward(address token) external nonReentrant returns (uint256 synced) {
+        // Native ETH already flows through receive(); there is no untracked
+        // surplus concept for it (its balance is the source of truth for payouts).
+        if (token == address(0)) revert CannotSyncStakingToken();
+        // The staking token's balance includes staked principal held in custody;
+        // reconciling it would credit users' own deposits as "revenue" and let it
+        // be drained as rewards. Forbid it outright.
+        if (token == address(this)) revert CannotSyncStakingToken();
+
+        RewardState storage state = rewardStates[token];
+        // Outstanding liability already earmarked for stakers for this token.
+        // (totalCredited spans both distributed and still-pending rewards.)
+        uint256 liability = state.totalCredited - state.totalClaimed;
+
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        if (balance <= liability) return 0;
+
+        synced = balance - liability;
+        _notifyReward(token, synced);
+        emit RewardSynced(token, synced);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // STAKING
     // ═══════════════════════════════════════════════════════════════════════════
@@ -135,6 +209,9 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
 
         stakedBalance[msg.sender] += amount;
         totalStaked += amount;
+        // Refresh the lock so freshly-added stake cannot dodge the time-at-risk
+        // requirement by riding on a previously-elapsed lock window.
+        stakeUnlockTime[msg.sender] = block.timestamp + stakeLockDuration;
 
         // Transfer tokens from user to this contract
         _transfer(msg.sender, address(this), amount);
@@ -147,6 +224,10 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
     function withdraw(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
         if (stakedBalance[msg.sender] < amount) revert InsufficientStake();
+        // JIT-reward guard: enforce the stake-lock window.
+        if (block.timestamp < stakeUnlockTime[msg.sender]) {
+            revert StakeLocked(stakeUnlockTime[msg.sender]);
+        }
 
         _updateAllRewards(msg.sender);
 
@@ -207,6 +288,7 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
         if (stakeAmount > 0) {
             stakedBalance[msg.sender] += stakeAmount;
             totalStaked += stakeAmount;
+            stakeUnlockTime[msg.sender] = block.timestamp + stakeLockDuration;
             _transfer(msg.sender, address(this), stakeAmount);
             emit Staked(msg.sender, stakeAmount);
         }
@@ -224,6 +306,9 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
         }
 
         RewardState storage state = rewardStates[token];
+        // Record the gross credit up front so syncReward() can reconcile against
+        // the contract's real balance without double-counting hook-driven revenue.
+        state.totalCredited += amount;
 
         if (streamingMode) {
             // Streaming mode: distribute over rewardDuration
@@ -242,7 +327,7 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
         } else {
             // Instant mode: distribute immediately to current stakers
             if (totalStaked > 0) {
-                state.rewardPerTokenStored += (amount * 1e18) / totalStaked;
+                _creditInstant(state, amount);
             } else {
                 state.pendingRewards += amount;
             }
@@ -288,6 +373,20 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
 
     function _updateRewardPerToken(address token) internal {
         RewardState storage state = rewardStates[token];
+
+        // Streaming mode with no stake: the time slice that elapsed since the last
+        // update streamed rewards that cannot be attributed to any staker. Without
+        // special handling, advancing lastUpdateTime past this window silently
+        // discards those rewards. Instead, capture the un-attributable streamed
+        // amount into pendingRewards so it is distributed to the next staker
+        // (mirrors the instant-mode zero-stake behavior).
+        if (streamingMode && totalStaked == 0 && state.rewardRate > 0) {
+            uint256 sliceEnd = _min(block.timestamp, state.periodFinish);
+            if (sliceEnd > state.lastUpdateTime) {
+                state.pendingRewards += (sliceEnd - state.lastUpdateTime) * state.rewardRate;
+            }
+        }
+
         state.rewardPerTokenStored = rewardPerToken(token);
         state.lastUpdateTime = _min(block.timestamp, state.periodFinish);
     }
@@ -303,9 +402,23 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
         // Distribute any pending rewards when first staker arrives
         RewardState storage state = rewardStates[token];
         if (state.pendingRewards > 0 && totalStaked > 0) {
-            state.rewardPerTokenStored += (state.pendingRewards * 1e18) / totalStaked;
+            uint256 pending = state.pendingRewards;
             state.pendingRewards = 0;
+            _creditInstant(state, pending);
         }
+    }
+
+    /// @notice Credit `amount` to the instant-mode accumulator, carrying the
+    ///         division residue forward so per-distribution truncation dust is
+    ///         not silently lost (audit remediation: rounding-to-zero finding).
+    /// @dev Caller MUST ensure totalStaked > 0.
+    function _creditInstant(RewardState storage state, uint256 amount) internal {
+        // Fold any previously-truncated dust back into this distribution's numerator.
+        uint256 scaled = amount * 1e18 + state.rewardRemainder;
+        state.rewardPerTokenStored += scaled / totalStaked;
+        // Retain the new residue (always < totalStaked, i.e. < 1 wei-per-token)
+        // for the next distribution rather than discarding it.
+        state.rewardRemainder = scaled % totalStaked;
     }
 
     function _updateAllRewards(address account) internal {
@@ -322,6 +435,10 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
     }
 
     function _transferReward(address to, address token, uint256 amount) internal {
+        // Track lifetime payouts so syncReward() can compute the outstanding
+        // reward liability (credited - claimed) and never re-credit funds that
+        // are already earmarked for stakers.
+        rewardStates[token].totalClaimed += amount;
         if (token == address(0)) {
             (bool success,) = to.call{ value: amount }("");
             require(success, "ETH transfer failed");
@@ -346,6 +463,12 @@ abstract contract TokenizedBlueprintBase is BlueprintServiceManagerBase, ERC20, 
     /// @notice Enable/disable streaming mode
     function _setStreamingMode(bool enabled) internal {
         streamingMode = enabled;
+    }
+
+    /// @notice Set the stake-lock window enforced on withdrawals (JIT-reward guard).
+    /// @dev Set 0 to disable. Only affects stakes made after the change.
+    function _setStakeLockDuration(uint256 duration) internal {
+        stakeLockDuration = duration;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

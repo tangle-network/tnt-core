@@ -56,9 +56,15 @@ contract EIP4788Oracle is IBeaconOracle {
     }
 
     /// @inheritdoc IBeaconOracle
+    /// @dev Mirrors `getBeaconBlockRoot`'s success criteria exactly: the EIP-4788 precompile
+    ///      returns a 32-byte root on a hit. A bare `success` check is insufficient because a
+    ///      `staticcall` to an account with no code (e.g. chains where the precompile is absent, or
+    ///      a fork lacking it) returns `success == true` with empty returndata, which would make
+    ///      `has` claim a root exists while `get` reverts `BeaconRootNotFound`. Requiring
+    ///      `returndata.length == 32` keeps the has/get contract consistent (fail-closed).
     function hasBeaconBlockRoot(uint64 timestamp) external view returns (bool) {
-        (bool success,) = BEACON_ROOTS_ADDRESS.staticcall(abi.encode(timestamp));
-        return success;
+        (bool success, bytes memory data) = BEACON_ROOTS_ADDRESS.staticcall(abi.encode(timestamp));
+        return success && data.length == 32;
     }
 
     /// @inheritdoc IBeaconOracle

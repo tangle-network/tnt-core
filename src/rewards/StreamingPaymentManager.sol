@@ -314,8 +314,14 @@ contract StreamingPaymentManager is
 
             if (p.totalAmount == 0) continue;
 
-            // Drip any pending amount up to now
-            _drip(serviceId, operator);
+            // Drip any pending amount up to now. The freshly-dripped chunk is earned
+            // payment that must be forwarded to the distributor for score-based payout —
+            // otherwise `_drip()` would mark it `distributed` while the tokens stay locked
+            // here, and it would also be excluded from the `remaining` refund below.
+            (uint256 dripped,) = _drip(serviceId, operator);
+            if (dripped > 0) {
+                _transferPayment(payable(distributor), p.paymentToken, dripped);
+            }
 
             uint256 remaining = p.totalAmount - p.distributed;
             if (remaining == 0) continue;
@@ -330,9 +336,18 @@ contract StreamingPaymentManager is
     }
 
     /// @notice Called when an operator is leaving a service
-    function onOperatorLeaving(uint64 serviceId, address operator) external override {
+    /// @dev Drips earned payment up to the leave moment and forwards the freshly-dripped
+    ///      chunk to the distributor. Without the transfer, `_drip()` marks the chunk
+    ///      `distributed` while the tokens stay stranded in this contract. `nonReentrant`
+    ///      matches the other transfer-performing entrypoints.
+    function onOperatorLeaving(uint64 serviceId, address operator) external override nonReentrant {
         if (msg.sender != tangle && msg.sender != distributor) revert NotAuthorized();
-        _drip(serviceId, operator);
+        StreamingPayment storage p = streamingPayments[serviceId][operator];
+        address paymentToken = p.paymentToken;
+        (uint256 dripped,) = _drip(serviceId, operator);
+        if (dripped > 0) {
+            _transferPayment(payable(distributor), paymentToken, dripped);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

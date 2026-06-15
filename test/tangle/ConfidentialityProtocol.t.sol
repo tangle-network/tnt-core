@@ -82,10 +82,24 @@ contract ConfidentialityProtocolTest is BaseTest {
         );
 
         Types.SignedQuote[] memory extensionQuotes = new Types.SignedQuote[](2);
-        extensionQuotes[0] =
-            _createQuote(operator1, OPERATOR1_PK, 0.5 ether, 15 days, Types.ConfidentialityPolicy.StandardRequired);
-        extensionQuotes[1] =
-            _createQuote(operator2, OPERATOR2_PK, 0.6 ether, 15 days, Types.ConfidentialityPolicy.StandardRequired);
+        extensionQuotes[0] = _createQuote(
+            operator1,
+            OPERATOR1_PK,
+            0.5 ether,
+            15 days,
+            Types.ConfidentialityPolicy.StandardRequired,
+            Types.QuoteOperation.Extend,
+            serviceId
+        );
+        extensionQuotes[1] = _createQuote(
+            operator2,
+            OPERATOR2_PK,
+            0.6 ether,
+            15 days,
+            Types.ConfidentialityPolicy.StandardRequired,
+            Types.QuoteOperation.Extend,
+            serviceId
+        );
 
         vm.prank(user1);
         tangle.extendServiceFromQuotes{ value: 1.1 ether }(serviceId, extensionQuotes, 15 days);
@@ -110,6 +124,24 @@ contract ConfidentialityProtocolTest is BaseTest {
         view
         returns (Types.SignedQuote memory)
     {
+        return _createQuote(
+            operator, privateKey, totalCost, ttl, confidentiality, Types.QuoteOperation.Create, 0
+        );
+    }
+
+    function _createQuote(
+        address operator,
+        uint256 privateKey,
+        uint256 totalCost,
+        uint64 ttl,
+        Types.ConfidentialityPolicy confidentiality,
+        Types.QuoteOperation operation,
+        uint64 svcId
+    )
+        internal
+        view
+        returns (Types.SignedQuote memory)
+    {
         Types.QuoteDetails memory details = Types.QuoteDetails({
             requester: user1,
             blueprintId: blueprintId,
@@ -118,6 +150,8 @@ contract ConfidentialityProtocolTest is BaseTest {
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
             confidentiality: confidentiality,
+            operation: operation,
+            serviceId: svcId,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -127,7 +161,7 @@ contract ConfidentialityProtocolTest is BaseTest {
 
     function _signQuote(Types.QuoteDetails memory details, uint256 privateKey) internal view returns (bytes memory) {
         bytes32 quoteTypehash = keccak256(
-            "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+            "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,uint8 operation,uint64 serviceId,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)Asset(uint8 kind,address token)AssetSecurityCommitment(Asset asset,uint16 exposureBps)ResourceCommitment(uint8 kind,uint64 count)"
         );
         bytes32 domainSeparator = keccak256(
             abi.encode(
@@ -148,6 +182,8 @@ contract ConfidentialityProtocolTest is BaseTest {
                 details.timestamp,
                 details.expiry,
                 details.confidentiality,
+                details.operation,
+                details.serviceId,
                 keccak256(""),
                 keccak256("")
             )

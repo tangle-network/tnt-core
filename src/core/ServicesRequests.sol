@@ -17,6 +17,24 @@ import { ProtocolConfig } from "../config/ProtocolConfig.sol";
 abstract contract ServicesRequests is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    /// @dev Cap on the per-request permitted-caller array. At activation the final
+    ///      approver's transaction copies this list into the service's
+    ///      `_permittedCallers` set (one SSTORE per entry) and allocates an
+    ///      `O(N)` memory array for the manager `onServiceInitialized` callback.
+    ///      An unbounded list submitted at request time would let the requester
+    ///      push the last approval over the block gas limit, permanently bricking
+    ///      activation (recoverable only via `expireServiceRequest`). The bound is
+    ///      enforced at request time so funds are never collected for a request
+    ///      that can never activate. 128 matches the operator-per-service ceiling
+    ///      (`ProtocolConfig.DEFAULT_MAX_OPERATORS_PER_SERVICE`), keeping the
+    ///      activation cost in the same order as the already-bounded operator loop.
+    uint256 internal constant MAX_PERMITTED_CALLERS_PER_REQUEST = 128;
+
+    /// @dev Thrown when a service request supplies more permitted callers than
+    ///      `MAX_PERMITTED_CALLERS_PER_REQUEST`. Declared locally to avoid touching
+    ///      the shared errors library.
+    error TooManyPermittedCallers(uint256 supplied, uint256 max);
+
     struct BlueprintRequestData {
         address manager;
         Types.MembershipModel membership;
@@ -314,7 +332,16 @@ abstract contract ServicesRequests is Base {
     }
 
     function _storePermittedCallers(uint64 requestId, address[] calldata permittedCallers) private {
-        for (uint256 i = 0; i < permittedCallers.length; i++) {
+        uint256 len = permittedCallers.length;
+        // Bound the list at request time: the whole array is copied into the
+        // service's permitted-caller set (and a memory array) by the FINAL
+        // approver at activation, so an unbounded list lets the requester brick
+        // their own activation by exceeding the block gas limit. Mirror the
+        // operator / security-requirement request-path caps.
+        if (len > MAX_PERMITTED_CALLERS_PER_REQUEST) {
+            revert TooManyPermittedCallers(len, MAX_PERMITTED_CALLERS_PER_REQUEST);
+        }
+        for (uint256 i = 0; i < len; i++) {
             _requestCallers[requestId].push(permittedCallers[i]);
         }
     }

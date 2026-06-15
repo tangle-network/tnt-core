@@ -111,8 +111,9 @@ contract ResourceCommitmentsTest is BaseTest {
         Types.ResourceCommitment[] memory resources2 = new Types.ResourceCommitment[](1);
         resources2[0] = Types.ResourceCommitment({ kind: 0, count: 8 }); // 8 CPU (upgraded)
 
-        Types.SignedQuote[] memory extendQuotes =
-            _createQuoteWithResources(OPERATOR1_PK, operator1, blueprintId, 50, 0.5 ether, resources2);
+        Types.SignedQuote[] memory extendQuotes = _createQuoteWithResources(
+            OPERATOR1_PK, operator1, blueprintId, 50, 0.5 ether, resources2, Types.QuoteOperation.Extend, serviceId
+        );
 
         vm.prank(user1);
         tangle.extendServiceFromQuotes{ value: 0.5 ether }(serviceId, extendQuotes, 50);
@@ -175,6 +176,25 @@ contract ResourceCommitmentsTest is BaseTest {
         view
         returns (Types.SignedQuote[] memory quotes)
     {
+        return _createQuoteWithResources(
+            privateKey, operator, bpId, ttl, cost, resources, Types.QuoteOperation.Create, 0
+        );
+    }
+
+    function _createQuoteWithResources(
+        uint256 privateKey,
+        address operator,
+        uint64 bpId,
+        uint64 ttl,
+        uint256 cost,
+        Types.ResourceCommitment[] memory resources,
+        Types.QuoteOperation operation,
+        uint64 svcId
+    )
+        internal
+        view
+        returns (Types.SignedQuote[] memory quotes)
+    {
         Types.QuoteDetails memory details = Types.QuoteDetails({
             requester: user1,
             blueprintId: bpId,
@@ -183,6 +203,8 @@ contract ResourceCommitmentsTest is BaseTest {
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
             confidentiality: Types.ConfidentialityPolicy.Any,
+            operation: operation,
+            serviceId: svcId,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: resources
         });
@@ -211,6 +233,8 @@ contract ResourceCommitmentsTest is BaseTest {
             timestamp: uint64(block.timestamp),
             expiry: uint64(block.timestamp + 1 hours),
             confidentiality: Types.ConfidentialityPolicy.Any,
+            operation: Types.QuoteOperation.Create,
+            serviceId: 0,
             securityCommitments: new Types.AssetSecurityCommitment[](0),
             resourceCommitments: new Types.ResourceCommitment[](0)
         });
@@ -225,7 +249,7 @@ contract ResourceCommitmentsTest is BaseTest {
         bytes32 resourcesHash = SignatureLib.hashResourceCommitments(details.resourceCommitments);
 
         bytes32 QUOTE_TYPEHASH = keccak256(
-            "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+            "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,uint8 operation,uint64 serviceId,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)Asset(uint8 kind,address token)AssetSecurityCommitment(Asset asset,uint16 exposureBps)ResourceCommitment(uint8 kind,uint64 count)"
         );
 
         bytes32 domainSeparator = keccak256(
@@ -248,6 +272,8 @@ contract ResourceCommitmentsTest is BaseTest {
                 details.timestamp,
                 details.expiry,
                 details.confidentiality,
+                details.operation,
+                details.serviceId,
                 commitmentsHash,
                 resourcesHash
             )

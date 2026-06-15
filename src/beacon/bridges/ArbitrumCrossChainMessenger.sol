@@ -46,6 +46,18 @@ interface IArbitrumOutbox {
     function l2ToL1Sender() external view returns (address);
 }
 
+/// @notice Selector exposed by the paired L2 adapter (`ArbitrumL2Receiver`) that the
+///         L1 messenger must invoke. The adapter authenticates the L1 origin via the
+///         L1→L2 alias check, derives the source chain + sender from its own storage,
+///         then forwards to the final `ICrossChainReceiver`.
+/// @dev The L1 messenger MUST encode THIS selector (not `ICrossChainReceiver.receiveMessage`):
+///      the L2 `target` is the adapter, which only exposes `relayMessage(bytes)`.
+///      Encoding any other selector makes the retryable ticket revert on L2,
+///      silently killing the slash path.
+interface IL2RelayReceiver {
+    function relayMessage(bytes calldata payload) external;
+}
+
 contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     /// @notice Arbitrum L1 Inbox
     // forge-lint: disable-next-line(screaming-snake-case-immutable)
@@ -65,15 +77,18 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
     /// @dev Adds safety margin to requested gas limit
     uint256 public gasBufferBps = 1000; // 10% buffer by default
 
-    /// @notice L2 alias of an L1 address that should receive excess-fee refunds.
-    /// @dev when `excessFeeRefundAddress` is set
-    ///      to `msg.sender` (the L1 connector), Arbitrum mints the refund at the
-    ///      L2 alias of that L1 contract — which has no receive logic, so the
-    ///      ETH is permanently locked. Callers who care about recovering excess
-    ///      gas / submission fees can configure a sweep address (their own L2
-    ///      treasury, a sweep contract, etc.). Owner-controlled with a default
-    ///      of `address(0)` which means "fall back to msg.sender" for backwards
-    ///      compatibility with deploy scripts that haven't migrated yet.
+    /// @notice L2 address that should receive excess-fee and call-value refunds.
+    /// @dev Historically, when `excessFeeRefundAddress` was set to `msg.sender`
+    ///      (the L1 connector), Arbitrum minted the refund at the L2 ALIAS of that
+    ///      L1 contract — an address nobody controls and that has no receive/withdraw
+    ///      logic, so the ETH was permanently and IRRECOVERABLY locked.
+    ///
+    ///      Refunds now default to the L2 message `target` (the paired
+    ///      `ArbitrumL2Receiver` adapter) when no explicit sweep address is set. That
+    ///      adapter is an operator-controlled, UUPS-upgradeable L2 contract, so any
+    ///      refunded ETH lands at a recoverable address rather than a dead alias.
+    ///      Owners can still point refunds at a dedicated L2 treasury / sweep contract
+    ///      via `setL2RefundAddress`.
     address public l2RefundAddress;
 
     /// @notice Owner for configuration
@@ -150,19 +165,20 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         // Apply minimum gas limit and add safety buffer
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
-        // Encode the cross-chain call
-        bytes memory l2Calldata =
-            abi.encodeCall(ICrossChainReceiver.receiveMessage, (block.chainid, msg.sender, payload));
+        // Encode the cross-chain call. The L2 `target` is the paired adapter
+        // (`ArbitrumL2Receiver`), which exposes `relayMessage(bytes)` — it authenticates
+        // the L1 origin via the L1→L2 alias check and derives the source chain + sender
+        // from its own storage, so only the raw `payload` is forwarded here.
+        bytes memory l2Calldata = abi.encodeCall(IL2RelayReceiver.relayMessage, (payload));
 
         // Calculate submission cost
         uint256 submissionCost = inbox.calculateRetryableSubmissionFee(l2Calldata.length, block.basefee);
 
-        // route excess-fee + call-value refunds to a
-        // sweep address if configured. Falls back to `msg.sender` (the L1 connector)
-        // only when no sweep address is set, which results in funds locked at the L2
-        // alias of the L1 contract — fine for one-shot deployments, lossy for any
-        // ongoing relay traffic.
-        address refundTo = l2RefundAddress != address(0) ? l2RefundAddress : msg.sender;
+        // Route excess-fee + call-value refunds to the configured sweep address, or to
+        // the L2 `target` adapter as a safe default. NEVER `msg.sender`: Arbitrum would
+        // mint the refund at the L2 alias of the L1 connector — an address nobody
+        // controls and with no withdraw logic, permanently locking the ETH.
+        address refundTo = l2RefundAddress != address(0) ? l2RefundAddress : target;
 
         // Create retryable ticket
         uint256 ticketId = inbox.createRetryableTicket{ value: msg.value }(
@@ -194,9 +210,10 @@ contract ArbitrumCrossChainMessenger is ICrossChainMessenger {
         // Apply minimum gas limit and buffer for accurate estimation
         uint256 effectiveGasLimit = _applyGasLimitWithBuffer(gasLimit);
 
-        // Encode call to estimate size
-        bytes memory l2Calldata =
-            abi.encodeCall(ICrossChainReceiver.receiveMessage, (block.chainid, address(0), payload));
+        // Encode call to estimate size. Must match the encoding used by `sendMessage`
+        // (`relayMessage(bytes)`) so the submission-cost estimate reflects the real
+        // calldata length actually billed by the inbox.
+        bytes memory l2Calldata = abi.encodeCall(IL2RelayReceiver.relayMessage, (payload));
 
         // Submission cost
         uint256 submissionCost = inbox.calculateRetryableSubmissionFee(l2Calldata.length, block.basefee);

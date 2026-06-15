@@ -72,7 +72,7 @@ abstract contract QuotesExtend is Base {
         _verifyQuoteOperatorsInService(serviceId, quoteOperators);
 
         // Verify quotes and get total cost
-        uint256 totalCost = _verifyExtensionQuotes(quotes, svc.blueprintId, additionalTtl);
+        uint256 totalCost = _verifyExtensionQuotes(quotes, svc.blueprintId, additionalTtl, serviceId);
         _ensureExtensionQuoteConfidentiality(quotes, svc.confidentiality);
 
         // An extension that costs nothing rewards operators with continued service for free;
@@ -149,14 +149,26 @@ abstract contract QuotesExtend is Base {
     function _verifyExtensionQuotes(
         Types.SignedQuote[] calldata quotes,
         uint64 blueprintId,
-        uint64 ttl
+        uint64 ttl,
+        uint64 serviceId
     )
         private
         returns (uint256 totalCost)
     {
         uint64 effectiveMaxQuoteAge = _maxQuoteAge > 0 ? _maxQuoteAge : ProtocolConfig.MAX_QUOTE_AGE;
+        // Extend quotes must be signed with operation == Extend and the exact serviceId being
+        // extended, so a create quote (or an extend quote for a different service) cannot be
+        // replayed here through the shared _usedQuotes map.
         (totalCost,) = SignatureLib.verifyQuoteBatch(
-            _usedQuotes, _domainSeparatorView(), quotes, blueprintId, ttl, msg.sender, effectiveMaxQuoteAge
+            _usedQuotes,
+            _domainSeparatorView(),
+            quotes,
+            blueprintId,
+            ttl,
+            msg.sender,
+            effectiveMaxQuoteAge,
+            Types.QuoteOperation.Extend,
+            serviceId
         );
     }
 

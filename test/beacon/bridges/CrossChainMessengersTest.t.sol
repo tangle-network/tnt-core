@@ -169,13 +169,20 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
             vm.prank(sender);
             bytes32 messageId = messenger.sendMessage{ value: 0.2 ether }(42_161, target, payload, 500_000);
 
-            bytes memory expectedData =
-                abi.encodeCall(ICrossChainReceiver.receiveMessage, (block.chainid, sender, payload));
+            // The L1 adapter now forwards ONLY the raw payload, encoded as the paired
+            // L2 adapter's `relayMessage(bytes)` selector (the L2 adapter re-derives the
+            // source chain + authenticated sender from its own storage). The old
+            // `receiveMessage(chainId,sender,payload)` encoding would let the L2 trust an
+            // L1-supplied `sender`, which is exactly the forgeable path that was closed.
+            bytes memory expectedData = abi.encodeWithSignature("relayMessage(bytes)", payload);
             MockArbitrumInbox.TicketParams memory ticket = inbox.getLastTicket();
             assertEq(ticket.to, target, "target");
             assertEq(ticket.maxSubmissionCost, 0.01 ether, "submission");
-            assertEq(ticket.excessFeeRefundAddress, sender, "fee refund");
-            assertEq(ticket.callValueRefundAddress, sender, "call refund");
+            // With no explicit L2 sweep address configured, refunds default to the L2
+            // `target` adapter — NEVER `sender` (the L1 connector's L2 alias is an address
+            // nobody controls, so refunding there would permanently lock the ETH).
+            assertEq(ticket.excessFeeRefundAddress, target, "fee refund");
+            assertEq(ticket.callValueRefundAddress, target, "call refund");
             // Gas limit includes 10% buffer, so 500_000 * 1.1 = 550_000
             assertEq(ticket.gasLimit, 550_000, "gasLimit");
             assertEq(ticket.data, expectedData, "payload");
@@ -284,8 +291,10 @@ contract MockBaseMessenger is IBaseCrossDomainMessenger {
             vm.prank(sender);
             bytes32 messageId = messenger.sendMessage{ value: 0.5 ether }(8453, target, payload, 120_000);
 
-            bytes memory expectedData =
-                abi.encodeCall(ICrossChainReceiver.receiveMessage, (block.chainid, sender, payload));
+            // Adapter forwards only the raw payload under the L2 `relayMessage(bytes)`
+            // selector; the L2 adapter authenticates the L1 origin itself rather than
+            // trusting an L1-supplied sender (the closed forgeable-slash path).
+            bytes memory expectedData = abi.encodeWithSignature("relayMessage(bytes)", payload);
             assertEq(baseMessenger.lastTarget(), target);
             assertEq(baseMessenger.lastMessage(), expectedData);
             // Gas limit includes 10% buffer, so 120_000 * 1.1 = 132_000

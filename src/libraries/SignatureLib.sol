@@ -32,20 +32,42 @@ library SignatureLib {
     ///      to who is allowed to redeem the quote. Without it, a third party can copy
     ///      the signature, flip `details.requester`, and pass the binding check in
     ///      `verifyQuoteBatch` while the original signature still recovers correctly.
+    /// @dev `operation` + `serviceId` bind the quote to a single flow (create vs extend)
+    ///      so a quote signed for one cannot be redeemed against the other through the
+    ///      shared `_usedQuotes` map.
+    /// @dev Referenced struct types are appended in EIP-712 canonical (alphabetical-by-name)
+    ///      order — Asset, AssetSecurityCommitment, ResourceCommitment — so that standards
+    ///      compliant signers compute the same `hashStruct`.
     bytes32 internal constant QUOTE_TYPEHASH = keccak256(
-        "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)AssetSecurityCommitment(Asset asset,uint16 exposureBps)Asset(uint8 kind,address token)ResourceCommitment(uint8 kind,uint64 count)"
+        "QuoteDetails(address requester,uint64 blueprintId,uint64 ttlBlocks,uint256 totalCost,uint64 timestamp,uint64 expiry,uint8 confidentiality,uint8 operation,uint64 serviceId,AssetSecurityCommitment[] securityCommitments,ResourceCommitment[] resourceCommitments)Asset(uint8 kind,address token)AssetSecurityCommitment(Asset asset,uint16 exposureBps)ResourceCommitment(uint8 kind,uint64 count)"
     );
 
     /// @dev EIP-712 TypeHash for JobQuoteDetails (per-job RFQ).
     /// @dev Includes `requester` so the operator's signature binds the consumer of
     ///      the quote, mirroring the QuoteDetails fix.
+    /// @dev Includes `inputsHash` (= keccak256(inputs)) so the operator's price is bound to
+    ///      the exact job inputs; otherwise the caller could substitute arbitrary inputs and
+    ///      redeem a cheap quote for expensive work.
     bytes32 internal constant JOB_QUOTE_TYPEHASH = keccak256(
-        "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality)"
+        "JobQuoteDetails(address requester,uint64 serviceId,uint8 jobIndex,uint256 price,uint64 timestamp,uint64 expiry,uint8 confidentiality,bytes32 inputsHash)"
     );
 
     /// @dev EIP-712 TypeHash for domain separator
     bytes32 internal constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ERRORS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice A quote's signed operation/serviceId did not match the flow consuming it.
+    /// @dev Declared locally (not in the shared Errors library) per the quote-signing fix scope.
+    error QuoteOperationMismatch(
+        address operator, uint8 expectedOperation, uint8 quotedOperation, uint64 expectedServiceId, uint64 quotedServiceId
+    );
+
+    /// @notice A job quote's signed `inputsHash` did not match the submitted job inputs.
+    error JobQuoteInputsMismatch(address operator, bytes32 expectedInputsHash, bytes32 quotedInputsHash);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -94,6 +116,8 @@ library SignatureLib {
                 details.timestamp,
                 details.expiry,
                 details.confidentiality,
+                details.operation,
+                details.serviceId,
                 commitmentsHash,
                 resourcesHash
             )
@@ -193,7 +217,8 @@ library SignatureLib {
                 details.price,
                 details.timestamp,
                 details.expiry,
-                details.confidentiality
+                details.confidentiality,
+                details.inputsHash
             )
         );
     }
@@ -216,12 +241,16 @@ library SignatureLib {
     ///        Bound here so a third party that observed the gossiped quote cannot
     ///        front-run the intended caller and burn the single-use digest. A wildcard
     ///        `requester == address(0)` on the signed details is rejected outright.
+    /// @param expectedInputsHash `keccak256(inputs)` of the job actually being submitted. The
+    ///        operator's price is bound to these exact inputs; a mismatch means the caller tried
+    ///        to redeem the quote for work the operator never priced.
     function verifyAndMarkJobQuoteUsed(
         mapping(bytes32 => bool) storage usedQuotes,
         bytes32 domainSeparator,
         Types.SignedJobQuote memory quote,
         uint64 maxQuoteAge,
-        address expectedRequester
+        address expectedRequester,
+        bytes32 expectedInputsHash
     )
         internal
     {
@@ -230,6 +259,13 @@ library SignatureLib {
         // first — the operator's signature must commit to a specific consumer.
         if (quote.details.requester == address(0) || quote.details.requester != expectedRequester) {
             revert Errors.JobQuoteRequesterMismatch(quote.operator, quote.details.requester, expectedRequester);
+        }
+
+        // Bind the operator's price to the exact job inputs they quoted. Without this the
+        // caller could pass arbitrary `inputs` to `submitJobFromQuote` and redeem a cheap
+        // quote for expensive work the operator never agreed to.
+        if (quote.details.inputsHash != expectedInputsHash) {
+            revert JobQuoteInputsMismatch(quote.operator, expectedInputsHash, quote.details.inputsHash);
         }
 
         // Check expiry
@@ -277,6 +313,11 @@ library SignatureLib {
     ///      no good production use case; if a workflow needs "any of N callers may consume
     ///      this," the operator should issue per-caller quotes or have the caller batch
     ///      them as a permittedCaller list at request time.
+    /// @param expectedOperation The flow consuming the batch (`Create` or `Extend`). Each quote's
+    ///        signed `operation` must match, so a quote signed for one flow cannot be replayed
+    ///        against the other through the shared `usedQuotes` map.
+    /// @param expectedServiceId The target service for extend quotes (`0` for create). Bound into
+    ///        the check so an extend quote signed for service A cannot be redeemed against service B.
     function verifyQuoteBatch(
         mapping(bytes32 => bool) storage usedQuotes,
         bytes32 domainSeparator,
@@ -284,7 +325,9 @@ library SignatureLib {
         uint64 blueprintId,
         uint64 ttl,
         address expectedRequester,
-        uint64 maxQuoteAge
+        uint64 maxQuoteAge,
+        Types.QuoteOperation expectedOperation,
+        uint64 expectedServiceId
     )
         internal
         returns (uint256 totalCost, address[] memory operators)
@@ -304,6 +347,21 @@ library SignatureLib {
                 if (operators[j] == quote.operator) {
                     revert Errors.DuplicateOperatorQuote(quote.operator);
                 }
+            }
+
+            // Bind the quote to the flow it was signed for. A create quote (full new
+            // commitment) and an extend quote (low marginal cost) share `QUOTE_TYPEHASH`
+            // and the `usedQuotes` map; without this check a cheap extend quote could be
+            // redeemed as a service creation (or vice versa) whenever blueprintId/ttl/
+            // requester coincide.
+            if (quote.details.operation != expectedOperation || quote.details.serviceId != expectedServiceId) {
+                revert QuoteOperationMismatch(
+                    quote.operator,
+                    uint8(expectedOperation),
+                    uint8(quote.details.operation),
+                    expectedServiceId,
+                    quote.details.serviceId
+                );
             }
 
             // Validate quote parameters match request

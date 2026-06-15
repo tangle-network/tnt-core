@@ -286,6 +286,14 @@ contract MultiAssetDelegationTest is Test {
         blueprints[0] = 1;
         blueprints[1] = 2;
 
+        // Fixed-mode delegation requires the operator be registered for each selected blueprint.
+        vm.prank(admin);
+        delegation.setTangle(admin);
+        vm.startPrank(admin);
+        delegation.addBlueprintForOperator(operator1, 1);
+        delegation.addBlueprintForOperator(operator1, 2);
+        vm.stopPrank();
+
         vm.prank(delegator1);
         delegation.delegateWithOptions(operator1, address(0), 0.5 ether, Types.BlueprintSelectionMode.Fixed, blueprints);
 

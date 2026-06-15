@@ -35,6 +35,13 @@ contract L2SlashingConnector {
     error MessengerNotConfigured();
     error UnknownPod(address pod);
     error SlashingFactorMismatch(address pod, uint64 expected, uint64 provided);
+    /// @dev The factor delta resolves to a zero-bps L2 slash (operator has no L2 stake,
+    ///      or the loss is sub-bps and truncates to 0). The L2 receiver hard-reverts on a
+    ///      zero-bps message, so shipping one would advance this connector's baseline while
+    ///      the L2 slash is permanently rejected — losing the delta and corrupting the
+    ///      baseline. We fail-closed BEFORE mutating state so the same delta stays
+    ///      re-propagable once the operator regains slashable L2 stake.
+    error NothingToSlash(address pod, uint256 destinationChainId);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
@@ -282,6 +289,17 @@ contract L2SlashingConnector {
             slashBps = uint16(bps);
             // Realised L2 slash amount under the same integer math L2 will apply.
             l2SlashAmount = (operatorStake * slashBps) / 10_000;
+        }
+
+        // FAIL-CLOSED before any state mutation: a zero-bps message is hard-rejected by the
+        // L2 receiver (`_handleSlashMessage` reverts on `slashBps == 0`). If we advanced the
+        // baseline (`lastProcessedSlashingFactorByChain`) and shipped it anyway, the receiver
+        // would permanently reject the slash while this connector treats the delta as consumed
+        // — losing the slash and corrupting the baseline. Reverting here leaves the same factor
+        // delta re-propagable once the operator regains slashable L2 stake (operatorStake > 0),
+        // or once the loss is large enough to round to >= 1 bps.
+        if (slashBps == 0) {
+            revert NothingToSlash(pod, destinationChainId);
         }
 
         // Update state per destination

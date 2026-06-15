@@ -256,8 +256,16 @@ abstract contract BlueprintsBinaryVersions is Base {
         return _serviceAckedVersionId[serviceId];
     }
 
-    /// @notice Resolve the binary version a service should currently be running.
-    /// @dev Pure function of stored state — does not call into any external contract.
+    /// @notice Legacy single-value view of "the version a service should run".
+    /// @dev NOT the authoritative dispatch path and NOT griefing-safe across
+    ///      operators: it reads the back-compat service-wide scalars
+    ///      `_serviceUpgradePolicy` / `_serviceAckedVersionId`, which any active
+    ///      operator may overwrite (last-writer-wins). For a multi-operator service
+    ///      this collapses every operator onto one operator's choice, so off-chain
+    ///      dispatch MUST resolve per operator via `effectiveBinaryVersionForOperator`,
+    ///      whose `(serviceId, operator)`-keyed policy/ack cannot be moved by another
+    ///      operator. Retained only for single-operator reads and indexer back-compat.
+    ///      Pure function of stored state — does not call into any external contract.
     ///      Reverts `VersionNotFound` if the blueprint has zero published versions
     ///      (a service can exist before any binary is published; off-chain
     ///      dispatchers should treat that as "not yet provisioned").

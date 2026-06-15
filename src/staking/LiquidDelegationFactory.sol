@@ -55,6 +55,7 @@ contract LiquidDelegationFactory is Ownable {
     error VaultAlreadyExists();
     error OperatorNotActive();
     error AssetNotEnabled();
+    error DuplicateBlueprint(uint64 blueprintId);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
@@ -86,8 +87,22 @@ contract LiquidDelegationFactory is Ownable {
             revert OperatorNotActive();
         }
 
-        // Compute vault key
-        bytes32 vaultKey = computeVaultKey(operator, asset, blueprintIds);
+        // Verify the asset is enabled for staking. A vault for a disabled / non-existent asset
+        // can never accept a deposit (the staking layer reverts on `enabled == false`), so a
+        // permissionless `createVault` must fail closed here rather than deploy a dead, fund-trapping
+        // vault. `getAssetConfig` returns the native config for `address(0)`.
+        if (!staking.getAssetConfig(asset).enabled) {
+            revert AssetNotEnabled();
+        }
+
+        // Canonicalize the blueprint selection: sort ascending and reject duplicates. The vault key
+        // is `keccak256(operator, asset, blueprintIds)`, so without canonicalization `[1,2]` and
+        // `[2,1]` hash to different keys and let anyone spin up economically-identical duplicate
+        // vaults for the same selection, fragmenting liquidity and the `VaultAlreadyExists` guard.
+        uint64[] memory canonicalBlueprints = _canonicalizeBlueprints(blueprintIds);
+
+        // Compute vault key over the canonical selection
+        bytes32 vaultKey = _computeVaultKeyMemory(operator, asset, canonicalBlueprints);
 
         // Check vault doesn't exist
         if (vaults[vaultKey] != address(0)) {
@@ -95,10 +110,11 @@ contract LiquidDelegationFactory is Ownable {
         }
 
         // Generate name and symbol
-        (string memory name, string memory symbol) = _generateTokenMetadata(operator, asset, blueprintIds);
+        (string memory name, string memory symbol) = _generateTokenMetadata(operator, asset, canonicalBlueprints);
 
         // Deploy vault
-        vault = address(new LiquidDelegationVault(staking, operator, IERC20(asset), blueprintIds, name, symbol));
+        vault =
+            address(new LiquidDelegationVault(staking, operator, IERC20(asset), canonicalBlueprints, name, symbol));
 
         // Register vault
         vaults[vaultKey] = vault;
@@ -106,7 +122,7 @@ contract LiquidDelegationFactory is Ownable {
         _operatorVaults[operator].add(vault);
         _assetVaults[asset].add(vault);
 
-        emit VaultCreated(vault, operator, asset, blueprintIds, name, symbol);
+        emit VaultCreated(vault, operator, asset, canonicalBlueprints, name, symbol);
     }
 
     /// @notice Create a vault for all blueprints (convenience function)
@@ -118,7 +134,11 @@ contract LiquidDelegationFactory is Ownable {
     // VIEW FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Compute the vault key for a given configuration
+    /// @notice Compute the canonical vault key for a given configuration.
+    /// @dev Canonicalizes `blueprintIds` (sort ascending + reject duplicates) before hashing so the
+    ///      key is order-insensitive: `[1,2]` and `[2,1]` resolve to the SAME vault. Reverts on a
+    ///      duplicate blueprint id (an invalid selection that `createVault`/the staking layer would
+    ///      also reject), keeping `computeVaultKey` and `createVault` in agreement.
     function computeVaultKey(
         address operator,
         address asset,
@@ -128,11 +148,11 @@ contract LiquidDelegationFactory is Ownable {
         pure
         returns (bytes32)
     {
-        // forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(operator, asset, blueprintIds));
+        uint64[] memory canonical = _canonicalizeBlueprints(blueprintIds);
+        return _computeVaultKeyMemory(operator, asset, canonical);
     }
 
-    /// @notice Get vault for a specific configuration
+    /// @notice Get vault for a specific configuration (order-insensitive in `blueprintIds`)
     function getVault(address operator, address asset, uint64[] calldata blueprintIds) external view returns (address) {
         return vaults[computeVaultKey(operator, asset, blueprintIds)];
     }
@@ -176,11 +196,46 @@ contract LiquidDelegationFactory is Ownable {
     // INTERNAL HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice Sort `blueprintIds` ascending and reject duplicates, returning a canonical copy.
+    /// @dev Order-insensitive vault keys depend on a canonical ordering. Selection lists are tiny
+    ///      (one per blueprint a vault participates in), so an insertion sort is the right tool.
+    function _canonicalizeBlueprints(uint64[] calldata blueprintIds) internal pure returns (uint64[] memory sorted) {
+        uint256 len = blueprintIds.length;
+        sorted = new uint64[](len);
+        for (uint256 i = 0; i < len; i++) {
+            uint64 value = blueprintIds[i];
+            uint256 j = i;
+            while (j > 0 && sorted[j - 1] > value) {
+                sorted[j] = sorted[j - 1];
+                j--;
+            }
+            // Adjacent equality after sorting (or the just-shifted neighbor) means a duplicate id.
+            if (j > 0 && sorted[j - 1] == value) revert DuplicateBlueprint(value);
+            sorted[j] = value;
+        }
+        // A duplicate that lands non-adjacent during shifting is still caught: the sort places equal
+        // values next to each other, so the `sorted[j - 1] == value` check above sees every dup.
+    }
+
+    /// @notice Compute the vault key over an already-canonicalized memory selection.
+    function _computeVaultKeyMemory(
+        address operator,
+        address asset,
+        uint64[] memory canonicalBlueprints
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        // forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(operator, asset, canonicalBlueprints));
+    }
+
     /// @notice Generate token name and symbol for a vault
     function _generateTokenMetadata(
         address operator,
         address asset,
-        uint64[] calldata blueprintIds
+        uint64[] memory blueprintIds
     )
         internal
         view

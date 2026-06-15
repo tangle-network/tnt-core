@@ -2,6 +2,8 @@
 pragma solidity ^0.8.26;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 import { Base } from "./Base.sol";
 import { Types } from "../libraries/Types.sol";
@@ -13,6 +15,156 @@ import { SchemaLib } from "../libraries/SchemaLib.sol";
 /// @notice Operator registration and management for blueprints
 abstract contract Operators is Base {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using ECDSA for bytes32;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GOSSIP-KEY PROOF-OF-POSSESSION
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Without proof-of-possession an operator's 65-byte gossip public key is only
+    // length-checked and deduplicated per blueprint. A front-runner can therefore
+    // register a *victim's* public key first (it is public by definition), squatting
+    // the victim's gossip identity and permanently blocking the genuine operator from
+    // registering it on that blueprint (`DuplicateOperatorKey`).
+    //
+    // The root-cause fix binds the key to a private-key signature: the registrant must
+    // present a signature, produced by the gossip private key, over a domain-separated
+    // challenge committing to (chainId, this proxy, blueprintId, msg.sender, key). Only
+    // the true key holder can produce it, so squatting another party's key is impossible.
+    //
+    // Enforcement is governed by an ADMIN_ROLE flag (`OperatorsStorage.requireKeyProof`,
+    // toggled via `setRequireOperatorKeyProof`) so the requirement can be switched on
+    // protocol-wide. The proof is carried in-band with no
+    // new selector or parameter: when enforcement is on the caller passes
+    // `pubkey(65) || signature(65)` (130 bytes) as `ecdsaPublicKey`; the 65-byte
+    // signature suffix is verified and discarded, and exactly the 65-byte key is stored.
+
+    /// @notice Length of an uncompressed secp256k1 public key (0x04 || X(32) || Y(32)).
+    uint256 private constant PUBKEY_LEN = 65;
+
+    /// @notice Length of a `pubkey || signature` proof envelope (65-byte key + 65-byte sig).
+    uint256 private constant PUBKEY_WITH_PROOF_LEN = 130;
+
+    /// @notice Domain tag for the gossip-key proof-of-possession challenge.
+    bytes32 private constant OPERATOR_KEY_PROOF_DOMAIN = keccak256("TangleOperatorKeyProof");
+
+    /// @notice Emitted when ADMIN_ROLE toggles the gossip-key proof-of-possession requirement.
+    event RequireOperatorKeyProofUpdated(bool required);
+
+    /// @notice The supplied proof signature did not recover to the address derived from the
+    ///         gossip public key, i.e. the registrant did not prove control of the private key.
+    /// @dev Declared locally (not in the shared Errors library) per the edit-scope rule.
+    error InvalidKeyOwnershipProof(uint64 blueprintId, address expectedSigner, address recovered);
+
+    /// @notice Proof-of-possession is required but the caller supplied no proof envelope.
+    error KeyOwnershipProofRequired(uint64 blueprintId);
+
+    /// @custom:storage-location erc7201:tangle.core.Operators
+    struct OperatorsStorage {
+        // When true, every gossip key written via registerOperator / updateOperatorPreferences
+        // must be accompanied by a proof-of-possession signature.
+        bool requireKeyProof;
+    }
+
+    /// @notice ERC-7201 slot:
+    ///         keccak256(abi.encode(uint256(keccak256("tangle.core.Operators")) - 1)) & ~bytes32(uint256(0xff))
+    /// @dev Namespaced storage keeps this flag collision-free against the sequential
+    ///      `TangleStorage` layout and the `__gap`, so no storage migration is needed on
+    ///      upgrade (matches the pattern in StakingSlashingFacet / the beacon bridges).
+    bytes32 private constant OPERATORS_STORAGE_SLOT =
+        0xaa9484a4b9844f1d8dd9adbeda155176c107986cc8517a591672638da120d100;
+
+    function _operatorsStorage() private pure returns (OperatorsStorage storage $) {
+        bytes32 slot = OPERATORS_STORAGE_SLOT;
+        assembly {
+            $.slot := slot
+        }
+    }
+
+    /// @notice Whether gossip-key proof-of-possession is currently enforced.
+    function requireOperatorKeyProof() external view returns (bool) {
+        return _operatorsStorage().requireKeyProof;
+    }
+
+    /// @notice Toggle the gossip-key proof-of-possession requirement protocol-wide.
+    /// @dev When enabled, registrations and key updates must carry a `pubkey || signature`
+    ///      envelope (130 bytes) instead of a bare 65-byte key. Enabling it closes the
+    ///      identity-squat / front-run vector on operator gossip keys.
+    function setRequireOperatorKeyProof(bool required) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        _operatorsStorage().requireKeyProof = required;
+        emit RequireOperatorKeyProofUpdated(required);
+    }
+
+    /// @notice Derive the canonical Ethereum address from a 65-byte uncompressed secp256k1
+    ///         public key: `address(uint160(uint256(keccak256(pubkey[1:65]))))`.
+    function _addressFromPubkey(bytes memory pubkey) private pure returns (address) {
+        // Hash the 64-byte (X || Y) body, skipping the 0x04 uncompressed prefix.
+        bytes32 h;
+        assembly {
+            h := keccak256(add(pubkey, 0x21), 0x40)
+        }
+        return address(uint160(uint256(h)));
+    }
+
+    /// @notice EIP-191 digest the gossip private key must sign to prove possession.
+    /// @dev Binds chainId + this proxy (replay across forks/deployments), the blueprint, the
+    ///      registrant wallet (so a captured proof can't be reused by a different msg.sender),
+    ///      and the key itself.
+    function _keyProofDigest(
+        uint64 blueprintId,
+        address registrant,
+        bytes memory pubkey
+    )
+        private
+        view
+        returns (bytes32)
+    {
+        bytes32 inner = keccak256(
+            abi.encode(
+                OPERATOR_KEY_PROOF_DOMAIN, block.chainid, address(this), blueprintId, registrant, keccak256(pubkey)
+            )
+        );
+        // Personal-sign envelope so operators can produce the proof with a standard wallet.
+        return MessageHashUtils.toEthSignedMessageHash(inner);
+    }
+
+    /// @notice Split an `ecdsaPublicKey` argument into the stored 65-byte key and verify the
+    ///         proof-of-possession when enforcement is on.
+    /// @dev Returns the canonical 65-byte key to persist. When enforcement is on the argument
+    ///      must be `pubkey(65) || signature(65)`; the recovered signer must equal the address
+    ///      derived from the key. When enforcement is off, a bare 65-byte key is accepted as-is
+    ///      (legacy path); a 130-byte proof envelope is still accepted and verified opportunistically.
+    function _resolveOperatorKey(
+        uint64 blueprintId,
+        bytes calldata ecdsaPublicKey
+    )
+        private
+        view
+        returns (bytes memory key)
+    {
+        bool required = _operatorsStorage().requireKeyProof;
+
+        if (ecdsaPublicKey.length == PUBKEY_WITH_PROOF_LEN) {
+            key = ecdsaPublicKey[0:PUBKEY_LEN];
+            bytes calldata signature = ecdsaPublicKey[PUBKEY_LEN:PUBKEY_WITH_PROOF_LEN];
+            address expected = _addressFromPubkey(key);
+            address recovered = _keyProofDigest(blueprintId, msg.sender, key).recover(signature);
+            if (recovered != expected) {
+                revert InvalidKeyOwnershipProof(blueprintId, expected, recovered);
+            }
+            return key;
+        }
+
+        if (required) {
+            // Enforcement on but no proof envelope supplied — reject. A bare 65-byte key
+            // carries no proof of private-key control and is exactly the squat vector.
+            revert KeyOwnershipProofRequired(blueprintId);
+        }
+
+        if (ecdsaPublicKey.length != PUBKEY_LEN) {
+            revert Errors.InvalidOperatorKey();
+        }
+        return ecdsaPublicKey;
+    }
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -122,11 +274,11 @@ abstract contract Operators is Base {
             revert Errors.OperatorAlreadyRegistered(blueprintId, msg.sender);
         }
 
-        // Validate operator key and prevent duplicates per blueprint
-        if (ecdsaPublicKey.length != 65) {
-            revert Errors.InvalidOperatorKey();
-        }
-        bytes32 keyHash = keccak256(ecdsaPublicKey);
+        // Validate operator key (and proof-of-possession when enforced) and prevent
+        // duplicates per blueprint. `_resolveOperatorKey` returns the canonical 65-byte
+        // key to persist, after verifying the registrant controls its private key.
+        bytes memory operatorKey = _resolveOperatorKey(blueprintId, ecdsaPublicKey);
+        bytes32 keyHash = keccak256(operatorKey);
         if (_blueprintOperatorKeys[blueprintId][keyHash] != address(0)) {
             revert Errors.DuplicateOperatorKey(blueprintId, keyHash);
         }
@@ -157,7 +309,7 @@ abstract contract Operators is Base {
         // writes are reverted along with it. The hook *cannot* observe partially-
         // written state, so a malicious BSM cannot exploit half-initialized records.
         _operatorPreferences[blueprintId][msg.sender] =
-            Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy });
+            Types.OperatorPreferences({ ecdsaPublicKey: operatorKey, rpcAddress: rpcAddressCopy });
 
         _operatorRegistrations[blueprintId][msg.sender] = Types.OperatorRegistration({
             registeredAt: uint64(block.timestamp), updatedAt: uint64(block.timestamp), active: true, online: true
@@ -178,12 +330,12 @@ abstract contract Operators is Base {
         _staking.addBlueprintForOperator(msg.sender, blueprintId);
 
         _recordBlueprintRegistration(blueprintId, msg.sender);
-        emit OperatorRegistered(blueprintId, msg.sender, ecdsaPublicKey, rpcAddressCopy);
+        emit OperatorRegistered(blueprintId, msg.sender, operatorKey, rpcAddressCopy);
 
         // Hook fires last so the BSM observes the fully-committed registration.
         if (bp.manager != address(0)) {
             bytes memory encodedPreferences =
-                abi.encode(Types.OperatorPreferences({ ecdsaPublicKey: ecdsaPublicKey, rpcAddress: rpcAddressCopy }));
+                abi.encode(Types.OperatorPreferences({ ecdsaPublicKey: operatorKey, rpcAddress: rpcAddressCopy }));
             bytes memory managerPayload = registrationInputs.length > 0 ? registrationInputs : encodedPreferences;
             _callManager(bp.manager, abi.encodeCall(IBlueprintServiceManager.onRegister, (msg.sender, managerPayload)));
         }
@@ -258,12 +410,12 @@ abstract contract Operators is Base {
             currentHash = keccak256(prefs.ecdsaPublicKey);
         }
 
-        // Update preferences (only if non-empty)
+        // Update preferences (only if non-empty). A key swap re-runs proof-of-possession
+        // so an operator cannot register with a proven key and then silently swap to an
+        // unproven / squatted key, which would re-open the front-run vector.
         if (ecdsaPublicKey.length > 0) {
-            if (ecdsaPublicKey.length != 65) {
-                revert Errors.InvalidOperatorKey();
-            }
-            bytes32 newHash = keccak256(ecdsaPublicKey);
+            bytes memory newKey = _resolveOperatorKey(blueprintId, ecdsaPublicKey);
+            bytes32 newHash = keccak256(newKey);
             address existing = _blueprintOperatorKeys[blueprintId][newHash];
             if (existing != address(0) && existing != msg.sender) {
                 revert Errors.DuplicateOperatorKey(blueprintId, newHash);
@@ -272,7 +424,7 @@ abstract contract Operators is Base {
                 delete _blueprintOperatorKeys[blueprintId][currentHash];
             }
             _blueprintOperatorKeys[blueprintId][newHash] = msg.sender;
-            prefs.ecdsaPublicKey = ecdsaPublicKey;
+            prefs.ecdsaPublicKey = newKey;
         }
         if (bytes(rpcAddress).length > 0) {
             prefs.rpcAddress = rpcAddress;
