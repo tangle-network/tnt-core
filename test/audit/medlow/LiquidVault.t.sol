@@ -161,31 +161,28 @@ contract LiquidVaultAuditTest is Test {
         staking.getDelegation(vault, operator1);
         (bytes32[] memory reads,) = vm.accesses(address(staking));
 
+        bytes memory vaultCall = abi.encodeWithSignature("getDelegation(address,address)", vault, operator1);
+        bytes memory proberCall = abi.encodeWithSignature("getDelegation(address,address)", user3, operator1);
         for (uint256 i = 0; i < reads.length; i++) {
             bytes32 slot = reads[i];
             bytes32 original = vm.load(address(staking), slot);
             vm.store(address(staking), slot, bytes32(uint256(original) + probe));
 
-            // Probing an arbitrary slot can corrupt the proxy (e.g. an impl/router pointer) so
-            // getDelegation reverts with a bare EvmError that would abort the whole test. Guard
-            // each probe read with try/catch so a corrupting slot is simply restored and skipped.
-            bool matched;
-            try staking.getDelegation(vault, operator1) returns (uint256 vAfter) {
-                try staking.getDelegation(user3, operator1) returns (uint256 pAfter) {
-                    matched = vAfter > vaultBefore && pAfter > proberBefore;
-                } catch {
-                    matched = false;
-                }
-            } catch {
-                matched = false;
-            }
+            // Use low-level staticcalls with returndata-length gating. Bumping a slot that holds a
+            // facet-router/impl address reroutes getDelegation to a garbage address that returns
+            // EMPTY data; the typed-decode of that empty return is NOT catchable by try/catch and
+            // would abort the whole test. Requiring length==32 skips any such corrupting slot.
+            (bool okV, bytes memory dV) = address(staking).staticcall(vaultCall);
+            (bool okP, bytes memory dP) = address(staking).staticcall(proberCall);
+            bool matched = okV && dV.length == 32 && okP && dP.length == 32
+                && abi.decode(dV, (uint256)) > vaultBefore && abi.decode(dP, (uint256)) > proberBefore;
 
             if (matched) {
                 // Back the inflated pool accounting with real tokens so the router stays solvent
-                // when the (now higher) `returned` amount is physically withdrawn at claim time —
-                // exactly as a real reward deposit would have funded the pool.
+                // when the (now higher) `returned` amount is physically withdrawn at claim time.
                 token.mint(address(staking), probe);
-                return staking.getDelegation(vault, operator1) - vaultBefore; // shared pool totalAssets
+                (, bytes memory dFinal) = address(staking).staticcall(vaultCall);
+                return abi.decode(dFinal, (uint256)) - vaultBefore; // shared pool totalAssets
             }
             vm.store(address(staking), slot, original); // revert probe, try next slot
         }
