@@ -360,7 +360,9 @@ contract LiquidDelegationTest is Test {
         uint256 requestId = vault.requestRedeem(sharesToRedeem, user1, user1);
         vm.stopPrank();
 
-        uint64 delay = uint64(staking.delegationBondLessDelay());
+        // redeem() runs the combined unstake+withdraw, which is now additive:
+        // requestedRound + delegationBondLessDelay + leaveDelegatorsDelay (F-COORD-002).
+        uint64 delay = uint64(staking.delegationBondLessDelay() + staking.leaveDelegatorsDelay());
         _advanceRounds(delay + 1);
         assertEq(vault.claimableRedeemRequest(requestId, user1), sharesToRedeem, "Redeem should be claimable");
 
@@ -483,8 +485,8 @@ contract LiquidDelegationTest is Test {
         // After capping, user may have dust shares remaining due to precision
         assertLe(vault.balanceOf(user1), 1e3, "Most shares burned during request");
 
-        // Wait out the bond-less delay
-        uint64 delay = uint64(staking.delegationBondLessDelay());
+        // Wait out the additive unbonding (bond-less + leave-delegators delays, F-COORD-002)
+        uint64 delay = uint64(staking.delegationBondLessDelay() + staking.leaveDelegatorsDelay());
         _advanceRounds(delay + 1);
 
         // Check request is claimable (use >= since sharesToRedeem may be adjusted)
@@ -573,7 +575,7 @@ contract LiquidDelegationTest is Test {
         // slashForBlueprint is an immediate O(1) slash (it does NOT set _operatorPendingSlashCount —
         // that is the Tangle-core dispute-window path). This test exercises the underlying-delegation-
         // shrinks-during-pending-redeem path + reservation clamping; advance past the bond-less delay.
-        uint64 delay = uint64(staking.delegationBondLessDelay());
+        uint64 delay = uint64(staking.delegationBondLessDelay() + staking.leaveDelegatorsDelay());
         _advanceRounds(delay + 5);
 
         // Claim should succeed and return some (slash-reduced) assets without reverting.

@@ -388,6 +388,7 @@ contract CrossChainSlashingTest is Test {
         // First slash: 100% (implicit) -> 90%
         uint64 newFactor = 0.9e18; // 90% (10% slashed from initial 100%)
         _setPodFactor(pod1, newFactor);
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
 
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, newFactor);
@@ -410,6 +411,7 @@ contract CrossChainSlashingTest is Test {
         uint256 altChainId = 8453;
         address altReceiver = makeAddr("altReceiver");
         _setPodFactor(pod1, 0.95e18);
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
 
         vm.prank(admin);
         connector.setChainConfig(altChainId, altReceiver, 150_000, true);
@@ -513,6 +515,7 @@ contract CrossChainSlashingTest is Test {
 
         vm.prank(admin);
         connector.registerPodOperator(address(slashPod), operator1);
+        _mockPodPrincipal(address(slashPod), operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
 
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(address(slashPod), 0.9e18);
@@ -562,6 +565,7 @@ contract CrossChainSlashingTest is Test {
     function test_propagateBeaconSlashing_RevertInsufficientFee() public {
         messenger.setMockFee(0.1 ether);
         _setPodFactor(pod1, 0.9e18);
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // reach the fee check (nonzero slash)
 
         vm.startPrank(oracle);
         vm.expectRevert(L2SlashingConnector.InsufficientFee.selector);
@@ -590,6 +594,8 @@ contract CrossChainSlashingTest is Test {
 
         vm.prank(admin);
         connector.registerPodOperator(pod2, operator2);
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
+        _mockPodPrincipal(pod2, operator2, 50 ether, 50 ether);
 
         // Set mock fee to 0 for batch testing (batch passes value: 0 internally)
         messenger.setMockFee(0);
@@ -613,6 +619,7 @@ contract CrossChainSlashingTest is Test {
     function test_estimatePropagationFee() public {
         // First propagate to set up state
         _setPodFactor(pod1, 0.95e18);
+        _mockPodPrincipal(pod1, operator1, 50 ether, 50 ether); // pod-bounded slash needs principal
         vm.prank(oracle);
         connector.propagateBeaconSlashing{ value: 0.01 ether }(pod1, 0.95e18);
 

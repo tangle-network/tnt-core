@@ -277,7 +277,7 @@ contract LiquidVaultAuditTest is Test {
         // still making the post-reward position value clearly exceed the request-time entitlement.
         _simulatePoolReward(vaultAddr, 10 ether);
 
-        uint64 delay = uint64(staking.delegationBondLessDelay());
+        uint64 delay = uint64(staking.delegationBondLessDelay() + staking.leaveDelegatorsDelay());
         _advanceRounds(delay + 1);
 
         // Remaining holder (user2) value BEFORE the claim.
@@ -316,7 +316,7 @@ contract LiquidVaultAuditTest is Test {
         vm.stopPrank();
 
         _simulatePoolReward(vaultAddr, 2 ether);
-        uint64 delay = uint64(staking.delegationBondLessDelay());
+        uint64 delay = uint64(staking.delegationBondLessDelay() + staking.leaveDelegatorsDelay());
         _advanceRounds(delay + 1);
 
         vm.prank(user1);
